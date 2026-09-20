@@ -8,9 +8,42 @@ import {
 } from './useWorkshopTaskLineItems'
 import * as workshopApi from '@/api/workshop'
 import { toast } from 'sonner'
-import type { WorkshopTask } from '@/api/types'
+import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 
-vi.mock('@/api/workshop')
+function createUpdatedOrder(lineItemsVersion: number): WorkshopOrder {
+  return {
+    id: 'order-1',
+    tasks: [
+      {
+        id: 'task-1',
+        title: 'Task 1',
+        status: 'IN_PROGRESS',
+        done: false,
+        lineItemsVersion,
+        lineItems: [],
+      },
+    ],
+  } as unknown as WorkshopOrder
+}
+
+const mockInvalidateQueries = vi.fn()
+
+vi.mock('@/api/workshop', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/workshop')>()
+  return {
+    ...actual,
+    useReplaceWorkshopTaskLineItems: vi.fn(),
+  }
+})
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-query')>()
+  return {
+    ...actual,
+    useQueryClient: () => ({
+      invalidateQueries: mockInvalidateQueries,
+    }),
+  }
+})
 vi.mock('sonner', () => ({
   toast: {
     error: vi.fn(),
@@ -74,6 +107,7 @@ describe('useWorkshopTaskLineItems', () => {
       const apiPayload = buildApiLineItemsPayload(input)
       expect(apiPayload).toEqual([
         {
+          id: 'id-1',
           type: 'PART',
           itemNo: 'P-1',
           description: 'Oil',
@@ -85,6 +119,40 @@ describe('useWorkshopTaskLineItems', () => {
           internalCostRate: null,
         },
       ])
+    })
+
+    it('buildApiLineItemsPayload omits client temp ids', () => {
+      const input: TaskLineItemInput[] = [
+        {
+          id: 'tmp-task-1-0',
+          type: 'LABOR',
+          itemNo: 'GEN-001',
+          description: 'General labor',
+          qty: 1,
+          unitPrice: 50,
+        },
+        {
+          id: 'li-task-1-1',
+          type: 'PART',
+          itemNo: 'P-2',
+          description: 'New part',
+          qty: 1,
+          unitPrice: 20,
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          type: 'PART',
+          itemNo: 'P-1',
+          description: 'Existing part',
+          qty: 2,
+          unitPrice: 15,
+        },
+      ]
+
+      const apiPayload = buildApiLineItemsPayload(input)
+      expect(apiPayload[0].id).toBeUndefined()
+      expect(apiPayload[1].id).toBeUndefined()
+      expect(apiPayload[2].id).toBe('550e8400-e29b-41d4-a716-446655440000')
     })
   })
 
@@ -136,11 +204,291 @@ describe('useWorkshopTaskLineItems', () => {
       expect(mockMutateAsync).toHaveBeenCalledWith({
         orderId: 'order-1',
         taskId: 'task-1',
+        expectedLineItemsVersion: 1,
         items: expect.arrayContaining([
-          expect.objectContaining({ description: 'Updated Item', qty: 2 }),
+          expect.objectContaining({
+            id: 'item-1',
+            description: 'Updated Item',
+            qty: 2,
+          }),
         ]),
       })
       // Overrides are cleared after successful sync
+      expect(result.current.taskLineItemOverrides['task-1']).toBeUndefined()
+    })
+
+    it('sends incremented expectedLineItemsVersion on a follow-up save', async () => {
+      mockMutateAsync
+        .mockResolvedValueOnce(createUpdatedOrder(2))
+        .mockResolvedValueOnce(createUpdatedOrder(3))
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => mockTasks,
+        }),
+      )
+
+      const firstItems: TaskLineItemInput[] = [
+        {
+          id: 'item-1',
+          type: 'PART',
+          itemNo: 'P-1',
+          description: 'Updated Item',
+          qty: 2,
+          unitPrice: 15,
+        },
+      ]
+      const secondItems: TaskLineItemInput[] = [
+        ...firstItems,
+        {
+          type: 'LABOR',
+          itemNo: 'GEN-001',
+          description: 'General labor',
+          qty: 1,
+          unitPrice: 50,
+        },
+      ]
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', firstItems)
+        await result.current.handleTaskLineItemsChange('task-1', secondItems)
+      })
+
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ expectedLineItemsVersion: 1 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ expectedLineItemsVersion: 2 }),
+      )
+    })
+
+    it('serializes overlapping saves so the latest items persist without a 409', async () => {
+      const tasksAtVersionZero: WorkshopTask[] = [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          status: 'IN_PROGRESS',
+          done: false,
+          lineItemsVersion: 0,
+          lineItems: [],
+        },
+      ]
+
+      let resolveFirstSave: (order: WorkshopOrder) => void = () => undefined
+      const firstSaveDeferred = new Promise<WorkshopOrder>((resolve) => {
+        resolveFirstSave = resolve
+      })
+      mockMutateAsync
+        .mockImplementationOnce(() => firstSaveDeferred)
+        .mockResolvedValueOnce(createUpdatedOrder(2))
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => tasksAtVersionZero,
+        }),
+      )
+
+      const laborItem: TaskLineItemInput = {
+        type: 'LABOR',
+        itemNo: 'GEN-001',
+        description: 'General labor',
+        qty: 1,
+        unitPrice: 50,
+      }
+      const laborAndPartItems: TaskLineItemInput[] = [
+        laborItem,
+        {
+          type: 'PART',
+          itemNo: 'P-2',
+          description: 'Oil filter',
+          qty: 1,
+          unitPrice: 20,
+        },
+      ]
+
+      await act(async () => {
+        const firstSave = result.current.handleTaskLineItemsChange(
+          'task-1',
+          [laborItem],
+        )
+        const secondSave = result.current.handleTaskLineItemsChange(
+          'task-1',
+          laborAndPartItems,
+        )
+        resolveFirstSave(createUpdatedOrder(1))
+        await Promise.all([firstSave, secondSave])
+      })
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2)
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ expectedLineItemsVersion: 0 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          expectedLineItemsVersion: 1,
+          items: expect.arrayContaining([
+            expect.objectContaining({ itemNo: 'GEN-001' }),
+            expect.objectContaining({ itemNo: 'P-2' }),
+          ]),
+        }),
+      )
+      expect(toast.error).not.toHaveBeenCalled()
+      expect(result.current.taskLineItemOverrides['task-1']).toBeUndefined()
+    })
+
+    it('defaults expectedLineItemsVersion to 0 when task has no version', async () => {
+      const tasksWithoutVersion = [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          status: 'IN_PROGRESS' as const,
+          done: false,
+          lineItems: [],
+        },
+      ] as unknown as WorkshopTask[]
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => tasksWithoutVersion,
+        }),
+      )
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', [
+          {
+            type: 'LABOR',
+            itemNo: 'GEN-001',
+            description: 'General labor',
+            qty: 1,
+            unitPrice: 50,
+          },
+        ])
+      })
+
+      expect(mockMutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ expectedLineItemsVersion: 0 }),
+      )
+    })
+
+    it('clears version ref on 409 so retry uses refreshed task version', async () => {
+      let currentTasks: WorkshopTask[] = [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          status: 'IN_PROGRESS',
+          done: false,
+          lineItemsVersion: 1,
+          lineItems: [
+            {
+              id: 'item-1',
+              type: 'PART',
+              itemNo: 'P-1',
+              description: 'Old Item',
+              qty: 1,
+              unitPrice: 10,
+            },
+          ],
+        },
+      ]
+
+      const conflictError = Object.assign(new Error('Line items version conflict'), {
+        status: 409,
+      })
+      const retryItems: TaskLineItemInput[] = [
+        {
+          id: 'item-1',
+          type: 'PART',
+          itemNo: 'P-1',
+          description: 'Retry Item',
+          qty: 2,
+          unitPrice: 12,
+        },
+      ]
+
+      mockMutateAsync
+        .mockResolvedValueOnce(createUpdatedOrder(2))
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce(createUpdatedOrder(4))
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => currentTasks,
+        }),
+      )
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', retryItems)
+      })
+
+      currentTasks = [
+        {
+          ...currentTasks[0],
+          lineItemsVersion: 3,
+        },
+      ]
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', retryItems)
+        await result.current.handleTaskLineItemsChange('task-1', retryItems)
+      })
+
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ expectedLineItemsVersion: 1 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ expectedLineItemsVersion: 2 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({ expectedLineItemsVersion: 3 }),
+      )
+    })
+
+    it('clears overrides, invalidates order, and shows toast on 409 conflict', async () => {
+      const conflictError = Object.assign(new Error('Line items version conflict'), {
+        status: 409,
+      })
+      mockMutateAsync.mockRejectedValueOnce(conflictError)
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => mockTasks,
+        }),
+      )
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', [
+          {
+            id: 'item-1',
+            type: 'PART',
+            itemNo: 'P-1',
+            description: 'Stale update',
+            qty: 3,
+            unitPrice: 12,
+          },
+        ])
+      })
+
+      expect(toast.error).toHaveBeenCalledWith('Line items version conflict')
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['workshop', 'order', 'order-1'],
+      })
       expect(result.current.taskLineItemOverrides['task-1']).toBeUndefined()
     })
 

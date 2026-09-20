@@ -1,7 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useCreateWorkshopOrder, useWorkshopPickList } from "./workshop";
+import {
+  useCreateWorkshopOrder,
+  useReplaceWorkshopTaskLineItems,
+  useWorkshopPickList,
+} from "./workshop";
 import { fetchWithAuth } from "./client";
 import type { WorkshopOrder } from "./types";
 import type { ReactNode } from "react";
@@ -79,6 +83,122 @@ function createJsonResponse(body: unknown, ok = true, status = 200): Response {
     json: async () => body,
   } as Response;
 }
+
+describe("useReplaceWorkshopTaskLineItems", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends expectedLineItemsVersion and stable line ids in the PATCH body", async () => {
+    const updatedOrder = createWorkshopOrder({
+      tasks: [
+        {
+          id: "task-1",
+          title: "Inspect",
+          lineItemsVersion: 1,
+          status: "IN_PROGRESS",
+          done: false,
+          lineItems: [
+            {
+              id: "line-1",
+              type: "LABOR",
+              itemNo: "GEN-001",
+              description: "General labor",
+              qty: 1,
+              unitPrice: 50,
+            },
+          ],
+        },
+      ],
+    });
+
+    vi.mocked(fetchWithAuth).mockResolvedValue(
+      createJsonResponse(updatedOrder),
+    );
+
+    const queryClient = createQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useReplaceWorkshopTaskLineItems(), {
+      wrapper,
+    });
+
+    await result.current.mutateAsync({
+      orderId: "order-1",
+      taskId: "task-1",
+      expectedLineItemsVersion: 0,
+      items: [
+        {
+          id: "line-1",
+          type: "LABOR",
+          itemNo: "GEN-001",
+          description: "General labor",
+          qty: 1,
+          unitPrice: 50,
+          standardAw: null,
+          actualHours: null,
+          internalCostRate: null,
+        },
+      ],
+    });
+
+    expect(fetchWithAuth).toHaveBeenCalledWith(
+      "/api/workshop/orders/order-1/tasks/task-1/line-items",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          expectedLineItemsVersion: 0,
+          items: [
+            {
+              id: "line-1",
+              type: "LABOR",
+              itemNo: "GEN-001",
+              description: "General labor",
+              qty: 1,
+              unitPrice: 50,
+              standardAw: null,
+              actualHours: null,
+              internalCostRate: null,
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("surfaces backend validation errors with HTTP status", async () => {
+    vi.mocked(fetchWithAuth).mockResolvedValue(
+      createJsonResponse(
+        { message: "expectedLineItemsVersion must be an integer" },
+        false,
+        400,
+      ),
+    );
+
+    const queryClient = createQueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useReplaceWorkshopTaskLineItems(), {
+      wrapper,
+    });
+
+    await expect(
+      result.current.mutateAsync({
+        orderId: "order-1",
+        taskId: "task-1",
+        expectedLineItemsVersion: 0,
+        items: [],
+      }),
+    ).rejects.toMatchObject({
+      message: "expectedLineItemsVersion must be an integer",
+      status: 400,
+    });
+  });
+});
 
 describe("useWorkshopPickList", () => {
   afterEach(() => {

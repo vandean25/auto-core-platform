@@ -651,34 +651,45 @@ export const useDeleteWorkshopTask = () => {
   })
 }
 
+export type ReplaceWorkshopTaskLineItemPayload = {
+  id?: string
+  type: WorkshopLineItemType
+  itemNo: string
+  description: string
+  qty: number
+  unitPrice: number
+  laborOperationId?: string | null
+  standardAw?: number | null
+  actualHours?: number | null
+  internalCostRate?: number | null
+}
+
 export const useReplaceWorkshopTaskLineItems = () => {
   const queryClient = useQueryClient()
-  return useMutation({
+  return useMutation<
+    WorkshopOrder,
+    WorkshopApiError,
+    {
+      orderId: string
+      taskId: string
+      expectedLineItemsVersion: number
+      items: ReplaceWorkshopTaskLineItemPayload[]
+    }
+  >({
     mutationFn: async ({
       orderId,
       taskId,
+      expectedLineItemsVersion,
       items,
-    }: {
-      orderId: string
-      taskId: string
-      items: Array<{
-        type: WorkshopLineItemType
-        itemNo: string
-        description: string
-        qty: number
-        unitPrice: number
-        laborOperationId?: string | null
-        standardAw?: number | null
-        actualHours?: number | null
-        internalCostRate?: number | null
-      }>
     }) => {
       const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/tasks/${taskId}/line-items`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ expectedLineItemsVersion, items }),
       })
-      if (!response.ok) throw new Error('Failed to update task line items')
+      if (!response.ok) {
+        throw await parseErrorResponse(response, 'Failed to update task line items')
+      }
       const json = await response.json()
       return normalizeOrder(json)
     },

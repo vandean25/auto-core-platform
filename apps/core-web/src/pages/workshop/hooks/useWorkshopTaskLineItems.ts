@@ -1,12 +1,18 @@
 import { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useReplaceWorkshopTaskLineItems } from '@/api/workshop'
+import {
+  useReplaceWorkshopTaskLineItems,
+  workshopKeys,
+  type ReplaceWorkshopTaskLineItemPayload,
+} from '@/api/workshop'
 import type {
   WorkshopLineItemType,
+  WorkshopOrder,
   WorkshopTask,
   WorkshopTaskLineItem,
 } from '@/api/types'
-import { getErrorMessage } from '../utils/error'
+import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 
 export interface TaskLineItemInput {
   id?: string
@@ -39,9 +45,16 @@ export function buildUiLineItems(
   }))
 }
 
-export function buildApiLineItemsPayload(items: TaskLineItemInput[]) {
+function isClientTempLineItemId(id: string): boolean {
+  return id.startsWith('tmp-') || id.startsWith('li-')
+}
+
+export function buildApiLineItemsPayload(
+  items: TaskLineItemInput[],
+): ReplaceWorkshopTaskLineItemPayload[] {
   return items.map(
     ({
+      id,
       type,
       itemNo,
       description,
@@ -51,18 +64,35 @@ export function buildApiLineItemsPayload(items: TaskLineItemInput[]) {
       standardAw,
       actualHours,
       internalCostRate,
-    }) => ({
-      type,
-      itemNo,
-      description,
-      qty,
-      unitPrice,
-      laborOperationId,
-      standardAw: standardAw ?? null,
-      actualHours: actualHours ?? null,
-      internalCostRate: internalCostRate ?? null,
-    }),
+    }) => {
+      const payload: ReplaceWorkshopTaskLineItemPayload = {
+        type,
+        itemNo,
+        description,
+        qty,
+        unitPrice,
+        laborOperationId,
+        standardAw: standardAw ?? null,
+        actualHours: actualHours ?? null,
+        internalCostRate: internalCostRate ?? null,
+      }
+
+      if (id && !isClientTempLineItemId(id)) {
+        payload.id = id
+      }
+
+      return payload
+    },
   )
+}
+
+function readTaskLineItemsVersion(
+  updatedOrder: WorkshopOrder,
+  taskId: string,
+): number | undefined {
+  const nextVersion = updatedOrder.tasks?.find((task) => task.id === taskId)
+    ?.lineItemsVersion
+  return typeof nextVersion === 'number' ? nextVersion : undefined
 }
 
 export interface UseWorkshopTaskLineItemsOptions {
@@ -76,11 +106,22 @@ export function useWorkshopTaskLineItems({
   isLocked,
   getTasks,
 }: UseWorkshopTaskLineItemsOptions) {
+  const queryClient = useQueryClient()
   const replaceTaskLineItems = useReplaceWorkshopTaskLineItems()
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<
     Record<string, WorkshopTask['lineItems']>
   >({})
   const lineItemSaveSeq = useRef<Record<string, number>>({})
+  const lineItemsVersionByTaskRef = useRef<Record<string, number>>({})
+  const saveChainByTaskRef = useRef<Record<string, Promise<void>>>({})
+
+  const removeTaskLineItemOverride = (taskId: string) => {
+    setTaskLineItemOverrides((previous) => {
+      const next = { ...previous }
+      delete next[taskId]
+      return next
+    })
+  }
 
   const handleTaskLineItemsChange = async (
     taskId: string,
@@ -92,8 +133,8 @@ export function useWorkshopTaskLineItems({
     lineItemSaveSeq.current[taskId] = saveSeq
 
     const currentTasks = getTasks?.() ?? []
-    const previousItems =
-      currentTasks.find((task) => task.id === taskId)?.lineItems ?? []
+    const currentTask = currentTasks.find((task) => task.id === taskId)
+    const previousItems = currentTask?.lineItems ?? []
     const nextItemsForUi = buildUiLineItems(taskId, items)
 
     setTaskLineItemOverrides((previous) => ({
@@ -101,38 +142,72 @@ export function useWorkshopTaskLineItems({
       [taskId]: nextItemsForUi,
     }))
 
-    try {
-      await replaceTaskLineItems.mutateAsync({
-        orderId,
-        taskId,
-        items: buildApiLineItemsPayload(items),
-      })
+    const saveOperation = async () => {
+      const expectedLineItemsVersion =
+        lineItemsVersionByTaskRef.current[taskId] ??
+        currentTask?.lineItemsVersion ??
+        0
 
-      if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+      try {
+        const updatedOrder = await replaceTaskLineItems.mutateAsync({
+          orderId,
+          taskId,
+          expectedLineItemsVersion,
+          items: buildApiLineItemsPayload(items),
+        })
 
-      setTaskLineItemOverrides((previous) => {
-        const next = { ...previous }
-        delete next[taskId]
-        return next
-      })
-    } catch (error: unknown) {
-      if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+        const nextVersion = readTaskLineItemsVersion(updatedOrder, taskId)
+        if (typeof nextVersion === 'number') {
+          lineItemsVersionByTaskRef.current[taskId] = nextVersion
+        }
 
-      setTaskLineItemOverrides((previous) => ({
-        ...previous,
-        [taskId]: previousItems,
-      }))
-      toast.error(getErrorMessage(error, 'Failed to update task line items'))
+        if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+
+        removeTaskLineItemOverride(taskId)
+      } catch (error: unknown) {
+        const status = getErrorStatus(error)
+
+        if (status === 409) {
+          delete lineItemsVersionByTaskRef.current[taskId]
+          delete saveChainByTaskRef.current[taskId]
+          removeTaskLineItemOverride(taskId)
+          await queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
+          toast.error(
+            getErrorMessage(
+              error,
+              'This order was updated by another user. Data was refreshed — please review and try again.',
+            ),
+          )
+          throw error
+        }
+
+        if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+
+        setTaskLineItemOverrides((previous) => ({
+          ...previous,
+          [taskId]: previousItems,
+        }))
+
+        const fallbackMessage =
+          status === 400
+            ? 'Invalid line items. Check quantities and try again.'
+            : 'Failed to update task line items'
+
+        toast.error(getErrorMessage(error, fallbackMessage))
+      }
     }
+
+    const previousChain = saveChainByTaskRef.current[taskId] ?? Promise.resolve()
+    const nextChain = previousChain.then(saveOperation)
+    saveChainByTaskRef.current[taskId] = nextChain
+    await nextChain.catch(() => undefined)
   }
 
   const clearTaskLineItemOverrides = (taskId: string) => {
-    setTaskLineItemOverrides((previous) => {
-      const next = { ...previous }
-      delete next[taskId]
-      return next
-    })
+    removeTaskLineItemOverride(taskId)
     delete lineItemSaveSeq.current[taskId]
+    delete lineItemsVersionByTaskRef.current[taskId]
+    delete saveChainByTaskRef.current[taskId]
   }
 
   return {
