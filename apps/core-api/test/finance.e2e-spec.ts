@@ -169,8 +169,13 @@ describe('FinanceModule (e2e)', () => {
       .set('Authorization', authHeader)
       .expect(201);
 
-    expect(response.body.items[0].revenue_group_name).toBe('Sales');
-    expect(Number(response.body.items[0].tax_rate)).toBe(20);
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: response.body.id },
+      include: { items: true },
+    });
+
+    expect(invoice?.items[0]?.revenue_group_name).toBe('Sales');
+    expect(Number(invoice?.items[0]?.tax_rate)).toBe(20);
   });
 
   it('rejects source-less sales invoice draft creation', async () => {
