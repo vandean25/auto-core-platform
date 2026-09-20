@@ -2,7 +2,7 @@
 title: "Legal Invoicing and Credit Notes"
 date: "2026-09-20"
 module: "Finance / Sales / Workshop / Vehicle Stock / Site"
-status: draft
+status: approved
 linear-project: "https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695"
 linear-milestone: "0 — Spec & ADR; delivery milestones 1–3"
 tags: [feature-spec, finance, sales, invoice]
@@ -12,7 +12,7 @@ tags: [feature-spec, finance, sales, invoice]
 
 ## Summary
 
-Extend each legal entity with seller identity, freeze complete legal and accounting facts when sales/workshop/vehicle invoices are committed, render Rechnung content through the existing PDF pipeline, and allow separately numbered commercial credits. This is a review draft for AUT-296; [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]] defines the architectural decisions. The separate [[datev-accounting-export]] spec owns period export.
+Extend each legal entity with seller identity, freeze complete legal and accounting facts when sales/workshop/vehicle invoices are committed, render Rechnung content through the existing PDF pipeline, and allow separately numbered commercial credits. This is the approved implementation baseline for AUT-296; [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]] defines the architectural decisions. The separate [[datev-accounting-export]] spec owns period export.
 
 ### Scope and delivery boundaries
 
@@ -86,7 +86,7 @@ Migration reports separately: resolvable one-source ownership, conflicting sourc
 
 ### Deletion Policy Impact
 
-The proposed additions are recorded under **Pending ADR-0023** in `docs/deletion-policy.md`: credits are voided while draft and never hard-deleted; credit lines follow their draft parent; finalized lines/sequences/export artifacts cannot be deleted through ordinary APIs; LegalEntity cannot be deleted when financial records reference it. These become enforced rules when the ADR is accepted and implementation ships. Do not present proposals as already enforced.
+The additions documented under **ADR-0023 — Legal invoicing and accounting export** in `docs/deletion-policy.md` are the accepted policy baseline: credits are voided while draft and never hard-deleted; credit lines follow their draft parent; finalized lines/sequences/export artifacts cannot be deleted through ordinary APIs; LegalEntity cannot be deleted when financial records reference it. These become API-enforced rules when implementation ships. Do not present them as already enforced.
 
 ## Snapshot and Financial Contract
 
@@ -225,7 +225,9 @@ Use existing unit/E2E infrastructure with fresh unseeded backend DB and serial E
 
 ## Open Questions / Approval Record
 
-The 2026-09-20 PR review approved the architectural direction and requested explicit decisions. The following answers define this revision's baseline; they do not mark the draft accepted or certify accountant approval.
+The 2026-09-20 PR review approved the architectural direction and requested explicit decisions. The following answers define this revision's baseline.
+
+**Product owner acceptance:** 2026-09-20 — Dejan Dosenovic (Product Owner) accepted this spec and [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]] as the AUT-296 Milestone 0 implementation baseline.
 
 | Decision | Selected answer / consequence |
 |---|---|
@@ -235,7 +237,7 @@ The 2026-09-20 PR review approved the architectural direction and requested expl
 | Number series | Preserve tenant-wide RE and add tenant-wide CN across legal entities. No per-entity reset/migration in this slice; accountant confirms the rollout fixture. |
 | M1 accounting coupling | **Keep required mappings. M1 cannot ship without accountant-approved mapping fixtures.** No nullable accounting escape hatch for new v2 invoices. Missing mappings block issuance with `ACCOUNTING_MAPPING_INCOMPLETE`; DATEV `is_enabled` gates only export. |
 
-Still required: accountant review of corporate-footer obligations, domestic/margin document fixtures, mapping fixtures and series usage for enabled profiles. Record reviewer/date/evidence when obtained; none is claimed here. Product owner must accept the revised baseline and its explicit operational risk, and the documents must be accepted/merged before closing Milestone 0. Implementation plans follow that review.
+Still required before M1/M4 activation: accountant review of corporate-footer obligations, domestic/margin document fixtures, mapping fixtures and series usage for enabled profiles. Record reviewer/date/evidence when obtained; none is claimed here. Implementation plans follow this accepted baseline.
 
 ## References
 

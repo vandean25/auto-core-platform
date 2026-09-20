@@ -15,11 +15,11 @@ Framework-meta items from 2025 (Phase 2B / 3B / 4B examples, README documentatio
 
 ## Deferred Decisions
 
-Existing active items: single-tenant restore (ADR-0013 / AUT-154) plus vehicle stock B/C/D (ADR-0016). Proposed Legal Invoicing deferrals are tracked separately below pending ADR-0023 acceptance. Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
+Existing active items: single-tenant restore (ADR-0013 / AUT-154) plus vehicle stock B/C/D (ADR-0016). Accepted Legal Invoicing follow-on deferrals are tracked separately below. Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
 
-### Legal invoicing follow-ons (AUT-296 / proposed ADR-0023)
+### Legal invoicing follow-ons (AUT-296 / ADR-0023)
 
-**Status:** Proposed deferrals — 2026-09-20; product-owner acceptance pending.
+**Status:** Deferred follow-ons — 2026-09-20; ADR-0023 accepted by Product Owner.
 
 Baseline: [ADR-0023](../01-ADR/2026-09-20-legal-invoicing-and-accounting-export.md) and the two Finance feature specs. Owner: Product Owner with accountant input.
 
@@ -33,7 +33,7 @@ Baseline: [ADR-0023](../01-ADR/2026-09-20-legal-invoicing-and-accounting-export.
 | Amount-only credits and credit-of-credit/debit corrections | Quantity-only credits and full margin reversal bound the first state machine | Confirmed correction use case that cannot be represented; new immutable correction workflow approved |
 | Inactive-site historical finance access | Active site membership is current authorization baseline | Required period includes inactive-site records; approve explicit historic-access policy before allowing export |
 
-No follow-on is implicitly authorized by reserved fields or a proposed snapshot version.
+No follow-on is implicitly authorized by reserved fields or the accepted snapshot version.
 
 ### Single-tenant restore tooling
 
