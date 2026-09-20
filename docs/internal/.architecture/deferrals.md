@@ -15,7 +15,25 @@ Framework-meta items from 2025 (Phase 2B / 3B / 4B examples, README documentatio
 
 ## Deferred Decisions
 
-Four active items: single-tenant restore (ADR-0013 / AUT-154) plus vehicle stock B/C/D (ADR-0016). Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
+Existing active items: single-tenant restore (ADR-0013 / AUT-154) plus vehicle stock B/C/D (ADR-0016). Proposed Legal Invoicing deferrals are tracked separately below pending ADR-0023 acceptance. Phase A (used buy → VIN stock → workshop prep → sell with margin VAT) is the only vehicle-stock work in scope until a B/C/D trigger below is met. Schema already reserves enums and FKs for B/C/D; unused hooks are **not** a reason to start those flows.
+
+### Legal invoicing follow-ons (AUT-296 / proposed ADR-0023)
+
+**Status:** Proposed deferrals — 2026-09-20; product-owner acceptance pending.
+
+Baseline: [ADR-0023](../01-ADR/2026-09-20-legal-invoicing-and-accounting-export.md) and the two Finance feature specs. Owner: Product Owner with accountant input.
+
+| Deferred capability | Reason / cost of waiting | Re-entry trigger |
+|---|---|---|
+| Structured e-invoice, AUT-306 | Separate document/delivery contract; PDF alone cannot cover all legally required DE B2B cases | Before onboarding a customer/transaction that requires structured issuance; assess transitional eligibility before launch |
+| CH/CHF and additional tax regimes | Current entity model is AT/DE; no validated Swiss, reverse-charge or exemption profile | First committed requirement for that country/regime; approve country fixtures before enabling |
+| AT and margin-scheme DATEV posting profiles | Ordinary DE VAT recipe cannot safely represent them | Accountant supplies and validates target-import fixtures; until then affected whole periods are blocked |
+| AR payments/refunds and physical returns | Commercial credits must not invent cash or inventory movements | Separate payment/return feature spec and ledger acceptance tests |
+| Per-legal-entity RE series | Existing tenant/year series remains unique; changing it adds migration/collision work | Accountant or customer explicitly requires independent entity series |
+| Amount-only credits and credit-of-credit/debit corrections | Quantity-only credits and full margin reversal bound the first state machine | Confirmed correction use case that cannot be represented; new immutable correction workflow approved |
+| Inactive-site historical finance access | Active site membership is current authorization baseline | Required period includes inactive-site records; approve explicit historic-access policy before allowing export |
+
+No follow-on is implicitly authorized by reserved fields or a proposed snapshot version.
 
 ### Single-tenant restore tooling
 
