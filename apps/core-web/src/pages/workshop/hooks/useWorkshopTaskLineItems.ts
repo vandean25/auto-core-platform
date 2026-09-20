@@ -8,6 +8,7 @@ import {
 } from '@/api/workshop'
 import type {
   WorkshopLineItemType,
+  WorkshopOrder,
   WorkshopTask,
   WorkshopTaskLineItem,
 } from '@/api/types'
@@ -85,6 +86,15 @@ export function buildApiLineItemsPayload(
   )
 }
 
+function readTaskLineItemsVersion(
+  updatedOrder: WorkshopOrder,
+  taskId: string,
+): number | undefined {
+  const nextVersion = updatedOrder.tasks?.find((task) => task.id === taskId)
+    ?.lineItemsVersion
+  return typeof nextVersion === 'number' ? nextVersion : undefined
+}
+
 export interface UseWorkshopTaskLineItemsOptions {
   orderId: string | undefined
   isLocked: boolean
@@ -102,8 +112,10 @@ export function useWorkshopTaskLineItems({
     Record<string, WorkshopTask['lineItems']>
   >({})
   const lineItemSaveSeq = useRef<Record<string, number>>({})
+  const lineItemsVersionByTaskRef = useRef<Record<string, number>>({})
+  const saveChainByTaskRef = useRef<Record<string, Promise<void>>>({})
 
-  const clearTaskOverride = (taskId: string) => {
+  const removeTaskLineItemOverride = (taskId: string) => {
     setTaskLineItemOverrides((previous) => {
       const next = { ...previous }
       delete next[taskId]
@@ -123,7 +135,6 @@ export function useWorkshopTaskLineItems({
     const currentTasks = getTasks?.() ?? []
     const currentTask = currentTasks.find((task) => task.id === taskId)
     const previousItems = currentTask?.lineItems ?? []
-    const expectedLineItemsVersion = currentTask?.lineItemsVersion ?? 0
     const nextItemsForUi = buildUiLineItems(taskId, items)
 
     setTaskLineItemOverrides((previous) => ({
@@ -131,55 +142,71 @@ export function useWorkshopTaskLineItems({
       [taskId]: nextItemsForUi,
     }))
 
-    try {
-      await replaceTaskLineItems.mutateAsync({
-        orderId,
-        taskId,
-        expectedLineItemsVersion,
-        items: buildApiLineItemsPayload(items),
-      })
+    const saveOperation = async () => {
+      const expectedLineItemsVersion =
+        lineItemsVersionByTaskRef.current[taskId] ??
+        currentTask?.lineItemsVersion ??
+        0
 
-      if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+      try {
+        const updatedOrder = await replaceTaskLineItems.mutateAsync({
+          orderId,
+          taskId,
+          expectedLineItemsVersion,
+          items: buildApiLineItemsPayload(items),
+        })
 
-      clearTaskOverride(taskId)
-    } catch (error: unknown) {
-      if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+        const nextVersion = readTaskLineItemsVersion(updatedOrder, taskId)
+        if (typeof nextVersion === 'number') {
+          lineItemsVersionByTaskRef.current[taskId] = nextVersion
+        }
 
-      const status = getErrorStatus(error)
+        if (lineItemSaveSeq.current[taskId] !== saveSeq) return
 
-      if (status === 409) {
-        clearTaskOverride(taskId)
-        await queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
-        toast.error(
-          getErrorMessage(
-            error,
-            'This order was updated by another user. Data was refreshed — please review and try again.',
-          ),
-        )
-        return
+        removeTaskLineItemOverride(taskId)
+      } catch (error: unknown) {
+        if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+
+        const status = getErrorStatus(error)
+
+        if (status === 409) {
+          delete saveChainByTaskRef.current[taskId]
+          removeTaskLineItemOverride(taskId)
+          await queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
+          toast.error(
+            getErrorMessage(
+              error,
+              'This order was updated by another user. Data was refreshed — please review and try again.',
+            ),
+          )
+          throw error
+        }
+
+        setTaskLineItemOverrides((previous) => ({
+          ...previous,
+          [taskId]: previousItems,
+        }))
+
+        const fallbackMessage =
+          status === 400
+            ? 'Invalid line items. Check quantities and try again.'
+            : 'Failed to update task line items'
+
+        toast.error(getErrorMessage(error, fallbackMessage))
       }
-
-      setTaskLineItemOverrides((previous) => ({
-        ...previous,
-        [taskId]: previousItems,
-      }))
-
-      const fallbackMessage =
-        status === 400
-          ? 'Invalid line items. Check quantities and try again.'
-          : 'Failed to update task line items'
-
-      toast.error(getErrorMessage(error, fallbackMessage))
     }
+
+    const previousChain = saveChainByTaskRef.current[taskId] ?? Promise.resolve()
+    const nextChain = previousChain.then(saveOperation)
+    saveChainByTaskRef.current[taskId] = nextChain
+    await nextChain.catch(() => undefined)
   }
 
   const clearTaskLineItemOverrides = (taskId: string) => {
-    setTaskLineItemOverrides((previous) => {
-      const next = { ...previous }
-      delete next[taskId]
-      return next
-    })
+    removeTaskLineItemOverride(taskId)
     delete lineItemSaveSeq.current[taskId]
+    delete lineItemsVersionByTaskRef.current[taskId]
+    delete saveChainByTaskRef.current[taskId]
   }
 
   return {

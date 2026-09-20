@@ -8,7 +8,23 @@ import {
 } from './useWorkshopTaskLineItems'
 import * as workshopApi from '@/api/workshop'
 import { toast } from 'sonner'
-import type { WorkshopTask } from '@/api/types'
+import type { WorkshopOrder, WorkshopTask } from '@/api/types'
+
+function createUpdatedOrder(lineItemsVersion: number): WorkshopOrder {
+  return {
+    id: 'order-1',
+    tasks: [
+      {
+        id: 'task-1',
+        title: 'Task 1',
+        status: 'IN_PROGRESS',
+        done: false,
+        lineItemsVersion,
+        lineItems: [],
+      },
+    ],
+  } as unknown as WorkshopOrder
+}
 
 const mockInvalidateQueries = vi.fn()
 
@@ -198,6 +214,133 @@ describe('useWorkshopTaskLineItems', () => {
         ]),
       })
       // Overrides are cleared after successful sync
+      expect(result.current.taskLineItemOverrides['task-1']).toBeUndefined()
+    })
+
+    it('sends incremented expectedLineItemsVersion on a follow-up save', async () => {
+      mockMutateAsync
+        .mockResolvedValueOnce(createUpdatedOrder(2))
+        .mockResolvedValueOnce(createUpdatedOrder(3))
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => mockTasks,
+        }),
+      )
+
+      const firstItems: TaskLineItemInput[] = [
+        {
+          id: 'item-1',
+          type: 'PART',
+          itemNo: 'P-1',
+          description: 'Updated Item',
+          qty: 2,
+          unitPrice: 15,
+        },
+      ]
+      const secondItems: TaskLineItemInput[] = [
+        ...firstItems,
+        {
+          type: 'LABOR',
+          itemNo: 'GEN-001',
+          description: 'General labor',
+          qty: 1,
+          unitPrice: 50,
+        },
+      ]
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', firstItems)
+        await result.current.handleTaskLineItemsChange('task-1', secondItems)
+      })
+
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ expectedLineItemsVersion: 1 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ expectedLineItemsVersion: 2 }),
+      )
+    })
+
+    it('serializes overlapping saves so the latest items persist without a 409', async () => {
+      const tasksAtVersionZero: WorkshopTask[] = [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          status: 'IN_PROGRESS',
+          done: false,
+          lineItemsVersion: 0,
+          lineItems: [],
+        },
+      ]
+
+      let resolveFirstSave: (order: WorkshopOrder) => void = () => undefined
+      const firstSaveDeferred = new Promise<WorkshopOrder>((resolve) => {
+        resolveFirstSave = resolve
+      })
+      mockMutateAsync
+        .mockImplementationOnce(() => firstSaveDeferred)
+        .mockResolvedValueOnce(createUpdatedOrder(2))
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => tasksAtVersionZero,
+        }),
+      )
+
+      const laborItem: TaskLineItemInput = {
+        type: 'LABOR',
+        itemNo: 'GEN-001',
+        description: 'General labor',
+        qty: 1,
+        unitPrice: 50,
+      }
+      const laborAndPartItems: TaskLineItemInput[] = [
+        laborItem,
+        {
+          type: 'PART',
+          itemNo: 'P-2',
+          description: 'Oil filter',
+          qty: 1,
+          unitPrice: 20,
+        },
+      ]
+
+      await act(async () => {
+        const firstSave = result.current.handleTaskLineItemsChange(
+          'task-1',
+          [laborItem],
+        )
+        const secondSave = result.current.handleTaskLineItemsChange(
+          'task-1',
+          laborAndPartItems,
+        )
+        resolveFirstSave(createUpdatedOrder(1))
+        await Promise.all([firstSave, secondSave])
+      })
+
+      expect(mockMutateAsync).toHaveBeenCalledTimes(2)
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ expectedLineItemsVersion: 0 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          expectedLineItemsVersion: 1,
+          items: expect.arrayContaining([
+            expect.objectContaining({ itemNo: 'GEN-001' }),
+            expect.objectContaining({ itemNo: 'P-2' }),
+          ]),
+        }),
+      )
+      expect(toast.error).not.toHaveBeenCalled()
       expect(result.current.taskLineItemOverrides['task-1']).toBeUndefined()
     })
 
