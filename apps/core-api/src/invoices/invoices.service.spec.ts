@@ -10,6 +10,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../site/site-context.service.js';
 import { FinanceService } from '../finance/finance.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import { InvoicesService } from './invoices.service.js';
 
 describe('InvoicesService', () => {
@@ -25,6 +26,9 @@ describe('InvoicesService', () => {
     workshopOrder: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
+    },
+    site: {
+      findFirst: jest.fn(),
     },
     invoiceSequence: {
       upsert: jest.fn(),
@@ -53,6 +57,19 @@ describe('InvoicesService', () => {
         {
           provide: SiteContextService,
           useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
+        },
+        {
+          provide: InvoiceSnapshotCommitService,
+          useValue: {
+            prepareV2Snapshot: jest.fn().mockResolvedValue({
+              snapshot: { schema_version: 2 },
+              ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+              dueDate: new Date('2026-04-15'),
+              supplyFrom: new Date('2026-04-01'),
+              supplyTo: new Date('2026-04-01'),
+            }),
+            persistV2Snapshot: jest.fn().mockResolvedValue(undefined),
+          },
         },
       ],
     }).compile();
@@ -106,6 +123,7 @@ describe('InvoicesService', () => {
   it('does not expose identity resolution state from created draft invoice vehicles', async () => {
     tx.workshopOrder.findFirst.mockResolvedValue({
       id: 'wo-1',
+      site_id: 'site-1',
       customer_id: 'customer-1',
       vehicle_id: 'vehicle-1',
       notes: null,
@@ -122,6 +140,10 @@ describe('InvoicesService', () => {
           ],
         },
       ],
+    });
+    tx.site.findFirst.mockResolvedValue({
+      id: 'site-1',
+      legal_entity_id: 'le-1',
     });
     tx.invoice.create.mockResolvedValue({
       ...draftInvoice,
