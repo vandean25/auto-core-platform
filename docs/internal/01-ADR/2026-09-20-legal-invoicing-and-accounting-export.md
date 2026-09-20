@@ -158,11 +158,11 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 
 ## Validation and Approval Gates
 
-- [x] Product owner accepts both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries. **Accepted 2026-09-20 — Dejan Dosenovic (Product Owner).**
+- [x] Product owner accepted ADR-0023 and both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries. **2026-09-20 — Dejan Dosenovic (Product Owner).**
 - [ ] Accountant accepts country document fixtures and the export posting profile, including tax keys, debtor convention, polarity and rounding.
 - [ ] DATEV official format version/schema and successful import evidence are pinned before enabling export.
 - [ ] Implementation proves tenant/site isolation, concurrent finalization/credits/lock advancement, exact monetary reconciliation and immutable legacy behavior.
-- [x] ADR/specs are accepted and merged before AUT-296/Milestone 0 is completed; update the project's Next section only then.
+- [x] Documents merged to `main` ([PR #559](https://github.com/vandean25/auto-core-platform/pull/559)); Linear project Next updated to the AUT-296 approved handoff; Milestone 0 verified complete.
 
 ## References
 
@@ -178,4 +178,4 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 | Project | [Legal Invoicing & Accounting Export](https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695) |
 | Milestone | 0 — Spec & ADR (PO accepted 2026-09-20; accountant/DATEV evidence gates remain) |
 | Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296); implementation AUT-297–303, AUT-307 and AUT-305; AUT-306 parked |
-| Next (Linear) | AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), including its accountant-approved mapping prerequisite, then milestones 2 → 3 → 4. AUT-307 + AUT-305 own milestone 4. AUT-306 remains parked; country/DATEV activation gates still apply. |
+| Next (Linear) | AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), including its accountant-approved mapping prerequisite, then milestones 2 → 3 → 4. AUT-307 + AUT-305 own milestone 4. AUT-306 remains parked; country/DATEV activation gates still apply. Specs: [PR #559](https://github.com/vandean25/auto-core-platform/pull/559). |
