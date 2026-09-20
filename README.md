@@ -13,6 +13,7 @@ A multi-tenant workshop operations platform: parts inventory, procurement, sales
 | **Sales** | Customers, sales orders, and tax invoices |
 | **Workshop** | Intake, job cards, board, parts pick, and mechanic queue |
 | **Vehicle stock** | Dealer-owned vehicles, purchases, sales, and vehicle ledger (not parts inventory) |
+| **Stock transfers** | Same-GmbH stock moves between sites, from request through receipt or return |
 | **Finance** | Fiscal lock date, sequential numbering, and revenue groups |
 | **Auth/tenancy** | Firebase Auth, JWT guard, row-level `tenant_id` isolation, tenant members, and platform admin |
 
@@ -499,6 +500,24 @@ PR checks enforce this by regenerating both files and failing if there is uncomm
 | `POST` | `/api/vehicle-purchases` | Create a vehicle purchase (intake to stock) |
 | `POST` | `/api/vehicle-sales` | Create a vehicle sale |
 
+### Stock transfers
+
+Stock transfers move parts between sites within the same GmbH. A user needs
+membership on the source or destination site to view or request a transfer;
+source-bin details are redacted without source-site access.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/stock-transfers` | List stock transfers available to the current site memberships |
+| `GET` | `/api/stock-transfers/:id` | Get a stock transfer; source-bin details are access-controlled |
+| `POST` | `/api/stock-transfers` | Create a stock transfer request |
+| `POST` | `/api/stock-transfers/:id/approve` | Approve a requested transfer |
+| `POST` | `/api/stock-transfers/:id/reject` | Reject a requested transfer |
+| `POST` | `/api/stock-transfers/:id/cancel` | Cancel a requested or approved transfer |
+| `POST` | `/api/stock-transfers/:id/ship` | Ship an approved transfer from the source site |
+| `POST` | `/api/stock-transfers/:id/receive` | Receive shipped stock into a destination bin |
+| `POST` | `/api/stock-transfers/:id/return` | Return unreceived stock to the source bin |
+
 ### Finance
 
 | Method | Endpoint | Description |
@@ -584,6 +603,12 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 
 - **Dealer stock list**: Status-filtered list of used/stock vehicles (separate from parts inventory).
 - **Purchase & sale**: Intake a vehicle to stock; sell from stock onto a fiscal invoice.
+
+### Stock transfers
+
+- **Transfer workspace**: Open `/stock-transfers` from the sidebar or the `Ctrl+K` command menu to request and track stock moves between sites.
+- **Transfer workflow**: Open a row to approve, reject, cancel, ship, receive, or return a transfer when your site membership and role allow the action.
+- **Site-aware controls**: Switch to the source site to pick source bins and ship, or to the destination site to receive. Destination-only users do not see source-bin details.
 
 ### Auth/tenancy
 
