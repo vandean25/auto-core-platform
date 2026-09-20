@@ -73,6 +73,8 @@ Use `CreditNote` + `CreditNoteItem`, referencing one original `Invoice` and its 
 
 Lifecycle: `DRAFT → FINALIZED`, or `DRAFT → VOID`. Only drafts are editable; VOID is terminal and unnumbered. Issued credits cannot be edited, deleted or cancelled. A mistaken finalized credit requires a later corrective debit workflow outside this slice; the UI must preview and confirm finalization. No credit-of-credit support.
 
+**Operational consequence:** Only OWNER/ADMIN with access to the original site may VOID a DRAFT credit. For a mistaken finalized CN, support records the original/CN identifiers and error in a support case, preserves all snapshots and numbers, and escalates to the responsible accountant for an externally managed correction and reconciliation. Support must not edit the database, issue another credit to undo it, reopen the source order or imply that ACP has repaired the balance. The existing CN remains in exports; any external corrective document must be reconciled by the accountant outside ACP. Corrective debit support is an explicit follow-on in the deferrals log. Acceptance of this ADR must explicitly accept that operational limitation before milestone 3 is enabled.
+
 Slice 1 supports full credits and partial **quantity-based** credits for STANDARD invoices. Arbitrary price reductions, free-form credit lines and mixed originals are deferred. MARGIN_SCHEME permits full-document credit only, copying and reversing the original internal allocations. Credits carry positive stored amounts and explicit credit polarity; do not combine negative money with reversed debit/credit signs.
 
 Copy original seller, customer, ownership, tax profile and accounting facts. Use a new credit date and reason, plus original number/date. Reject dates earlier than the original invoice or at/before the tenant lock date. An original in a closed period may be credited in a later open period; never mutate its fiscal fields/status. Credit coverage is derived from finalized credits, not a new invoice status. Original `PAID` does not prevent a commercial credit or create a cash refund.
@@ -98,6 +100,8 @@ One run covers one legal entity and a closed date range within one fiscal year. 
 Freeze per-entity DATEV profile metadata and every document's accounting allocation; never resolve by current revenue-group name at download time. Generate stable rows from invoice/credit line snapshots, positive gross values, opposite debit/credit polarity for credits, one approved tax mechanism per row. Include committed invoices regardless of FINALIZED/ISSUED/PAID delivery/payment status; include finalized credits at their own date even when their original is outside the period. Draft/VOID documents are not bookings. Legacy CANCELLED documents block the run unless a later audited migration supplies complete original and reversal facts.
 
 Persist an immutable `AccountingExport` run with document manifest, frozen profile, SHA-256, exact file bytes and actor/time. Downloading again returns the same bytes and does not mark invoices paid or alter fiscal facts. Reauthorize on download. Duplicate import prevention remains with the accountant: clearly identify repeat/overlapping runs; ACP does not claim the file was imported.
+
+Retain the bounded exact CSV bytes in Postgres in slice 1; long-term retention/offload requires a separate approved policy and must not become an ad-hoc TTL or cleanup job.
 
 ## Consequences
 
@@ -134,7 +138,9 @@ Persist an immutable `AccountingExport` run with document manifest, frozen profi
 
 ## Implementation Strategy
 
-Milestone 1: additive identity/ownership/snapshot migration and all issuance paths (AUT-297–299). Milestone 2: snapshot-driven PDF content and tax fixtures (AUT-300–301). Milestone 3: credits, sequence, UI and PDF (AUT-302–303). Milestone 4: mapping/profile, export and audit (AUT-307, AUT-305). AUT-304 duplicates AUT-307 and needs tracking reconciliation before implementation.
+Milestone 1: additive identity/ownership/snapshot migration, accounting-profile configuration and frozen mappings on all issuance paths (AUT-297–299). **M1 cannot ship without accountant-approved mapping fixtures for each enabled invoice profile.** Keep this prerequisite even when the DATEV serializer is disabled; it prevents creating new documents without immutable export evidence. Milestone 2: snapshot-driven PDF content and tax fixtures (AUT-300–301). Milestone 3: credits, sequence, UI and PDF (AUT-302–303). Milestone 4: DATEV serializer/profile activation, export and audit (AUT-307, AUT-305).
+
+The review revision selects AT/DE EUR invoicing, quantity-only STANDARD partial credits, manual historical ownership remediation and tenant-wide RE/CN series. M4 completion targets DE STANDARD export with whole-run blocking for AT/margin; complete active-site access remains required and inactive-site history is blocked. These are the concrete baseline decisions for acceptance, not claims of accountant sign-off. See both specs' decision records for release evidence and owners.
 
 Expand nullable historical fields first, report unresolvable ownership, configure sellers, validate fixtures, then enable version-2 issuance. Keep legacy readers. Do not deploy a writer rollback that can issue old-format invoices after version 2 is enabled; disable issuance until a forward fix. Numbered documents and export artifacts survive feature rollback. Contract migrations must retain historical nullability where evidence is unavailable.
 
@@ -150,7 +156,7 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 
 ## Validation and Approval Gates
 
-- [ ] Product owner accepts both feature specs, including AT/DE boundary, quantity-only partial credits, preserved RE series and export limitations.
+- [ ] Product owner accepts both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries.
 - [ ] Accountant accepts country document fixtures and the export posting profile, including tax keys, debtor convention, polarity and rounding.
 - [ ] DATEV official format version/schema and successful import evidence are pinned before enabling export.
 - [ ] Implementation proves tenant/site isolation, concurrent finalization/credits/lock advancement, exact monetary reconciliation and immutable legacy behavior.
@@ -169,4 +175,4 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 |---|---|
 | Project | [Legal Invoicing & Accounting Export](https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695) |
 | Milestone | 0 — Spec & ADR |
-| Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296); implementation AUT-297–305 and AUT-307; AUT-306 parked |
+| Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296); implementation AUT-297–303, AUT-307 and AUT-305; AUT-306 parked |

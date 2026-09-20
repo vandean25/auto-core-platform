@@ -56,7 +56,7 @@ Mapping keys use stable source category identifiers when available. Explicit key
 
 Each committed line's `accounting_snapshot` records profile code/version, source category ID (nullable) and label, revenue account, debtor account, VAT rate/treatment, BU key or automatic-account flag, country and currency. Profile/category resolution happens before issuance using batched tenant-scoped reads. Credits copy this allocation from the original. Incompatible chart/account-length changes require a new effective profile and explicit preview blocker for periods mixing incompatible facts; never remap historical lines silently.
 
-Mapping readiness for invoice issuance is separate from export activation: milestone 1 requires explicit accountant-reviewed accounts and tax treatment, but `is_enabled` gates only CSV generation. A disabled/unverified serializer does not prevent an otherwise complete invoice from freezing its accounting facts. Margin invoices freeze internal cost/tax facts and the approved category allocation even while the DATEV margin posting recipe remains disabled. This avoids making milestone 1 depend on shipping milestone 4.
+**M1 decision: keep the mapping prerequisite. Milestone 1 cannot ship without accountant-approved mapping fixtures for each enabled invoice profile.** M1 delivers profile configuration, source-category resolution and frozen accounts/tax treatment under AUT-297–299; AUT-307 consumes these in M4. New v2 `accounting_snapshot` is required at issuance, with `ACCOUNTING_MAPPING_INCOMPLETE` for incomplete configuration. `is_enabled` gates only CSV generation: an approved mapping can support issuance while the serializer remains disabled. Margin invoices freeze internal cost/tax facts and approved category allocation even while the DATEV margin posting recipe is disabled. Seller identity/PDF rollout therefore waits for M1 mapping approval, but does not wait for M4 serializer/import implementation.
 
 ### Modified Tables
 
@@ -69,7 +69,7 @@ Mapping readiness for invoice issuance is separate from export activation: miles
 
 ### Deletion Policy Impact
 
-Profile updates are allowed; no delete API after first use. Export artifacts and audit events are immutable with no ordinary deletion endpoint. Retention/purge is outside this slice and must not be improvised as a short TTL. Proposed rows are documented in `docs/deletion-policy.md` pending ADR approval.
+Profile updates are allowed; no delete API after first use. Export artifacts and audit events are immutable with no ordinary deletion endpoint. Retain exact CSV bytes in Postgres within the 20 MiB/10,000-document run bounds; long-term retention/offload is out of scope and requires an approved policy, never an ad-hoc TTL or cleanup job. Proposed rows are documented in `docs/deletion-policy.md` pending ADR approval.
 
 ## Selection, Authorization and Financial Rules
 
@@ -211,16 +211,23 @@ No dashboard entity broadcast for AccountingExport in slice 1: it contains multi
 
 ## Open Questions / Approval Record
 
-1. **Accountant:** approve the proposed EXTF target, collective debtor convention, account/BU mapping, unfixed batch flag and import fixture. Official schema access is unresolved; export profile remains disabled until verified.
-2. **Product owner:** accept DE STANDARD export first with whole-run blocking for AT/margin history, or require AT/margin posting profiles before milestone 4 can be considered complete? No default silent exclusion is permitted.
-3. **Product owner:** approve active-site-membership-only export and blocked inactive-site history for slice 1, or commission a separate historic finance-access policy before rollout.
-4. **Tracking owner:** reconcile duplicate AUT-304/AUT-307; use AUT-307 as the proposed canonical backend issue because AUT-296 explicitly blocks it. This documentation does not close either issue.
+The following decisions answer the PR review and define the revised baseline. Draft status remains until final product acceptance; accountant sign-off is not inferred from the review.
+
+| Decision | Selected answer / gate |
+|---|---|
+| M1 mapping prerequisite | Keep strict coupling: M1 cannot ship without accountant-approved mapping fixtures. Profile configuration and immutable allocations ship in M1; export activation stays in M4. |
+| M4 completion scope | DE/EUR domestic STANDARD export first. M4 can complete for this profile once its acceptance checks pass; AT and margin posting profiles are follow-ons, not conditions for that milestone. Any selected period containing them still blocks as a whole. |
+| Historic site access | Require complete active-site membership coverage. Inactive contributing sites block slice-1 export; historic-access policy is a separate follow-on, not an implicit administrator bypass. |
+| DATEV target and postings | Retain proposed EXTF 700/Buchungsstapel 13, collective debtor, explicit-BU or automatic-tax mapping, and unfixed batch flag. Accountant approval and the official schema/import fixture remain mandatory before enabling the profile. |
+| Tracking | AUT-307 owns backend export; AUT-305 owns UI/audit. Duplicate cleanup is complete; no parallel backend issue remains in the delivery baseline. |
+
+Accountant release evidence must identify the reviewer/date, official schema revision, target importer/version, approved account/BU/debtor settings and a successful import with matching net/tax/gross totals. Until that evidence exists, `is_enabled=false`; no claim of compatibility or sign-off is made by this documentation revision.
 
 ### Milestone 0 handoff
 
 - [ ] Product owner accepts ADR-0023 and both feature specs; record decisions above.
 - [ ] Documents merged and status changed to accepted/approved with decision date.
-- [ ] Update Linear project's Next section to: “AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), then milestones 2 → 3 → 4. Resolve AUT-304/AUT-307 duplication. AUT-306 remains parked; country/DATEV activation gates still apply.” Add merged repository links at that time.
+- [ ] Update Linear project's Next section to: “AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), including its accountant-approved mapping prerequisite, then milestones 2 → 3 → 4. AUT-307 + AUT-305 own milestone 4. AUT-306 remains parked; country/DATEV activation gates still apply.” Add merged repository links at that time.
 - [ ] Complete AUT-296 and verify Milestone 0 completion in Linear only after acceptance/merge. No completion is implied by this draft.
 
 ## References
@@ -235,4 +242,4 @@ No dashboard entity broadcast for AccountingExport in slice 1: it contains multi
 |---|---|
 | Project | [Legal Invoicing & Accounting Export](https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695) |
 | Milestone | 0 review gate; delivery 4 — Accounting export (DATEV) |
-| Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296), [AUT-307](https://linear.app/auto-core-platform/issue/AUT-307), [AUT-305](https://linear.app/auto-core-platform/issue/AUT-305); duplicate AUT-304 |
+| Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296), [AUT-307](https://linear.app/auto-core-platform/issue/AUT-307), [AUT-305](https://linear.app/auto-core-platform/issue/AUT-305) |

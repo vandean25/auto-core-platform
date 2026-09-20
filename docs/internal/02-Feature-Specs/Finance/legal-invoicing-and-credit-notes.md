@@ -18,7 +18,7 @@ Extend each legal entity with seller identity, freeze complete legal and account
 
 | Milestone | Must deliver | Issues |
 |---|---|---|
-| 1 — Seller identity & snapshot | LegalEntity settings, source/site ownership, snapshot v2 on all issuance paths, completeness/fiscal guards, frozen export mappings | AUT-297, AUT-298, AUT-299 |
+| 1 — Seller identity & snapshot | LegalEntity settings, source/site ownership, snapshot v2 on all issuance paths, completeness/fiscal guards, accounting-profile configuration and frozen export mappings; cannot ship without accountant-approved mapping fixtures | AUT-297, AUT-298, AUT-299 |
 | 2 — DACH Rechnung PDF | Seller/recipient/supply/payment content, tax breakdown, country/tax-mode fixtures | AUT-300, AUT-301 |
 | 3 — Credit notes / Storno | Credit aggregate and series; full/quantity-partial credits; UI/PDF; concurrency bounds | AUT-302, AUT-303 |
 
@@ -40,6 +40,10 @@ Out of scope: structured e-invoices (AUT-306), CH/CHF/QR bills, reverse-charge/i
 2. **Issue invoice:** open an eligible source in its authorized site → draft invoice → review recipient, supply date and totals → Finalize/Issue. Reject missing fields with specific errors; successful commit freezes the snapshot and number. PDF retries use that snapshot.
 3. **Correct invoice:** invoice detail → top-right `+ Credit Note` → choose Full or line quantities, enter reason and date → autosaved draft → review original/new totals and “No stock return or refund” explanation → Finalize. Show linked original and remaining creditable quantities. A stale draft that exceeds the remaining balance fails without a number.
 4. **Old document:** view its archived PDF or original version-1 snapshot. Do not enrich it using today's identity. If evidence is missing, show an actionable historical-document error rather than an invented legal invoice.
+
+### Operational handling of mistaken credits
+
+OWNER/ADMIN with the original site's access can VOID only DRAFT credits. Once a CN is finalized, support records the original/CN identifiers and mistake in a support case and escalates to the responsible accountant for external corrective-document handling and reconciliation. Preserve the CN, its number, snapshot and export entries; no database edits, second credit to undo the first, source-order reopening or automatic refund. ACP continues to show the recorded credit until a separately approved corrective debit workflow exists; an external correction does not silently change ACP balances. Product-owner acceptance of this limitation is required before milestone 3 activation, in addition to the finalization confirmation UI.
 
 ## Database Impact
 
@@ -200,7 +204,7 @@ Register CreditNote mutations in the Prisma realtime extension and frontend enti
 
 - [ ] LI-01: AT/DE owner can save incomplete seller settings; malformed supplied IDs/bank/email rejected; ordinary member denied; other tenant entity returns 404.
 - [ ] LI-02: sales, workshop and vehicle commit paths all snapshot the correct source seller; switching sites cannot relabel/issue another site's draft.
-- [ ] LI-03: missing seller/recipient/supply/accounting data rolls back number, source status and stock writes. Source-less draft finalization fails explicitly.
+- [ ] LI-03: missing seller/recipient/supply/accounting data rolls back number, source status and stock writes. An approved complete mapping permits v2 issuance while DATEV export is disabled; absent/unapproved mapping fixtures prevent M1 release. Source-less draft finalization fails explicitly.
 - [ ] LI-04: change seller, customer, revenue group/account, payment terms and vehicle cost after issuance; saved snapshot/PDF financial content remains unchanged.
 - [ ] LI-05: quantity 0.125 remains 0.125; multi-rate/line/global discounts sum exactly; margin fixtures disclose no customer-facing cost or VAT.
 - [ ] LI-06: legacy archived PDF unchanged; version-1 render contains no invented seller; missing historical evidence returns documented error without snapshot write.
@@ -208,7 +212,7 @@ Register CreditNote mutations in the Prisma realtime extension and frontend enti
 - [ ] LI-08: two credits racing to consume the same remaining quantity cannot over-credit; last fractional credit reverses remaining cents exactly; stale draft is rejected.
 - [ ] LI-09: locked original + current open-period credit succeeds; credit date on lock boundary fails; lock advance/deactivation racing finalization has only valid serialized outcomes.
 - [ ] LI-10: draft original, legacy original, zero/negative/excess quantities, foreign lines, partial margin credit and already fully credited original are rejected. PAID original is eligible with no refund effect.
-- [ ] LI-11: issuing a credit leaves inventory/vehicle ledger, reservation, source status and original snapshot unchanged; VOID receives no number; finalized credit mutation/delete fails.
+- [ ] LI-11: issuing a credit leaves inventory/vehicle ledger, reservation, source status and original snapshot unchanged; authorized OWNER/ADMIN can VOID only drafts without a number; finalized credit mutation/delete fails and UI directs mistaken-CN cases to support/accountant escalation.
 - [ ] LI-12: PDF enqueue/download and nested original/credit relations cannot leak across tenant or site boundaries.
 
 ### Frontend / PDF
@@ -221,11 +225,17 @@ Use existing unit/E2E infrastructure with fresh unseeded backend DB and serial E
 
 ## Open Questions / Approval Record
 
-1. **Product owner:** accept AT/DE EUR first, CH and special tax regimes deferred, quantity-only partial credits and no correction of finalized credits in this slice? These are the proposed defaults, not hidden implementation choices.
-2. **Accountant:** approve seller corporate-footer obligations and domestic/margin invoice fixtures for each enabled country. Confirm the tenant-wide RE/CN series is acceptable across entities.
-3. **Product owner:** accept the deliberate closure of source-less issuance and manual remediation of ambiguous historical ownership?
+The 2026-09-20 PR review approved the architectural direction and requested explicit decisions. The following answers define this revision's baseline; they do not mark the draft accepted or certify accountant approval.
 
-No answers or acceptance are recorded yet. Milestone 0 stays open until both specs and ADR are accepted/merged. Implementation plans follow that review.
+| Decision | Selected answer / consequence |
+|---|---|
+| Country/currency | AT/DE EUR first. CH and special tax regimes remain deferred; country-specific margin document fixtures gate activation. |
+| Credits | Full credits and quantity-only STANDARD partial credits. No correction of finalized credits in slice 1; accept the support/accountant escalation risk described above as part of final product approval. |
+| Source ownership | Close source-less v2 issuance. Ambiguous historical ownership requires audited manual remediation; no switcher-based inference. |
+| Number series | Preserve tenant-wide RE and add tenant-wide CN across legal entities. No per-entity reset/migration in this slice; accountant confirms the rollout fixture. |
+| M1 accounting coupling | **Keep required mappings. M1 cannot ship without accountant-approved mapping fixtures.** No nullable accounting escape hatch for new v2 invoices. Missing mappings block issuance with `ACCOUNTING_MAPPING_INCOMPLETE`; DATEV `is_enabled` gates only export. |
+
+Still required: accountant review of corporate-footer obligations, domestic/margin document fixtures, mapping fixtures and series usage for enabled profiles. Record reviewer/date/evidence when obtained; none is claimed here. Product owner must accept the revised baseline and its explicit operational risk, and the documents must be accepted/merged before closing Milestone 0. Implementation plans follow that review.
 
 ## References
 
