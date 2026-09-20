@@ -11,6 +11,10 @@ import {
 } from '../common/utils/status-transition.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { AtpService } from '../inventory/atp.service.js';
+import {
+  assertInvoiceHasSourceDocument,
+  InvoiceSnapshotCommitService,
+} from '../invoices/invoice-snapshot-commit.service.js';
 import { generateInvoiceNumber } from './helpers/invoice-number.helpers.js';
 import { processSaleInventoryDeduction } from './helpers/invoice-inventory.helpers.js';
 import { transitionLinkedSalesOrderToInvoiced } from './helpers/invoice-sales-order-transition.helpers.js';
@@ -22,6 +26,7 @@ export class InvoiceFinalizationService {
   constructor(
     private readonly atpService: AtpService,
     private readonly siteContext: SiteContextService,
+    private readonly snapshotCommit: InvoiceSnapshotCommitService,
   ) {}
 
   async finalizeInTransaction(
@@ -29,8 +34,29 @@ export class InvoiceFinalizationService {
     tenantId: string,
     invoice: InvoiceWithItems,
   ) {
+    assertInvoiceHasSourceDocument(invoice);
+
     const siteId = await this.siteContext.getSiteId();
     const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
+
+    const fullInvoice = await tx.invoice.findFirst({
+      where: { id: invoice.id, tenant_id: tenantId },
+      include: {
+        items: { orderBy: { createdAt: 'asc' } },
+        customer: true,
+        vehicle: true,
+      },
+    });
+    if (!fullInvoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const prepared = await this.snapshotCommit.prepareV2Snapshot({
+      tx,
+      tenantId,
+      invoice: fullInvoice,
+      invoiceNumber,
+    });
 
     await processSaleInventoryDeduction({
       tx,
@@ -49,6 +75,13 @@ export class InvoiceFinalizationService {
       extraData: { invoice_number: invoiceNumber },
       conflictMessage: 'Invoice was already transitioned by another request',
     });
+
+    await this.snapshotCommit.persistV2Snapshot(
+      tx,
+      tenantId,
+      invoice.id,
+      prepared,
+    );
 
     const updatedInvoice = await tx.invoice.findFirst({
       where: { id: invoice.id, tenant_id: tenantId },

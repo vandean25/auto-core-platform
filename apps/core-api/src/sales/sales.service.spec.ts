@@ -8,6 +8,7 @@ import { AtpService } from '../inventory/atp.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SalesService } from './sales.service.js';
 import { InvoiceFinalizationService } from './invoice-finalization.service.js';
+import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 
 describe('SalesService', () => {
   let service: SalesService;
@@ -68,6 +69,19 @@ describe('SalesService', () => {
           useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
         },
         InvoiceFinalizationService,
+        {
+          provide: InvoiceSnapshotCommitService,
+          useValue: {
+            prepareV2Snapshot: jest.fn().mockResolvedValue({
+              snapshot: { schema_version: 2 },
+              ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+              dueDate: new Date(),
+              supplyFrom: new Date(),
+              supplyTo: new Date(),
+            }),
+            persistV2Snapshot: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -98,7 +112,17 @@ describe('SalesService', () => {
       status: InvoiceStatus.DRAFT,
       date: new Date('2026-04-01'),
       items: [],
-      sales_order_id: null,
+      sales_order_id: 'so-1',
+      workshop_order_id: null,
+      vehicle_sale_id: null,
+    });
+    tx.invoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: InvoiceStatus.DRAFT,
+      date: new Date('2026-04-01'),
+      items: [],
+      customer: { id: 'customer-1' },
+      vehicle: null,
     });
     tx.invoice.updateMany.mockResolvedValue({ count: 0 });
 
@@ -122,14 +146,25 @@ describe('SalesService', () => {
       date: new Date('2026-04-01'),
       items: [],
       sales_order_id: 'so-1',
+      workshop_order_id: null,
+      vehicle_sale_id: null,
     });
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
-    tx.invoice.findFirst.mockResolvedValue({
-      id: 'inv-1',
-      status: InvoiceStatus.FINALIZED,
-      items: [],
-      customer: true,
-    });
+    tx.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.DRAFT,
+        date: new Date('2026-04-01'),
+        items: [],
+        customer: { id: 'customer-1' },
+        vehicle: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.FINALIZED,
+        items: [],
+        customer: true,
+      });
     tx.salesOrder.findFirst.mockResolvedValue({
       status: SalesOrderStatus.COMPLETED,
     });

@@ -29,49 +29,11 @@ export class SalesService {
     private readonly invoiceFinalization: InvoiceFinalizationService,
   ) {}
 
-  async createDraft(createInvoiceDto: CreateInvoiceDto) {
-    const tenantId = await this.tenantContext.getTenantId();
-    const { items = [], ...invoiceData } = createInvoiceDto;
-
-    if (invoiceData.customerId) {
-      await assertCustomerBelongsToTenant(
-        this.prisma,
-        invoiceData.customerId,
-        tenantId,
-      );
-    }
-
-    if (invoiceData.vehicleId) {
-      await assertVehicleBelongsToTenant(
-        this.prisma,
-        invoiceData.vehicleId,
-        tenantId,
-      );
-    }
-
-    const { formattedItems, totalNet, totalTax, totalGross } =
-      await buildFormattedInvoiceItems(this.prisma, tenantId, items);
-
-    return this.prisma.invoice.create({
-      data: {
-        tenant_id: tenantId,
-        customer_id: invoiceData.customerId,
-        vehicle_id: invoiceData.vehicleId,
-        notes: invoiceData.notes,
-        internal_notes: invoiceData.internalNotes,
-        status: InvoiceStatus.DRAFT,
-        date: new Date(),
-        due_date: buildInvoiceDueDate(),
-        total_net: totalNet,
-        total_tax: totalTax,
-        total_gross: totalGross,
-        items: {
-          create: formattedItems,
-        },
-      },
-      include: {
-        items: true,
-      },
+  async createDraft(_createInvoiceDto: CreateInvoiceDto) {
+    throw new BadRequestException({
+      code: 'SOURCE_DOCUMENT_REQUIRED',
+      message:
+        'Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
     });
   }
 

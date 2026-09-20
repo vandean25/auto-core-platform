@@ -6,6 +6,10 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTenantAwarePrisma, createTestAuthToken, createTestTenant, resolveTestMainSiteId } from './tenant-test-utils.js';
+import {
+  seedInvoiceReadyCustomer,
+  seedReadySellerAndAccountingProfile,
+} from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Sales Order Workflow (e2e)', () => {
@@ -55,15 +59,8 @@ describe('Sales Order Workflow (e2e)', () => {
       throw error;
     }
 
-    // Create Customer
-    const customer = await prisma.customer.create({
-      data: {
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john.doe@example.com',
-        type: 'PRIVATE',
-      },
-    });
+    await seedReadySellerAndAccountingProfile(prisma, testTenant.tenantId);
+    const customer = await seedInvoiceReadyCustomer(prisma, testTenant.tenantId);
     customerId = customer.id;
 
     // Create Catalog Item

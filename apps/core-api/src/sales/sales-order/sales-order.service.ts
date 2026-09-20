@@ -345,12 +345,23 @@ export class SalesOrderService {
     // 2. Create Invoice in Transaction
     const invoice = await this.prisma.$transaction(async (tx) => {
       try {
+        const site = await tx.site.findFirst({
+          where: { id: order.site_id, tenant_id: tenantId },
+          select: { id: true, legal_entity_id: true },
+        });
+        if (!site) {
+          throw new NotFoundException('Sales order site not found');
+        }
+
         const invoice = await tx.invoice.create({
           data: {
             tenant_id: tenantId,
             customer_id: order.customer_id,
             vehicle_id: order.vehicle_id,
             sales_order_id: order.id,
+            site_id: site.id,
+            legal_entity_id: site.legal_entity_id,
+            currency: 'EUR',
             status: InvoiceStatus.DRAFT,
             due_date: buildInvoiceDueDate(),
             total_net: totalNet,

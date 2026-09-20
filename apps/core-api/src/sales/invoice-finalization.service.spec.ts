@@ -1,7 +1,12 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InvoiceStatus, Prisma, SalesOrderStatus } from '@prisma/client';
 import type { AtpService } from '../inventory/atp.service.js';
 import type { SiteContextService } from '../common/services/site-context.service.js';
+import type { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 
 describe('InvoiceFinalizationService', () => {
@@ -23,6 +28,16 @@ describe('InvoiceFinalizationService', () => {
   const siteContext = {
     getSiteId: jest.fn().mockResolvedValue('site-1'),
   } as unknown as SiteContextService;
+  const snapshotCommit = {
+    prepareV2Snapshot: jest.fn().mockResolvedValue({
+      snapshot: { schema_version: 2 },
+      ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+      dueDate: new Date(),
+      supplyFrom: new Date(),
+      supplyTo: new Date(),
+    }),
+    persistV2Snapshot: jest.fn().mockResolvedValue(undefined),
+  } as unknown as InvoiceSnapshotCommitService;
 
   const tx = {
     $queryRaw: jest.fn().mockResolvedValue([]),
@@ -48,7 +63,11 @@ describe('InvoiceFinalizationService', () => {
   };
 
   beforeEach(() => {
-    service = new InvoiceFinalizationService(atpService, siteContext);
+    service = new InvoiceFinalizationService(
+      atpService,
+      siteContext,
+      snapshotCommit,
+    );
     jest.clearAllMocks();
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
     tx.$queryRaw.mockResolvedValue([]);
@@ -58,12 +77,20 @@ describe('InvoiceFinalizationService', () => {
 
   it('finalizes invoice and transitions linked sales order', async () => {
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
-    tx.invoice.findFirst.mockResolvedValue({
-      id: 'inv-1',
-      status: InvoiceStatus.FINALIZED,
-      items: [],
-      customer: { id: 'customer-1' },
-    });
+    tx.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.DRAFT,
+        items: [],
+        customer: { id: 'customer-1' },
+        vehicle: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.FINALIZED,
+        items: [],
+        customer: { id: 'customer-1' },
+      });
     tx.salesOrder.findFirst.mockResolvedValue({
       status: SalesOrderStatus.COMPLETED,
     });
@@ -93,12 +120,19 @@ describe('InvoiceFinalizationService', () => {
   });
 
   it('returns 409 when invoice status transition is stale', async () => {
+    tx.invoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: InvoiceStatus.DRAFT,
+      items: [],
+      customer: { id: 'customer-1' },
+      vehicle: null,
+    });
     tx.invoice.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', {
         id: 'inv-1',
-        sales_order_id: null,
+        sales_order_id: 'so-1',
         status: InvoiceStatus.DRAFT,
         items: [],
       } as never),
@@ -107,12 +141,20 @@ describe('InvoiceFinalizationService', () => {
 
   it('returns 409 when linked sales order status changed concurrently', async () => {
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
-    tx.invoice.findFirst.mockResolvedValue({
-      id: 'inv-1',
-      status: InvoiceStatus.FINALIZED,
-      items: [],
-      customer: true,
-    });
+    tx.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.DRAFT,
+        items: [],
+        customer: { id: 'customer-1' },
+        vehicle: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.FINALIZED,
+        items: [],
+        customer: true,
+      });
     tx.salesOrder.findFirst.mockResolvedValue({
       status: SalesOrderStatus.COMPLETED,
     });
@@ -129,13 +171,21 @@ describe('InvoiceFinalizationService', () => {
   });
 
   it('throws when finalized invoice cannot be reloaded', async () => {
+    tx.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.DRAFT,
+        items: [],
+        customer: { id: 'customer-1' },
+        vehicle: null,
+      })
+      .mockResolvedValueOnce(null);
     tx.invoice.updateMany.mockResolvedValue({ count: 1 });
-    tx.invoice.findFirst.mockResolvedValue(null);
 
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', {
         id: 'inv-1',
-        sales_order_id: null,
+        sales_order_id: 'so-1',
         status: InvoiceStatus.DRAFT,
         items: [],
       } as never),
@@ -143,6 +193,19 @@ describe('InvoiceFinalizationService', () => {
   });
 
   it('does not transition the invoice when ATP rejects a sale deduction', async () => {
+    tx.invoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: InvoiceStatus.DRAFT,
+      items: [
+        {
+          catalog_item_id: 'catalog-1',
+          description: 'Filter',
+          quantity: 1,
+        },
+      ],
+      customer: { id: 'customer-1' },
+      vehicle: null,
+    });
     tx.inventoryStock.findMany.mockResolvedValue([
       {
         id: 'stock-1',
@@ -159,7 +222,7 @@ describe('InvoiceFinalizationService', () => {
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', {
         id: 'inv-1',
-        sales_order_id: null,
+        sales_order_id: 'so-1',
         status: InvoiceStatus.DRAFT,
         items: [
           {
@@ -173,5 +236,18 @@ describe('InvoiceFinalizationService', () => {
 
     expect(tx.invoice.updateMany).not.toHaveBeenCalled();
     expect(tx.inventoryTransaction.createMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects source-less invoice finalization', async () => {
+    await expect(
+      service.finalizeInTransaction(tx as never, 'tenant-1', {
+        id: 'inv-1',
+        sales_order_id: null,
+        workshop_order_id: null,
+        vehicle_sale_id: null,
+        status: InvoiceStatus.DRAFT,
+        items: [],
+      } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
