@@ -2,7 +2,7 @@
 title: "DATEV Accounting Export"
 date: "2026-09-20"
 module: "Finance"
-status: draft
+status: approved
 linear-project: "https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695"
 linear-milestone: "0 — Spec & ADR; delivery milestone 4"
 tags: [feature-spec, finance, accounting, export]
@@ -12,7 +12,7 @@ tags: [feature-spec, finance, accounting, export]
 
 ## Summary
 
-OWNER/ADMIN users export a complete closed period for one legal entity as a reproducible DATEV Buchungsstapel artifact built from immutable invoice and credit facts. This spec depends on [[legal-invoicing-and-credit-notes]] and [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]]. It defines accounting mappings early enough for milestone 1 snapshots; export delivery is milestone 4. It is a proposal, not a claim that current ACP data or a generated file already passes DATEV validation.
+OWNER/ADMIN users export a complete closed period for one legal entity as a reproducible DATEV Buchungsstapel artifact built from immutable invoice and credit facts. This spec depends on [[legal-invoicing-and-credit-notes]] and [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]]. It defines accounting mappings early enough for milestone 1 snapshots; export delivery is milestone 4. It is the approved baseline, not a claim that current ACP data or a generated file already passes DATEV validation.
 
 ### Scope
 
@@ -69,7 +69,7 @@ Each committed line's `accounting_snapshot` records profile code/version, source
 
 ### Deletion Policy Impact
 
-Profile updates are allowed; no delete API after first use. Export artifacts and audit events are immutable with no ordinary deletion endpoint. Retain exact CSV bytes in Postgres within the 20 MiB/10,000-document run bounds; long-term retention/offload is out of scope and requires an approved policy, never an ad-hoc TTL or cleanup job. Proposed rows are documented in `docs/deletion-policy.md` pending ADR approval.
+Profile updates are allowed; no delete API after first use. Export artifacts and audit events are immutable with no ordinary deletion endpoint. Retain exact CSV bytes in Postgres within the 20 MiB/10,000-document run bounds; long-term retention/offload is out of scope and requires an approved policy, never an ad-hoc TTL or cleanup job. Planned delete rules are documented in `docs/deletion-policy.md` under ADR-0023.
 
 ## Selection, Authorization and Financial Rules
 
@@ -211,7 +211,9 @@ No dashboard entity broadcast for AccountingExport in slice 1: it contains multi
 
 ## Open Questions / Approval Record
 
-The following decisions answer the PR review and define the revised baseline. Draft status remains until final product acceptance; accountant sign-off is not inferred from the review.
+The following decisions answer the PR review and define the revised baseline.
+
+**Product owner acceptance:** 2026-09-20 — Dejan Dosenovic (Product Owner) accepted this spec and [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]] as the AUT-296 Milestone 0 implementation baseline.
 
 | Decision | Selected answer / gate |
 |---|---|
@@ -221,14 +223,14 @@ The following decisions answer the PR review and define the revised baseline. Dr
 | DATEV target and postings | Retain proposed EXTF 700/Buchungsstapel 13, collective debtor, explicit-BU or automatic-tax mapping, and unfixed batch flag. Accountant approval and the official schema/import fixture remain mandatory before enabling the profile. |
 | Tracking | AUT-307 owns backend export; AUT-305 owns UI/audit. Duplicate cleanup is complete; no parallel backend issue remains in the delivery baseline. |
 
-Accountant release evidence must identify the reviewer/date, official schema revision, target importer/version, approved account/BU/debtor settings and a successful import with matching net/tax/gross totals. Until that evidence exists, `is_enabled=false`; no claim of compatibility or sign-off is made by this documentation revision.
+Accountant release evidence must identify the reviewer/date, official schema revision, target importer/version, approved account/BU/debtor settings and a successful import with matching net/tax/gross totals. Until that evidence exists, `is_enabled=false`; no claim of compatibility or sign-off is made by this accepted baseline.
 
 ### Milestone 0 handoff
 
-- [ ] Product owner accepts ADR-0023 and both feature specs; record decisions above.
-- [ ] Documents merged and status changed to accepted/approved with decision date.
+- [x] Product owner accepts ADR-0023 and both feature specs; record decisions above. **2026-09-20 — Dejan Dosenovic (Product Owner).**
+- [x] Documents merged and status changed to accepted/approved with decision date.
 - [ ] Update Linear project's Next section to: “AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), including its accountant-approved mapping prerequisite, then milestones 2 → 3 → 4. AUT-307 + AUT-305 own milestone 4. AUT-306 remains parked; country/DATEV activation gates still apply.” Add merged repository links at that time.
-- [ ] Complete AUT-296 and verify Milestone 0 completion in Linear only after acceptance/merge. No completion is implied by this draft.
+- [ ] Complete AUT-296 and verify Milestone 0 completion in Linear only after acceptance/merge.
 
 ## References
 

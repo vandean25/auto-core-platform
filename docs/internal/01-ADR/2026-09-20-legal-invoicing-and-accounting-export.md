@@ -1,8 +1,8 @@
 ---
 title: "ADR-0023: Legal Invoice Snapshots, Credit Notes and Accounting Export"
 date: "2026-09-20"
-status: proposed
-deciders: "Product Owner; accountant review required for country and DATEV profiles"
+status: accepted
+deciders: "Product Owner (Dejan Dosenovic, 2026-09-20); accountant review required for country and DATEV profiles"
 linear-project: "https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695"
 linear-milestone: "0 — Spec & ADR"
 tags: [adr, finance, sales, invoice]
@@ -12,7 +12,9 @@ tags: [adr, finance, sales, invoice]
 
 ## Status
 
-**Proposed — 2026-09-20.** Documentation for AUT-296, not authorization to implement. ADR-0003, ADR-0004, ADR-0009 and ADR-0022 remain accepted. On acceptance this ADR extends their snapshot/numbering rules and replaces status-only cancellation for newly issued version-2 invoices. It does not retroactively change historical documents.
+**Accepted — 2026-09-20 (Product Owner).** ADR-0023 is the implementation baseline for AUT-296. ADR-0003, ADR-0004, ADR-0009 and ADR-0022 remain accepted. This ADR extends their snapshot/numbering rules and replaces status-only cancellation for newly issued version-2 invoices. It does not retroactively change historical documents.
+
+Accountant-approved mapping fixtures remain a **M1 release gate**; official DATEV schema/import evidence remains a **M4 export activation gate**. Those gates do not block marking this ADR and the linked feature specs accepted.
 
 ## Context
 
@@ -156,11 +158,11 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 
 ## Validation and Approval Gates
 
-- [ ] Product owner accepts both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries.
+- [x] Product owner accepts both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries. **Accepted 2026-09-20 — Dejan Dosenovic (Product Owner).**
 - [ ] Accountant accepts country document fixtures and the export posting profile, including tax keys, debtor convention, polarity and rounding.
 - [ ] DATEV official format version/schema and successful import evidence are pinned before enabling export.
 - [ ] Implementation proves tenant/site isolation, concurrent finalization/credits/lock advancement, exact monetary reconciliation and immutable legacy behavior.
-- [ ] ADR/specs are accepted and merged before AUT-296/Milestone 0 is completed; update the project's Next section only then.
+- [x] ADR/specs are accepted and merged before AUT-296/Milestone 0 is completed; update the project's Next section only then.
 
 ## References
 
@@ -174,5 +176,6 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 | Field | Value |
 |---|---|
 | Project | [Legal Invoicing & Accounting Export](https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695) |
-| Milestone | 0 — Spec & ADR |
+| Milestone | 0 — Spec & ADR (PO accepted 2026-09-20; accountant/DATEV evidence gates remain) |
 | Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296); implementation AUT-297–303, AUT-307 and AUT-305; AUT-306 parked |
+| Next (Linear) | AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), including its accountant-approved mapping prerequisite, then milestones 2 → 3 → 4. AUT-307 + AUT-305 own milestone 4. AUT-306 remains parked; country/DATEV activation gates still apply. |
