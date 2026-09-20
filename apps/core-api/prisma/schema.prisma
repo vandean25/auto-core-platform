@@ -97,6 +97,7 @@ model Tenant {
   partsRequisitionLines    PartsRequisitionLine[]
   activeUsers              User[]                    @relation("UserActiveTenant")
   legalEntities            LegalEntity[]
+  legalEntityAccountingProfiles LegalEntityAccountingProfile[]
   sites                    Site[]
   stockTransfers           StockTransfer[]
   stockTransferLines       StockTransferLine[]
@@ -165,20 +166,63 @@ model PlatformAdmin {
 // ============================================================================
 
 model LegalEntity {
-  id          String             @id @default(uuid())
-  tenant_id   String
-  tenant      Tenant             @relation(fields: [tenant_id], references: [id])
-  name        String
-  country_iso LegalEntityCountry
-  is_active   Boolean            @default(true)
-  sites       Site[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                   String             @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant             @relation(fields: [tenant_id], references: [id])
+  name                 String
+  country_iso          LegalEntityCountry
+  is_active            Boolean            @default(true)
+  address_street       String?
+  address_line2        String?
+  address_zip          String?
+  address_city         String?
+  tax_number           String?
+  vat_id               String?
+  iban                 String?
+  bic                  String?
+  bank_name            String?
+  email                String?
+  phone                String?
+  registration_number  String?
+  registration_court   String?
+  representatives      String?
+  payment_terms_days   Int?
+  payment_terms_text   String?
+  sites                Site[]
+  accountingProfile    LegalEntityAccountingProfile?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, name])
   @@index([tenant_id])
   @@map("legal_entities")
+}
+
+model LegalEntityAccountingProfile {
+  id                      String      @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant      @relation(fields: [tenant_id], references: [id])
+  legal_entity_id         String
+  legal_entity            LegalEntity @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  version                 Int         @default(1)
+  is_enabled              Boolean     @default(false)
+  profile_code            String?
+  format_version          String?
+  chart                   String?
+  account_length          Int?
+  advisor_number          String?
+  client_number           String?
+  fiscal_year_start_month Int?
+  default_debtor_account  String?
+  mapping_rules           Json        @default("[]")
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  @@unique([tenant_id, legal_entity_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@map("legal_entity_accounting_profiles")
 }
 
 model Site {

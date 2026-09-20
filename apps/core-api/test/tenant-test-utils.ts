@@ -474,6 +474,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.workshopOpeningHour.deleteMany({});
   await tenantPrisma.siteMembership.deleteMany({});
   await tenantPrisma.site.deleteMany({});
+  await tenantPrisma.legalEntityAccountingProfile.deleteMany({});
   await tenantPrisma.legalEntity.deleteMany({});
   await tenantPrisma.financeSettings.deleteMany({});
 

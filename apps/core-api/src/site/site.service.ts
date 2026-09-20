@@ -17,6 +17,8 @@ import {
   UpdateLegalEntityDto,
   UpdateSiteDto,
 } from './dto/site.dto.js';
+import { AccountingProfileService } from '../finance/accounting-profile/accounting-profile.service.js';
+import { UpdateAccountingProfileDto } from '../finance/accounting-profile/dto/accounting-profile.dto.js';
 import { LegalEntityService } from './legal-entity.service.js';
 import {
   assertActiveMemberWithSiteAccess,
@@ -58,6 +60,7 @@ type SiteContextUser = {
 export class SiteService {
   private readonly membershipService: SiteMembershipService;
   private readonly legalEntityService: LegalEntityService;
+  private readonly accountingProfileService: AccountingProfileService;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -65,6 +68,7 @@ export class SiteService {
     private readonly dashboardRealtime: DashboardRealtimeService,
     @Optional() membershipService?: SiteMembershipService,
     @Optional() legalEntityService?: LegalEntityService,
+    @Optional() accountingProfileService?: AccountingProfileService,
   ) {
     this.membershipService =
       membershipService ??
@@ -76,6 +80,9 @@ export class SiteService {
     this.legalEntityService =
       legalEntityService ??
       new LegalEntityService(this.prisma, this.tenantContext);
+    this.accountingProfileService =
+      accountingProfileService ??
+      new AccountingProfileService(this.prisma, this.tenantContext);
   }
 
   // ---------------------------------------------------------------------------
@@ -91,6 +98,10 @@ export class SiteService {
     return this.legalEntityService.listLegalEntities(includeInactive);
   }
 
+  async getLegalEntity(id: string) {
+    return this.legalEntityService.getLegalEntity(id);
+  }
+
   async createLegalEntity(dto: CreateLegalEntityDto) {
     return this.legalEntityService.createLegalEntity(dto);
   }
@@ -101,6 +112,20 @@ export class SiteService {
 
   async deleteLegalEntity(id: string) {
     return this.legalEntityService.deleteLegalEntity(id);
+  }
+
+  async getAccountingProfile(legalEntityId: string) {
+    return this.accountingProfileService.getAccountingProfile(legalEntityId);
+  }
+
+  async updateAccountingProfile(
+    legalEntityId: string,
+    dto: UpdateAccountingProfileDto,
+  ) {
+    return this.accountingProfileService.updateAccountingProfile(
+      legalEntityId,
+      dto,
+    );
   }
 
   // ---------------------------------------------------------------------------

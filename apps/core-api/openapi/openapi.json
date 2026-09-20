@@ -6342,7 +6342,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LegalEntityResponseDto"
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "List legal entities (OWNER/ADMIN, includes inactive by default)",
@@ -6364,8 +6374,15 @@
           }
         },
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Create a legal entity (OWNER/ADMIN)",
@@ -6374,7 +6391,106 @@
         ]
       }
     },
+    "/api/legal-entities/{id}/accounting-profile": {
+      "get": {
+        "operationId": "LegalEntityController_getAccountingProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get accounting profile for a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "patch": {
+        "operationId": "LegalEntityController_updateAccountingProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountingProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update accounting profile for a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
     "/api/legal-entities/{id}": {
+      "get": {
+        "operationId": "LegalEntityController_getLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
       "patch": {
         "operationId": "LegalEntityController_updateLegalEntity",
         "parameters": [
@@ -6399,7 +6515,14 @@
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Update a legal entity (OWNER/ADMIN)",
@@ -15294,6 +15417,363 @@
           "id"
         ]
       },
+      "LegalEntitySellerReadinessDto": {
+        "type": "object",
+        "properties": {
+          "is_ready": {
+            "type": "boolean"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "is_ready",
+          "missing_fields"
+        ]
+      },
+      "LegalEntityResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "country_iso": {
+            "type": "string",
+            "enum": [
+              "AT",
+              "DE"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "address_street": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_line2": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_city": {
+            "type": "string",
+            "nullable": true
+          },
+          "tax_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "vat_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "iban": {
+            "type": "string",
+            "nullable": true
+          },
+          "bic": {
+            "type": "string",
+            "nullable": true
+          },
+          "bank_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "registration_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "registration_court": {
+            "type": "string",
+            "nullable": true
+          },
+          "representatives": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_terms_days": {
+            "type": "number",
+            "nullable": true
+          },
+          "payment_terms_text": {
+            "type": "string",
+            "nullable": true
+          },
+          "seller_readiness": {
+            "$ref": "#/components/schemas/LegalEntitySellerReadinessDto"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "country_iso",
+          "is_active",
+          "seller_readiness"
+        ]
+      },
+      "AccountingMappingRuleDto": {
+        "type": "object",
+        "properties": {
+          "sourceCategoryKey": {
+            "type": "string"
+          },
+          "sourceCategoryLabel": {
+            "type": "string"
+          },
+          "taxMode": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "MARGIN_SCHEME"
+            ]
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "revenueAccount": {
+            "type": "string"
+          },
+          "taxTreatment": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual_bu"
+            ]
+          },
+          "buKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "sourceCategoryKey",
+          "sourceCategoryLabel",
+          "taxMode",
+          "taxRate",
+          "revenueAccount",
+          "taxTreatment"
+        ]
+      },
+      "SourceCategoryDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "taxMode": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "MARGIN_SCHEME"
+            ]
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "suggestedRevenueAccount": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "taxMode",
+          "taxRate"
+        ]
+      },
+      "AccountingProfileReadinessDto": {
+        "type": "object",
+        "properties": {
+          "is_ready": {
+            "type": "boolean"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unmapped_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "is_ready",
+          "missing_fields",
+          "unmapped_categories"
+        ]
+      },
+      "AccountingProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "legal_entity_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "profile_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "format_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "chart": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "advisor_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "client_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "fiscal_year_start_month": {
+            "type": "number",
+            "nullable": true
+          },
+          "default_debtor_account": {
+            "type": "string",
+            "nullable": true
+          },
+          "mapping_rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingMappingRuleDto"
+            }
+          },
+          "required_source_categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCategoryDefinitionDto"
+            }
+          },
+          "mapping_readiness": {
+            "$ref": "#/components/schemas/AccountingProfileReadinessDto"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "legal_entity_id",
+          "version",
+          "is_enabled",
+          "mapping_rules",
+          "required_source_categories",
+          "mapping_readiness"
+        ]
+      },
+      "UpdateAccountingProfileDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "description": "Optimistic-lock version from the last GET response"
+          },
+          "profileCode": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "formatVersion": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "chart": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "accountLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 8
+          },
+          "advisorNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "clientNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "fiscalYearStartMonth": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 12
+          },
+          "defaultDebtorAccount": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 16
+          },
+          "mappingRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingMappingRuleDto"
+            }
+          },
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Gates DATEV CSV export only; does not affect invoice issuance readiness"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
       "CreateLegalEntityDto": {
         "type": "object",
         "properties": {
@@ -15323,6 +15803,72 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "addressStreet": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "addressLine2": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "addressZip": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "addressCity": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "taxNumber": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "vatId": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "iban": {
+            "type": "string",
+            "maxLength": 34
+          },
+          "bic": {
+            "type": "string",
+            "maxLength": 11
+          },
+          "bankName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 254
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "registrationNumber": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "registrationCourt": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "representatives": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "paymentTermsDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "paymentTermsText": {
+            "type": "string",
+            "maxLength": 1000
           }
         }
       },

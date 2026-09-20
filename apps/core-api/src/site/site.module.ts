@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { AccountingProfileService } from '../finance/accounting-profile/accounting-profile.service.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { LegalEntityService } from './legal-entity.service.js';
 import {
@@ -23,12 +24,14 @@ import { SiteService } from './site.service.js';
     SiteService,
     SiteContextService,
     LegalEntityService,
+    AccountingProfileService,
     SiteMembershipService,
   ],
   exports: [
     SiteService,
     SiteContextService,
     LegalEntityService,
+    AccountingProfileService,
     SiteMembershipService,
   ],
 })

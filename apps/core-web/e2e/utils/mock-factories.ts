@@ -691,6 +691,156 @@ export const createMockStockTransfer = (
   ...overrides,
 });
 
+type MockLegalEntity = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  country_iso: 'AT' | 'DE';
+  is_active: boolean;
+  address_street: string | null;
+  address_line2: string | null;
+  address_zip: string | null;
+  address_city: string | null;
+  tax_number: string | null;
+  vat_id: string | null;
+  iban: string | null;
+  bic: string | null;
+  bank_name: string | null;
+  email: string | null;
+  phone: string | null;
+  registration_number: string | null;
+  registration_court: string | null;
+  representatives: string | null;
+  payment_terms_days: number | null;
+  payment_terms_text: string | null;
+  seller_readiness: {
+    is_ready: boolean;
+    missing_fields: string[];
+  };
+};
+
+type MockAccountingProfile = {
+  id: string;
+  tenant_id: string;
+  legal_entity_id: string;
+  version: number;
+  is_enabled: boolean;
+  profile_code: string | null;
+  format_version: string | null;
+  chart: string | null;
+  account_length: number | null;
+  advisor_number: string | null;
+  client_number: string | null;
+  fiscal_year_start_month: number | null;
+  default_debtor_account: string | null;
+  mapping_rules: Array<{
+    sourceCategoryKey: string;
+    sourceCategoryLabel: string;
+    taxMode: 'STANDARD' | 'MARGIN_SCHEME';
+    taxRate: string;
+    revenueAccount: string;
+    taxTreatment: 'automatic' | 'manual_bu';
+    buKey?: string | null;
+  }>;
+  required_source_categories: Array<{
+    key: string;
+    label: string;
+    taxMode: 'STANDARD' | 'MARGIN_SCHEME';
+    taxRate: string;
+    suggestedRevenueAccount: string | null;
+  }>;
+  mapping_readiness: {
+    is_ready: boolean;
+    missing_fields: string[];
+    unmapped_categories: string[];
+  };
+};
+
+export const createMockAccountingProfile = (
+  overrides: Partial<MockAccountingProfile> = {},
+): MockAccountingProfile => ({
+  id: 'accounting-profile-1',
+  tenant_id: 'tenant-1',
+  legal_entity_id: 'legal-entity-1',
+  version: 1,
+  is_enabled: false,
+  profile_code: null,
+  format_version: null,
+  chart: null,
+  account_length: null,
+  advisor_number: null,
+  client_number: null,
+  fiscal_year_start_month: null,
+  default_debtor_account: null,
+  mapping_rules: [],
+  required_source_categories: [
+    {
+      key: 'labor',
+      label: 'Labor / workshop services',
+      taxMode: 'STANDARD',
+      taxRate: '20.00',
+      suggestedRevenueAccount: null,
+    },
+    {
+      key: 'manual_line',
+      label: 'Manual invoice lines',
+      taxMode: 'STANDARD',
+      taxRate: '20.00',
+      suggestedRevenueAccount: null,
+    },
+    {
+      key: 'vehicle_margin',
+      label: 'Vehicle margin scheme',
+      taxMode: 'MARGIN_SCHEME',
+      taxRate: '0.00',
+      suggestedRevenueAccount: null,
+    },
+  ],
+  mapping_readiness: {
+    is_ready: false,
+    missing_fields: [
+      'advisor_number',
+      'client_number',
+      'account_length',
+      'default_debtor_account',
+      'mapping_rules',
+    ],
+    unmapped_categories: ['labor', 'manual_line', 'vehicle_margin'],
+  },
+  ...overrides,
+});
+
+export const createMockLegalEntity = (
+  overrides: Partial<MockLegalEntity> = {},
+): MockLegalEntity => ({
+  id: 'legal-entity-1',
+  tenant_id: 'tenant-1',
+  name: 'Example GmbH',
+  country_iso: 'AT',
+  is_active: true,
+  address_street: 'Hauptstraße 1',
+  address_line2: null,
+  address_zip: '1010',
+  address_city: 'Wien',
+  tax_number: null,
+  vat_id: null,
+  iban: null,
+  bic: null,
+  bank_name: null,
+  email: null,
+  phone: null,
+  registration_number: null,
+  registration_court: null,
+  representatives: null,
+  payment_terms_days: null,
+  payment_terms_text: null,
+  seller_readiness: {
+    is_ready: false,
+    missing_fields: ['vat_id', 'payment_terms'],
+  },
+  ...overrides,
+});
+
 export const createMockListResponse = <T>(items: T[], total = items.length) => {
   const totalPages = Math.ceil(total / 10);
 

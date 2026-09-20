@@ -15,8 +15,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  AccountingProfileResponseDto,
+  UpdateAccountingProfileDto,
+} from '../finance/accounting-profile/dto/accounting-profile.dto.js';
+import {
   ActiveSiteResponseDto,
   CreateLegalEntityDto,
+  LegalEntityResponseDto,
   UpdateLegalEntityDto,
   CreateSiteDto,
   CreateSiteMembershipDto,
@@ -36,20 +41,51 @@ export class LegalEntityController {
     summary: 'List legal entities (OWNER/ADMIN, includes inactive by default)',
   })
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
+  @ApiOkResponse({ type: [LegalEntityResponseDto] })
   listLegalEntities(@Query('includeInactive') includeInactive?: string) {
     // Ruling 53: GET /api/legal-entities includes inactive entities unless the
     // caller explicitly hides them with includeInactive=false.
     return this.siteService.listLegalEntities(includeInactive !== 'false');
   }
 
+  @Get(':id/accounting-profile')
+  @ApiOperation({
+    summary: 'Get accounting profile for a legal entity (OWNER/ADMIN)',
+  })
+  @ApiOkResponse({ type: AccountingProfileResponseDto })
+  getAccountingProfile(@Param('id') id: string) {
+    return this.siteService.getAccountingProfile(id);
+  }
+
+  @Patch(':id/accounting-profile')
+  @ApiOperation({
+    summary: 'Update accounting profile for a legal entity (OWNER/ADMIN)',
+  })
+  @ApiOkResponse({ type: AccountingProfileResponseDto })
+  updateAccountingProfile(
+    @Param('id') id: string,
+    @Body() dto: UpdateAccountingProfileDto,
+  ) {
+    return this.siteService.updateAccountingProfile(id, dto);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a legal entity (OWNER/ADMIN)' })
+  @ApiOkResponse({ type: LegalEntityResponseDto })
+  getLegalEntity(@Param('id') id: string) {
+    return this.siteService.getLegalEntity(id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create a legal entity (OWNER/ADMIN)' })
+  @ApiOkResponse({ type: LegalEntityResponseDto })
   createLegalEntity(@Body() dto: CreateLegalEntityDto) {
     return this.siteService.createLegalEntity(dto);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a legal entity (OWNER/ADMIN)' })
+  @ApiOkResponse({ type: LegalEntityResponseDto })
   updateLegalEntity(
     @Param('id') id: string,
     @Body() dto: UpdateLegalEntityDto,
