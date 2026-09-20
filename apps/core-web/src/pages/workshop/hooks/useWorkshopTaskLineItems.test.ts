@@ -202,15 +202,15 @@ describe('useWorkshopTaskLineItems', () => {
     })
 
     it('defaults expectedLineItemsVersion to 0 when task has no version', async () => {
-      const tasksWithoutVersion: WorkshopTask[] = [
+      const tasksWithoutVersion = [
         {
           id: 'task-1',
           title: 'Task 1',
-          status: 'IN_PROGRESS',
+          status: 'IN_PROGRESS' as const,
           done: false,
           lineItems: [],
         },
-      ]
+      ] as unknown as WorkshopTask[]
 
       const { result } = renderHook(() =>
         useWorkshopTaskLineItems({
