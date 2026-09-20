@@ -345,8 +345,12 @@ export class SalesOrderService {
     // 2. Create Invoice in Transaction
     const invoice = await this.prisma.$transaction(async (tx) => {
       try {
+        const orderSiteId = assertPersistedSiteId(
+          order.site_id,
+          'Sales order site ownership is required',
+        );
         const site = await tx.site.findFirst({
-          where: { id: order.site_id, tenant_id: tenantId },
+          where: { id: orderSiteId, tenant_id: tenantId },
           select: { id: true, legal_entity_id: true },
         });
         if (!site) {

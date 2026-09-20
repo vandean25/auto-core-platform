@@ -26,6 +26,7 @@ import {
 } from '../common/utils/status-transition.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
+import { assertPersistedSiteId } from '../site/document-retarget.helpers.js';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -177,8 +178,12 @@ export class InvoicesService {
             'Workshop order has no customer to invoice',
           );
         }
+        const orderSiteId = assertPersistedSiteId(
+          order.site_id,
+          'Workshop order site ownership is required',
+        );
         const site = await tx.site.findFirst({
-          where: { id: order.site_id, tenant_id: tenantId },
+          where: { id: orderSiteId, tenant_id: tenantId },
           select: { id: true, legal_entity_id: true },
         });
         if (!site) {
