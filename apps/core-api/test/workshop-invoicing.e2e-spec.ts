@@ -11,6 +11,7 @@ import {
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
+import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Workshop Invoicing (e2e)', () => {
@@ -35,6 +36,7 @@ describe('Workshop Invoicing (e2e)', () => {
     const testTenant = await createTestTenant(prisma);
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
+    await seedReadySellerAndAccountingProfile(prisma, testTenant.tenantId);
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
@@ -55,6 +57,10 @@ describe('Workshop Invoicing (e2e)', () => {
         last_name: 'Customer',
         email: `workshop-${Date.now()}@example.com`,
         type: 'PRIVATE',
+        address_street: 'Werkstattstraße 1',
+        address_zip: '1010',
+        address_city: 'Wien',
+        address_country: 'AT',
       },
     });
     customerId = customer.id;

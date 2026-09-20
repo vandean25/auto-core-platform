@@ -38,6 +38,8 @@ describe('FinanceModule (e2e)', () => {
     await prisma.inventoryStock.deleteMany();
     await prisma.invoiceItem.deleteMany();
     await prisma.invoice.deleteMany();
+    await prisma.salesOrderItem.deleteMany();
+    await prisma.salesOrder.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.catalogItem.deleteMany();
     await prisma.revenueGroup.deleteMany();
@@ -103,7 +105,7 @@ describe('FinanceModule (e2e)', () => {
       .expect(403);
   });
 
-  it('Revenue Group Snapshot - Create Invoice Draft', async () => {
+  it('Revenue Group Snapshot - Create Invoice Draft from sales order', async () => {
     const revenueGroupName = `E2E Test Parts 20% ${Date.now()}`;
 
     // 1. Setup Test Data (Self-contained)
@@ -140,25 +142,60 @@ describe('FinanceModule (e2e)', () => {
       },
     });
 
-    // 2. Create invoice draft
+    const orderRes = await request(app.getHttpServer())
+      .post('/sales-orders')
+      .set('Authorization', authHeader)
+      .send({
+        customer_id: customer.id,
+        items: [
+          {
+            catalog_item_id: catalogItem.id,
+            description: 'Snapshot Item',
+            quantity: 1,
+            unit_price: 100,
+            tax_rate: 0,
+          },
+        ],
+      })
+      .expect(201);
+
+    await prisma.salesOrder.updateMany({
+      where: { id: orderRes.body.id },
+      data: { status: 'CONFIRMED' },
+    });
+
     const response = await request(app.getHttpServer())
+      .post(`/sales-orders/${orderRes.body.id}/create-invoice`)
+      .set('Authorization', authHeader)
+      .expect(201);
+
+    expect(response.body.items[0].revenue_group_name).toBe('Sales');
+    expect(Number(response.body.items[0].tax_rate)).toBe(20);
+  });
+
+  it('rejects source-less sales invoice draft creation', async () => {
+    const customer = await prisma.customer.create({
+      data: {
+        first_name: 'Blocked',
+        last_name: 'Draft',
+        email: `blocked-${Date.now()}@test.com`,
+      },
+    });
+
+    await request(app.getHttpServer())
       .post('/sales/invoices')
       .set('Authorization', authHeader)
       .send({
         customerId: customer.id,
         items: [
           {
-            catalogItemId: catalogItem.id,
-            description: 'Snapshot Item',
+            description: 'Manual line',
             quantity: 1,
             unitPrice: 100,
-            taxRate: 0, // Should be overridden by revenue group
+            taxRate: 20,
           },
         ],
       })
-      .expect(201);
-
-    expect(response.body.items[0].revenue_group_name).toBe(revGroup.name);
-    expect(Number(response.body.items[0].tax_rate)).toBe(20);
+      .expect(400);
   });
 });
