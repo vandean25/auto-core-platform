@@ -44,8 +44,11 @@ function makeQueueItem(overrides: Partial<MechanicQueueItem> = {}): MechanicQueu
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
   fn as unknown as ReturnType<typeof vi.fn>
 
-function createQueryMock<T>(data: T) {
-  return { data, isLoading: false, refetch: vi.fn() }
+function createQueryMock<T>(
+  data: T,
+  overrides: Record<string, unknown> = {},
+) {
+  return { data, isLoading: false, error: null, refetch: vi.fn(), ...overrides }
 }
 
 function createClockQueryMock(
@@ -153,6 +156,39 @@ describe('MechanicQueuePage', () => {
       expect(screen.getByText('My Queue')).toBeInTheDocument()
       expect(screen.getByText('No tasks assigned')).toBeInTheDocument()
       expect(screen.getByText('Jobs you are assigned appear here.')).toBeInTheDocument()
+    })
+
+    it('shows a mechanic profile error when identity resolution returns 404', () => {
+      const identityError = Object.assign(new Error('Mechanic profile missing'), {
+        status: 404,
+      })
+      asMock(mechanicApi.useMechanicQueue).mockReturnValue(
+        createQueryMock(undefined, { data: undefined, error: identityError }),
+      )
+      asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock())
+      asMock(hrApi.usePunchClock).mockReturnValue(createPunchMutationMock())
+
+      renderQueuePage()
+
+      expect(screen.getByText('Mechanic profile not linked')).toBeInTheDocument()
+      expect(screen.queryByText('No tasks assigned')).not.toBeInTheDocument()
+    })
+
+    it('shows a retryable error when the queue request fails for other reasons', () => {
+      const serverError = Object.assign(new Error('Queue service unavailable'), {
+        status: 500,
+      })
+      asMock(mechanicApi.useMechanicQueue).mockReturnValue(
+        createQueryMock(undefined, { data: undefined, error: serverError }),
+      )
+      asMock(hrApi.useHrMeClock).mockReturnValue(createClockQueryMock())
+      asMock(hrApi.usePunchClock).mockReturnValue(createPunchMutationMock())
+
+      renderQueuePage()
+
+      expect(screen.getByText('Could not load your queue')).toBeInTheDocument()
+      expect(screen.getByText('Queue service unavailable')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
     })
 
     it('shows multiple tasks in the queue', () => {
