@@ -51,9 +51,7 @@ export function revenueGroupSourceCategoryKey(revenueGroupId: number): string {
   return `revenue_group:${revenueGroupId}`;
 }
 
-export function parseRevenueGroupSourceCategoryKey(
-  key: string,
-): number | null {
+export function parseRevenueGroupSourceCategoryKey(key: string): number | null {
   const match = /^revenue_group:(\d+)$/.exec(key);
   return match ? Number.parseInt(match[1], 10) : null;
 }

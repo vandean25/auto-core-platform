@@ -26,7 +26,11 @@ export class AccountingProfileService {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const entity = await this.findLegalEntity(tenantId, legalEntityId);
-    const profile = await this.ensureProfile(tenantId, entity.id, entity.country_iso);
+    const profile = await this.ensureProfile(
+      tenantId,
+      entity.id,
+      entity.country_iso,
+    );
     const revenueGroups = await this.loadRevenueGroups(tenantId);
 
     return toAccountingProfileResponse(
@@ -43,7 +47,11 @@ export class AccountingProfileService {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const entity = await this.findLegalEntity(tenantId, legalEntityId);
-    const existing = await this.ensureProfile(tenantId, entity.id, entity.country_iso);
+    const existing = await this.ensureProfile(
+      tenantId,
+      entity.id,
+      entity.country_iso,
+    );
 
     if (existing.version !== dto.expectedVersion) {
       throw new ConflictException(

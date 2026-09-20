@@ -1,7 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   type AccountingMappingRule,
-  type AccountingTaxTreatment,
   DEFAULT_DE_PROFILE_CODE,
   DEFAULT_FORMAT_VERSION,
 } from './accounting-profile.types.js';
@@ -16,13 +15,28 @@ export function normalizeOptionalString(
   return trimmed.length === 0 ? null : trimmed;
 }
 
+function requireStringField(
+  value: unknown,
+  field: string,
+  index: number,
+): string {
+  if (typeof value !== 'string') {
+    throw new BadRequestException(
+      `mappingRules[${index}].${field} must be a string`,
+    );
+  }
+  return value;
+}
+
 function assertMaxLength(
   field: string,
   value: string | null,
   maxLength: number,
 ): void {
   if (value !== null && value.length > maxLength) {
-    throw new BadRequestException(`${field} must be at most ${maxLength} characters`);
+    throw new BadRequestException(
+      `${field} must be at most ${maxLength} characters`,
+    );
   }
 }
 
@@ -75,12 +89,20 @@ function parseMappingRules(value: unknown): AccountingMappingRule[] {
     }
 
     return {
-      sourceCategoryKey: String(rule.sourceCategoryKey ?? ''),
-      sourceCategoryLabel: String(rule.sourceCategoryLabel ?? ''),
+      sourceCategoryKey: requireStringField(
+        rule.sourceCategoryKey,
+        'sourceCategoryKey',
+        index,
+      ),
+      sourceCategoryLabel: requireStringField(
+        rule.sourceCategoryLabel,
+        'sourceCategoryLabel',
+        index,
+      ),
       taxMode,
-      taxRate: String(rule.taxRate ?? ''),
+      taxRate: requireStringField(rule.taxRate, 'taxRate', index),
       revenueAccount,
-      taxTreatment: taxTreatment as AccountingTaxTreatment,
+      taxTreatment,
       buKey: taxTreatment === 'manual_bu' ? buKey : null,
     };
   });

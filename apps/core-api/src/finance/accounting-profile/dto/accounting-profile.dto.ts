@@ -47,7 +47,9 @@ export class AccountingMappingRuleDto {
 }
 
 export class UpdateAccountingProfileDto {
-  @ApiProperty({ description: 'Optimistic-lock version from the last GET response' })
+  @ApiProperty({
+    description: 'Optimistic-lock version from the last GET response',
+  })
   @IsInt()
   @Min(1)
   expectedVersion!: number;
@@ -89,7 +91,12 @@ export class UpdateAccountingProfileDto {
   @MaxLength(32)
   clientNumber?: string | null;
 
-  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 1, maximum: 12 })
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 12,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -110,7 +117,8 @@ export class UpdateAccountingProfileDto {
   mappingRules?: AccountingMappingRuleDto[];
 
   @ApiPropertyOptional({
-    description: 'Gates DATEV CSV export only; does not affect invoice issuance readiness',
+    description:
+      'Gates DATEV CSV export only; does not affect invoice issuance readiness',
   })
   @IsOptional()
   @IsBoolean()
