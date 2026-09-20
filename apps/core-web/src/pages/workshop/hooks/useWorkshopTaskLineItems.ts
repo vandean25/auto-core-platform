@@ -1,12 +1,17 @@
 import { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useReplaceWorkshopTaskLineItems } from '@/api/workshop'
+import {
+  useReplaceWorkshopTaskLineItems,
+  workshopKeys,
+  type ReplaceWorkshopTaskLineItemPayload,
+} from '@/api/workshop'
 import type {
   WorkshopLineItemType,
   WorkshopTask,
   WorkshopTaskLineItem,
 } from '@/api/types'
-import { getErrorMessage } from '../utils/error'
+import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 
 export interface TaskLineItemInput {
   id?: string
@@ -39,9 +44,16 @@ export function buildUiLineItems(
   }))
 }
 
-export function buildApiLineItemsPayload(items: TaskLineItemInput[]) {
+function isClientTempLineItemId(id: string): boolean {
+  return id.startsWith('tmp-') || id.startsWith('li-')
+}
+
+export function buildApiLineItemsPayload(
+  items: TaskLineItemInput[],
+): ReplaceWorkshopTaskLineItemPayload[] {
   return items.map(
     ({
+      id,
       type,
       itemNo,
       description,
@@ -51,17 +63,25 @@ export function buildApiLineItemsPayload(items: TaskLineItemInput[]) {
       standardAw,
       actualHours,
       internalCostRate,
-    }) => ({
-      type,
-      itemNo,
-      description,
-      qty,
-      unitPrice,
-      laborOperationId,
-      standardAw: standardAw ?? null,
-      actualHours: actualHours ?? null,
-      internalCostRate: internalCostRate ?? null,
-    }),
+    }) => {
+      const payload: ReplaceWorkshopTaskLineItemPayload = {
+        type,
+        itemNo,
+        description,
+        qty,
+        unitPrice,
+        laborOperationId,
+        standardAw: standardAw ?? null,
+        actualHours: actualHours ?? null,
+        internalCostRate: internalCostRate ?? null,
+      }
+
+      if (id && !isClientTempLineItemId(id)) {
+        payload.id = id
+      }
+
+      return payload
+    },
   )
 }
 
@@ -76,11 +96,20 @@ export function useWorkshopTaskLineItems({
   isLocked,
   getTasks,
 }: UseWorkshopTaskLineItemsOptions) {
+  const queryClient = useQueryClient()
   const replaceTaskLineItems = useReplaceWorkshopTaskLineItems()
   const [taskLineItemOverrides, setTaskLineItemOverrides] = useState<
     Record<string, WorkshopTask['lineItems']>
   >({})
   const lineItemSaveSeq = useRef<Record<string, number>>({})
+
+  const clearTaskOverride = (taskId: string) => {
+    setTaskLineItemOverrides((previous) => {
+      const next = { ...previous }
+      delete next[taskId]
+      return next
+    })
+  }
 
   const handleTaskLineItemsChange = async (
     taskId: string,
@@ -92,8 +121,9 @@ export function useWorkshopTaskLineItems({
     lineItemSaveSeq.current[taskId] = saveSeq
 
     const currentTasks = getTasks?.() ?? []
-    const previousItems =
-      currentTasks.find((task) => task.id === taskId)?.lineItems ?? []
+    const currentTask = currentTasks.find((task) => task.id === taskId)
+    const previousItems = currentTask?.lineItems ?? []
+    const expectedLineItemsVersion = currentTask?.lineItemsVersion ?? 0
     const nextItemsForUi = buildUiLineItems(taskId, items)
 
     setTaskLineItemOverrides((previous) => ({
@@ -105,24 +135,41 @@ export function useWorkshopTaskLineItems({
       await replaceTaskLineItems.mutateAsync({
         orderId,
         taskId,
+        expectedLineItemsVersion,
         items: buildApiLineItemsPayload(items),
       })
 
       if (lineItemSaveSeq.current[taskId] !== saveSeq) return
 
-      setTaskLineItemOverrides((previous) => {
-        const next = { ...previous }
-        delete next[taskId]
-        return next
-      })
+      clearTaskOverride(taskId)
     } catch (error: unknown) {
       if (lineItemSaveSeq.current[taskId] !== saveSeq) return
+
+      const status = getErrorStatus(error)
+
+      if (status === 409) {
+        clearTaskOverride(taskId)
+        await queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
+        toast.error(
+          getErrorMessage(
+            error,
+            'This order was updated by another user. Data was refreshed — please review and try again.',
+          ),
+        )
+        return
+      }
 
       setTaskLineItemOverrides((previous) => ({
         ...previous,
         [taskId]: previousItems,
       }))
-      toast.error(getErrorMessage(error, 'Failed to update task line items'))
+
+      const fallbackMessage =
+        status === 400
+          ? 'Invalid line items. Check quantities and try again.'
+          : 'Failed to update task line items'
+
+      toast.error(getErrorMessage(error, fallbackMessage))
     }
   }
 
