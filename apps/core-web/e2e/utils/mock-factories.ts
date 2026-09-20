@@ -719,6 +719,97 @@ type MockLegalEntity = {
   };
 };
 
+type MockAccountingProfile = {
+  id: string;
+  tenant_id: string;
+  legal_entity_id: string;
+  version: number;
+  is_enabled: boolean;
+  profile_code: string | null;
+  format_version: string | null;
+  chart: string | null;
+  account_length: number | null;
+  advisor_number: string | null;
+  client_number: string | null;
+  fiscal_year_start_month: number | null;
+  default_debtor_account: string | null;
+  mapping_rules: Array<{
+    sourceCategoryKey: string;
+    sourceCategoryLabel: string;
+    taxMode: 'STANDARD' | 'MARGIN_SCHEME';
+    taxRate: string;
+    revenueAccount: string;
+    taxTreatment: 'automatic' | 'manual_bu';
+    buKey?: string | null;
+  }>;
+  required_source_categories: Array<{
+    key: string;
+    label: string;
+    taxMode: 'STANDARD' | 'MARGIN_SCHEME';
+    taxRate: string;
+    suggestedRevenueAccount: string | null;
+  }>;
+  mapping_readiness: {
+    is_ready: boolean;
+    missing_fields: string[];
+    unmapped_categories: string[];
+  };
+};
+
+export const createMockAccountingProfile = (
+  overrides: Partial<MockAccountingProfile> = {},
+): MockAccountingProfile => ({
+  id: 'accounting-profile-1',
+  tenant_id: 'tenant-1',
+  legal_entity_id: 'legal-entity-1',
+  version: 1,
+  is_enabled: false,
+  profile_code: null,
+  format_version: null,
+  chart: null,
+  account_length: null,
+  advisor_number: null,
+  client_number: null,
+  fiscal_year_start_month: null,
+  default_debtor_account: null,
+  mapping_rules: [],
+  required_source_categories: [
+    {
+      key: 'labor',
+      label: 'Labor / workshop services',
+      taxMode: 'STANDARD',
+      taxRate: '20.00',
+      suggestedRevenueAccount: null,
+    },
+    {
+      key: 'manual_line',
+      label: 'Manual invoice lines',
+      taxMode: 'STANDARD',
+      taxRate: '20.00',
+      suggestedRevenueAccount: null,
+    },
+    {
+      key: 'vehicle_margin',
+      label: 'Vehicle margin scheme',
+      taxMode: 'MARGIN_SCHEME',
+      taxRate: '0.00',
+      suggestedRevenueAccount: null,
+    },
+  ],
+  mapping_readiness: {
+    is_ready: false,
+    missing_fields: [
+      'advisor_number',
+      'client_number',
+      'account_length',
+      'default_debtor_account',
+      'mapping_rules',
+    ],
+    unmapped_categories: ['labor', 'manual_line', 'vehicle_margin'],
+  },
+  ...overrides,
+});
+
 export const createMockLegalEntity = (
   overrides: Partial<MockLegalEntity> = {},
 ): MockLegalEntity => ({

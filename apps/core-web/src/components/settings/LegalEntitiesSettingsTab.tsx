@@ -3,10 +3,16 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
+  type AccountingMappingRule,
+  type AccountingProfileRecord,
   type LegalEntityRecord,
+  type SourceCategoryDefinition,
+  type UpdateAccountingProfilePayload,
   type UpdateLegalEntityPayload,
+  useAccountingProfile,
   useCreateLegalEntity,
   useLegalEntities,
+  useUpdateAccountingProfile,
   useUpdateLegalEntity,
 } from '@/api/site-admin'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
@@ -21,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -122,6 +129,451 @@ function formatMissingField(field: string, countryIso: 'AT' | 'DE') {
     default:
       return field.replaceAll('_', ' ')
   }
+}
+
+type ProfileFormState = {
+  advisorNumber: string
+  clientNumber: string
+  accountLength: string
+  defaultDebtorAccount: string
+  fiscalYearStartMonth: string
+  chart: string
+  profileCode: string
+  formatVersion: string
+  isEnabled: boolean
+  mappingRules: AccountingMappingRule[]
+}
+
+function toProfileFormState(profile: AccountingProfileRecord): ProfileFormState {
+  return {
+    advisorNumber: profile.advisor_number ?? '',
+    clientNumber: profile.client_number ?? '',
+    accountLength:
+      profile.account_length === null ? '' : String(profile.account_length),
+    defaultDebtorAccount: profile.default_debtor_account ?? '',
+    fiscalYearStartMonth:
+      profile.fiscal_year_start_month === null
+        ? ''
+        : String(profile.fiscal_year_start_month),
+    chart: profile.chart ?? '',
+    profileCode: profile.profile_code ?? '',
+    formatVersion: profile.format_version ?? '',
+    isEnabled: profile.is_enabled,
+    mappingRules: profile.mapping_rules,
+  }
+}
+
+function findMappingRule(
+  rules: AccountingMappingRule[],
+  category: SourceCategoryDefinition,
+): AccountingMappingRule | undefined {
+  return rules.find(
+    (rule) =>
+      rule.sourceCategoryKey === category.key &&
+      rule.taxMode === category.taxMode &&
+      rule.taxRate === category.taxRate,
+  )
+}
+
+function upsertMappingRule(
+  rules: AccountingMappingRule[],
+  category: SourceCategoryDefinition,
+  updates: Partial<AccountingMappingRule>,
+): AccountingMappingRule[] {
+  const existing = findMappingRule(rules, category)
+  const nextRule: AccountingMappingRule = {
+    sourceCategoryKey: category.key,
+    sourceCategoryLabel: category.label,
+    taxMode: category.taxMode,
+    taxRate: category.taxRate,
+    revenueAccount: existing?.revenueAccount ?? category.suggestedRevenueAccount ?? '',
+    taxTreatment: existing?.taxTreatment ?? 'automatic',
+    buKey: existing?.buKey ?? null,
+    ...updates,
+  }
+
+  const withoutCurrent = rules.filter(
+    (rule) =>
+      !(
+        rule.sourceCategoryKey === category.key &&
+        rule.taxMode === category.taxMode &&
+        rule.taxRate === category.taxRate
+      ),
+  )
+
+  return [...withoutCurrent, nextRule]
+}
+
+function buildProfileUpdatePayload(
+  legalEntityId: string,
+  version: number,
+  form: ProfileFormState,
+): UpdateAccountingProfilePayload {
+  const accountLength =
+    form.accountLength.trim() === '' ? null : Number.parseInt(form.accountLength, 10)
+  const fiscalYearStartMonth =
+    form.fiscalYearStartMonth.trim() === ''
+      ? null
+      : Number.parseInt(form.fiscalYearStartMonth, 10)
+
+  return {
+    legalEntityId,
+    expectedVersion: version,
+    advisorNumber: form.advisorNumber,
+    clientNumber: form.clientNumber,
+    accountLength,
+    defaultDebtorAccount: form.defaultDebtorAccount,
+    fiscalYearStartMonth,
+    chart: form.chart,
+    profileCode: form.profileCode,
+    formatVersion: form.formatVersion,
+    isEnabled: form.isEnabled,
+    mappingRules: form.mappingRules,
+  }
+}
+
+function formatProfileMissingField(field: string) {
+  switch (field) {
+    case 'advisor_number':
+      return 'Advisor number (Beraternummer)'
+    case 'client_number':
+      return 'Client number (Mandantennummer)'
+    case 'account_length':
+      return 'Account length'
+    case 'default_debtor_account':
+      return 'Default debtor account'
+    case 'mapping_rules':
+      return 'Source category mappings'
+    default:
+      return field.replaceAll('_', ' ')
+  }
+}
+
+function LegalEntityAccountingProfileForm({
+  entity,
+}: {
+  entity: LegalEntityRecord
+}) {
+  const { data: profile, isLoading } = useAccountingProfile(entity.id)
+  const updateMutation = useUpdateAccountingProfile()
+  const [form, setForm] = React.useState<ProfileFormState | null>(null)
+  const [version, setVersion] = React.useState(1)
+  const lastSavedRef = React.useRef('')
+  const updateMutationRef = React.useRef(updateMutation)
+  const versionRef = React.useRef(1)
+  const previousEntityIdRef = React.useRef(entity.id)
+
+  React.useEffect(() => {
+    updateMutationRef.current = updateMutation
+  })
+
+  React.useEffect(() => {
+    if (!profile) {
+      return
+    }
+
+    if (previousEntityIdRef.current !== entity.id) {
+      const nextForm = toProfileFormState(profile)
+      setForm(nextForm)
+      setVersion(profile.version)
+      versionRef.current = profile.version
+      lastSavedRef.current = JSON.stringify(nextForm)
+      previousEntityIdRef.current = entity.id
+      return
+    }
+
+    if (!form) {
+      const nextForm = toProfileFormState(profile)
+      setForm(nextForm)
+      setVersion(profile.version)
+      versionRef.current = profile.version
+      lastSavedRef.current = JSON.stringify(nextForm)
+    }
+  }, [entity.id, form, profile])
+
+  const saveProfile = React.useCallback(
+    async (snapshot: ProfileFormState, signal: AbortSignal) => {
+      const serialized = JSON.stringify(snapshot)
+      if (serialized === lastSavedRef.current) {
+        return
+      }
+
+      const updated = await updateMutationRef.current.mutateAsync(
+        buildProfileUpdatePayload(entity.id, versionRef.current, snapshot),
+      )
+      if (signal.aborted) {
+        return
+      }
+
+      lastSavedRef.current = serialized
+      versionRef.current = updated.version
+      setVersion(updated.version)
+    },
+    [entity.id],
+  )
+
+  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave({
+    save: saveProfile,
+    shouldSave: () => true,
+  })
+
+  const updateForm = (updater: (current: ProfileFormState) => ProfileFormState) => {
+    setForm((current) => {
+      if (!current) {
+        return current
+      }
+      const next = updater(current)
+      triggerAutoSave(next)
+      return next
+    })
+  }
+
+  const updateMappingField = (
+    category: SourceCategoryDefinition,
+    updates: Partial<AccountingMappingRule>,
+  ) => {
+    updateForm((current) => ({
+      ...current,
+      mappingRules: upsertMappingRule(current.mappingRules, category, updates),
+    }))
+  }
+
+  if (isLoading || !profile || !form) {
+    return (
+      <div className="flex min-h-[160px] items-center justify-center rounded-lg border bg-white p-6 shadow-sm">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  const readiness = profile.mapping_readiness
+
+  return (
+    <div className="space-y-6 rounded-lg border bg-white p-6 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h4 className="font-medium">Accounting profile</h4>
+          <p className="text-sm text-slate-500">
+            Configure DATEV-oriented mappings for {entity.name}. Incomplete profiles can be saved;
+            issuance readiness is surfaced separately.
+          </p>
+        </div>
+        <DocumentSaveIndicator status={saveStatus} />
+      </div>
+
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+        <div className="flex items-center gap-3">
+          <StatusBadge status={readiness.is_ready ? 'ACTIVE' : 'INACTIVE'} />
+          <span className="text-sm font-medium text-slate-700">
+            {readiness.is_ready
+              ? 'Mapping configuration complete'
+              : 'Accounting mappings incomplete'}
+          </span>
+        </div>
+        {!readiness.is_ready ? (
+          <p className="mt-2 text-sm text-slate-600">
+            Missing:{' '}
+            {readiness.missing_fields
+              .map((field) => formatProfileMissingField(field))
+              .join(', ')}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="profile-advisor-number">Advisor number</Label>
+          <Input
+            id="profile-advisor-number"
+            value={form.advisorNumber}
+            onChange={(event) =>
+              updateForm((current) => ({ ...current, advisorNumber: event.target.value }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-client-number">Client number</Label>
+          <Input
+            id="profile-client-number"
+            value={form.clientNumber}
+            onChange={(event) =>
+              updateForm((current) => ({ ...current, clientNumber: event.target.value }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-account-length">Account length</Label>
+          <Input
+            id="profile-account-length"
+            type="number"
+            min={1}
+            max={8}
+            value={form.accountLength}
+            onChange={(event) =>
+              updateForm((current) => ({ ...current, accountLength: event.target.value }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-debtor-account">Default debtor account</Label>
+          <Input
+            id="profile-debtor-account"
+            value={form.defaultDebtorAccount}
+            onChange={(event) =>
+              updateForm((current) => ({
+                ...current,
+                defaultDebtorAccount: event.target.value,
+              }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-fiscal-year-start">Fiscal year start month</Label>
+          <Input
+            id="profile-fiscal-year-start"
+            type="number"
+            min={1}
+            max={12}
+            value={form.fiscalYearStartMonth}
+            onChange={(event) =>
+              updateForm((current) => ({
+                ...current,
+                fiscalYearStartMonth: event.target.value,
+              }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-chart">Chart</Label>
+          <Input
+            id="profile-chart"
+            value={form.chart}
+            onChange={(event) =>
+              updateForm((current) => ({ ...current, chart: event.target.value }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-code">Profile code</Label>
+          <Input
+            id="profile-code"
+            value={form.profileCode}
+            onChange={(event) =>
+              updateForm((current) => ({ ...current, profileCode: event.target.value }))
+            }
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="profile-format-version">Format version</Label>
+          <Input
+            id="profile-format-version"
+            value={form.formatVersion}
+            onChange={(event) =>
+              updateForm((current) => ({ ...current, formatVersion: event.target.value }))
+            }
+          />
+        </div>
+      </div>
+
+      {entity.country_iso === 'DE' ? (
+        <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
+          <div>
+            <p className="text-sm font-medium text-slate-700">DATEV export enabled</p>
+            <p className="text-sm text-slate-500">
+              Gates CSV export only (AUT-307). Does not block invoice issuance.
+            </p>
+          </div>
+          <Checkbox
+            checked={form.isEnabled}
+            onCheckedChange={(checked) =>
+              updateForm((current) => ({ ...current, isEnabled: checked === true }))
+            }
+          />
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">
+          DATEV export profile activation is available for DE legal entities only in slice 1.
+        </p>
+      )}
+
+      <div className="space-y-3">
+        <div>
+          <h5 className="font-medium">Source category mappings</h5>
+          <p className="text-sm text-slate-500">
+            Map each billable source category to a revenue account. Suggested accounts from revenue
+            groups are prefilled only in the editor.
+          </p>
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Category</TableHead>
+              <TableHead>Tax</TableHead>
+              <TableHead>Revenue account</TableHead>
+              <TableHead>Treatment</TableHead>
+              <TableHead>BU key</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {profile.required_source_categories.map((category) => {
+              const rule = findMappingRule(form.mappingRules, category)
+              return (
+                <TableRow key={`${category.key}:${category.taxMode}:${category.taxRate}`}>
+                  <TableCell className="font-medium">{category.label}</TableCell>
+                  <TableCell>
+                    {category.taxMode === 'MARGIN_SCHEME'
+                      ? 'Margin'
+                      : `${category.taxRate}%`}
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={rule?.revenueAccount ?? ''}
+                      placeholder={category.suggestedRevenueAccount ?? ''}
+                      onChange={(event) =>
+                        updateMappingField(category, {
+                          revenueAccount: event.target.value,
+                        })
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={rule?.taxTreatment ?? 'automatic'}
+                      onValueChange={(value) =>
+                        updateMappingField(category, {
+                          taxTreatment: value as AccountingMappingRule['taxTreatment'],
+                          buKey: value === 'automatic' ? null : rule?.buKey ?? '',
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="automatic">Automatic</SelectItem>
+                        <SelectItem value="manual_bu">Manual BU</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={rule?.buKey ?? ''}
+                      disabled={(rule?.taxTreatment ?? 'automatic') !== 'manual_bu'}
+                      onChange={(event) =>
+                        updateMappingField(category, { buKey: event.target.value })
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      <p className="text-xs text-slate-500">Profile version: {version}</p>
+    </div>
+  )
 }
 
 function LegalEntitySellerForm({
@@ -520,10 +972,13 @@ export function LegalEntitiesSettingsTab() {
       </div>
 
       {selectedEntity ? (
-        <LegalEntitySellerForm
-          entity={selectedEntity}
-          onSaved={(updated) => setSelectedEntity(updated)}
-        />
+        <>
+          <LegalEntitySellerForm
+            entity={selectedEntity}
+            onSaved={(updated) => setSelectedEntity(updated)}
+          />
+          <LegalEntityAccountingProfileForm entity={selectedEntity} />
+        </>
       ) : null}
     </div>
   )

@@ -1906,6 +1906,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{id}/accounting-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get accounting profile for a legal entity (OWNER/ADMIN) */
+        get: operations["LegalEntityController_getAccountingProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update accounting profile for a legal entity (OWNER/ADMIN) */
+        patch: operations["LegalEntityController_updateAccountingProfile"];
+        trace?: never;
+    };
     "/api/legal-entities/{id}": {
         parameters: {
             query?: never;
@@ -4653,6 +4671,63 @@ export interface components {
             payment_terms_days?: number | null;
             payment_terms_text?: string | null;
             seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
+        };
+        AccountingMappingRuleDto: {
+            sourceCategoryKey: string;
+            sourceCategoryLabel: string;
+            /** @enum {string} */
+            taxMode: "STANDARD" | "MARGIN_SCHEME";
+            taxRate: string;
+            revenueAccount: string;
+            /** @enum {string} */
+            taxTreatment: "automatic" | "manual_bu";
+            buKey?: string | null;
+        };
+        SourceCategoryDefinitionDto: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            taxMode: "STANDARD" | "MARGIN_SCHEME";
+            taxRate: string;
+            suggestedRevenueAccount?: string | null;
+        };
+        AccountingProfileReadinessDto: {
+            is_ready: boolean;
+            missing_fields: string[];
+            unmapped_categories: string[];
+        };
+        AccountingProfileResponseDto: {
+            id: string;
+            tenant_id: string;
+            legal_entity_id: string;
+            version: number;
+            is_enabled: boolean;
+            profile_code?: string | null;
+            format_version?: string | null;
+            chart?: string | null;
+            account_length?: number | null;
+            advisor_number?: string | null;
+            client_number?: string | null;
+            fiscal_year_start_month?: number | null;
+            default_debtor_account?: string | null;
+            mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
+            required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
+            mapping_readiness: components["schemas"]["AccountingProfileReadinessDto"];
+        };
+        UpdateAccountingProfileDto: {
+            /** @description Optimistic-lock version from the last GET response */
+            expectedVersion: number;
+            profileCode?: string | null;
+            formatVersion?: string | null;
+            chart?: string | null;
+            accountLength?: number | null;
+            advisorNumber?: string | null;
+            clientNumber?: string | null;
+            fiscalYearStartMonth?: number | null;
+            defaultDebtorAccount?: string | null;
+            mappingRules?: components["schemas"]["AccountingMappingRuleDto"][];
+            /** @description Gates DATEV CSV export only; does not affect invoice issuance readiness */
+            isEnabled?: boolean;
         };
         CreateLegalEntityDto: {
             name: string;
@@ -9261,6 +9336,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LegalEntityResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_getAccountingProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingProfileResponseDto"];
+                };
+            };
+        };
+    };
+    LegalEntityController_updateAccountingProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountingProfileDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingProfileResponseDto"];
                 };
             };
         };

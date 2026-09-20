@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
-import { createMockLegalEntity } from './utils/mock-factories';
+import {
+  createMockAccountingProfile,
+  createMockLegalEntity,
+} from './utils/mock-factories';
 
 test.describe('Legal entities seller settings', () => {
   test('shows seller identity form, readiness, and autosaves updates', async ({ page }) => {
@@ -8,6 +11,10 @@ test.describe('Legal entities seller settings', () => {
     const mockEntity = createMockLegalEntity();
 
     let currentEntity = mockEntity;
+    let currentProfile = createMockAccountingProfile({
+      legal_entity_id: mockEntity.id,
+      tenant_id: mockEntity.tenant_id,
+    });
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/legal-entities'), async (route) => {
       if (route.request().method() === 'GET') {
@@ -57,6 +64,49 @@ test.describe('Legal entities seller settings', () => {
       },
     );
 
+    await page.route(
+      AutoCorePage.apiRouteMatcher(
+        `/api/legal-entities/${mockEntity.id}/accounting-profile`,
+      ),
+      async (route) => {
+        if (route.request().method() === 'GET') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(currentProfile),
+          });
+          return;
+        }
+
+        if (route.request().method() === 'PATCH') {
+          const payload = route.request().postDataJSON() as Record<string, unknown>;
+          currentProfile = {
+            ...currentProfile,
+            advisor_number:
+              typeof payload.advisorNumber === 'string'
+                ? payload.advisorNumber
+                : currentProfile.advisor_number,
+            version: currentProfile.version + 1,
+            mapping_readiness: {
+              ...currentProfile.mapping_readiness,
+              missing_fields: currentProfile.mapping_readiness.missing_fields.filter(
+                (field) => field !== 'advisor_number',
+              ),
+            },
+          };
+
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(currentProfile),
+          });
+          return;
+        }
+
+        await route.continue();
+      },
+    );
+
     await corePage.navigate('/settings?tab=legal-entities');
 
     await expect(page.getByRole('heading', { name: 'Legal Entities' })).toBeVisible();
@@ -68,6 +118,12 @@ test.describe('Legal entities seller settings', () => {
 
     await expect(page.getByText('All changes saved')).toBeVisible({ timeout: 5000 });
     await expect(page.getByText('Ready for invoice issuance')).toBeVisible();
+
+    await expect(page.getByRole('heading', { name: 'Accounting profile' })).toBeVisible();
+    await expect(page.getByText('Accounting mappings incomplete')).toBeVisible();
+
+    await page.getByLabel('Advisor number').fill('12345');
+    await expect(page.getByText('All changes saved')).toBeVisible({ timeout: 5000 });
 
     await page.screenshot({
       path: '/opt/cursor/artifacts/legal-entities-seller-settings.png',
