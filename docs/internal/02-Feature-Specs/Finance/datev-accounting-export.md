@@ -85,7 +85,7 @@ Profile updates are allowed; no delete API after first use. Export artifacts and
 
 ### Chosen target and verification boundary
 
-Proposed target: **EXTF 700 / data category 21 / Buchungsstapel format 13**, named `ACP-DATEV-DE-EUR-1`. AUT-307 must pin the official field-order/schema revision and validate it with the accountant's importer. The official [DATEV format portal](https://developer.datev.de/portal/de/dtvf) could not be fetched on 2026-09-20; this draft does not certify the version or reproduce an unverified column count. An older indexed DATEV PDF also returned 404. Acquiring the authoritative format and an import fixture is a release prerequisite, not permission to guess a positional schema.
+Proposed target: **EXTF 700 / data category 21 / Buchungsstapel format 13**, named `ACP-DATEV-DE-EUR-1`. AUT-307 must pin the official field-order/schema revision and validate it with the accountant's importer. The official [DATEV format portal](https://developer.datev.de/portal/de/dtvf) could not be fetched on 2026-09-20; this approved spec does not certify the version or reproduce an unverified column count. An older indexed DATEV PDF also returned 404. Acquiring the authoritative format and an import fixture is a release prerequisite, not permission to guess a positional schema.
 
 Proposed serialization rules to confirm against that pinned schema: semicolon-separated CSV, CRLF, Windows-1252 without BOM, decimal comma with two money places/no thousands separator, quoted text with doubled embedded quotes, and exactly the official header/data column count including empty optional fields. Reject unencodable characters and overlength document/account references with field-specific errors; never truncate identifiers silently. Treat CSV as an import artifact, not an Excel formula document; free text must reject formula-leading control content and normalize CR/LF without changing fiscal identifiers.
 
@@ -228,9 +228,9 @@ Accountant release evidence must identify the reviewer/date, official schema rev
 ### Milestone 0 handoff
 
 - [x] Product owner accepts ADR-0023 and both feature specs; record decisions above. **2026-09-20 — Dejan Dosenovic (Product Owner).**
-- [x] Documents merged and status changed to accepted/approved with decision date.
-- [ ] Update Linear project's Next section to: “AUT-296 approved: ADR-0023 and legal-invoicing/datev-accounting-export specs are the implementation baseline. Begin milestone 1 (AUT-297–299), including its accountant-approved mapping prerequisite, then milestones 2 → 3 → 4. AUT-307 + AUT-305 own milestone 4. AUT-306 remains parked; country/DATEV activation gates still apply.” Add merged repository links at that time.
-- [ ] Complete AUT-296 and verify Milestone 0 completion in Linear only after acceptance/merge.
+- [x] Documents merged and status changed to accepted/approved with decision date ([PR #559](https://github.com/vandean25/auto-core-platform/pull/559)).
+- [x] Linear project Next section updated to the AUT-296 approved handoff with repository link (2026-09-20).
+- [x] AUT-296 verified complete in Linear; Milestone 0 — Spec & ADR closed after acceptance/merge.
 
 ## References
 
