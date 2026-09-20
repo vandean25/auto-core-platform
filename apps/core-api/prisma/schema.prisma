@@ -165,15 +165,31 @@ model PlatformAdmin {
 // ============================================================================
 
 model LegalEntity {
-  id          String             @id @default(uuid())
-  tenant_id   String
-  tenant      Tenant             @relation(fields: [tenant_id], references: [id])
-  name        String
-  country_iso LegalEntityCountry
-  is_active   Boolean            @default(true)
-  sites       Site[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id                   String             @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant             @relation(fields: [tenant_id], references: [id])
+  name                 String
+  country_iso          LegalEntityCountry
+  is_active            Boolean            @default(true)
+  address_street       String?
+  address_line2        String?
+  address_zip          String?
+  address_city         String?
+  tax_number           String?
+  vat_id               String?
+  iban                 String?
+  bic                  String?
+  bank_name            String?
+  email                String?
+  phone                String?
+  registration_number  String?
+  registration_court   String?
+  representatives      String?
+  payment_terms_days   Int?
+  payment_terms_text   String?
+  sites                Site[]
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, name])

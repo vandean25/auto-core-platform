@@ -17,6 +17,7 @@ import {
 import {
   ActiveSiteResponseDto,
   CreateLegalEntityDto,
+  LegalEntityResponseDto,
   UpdateLegalEntityDto,
   CreateSiteDto,
   CreateSiteMembershipDto,
@@ -36,20 +37,30 @@ export class LegalEntityController {
     summary: 'List legal entities (OWNER/ADMIN, includes inactive by default)',
   })
   @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
+  @ApiOkResponse({ type: [LegalEntityResponseDto] })
   listLegalEntities(@Query('includeInactive') includeInactive?: string) {
     // Ruling 53: GET /api/legal-entities includes inactive entities unless the
     // caller explicitly hides them with includeInactive=false.
     return this.siteService.listLegalEntities(includeInactive !== 'false');
   }
 
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a legal entity (OWNER/ADMIN)' })
+  @ApiOkResponse({ type: LegalEntityResponseDto })
+  getLegalEntity(@Param('id') id: string) {
+    return this.siteService.getLegalEntity(id);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create a legal entity (OWNER/ADMIN)' })
+  @ApiOkResponse({ type: LegalEntityResponseDto })
   createLegalEntity(@Body() dto: CreateLegalEntityDto) {
     return this.siteService.createLegalEntity(dto);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a legal entity (OWNER/ADMIN)' })
+  @ApiOkResponse({ type: LegalEntityResponseDto })
   updateLegalEntity(
     @Param('id') id: string,
     @Body() dto: UpdateLegalEntityDto,

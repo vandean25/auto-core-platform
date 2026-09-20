@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsEmail,
   IsIn,
   IsInt,
   IsOptional,
@@ -41,6 +42,179 @@ export class UpdateLegalEntityDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  addressStreet?: string;
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  addressLine2?: string;
+
+  @ApiPropertyOptional({ maxLength: 20 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  addressZip?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  addressCity?: string;
+
+  @ApiPropertyOptional({ maxLength: 32 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  taxNumber?: string;
+
+  @ApiPropertyOptional({ maxLength: 32 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  vatId?: string;
+
+  @ApiPropertyOptional({ maxLength: 34 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(34)
+  iban?: string;
+
+  @ApiPropertyOptional({ maxLength: 11 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(11)
+  bic?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  bankName?: string;
+
+  @ApiPropertyOptional({ maxLength: 254 })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
+
+  @ApiPropertyOptional({ maxLength: 40 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  phone?: string;
+
+  @ApiPropertyOptional({ maxLength: 64 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  registrationNumber?: string;
+
+  @ApiPropertyOptional({ maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  registrationCourt?: string;
+
+  @ApiPropertyOptional({ maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  representatives?: string;
+
+  @ApiPropertyOptional({ minimum: 0, maximum: 365 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  paymentTermsDays?: number;
+
+  @ApiPropertyOptional({ maxLength: 1000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  paymentTermsText?: string;
+}
+
+export class LegalEntitySellerReadinessDto {
+  @ApiProperty()
+  is_ready!: boolean;
+
+  @ApiProperty({ type: [String] })
+  missing_fields!: string[];
+}
+
+export class LegalEntityResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  tenant_id!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty({ enum: SUPPORTED_LEGAL_ENTITY_COUNTRIES })
+  country_iso!: SupportedLegalEntityCountry;
+
+  @ApiProperty()
+  is_active!: boolean;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  address_street!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  address_line2!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  address_zip!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  address_city!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  tax_number!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  vat_id!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  iban!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  bic!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  bank_name!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  email!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  phone!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  registration_number!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  registration_court!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  representatives!: string | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true })
+  payment_terms_days!: number | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
+  payment_terms_text!: string | null;
+
+  @ApiProperty({ type: LegalEntitySellerReadinessDto })
+  seller_readiness!: LegalEntitySellerReadinessDto;
 }
 
 export class CreateSiteOpeningHourDto {

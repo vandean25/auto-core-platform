@@ -91,6 +91,10 @@ export class SiteService {
     return this.legalEntityService.listLegalEntities(includeInactive);
   }
 
+  async getLegalEntity(id: string) {
+    return this.legalEntityService.getLegalEntity(id);
+  }
+
   async createLegalEntity(dto: CreateLegalEntityDto) {
     return this.legalEntityService.createLegalEntity(dto);
   }
