@@ -23,6 +23,7 @@ import {
 } from '../finance/accounting-profile/accounting-profile.types.js';
 import { computeSellerReadiness } from '../site/legal-entity-readiness.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   buildInvoiceSnapshotV2,
   type InvoiceSnapshotV2,
@@ -57,6 +58,8 @@ type PreparedInvoiceSnapshot = {
 
 @Injectable()
 export class InvoiceSnapshotCommitService {
+  constructor(private readonly siteContext: SiteContextService) {}
+
   async prepareV2Snapshot(
     input: Omit<CommitInvoiceSnapshotInput, 'invoiceNumber'> & {
       invoiceNumber?: string;
@@ -65,9 +68,11 @@ export class InvoiceSnapshotCommitService {
     const { tx, tenantId, invoice, margin } = input;
     const invoiceNumber = input.invoiceNumber ?? invoice.invoice_number ?? '';
 
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const ownership = await resolveInvoiceOwnershipFromSource(
       tx,
       tenantId,
+      authorizedSiteIds,
       invoice,
     );
 

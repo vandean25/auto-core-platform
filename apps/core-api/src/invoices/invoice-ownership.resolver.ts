@@ -10,6 +10,7 @@ export type ResolvedInvoiceOwnership = {
 export async function resolveInvoiceOwnershipFromSource(
   tx: Prisma.TransactionClient,
   tenantId: string,
+  authorizedSiteIds: readonly string[],
   invoice: {
     sales_order_id: string | null;
     workshop_order_id: string | null;
@@ -18,7 +19,11 @@ export async function resolveInvoiceOwnershipFromSource(
 ): Promise<ResolvedInvoiceOwnership> {
   if (invoice.sales_order_id) {
     const order = await tx.salesOrder.findFirst({
-      where: { id: invoice.sales_order_id, tenant_id: tenantId },
+      where: {
+        id: invoice.sales_order_id,
+        tenant_id: tenantId,
+        site_id: { in: [...authorizedSiteIds] },
+      },
       select: { site_id: true },
     });
     if (!order) {
@@ -40,7 +45,11 @@ export async function resolveInvoiceOwnershipFromSource(
 
   if (invoice.workshop_order_id) {
     const order = await tx.workshopOrder.findFirst({
-      where: { id: invoice.workshop_order_id, tenant_id: tenantId },
+      where: {
+        id: invoice.workshop_order_id,
+        tenant_id: tenantId,
+        site_id: { in: [...authorizedSiteIds] },
+      },
       select: { site_id: true },
     });
     if (!order) {
@@ -62,7 +71,11 @@ export async function resolveInvoiceOwnershipFromSource(
 
   if (invoice.vehicle_sale_id) {
     const sale = await tx.vehicleSale.findFirst({
-      where: { id: invoice.vehicle_sale_id, tenant_id: tenantId },
+      where: {
+        id: invoice.vehicle_sale_id,
+        tenant_id: tenantId,
+        site_id: { in: [...authorizedSiteIds] },
+      },
       select: { site_id: true },
     });
     if (!sale) {
