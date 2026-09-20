@@ -15,6 +15,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  AccountingProfileResponseDto,
+  UpdateAccountingProfileDto,
+} from '../finance/accounting-profile/dto/accounting-profile.dto.js';
+import {
   ActiveSiteResponseDto,
   CreateLegalEntityDto,
   LegalEntityResponseDto,
@@ -42,6 +46,27 @@ export class LegalEntityController {
     // Ruling 53: GET /api/legal-entities includes inactive entities unless the
     // caller explicitly hides them with includeInactive=false.
     return this.siteService.listLegalEntities(includeInactive !== 'false');
+  }
+
+  @Get(':id/accounting-profile')
+  @ApiOperation({
+    summary: 'Get accounting profile for a legal entity (OWNER/ADMIN)',
+  })
+  @ApiOkResponse({ type: AccountingProfileResponseDto })
+  getAccountingProfile(@Param('id') id: string) {
+    return this.siteService.getAccountingProfile(id);
+  }
+
+  @Patch(':id/accounting-profile')
+  @ApiOperation({
+    summary: 'Update accounting profile for a legal entity (OWNER/ADMIN)',
+  })
+  @ApiOkResponse({ type: AccountingProfileResponseDto })
+  updateAccountingProfile(
+    @Param('id') id: string,
+    @Body() dto: UpdateAccountingProfileDto,
+  ) {
+    return this.siteService.updateAccountingProfile(id, dto);
   }
 
   @Get(':id')
