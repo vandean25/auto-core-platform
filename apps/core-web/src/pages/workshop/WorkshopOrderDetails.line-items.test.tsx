@@ -171,8 +171,10 @@ describe('WorkshopOrderDetails line-item persistence', () => {
       expect(replaceTaskLineItemsMutateAsync).toHaveBeenCalledWith({
         orderId: 'order-1',
         taskId: 'task-1',
+        expectedLineItemsVersion: 0,
         items: [
           {
+            id: 'line-1',
             type: 'PART',
             itemNo: 'OIL-FLTR',
             description: 'Oil Filter',
@@ -184,6 +186,7 @@ describe('WorkshopOrderDetails line-item persistence', () => {
             internalCostRate: null,
           },
           {
+            id: 'line-labor-1',
             type: 'LABOR',
             itemNo: 'LAB-01',
             description: 'Labor line',
