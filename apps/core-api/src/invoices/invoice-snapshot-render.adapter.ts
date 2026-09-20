@@ -1,5 +1,4 @@
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
-import type { InvoiceSnapshotV2 } from './invoice-snapshot-v2.js';
 import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 
 export function toRenderableInvoiceSnapshot(

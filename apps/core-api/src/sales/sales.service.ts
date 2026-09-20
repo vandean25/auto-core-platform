@@ -13,10 +13,7 @@ import {
   assertCustomerBelongsToTenant,
   assertVehicleBelongsToTenant,
 } from './helpers/sales-tenant-validation.helpers.js';
-import {
-  buildFormattedInvoiceItems,
-  buildInvoiceDueDate,
-} from './helpers/invoice-line-items.helpers.js';
+import { buildFormattedInvoiceItems } from './helpers/invoice-line-items.helpers.js';
 import { reconcileDraftInvoiceItems } from './helpers/invoice-draft-reconciliation.helpers.js';
 import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 
@@ -29,7 +26,8 @@ export class SalesService {
     private readonly invoiceFinalization: InvoiceFinalizationService,
   ) {}
 
-  async createDraft(_createInvoiceDto: CreateInvoiceDto) {
+  createDraft(createInvoiceDto: CreateInvoiceDto): never {
+    void createInvoiceDto;
     throw new BadRequestException({
       code: 'SOURCE_DOCUMENT_REQUIRED',
       message:

@@ -152,7 +152,9 @@ const toDateOnly = (value: Date): string => value.toISOString().slice(0, 10);
 const halfUpTax = (net: Prisma.Decimal, rate: Prisma.Decimal): Prisma.Decimal =>
   net.mul(rate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 
-function lineNetBeforeGlobalDiscount(line: LineAllocationInput): Prisma.Decimal {
+function lineNetBeforeGlobalDiscount(
+  line: LineAllocationInput,
+): Prisma.Decimal {
   const grossLine = line.quantity.mul(line.unitPrice);
   if (!line.lineDiscountType || line.lineDiscountValue === null) {
     return grossLine;
@@ -162,7 +164,10 @@ function lineNetBeforeGlobalDiscount(line: LineAllocationInput): Prisma.Decimal 
       grossLine.mul(line.lineDiscountValue).div(100).toDecimalPlaces(2),
     );
   }
-  return Prisma.Decimal.max(grossLine.sub(line.lineDiscountValue), new Prisma.Decimal(0));
+  return Prisma.Decimal.max(
+    grossLine.sub(line.lineDiscountValue),
+    new Prisma.Decimal(0),
+  );
 }
 
 function allocateGlobalDiscount(
@@ -180,11 +185,7 @@ function allocateGlobalDiscount(
   );
 
   const allocations = new Map<string, Prisma.Decimal>();
-  if (
-    !globalDiscountType ||
-    globalDiscountValue === null ||
-    subtotal.lte(0)
-  ) {
+  if (!globalDiscountType || globalDiscountValue === null || subtotal.lte(0)) {
     for (const line of preDiscount) {
       allocations.set(line.id, line.amount);
     }
@@ -210,7 +211,12 @@ function allocateGlobalDiscount(
   });
 
   let remainingCents = discountTotal
-    .sub(fractional.reduce((sum, line) => sum.add(line.floored), new Prisma.Decimal(0)))
+    .sub(
+      fractional.reduce(
+        (sum, line) => sum.add(line.floored),
+        new Prisma.Decimal(0),
+      ),
+    )
     .mul(100)
     .toNumber();
 
@@ -224,7 +230,8 @@ function allocateGlobalDiscount(
 
   const discountByLine = new Map<string, Prisma.Decimal>();
   for (const line of sorted) {
-    const extra = remainingCents > 0 ? new Prisma.Decimal('0.01') : new Prisma.Decimal(0);
+    const extra =
+      remainingCents > 0 ? new Prisma.Decimal('0.01') : new Prisma.Decimal(0);
     if (remainingCents > 0) {
       remainingCents -= 1;
     }
@@ -240,7 +247,12 @@ function allocateGlobalDiscount(
 }
 
 function buildTaxBreakdown(
-  items: Array<{ taxRate: Prisma.Decimal; net: Prisma.Decimal; tax: Prisma.Decimal; gross: Prisma.Decimal }>,
+  items: Array<{
+    taxRate: Prisma.Decimal;
+    net: Prisma.Decimal;
+    tax: Prisma.Decimal;
+    gross: Prisma.Decimal;
+  }>,
 ): InvoiceSnapshotV2TaxBucket[] {
   const buckets = new Map<string, InvoiceSnapshotV2TaxBucket>();
 
@@ -265,7 +277,9 @@ function buildTaxBreakdown(
   );
 }
 
-export function buildSellerSnapshot(seller: LegalEntity): InvoiceSnapshotV2Seller {
+export function buildSellerSnapshot(
+  seller: LegalEntity,
+): InvoiceSnapshotV2Seller {
   return {
     name: seller.name,
     country_iso: seller.country_iso,

@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -158,13 +157,14 @@ export class InvoiceSnapshotCommitService {
         profile,
         seller,
         catalogItem: item.catalog_item_id
-          ? catalogItemMap.get(item.catalog_item_id) ?? null
+          ? (catalogItemMap.get(item.catalog_item_id) ?? null)
           : null,
       });
       if (!allocation) {
         throw new UnprocessableEntityException({
           code: 'ACCOUNTING_MAPPING_INCOMPLETE',
-          message: 'Accounting mapping is incomplete for one or more invoice lines.',
+          message:
+            'Accounting mapping is incomplete for one or more invoice lines.',
           missingFields: ['mapping_rules'],
         });
       }
@@ -296,39 +296,56 @@ export class InvoiceSnapshotCommitService {
     const taxRate = params.item.tax_rate.toFixed(2);
 
     if (taxMode === 'MARGIN_SCHEME') {
-      return resolveAccountingAllocation(params.profile, params.seller.country_iso, {
-        sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
-        sourceCategoryLabel: 'Vehicle margin scheme',
-        taxMode,
-        taxRate: '0.00',
-      });
+      return resolveAccountingAllocation(
+        params.profile,
+        params.seller.country_iso,
+        {
+          sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
+          sourceCategoryLabel: 'Vehicle margin scheme',
+          taxMode,
+          taxRate: '0.00',
+        },
+      );
     }
 
     if (params.catalogItem?.revenue_group) {
-      return resolveAccountingAllocation(params.profile, params.seller.country_iso, {
-        sourceCategoryKey: `revenue_group:${params.catalogItem.revenue_group.id}`,
-        sourceCategoryLabel: params.catalogItem.revenue_group.name,
-        taxMode,
-        taxRate,
-        revenueGroupId: params.catalogItem.revenue_group.id,
-      });
+      return resolveAccountingAllocation(
+        params.profile,
+        params.seller.country_iso,
+        {
+          sourceCategoryKey: `revenue_group:${params.catalogItem.revenue_group.id}`,
+          sourceCategoryLabel: params.catalogItem.revenue_group.name,
+          taxMode,
+          taxRate,
+          revenueGroupId: params.catalogItem.revenue_group.id,
+        },
+      );
     }
 
     if (params.invoice.workshop_order_id) {
-      return resolveAccountingAllocation(params.profile, params.seller.country_iso, {
-        sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.LABOR,
-        sourceCategoryLabel: 'Labor / workshop services',
-        taxMode,
-        taxRate,
-      });
+      return resolveAccountingAllocation(
+        params.profile,
+        params.seller.country_iso,
+        {
+          sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.LABOR,
+          sourceCategoryLabel: 'Labor / workshop services',
+          taxMode,
+          taxRate,
+        },
+      );
     }
 
-    return resolveAccountingAllocation(params.profile, params.seller.country_iso, {
-      sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.MANUAL_LINE,
-      sourceCategoryLabel: params.item.revenue_group_name ?? 'Manual invoice lines',
-      taxMode,
-      taxRate,
-    });
+    return resolveAccountingAllocation(
+      params.profile,
+      params.seller.country_iso,
+      {
+        sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.MANUAL_LINE,
+        sourceCategoryLabel:
+          params.item.revenue_group_name ?? 'Manual invoice lines',
+        taxMode,
+        taxRate,
+      },
+    );
   }
 }
 
