@@ -1,8 +1,8 @@
 ---
 title: "ADR-0023: Legal Invoice Snapshots, Credit Notes and Accounting Export"
 date: "2026-09-20"
-status: proposed
-deciders: "Product Owner; accountant review required for country and DATEV profiles"
+status: accepted
+deciders: "Product Owner (Dejan Dosenovic); accountant review required for country and DATEV profiles"
 linear-project: "https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695"
 linear-milestone: "0 — Spec & ADR"
 tags: [adr, finance, sales, invoice]
@@ -12,7 +12,9 @@ tags: [adr, finance, sales, invoice]
 
 ## Status
 
-**Proposed — 2026-09-20.** Documentation for AUT-296, not authorization to implement. ADR-0003, ADR-0004, ADR-0009 and ADR-0022 remain accepted. On acceptance this ADR extends their snapshot/numbering rules and replaces status-only cancellation for newly issued version-2 invoices. It does not retroactively change historical documents.
+**Accepted — 2026-09-20 (Product Owner).** Product Owner (Dejan Dosenovic) accepted this ADR and the linked feature specs as the implementation baseline for AUT-296 / Milestone 0. ADR-0003, ADR-0004, ADR-0009 and ADR-0022 remain accepted. This ADR extends their snapshot/numbering rules and replaces status-only cancellation for newly issued version-2 invoices. It does not retroactively change historical documents.
+
+**Implementation gates still required:** accountant-approved country document and mapping fixtures before M1 release; official DATEV schema/import evidence before enabling export (`is_enabled`); implementation verification before production rollout. PO acceptance does not waive those gates.
 
 ## Context
 
@@ -151,16 +153,16 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 - Necessity **9/10**: current invoices lack seller evidence and export mappings; waiting creates more unexportable history.
 - Complexity **6/10**; ratio **0.67**: separate credits and artifact retention add work, but protect different invariants.
 - Simpler alternative: identity/snapshot/PDF only. This is the first two milestones, but cannot fulfill the credit/export project by itself.
-- Recommendation: approve phased implementation once the product and accountant gates below are resolved. No event-sourcing platform, new PDF worker, per-entity invoice renumbering or payment engine.
+- Recommendation: proceed with phased implementation; accountant and DATEV gates below remain mandatory before the corresponding milestones ship. No event-sourcing platform, new PDF worker, per-entity invoice renumbering or payment engine.
 - Deferred decisions are recorded in `docs/internal/.architecture/deferrals.md` with re-entry triggers.
 
 ## Validation and Approval Gates
 
-- [ ] Product owner accepts both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries.
+- [x] Product owner accepts both feature specs' recorded decisions, including the M1 mapping prerequisite, mistaken-credit operational limitation, preserved RE series and export/access boundaries. **Accepted 2026-09-20 — Dejan Dosenovic (Product Owner).**
 - [ ] Accountant accepts country document fixtures and the export posting profile, including tax keys, debtor convention, polarity and rounding.
 - [ ] DATEV official format version/schema and successful import evidence are pinned before enabling export.
 - [ ] Implementation proves tenant/site isolation, concurrent finalization/credits/lock advancement, exact monetary reconciliation and immutable legacy behavior.
-- [ ] ADR/specs are accepted and merged before AUT-296/Milestone 0 is completed; update the project's Next section only then.
+- [x] ADR/specs accepted and merged as Milestone 0 baseline (AUT-296). Update the Linear project's Next section after merge.
 
 ## References
 
@@ -175,4 +177,4 @@ Blast radius is high: issuance, fiscal lock, site authorization, PDF and reporti
 |---|---|
 | Project | [Legal Invoicing & Accounting Export](https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695) |
 | Milestone | 0 — Spec & ADR |
-| Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296); implementation AUT-297–303, AUT-307 and AUT-305; AUT-306 parked |
+| Issues | [AUT-296](https://linear.app/auto-core-platform/issue/AUT-296) (Milestone 0 acceptance — docs PR); implementation AUT-297–303, AUT-307 and AUT-305; AUT-306 parked |

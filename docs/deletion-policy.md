@@ -78,11 +78,11 @@ This document defines when deletion is allowed in Auto Core Platform.
 | AttendanceEvent | No delete | Immutable attendance log; corrections are additional events. |
 | Bay | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.bay_id` references this bay. |
 
-## Pending ADR-0023 — Legal invoicing and accounting export
+## ADR-0023 — Legal invoicing and accounting export
 
-The following are **proposed requirements**, not claims about current API enforcement. They become effective with acceptance and implementation of [ADR-0023](internal/01-ADR/2026-09-20-legal-invoicing-and-accounting-export.md). Existing policy above continues to describe current entities until that rollout.
+The following are the **accepted policy baseline** from [ADR-0023](internal/01-ADR/2026-09-20-legal-invoicing-and-accounting-export.md) (Product Owner acceptance 2026-09-20). They are not claims about current API enforcement until implementation ships. Existing policy above continues to describe current entities until that rollout.
 
-| Entity | Proposed delete support | Rule |
+| Entity | Delete support | Rule |
 |---|---|---|
 | LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport or a used accounting profile references it. |
 | Invoice (version 2) | No | No status-only cancellation as a financial reversal. Issue a separate numbered credit; retain original snapshot, number and fiscal status. |
@@ -92,7 +92,7 @@ The following are **proposed requirements**, not claims about current API enforc
 | LegalEntityAccountingProfile | No after use | Versioned updates; no ordinary delete endpoint once used. Frozen document/run allocations survive profile changes. |
 | AccountingExport | No | Retain exact bytes, manifest, frozen profile, checksum and actor/time. No ordinary delete endpoint or short TTL. |
 
-Retention and tenant-purge exceptions require a separate approved policy; this proposal authorizes no historical deletion or snapshot repair.
+Retention and tenant-purge exceptions require a separate approved policy; this baseline authorizes no historical deletion or snapshot repair.
 
 ## UI Contract
 
