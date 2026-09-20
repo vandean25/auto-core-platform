@@ -165,11 +165,10 @@ export function useWorkshopTaskLineItems({
 
         removeTaskLineItemOverride(taskId)
       } catch (error: unknown) {
-        if (lineItemSaveSeq.current[taskId] !== saveSeq) return
-
         const status = getErrorStatus(error)
 
         if (status === 409) {
+          delete lineItemsVersionByTaskRef.current[taskId]
           delete saveChainByTaskRef.current[taskId]
           removeTaskLineItemOverride(taskId)
           await queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
@@ -181,6 +180,8 @@ export function useWorkshopTaskLineItems({
           )
           throw error
         }
+
+        if (lineItemSaveSeq.current[taskId] !== saveSeq) return
 
         setTaskLineItemOverrides((previous) => ({
           ...previous,

@@ -380,6 +380,84 @@ describe('useWorkshopTaskLineItems', () => {
       )
     })
 
+    it('clears version ref on 409 so retry uses refreshed task version', async () => {
+      let currentTasks: WorkshopTask[] = [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          status: 'IN_PROGRESS',
+          done: false,
+          lineItemsVersion: 1,
+          lineItems: [
+            {
+              id: 'item-1',
+              type: 'PART',
+              itemNo: 'P-1',
+              description: 'Old Item',
+              qty: 1,
+              unitPrice: 10,
+            },
+          ],
+        },
+      ]
+
+      const conflictError = Object.assign(new Error('Line items version conflict'), {
+        status: 409,
+      })
+      const retryItems: TaskLineItemInput[] = [
+        {
+          id: 'item-1',
+          type: 'PART',
+          itemNo: 'P-1',
+          description: 'Retry Item',
+          qty: 2,
+          unitPrice: 12,
+        },
+      ]
+
+      mockMutateAsync
+        .mockResolvedValueOnce(createUpdatedOrder(2))
+        .mockRejectedValueOnce(conflictError)
+        .mockResolvedValueOnce(createUpdatedOrder(4))
+
+      const { result } = renderHook(() =>
+        useWorkshopTaskLineItems({
+          orderId: 'order-1',
+          isLocked: false,
+          getTasks: () => currentTasks,
+        }),
+      )
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', retryItems)
+      })
+
+      currentTasks = [
+        {
+          ...currentTasks[0],
+          lineItemsVersion: 3,
+        },
+      ]
+
+      await act(async () => {
+        await result.current.handleTaskLineItemsChange('task-1', retryItems)
+        await result.current.handleTaskLineItemsChange('task-1', retryItems)
+      })
+
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ expectedLineItemsVersion: 1 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ expectedLineItemsVersion: 2 }),
+      )
+      expect(mockMutateAsync).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({ expectedLineItemsVersion: 3 }),
+      )
+    })
+
     it('clears overrides, invalidates order, and shows toast on 409 conflict', async () => {
       const conflictError = Object.assign(new Error('Line items version conflict'), {
         status: 409,
