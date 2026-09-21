@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a Service Advisor calendar at `/workshop/planner`: tenant hours + holidays, bay occupancy, `SCHEDULED` bookings, and intake promote of the same `WO-` number.
+**Goal:** Ship a Service Advisor calendar at `/workshop/planner`: active-site hours + holidays, bay occupancy, `SCHEDULED` bookings, and intake promote of the same `WO-` number.
 
-**Architecture:** Occupancy is the `WorkshopOrder` itself (`scheduled_start_at` / `scheduled_end_at` + existing `bay_id`). Hours and holidays are a tenant singleton (`WorkshopSettings` + seven `WorkshopOpeningHour` rows + `WorkshopHoliday`). Public holidays are copied from OpenHolidays API into `WorkshopHoliday`; `GET /planner` never calls the vendor. New Nest services stay under 1500 lines; do not grow `workshop-intake.service.ts` with planner/settings/holiday code.
+**Architecture:** Occupancy is the `WorkshopOrder` itself (`scheduled_start_at` / `scheduled_end_at` + existing `bay_id`). Hours and holidays are owned by the active `Site` (`timezone`, `slot_minutes`, `holiday_country_iso`, `holiday_subdivision_code`, seven site-scoped `WorkshopOpeningHour` rows, and site-scoped `WorkshopHoliday` rows). Public holidays are copied from OpenHolidays API into `WorkshopHoliday`; `GET /planner` never calls the vendor. New Nest services stay under 1500 lines; do not grow `workshop-intake.service.ts` with planner/settings/holiday code.
 
 **Tech Stack:** Prisma 6 / PostgreSQL, NestJS, class-validator, Jest e2e, React 19, Vite, Vitest, TanStack Query, Tailwind v4, shadcn Sheet/Alert/Card, `@dnd-kit/core` (already on the board). No FullCalendar. No `HttpModule` today — OpenHolidays uses injectable `fetch` with a 3s timeout.
 
@@ -24,12 +24,12 @@
 
 ### Prisma / cleanup
 
-- Modify: `apps/core-api/prisma/schema.prisma` — enum `WorkshopHolidaySource`; models `WorkshopSettings`, `WorkshopOpeningHour`, `WorkshopHoliday`; `WorkshopOrder.scheduled_start_at` / `scheduled_end_at`; `Tenant` relations
+- Modify: `apps/core-api/prisma/schema.prisma` — `Site` planner fields/relations; enum `WorkshopHolidaySource`; site-scoped models `WorkshopOpeningHour` and `WorkshopHoliday`; `WorkshopOrder.scheduled_start_at` / `scheduled_end_at`
 - Create: `apps/core-api/prisma/migrations/20260821120000_workshop_planner_calendar/migration.sql`
-- Modify: `apps/core-api/test/tenant-test-utils.ts` — delete holidays, opening hours, settings **before** `tenant.deleteMany`
-- Modify: `apps/core-api/src/prisma/prisma-audit.extension.ts` — add `WorkshopSettings`, `WorkshopOpeningHour`, `WorkshopHoliday` to `AUDITED_MODELS` (same class as `FinanceSettings`)
+- Modify: `apps/core-api/test/tenant-test-utils.ts` — delete holidays and opening hours before site/tenant teardown
+- Modify: `apps/core-api/src/prisma/prisma-audit.extension.ts` — retain audit coverage for `Site`, `WorkshopOpeningHour`, and `WorkshopHoliday`; do not add a removed `WorkshopSettings` model
 - Modify: `apps/core-api/src/prisma/prisma-audit.extension.spec.ts` — assert those three models
-- Modify: `apps/core-api/src/prisma/system-prisma.service.spec.ts` — add `workshopSettings` to `TENANT_MODEL_DELEGATES` (must stay omitted from SystemPrisma)
+- Modify: `apps/core-api/src/prisma/system-prisma.service.spec.ts` — keep planner configuration out of `SystemPrisma`; there is no `workshopSettings` delegate
 - Modify: `docs/deletion-policy.md` — settings/hours/holiday/order rows from the spec
 
 ### New API files (keep intake under 1500 lines)
@@ -104,15 +104,16 @@ import { join } from 'node:path';
 describe('Workshop planner Prisma schema', () => {
   const schema = readFileSync(join(process.cwd(), 'prisma', 'schema.prisma'), 'utf8');
 
-  it('defines WorkshopSettings singleton and holiday source enum', () => {
+  it('defines site-scoped planner configuration and holiday source enum', () => {
     expect(schema).toContain('enum WorkshopHolidaySource');
-    expect(schema).toContain('model WorkshopSettings');
+    expect(schema).toContain('model Site');
+    expect(schema).toContain('slot_minutes');
+    expect(schema).toContain('holiday_country_iso');
     expect(schema).toContain('model WorkshopOpeningHour');
     expect(schema).toContain('model WorkshopHoliday');
     expect(schema).toContain('scheduled_start_at');
     expect(schema).toContain('scheduled_end_at');
     expect(schema).toContain('idx_workshop_orders_bay_schedule');
-    expect(schema).toContain('@@map("workshop_settings")');
     expect(schema).toContain('@@map("workshop_opening_hours")');
     expect(schema).toContain('@@map("workshop_holidays")');
   });
@@ -127,15 +128,18 @@ npm --prefix apps/core-api test -- src/prisma/workshop-planner-schema.spec.ts
 
 - [ ] **Step 3: Add models to `schema.prisma`**
 
-On `Tenant`, add:
+On `Site`, retain the planner fields and relations:
 
 ```prisma
-workshopSettings     WorkshopSettings?
-workshopOpeningHours WorkshopOpeningHour[]
-workshopHolidays     WorkshopHoliday[]
+timezone                 String                @default("Europe/Vienna")
+slot_minutes             Int                   @default(30)
+holiday_country_iso      String                @default("AT")
+holiday_subdivision_code String?
+openingHours             WorkshopOpeningHour[]
+holidays                 WorkshopHoliday[]
 ```
 
-After `Bay`, insert enum + three models exactly as in the feature spec (composite `@@unique([tenant_id, id])` on settings/hours/holiday; hours `@@unique([tenant_id, weekday])`; holiday `@@unique([tenant_id, observed_on])`; tenant-safe FK `fields: [tenant_id, workshop_settings_id], references: [tenant_id, id]`).
+After `Bay`, insert the enum and the two site-scoped child models exactly as in the feature spec. `WorkshopOpeningHour` uses `site_id` and `@@unique([tenant_id, site_id, weekday])`; `WorkshopHoliday` uses `site_id` and `@@unique([tenant_id, site_id, observed_on])`; both use the tenant-safe composite site relation.
 
 On `WorkshopOrder` add:
 
@@ -146,14 +150,14 @@ scheduled_end_at   DateTime?
 @@index([tenant_id, bay_id, scheduled_start_at], map: "idx_workshop_orders_bay_schedule")
 ```
 
-Do **not** put hours on `FinanceSettings`.
+Do **not** put hours on `FinanceSettings` or recreate a tenant-wide settings table.
 
 - [ ] **Step 4: Create migration** `apps/core-api/prisma/migrations/20260821120000_workshop_planner_calendar/migration.sql`
 
 Use `npx prisma migrate diff` from the API package, or write SQL that:
 
 1. Creates enum `"WorkshopHolidaySource"` (`MANUAL`, `IMPORTED`)
-2. Creates the three tables with FKs to `tenants(id)` and composite FK to settings
+2. Adds the site-scoped planner child tables with FKs to `tenants(id)` and composite FKs to `sites(tenant_id, id)`
 3. Adds nullable timestamptz columns + index on `workshop_orders`
 
 - [ ] **Step 5: Apply locally**
@@ -166,27 +170,23 @@ Expected: migration applied.
 
 - [ ] **Step 6: Cleanup + audit + SystemPrisma**
 
-In `cleanupTestTenantGraph`, **before** `workshopOrder.deleteMany` is fine for holidays (no FK from orders). Delete in this order so settings cascade is not required if you delete children first:
+In `cleanupTestTenantGraph`, **before** site teardown, delete planner child rows in this order:
 
 ```ts
 await tenantPrisma.workshopHoliday.deleteMany({});
 await tenantPrisma.workshopOpeningHour.deleteMany({});
-await tenantPrisma.workshopSettings.deleteMany({});
 ```
 
 Place these **before** `prisma.tenant.deleteMany`. If they run after `workshopOrder.deleteMany` that is also fine.
 
-Add `WorkshopSettings`, `WorkshopOpeningHour`, `WorkshopHoliday` to `AUDITED_MODELS` and the audit spec.
+Keep `Site`, `WorkshopOpeningHour`, and `WorkshopHoliday` in `AUDITED_MODELS` and the audit spec. Do not add a removed `WorkshopSettings` model or `workshopSettings` delegate.
 
-Add `'workshopSettings'` to `TENANT_MODEL_DELEGATES` in `system-prisma.service.spec.ts`.
-
-Update `docs/deletion-policy.md` WorkshopOrder row and add:
+Verify `docs/deletion-policy.md` already contains the site-scoped planner rows and WorkshopOrder rule:
 
 | Entity | Delete Allowed | Rule |
 |---|---|---|
-| WorkshopSettings | No | Singleton; update in place only. |
-| WorkshopOpeningHour | No | Seven weekday rows; replace via PUT, never delete independently. |
-| WorkshopHoliday | Yes | Hard delete. Not referenced by orders. |
+| WorkshopOpeningHour | No | Seven weekday rows per site; replace via PUT, never delete independently. |
+| WorkshopHoliday | Yes | Hard delete. Site-scoped and not referenced by orders. |
 | WorkshopOrder | Conditional | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward. |
 
 - [ ] **Step 7: Re-run schema test + audit spec — expect PASS. Commit.**
@@ -208,7 +208,7 @@ RBAC: copy `TenantMemberService.assertTenantAdminAccess` into the settings/holid
 Use `workshop.spec.support` mocks. Extend `mockPrisma` with:
 
 ```ts
-workshopSettings: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
+site: { findFirst: jest.fn(), update: jest.fn() },
 workshopOpeningHour: { findMany: jest.fn(), createMany: jest.fn(), update: jest.fn(), deleteMany: jest.fn() },
 ```
 
@@ -216,7 +216,7 @@ Also add `getAuthenticatedUser` on `mockTenantContext` returning `{ role: 'ADMIN
 
 Cases:
 
-1. `getSettings` when no row exists creates settings + 7 opening hours (Mon–Fri 07:30–17:00, Sat 08:00–12:00, Sun closed) and returns `openingHours.length === 7`.
+1. `getSettings` for an active site ensures 7 opening hours (Mon–Fri 07:30–17:00, Sat 08:00–12:00, Sun closed) and returns `openingHours.length === 7`.
 2. `updateSettings` with 6 weekdays throws `BadRequestException`.
 3. `updateSettings` with `slotMinutes: 20` throws `BadRequestException`.
 4. `updateSettings` with `closeTime <= openTime` on an open day throws `BadRequestException`.
@@ -262,7 +262,7 @@ export const DEFAULT_OPENING_HOURS = [
 export const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 ```
 
-`getOrCreateSettings(tenantId)` upserts the singleton and, if opening hours count !== 7, `createMany` the defaults. `PUT` replaces all seven in one `$transaction` (update each weekday by `tenant_id + weekday`). Response DTO camelCase as spec: `timezone`, `slotMinutes`, `holidayCountryIso`, `holidaySubdivisionCode`, `openingHours`.
+`getSettings` resolves the authenticated user's active site and, if its opening-hours count !== 7, `createMany`s the defaults. `PUT` updates the site's planner fields and all seven hours in one `$transaction` (update each weekday by `tenant_id + site_id + weekday`). Response DTO camelCase as spec: `timezone`, `slotMinutes`, `holidayCountryIso`, `holidaySubdivisionCode`, `openingHours`.
 
 Controller (register **before** `orders/:id` is irrelevant; these are sibling paths):
 
@@ -292,8 +292,8 @@ git commit -m "feat(workshop): add hours settings GET/PUT with weekday seed"
 3. Create when a one-off already exists on that date → `ConflictException`.
 4. Create annual `12-25` when a one-off `2026-12-25` exists → `ConflictException`.
 5. Create annual `12-25` when another annual `2020-12-25` exists → `ConflictException`.
-6. Delete returns void / service does `deleteMany` with id+tenant.
-7. List without range uses current tenant year through next year (mock timezone `Europe/Vienna`).
+6. Delete returns void / service does `deleteMany` with id+tenant+site.
+7. List without range uses the active site's current year through next year (mock timezone `Europe/Vienna`).
 8. SALES create → `ForbiddenException`.
 
 Collision helper (shared with import):
@@ -320,7 +320,7 @@ PATCH  /workshop/holidays/:id
 DELETE /workshop/holidays/:id   → 204
 ```
 
-`GET` optional `from`/`to` as `YYYY-MM-DD`. Default: 1 Jan of current year in settings timezone through 31 Dec of next year.
+`GET` optional `from`/`to` as `YYYY-MM-DD`. Default: 1 Jan of current year in the active site's timezone through 31 Dec of next year.
 
 - [ ] **Step 3: PASS. Commit.**
 
@@ -674,7 +674,7 @@ git commit -m "test(workshop): planner e2e and user guide for hours and calendar
 
 | Spec requirement | Task |
 |---|---|
-| WorkshopSettings / OpeningHour / Holiday schema, composite uniques | 1 |
+| Site planner fields / OpeningHour / Holiday schema, site-scoped uniques | 1 |
 | scheduled_start_at/end_at + bay index | 1 |
 | Deletion policy | 1 |
 | GET/PUT settings, 7-day seed, slot 15/30/60, IANA tz, not on FinanceSettings | 2 |

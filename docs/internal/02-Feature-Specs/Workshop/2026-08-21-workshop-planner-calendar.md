@@ -23,7 +23,7 @@ The Service Advisor needs a place to **set when this workshop is open**, **see w
 
 ACP already has a kanban **Workshop Board** (`/workshop/board`, ADR-0018) for assigning cars that are on the floor. That board has no clock. `SCHEDULED` exists on the order state machine as "future appointment", but create always writes `INTAKE`, and there is no start/end time.
 
-This module adds a **Workshop Planner** calendar at `/workshop/planner`. A booking is a `WorkshopOrder` with `status = SCHEDULED`, a bay, and a time window. Opening hours **and holidays** are tenant settings so a new workshop can define its week and closed days before the first job lands. Walk-in intake stays as it is; when the booked car arrives, intake **promotes** the scheduled order instead of minting a second `WO-` number.
+This module adds a **Workshop Planner** calendar at `/workshop/planner`. A booking is a `WorkshopOrder` with `status = SCHEDULED`, a bay, and a time window. Opening hours **and holidays** are settings for the authenticated user's active site so each shop can define its week and closed days before the first job lands. Walk-in intake stays as it is; when the booked car arrives, intake **promotes** the scheduled order instead of minting a second `WO-` number.
 
 **Out of scope (Phase 1):** customer self-booking, recurring *job* series, waitlist, labor-AW duration engine, mechanic-hour hard limits, merging planner into the kanban, school-holiday calendars, live third-party holiday lookups on every planner paint.
 
@@ -43,7 +43,7 @@ Architecture detail lives in [ADR-0019](../../01-ADR/2026-08-21-workshop-planner
 
 ## User Stories
 
-- As a **Service Advisor**, I want to **set this workshop's opening hours and slot size** so that **the planner grid matches how we actually work**.
+- As a **Service Advisor**, I want to **set this site's opening hours and slot size** so that **the planner grid matches how we actually work**.
 - As a **Service Advisor**, I want to **import this country's public holidays** so that **I do not type Nationalfeiertag by hand every year**.
 - As a **Service Advisor**, I want to **see bays against a day or week clock** so that **I can tell which stall is free**.
 - As a **Service Advisor**, I want to **click a free slot and create a workshop order there** so that **the booking holds the bay until the car arrives**.
@@ -92,55 +92,31 @@ These rulings are approved and binding for implementation.
 3. **Slot size 30 minutes, default job 60 minutes.** Start-cell click spans two slots. Advisor can change end time in the create sheet.
 4. **Bay overlap = 409.** Mechanic overlap = amber warning, still allowed (ADR-0018 capacity ruling).
 5. **Hours overflow = warning, not 422.** After-hours, Sunday, and **holiday** booking is a real shop move. The grid still shows the day as closed or shortened so it does not look free.
-6. **Timezone `Europe/Vienna`** as tenant default. Store UTC timestamptz; render in `WorkshopSettings.timezone`.
+6. **Timezone `Europe/Vienna`** as the default on `Site`. Store UTC timestamptz; render in the active site's `timezone`.
 7. **No `CANCELLED` status in Phase 1.** Delete is allowed on `SCHEDULED` only (no-show).
 8. **Walk-in create unchanged.** Planner is an additional door, not a replacement for `+ Order` / Start Service.
 9. **Odometer/fuel stay required `Int` columns.** Planner persists `0` until intake. Do not nullable-migrate a hot table for placeholders.
 10. **Walk-ins still occupy the bay today.** `INTAKE` / `IN_PROGRESS` with a `bay_id` and no time window occupy that bay for the current local day so the planner cannot show a stall as free while a car is in it.
 11. **Holidays override weekday hours.** A matching holiday wins over Mon–Sun. Closed holiday → empty grid with the holiday name. Short holiday (e.g. Christmas Eve) → grid uses that day's `openTime`/`closeTime`.
-12. **Public-holiday import uses OpenHolidays API**, copied into `WorkshopHoliday`. Planner never calls the vendor at read time. Import nationwide `type=Public` for the tenant country (default `AT`) for the current and next calendar year. Easter-dependent days are stored as one-off dates, not `repeats_annually`. Manual rows (Betriebsurlaub) stay allowed. School holidays are not imported.
+12. **Public-holiday import uses OpenHolidays API**, copied into `WorkshopHoliday`. Planner never calls the vendor at read time. Import nationwide `type=Public` for the active site's country (default `AT`) for the current and next calendar year. Easter-dependent days are stored as one-off dates, not `repeats_annually`. Manual rows (Betriebsurlaub) stay allowed. School holidays are not imported.
 
 ---
 
 ## Database Impact
 
-### New Tables
+### Current planner configuration
 
-#### `WorkshopSettings` (tenant singleton)
+The tenant-singleton design was superseded by ADR-0022. The current schema stores
+`timezone`, `slot_minutes`, `holiday_country_iso`, and
+`holiday_subdivision_code` on the authenticated tenant's active `Site`. `Site`
+also owns the opening-hour and holiday relations. The existing
+`GET`/`PUT /api/workshop/settings` routes keep their response shape, but
+`WorkshopSettingsService` reads and writes the active site through
+`SiteContextService`. There is no `WorkshopSettings` model or
+`workshop_settings` table in the current schema.
 
-| Column | Type | Nullable | Default | Notes |
-|--------|------|----------|---------|-------|
-| `id` | `String @id @default(uuid())` | No | UUID | Primary key |
-| `tenant_id` | `String` | No | — | Unique. Tenant-scoped singleton. |
-| `timezone` | `String` | No | `"Europe/Vienna"` | IANA tz. |
-| `slot_minutes` | `Int` | No | `30` | Grid quantum. Allowed values: 15, 30, 60. |
-| `holiday_country_iso` | `String` | No | `"AT"` | ISO 3166-1 alpha-2 for OpenHolidays import. |
-| `holiday_subdivision_code` | `String?` | Yes | — | Optional ISO 3166-2 (e.g. `DE-BY`). Null = nationwide only. |
-| `createdAt` | `DateTime` | No | `now()` | |
-| `updatedAt` | `DateTime` | No | `@updatedAt` | |
-
-```prisma
-model WorkshopSettings {
-  id           String   @id @default(uuid())
-  tenant_id    String
-  tenant       Tenant   @relation(fields: [tenant_id], references: [id])
-  timezone     String   @default("Europe/Vienna")
-  slot_minutes Int      @default(30)
-  holiday_country_iso        String  @default("AT")
-  holiday_subdivision_code   String?
-  openingHours WorkshopOpeningHour[]
-  holidays     WorkshopHoliday[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([tenant_id])
-  @@unique([tenant_id, id])
-  @@index([tenant_id])
-  @@map("workshop_settings")
-}
-```
-
-Do **not** add these fields to `FinanceSettings`.
+Do **not** add these fields to `FinanceSettings` or reintroduce a tenant-wide
+hours singleton.
 
 #### `WorkshopOpeningHour`
 
@@ -148,32 +124,32 @@ Do **not** add these fields to `FinanceSettings`.
 |--------|------|----------|---------|-------|
 | `id` | `String @id @default(uuid())` | No | UUID | Primary key |
 | `tenant_id` | `String` | No | — | Tenant isolation. |
-| `workshop_settings_id` | `String` | No | — | Parent singleton. |
+| `site_id` | `String` | No | — | Active site that owns these hours. |
 | `weekday` | `Int` | No | — | ISO weekday 1=Monday … 7=Sunday. |
 | `is_closed` | `Boolean` | No | `false` | If true, `open_time`/`close_time` ignored. |
-| `open_time` | `String` | No | `"07:30"` | `HH:mm` in tenant timezone. |
-| `close_time` | `String` | No | `"17:00"` | `HH:mm` in tenant timezone. Must be > `open_time` when not closed. |
+| `open_time` | `String` | No | `"07:30"` | `HH:mm` in the active site's timezone. |
+| `close_time` | `String` | No | `"17:00"` | `HH:mm` in the active site's timezone. Must be > `open_time` when not closed. |
 
 ```prisma
 model WorkshopOpeningHour {
-  id                   String           @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant           @relation(fields: [tenant_id], references: [id])
-  workshop_settings_id String
-  workshop_settings    WorkshopSettings @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
-  weekday              Int
-  is_closed            Boolean          @default(false)
-  open_time            String           @default("07:30")
-  close_time           String           @default("17:00")
+  id         String  @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant  @relation(fields: [tenant_id], references: [id])
+  site_id    String
+  site       Site    @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  weekday    Int
+  is_closed  Boolean @default(false)
+  open_time  String  @default("07:30")
+  close_time String  @default("17:00")
 
   @@unique([tenant_id, id])
-  @@unique([tenant_id, weekday])
+  @@unique([tenant_id, site_id, weekday])
   @@index([tenant_id])
   @@map("workshop_opening_hours")
 }
 ```
 
-Seed seven rows on settings upsert (same pattern as `FinanceSettings` create). Defaults:
+Ensure each site has seven weekday rows when its settings are read or updated. Defaults:
 
 | Weekday | Closed | Open | Close |
 |---------|--------|------|-------|
@@ -191,7 +167,7 @@ Date-specific override of weekday hours. Empty until the advisor imports public 
 |--------|------|----------|---------|-------|
 | `id` | `String @id @default(uuid())` | No | UUID | Primary key |
 | `tenant_id` | `String` | No | — | Tenant isolation. |
-| `workshop_settings_id` | `String` | No | — | Parent singleton. |
+| `site_id` | `String` | No | — | Active site that owns this holiday. |
 | `name` | `String` | No | — | Display label, e.g. `Nationalfeiertag`. |
 | `observed_on` | `DateTime @db.Date` | No | — | Calendar date. For annual rows, month+day is what matches; year is ignored at query time. |
 | `repeats_annually` | `Boolean` | No | `false` | If true, every year on the same month+day. **Imported public holidays are always `false`** (Easter moves). |
@@ -208,22 +184,22 @@ enum WorkshopHolidaySource {
 }
 
 model WorkshopHoliday {
-  id                   String                 @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant                 @relation(fields: [tenant_id], references: [id])
-  workshop_settings_id String
-  workshop_settings    WorkshopSettings       @relation(fields: [tenant_id, workshop_settings_id], references: [tenant_id, id], onDelete: Cascade)
-  name                 String
-  observed_on          DateTime               @db.Date
-  repeats_annually     Boolean                @default(false)
-  is_closed            Boolean                @default(true)
-  open_time            String?
-  close_time           String?
-  source               WorkshopHolidaySource  @default(MANUAL)
-  external_id          String?
+  id               String                @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant                @relation(fields: [tenant_id], references: [id])
+  site_id          String
+  site             Site                  @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  name             String
+  observed_on      DateTime              @db.Date
+  repeats_annually Boolean               @default(false)
+  is_closed        Boolean               @default(true)
+  open_time        String?
+  close_time       String?
+  source           WorkshopHolidaySource @default(MANUAL)
+  external_id      String?
 
   @@unique([tenant_id, id])
-  @@unique([tenant_id, observed_on])
+  @@unique([tenant_id, site_id, observed_on])
   @@index([tenant_id])
   @@map("workshop_holidays")
 }
@@ -235,7 +211,7 @@ model WorkshopHoliday {
 2. Else an annual row whose month+day equals `D` (year ignored).
 3. Else weekday `WorkshopOpeningHour`.
 
-Reject create if another row would expand to the same date in any year (annual vs annual same month-day; annual vs one-off on that month-day). `observed_on` unique already blocks two one-offs on the same date. 29 February annual rows are skipped in non-leap years.
+Reject create if another row for the same site would expand to the same date in any year (annual vs annual same month-day; annual vs one-off on that month-day). The site-scoped `observed_on` unique already blocks two one-offs on the same date. 29 February annual rows are skipped in non-leap years.
 
 #### Public-holiday import (OpenHolidays API)
 
@@ -264,7 +240,7 @@ Timeout 3s. On failure, import returns `502` with a toast; planner reads stay on
 | `nationwide === true`, or a subdivision row matching `holiday_subdivision_code` | Optional observances |
 | Single-day `startDate === endDate` | Multi-day ranges (none expected for AT public days) |
 
-**Copy, do not live-query.** Each kept row upserts a `WorkshopHoliday`:
+**Copy, do not live-query.** Each kept row upserts a `WorkshopHoliday` for the active site:
 
 - `name` = German `name[].text` where `language=DE`
 - `observed_on` = `startDate`
@@ -273,9 +249,9 @@ Timeout 3s. On failure, import returns `502` with a toast; planner reads stay on
 - `source = IMPORTED`
 - `external_id` = OpenHolidays `id`
 
-Idempotent: skip (or refresh name on) an existing row with the same `observed_on`. Never overwrite a `MANUAL` row on that date — leave it, count as skipped. Re-import next year is how Easter Monday lands on the right day.
+Idempotent: skip (or refresh name on) an existing row with the same site and `observed_on`. Never overwrite a `MANUAL` row on that date — leave it, count as skipped. Re-import next year is how Easter Monday lands on the right day.
 
-**Attribution:** ODbL. We store a per-tenant working copy for scheduling; we do not republish OpenHolidays as our own public API. Document the source in Settings copy: "Public holidays from OpenHolidays API."
+**Attribution:** ODbL. We store a per-site working copy for scheduling; we do not republish OpenHolidays as our own public API. Document the source in Settings copy: "Public holidays from OpenHolidays API."
 
 Production egress must allow `openholidaysapi.org`.
 
@@ -285,7 +261,7 @@ Production egress must allow `openholidaysapi.org`.
 |-------|--------|---------------------|
 | `WorkshopOrder` | Add nullable `scheduled_start_at DateTime?` | Yes — additive |
 | `WorkshopOrder` | Add nullable `scheduled_end_at DateTime?` | Yes — additive |
-| `Tenant` | Relation to `WorkshopSettings` / `WorkshopOpeningHour` / `WorkshopHoliday` | Yes |
+| `Site` | Planner fields plus relations to `WorkshopOpeningHour` / `WorkshopHoliday` | Already present in the site-scope migration |
 
 ```prisma
 model WorkshopOrder {
@@ -305,13 +281,10 @@ Application invariant (enforced in service, not a DB check constraint in Phase 1
 
 ### Deletion Policy Impact
 
-Add to `docs/deletion-policy.md` at implementation time:
-
 | Entity | Delete Allowed | Rule |
 |--------|----------------|------|
-| `WorkshopSettings` | No | Singleton configuration; update in place only. |
-| `WorkshopOpeningHour` | No | Replaced by updating the seven weekday rows; never deleted independently. |
-| `WorkshopHoliday` | Yes | Hard delete allowed. Not referenced by orders. Removing a holiday only changes future grid hours. |
+| `WorkshopOpeningHour` | No | Seven weekday rows per site; replace by updating the rows, never delete independently. Cascade only when a pristine site is hard-deleted. |
+| `WorkshopHoliday` | Yes | Hard delete allowed (site-scoped). Not referenced by orders. Removing a holiday only changes future grid hours for that site. |
 | `WorkshopOrder` | Unchanged, with clarification | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. |
 
 ---
@@ -337,11 +310,11 @@ A `SCHEDULED` order cannot start mechanic execution. Mechanic queue already excl
 
 | Method | Route | Request | Response | Auth |
 |--------|-------|---------|----------|------|
-| `GET` | `/api/workshop/settings` | — | `WorkshopSettingsResponse` | Tenant member (OWNER/ADMIN/SALES). TECH does not use this UI. |
-| `PUT` | `/api/workshop/settings` | `UpdateWorkshopSettingsDto` | `WorkshopSettingsResponse` | OWNER/ADMIN |
-| `GET` | `/api/workshop/holidays` | Optional `from`/`to` as `YYYY-MM-DD` (tenant calendar dates). Default: current local year. | `{ data: WorkshopHolidayDto[] }` | OWNER/ADMIN/SALES |
+| `GET` | `/api/workshop/settings` | — | `WorkshopSettingsResponse` | Tenant member with an active site (OWNER/ADMIN/SALES). TECH does not use this UI. |
+| `PUT` | `/api/workshop/settings` | `UpdateWorkshopSettingsDto` | `WorkshopSettingsResponse` | OWNER/ADMIN with an active site |
+| `GET` | `/api/workshop/holidays` | Optional `from`/`to` as `YYYY-MM-DD` (active-site calendar dates). Default: current local year. | `{ data: WorkshopHolidayDto[] }` | OWNER/ADMIN/SALES |
 | `POST` | `/api/workshop/holidays` | `CreateWorkshopHolidayDto` | `WorkshopHolidayDto` | OWNER/ADMIN |
-| `POST` | `/api/workshop/holidays/import` | `{ countryIsoCode?: string, subdivisionCode?: string \| null }` omitted fields use `WorkshopSettings` | `{ imported: number, skipped: number, yearFrom: number, yearTo: number }` | OWNER/ADMIN |
+| `POST` | `/api/workshop/holidays/import` | `{ countryIsoCode?: string, subdivisionCode?: string \| null }` omitted fields use the active site's settings | `{ imported: number, skipped: number, yearFrom: number, yearTo: number }` | OWNER/ADMIN |
 | `PATCH` | `/api/workshop/holidays/:id` | Partial holiday fields | `WorkshopHolidayDto` | OWNER/ADMIN |
 | `DELETE` | `/api/workshop/holidays/:id` | — | `204` | OWNER/ADMIN |
 | `GET` | `/api/workshop/planner` | Query: `from`, `to` (ISO instants), optional `bayId` | `PlannerGridResponse` | OWNER/ADMIN/SALES |
@@ -416,7 +389,7 @@ interface PlannerGridResponse {
     closeTime: string
   }>
   holidays: Array<{
-    date: string // YYYY-MM-DD in tenant timezone, expanded into the requested range
+    date: string // YYYY-MM-DD in the active site's timezone, expanded into the requested range
     name: string
     isClosed: boolean
     openTime: string | null
@@ -445,7 +418,7 @@ interface PlannerBooking {
 1. `Promise.all`: active bays, settings+hours, holidays (one-offs in range + all annual rows), orders in range.
 2. Orders filter: `tenant_id`, `status in (SCHEDULED, INTAKE, IN_PROGRESS)`, `bay_id` not null (and `bayId` if queried), and either:
    - timed: `scheduled_start_at < :to AND scheduled_end_at > :from`, or
-   - unscheduled on-floor: timestamps null, status `INTAKE` or `IN_PROGRESS`, and the query range intersects **today** in the tenant timezone.
+   - unscheduled on-floor: timestamps null, status `INTAKE` or `IN_PROGRESS`, and the query range intersects **today** in the active site's timezone.
 3. Include customer, vehicle, mechanic. Zero per-row awaits. For `UNSCHEDULED_ON_FLOOR`, the API synthesizes `scheduledStartAt`/`scheduledEndAt` as today's **effective** open→close (holiday override included). If today is fully closed, synthesize local midnight→next midnight so the stall cannot look free.
 
 The frontend paints the grid from `openings` + `holidays` + `slotMinutes` and overlays `bookings`. For each local date, apply holiday override first (ruling 11), then weekday hours. The API does **not** return a cell matrix.
@@ -554,7 +527,7 @@ If no active bays: centered Card "No bays configured" + `Go to Settings` (Bays t
 ### Real-Time Sync
 
 - [ ] `WorkshopOrder` already in `SUPPORTED_ENTITY_TYPES`. Planner query keys must be invalidated from `dashboard-entity-map.ts` (`workshopKeys.planner(...)`).
-- [ ] `WorkshopSettings` / `WorkshopOpeningHour` / `WorkshopHoliday`: **defer** WebSocket. Refetch when returning from Settings.
+- [ ] Site planner settings, `WorkshopOpeningHour`, and `WorkshopHoliday`: **defer** WebSocket. Refetch when returning from Settings.
 
 ---
 
@@ -680,7 +653,7 @@ All seven product rulings were confirmed by the Product Owner on 2026-08-25. No 
 4. Default duration 60 vs 30 vs labor-AW (decision: 60; labor-AW is Phase 2).
 5. Duplicate active-order guard on the same vehicle (decision: yes, block second active job).
 6. Unscheduled on-floor occupancy for today (decision: yes).
-7. Holidays in Phase 1 (decision: yes — tenant-owned list + OpenHolidays import, not Nager.Date).
+7. Holidays in Phase 1 (decision: yes — site-owned list + OpenHolidays import, not Nager.Date).
 
 ---
 
