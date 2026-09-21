@@ -934,3 +934,84 @@ export const createMockListResponse = <T>(items: T[], total = items.length) => {
     },
   };
 };
+
+type MockAccountingExportPreview = {
+  legalEntityId: string;
+  dateFrom: string;
+  dateTo: string;
+  profileVersion: number;
+  previewHash: string;
+  documentCount: number;
+  rowCount: number;
+  totals: Array<{
+    account: string;
+    taxRate: string;
+    net: string;
+    tax: string;
+    gross: string;
+  }>;
+  blockers: Array<{ code: string; message: string }>;
+  overlaps: Array<{
+    id: string;
+    dateFrom: string;
+    dateTo: string;
+    createdAt: string;
+    fileSha256: string;
+    documentCount: number;
+  }>;
+  canGenerate: boolean;
+};
+
+export const createMockAccountingExportPreview = (
+  overrides: Partial<MockAccountingExportPreview> = {},
+): MockAccountingExportPreview => ({
+  legalEntityId: 'legal-entity-1',
+  dateFrom: '2026-01-01',
+  dateTo: '2026-01-31',
+  profileVersion: 2,
+  previewHash: 'preview-hash-abc',
+  documentCount: 2,
+  rowCount: 3,
+  totals: [
+    {
+      account: '8400',
+      taxRate: '19.00',
+      net: '100.00',
+      tax: '19.00',
+      gross: '119.00',
+    },
+  ],
+  blockers: [],
+  overlaps: [],
+  canGenerate: true,
+  ...overrides,
+});
+
+export const createMockAccountingExportRun = (
+  overrides: Partial<{
+    id: string;
+    legalEntityId: string;
+    dateFrom: string;
+    dateTo: string;
+    filename: string;
+    sha256: string;
+    documentCount: number;
+    rowCount: number;
+    byteLength: number;
+    createdAt: string;
+    createdByUserId: string | null;
+  }> = {},
+) => ({
+  id: 'export-run-1',
+  legalEntityId: 'legal-entity-1',
+  dateFrom: '2026-01-01',
+  dateTo: '2026-01-31',
+  filename: 'EXTF_legal-entity-1_2026-01-01_2026-01-31_export-run-1.csv',
+  sha256: 'abc123def4567890abc123def4567890abc123def4567890abc123def4567890',
+  documentCount: 2,
+  rowCount: 3,
+  byteLength: 128,
+  createdAt: '2026-09-21T12:00:00.000Z',
+  createdByUserId: 'user-admin-1',
+  ...overrides,
+});
