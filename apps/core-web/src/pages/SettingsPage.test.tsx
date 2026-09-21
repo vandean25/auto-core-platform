@@ -216,6 +216,10 @@ vi.mock('@/components/settings/SitesSettingsTab', () => ({
   SitesSettingsTab: () => <div>Sites tab content</div>,
 }))
 
+vi.mock('@/components/settings/AccountingExportSettingsTab', () => ({
+  AccountingExportSettingsTab: () => <div>Accounting export tab content</div>,
+}))
+
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid='location-search'>{location.search}</div>
@@ -231,7 +235,8 @@ describe('SettingsPage tab integration', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('tablist')).toHaveClass('h-auto', 'overflow-x-auto')
+    const [mainTabList] = screen.getAllByRole('tablist')
+    expect(mainTabList).toHaveClass('h-auto', 'overflow-x-auto')
     expect(screen.getByRole('tab', { name: 'Voice Translation' })).toHaveClass('shrink-0')
     expect(screen.getByRole('tab', { name: 'Storage Locations' })).toHaveClass('shrink-0')
   })
