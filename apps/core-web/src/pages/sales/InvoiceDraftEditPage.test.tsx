@@ -3,10 +3,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
+import { invoiceKeys } from '@/api/sales'
 import * as salesApi from '@/api/sales'
 import * as inventoryApi from '@/api/inventory'
 import type { Customer } from '@/api/types'
 import { DOCUMENT_AUTOSAVE_DEBOUNCE_MS } from '@/hooks/useDebouncedAutoSave'
+
+const mockNavigate = vi.fn()
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 vi.mock('@/api/sales')
 vi.mock('@/api/inventory')
@@ -84,6 +95,7 @@ describe('InvoiceDraftEditPage autosave', () => {
       defaultOptions: { queries: { retry: false } },
     })
     vi.clearAllMocks()
+    mockNavigate.mockReset()
     asMock(inventoryApi.useInventory).mockReturnValue({ data: { data: [] }, isLoading: false })
     asMock(salesApi.useInvoice).mockImplementation(() => ({
       data: invoiceRef.current,
@@ -192,6 +204,95 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     expect(screen.getByDisplayValue('User typed value')).toBeInTheDocument()
     expect(updateMutation.mock.calls.length).toBe(callsAfterEdit)
+  })
+
+  it('seeds invoice detail cache with FINALIZED before navigating to detail', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    const finalized = {
+      ...mockInvoice,
+      status: 'FINALIZED',
+      invoice_number: 'RE-2026-0001',
+    }
+    const finalizeMutation = vi.fn().mockResolvedValue(finalized)
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: finalizeMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(finalized)
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
+    })
+  })
+
+  it('calls finalize after confirm and navigates only on success', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    const finalizeMutation = vi.fn().mockResolvedValue({
+      ...mockInvoice,
+      status: 'FINALIZED',
+      invoice_number: 'RE-2026-0001',
+    })
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: finalizeMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+
+    await waitFor(() => {
+      expect(updateMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'inv-1',
+        }),
+      )
+      expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
+      expect(toast.success).toHaveBeenCalledWith('Invoice finalized and number generated!')
+    })
+  })
+
+  it('surfaces Nest API errors when finalize fails and does not navigate', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    const finalizeMutation = vi
+      .fn()
+      .mockRejectedValue(new Error('ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete'))
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: finalizeMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+
+    await waitFor(() => {
+      expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
+      expect(toast.error).toHaveBeenCalledWith(
+        'ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete',
+      )
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
   })
 
   it('surfaces API message when autosave fails', async () => {

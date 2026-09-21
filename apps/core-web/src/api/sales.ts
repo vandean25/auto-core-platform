@@ -44,8 +44,8 @@ export function useUpdateInvoice() {
             return response.json() as Promise<Invoice>
         },
         onSuccess: (data) => {
+            queryClient.setQueryData(invoiceKeys.detail(data.id), data)
             queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
         },
     })
 }
@@ -61,8 +61,8 @@ export function useFinalizeInvoice() {
             return response.json() as Promise<Invoice>
         },
         onSuccess: (data) => {
+            queryClient.setQueryData(invoiceKeys.detail(data.id), data)
             queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
         },
     })
 }

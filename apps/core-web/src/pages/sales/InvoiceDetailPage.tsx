@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuthSession } from '@/api/auth-session'
 import { useInvoice } from '@/api/sales'
 import { useInvoiceCreditContext } from '@/api/useCreditNotes'
@@ -234,6 +234,15 @@ export default function InvoiceDetailPage() {
 
   if (!invoice) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Invoice not found.</div>
+  }
+
+  if (invoice.status === 'DRAFT' && invoice.sales_order_id) {
+    return (
+      <Navigate
+        to={APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', invoice.id)}
+        replace
+      />
+    )
   }
 
   const customerName =

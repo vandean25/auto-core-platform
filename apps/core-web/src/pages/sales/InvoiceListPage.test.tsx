@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,8 +6,18 @@ import type { Invoice } from '@/api/types'
 import * as salesApi from '@/api/sales'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import InvoiceListPage from './InvoiceListPage'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+
+const mockNavigate = vi.fn()
 
 vi.mock('@/api/sales')
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
   fn as unknown as ReturnType<typeof vi.fn>
@@ -54,6 +64,7 @@ function renderPage(initialPath = '/sales/invoices') {
 
 describe('InvoiceListPage', () => {
   beforeEach(() => {
+    mockNavigate.mockReset()
     asMock(salesApi.useInvoices).mockReturnValue({
       data: [makeInvoice()],
       isLoading: false,
@@ -71,6 +82,37 @@ describe('InvoiceListPage', () => {
     expect(screen.getByRole('heading', { name: 'Sales Invoices' })).toBeInTheDocument()
     expect(screen.getByText('RE-2026-0001')).toBeInTheDocument()
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
+  })
+
+  it('opens sales-order drafts on the edit route and finalized invoices on detail', () => {
+    asMock(salesApi.useInvoices).mockReturnValue({
+      data: [
+        makeInvoice({
+          id: 'inv-draft-so',
+          status: 'DRAFT',
+          sales_order_id: 'so-1',
+          invoice_number: undefined,
+        }),
+        makeInvoice({
+          id: 'inv-final',
+          status: 'FINALIZED',
+          invoice_number: 'RE-2026-0099',
+        }),
+      ],
+      isLoading: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByText('Draft inv-draf'))
+    expect(mockNavigate).toHaveBeenCalledWith(
+      APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', 'inv-draft-so'),
+    )
+
+    fireEvent.click(screen.getByText('RE-2026-0099'))
+    expect(mockNavigate).toHaveBeenCalledWith(
+      APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', 'inv-final'),
+    )
   })
 
   it('reorders rows when sortField and sortDirection change', () => {

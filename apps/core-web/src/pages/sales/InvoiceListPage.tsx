@@ -160,9 +160,13 @@ export default function InvoiceListPage() {
         isLoading={isLoading}
         searchColumn="invoice_number"
         searchPlaceholder="Search invoices..."
-        onRowClick={(row) =>
-          navigate(APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', row.id))
-        }
+        onRowClick={(row) => {
+          const path =
+            row.status === 'DRAFT' && row.sales_order_id
+              ? APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', row.id)
+              : APP_ROUTE_PATHS.salesInvoiceDetail.replace(':id', row.id)
+          navigate(path)
+        }}
         {...tableState}
       />
     </>
