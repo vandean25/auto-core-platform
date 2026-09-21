@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 
@@ -37,6 +38,7 @@ describe('VehicleSaleService', () => {
     user: { findUnique: jest.Mock };
     tenantMember: { findFirst: jest.Mock };
     siteMembership: { findFirst: jest.Mock };
+    site: { findFirst: jest.Mock };
     $queryRaw: jest.Mock;
     $transaction: jest.Mock;
   };
@@ -49,6 +51,10 @@ describe('VehicleSaleService', () => {
     listAuthorizedSiteIds: jest.Mock;
   };
   let ledger: { listForVehicle: jest.Mock; append: jest.Mock };
+  let snapshotCommit: {
+    prepareV2Snapshot: jest.Mock;
+    persistV2Snapshot: jest.Mock;
+  };
 
   beforeEach(() => {
     prisma = {
@@ -67,6 +73,7 @@ describe('VehicleSaleService', () => {
       user: { findUnique: jest.fn() },
       tenantMember: { findFirst: jest.fn() },
       siteMembership: { findFirst: jest.fn() },
+      site: { findFirst: jest.fn() },
       $queryRaw: jest
         .fn()
         .mockResolvedValue([{ id: 'site-1', is_active: true }]),
@@ -88,11 +95,22 @@ describe('VehicleSaleService', () => {
       listForVehicle: jest.fn().mockResolvedValue([]),
       append: jest.fn(),
     };
+    snapshotCommit = {
+      prepareV2Snapshot: jest.fn().mockResolvedValue({
+        snapshot: { schema_version: 2 },
+        ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+        dueDate: new Date('2026-09-12T12:00:00.000Z'),
+        supplyFrom: new Date('2026-08-29T12:00:00.000Z'),
+        supplyTo: new Date('2026-08-29T12:00:00.000Z'),
+      }),
+      persistV2Snapshot: jest.fn().mockResolvedValue(undefined),
+    };
     service = new VehicleSaleService(
       prisma as unknown as PrismaService,
       tenantContext as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
       ledger as unknown as VehicleLedgerService,
+      snapshotCommit as unknown as InvoiceSnapshotCommitService,
     );
   });
 
@@ -164,6 +182,10 @@ describe('VehicleSaleService', () => {
     prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
     prisma.vehicleLedgerEntry.findMany.mockResolvedValue([]);
     prisma.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
+    prisma.site.findFirst.mockResolvedValue({
+      id: 'site-1',
+      legal_entity_id: 'le-1',
+    });
     prisma.invoice.create.mockResolvedValue({
       id: 'invoice-1',
       invoice_number: 'RE-2026-0001',

@@ -27,7 +27,7 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
-import { buildInvoiceSnapshot } from '../invoices/invoice-snapshot.js';
+import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
@@ -48,6 +48,7 @@ export class VehicleSaleService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
     private readonly ledger: VehicleLedgerService,
+    private readonly snapshotCommit: InvoiceSnapshotCommitService,
   ) {}
 
   async create(dto: CreateVehicleSaleDto) {
@@ -256,12 +257,23 @@ export class VehicleSaleService {
       const description =
         `${posted.vehicle.year} ${posted.vehicle.make} ${posted.vehicle.model} VIN ${posted.vehicle.vin ?? ''}`.trim();
 
+      const site = await tx.site.findFirst({
+        where: { id: persistedSiteId, tenant_id: tenantId },
+        select: { id: true, legal_entity_id: true },
+      });
+      if (!site) {
+        throw new NotFoundException('Vehicle sale site not found');
+      }
+
       const invoice = await tx.invoice.create({
         data: {
           tenant_id: tenantId,
           customer_id: posted.customer_id,
           vehicle_id: posted.vehicle_id,
           vehicle_sale_id: posted.id,
+          site_id: site.id,
+          legal_entity_id: site.legal_entity_id,
+          currency: 'EUR',
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
@@ -285,11 +297,25 @@ export class VehicleSaleService {
         include: { items: true, customer: true, vehicle: true },
       });
 
-      const snapshot = buildInvoiceSnapshot(invoice);
-      await tx.invoice.updateMany({
-        where: { id: invoice.id, tenant_id: tenantId },
-        data: { snapshot },
+      const prepared = await this.snapshotCommit.prepareV2Snapshot({
+        tx,
+        tenantId,
+        invoice,
+        invoiceNumber,
+        margin: {
+          cost_basis: basis.toFixed(2),
+          margin_tax: vat.toFixed(2),
+          tax_rate: DEFAULT_VAT_RATE.toFixed(2),
+          calculation_profile: 'vehicle-margin-v1',
+        },
       });
+      await this.snapshotCommit.persistV2Snapshot(
+        tx,
+        tenantId,
+        invoice.id,
+        prepared,
+      );
+      const snapshot = prepared.snapshot;
 
       await tx.vehicleSale.update({
         where: { id: posted.id },

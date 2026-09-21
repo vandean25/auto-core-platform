@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { InvoicesModule } from '../invoices/invoices.module.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { VehiclePurchaseService } from './vehicle-purchase.service.js';
 import { VehiclePurchaseController } from './vehicle-purchase.controller.js';
@@ -10,7 +11,7 @@ import { VehicleStockController } from './vehicle-stock.controller.js';
 import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, InvoicesModule],
   controllers: [
     VehiclePurchaseController,
     VehicleSaleController,

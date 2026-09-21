@@ -14,7 +14,10 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import type { WorkshopTaskLineItem } from '@prisma/client';
-import { buildInvoiceSnapshot } from './invoice-snapshot.js';
+import {
+  assertInvoiceHasSourceDocument,
+  InvoiceSnapshotCommitService,
+} from './invoice-snapshot-commit.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import {
@@ -23,6 +26,7 @@ import {
 } from '../common/utils/status-transition.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
+import { assertPersistedSiteId } from '../site/document-retarget.helpers.js';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -34,6 +38,7 @@ export class InvoicesService {
     private financeService: FinanceService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly snapshotCommit: InvoiceSnapshotCommitService,
   ) {}
 
   async createDraftInvoice(workshopOrderId: string) {
@@ -173,12 +178,27 @@ export class InvoicesService {
             'Workshop order has no customer to invoice',
           );
         }
+        const orderSiteId = assertPersistedSiteId(
+          order.site_id,
+          'Workshop order site ownership is required',
+        );
+        const site = await tx.site.findFirst({
+          where: { id: orderSiteId, tenant_id: tenantId },
+          select: { id: true, legal_entity_id: true },
+        });
+        if (!site) {
+          throw new NotFoundException('Workshop order site not found');
+        }
+
         const invoice = await tx.invoice.create({
           data: {
             tenant_id: tenantId,
             customer_id: order.customer_id,
             vehicle_id: order.vehicle_id,
             workshop_order_id: order.id,
+            site_id: site.id,
+            legal_entity_id: site.legal_entity_id,
+            currency: 'EUR',
             status: InvoiceStatus.DRAFT,
             date: new Date(),
             due_date: this.buildDueDate(),
@@ -242,7 +262,20 @@ export class InvoicesService {
         throw new BadRequestException('Only DRAFT invoices can be issued');
       }
 
+      assertInvoiceHasSourceDocument(invoice);
+
       await this.financeService.validateTransactionDate(invoice.date);
+
+      const invoiceNumber =
+        invoice.invoice_number ??
+        (await this.generateInvoiceNumber(tx, tenantId));
+
+      const prepared = await this.snapshotCommit.prepareV2Snapshot({
+        tx,
+        tenantId,
+        invoice,
+        invoiceNumber,
+      });
 
       await guardedStatusUpdate(bindStatusUpdateMany(tx.invoice), {
         id: invoiceId,
@@ -252,21 +285,19 @@ export class InvoicesService {
         conflictMessage: 'Invoice was already transitioned by another request',
       });
 
-      const invoiceNumber =
-        invoice.invoice_number ??
-        (await this.generateInvoiceNumber(tx, tenantId));
-      const snapshot = buildInvoiceSnapshot({
-        ...invoice,
-        invoice_number: invoiceNumber,
-      });
-
       await tx.invoice.updateMany({
         where: { id: invoiceId, tenant_id: tenantId },
         data: {
           invoice_number: invoiceNumber,
-          snapshot,
         },
       });
+
+      await this.snapshotCommit.persistV2Snapshot(
+        tx,
+        tenantId,
+        invoiceId,
+        prepared,
+      );
 
       await guardedStatusUpdate(bindStatusUpdateMany(tx.workshopOrder), {
         id: invoice.workshop_order_id,
@@ -318,6 +349,7 @@ export class InvoicesService {
 
       return {
         tenant_id: tenantId,
+        catalog_item_id: line.catalog_item_id,
         description: line.description,
         quantity,
         unit_price: unitPrice,
@@ -325,6 +357,8 @@ export class InvoicesService {
         line_discount_type: null,
         line_discount_value: null,
         line_total: net,
+        revenue_group_name:
+          line.type === 'LABOR' ? 'Labor / workshop services' : null,
       };
     });
 

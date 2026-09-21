@@ -484,6 +484,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invoices/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InvoicesController_createDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invoices/{id}/issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["InvoicesController_issue"];
+        trace?: never;
+    };
+    "/api/invoices/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["InvoicesController_getPdf"];
+        put?: never;
+        post: operations["InvoicesController_generatePdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers": {
         parameters: {
             query?: never;
@@ -946,54 +994,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["WorkshopController_assignBoard"];
-        trace?: never;
-    };
-    "/api/invoices/drafts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["InvoicesController_createDraft"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/invoices/{id}/issue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["InvoicesController_issue"];
-        trace?: never;
-    };
-    "/api/invoices/{id}/pdf": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["InvoicesController_getPdf"];
-        put?: never;
-        post: operations["InvoicesController_generatePdf"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/vehicle-purchases": {
@@ -2759,6 +2759,10 @@ export interface components {
             pdf_generation_error?: string | null;
             items: components["schemas"]["InvoiceItemResponseDto"][];
         };
+        CreateDraftInvoiceDto: {
+            /** @example workshop-order-id */
+            workshopOrderId: string;
+        };
         /** @enum {string} */
         CustomerType: "PRIVATE" | "COMPANY";
         CreateCustomerDto: {
@@ -3511,10 +3515,6 @@ export interface components {
             mechanicId?: string | null;
             /** @description Bay ID to assign, or null to unassign */
             bayId?: string | null;
-        };
-        CreateDraftInvoiceDto: {
-            /** @example workshop-order-id */
-            workshopOrderId: string;
         };
         CreateVehiclePurchaseDto: {
             /** @enum {string} */
@@ -6256,6 +6256,92 @@ export interface operations {
             };
         };
     };
+    InvoicesController_createDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDraftInvoiceDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
+                };
+            };
+        };
+    };
+    InvoicesController_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceResponseDto"];
+                };
+            };
+        };
+    };
+    InvoicesController_getPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    InvoicesController_generatePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     CustomerController_findAll: {
         parameters: {
             query?: {
@@ -7357,92 +7443,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    InvoicesController_createDraft: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateDraftInvoiceDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceResponseDto"];
-                };
-            };
-        };
-    };
-    InvoicesController_issue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InvoiceResponseDto"];
-                };
-            };
-        };
-    };
-    InvoicesController_getPdf: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/pdf": string;
-                };
-            };
-        };
-    };
-    InvoicesController_generatePdf: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
             };
         };
     };

@@ -11,6 +11,7 @@ import {
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
+import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 function vin(tag: string) {
@@ -78,9 +79,17 @@ describe('Vehicle stock trading (e2e)', () => {
         last_name: 'Person',
         email: 'buyer@test.com',
         type: 'PRIVATE',
+        address_street: 'Käufergasse 1',
+        address_zip: '1010',
+        address_city: 'Wien',
+        address_country: 'AT',
       },
     });
     buyerId = buyer.id;
+
+    await seedReadySellerAndAccountingProfile(prisma, tenantId, {
+      includeVehicleMargin: true,
+    });
   });
 
   afterAll(async () => {
@@ -387,7 +396,8 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(finalized.body.invoice.tax_mode).toBe('MARGIN_SCHEME');
     expect(Number(finalized.body.invoice.total_tax)).toBe(333.33);
     expect(Number(finalized.body.invoice.total_gross)).toBe(12000);
-    expect(finalized.body.invoice.snapshot).toBeTruthy();
+    expect(finalized.body.invoice.snapshot?.schema_version).toBe(2);
+    expect(finalized.body.invoice.snapshot?.margin).toBeTruthy();
 
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: vehicleId },

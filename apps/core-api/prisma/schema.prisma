@@ -190,6 +190,7 @@ model LegalEntity {
   payment_terms_text   String?
   sites                Site[]
   accountingProfile    LegalEntityAccountingProfile?
+  invoices             Invoice[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
@@ -254,6 +255,7 @@ model Site {
   purchaseOrders           PurchaseOrder[]
   vehiclePurchases         VehiclePurchase[]
   vehicleSales             VehicleSale[]
+  invoices                 Invoice[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1147,11 +1149,19 @@ model Invoice {
   workshop_order    WorkshopOrder? @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id])
   vehicle_sale_id   String?
   vehicle_sale      VehicleSale?   @relation(fields: [tenant_id, vehicle_sale_id], references: [tenant_id, id])
+  site_id           String?
+  site              Site?          @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  legal_entity_id   String?
+  legal_entity      LegalEntity?   @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
   tax_mode          InvoiceTaxMode @default(STANDARD)
 
   status   InvoiceStatus @default(DRAFT)
   date     DateTime      @default(now())
   due_date DateTime
+
+  supply_date_from DateTime? @db.Date
+  supply_date_to   DateTime? @db.Date
+  currency         String?   @default("EUR")
 
   global_discount_type  DiscountType?
   global_discount_value Decimal?      @db.Decimal(10, 2)
@@ -1180,6 +1190,8 @@ model Invoice {
   @@unique([tenant_id, workshop_order_id]) // tenant-scoped
   @@unique([tenant_id, vehicle_sale_id])
   @@index([tenant_id])
+  @@index([tenant_id, site_id, date])
+  @@index([tenant_id, legal_entity_id, date])
   @@map("invoices")
 }
 
@@ -1213,6 +1225,7 @@ model InvoiceItem {
   line_discount_value Decimal?      @db.Decimal(10, 2)
   line_total          Decimal?      @db.Decimal(10, 2)
   revenue_group_name  String? // Snapshot for accounting export
+  accounting_snapshot Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

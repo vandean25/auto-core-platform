@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   InvoiceStatus,
   Prisma,
@@ -9,8 +13,11 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
 import { AtpService } from '../inventory/atp.service.js';
+import {
+  assertInvoiceHasSourceDocument,
+  InvoiceSnapshotCommitService,
+} from '../invoices/invoice-snapshot-commit.service.js';
 import { generateInvoiceNumber } from './helpers/invoice-number.helpers.js';
 import { processSaleInventoryDeduction } from './helpers/invoice-inventory.helpers.js';
 import { transitionLinkedSalesOrderToInvoiced } from './helpers/invoice-sales-order-transition.helpers.js';
@@ -21,7 +28,7 @@ type InvoiceWithItems = Invoice & { items: InvoiceItem[] };
 export class InvoiceFinalizationService {
   constructor(
     private readonly atpService: AtpService,
-    private readonly siteContext: SiteContextService,
+    private readonly snapshotCommit: InvoiceSnapshotCommitService,
   ) {}
 
   async finalizeInTransaction(
@@ -29,13 +36,40 @@ export class InvoiceFinalizationService {
     tenantId: string,
     invoice: InvoiceWithItems,
   ) {
-    const siteId = await this.siteContext.getSiteId();
+    assertInvoiceHasSourceDocument(invoice);
+    if (!invoice.sales_order_id) {
+      throw new BadRequestException({
+        code: 'SOURCE_DOCUMENT_REQUIRED',
+        message:
+          'Sales invoice finalization requires a linked sales order. Workshop and vehicle-sale invoices must use their own commit paths.',
+      });
+    }
+
     const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
+
+    const fullInvoice = await tx.invoice.findFirst({
+      where: { id: invoice.id, tenant_id: tenantId },
+      include: {
+        items: { orderBy: { createdAt: 'asc' } },
+        customer: true,
+        vehicle: true,
+      },
+    });
+    if (!fullInvoice) {
+      throw new NotFoundException('Invoice not found');
+    }
+
+    const prepared = await this.snapshotCommit.prepareV2Snapshot({
+      tx,
+      tenantId,
+      invoice: fullInvoice,
+      invoiceNumber,
+    });
 
     await processSaleInventoryDeduction({
       tx,
       tenantId,
-      siteId,
+      siteId: prepared.ownership.siteId,
       invoiceItems: invoice.items,
       invoiceNumber,
       atpService: this.atpService,
@@ -50,6 +84,13 @@ export class InvoiceFinalizationService {
       conflictMessage: 'Invoice was already transitioned by another request',
     });
 
+    await this.snapshotCommit.persistV2Snapshot(
+      tx,
+      tenantId,
+      invoice.id,
+      prepared,
+    );
+
     const updatedInvoice = await tx.invoice.findFirst({
       where: { id: invoice.id, tenant_id: tenantId },
       include: { items: true, customer: true },
@@ -59,14 +100,12 @@ export class InvoiceFinalizationService {
       throw new NotFoundException('Invoice not found after update');
     }
 
-    if (invoice.sales_order_id) {
-      await transitionLinkedSalesOrderToInvoiced(
-        tx,
-        tenantId,
-        siteId,
-        invoice.sales_order_id,
-      );
-    }
+    await transitionLinkedSalesOrderToInvoiced(
+      tx,
+      tenantId,
+      prepared.ownership.siteId,
+      invoice.sales_order_id,
+    );
 
     return updatedInvoice;
   }

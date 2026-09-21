@@ -1646,6 +1646,126 @@
         ]
       }
     },
+    "/api/invoices/drafts": {
+      "post": {
+        "operationId": "InvoicesController_createDraft",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDraftInvoiceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/api/invoices/{id}/issue": {
+      "patch": {
+        "operationId": "InvoicesController_issue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
+    "/api/invoices/{id}/pdf": {
+      "post": {
+        "operationId": "InvoicesController_generatePdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      },
+      "get": {
+        "operationId": "InvoicesController_getPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Invoices"
+        ]
+      }
+    },
     "/api/customers": {
       "post": {
         "operationId": "CustomerController_create",
@@ -3358,126 +3478,6 @@
         },
         "tags": [
           "Workshop"
-        ]
-      }
-    },
-    "/api/invoices/drafts": {
-      "post": {
-        "operationId": "InvoicesController_createDraft",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDraftInvoiceDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoiceResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Invoices"
-        ]
-      }
-    },
-    "/api/invoices/{id}/issue": {
-      "patch": {
-        "operationId": "InvoicesController_issue",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InvoiceResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Invoices"
-        ]
-      }
-    },
-    "/api/invoices/{id}/pdf": {
-      "post": {
-        "operationId": "InvoicesController_generatePdf",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Invoices"
-        ]
-      },
-      "get": {
-        "operationId": "InvoicesController_getPdf",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/pdf": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Invoices"
         ]
       }
     },
@@ -9199,6 +9199,18 @@
           "items"
         ]
       },
+      "CreateDraftInvoiceDto": {
+        "type": "object",
+        "properties": {
+          "workshopOrderId": {
+            "type": "string",
+            "example": "workshop-order-id"
+          }
+        },
+        "required": [
+          "workshopOrderId"
+        ]
+      },
       "CustomerType": {
         "type": "string",
         "enum": [
@@ -12001,18 +12013,6 @@
         },
         "required": [
           "orderId"
-        ]
-      },
-      "CreateDraftInvoiceDto": {
-        "type": "object",
-        "properties": {
-          "workshopOrderId": {
-            "type": "string",
-            "example": "workshop-order-id"
-          }
-        },
-        "required": [
-          "workshopOrderId"
         ]
       },
       "CreateVehiclePurchaseDto": {

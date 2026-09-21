@@ -1,10 +1,16 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { InvoiceStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import {
-  buildInvoiceSnapshot,
-  type InvoiceSnapshot,
-} from './invoice-snapshot.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
+import { toRenderableInvoiceSnapshot } from './invoice-snapshot-render.adapter.js';
 import { isInvoiceSnapshot } from './invoice-snapshot.validation.js';
+
+const COMMITTED_INVOICE_STATUSES = new Set<InvoiceStatus>([
+  InvoiceStatus.FINALIZED,
+  InvoiceStatus.ISSUED,
+  InvoiceStatus.PAID,
+  InvoiceStatus.CANCELLED,
+]);
 
 export async function resolveInvoiceSnapshot(
   prisma: PrismaService,
@@ -16,24 +22,39 @@ export async function resolveInvoiceSnapshot(
     return existingSnapshot;
   }
 
-  const fullInvoice = await prisma.client.invoice.findFirst({
+  const invoice = await prisma.client.invoice.findFirst({
     where: { id: invoiceId, tenant_id: tenantId },
-    include: {
-      items: { orderBy: { createdAt: 'asc' } },
-      customer: true,
-      vehicle: true,
+    select: {
+      id: true,
+      status: true,
+      invoice_number: true,
+      snapshot: true,
     },
   });
 
-  if (!fullInvoice) {
+  if (!invoice) {
     throw new NotFoundException('Invoice not found');
   }
 
-  const snapshot = buildInvoiceSnapshot(fullInvoice);
-  await prisma.client.invoice.updateMany({
-    where: { id: invoiceId, tenant_id: tenantId },
-    data: { snapshot },
-  });
+  const v2Renderable = toRenderableInvoiceSnapshot(
+    existingSnapshot,
+    invoice.invoice_number,
+    invoice.id,
+  );
+  if (v2Renderable) {
+    return v2Renderable;
+  }
 
-  return snapshot;
+  if (COMMITTED_INVOICE_STATUSES.has(invoice.status)) {
+    throw new ConflictException({
+      code: 'LEGACY_SNAPSHOT_UNAVAILABLE',
+      message:
+        'Committed invoice has no renderable snapshot. Historical remediation is required.',
+    });
+  }
+
+  throw new ConflictException({
+    code: 'LEGACY_SNAPSHOT_UNAVAILABLE',
+    message: 'Invoice snapshot is not available for rendering.',
+  });
 }

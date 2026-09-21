@@ -6,6 +6,10 @@ import { AppModule } from './../src/app.module.js';
 import { createGlobalValidationPipe } from './../src/common/index.js';
 import { PrismaService } from './../src/prisma/prisma.service.js';
 import { createTenantAwarePrisma, createTestAuthToken, createTestTenant, resolveTestMainSiteId } from './tenant-test-utils.js';
+import {
+  seedInvoiceReadyCustomer,
+  seedReadySellerAndAccountingProfile,
+} from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('SalesController (e2e)', () => {
@@ -30,14 +34,20 @@ describe('SalesController (e2e)', () => {
     prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
 
-    // Setup Test Data
-    const customer = await prisma.customer.create({
-      data: {
-        first_name: 'Test',
-        last_name: 'Customer',
-        email: `test-${Date.now()}@example.com`,
-      },
-    });
+    await prisma.$executeRawUnsafe(`
+      TRUNCATE TABLE
+        "inventory_transactions",
+        "inventory_stocks",
+        "invoice_items",
+        "invoices",
+        "invoice_sequences",
+        "sales_order_items",
+        "sales_orders"
+      CASCADE;
+    `);
+
+    await seedReadySellerAndAccountingProfile(prisma, testTenant.tenantId);
+    const customer = await seedInvoiceReadyCustomer(prisma, testTenant.tenantId);
     customerId = customer.id;
 
     const catalogItem = await prisma.catalogItem.create({
@@ -78,6 +88,8 @@ describe('SalesController (e2e)', () => {
     await prisma.storageLocation.deleteMany();
     await prisma.invoiceItem.deleteMany();
     await prisma.invoice.deleteMany();
+    await prisma.salesOrderItem.deleteMany();
+    await prisma.salesOrder.deleteMany();
     await prisma.customer.deleteMany();
     await prisma.catalogItem.deleteMany();
     await prisma.revenueGroup.deleteMany();
@@ -85,103 +97,62 @@ describe('SalesController (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
-  it('/api/sales/invoices (POST) - Create Draft', async () => {
-    const createInvoiceDto = {
-      customerId: customerId,
-      items: [
-        {
-          catalogItemId: catalogItemId,
-          description: 'Test Item Snapshot',
-          quantity: 2,
-          unitPrice: 20,
-          taxRate: 20,
-        },
-      ],
-    };
-
+  it('/api/sales/invoices (POST) - rejects source-less draft creation', async () => {
     const response = await request(app.getHttpServer())
       .post('/api/sales/invoices')
-        .set('Authorization', `Bearer ${authToken}`)
-      .send(createInvoiceDto)
-      .expect(201);
-
-    expect(response.body.status).toBe('DRAFT');
-    expect(response.body.total_net).toBe('40'); // 2 * 20
-    expect(response.body.invoice_number).toBeNull();
-  });
-
-  it('/api/sales/invoices/:id (PATCH) - Update Draft', async () => {
-    const createResponse = await request(app.getHttpServer())
-      .post('/api/sales/invoices')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId: customerId,
         items: [
           {
             catalogItemId: catalogItemId,
-            description: 'Original item',
-            quantity: 1,
-            unitPrice: 10,
-            taxRate: 20,
-          },
-        ],
-      })
-      .expect(201);
-
-    const invoiceId = createResponse.body.id;
-
-    const updateResponse = await request(app.getHttpServer())
-      .patch(`/api/sales/invoices/${invoiceId}`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({
-        customerId: customerId,
-        items: [
-          {
-            catalogItemId: catalogItemId,
-            description: 'Updated item',
-            quantity: 3,
+            description: 'Test Item Snapshot',
+            quantity: 2,
             unitPrice: 20,
             taxRate: 20,
           },
         ],
       })
-      .expect(200);
+      .expect(400);
 
-    expect(updateResponse.body.status).toBe('DRAFT');
-    expect(updateResponse.body.total_net).toBe('60');
-    expect(updateResponse.body.items[0].description).toBe('Updated item');
+    expect(response.body.code).toBe('SOURCE_DOCUMENT_REQUIRED');
   });
 
-  it('Finalize Invoice Workflow', async () => {
-    // 1. Create Draft
-    const createInvoiceDto = {
-      customerId: customerId,
-      items: [
-        {
-          catalogItemId: catalogItemId,
-          description: 'Finalize Test Item',
-          quantity: 1,
-          unitPrice: 100,
-          taxRate: 0,
-        },
-      ],
-    };
-
-    const draftResponse = await request(app.getHttpServer())
-      .post('/api/sales/invoices')
-        .set('Authorization', `Bearer ${authToken}`)
-      .send(createInvoiceDto)
+  it('Finalize Invoice Workflow via sales order source', async () => {
+    const orderRes = await request(app.getHttpServer())
+      .post('/api/sales-orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customer_id: customerId,
+        items: [
+          {
+            catalog_item_id: catalogItemId,
+            description: 'Finalize Test Item',
+            quantity: 1,
+            unit_price: 100,
+            tax_rate: 20,
+          },
+        ],
+      })
       .expect(201);
 
-    const invoiceId = draftResponse.body.id;
+    await prisma.salesOrder.updateMany({
+      where: { id: orderRes.body.id },
+      data: { status: 'CONFIRMED' },
+    });
 
-    // 2. Finalize
+    const draftResponse = await request(app.getHttpServer())
+      .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+
     const finalizeResponse = await request(app.getHttpServer())
-      .put(`/api/sales/invoices/${invoiceId}/finalize`)
-        .set('Authorization', `Bearer ${authToken}`)
+      .put(`/api/sales/invoices/${draftResponse.body.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(finalizeResponse.body.status).toBe('FINALIZED');
     expect(finalizeResponse.body.invoice_number).toMatch(/^RE-\d{4}-\d{4}$/);
+    expect(finalizeResponse.body.snapshot?.schema_version).toBe(2);
   });
 });
