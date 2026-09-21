@@ -1,11 +1,12 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
 import * as salesApi from '@/api/sales'
 import * as inventoryApi from '@/api/inventory'
 import type { Customer } from '@/api/types'
+import { DOCUMENT_AUTOSAVE_DEBOUNCE_MS } from '@/hooks/useDebouncedAutoSave'
 
 vi.mock('@/api/sales')
 vi.mock('@/api/inventory')
@@ -75,22 +76,28 @@ const mockInvoice = {
 
 describe('InvoiceDraftEditPage autosave', () => {
   let queryClient: QueryClient
+  const invoiceRef = { current: mockInvoice as typeof mockInvoice }
 
   beforeEach(() => {
+    invoiceRef.current = { ...mockInvoice, items: [{ ...mockInvoice.items[0] }] }
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
     vi.clearAllMocks()
     asMock(inventoryApi.useInventory).mockReturnValue({ data: { data: [] }, isLoading: false })
-    asMock(salesApi.useInvoice).mockReturnValue({
-      data: mockInvoice,
+    asMock(salesApi.useInvoice).mockImplementation(() => ({
+      data: invoiceRef.current,
       isLoading: false,
       error: null,
-    })
+    }))
     asMock(salesApi.useFinalizeInvoice).mockReturnValue({
       mutateAsync: vi.fn(),
       isPending: false,
     })
+  })
+
+  afterEach(() => {
+    cleanup()
   })
 
   const renderPage = () =>
@@ -113,7 +120,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByDisplayValue('Brake pads'), {
+    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
       target: { value: 'Brake pads premium' },
     })
 
@@ -136,10 +143,61 @@ describe('InvoiceDraftEditPage autosave', () => {
     expect(await screen.findByText('All changes saved')).toBeInTheDocument()
   })
 
-  it('surfaces API code and message when autosave fails', async () => {
+  it('does not PATCH an unchanged draft on open', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+
+    renderPage()
+    await screen.findByDisplayValue('Brake pads')
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, DOCUMENT_AUTOSAVE_DEBOUNCE_MS + 100)
+    })
+
+    expect(updateMutation).not.toHaveBeenCalled()
+  })
+
+  it('does not re-hydrate from a refetched invoice object while the user is editing', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+
+    const { rerender } = renderPage()
+    await screen.findByDisplayValue('Brake pads')
+
+    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
+      target: { value: 'User typed value' },
+    })
+
+    const callsAfterEdit = updateMutation.mock.calls.length
+
+    invoiceRef.current = {
+      ...mockInvoice,
+      items: [{ ...mockInvoice.items[0], description: 'Brake pads' }],
+    }
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/sales/invoices/inv-1/edit']}>
+          <Routes>
+            <Route path="/sales/invoices/:id/edit" element={<InvoiceDraftEditPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByDisplayValue('User typed value')).toBeInTheDocument()
+    expect(updateMutation.mock.calls.length).toBe(callsAfterEdit)
+  })
+
+  it('surfaces API message when autosave fails', async () => {
     const updateMutation = vi.fn().mockRejectedValue(
       new Error(
-        'SOURCE_DOCUMENT_REQUIRED: Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
+        'Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
       ),
     )
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
@@ -149,14 +207,14 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByDisplayValue('Brake pads'), {
+    fireEvent.change(screen.getByPlaceholderText('Service or Item Name'), {
       target: { value: 'Updated line' },
     })
 
     await waitFor(
       () => {
         expect(toast.error).toHaveBeenCalledWith('Auto-save failed', {
-          description: expect.stringContaining('SOURCE_DOCUMENT_REQUIRED'),
+          description: expect.stringContaining('Direct source-less invoice creation is not supported'),
         })
       },
       { timeout: 3000 },

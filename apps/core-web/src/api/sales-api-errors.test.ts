@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatNestApiErrorMessage } from './sales-api-errors'
 
 describe('formatNestApiErrorMessage', () => {
-  it('includes API code and message for Nest BadRequest payloads', () => {
+  it('formats Nest object bodies that include code', () => {
     expect(
       formatNestApiErrorMessage(
         {
@@ -14,6 +14,22 @@ describe('formatNestApiErrorMessage', () => {
       ),
     ).toBe(
       'SOURCE_DOCUMENT_REQUIRED: Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
+    )
+  })
+
+  it('uses message from GlobalExceptionFilter JSON (no code field)', () => {
+    expect(
+      formatNestApiErrorMessage(
+        {
+          statusCode: 400,
+          message:
+            'Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
+          error: 'Bad Request',
+        },
+        'Failed to create invoice',
+      ),
+    ).toBe(
+      'Direct source-less invoice creation is not supported. Create invoices from an eligible sales order.',
     )
   })
 

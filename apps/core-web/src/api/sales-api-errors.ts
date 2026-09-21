@@ -1,6 +1,8 @@
 type NestErrorPayload = {
   code?: string
   message?: string | string[]
+  statusCode?: number
+  error?: string
 }
 
 export function formatNestApiErrorMessage(
@@ -23,6 +25,9 @@ export function formatNestApiErrorMessage(
   }
   if (payload.code) {
     return payload.code
+  }
+  if (payload.error && payload.error !== 'Bad Request') {
+    return payload.error
   }
   return fallbackMessage
 }
