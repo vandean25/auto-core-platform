@@ -4,8 +4,9 @@ import { format } from "date-fns"
 import { Search, Trash2, Plus, Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 
+import { useQueryClient } from "@tanstack/react-query"
 import { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
-import { useFinalizeInvoice, useInvoice, useUpdateInvoice } from "@/api/sales"
+import { invoiceKeys, useFinalizeInvoice, useInvoice, useUpdateInvoice } from "@/api/sales"
 import { useInventory } from "@/api/inventory"
 import { CustomerSearch } from "@/components/sales/CustomerSearch"
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator"
@@ -48,6 +49,7 @@ const DEFAULT_TAX_RATE = 20
 export default function InvoiceDraftEditPage() {
   const { id: invoiceId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { data: invoice, isLoading, error } = useInvoice(invoiceId ?? "")
   const editor = useInvoiceEditor()
   const updateInvoiceMutation = useUpdateInvoice()
@@ -143,6 +145,7 @@ export default function InvoiceDraftEditPage() {
 
   const [finalizeOpen, setFinalizeOpen] = React.useState(false)
   const [isFinalizing, setIsFinalizing] = React.useState(false)
+  const isFinalizingRef = React.useRef(false)
 
   const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } = useDebouncedAutoSave({
     save: saveDraft,
@@ -162,6 +165,8 @@ export default function InvoiceDraftEditPage() {
   }, [buildPayload, triggerAutoSave])
 
   const handleFinalizeConfirm = async () => {
+    if (isFinalizingRef.current) return
+
     if (!editor.customer || !invoiceId) {
       toast.error("Invoice draft is missing required customer information.")
       return
@@ -185,6 +190,7 @@ export default function InvoiceDraftEditPage() {
 
     clearPendingSave()
     abortInFlightSave()
+    isFinalizingRef.current = true
     setIsFinalizing(true)
 
     try {
@@ -198,12 +204,14 @@ export default function InvoiceDraftEditPage() {
         throw new Error("Invoice finalize did not return a finalized document with an invoice number.")
       }
 
+      queryClient.setQueryData(invoiceKeys.detail(invoiceId), finalized)
       toast.success("Invoice finalized and number generated!")
       setFinalizeOpen(false)
       navigate(APP_ROUTE_PATHS.salesInvoiceDetail.replace(":id", invoiceId))
     } catch (finalizeError) {
       toast.error(getErrorMessage(finalizeError, "Failed to finalize invoice"))
     } finally {
+      isFinalizingRef.current = false
       setIsFinalizing(false)
     }
   }

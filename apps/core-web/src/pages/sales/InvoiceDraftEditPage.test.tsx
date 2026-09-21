@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
+import { invoiceKeys } from '@/api/sales'
 import * as salesApi from '@/api/sales'
 import * as inventoryApi from '@/api/inventory'
 import type { Customer } from '@/api/types'
@@ -203,6 +204,34 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     expect(screen.getByDisplayValue('User typed value')).toBeInTheDocument()
     expect(updateMutation.mock.calls.length).toBe(callsAfterEdit)
+  })
+
+  it('seeds invoice detail cache with FINALIZED before navigating to detail', async () => {
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    const finalized = {
+      ...mockInvoice,
+      status: 'FINALIZED',
+      invoice_number: 'RE-2026-0001',
+    }
+    const finalizeMutation = vi.fn().mockResolvedValue(finalized)
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: finalizeMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(finalized)
+      expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
+    })
   })
 
   it('calls finalize after confirm and navigates only on success', async () => {

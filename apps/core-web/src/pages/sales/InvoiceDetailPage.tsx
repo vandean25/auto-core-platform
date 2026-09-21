@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Fragment, useMemo, useState } from 'react'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuthSession } from '@/api/auth-session'
 import { useInvoice } from '@/api/sales'
 import { useInvoiceCreditContext } from '@/api/useCreditNotes'
@@ -152,16 +152,6 @@ export default function InvoiceDetailPage() {
   } = useWorkshopOrder(workshopOrderId)
   const isWorkshopInvoice = Boolean(invoice?.workshop_order_id)
 
-  useEffect(() => {
-    if (!invoice) return
-    if (invoice.status === 'DRAFT' && invoice.sales_order_id) {
-      navigate(
-        APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', invoice.id),
-        { replace: true },
-      )
-    }
-  }, [invoice, navigate])
-
   const lineSummaries = useMemo<InvoiceLineSummary[]>(() => {
     if (!invoice) return []
     return invoice.items.map((item) => {
@@ -244,6 +234,15 @@ export default function InvoiceDetailPage() {
 
   if (!invoice) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Invoice not found.</div>
+  }
+
+  if (invoice.status === 'DRAFT' && invoice.sales_order_id) {
+    return (
+      <Navigate
+        to={APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', invoice.id)}
+        replace
+      />
+    )
   }
 
   const customerName =

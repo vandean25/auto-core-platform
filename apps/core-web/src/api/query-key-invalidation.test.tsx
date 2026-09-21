@@ -65,11 +65,13 @@ describe('query-key factory invalidation', () => {
     })
   })
 
-  it('refreshes the invoice list and detail after an invoice update', async () => {
+  it('writes the updated invoice into the detail cache and refreshes the list', async () => {
     const queryClient = createQueryClient()
     queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-1', status: 'DRAFT' }])
     queryClient.setQueryData(invoiceKeys.detail('inv-1'), { id: 'inv-1', status: 'DRAFT' })
-    mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', status: 'DRAFT' }))
+
+    const updatedInvoice = { id: 'inv-1', status: 'DRAFT', notes: 'Updated' }
+    mocks.fetchWithAuth.mockResolvedValue(jsonOk(updatedInvoice))
 
     const { result } = renderHook(() => useUpdateInvoice(), { wrapper: createWrapper(queryClient) })
 
@@ -82,24 +84,30 @@ describe('query-key factory invalidation', () => {
     })
 
     await waitFor(() => {
+      expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(updatedInvoice)
       expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
-      expect(queryClient.getQueryState(invoiceKeys.detail('inv-1'))?.isInvalidated).toBe(true)
     })
   })
 
-  it('refreshes the invoice list and detail after finalize', async () => {
+  it('writes the finalized invoice into the detail cache and refreshes the list', async () => {
     const queryClient = createQueryClient()
     queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-1', status: 'DRAFT' }])
     queryClient.setQueryData(invoiceKeys.detail('inv-1'), { id: 'inv-1', status: 'DRAFT' })
-    mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', status: 'ISSUED' }))
+
+    const finalizedInvoice = {
+      id: 'inv-1',
+      status: 'FINALIZED',
+      invoice_number: 'RE-2026-0001',
+    }
+    mocks.fetchWithAuth.mockResolvedValue(jsonOk(finalizedInvoice))
 
     const { result } = renderHook(() => useFinalizeInvoice(), { wrapper: createWrapper(queryClient) })
 
     await result.current.mutateAsync('inv-1')
 
     await waitFor(() => {
+      expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(finalizedInvoice)
       expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
-      expect(queryClient.getQueryState(invoiceKeys.detail('inv-1'))?.isInvalidated).toBe(true)
     })
   })
 
