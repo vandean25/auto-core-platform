@@ -166,13 +166,32 @@ export async function downloadAccountingExportCsv(
   const headerSha256 =
     response.headers.get('X-Checksum-SHA256') ??
     response.headers.get('x-checksum-sha256')
-  const sha256 = headerSha256 ?? expectedSha256 ?? ''
   const filename =
     parseContentDispositionFilename(response.headers.get('content-disposition')) ??
     `accounting-export-${exportId}.csv`
   const blob = await response.blob()
+  const computed = await computeBlobSha256Hex(blob)
 
-  return { blob, sha256, filename }
+  assertBlobMatchesSha256(computed, expectedSha256, headerSha256)
+
+  const reference = (expectedSha256 ?? headerSha256 ?? computed).trim().toLowerCase()
+
+  return { blob, sha256: reference, filename }
+}
+
+export function assertBlobMatchesSha256(
+  computedHex: string,
+  expectedSha256?: string | null,
+  headerSha256?: string | null,
+): void {
+  const reference = (expectedSha256 ?? headerSha256 ?? '').trim().toLowerCase()
+  const actual = computedHex.trim().toLowerCase()
+  if (!reference || actual !== reference) {
+    throw createHttpError(
+      'The file bytes do not match the recorded SHA-256. Do not import this file.',
+      422,
+    )
+  }
 }
 
 export async function computeBlobSha256Hex(blob: Blob): Promise<string> {

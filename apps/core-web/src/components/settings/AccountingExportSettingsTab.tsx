@@ -16,7 +16,6 @@ import { toast } from 'sonner'
 import {
   type AccountingExportPreviewResponseDto,
   type AccountingExportSummaryDto,
-  computeBlobSha256Hex,
   downloadAccountingExportCsv,
   useAccountingExportDetail,
   useAccountingExports,
@@ -25,9 +24,9 @@ import {
 } from '@/api/useAccountingExports'
 import type { components } from '@/api/generated/openapi'
 import { useLegalEntities } from '@/api/site-admin'
+import { useTenantMembers } from '@/api/tenant-members'
 import { LegalEntityAccountingProfileForm } from '@/components/settings/LegalEntitiesSettingsTab'
 import { DataTable } from '@/components/data-table/DataTable'
-import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import {
   AlertDialog,
@@ -114,6 +113,15 @@ function getBlockerSettingsLabel(tab: string): string {
   }
 }
 
+function formatTenantMemberDisplayName(member: {
+  firstName?: string | null
+  lastName?: string | null
+  email: string
+}): string {
+  const fullName = [member.firstName, member.lastName].filter(Boolean).join(' ').trim()
+  return fullName.length > 0 ? fullName : member.email
+}
+
 type AccountingExportSettingsTabProps = {
   canManageExports: boolean
 }
@@ -123,6 +131,10 @@ export function AccountingExportSettingsTab({
 }: AccountingExportSettingsTabProps) {
   const [, setSearchParams] = useSearchParams()
   const { data: legalEntities = [], isLoading: isLoadingEntities } = useLegalEntities()
+  const { data: tenantMembersResponse } = useTenantMembers({
+    includeInactive: true,
+    limit: 100,
+  })
 
   const [legalEntityId, setLegalEntityId] = React.useState('')
   const [dateFrom, setDateFrom] = React.useState('')
@@ -147,8 +159,23 @@ export function AccountingExportSettingsTab({
 
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({
     defaultPageSize: 10,
-    initialSorting: [{ id: 'createdAt', desc: true }],
   })
+
+  const actorNameByUserId = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const member of tenantMembersResponse?.data ?? []) {
+      map.set(member.userId, formatTenantMemberDisplayName(member))
+    }
+    return map
+  }, [tenantMembersResponse?.data])
+
+  const resolveGeneratedByLabel = React.useCallback(
+    (userId: string | null | undefined) => {
+      if (!userId) return '—'
+      return actorNameByUserId.get(userId) ?? userId
+    },
+    [actorNameByUserId],
+  )
 
   const handleDownload = React.useCallback(
     async (
@@ -158,25 +185,25 @@ export function AccountingExportSettingsTab({
     ) => {
       setIsDownloading(true)
       try {
-        const { blob, sha256, filename } = await downloadAccountingExportCsv(
+        const { blob, filename } = await downloadAccountingExportCsv(
           exportId,
           expectedSha256 ?? undefined,
         )
-        const computed = await computeBlobSha256Hex(blob)
-        const reference = expectedSha256 ?? sha256
-        if (reference && computed !== reference) {
-          toast.error('Download checksum mismatch', {
-            description:
-              'The file bytes do not match the recorded SHA-256. Do not import this file.',
-          })
-          return
-        }
         triggerBlobDownload(blob, filenameHint ?? filename)
         toast.success('Export downloaded', {
           description:
             'Download is logged for audit. Auto Core Platform does not track DATEV import status.',
         })
       } catch (error: unknown) {
+        if (getErrorStatus(error) === 422) {
+          toast.error('Download checksum mismatch', {
+            description: getErrorMessage(
+              error,
+              'The file bytes do not match the recorded SHA-256. Do not import this file.',
+            ),
+          })
+          return
+        }
         toast.error(getErrorMessage(error, 'Download failed'))
       } finally {
         setIsDownloading(false)
@@ -225,6 +252,12 @@ export function AccountingExportSettingsTab({
   React.useEffect(() => {
     invalidatePreview()
   }, [dateFrom, dateTo, legalEntityId, invalidatePreview])
+
+  React.useEffect(() => {
+    if (profileSaveStatus === 'saved') {
+      invalidatePreview()
+    }
+  }, [profileSaveStatus, invalidatePreview])
 
   const openSettingsTab = (tab: string) => {
     setSearchParams({ tab })
@@ -312,33 +345,38 @@ export function AccountingExportSettingsTab({
     () => [
       {
         accessorKey: 'legalEntityId',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Legal entity" />
-        ),
+        enableSorting: false,
+        header: 'Legal entity',
         cell: ({ row }) =>
           entityNameById.get(row.original.legalEntityId) ??
           truncateHash(row.original.legalEntityId, 6),
       },
       {
         id: 'period',
+        enableSorting: false,
         header: 'Period',
         cell: ({ row }) => `${row.original.dateFrom} → ${row.original.dateTo}`,
       },
       {
         accessorKey: 'documentCount',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Documents" />
-        ),
+        enableSorting: false,
+        header: 'Documents',
       },
       {
         accessorKey: 'createdAt',
-        header: ({ column }) => (
-          <DataTableColumnHeader column={column} title="Created" />
-        ),
+        enableSorting: false,
+        header: 'Created',
         cell: ({ row }) => formatExportTimestamp(row.original.createdAt),
       },
       {
+        accessorKey: 'createdByUserId',
+        enableSorting: false,
+        header: 'Generated by',
+        cell: ({ row }) => resolveGeneratedByLabel(row.original.createdByUserId),
+      },
+      {
         accessorKey: 'sha256',
+        enableSorting: false,
         header: 'Checksum',
         cell: ({ row }) => (
           <span className="font-mono text-xs" title={row.original.sha256}>
@@ -365,7 +403,7 @@ export function AccountingExportSettingsTab({
         ),
       },
     ],
-    [entityNameById, handleDownload],
+    [entityNameById, handleDownload, resolveGeneratedByLabel],
   )
 
   if (!canManageExports) {
@@ -696,6 +734,10 @@ export function AccountingExportSettingsTab({
                 <p>
                   <span className="text-slate-500">Documents / rows:</span>{' '}
                   {detailQuery.data.documentCount} / {detailQuery.data.rowCount}
+                </p>
+                <p>
+                  <span className="text-slate-500">Generated by:</span>{' '}
+                  {resolveGeneratedByLabel(detailQuery.data.createdByUserId)}
                 </p>
                 <p>
                   <span className="text-slate-500">SHA-256:</span>{' '}
