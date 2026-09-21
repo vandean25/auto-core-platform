@@ -257,6 +257,20 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('USt-IdNr.: DE987654321');
       expect(html).not.toContain('Bill to:');
     });
+
+    it('uses UID for AT v2 customer VAT labels', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.seller = {
+        ...snapshot.seller!,
+        country_iso: 'AT',
+        vat_id: 'ATU12345678',
+      };
+      snapshot.customer.vat_id = 'ATU98765432';
+
+      const html = buildInvoiceCustomerSection(snapshot, escapeHtml);
+      expect(html).toContain('UID: ATU98765432');
+      expect(html).not.toContain('USt-IdNr.');
+    });
   });
 
   describe('buildInvoiceMetaSection', () => {
@@ -330,6 +344,16 @@ describe('invoice-pdf.layout', () => {
       expect(html).not.toContain('revenue_group_name');
       expect(html).not.toContain('8400');
     });
+
+    it('does not add German discount copy to legacy v1 snapshots', () => {
+      const snapshot = createSnapshot();
+      snapshot.items[0].line_discount_type = 'PERCENTAGE';
+      snapshot.items[0].line_discount_value = '10.00';
+
+      const html = buildInvoiceItemsTable(snapshot, escapeHtml);
+      expect(html).toContain('Oil change service');
+      expect(html).not.toContain('Rabatt');
+    });
   });
 
   describe('buildInvoiceTotalsSection', () => {
@@ -389,6 +413,20 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('<h1>Invoice</h1>');
       expect(html).toContain('RE-2026-0001');
+    });
+
+    it('keeps v1 customer and meta in the same header flex row', () => {
+      const html = buildInvoiceHtmlDocument(
+        createSnapshot(),
+        'RE-2026-0001',
+        escapeHtml,
+        formatDate,
+      );
+
+      expect(html).toMatch(
+        /display: flex; justify-content: space-between;[\s\S]*Bill to:[\s\S]*Invoice Number:/,
+      );
+      expect(html).not.toContain('Rechnungsempfänger');
     });
 
     it('assembles DACH Rechnung document from v2 snapshot without internal fields', () => {

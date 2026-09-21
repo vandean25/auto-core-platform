@@ -218,7 +218,11 @@ export const buildInvoiceCustomerSection = (
   const recipientLabel = isDachRechnungSnapshot(snapshot)
     ? 'Rechnungsempfänger'
     : 'Bill to:';
-  const vatLabel = isDachRechnungSnapshot(snapshot) ? 'USt-IdNr.' : 'VAT ID';
+  const vatLabel = isDachRechnungSnapshot(snapshot)
+    ? snapshot.seller?.country_iso === 'AT'
+      ? 'UID'
+      : 'USt-IdNr.'
+    : 'VAT ID';
 
   return `
     <div class="section">
@@ -300,7 +304,7 @@ export const buildInvoiceItemsTable = (
 
   const itemsHtml = snapshot.items
     .map((item) => {
-      const discountLabel = buildLineDiscountLabel(item);
+      const discountLabel = isDach ? buildLineDiscountLabel(item) : null;
       const description = discountLabel
         ? `${item.description} (${discountLabel})`
         : item.description;
@@ -411,7 +415,16 @@ export const buildInvoiceHtmlDocument = (
   invoiceNumber: string,
   escapeHtml: EscapeHtml,
   formatDate: FormatDate,
-): string => `
+): string => {
+  const isDach = isDachRechnungSnapshot(snapshot);
+  const headerLeft = isDach
+    ? buildInvoiceSellerSection(snapshot, escapeHtml)
+    : buildInvoiceCustomerSection(snapshot, escapeHtml);
+  const recipientBelow = isDach
+    ? buildInvoiceCustomerSection(snapshot, escapeHtml)
+    : '';
+
+  return `
   <!DOCTYPE html>
   <html>
   <head>
@@ -421,11 +434,11 @@ export const buildInvoiceHtmlDocument = (
     ${buildInvoiceHeader(invoiceNumber, escapeHtml, snapshot)}
 
     <div style="display: flex; justify-content: space-between;">
-      ${buildInvoiceSellerSection(snapshot, escapeHtml)}
+      ${headerLeft}
       ${buildInvoiceMetaSection(snapshot, invoiceNumber, escapeHtml, formatDate)}
     </div>
 
-    ${buildInvoiceCustomerSection(snapshot, escapeHtml)}
+    ${recipientBelow}
     ${buildInvoiceVehicleSection(snapshot, escapeHtml)}
     ${buildInvoiceItemsTable(snapshot, escapeHtml)}
     ${buildInvoiceTotalsSection(snapshot, escapeHtml)}
@@ -433,6 +446,7 @@ export const buildInvoiceHtmlDocument = (
   </body>
   </html>
 `;
+};
 
 export const buildInvoiceFooterTemplate = (
   invoiceNumber: string,
