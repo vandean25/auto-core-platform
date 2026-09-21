@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
 import { useCreateInvoice, useFinalizeInvoice, useUpdateInvoice } from "@/api/sales"
+import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
 import { useInventory } from "@/api/inventory"
 import { CustomerSearch } from "@/components/sales/CustomerSearch"
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator"
@@ -134,7 +135,7 @@ export default function InvoiceCreatePage() {
 
       await finalizeInvoiceMutation.mutateAsync(invoiceIdRef.current)
       toast.success("Invoice finalized and number generated!")
-      navigate("/sales/invoices")
+      navigate(APP_ROUTE_PATHS.salesInvoices)
     } catch (error) {
       toast.error("Failed to finalize invoice")
     }

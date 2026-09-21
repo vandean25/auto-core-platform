@@ -11,11 +11,13 @@ describe('isKnownAppPath', () => {
     expect(isKnownAppPath(APP_ROUTE_PATHS.workshopPick)).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.workshopPickList)).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.vehicleStockAlias)).toBe(true)
+    expect(isKnownAppPath(APP_ROUTE_PATHS.salesInvoices)).toBe(true)
+    expect(isKnownAppPath(APP_ROUTE_PATHS.financeInvoices)).toBe(true)
+    expect(isKnownAppPath(APP_ROUTE_PATHS.invoicesLegacy)).toBe(true)
   })
 
   it('rejects unknown routes', () => {
     expect(isKnownAppPath('/this-route-does-not-exist-qa')).toBe(false)
-    expect(isKnownAppPath('/invoices')).toBe(false)
     expect(isKnownAppPath('/login')).toBe(false)
   })
 })

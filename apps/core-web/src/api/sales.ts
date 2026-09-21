@@ -82,6 +82,17 @@ export function useFinalizeInvoice() {
     })
 }
 
+export function useInvoices() {
+    return useQuery<Invoice[]>({
+        queryKey: invoiceKeys.all,
+        queryFn: async () => {
+            const response = await fetchWithAuth('/api/sales/invoices')
+            if (!response.ok) throw new Error('Failed to fetch invoices')
+            return response.json() as Promise<Invoice[]>
+        },
+    })
+}
+
 export function useInvoice(id: string) {
     return useQuery<Invoice>({
         queryKey: invoiceKeys.detail(id),
