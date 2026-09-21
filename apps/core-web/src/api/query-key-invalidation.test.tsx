@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { inventoryKeys } from './inventory'
 import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from './invoices'
 import { useReceiveGoods } from './purchase-orders'
-import { invoiceKeys, useFinalizeInvoice, useUpdateInvoice } from './sales'
+import {
+  invoiceKeys,
+  useCreateInvoice,
+  useFinalizeInvoice,
+  useUpdateInvoice,
+} from './sales'
 import { workshopKeys } from './workshop'
 
 const mocks = vi.hoisted(() => ({
@@ -43,8 +48,26 @@ describe('query-key factory invalidation', () => {
     vi.clearAllMocks()
   })
 
-  it('refreshes the invoice detail screen after an invoice update', async () => {
+  it('refreshes the invoice list and detail after create', async () => {
     const queryClient = createQueryClient()
+    queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-0', status: 'DRAFT' }])
+    mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', status: 'DRAFT' }))
+
+    const { result } = renderHook(() => useCreateInvoice(), { wrapper: createWrapper(queryClient) })
+
+    await result.current.mutateAsync({
+      customerId: 'cust-1',
+      items: [{ description: 'Labor', quantity: 1, unitPrice: 80, taxRate: 0.2 }],
+    })
+
+    await waitFor(() => {
+      expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
+    })
+  })
+
+  it('refreshes the invoice list and detail after an invoice update', async () => {
+    const queryClient = createQueryClient()
+    queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-1', status: 'DRAFT' }])
     queryClient.setQueryData(invoiceKeys.detail('inv-1'), { id: 'inv-1', status: 'DRAFT' })
     mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', status: 'DRAFT' }))
 
@@ -59,12 +82,14 @@ describe('query-key factory invalidation', () => {
     })
 
     await waitFor(() => {
+      expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(invoiceKeys.detail('inv-1'))?.isInvalidated).toBe(true)
     })
   })
 
-  it('refreshes the invoice detail screen after finalize', async () => {
+  it('refreshes the invoice list and detail after finalize', async () => {
     const queryClient = createQueryClient()
+    queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-1', status: 'DRAFT' }])
     queryClient.setQueryData(invoiceKeys.detail('inv-1'), { id: 'inv-1', status: 'DRAFT' })
     mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', status: 'ISSUED' }))
 
@@ -73,12 +98,14 @@ describe('query-key factory invalidation', () => {
     await result.current.mutateAsync('inv-1')
 
     await waitFor(() => {
+      expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(invoiceKeys.detail('inv-1'))?.isInvalidated).toBe(true)
     })
   })
 
   it('refreshes workshop order list and detail after creating a draft invoice', async () => {
     const queryClient = createQueryClient()
+    queryClient.setQueryData(invoiceKeys.all, [])
     queryClient.setQueryData(workshopKeys.orders(), { data: [] })
     queryClient.setQueryData(workshopKeys.order('wo-1'), { id: 'wo-1' })
     mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', workshop_order_id: 'wo-1' }))
@@ -88,6 +115,7 @@ describe('query-key factory invalidation', () => {
     await result.current.mutateAsync('wo-1')
 
     await waitFor(() => {
+      expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(workshopKeys.orders())?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(workshopKeys.order('wo-1'))?.isInvalidated).toBe(true)
     })
@@ -95,6 +123,7 @@ describe('query-key factory invalidation', () => {
 
   it('writes the issued invoice into the invoice cache and refreshes the workshop order screens', async () => {
     const queryClient = createQueryClient()
+    queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-1', status: 'DRAFT' }])
     queryClient.setQueryData(invoiceKeys.detail('inv-1'), { id: 'inv-1', status: 'DRAFT' })
     queryClient.setQueryData(workshopKeys.orders(), { data: [] })
     queryClient.setQueryData(workshopKeys.order('wo-1'), { id: 'wo-1' })
@@ -108,6 +137,7 @@ describe('query-key factory invalidation', () => {
 
     await waitFor(() => {
       expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(issuedInvoice)
+      expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(workshopKeys.orders())?.isInvalidated).toBe(true)
       expect(queryClient.getQueryState(workshopKeys.order('wo-1'))?.isInvalidated).toBe(true)
     })

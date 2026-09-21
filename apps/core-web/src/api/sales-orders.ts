@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SalesOrder } from './types'
 import { fetchWithAuth } from './client'
+import { invoiceKeys } from './sales'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 
@@ -114,7 +115,7 @@ export function useCreateInvoiceFromOrder() {
         },
         onSuccess: (_invoice, orderId) => {
             queryClient.invalidateQueries({ queryKey: salesOrderKeys.detail(orderId) })
-            // We might also want to invalidate invoices list if we had one
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
         },
     })
 }

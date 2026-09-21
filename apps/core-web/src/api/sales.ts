@@ -22,6 +22,7 @@ export interface CreateInvoicePayload {
 }
 
 export function useCreateInvoice() {
+    const queryClient = useQueryClient()
     return useMutation({
         mutationFn: async ({
             signal,
@@ -35,6 +36,9 @@ export function useCreateInvoice() {
             })
             if (!response.ok) throw new Error('Failed to create invoice')
             return response.json() as Promise<Invoice>
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
         },
     })
 }
@@ -60,8 +64,8 @@ export function useUpdateInvoice() {
             if (!response.ok) throw new Error('Failed to update invoice')
             return response.json() as Promise<Invoice>
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
         },
     })
 }
@@ -76,8 +80,8 @@ export function useFinalizeInvoice() {
             if (!response.ok) throw new Error('Failed to finalize invoice')
             return response.json() as Promise<Invoice>
         },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
         },
     })
 }

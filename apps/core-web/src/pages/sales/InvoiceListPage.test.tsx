@@ -36,7 +36,7 @@ function makeInvoice(overrides: Partial<Invoice> = {}): Invoice {
   }
 }
 
-function renderPage() {
+function renderPage(initialPath = '/sales/invoices') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -44,7 +44,7 @@ function renderPage() {
   return render(
     <QueryClientProvider client={queryClient}>
       <SavedViewsProvider userKey="test-user">
-        <MemoryRouter initialEntries={['/sales/invoices']}>
+        <MemoryRouter initialEntries={[initialPath]}>
           <InvoiceListPage />
         </MemoryRouter>
       </SavedViewsProvider>
@@ -71,5 +71,30 @@ describe('InvoiceListPage', () => {
     expect(screen.getByRole('heading', { name: 'Sales Invoices' })).toBeInTheDocument()
     expect(screen.getByText('RE-2026-0001')).toBeInTheDocument()
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument()
+  })
+
+  it('reorders rows when sortField and sortDirection change', () => {
+    asMock(salesApi.useInvoices).mockReturnValue({
+      data: [
+        makeInvoice({
+          id: 'inv-newer',
+          invoice_number: 'RE-2026-0002',
+          date: '2026-02-01T00:00:00.000Z',
+        }),
+        makeInvoice({
+          id: 'inv-older',
+          invoice_number: 'RE-2026-0001',
+          date: '2026-01-01T00:00:00.000Z',
+        }),
+      ],
+      isLoading: false,
+    })
+
+    renderPage('/sales/invoices?sortField=date&sortDirection=asc')
+
+    const rows = screen.getAllByRole('row')
+    const bodyRows = rows.slice(1)
+    expect(bodyRows[0]).toHaveTextContent('RE-2026-0001')
+    expect(bodyRows[1]).toHaveTextContent('RE-2026-0002')
   })
 })

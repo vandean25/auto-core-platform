@@ -49,9 +49,36 @@ export default function InvoiceListPage() {
 
   const filteredInvoices = useMemo(() => {
     const search = queryParams.search?.trim().toLowerCase()
-    if (!search) return invoices
-    return invoices.filter((invoice) => matchesSearch(invoice, search))
-  }, [invoices, queryParams.search])
+    let rows = search
+      ? invoices.filter((invoice) => matchesSearch(invoice, search))
+      : [...invoices]
+
+    if (queryParams.sortField) {
+      const direction = queryParams.sortDirection === 'desc' ? -1 : 1
+      const field = queryParams.sortField
+      rows = [...rows].sort((left, right) => {
+        const leftValue =
+          field === 'customer'
+            ? formatCustomerName(left)
+            : String((left as Record<string, unknown>)[field] ?? '')
+        const rightValue =
+          field === 'customer'
+            ? formatCustomerName(right)
+            : String((right as Record<string, unknown>)[field] ?? '')
+        return (
+          leftValue.localeCompare(rightValue, undefined, { numeric: true }) *
+          direction
+        )
+      })
+    }
+
+    return rows
+  }, [
+    invoices,
+    queryParams.search,
+    queryParams.sortField,
+    queryParams.sortDirection,
+  ])
 
   const pageCount = Math.max(
     1,
