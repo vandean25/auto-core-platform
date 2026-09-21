@@ -101,6 +101,7 @@ model Tenant {
   activeUsers              User[]                    @relation("UserActiveTenant")
   legalEntities            LegalEntity[]
   legalEntityAccountingProfiles LegalEntityAccountingProfile[]
+  accountingExports        AccountingExport[]
   sites                    Site[]
   stockTransfers           StockTransfer[]
   stockTransferLines       StockTransferLine[]
@@ -193,6 +194,7 @@ model LegalEntity {
   payment_terms_text   String?
   sites                Site[]
   accountingProfile    LegalEntityAccountingProfile?
+  accountingExports    AccountingExport[]
   invoices             Invoice[]
   creditNotes          CreditNote[]
   createdAt            DateTime           @default(now())
@@ -228,6 +230,33 @@ model LegalEntityAccountingProfile {
   @@unique([tenant_id, id])
   @@index([tenant_id])
   @@map("legal_entity_accounting_profiles")
+}
+
+model AccountingExport {
+  id                 String      @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant      @relation(fields: [tenant_id], references: [id])
+  legal_entity_id    String
+  legal_entity       LegalEntity @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  created_by_user_id String?
+  date_from          DateTime    @db.Date
+  date_to            DateTime    @db.Date
+  profile_snapshot   Json
+  document_manifest  Json
+  site_ids           Json
+  file_bytes         Bytes
+  file_sha256        String
+  byte_length        Int
+  row_count          Int
+  document_count     Int
+  idempotency_key    String
+  request_hash       String
+  createdAt          DateTime    @default(now())
+
+  @@unique([tenant_id, idempotency_key])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, legal_entity_id, createdAt])
+  @@map("accounting_exports")
 }
 
 model Site {

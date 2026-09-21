@@ -67,6 +67,7 @@
     "dotenv": "^17.4.1",
     "firebase-admin": "^14.3.0",
     "helmet": "^8.3.0",
+    "iconv-lite": "^0.7.3",
     "ioredis": "^6.0.0",
     "pg": "^8.17.2",
     "playwright": "^1.63.0",
@@ -77,7 +78,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@typescript/native": "npm:typescript@~7.0.2",
     "@eslint/eslintrc": "^3.3.7",
     "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.24",
@@ -90,6 +90,7 @@
     "@types/node": "^26.2.0",
     "@types/pg": "^8.16.0",
     "@types/supertest": "^7.2.0",
+    "@typescript/native": "npm:typescript@~7.0.2",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -130,8 +131,12 @@
         }
       ]
     },
-    "extensionsToTreatAsEsm": [".ts"],
-    "setupFilesAfterEnv": ["<rootDir>/test/jest-esm-setup.ts"],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/test/jest-esm-setup.ts"
+    ],
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },

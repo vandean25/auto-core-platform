@@ -612,6 +612,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/accounting-exports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["AccountingExportController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/accounting-exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountingExportController_list"];
+        put?: never;
+        post: operations["AccountingExportController_generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/accounting-exports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountingExportController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/finance/accounting-exports/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountingExportController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/brands": {
         parameters: {
             query?: never;
@@ -2998,6 +3062,98 @@ export interface components {
             data: components["schemas"]["RevenueAnalyticsSliceDto"][];
             total: number;
             period: string;
+        };
+        PreviewAccountingExportDto: {
+            legalEntityId: string;
+            /** @example 2026-01-01 */
+            dateFrom: string;
+            /** @example 2026-01-31 */
+            dateTo: string;
+        };
+        AccountingExportTotalsBucketDto: {
+            account: string;
+            taxRate: string;
+            net: string;
+            tax: string;
+            gross: string;
+        };
+        AccountingExportBlockerDto: {
+            code: string;
+            message: string;
+            documentId?: string;
+            /** @enum {string} */
+            documentKind?: "INVOICE" | "CREDIT_NOTE";
+            documentNumber?: string | null;
+        };
+        AccountingExportOverlapSummaryDto: {
+            id: string;
+            dateFrom: string;
+            dateTo: string;
+            createdAt: string;
+            fileSha256: string;
+            documentCount: number;
+        };
+        AccountingExportPreviewResponseDto: {
+            legalEntityId: string;
+            dateFrom: string;
+            dateTo: string;
+            profileVersion: number;
+            previewHash: string;
+            documentCount: number;
+            rowCount: number;
+            totals: components["schemas"]["AccountingExportTotalsBucketDto"][];
+            blockers: components["schemas"]["AccountingExportBlockerDto"][];
+            overlaps: components["schemas"]["AccountingExportOverlapSummaryDto"][];
+            canGenerate: boolean;
+        };
+        GenerateAccountingExportDto: {
+            legalEntityId: string;
+            /** @example 2026-01-01 */
+            dateFrom: string;
+            /** @example 2026-01-31 */
+            dateTo: string;
+            previewHash: string;
+            profileVersion: number;
+            idempotencyKey: string;
+            /** @default false */
+            acknowledgeOverlap: boolean;
+        };
+        AccountingExportCreatedResponseDto: {
+            id: string;
+            filename: string;
+            sha256: string;
+            documentCount: number;
+            rowCount: number;
+            createdAt: string;
+        };
+        AccountingExportSummaryDto: {
+            id: string;
+            legalEntityId: string;
+            dateFrom: string;
+            dateTo: string;
+            filename: string;
+            sha256: string;
+            documentCount: number;
+            rowCount: number;
+            byteLength: number;
+            createdAt: string;
+            createdByUserId: string | null;
+        };
+        AccountingExportDetailDto: {
+            id: string;
+            legalEntityId: string;
+            dateFrom: string;
+            dateTo: string;
+            filename: string;
+            sha256: string;
+            documentCount: number;
+            rowCount: number;
+            byteLength: number;
+            createdAt: string;
+            createdByUserId: string | null;
+            profileSnapshot: Record<string, never>;
+            documentManifest: Record<string, never>;
+            siteIds: string[];
         };
         CreateBrandDto: {
             name: string;
@@ -6719,6 +6875,118 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RevenueAnalyticsResponseDto"];
                 };
+            };
+        };
+    };
+    AccountingExportController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewAccountingExportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingExportPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    AccountingExportController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+                search?: string;
+                legalEntityId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["AccountingExportSummaryDto"][];
+                    };
+                };
+            };
+        };
+    };
+    AccountingExportController_generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateAccountingExportDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingExportCreatedResponseDto"];
+                };
+            };
+        };
+    };
+    AccountingExportController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingExportDetailDto"];
+                };
+            };
+        };
+    };
+    AccountingExportController_download: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
