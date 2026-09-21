@@ -32,6 +32,16 @@ import {
 import type { InventoryItem } from "@/api/types"
 import { StatusBadge } from "@/components/status/StatusBadge"
 import { getErrorMessage } from "@/lib/error-utils"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
 
 const DEFAULT_TAX_RATE = 20
 
@@ -131,7 +141,10 @@ export default function InvoiceDraftEditPage() {
     [invoiceId],
   )
 
-  const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave({
+  const [finalizeOpen, setFinalizeOpen] = React.useState(false)
+  const [isFinalizing, setIsFinalizing] = React.useState(false)
+
+  const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } = useDebouncedAutoSave({
     save: saveDraft,
     enabled: Boolean(invoiceId && invoice?.status === "DRAFT" && invoice.sales_order_id),
     shouldSave: (payload) =>
@@ -148,24 +161,50 @@ export default function InvoiceDraftEditPage() {
     triggerAutoSave(payload)
   }, [buildPayload, triggerAutoSave])
 
-  const handleFinalize = async () => {
-    if (!editor.customer || !invoiceId) return
-    if (!confirm("Are you sure? This will lock the invoice and deduct stock.")) return
+  const handleFinalizeConfirm = async () => {
+    if (!editor.customer || !invoiceId) {
+      toast.error("Invoice draft is missing required customer information.")
+      return
+    }
+
+    if (saveStatus === "saving") {
+      toast.error("Please wait for the draft to finish saving before finalizing.")
+      return
+    }
+
+    if (saveStatus === "error") {
+      toast.error("Resolve the autosave error before finalizing this invoice.")
+      return
+    }
+
+    const payload = buildPayload()
+    if (!payload) {
+      toast.error("Invoice draft is incomplete. Add a customer and line items before finalizing.")
+      return
+    }
 
     clearPendingSave()
-    const payload = buildPayload()
-    if (!payload) return
+    abortInFlightSave()
+    setIsFinalizing(true)
 
     try {
       await updateInvoiceMutation.mutateAsync({
         id: invoiceId,
         payload,
       })
-      await finalizeInvoiceMutation.mutateAsync(invoiceId)
+
+      const finalized = await finalizeInvoiceMutation.mutateAsync(invoiceId)
+      if (finalized.status !== "FINALIZED" || !finalized.invoice_number) {
+        throw new Error("Invoice finalize did not return a finalized document with an invoice number.")
+      }
+
       toast.success("Invoice finalized and number generated!")
-      navigate(`/sales/invoices/${invoiceId}`)
+      setFinalizeOpen(false)
+      navigate(APP_ROUTE_PATHS.salesInvoiceDetail.replace(":id", invoiceId))
     } catch (finalizeError) {
       toast.error(getErrorMessage(finalizeError, "Failed to finalize invoice"))
+    } finally {
+      setIsFinalizing(false)
     }
   }
 
@@ -245,11 +284,14 @@ export default function InvoiceDraftEditPage() {
         <div className="flex gap-4 items-center">
           <DocumentSaveIndicator status={saveStatus} />
           <Button
+            type="button"
             variant="destructive"
-            onClick={handleFinalize}
-            disabled={!editor.isValid || finalizeInvoiceMutation.isPending}
+            onClick={() => setFinalizeOpen(true)}
+            disabled={!editor.isValid || isFinalizing || finalizeInvoiceMutation.isPending}
           >
-            {finalizeInvoiceMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {(isFinalizing || finalizeInvoiceMutation.isPending) && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             Finalize & Print
           </Button>
         </div>
@@ -397,6 +439,41 @@ export default function InvoiceDraftEditPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog
+        open={finalizeOpen}
+        onOpenChange={(open) => {
+          if (!isFinalizing) setFinalizeOpen(open)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalize invoice?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will lock the invoice, assign an official RE number, and deduct stock for
+              catalog lines. You cannot edit the draft after this.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isFinalizing}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isFinalizing}
+              onClick={() => void handleFinalizeConfirm()}
+            >
+              {isFinalizing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Finalizing…
+                </>
+              ) : (
+                "Finalize & Print"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CommandDialog
         open={partSearchOpen}

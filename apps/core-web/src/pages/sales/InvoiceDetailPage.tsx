@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuthSession } from '@/api/auth-session'
 import { useInvoice } from '@/api/sales'
@@ -151,6 +151,16 @@ export default function InvoiceDetailPage() {
     error: workshopOrderError,
   } = useWorkshopOrder(workshopOrderId)
   const isWorkshopInvoice = Boolean(invoice?.workshop_order_id)
+
+  useEffect(() => {
+    if (!invoice) return
+    if (invoice.status === 'DRAFT' && invoice.sales_order_id) {
+      navigate(
+        APP_ROUTE_PATHS.salesInvoiceEdit.replace(':id', invoice.id),
+        { replace: true },
+      )
+    }
+  }, [invoice, navigate])
 
   const lineSummaries = useMemo<InvoiceLineSummary[]>(() => {
     if (!invoice) return []
