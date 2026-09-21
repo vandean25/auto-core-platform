@@ -130,6 +130,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
   });
 
   afterAll(async () => {
+    // Free globally-unique workshop order numbers for later e2e suites.
     await tenantPrisma.invoiceItem.deleteMany();
     await tenantPrisma.invoice.deleteMany();
     await tenantPrisma.invoiceSequence.deleteMany();
