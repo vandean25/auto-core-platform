@@ -49,6 +49,14 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   { table: 'storage_locations', clean: (p) => p.storageLocation.deleteMany() },
   { table: 'site_memberships', clean: (p) => p.siteMembership.deleteMany() },
   { table: 'sites', clean: (p) => p.site.deleteMany() },
+  {
+    table: 'accounting_exports',
+    clean: (p) => p.accountingExport.deleteMany(),
+  },
+  {
+    table: 'legal_entity_accounting_profiles',
+    clean: (p) => p.legalEntityAccountingProfile.deleteMany(),
+  },
   { table: 'legal_entities', clean: (p) => p.legalEntity.deleteMany() },
   { table: 'revenue_groups', clean: (p) => p.revenueGroup.deleteMany() },
   { table: 'finance_settings', clean: (p) => p.financeSettings.deleteMany() },

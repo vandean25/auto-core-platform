@@ -1,4 +1,4 @@
-import { cleanDb } from './clean-db.js';
+import { TABLE_CLEANERS, cleanDb } from './clean-db.js';
 
 describe('cleanDb', () => {
   it('discovers existing tables in single query and deletes in topological order', async () => {
@@ -145,6 +145,61 @@ describe('cleanDb', () => {
 
     expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(cleaned).toEqual([]);
+  });
+
+  it('cleans accounting exports and profiles before legal entities', () => {
+    const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
+    const exportIndex = tables.indexOf('accounting_exports');
+    const profileIndex = tables.indexOf('legal_entity_accounting_profiles');
+    const legalEntityIndex = tables.indexOf('legal_entities');
+
+    expect(exportIndex).toBeGreaterThan(-1);
+    expect(profileIndex).toBeGreaterThan(-1);
+    expect(exportIndex).toBeLessThan(legalEntityIndex);
+    expect(profileIndex).toBeLessThan(legalEntityIndex);
+  });
+
+  it('runs accounting profile cleaners when those tables exist', async () => {
+    const executedDeletes: string[] = [];
+    const mockPrisma: any = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        { table_name: 'accounting_exports' },
+        { table_name: 'legal_entity_accounting_profiles' },
+        { table_name: 'legal_entities' },
+      ]),
+      accountingExport: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('accounting_exports'),
+          ),
+      },
+      legalEntityAccountingProfile: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () =>
+            executedDeletes.push('legal_entity_accounting_profiles'),
+          ),
+      },
+      legalEntity: {
+        deleteMany: jest
+          .fn()
+          .mockImplementation(async () => executedDeletes.push('legal_entities')),
+      },
+    };
+
+    const cleaned = await cleanDb(mockPrisma);
+
+    expect(cleaned).toEqual([
+      'accounting_exports',
+      'legal_entity_accounting_profiles',
+      'legal_entities',
+    ]);
+    expect(executedDeletes).toEqual([
+      'accounting_exports',
+      'legal_entity_accounting_profiles',
+      'legal_entities',
+    ]);
   });
 
   it('deletes self-referencing labor categories with parent_id first', async () => {
