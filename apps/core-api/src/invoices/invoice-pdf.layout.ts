@@ -388,7 +388,9 @@ export const buildInvoiceTotalsSection = (
 ): string => {
   if (snapshot.tax_mode === 'MARGIN_SCHEME') {
     const grossLabel = isDachRechnungSnapshot(snapshot) ? 'Brutto:' : 'Gross:';
-    const legalNote = resolveMarginSchemeLegalNote(snapshot.seller?.country_iso);
+    const legalNote = resolveMarginSchemeLegalNote(
+      snapshot.seller?.country_iso,
+    );
 
     return `
       <div class="totals">
