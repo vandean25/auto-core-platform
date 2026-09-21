@@ -4674,6 +4674,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "originalInvoiceId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4855,7 +4863,94 @@
         ]
       }
     },
+    "/api/credit-notes/{id}/pdf": {
+      "post": {
+        "operationId": "CreditNotesController_generatePdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      },
+      "get": {
+        "operationId": "CreditNotesController_getPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      }
+    },
     "/api/invoices/{id}/credit-notes": {
+      "get": {
+        "operationId": "InvoiceCreditNotesController_listForInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceCreditContextResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "InvoiceCreditNotes"
+        ]
+      },
       "post": {
         "operationId": "InvoiceCreditNotesController_createFromInvoice",
         "parameters": [
@@ -13860,6 +13955,36 @@
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "InvoiceCreditContextResponseDto": {
+        "type": "object",
+        "properties": {
+          "creditNotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNoteResponseDto"
+            }
+          },
+          "remainingLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNoteRemainingLineDto"
+            }
+          },
+          "coverageStatus": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "PARTIALLY_CREDITED",
+              "FULLY_CREDITED"
+            ]
+          }
+        },
+        "required": [
+          "creditNotes",
+          "remainingLines",
+          "coverageStatus"
         ]
       },
       "CreateCreditNoteDto": {

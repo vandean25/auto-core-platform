@@ -70,6 +70,15 @@ export type InvoiceSnapshot = {
   };
   currency?: 'EUR';
   tax_breakdown?: InvoiceSnapshotV2TaxBucket[];
+  document_kind?: 'INVOICE' | 'CREDIT_NOTE';
+  credit_title?: 'Stornorechnung' | 'Rechnungskorrektur';
+  original_document?: {
+    id: string;
+    number: string;
+    date: string;
+    reason: string;
+    snapshot_version: number;
+  };
 };
 
 type InvoiceForSnapshot = Invoice & {

@@ -135,6 +135,41 @@ export class CreditNotesService {
     return this.serializeCreditNote(creditNote, originalSnapshot, priorCredits);
   }
 
+  async listForInvoice(invoiceId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const invoice = await this.loadOriginalInvoice(tenantId, invoiceId);
+    await this.assertCreditAccess(tenantId, invoice.site_id!);
+
+    const originalSnapshot = this.tryV2Snapshot(invoice);
+    const priorCredits = await this.loadPriorCredits(tenantId, invoice.id);
+    const remainingLines = this.buildRemainingLineDtos(
+      originalSnapshot,
+      priorCredits,
+    );
+    const coverageStatus = this.resolveCoverageStatus(
+      remainingLines,
+      priorCredits,
+    );
+
+    const creditNotes = await this.prisma.creditNote.findMany({
+      where: {
+        tenant_id: tenantId,
+        original_invoice_id: invoiceId,
+        status: { not: CreditNoteStatus.VOID },
+      },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      creditNotes: creditNotes.map((creditNote) =>
+        this.serializeCreditNote(creditNote, originalSnapshot, priorCredits),
+      ),
+      remainingLines,
+      coverageStatus,
+    };
+  }
+
   async list(query: CreditNoteListQueryDto = {}) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
@@ -146,6 +181,9 @@ export class CreditNotesService {
     const where: Prisma.CreditNoteWhereInput = {
       tenant_id: tenantId,
       site_id: siteId,
+      ...(query.originalInvoiceId
+        ? { original_invoice_id: query.originalInvoiceId }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -920,26 +958,51 @@ export class CreditNotesService {
     `;
   }
 
+  private buildRemainingLineDtos(
+    originalSnapshot: InvoiceSnapshotV2 | null,
+    priorCredits: PriorCreditLine[],
+  ) {
+    if (originalSnapshot === null) {
+      return [];
+    }
+
+    return [
+      ...computeRemainingLineBalances(
+        extractOriginalLineSnapshots(originalSnapshot),
+        priorCredits,
+      ).entries(),
+    ].map(([originalItemId, balance]) => ({
+      originalItemId,
+      remainingQuantity: balance.quantity.toFixed(3),
+      remainingNet: balance.net.toFixed(2),
+      remainingTax: balance.tax.toFixed(2),
+      remainingGross: balance.gross.toFixed(2),
+    }));
+  }
+
+  private resolveCoverageStatus(
+    remainingLines: Array<{ remainingQuantity: string }>,
+    priorCredits: PriorCreditLine[],
+  ): 'NONE' | 'PARTIALLY_CREDITED' | 'FULLY_CREDITED' {
+    if (priorCredits.length === 0) {
+      return 'NONE';
+    }
+
+    const hasRemaining = remainingLines.some(
+      (line) => Number.parseFloat(line.remainingQuantity) > 0,
+    );
+    return hasRemaining ? 'PARTIALLY_CREDITED' : 'FULLY_CREDITED';
+  }
+
   private serializeCreditNote(
     creditNote: CreditNoteWithItems,
     originalSnapshot: InvoiceSnapshotV2 | null,
     priorCredits: PriorCreditLine[],
   ) {
-    const remainingLines =
-      originalSnapshot === null
-        ? []
-        : [
-            ...computeRemainingLineBalances(
-              extractOriginalLineSnapshots(originalSnapshot),
-              priorCredits,
-            ).entries(),
-          ].map(([originalItemId, balance]) => ({
-            originalItemId,
-            remainingQuantity: balance.quantity.toFixed(3),
-            remainingNet: balance.net.toFixed(2),
-            remainingTax: balance.tax.toFixed(2),
-            remainingGross: balance.gross.toFixed(2),
-          }));
+    const remainingLines = this.buildRemainingLineDtos(
+      originalSnapshot,
+      priorCredits,
+    );
 
     return {
       id: creditNote.id,

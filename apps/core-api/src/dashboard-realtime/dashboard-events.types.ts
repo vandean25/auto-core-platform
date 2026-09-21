@@ -23,7 +23,8 @@ export type DashboardEntityType =
   | 'LEAVE_REQUEST'
   | 'EMPLOYEE_WORK_SCHEDULE'
   | 'PARTS_RESERVATION'
-  | 'PARTS_REQUISITION';
+  | 'PARTS_REQUISITION'
+  | 'CREDIT_NOTE';
 
 export type DashboardEntityAction = 'CREATED' | 'UPDATED' | 'DELETED';
 

@@ -12,6 +12,9 @@ export type FormatDate = (value: string | Date) => string;
 export const isDachRechnungSnapshot = (snapshot: InvoiceSnapshot): boolean =>
   snapshot.schema_version === 2 && snapshot.seller !== undefined;
 
+export const isCreditNoteSnapshot = (snapshot: InvoiceSnapshot): boolean =>
+  snapshot.document_kind === 'CREDIT_NOTE';
+
 const buildCustomerName = (snapshot: InvoiceSnapshot): string =>
   snapshot.customer.type === 'COMPANY'
     ? (snapshot.customer.company_name ??
@@ -212,14 +215,40 @@ export const buildInvoiceHeader = (
   escapeHtml: EscapeHtml,
   snapshot: InvoiceSnapshot,
 ): string => {
-  const title = isDachRechnungSnapshot(snapshot) ? 'Rechnung' : 'Invoice';
+  const title = isCreditNoteSnapshot(snapshot)
+    ? (snapshot.credit_title ?? 'Rechnungskorrektur')
+    : isDachRechnungSnapshot(snapshot)
+      ? 'Rechnung'
+      : 'Invoice';
 
   return `
   <div class="header">
-    <h1>${title}</h1>
+    <h1>${escapeHtml(title)}</h1>
     <div class="muted">${escapeHtml(invoiceNumber)}</div>
   </div>
 `;
+};
+
+export const buildCreditNoteOriginalReferenceSection = (
+  snapshot: InvoiceSnapshot,
+  escapeHtml: EscapeHtml,
+  formatDate: FormatDate,
+): string => {
+  if (!isCreditNoteSnapshot(snapshot) || !snapshot.original_document) {
+    return '';
+  }
+
+  const original = snapshot.original_document;
+  const originalDate = formatDate(`${original.date}T00:00:00.000Z`);
+
+  return `
+    <div class="section" style="margin-bottom: 18px; padding: 12px 14px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;">
+      <div class="section-title">Bezug zur Originalrechnung</div>
+      <div><strong>Rechnungsnummer:</strong> ${escapeHtml(original.number)}</div>
+      <div><strong>Rechnungsdatum:</strong> ${escapeHtml(originalDate)}</div>
+      <div><strong>Grund:</strong> ${escapeHtml(original.reason)}</div>
+    </div>
+  `;
 };
 
 export const buildInvoiceSellerSection = (
@@ -288,15 +317,25 @@ export const buildInvoiceMetaSection = (
   formatDate: FormatDate,
 ): string => {
   if (isDachRechnungSnapshot(snapshot)) {
-    const paymentTerms = snapshot.payment_terms?.text
-      ? `<div><strong>Zahlungsbedingungen:</strong> ${escapeHtml(snapshot.payment_terms.text)}</div>`
-      : '';
+    const paymentTerms =
+      !isCreditNoteSnapshot(snapshot) && snapshot.payment_terms?.text
+        ? `<div><strong>Zahlungsbedingungen:</strong> ${escapeHtml(snapshot.payment_terms.text)}</div>`
+        : '';
+    const numberLabel = isCreditNoteSnapshot(snapshot)
+      ? 'Belegnummer'
+      : 'Rechnungsnummer';
+    const dateLabel = isCreditNoteSnapshot(snapshot)
+      ? 'Belegdatum'
+      : 'Rechnungsdatum';
+    const dueDateLine = isCreditNoteSnapshot(snapshot)
+      ? ''
+      : `<div><strong>Fällig am:</strong> ${escapeHtml(formatDate(snapshot.due_date))}</div>`;
 
     return `
       <div class="section" style="text-align: right">
-        <div><strong>Rechnungsnummer:</strong> ${escapeHtml(invoiceNumber)}</div>
-        <div><strong>Rechnungsdatum:</strong> ${escapeHtml(formatDate(snapshot.date))}</div>
-        <div><strong>Fällig am:</strong> ${escapeHtml(formatDate(snapshot.due_date))}</div>
+        <div><strong>${numberLabel}:</strong> ${escapeHtml(invoiceNumber)}</div>
+        <div><strong>${dateLabel}:</strong> ${escapeHtml(formatDate(snapshot.date))}</div>
+        ${dueDateLine}
         ${buildSupplyDateLabel(snapshot, formatDate)}
         ${paymentTerms}
       </div>
@@ -483,6 +522,7 @@ export const buildInvoiceHtmlDocument = (
   </head>
   <body>
     ${buildInvoiceHeader(invoiceNumber, escapeHtml, snapshot)}
+    ${buildCreditNoteOriginalReferenceSection(snapshot, escapeHtml, formatDate)}
 
     <div style="display: flex; justify-content: space-between;">
       ${headerLeft}
@@ -504,6 +544,10 @@ export const buildInvoiceFooterTemplate = (
   escape: EscapeHtml,
   snapshot: InvoiceSnapshot,
 ): string => {
-  const prefix = isDachRechnungSnapshot(snapshot) ? 'Rechnung' : 'Invoice';
+  const prefix = isCreditNoteSnapshot(snapshot)
+    ? (snapshot.credit_title ?? 'Rechnungskorrektur')
+    : isDachRechnungSnapshot(snapshot)
+      ? 'Rechnung'
+      : 'Invoice';
   return buildPdfFooterTemplate(`${prefix} ${escape(invoiceNumber)}`);
 };

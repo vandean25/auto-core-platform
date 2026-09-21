@@ -27,6 +27,7 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   EMPLOYEE_WORK_SCHEDULE: true,
   PARTS_RESERVATION: true,
   PARTS_REQUISITION: true,
+  CREDIT_NOTE: true,
 };
 
 function modelNameToEntityType(modelName: string): DashboardEntityType | null {

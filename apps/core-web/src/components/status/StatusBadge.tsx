@@ -54,6 +54,7 @@ const statusClassMap: Record<string, string> = {
   APPROVED: 'border-indigo-200 bg-indigo-100 text-indigo-700',
   SHIPPED: 'border-amber-200 bg-amber-100 text-amber-700',
   REJECTED: 'border-rose-200 bg-rose-100 text-rose-700',
+  VOID: 'border-slate-200 bg-slate-100 text-slate-500',
 }
 
 export function formatStatusLabel(status: string) {

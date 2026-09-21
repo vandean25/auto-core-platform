@@ -1,5 +1,6 @@
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
+  buildCreditNoteOriginalReferenceSection,
   buildInvoiceCustomerSection,
   buildInvoiceDocumentStyles,
   buildInvoiceFooterTemplate,
@@ -582,6 +583,67 @@ describe('invoice-pdf.layout', () => {
       const html = buildInvoiceNotesSection(createV2Snapshot(), escapeHtml);
       expect(html).toContain('Anmerkungen');
       expect(html).toContain('Bitte überweisen.');
+    });
+  });
+
+  const createCreditNoteSnapshot = (
+    creditTitle: 'Stornorechnung' | 'Rechnungskorrektur',
+  ): InvoiceSnapshot => ({
+    ...createV2Snapshot(),
+    document_kind: 'CREDIT_NOTE',
+    credit_title: creditTitle,
+    original_document: {
+      id: 'invoice-1',
+      number: 'RE-2026-0042',
+      date: '2026-09-21',
+      reason: 'Wrong quantity billed',
+      snapshot_version: 2,
+    },
+  });
+
+  describe('credit note PDF layout', () => {
+    it('renders Stornorechnung title for full credit notes', () => {
+      const snapshot = createCreditNoteSnapshot('Stornorechnung');
+      const header = buildInvoiceHeader('CN-2026-0001', escapeHtml, snapshot);
+
+      expect(header).toContain('<h1>Stornorechnung</h1>');
+      expect(header).not.toContain('Gutschrift');
+      expect(header).not.toContain('Rechnungskorrektur');
+    });
+
+    it('renders Rechnungskorrektur title for partial credit notes', () => {
+      const snapshot = createCreditNoteSnapshot('Rechnungskorrektur');
+      const header = buildInvoiceHeader('CN-2026-0002', escapeHtml, snapshot);
+
+      expect(header).toContain('<h1>Rechnungskorrektur</h1>');
+      expect(header).not.toContain('Gutschrift');
+      expect(header).not.toContain('Stornorechnung');
+    });
+
+    it('renders original invoice reference with number and date', () => {
+      const snapshot = createCreditNoteSnapshot('Rechnungskorrektur');
+      const html = buildCreditNoteOriginalReferenceSection(
+        snapshot,
+        escapeHtml,
+        formatGermanDate,
+      );
+
+      expect(html).toContain('Bezug zur Originalrechnung');
+      expect(html).toContain('RE-2026-0042');
+      expect(html).toContain('21.09.2026');
+      expect(html).toContain('Wrong quantity billed');
+    });
+
+    it('uses credit note title in footer template', () => {
+      const snapshot = createCreditNoteSnapshot('Stornorechnung');
+      const footer = buildInvoiceFooterTemplate(
+        'CN-2026-0001',
+        escapeHtml,
+        snapshot,
+      );
+
+      expect(footer).toContain('Stornorechnung CN-2026-0001');
+      expect(footer).not.toContain('Gutschrift');
     });
   });
 
