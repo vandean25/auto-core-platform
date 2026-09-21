@@ -1303,7 +1303,7 @@ model CreditNoteItem {
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
 
-  @@unique([credit_note_id, original_invoice_item_id])
+  @@unique([tenant_id, credit_note_id, original_invoice_item_id])
   @@unique([tenant_id, id])
   @@index([tenant_id])
   @@map("credit_note_items")

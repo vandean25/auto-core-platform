@@ -63,7 +63,7 @@ CREATE INDEX "credit_notes_tenant_id_idx" ON "credit_notes"("tenant_id");
 CREATE INDEX "credit_notes_tenant_id_site_id_date_idx" ON "credit_notes"("tenant_id", "site_id", "date");
 CREATE INDEX "credit_notes_tenant_id_legal_entity_id_date_idx" ON "credit_notes"("tenant_id", "legal_entity_id", "date");
 
-CREATE UNIQUE INDEX "credit_note_items_credit_note_id_original_invoice_item_id_key" ON "credit_note_items"("credit_note_id", "original_invoice_item_id");
+CREATE UNIQUE INDEX "credit_note_items_tenant_id_credit_note_id_original_invoice_item_id_key" ON "credit_note_items"("tenant_id", "credit_note_id", "original_invoice_item_id");
 CREATE UNIQUE INDEX "credit_note_items_tenant_id_id_key" ON "credit_note_items"("tenant_id", "id");
 CREATE INDEX "credit_note_items_tenant_id_idx" ON "credit_note_items"("tenant_id");
 
