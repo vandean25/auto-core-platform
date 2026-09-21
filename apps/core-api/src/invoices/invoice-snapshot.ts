@@ -7,6 +7,10 @@ import {
   type InvoiceItem,
   type Vehicle,
 } from '@prisma/client';
+import type {
+  InvoiceSnapshotV2Seller,
+  InvoiceSnapshotV2TaxBucket,
+} from './invoice-snapshot-v2.js';
 
 export type InvoiceSnapshot = {
   id: string;
@@ -55,6 +59,17 @@ export type InvoiceSnapshot = {
   }>;
 
   snapshot_created_at: string;
+
+  schema_version?: 1 | 2;
+  seller?: InvoiceSnapshotV2Seller;
+  supply_date_from?: string;
+  supply_date_to?: string;
+  payment_terms?: {
+    days: number;
+    text: string;
+  };
+  currency?: 'EUR';
+  tax_breakdown?: InvoiceSnapshotV2TaxBucket[];
 };
 
 type InvoiceForSnapshot = Invoice & {

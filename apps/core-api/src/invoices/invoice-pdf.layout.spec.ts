@@ -8,12 +8,91 @@ import {
   buildInvoiceItemsTable,
   buildInvoiceMetaSection,
   buildInvoiceNotesSection,
+  buildInvoiceSellerSection,
   buildInvoiceTotalsSection,
   buildInvoiceVehicleSection,
+  isDachRechnungSnapshot,
 } from './invoice-pdf.layout.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
 describe('invoice-pdf.layout', () => {
+  const createV2Seller = () => ({
+    name: 'E2E GmbH',
+    country_iso: 'DE' as const,
+    address_street: 'Hauptstraße 1',
+    address_line2: null,
+    address_zip: '10115',
+    address_city: 'Berlin',
+    tax_number: '27/123/45678',
+    vat_id: 'DE123456789',
+    iban: 'DE89370400440532013000',
+    bic: 'COBADEFFXXX',
+    bank_name: 'Commerzbank',
+    email: 'rechnung@e2e.example',
+    phone: '+4930123456',
+    registration_number: 'HRB 123456',
+    registration_court: 'Amtsgericht Berlin',
+    representatives: 'Max Mustermann',
+  });
+
+  const createV2Snapshot = (): InvoiceSnapshot => ({
+    id: 'invoice-v2-1',
+    invoice_number: 'RE-2026-0042',
+    date: '2026-09-20T00:00:00.000Z',
+    due_date: '2026-10-04T00:00:00.000Z',
+    total_net: '250.00',
+    total_tax: '50.00',
+    total_gross: '300.00',
+    notes: 'Bitte überweisen.',
+    tax_mode: 'STANDARD',
+    schema_version: 2,
+    currency: 'EUR',
+    seller: createV2Seller(),
+    supply_date_from: '2026-09-18',
+    supply_date_to: '2026-09-20',
+    payment_terms: {
+      days: 14,
+      text: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
+    },
+    tax_breakdown: [
+      { rate: '20.00', net: '250.00', tax: '50.00', gross: '300.00' },
+    ],
+    customer: {
+      type: 'COMPANY',
+      company_name: 'Kunden AG',
+      first_name: 'Erika',
+      last_name: 'Muster',
+      email: 'erika@kunden.example',
+      phone: '+43111111',
+      vat_id: 'DE987654321',
+      address_street: 'Kundenweg 9',
+      address_city: 'München',
+      address_zip: '80331',
+      address_country: 'Deutschland',
+    },
+    vehicle: {
+      make: 'BMW',
+      model: '320d',
+      year: 2019,
+      engine_code: null,
+      vin: 'WBA8E9G50JNU12345',
+      plate: 'M-AB 1234',
+    },
+    items: [
+      {
+        description: 'Inspektion inkl. Ölwechsel',
+        quantity: '1.250',
+        unit_price: '200.00',
+        tax_rate: '20.00',
+        line_discount_type: 'PERCENTAGE',
+        line_discount_value: '10.00',
+        line_total: '270.00',
+        revenue_group_name: 'Service',
+      },
+    ],
+    snapshot_created_at: '2026-09-20T12:00:00.000Z',
+  });
+
   const createSnapshot = (): InvoiceSnapshot => ({
     id: 'invoice-1',
     invoice_number: 'RE-2026-0001',
@@ -62,6 +141,25 @@ describe('invoice-pdf.layout', () => {
   const formatDate = (val: string | Date) =>
     typeof val === 'string' ? val : val.toISOString().slice(0, 10);
 
+  const formatGermanDate = (val: string | Date) => {
+    const date = typeof val === 'string' ? new Date(val) : val;
+    return date.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  describe('isDachRechnungSnapshot', () => {
+    it('returns true for schema_version 2 snapshots with seller identity', () => {
+      expect(isDachRechnungSnapshot(createV2Snapshot())).toBe(true);
+    });
+
+    it('returns false for legacy v1 snapshots', () => {
+      expect(isDachRechnungSnapshot(createSnapshot())).toBe(false);
+    });
+  });
+
   describe('buildInvoiceDocumentStyles', () => {
     it('composes base PDF styles and shared table primitives', () => {
       const styles = buildInvoiceDocumentStyles();
@@ -76,18 +174,62 @@ describe('invoice-pdf.layout', () => {
 
   describe('buildInvoiceFooterTemplate', () => {
     it('uses shared buildPdfFooterTemplate primitive with invoice prefix', () => {
-      const footer = buildInvoiceFooterTemplate('RE-2026-0001', escapeHtml);
+      const footer = buildInvoiceFooterTemplate(
+        'RE-2026-0001',
+        escapeHtml,
+        createSnapshot(),
+      );
       expect(footer).toContain('Invoice RE-2026-0001');
       expect(footer).toContain('class="pageNumber"');
       expect(footer).toContain('class="totalPages"');
     });
+
+    it('uses Rechnung prefix for v2 snapshots', () => {
+      const footer = buildInvoiceFooterTemplate(
+        'RE-2026-0042',
+        escapeHtml,
+        createV2Snapshot(),
+      );
+      expect(footer).toContain('Rechnung RE-2026-0042');
+      expect(footer).not.toContain('Invoice');
+    });
   });
 
   describe('buildInvoiceHeader', () => {
-    it('renders header with escaped invoice number', () => {
-      const header = buildInvoiceHeader('RE-2026-0001', escapeHtml);
+    it('renders legacy header with escaped invoice number', () => {
+      const header = buildInvoiceHeader(
+        'RE-2026-0001',
+        escapeHtml,
+        createSnapshot(),
+      );
       expect(header).toContain('<h1>Invoice</h1>');
       expect(header).toContain('RE-2026-0001');
+    });
+
+    it('renders Rechnung title for v2 snapshots', () => {
+      const header = buildInvoiceHeader(
+        'RE-2026-0042',
+        escapeHtml,
+        createV2Snapshot(),
+      );
+      expect(header).toContain('<h1>Rechnung</h1>');
+      expect(header).not.toContain('<h1>Invoice</h1>');
+    });
+  });
+
+  describe('buildInvoiceSellerSection', () => {
+    it('renders seller identity from snapshot for v2 invoices', () => {
+      const html = buildInvoiceSellerSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('E2E GmbH');
+      expect(html).toContain('Hauptstraße 1');
+      expect(html).toContain('10115 Berlin');
+      expect(html).toContain('USt-IdNr.: DE123456789');
+      expect(html).toContain('Steuernummer: 27/123/45678');
+      expect(html).toContain('IBAN: DE89370400440532013000');
+    });
+
+    it('returns empty string for legacy v1 snapshots', () => {
+      expect(buildInvoiceSellerSection(createSnapshot(), escapeHtml)).toBe('');
     });
   });
 
@@ -97,6 +239,7 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('Ada Lovelace');
       expect(html).toContain('Teststraße 1');
       expect(html).toContain('1010 Wien');
+      expect(html).toContain('Bill to:');
     });
 
     it('renders company name for COMPANY type customer', () => {
@@ -105,6 +248,28 @@ describe('invoice-pdf.layout', () => {
       snapshot.customer.company_name = 'Ada Corp';
       const html = buildInvoiceCustomerSection(snapshot, escapeHtml);
       expect(html).toContain('Ada Corp');
+    });
+
+    it('uses German recipient label for v2 snapshots', () => {
+      const html = buildInvoiceCustomerSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Rechnungsempfänger');
+      expect(html).toContain('Kunden AG');
+      expect(html).toContain('USt-IdNr.: DE987654321');
+      expect(html).not.toContain('Bill to:');
+    });
+
+    it('uses UID for AT v2 customer VAT labels', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.seller = {
+        ...snapshot.seller!,
+        country_iso: 'AT',
+        vat_id: 'ATU12345678',
+      };
+      snapshot.customer.vat_id = 'ATU98765432';
+
+      const html = buildInvoiceCustomerSection(snapshot, escapeHtml);
+      expect(html).toContain('UID: ATU98765432');
+      expect(html).not.toContain('USt-IdNr.');
     });
   });
 
@@ -119,6 +284,23 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('RE-2026-0001');
       expect(html).toContain('2026-04-07');
       expect(html).toContain('2026-04-14');
+    });
+
+    it('renders German metadata, supply period and payment terms for v2', () => {
+      const html = buildInvoiceMetaSection(
+        createV2Snapshot(),
+        'RE-2026-0042',
+        escapeHtml,
+        formatGermanDate,
+      );
+      expect(html).toContain('Rechnungsnummer:');
+      expect(html).toContain('Rechnungsdatum:');
+      expect(html).toContain('Fällig am:');
+      expect(html).toContain('Leistungszeitraum:');
+      expect(html).toContain('18.09.2026');
+      expect(html).toContain('20.09.2026');
+      expect(html).toContain('Zahlungsbedingungen:');
+      expect(html).toContain('Zahlbar innerhalb von 14 Tagen ohne Abzug.');
     });
   });
 
@@ -135,6 +317,13 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('W-1234X');
       expect(html).toContain('WVWZZZ1234567890');
     });
+
+    it('uses German vehicle labels for v2 snapshots', () => {
+      const html = buildInvoiceVehicleSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Fahrzeug');
+      expect(html).toContain('Kennzeichen');
+      expect(html).toContain('FIN');
+    });
   });
 
   describe('buildInvoiceItemsTable', () => {
@@ -142,6 +331,28 @@ describe('invoice-pdf.layout', () => {
       const html = buildInvoiceItemsTable(createSnapshot(), escapeHtml);
       expect(html).toContain('Oil change service');
       expect(html).toContain('100.00');
+    });
+
+    it('uses German table headers and line discount for v2 snapshots', () => {
+      const html = buildInvoiceItemsTable(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Beschreibung');
+      expect(html).toContain('Menge');
+      expect(html).toContain('Einzelpreis');
+      expect(html).toContain('Gesamt');
+      expect(html).toContain('Inspektion inkl. Ölwechsel');
+      expect(html).toContain('Rabatt 10%');
+      expect(html).not.toContain('revenue_group_name');
+      expect(html).not.toContain('8400');
+    });
+
+    it('does not add German discount copy to legacy v1 snapshots', () => {
+      const snapshot = createSnapshot();
+      snapshot.items[0].line_discount_type = 'PERCENTAGE';
+      snapshot.items[0].line_discount_value = '10.00';
+
+      const html = buildInvoiceItemsTable(snapshot, escapeHtml);
+      expect(html).toContain('Oil change service');
+      expect(html).not.toContain('Rabatt');
     });
   });
 
@@ -152,6 +363,15 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('Tax:');
       expect(html).toContain('Gross:');
       expect(html).toContain('120.00');
+    });
+
+    it('renders German totals for v2 standard invoices', () => {
+      const html = buildInvoiceTotalsSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Netto:');
+      expect(html).toContain('Umsatzsteuer:');
+      expect(html).toContain('Brutto:');
+      expect(html).toContain('300.00');
+      expect(html).not.toContain('tax_breakdown');
     });
 
     it('renders margin scheme legal notice when tax_mode is MARGIN_SCHEME', () => {
@@ -174,10 +394,16 @@ describe('invoice-pdf.layout', () => {
       snapshot.notes = null;
       expect(buildInvoiceNotesSection(snapshot, escapeHtml)).toBe('');
     });
+
+    it('uses German notes label for v2 snapshots', () => {
+      const html = buildInvoiceNotesSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Anmerkungen');
+      expect(html).toContain('Bitte überweisen.');
+    });
   });
 
   describe('buildInvoiceHtmlDocument', () => {
-    it('assembles complete invoice HTML document', () => {
+    it('assembles complete legacy invoice HTML document', () => {
       const html = buildInvoiceHtmlDocument(
         createSnapshot(),
         'RE-2026-0001',
@@ -187,6 +413,61 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('<!DOCTYPE html>');
       expect(html).toContain('<h1>Invoice</h1>');
       expect(html).toContain('RE-2026-0001');
+    });
+
+    it('keeps v1 customer and meta in the same header flex row', () => {
+      const html = buildInvoiceHtmlDocument(
+        createSnapshot(),
+        'RE-2026-0001',
+        escapeHtml,
+        formatDate,
+      );
+
+      expect(html).toMatch(
+        /display: flex; justify-content: space-between;[\s\S]*Bill to:[\s\S]*Invoice Number:/,
+      );
+      expect(html).not.toContain('Rechnungsempfänger');
+    });
+
+    it('assembles DACH Rechnung document from v2 snapshot without internal fields', () => {
+      const html = buildInvoiceHtmlDocument(
+        createV2Snapshot(),
+        'RE-2026-0042',
+        escapeHtml,
+        formatGermanDate,
+      );
+      expect(html).toContain('<h1>Rechnung</h1>');
+      expect(html).toContain('E2E GmbH');
+      expect(html).toContain('Kunden AG');
+      expect(html).toContain('Zahlungsbedingungen:');
+      expect(html).not.toContain('accounting_allocation');
+      expect(html).not.toContain('cost_basis');
+      expect(html).not.toContain('Service');
+    });
+
+    it('keeps multi-page table header group for long item lists', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.items = Array.from({ length: 40 }, (_, index) => ({
+        description: `Position ${index + 1}`,
+        quantity: '1.000',
+        unit_price: '10.00',
+        tax_rate: '20.00',
+        line_discount_type: null,
+        line_discount_value: null,
+        line_total: '12.00',
+        revenue_group_name: 'Internal Group',
+      }));
+
+      const html = buildInvoiceHtmlDocument(
+        snapshot,
+        'RE-2026-0099',
+        escapeHtml,
+        formatGermanDate,
+      );
+
+      expect(html).toContain('display: table-header-group');
+      expect(html).toContain('Position 40');
+      expect(html).not.toContain('Internal Group');
     });
   });
 });

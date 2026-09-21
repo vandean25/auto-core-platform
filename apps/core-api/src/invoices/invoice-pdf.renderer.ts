@@ -6,6 +6,7 @@ import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import {
   buildInvoiceFooterTemplate,
   buildInvoiceHtmlDocument,
+  isDachRechnungSnapshot,
   type FormatDate,
 } from './invoice-pdf.layout.js';
 
@@ -24,7 +25,8 @@ export class InvoicePdfRenderer {
         const page = await browser.newPage();
 
         try {
-          const formatDate: FormatDate = (value) => this.formatDateValue(value);
+          const formatDate: FormatDate = (value) =>
+            this.formatDateValue(value, isDachRechnungSnapshot(snapshot));
           const html = buildInvoiceHtmlDocument(
             snapshot,
             invoiceNumber,
@@ -50,6 +52,7 @@ export class InvoicePdfRenderer {
                   footerTemplate: buildInvoiceFooterTemplate(
                     invoiceNumber,
                     escapeHtml,
+                    snapshot,
                   ),
                   printBackground: true,
                 }),
@@ -74,11 +77,20 @@ export class InvoicePdfRenderer {
     );
   }
 
-  private formatDateValue(value: string | Date) {
+  private formatDateValue(value: string | Date, useGermanLocale: boolean) {
     const date = typeof value === 'string' ? new Date(value) : value;
     if (Number.isNaN(date.getTime())) {
       return String(value);
     }
+
+    if (useGermanLocale) {
+      return date.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    }
+
     return date.toISOString().slice(0, 10);
   }
 }

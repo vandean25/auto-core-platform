@@ -33,5 +33,12 @@ export function toRenderableInvoiceSnapshot(
       revenue_group_name: item.revenue_group_name,
     })),
     snapshot_created_at: snapshot.snapshot_created_at,
+    schema_version: 2,
+    seller: snapshot.seller,
+    supply_date_from: snapshot.supply_date_from,
+    supply_date_to: snapshot.supply_date_to,
+    payment_terms: snapshot.payment_terms,
+    currency: snapshot.currency,
+    tax_breakdown: snapshot.tax_breakdown,
   };
 }

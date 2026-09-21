@@ -92,6 +92,58 @@ describe('InvoicePdfRenderer', () => {
     expect(html).not.toContain('<span>Net:</span>');
   });
 
+  it('renders DACH Rechnung content for v2 snapshots', async () => {
+    const page = {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const browser = {
+      newPage: jest.fn().mockResolvedValue(page),
+    };
+    const browserService = {
+      getBrowser: jest.fn().mockResolvedValue(browser),
+      withTimeout: jest.fn((promise: Promise<Buffer>) => promise),
+    };
+
+    const renderer = new InvoicePdfRenderer(browserService as never);
+    await renderer.render({
+      ...createSnapshot(),
+      schema_version: 2,
+      seller: {
+        name: 'E2E GmbH',
+        country_iso: 'DE',
+        address_street: 'Hauptstraße 1',
+        address_line2: null,
+        address_zip: '10115',
+        address_city: 'Berlin',
+        tax_number: null,
+        vat_id: 'DE123456789',
+        iban: null,
+        bic: null,
+        bank_name: null,
+        email: null,
+        phone: null,
+        registration_number: null,
+        registration_court: null,
+        representatives: null,
+      },
+      supply_date_from: '2026-09-20',
+      supply_date_to: '2026-09-20',
+      payment_terms: {
+        days: 14,
+        text: 'Zahlbar innerhalb von 14 Tagen.',
+      },
+      currency: 'EUR',
+    });
+
+    const html = page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain('<h1>Rechnung</h1>');
+    expect(html).toContain('E2E GmbH');
+    expect(html).toContain('Zahlungsbedingungen:');
+    expect(html).not.toContain('<h1>Invoice</h1>');
+  });
+
   it('omits the margin legal line for standard invoices', async () => {
     const page = {
       setContent: jest.fn().mockResolvedValue(undefined),
