@@ -349,6 +349,7 @@ export class InvoicesService {
 
       return {
         tenant_id: tenantId,
+        catalog_item_id: line.catalog_item_id,
         description: line.description,
         quantity,
         unit_price: unitPrice,
@@ -356,6 +357,8 @@ export class InvoicesService {
         line_discount_type: null,
         line_discount_value: null,
         line_total: net,
+        revenue_group_name:
+          line.type === 'LABOR' ? 'Labor / workshop services' : null,
       };
     });
 

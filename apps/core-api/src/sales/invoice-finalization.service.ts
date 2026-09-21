@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   InvoiceStatus,
   Prisma,
@@ -9,7 +13,6 @@ import {
   bindStatusUpdateMany,
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
 import { AtpService } from '../inventory/atp.service.js';
 import {
   assertInvoiceHasSourceDocument,
@@ -25,7 +28,6 @@ type InvoiceWithItems = Invoice & { items: InvoiceItem[] };
 export class InvoiceFinalizationService {
   constructor(
     private readonly atpService: AtpService,
-    private readonly siteContext: SiteContextService,
     private readonly snapshotCommit: InvoiceSnapshotCommitService,
   ) {}
 
@@ -35,8 +37,14 @@ export class InvoiceFinalizationService {
     invoice: InvoiceWithItems,
   ) {
     assertInvoiceHasSourceDocument(invoice);
+    if (!invoice.sales_order_id) {
+      throw new BadRequestException({
+        code: 'SOURCE_DOCUMENT_REQUIRED',
+        message:
+          'Sales invoice finalization requires a linked sales order. Workshop and vehicle-sale invoices must use their own commit paths.',
+      });
+    }
 
-    const siteId = await this.siteContext.getSiteId();
     const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
 
     const fullInvoice = await tx.invoice.findFirst({
@@ -61,7 +69,7 @@ export class InvoiceFinalizationService {
     await processSaleInventoryDeduction({
       tx,
       tenantId,
-      siteId,
+      siteId: prepared.ownership.siteId,
       invoiceItems: invoice.items,
       invoiceNumber,
       atpService: this.atpService,
@@ -92,14 +100,12 @@ export class InvoiceFinalizationService {
       throw new NotFoundException('Invoice not found after update');
     }
 
-    if (invoice.sales_order_id) {
-      await transitionLinkedSalesOrderToInvoiced(
-        tx,
-        tenantId,
-        siteId,
-        invoice.sales_order_id,
-      );
-    }
+    await transitionLinkedSalesOrderToInvoiced(
+      tx,
+      tenantId,
+      prepared.ownership.siteId,
+      invoice.sales_order_id,
+    );
 
     return updatedInvoice;
   }

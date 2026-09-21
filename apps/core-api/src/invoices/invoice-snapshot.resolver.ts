@@ -3,7 +3,6 @@ import { InvoiceStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import { toRenderableInvoiceSnapshot } from './invoice-snapshot-render.adapter.js';
-import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 import { isInvoiceSnapshot } from './invoice-snapshot.validation.js';
 
 const COMMITTED_INVOICE_STATUSES = new Set<InvoiceStatus>([
@@ -44,17 +43,6 @@ export async function resolveInvoiceSnapshot(
   );
   if (v2Renderable) {
     return v2Renderable;
-  }
-
-  if (isInvoiceSnapshotV2(existingSnapshot)) {
-    const adapted = toRenderableInvoiceSnapshot(
-      existingSnapshot,
-      invoice.invoice_number,
-      invoice.id,
-    );
-    if (adapted) {
-      return adapted;
-    }
   }
 
   if (COMMITTED_INVOICE_STATUSES.has(invoice.status)) {

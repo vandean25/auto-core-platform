@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { InvoiceStatus, Prisma, SalesOrderStatus } from '@prisma/client';
 import type { AtpService } from '../inventory/atp.service.js';
-import type { SiteContextService } from '../common/services/site-context.service.js';
 import type { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
 import { InvoiceFinalizationService } from './invoice-finalization.service.js';
 
@@ -25,9 +24,6 @@ describe('InvoiceFinalizationService', () => {
     ),
     deductOnHandForSale: jest.fn(),
   } as unknown as AtpService;
-  const siteContext = {
-    getSiteId: jest.fn().mockResolvedValue('site-1'),
-  } as unknown as SiteContextService;
   const snapshotCommit = {
     prepareV2Snapshot: jest.fn().mockResolvedValue({
       snapshot: { schema_version: 2 },
@@ -63,15 +59,10 @@ describe('InvoiceFinalizationService', () => {
   };
 
   beforeEach(() => {
-    service = new InvoiceFinalizationService(
-      atpService,
-      siteContext,
-      snapshotCommit,
-    );
+    service = new InvoiceFinalizationService(atpService, snapshotCommit);
     jest.clearAllMocks();
     tx.invoiceSequence.upsert.mockResolvedValue({ current: 1 });
     tx.$queryRaw.mockResolvedValue([]);
-    siteContext.getSiteId.mockResolvedValue('site-1');
     atpService.deductOnHandForSale.mockResolvedValue(undefined);
   });
 
@@ -249,5 +240,98 @@ describe('InvoiceFinalizationService', () => {
         items: [],
       } as never),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects workshop-sourced drafts on the sales finalize path', async () => {
+    await expect(
+      service.finalizeInTransaction(tx as never, 'tenant-1', {
+        id: 'inv-1',
+        sales_order_id: null,
+        workshop_order_id: 'wo-1',
+        vehicle_sale_id: null,
+        status: InvoiceStatus.DRAFT,
+        items: [],
+      } as never),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'SOURCE_DOCUMENT_REQUIRED',
+      },
+    });
+  });
+
+  it('deducts inventory and transitions sales order using ownership site', async () => {
+    snapshotCommit.prepareV2Snapshot.mockResolvedValue({
+      snapshot: { schema_version: 2 },
+      ownership: { siteId: 'ownership-site', legalEntityId: 'le-1' },
+      dueDate: new Date(),
+      supplyFrom: new Date(),
+      supplyTo: new Date(),
+    });
+    tx.invoice.updateMany.mockResolvedValue({ count: 1 });
+    tx.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.DRAFT,
+        items: [
+          {
+            catalog_item_id: 'catalog-1',
+            description: 'Filter',
+            quantity: 1,
+          },
+        ],
+        customer: { id: 'customer-1' },
+        vehicle: null,
+      })
+      .mockResolvedValueOnce({
+        id: 'inv-1',
+        status: InvoiceStatus.FINALIZED,
+        items: [],
+        customer: { id: 'customer-1' },
+      });
+    tx.inventoryStock.findMany.mockResolvedValue([
+      {
+        id: 'stock-1',
+        catalog_item_id: 'catalog-1',
+        location_id: 'loc-1',
+        quantity_on_hand: 10,
+        quantity_reserved: 0,
+      },
+    ]);
+    tx.salesOrder.findFirst.mockResolvedValue({
+      status: SalesOrderStatus.COMPLETED,
+    });
+    tx.salesOrder.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.finalizeInTransaction(tx as never, 'tenant-1', {
+      id: 'inv-1',
+      sales_order_id: 'so-1',
+      status: InvoiceStatus.DRAFT,
+      items: [
+        {
+          catalog_item_id: 'catalog-1',
+          description: 'Filter',
+          quantity: 1,
+        },
+      ],
+    } as never);
+
+    expect(tx.inventoryStock.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          location: expect.objectContaining({
+            site_id: 'ownership-site',
+          }),
+        }),
+      }),
+    );
+    expect(tx.salesOrder.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'so-1',
+        tenant_id: 'tenant-1',
+        site_id: 'ownership-site',
+        status: SalesOrderStatus.COMPLETED,
+      },
+      data: { status: SalesOrderStatus.INVOICED },
+    });
   });
 });

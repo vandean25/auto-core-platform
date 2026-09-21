@@ -322,7 +322,11 @@ export class InvoiceSnapshotCommitService {
       );
     }
 
-    if (params.invoice.workshop_order_id) {
+    if (
+      params.invoice.workshop_order_id &&
+      !params.catalogItem?.revenue_group &&
+      !params.item.catalog_item_id
+    ) {
       return resolveAccountingAllocation(
         params.profile,
         params.seller.country_iso,

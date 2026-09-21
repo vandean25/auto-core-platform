@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -5,11 +6,14 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { SiteService } from '../src/site/site.service.js';
+import { FIXED_SOURCE_CATEGORY_KEYS } from '../src/finance/accounting-profile/accounting-profile.types.js';
 import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  runWithTenantContext,
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import {
@@ -18,16 +22,27 @@ import {
 } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
+function vin(tag: string) {
+  return `WVW${tag
+    .replace(/[^A-Z0-9]/gi, 'X')
+    .toUpperCase()
+    .padEnd(14, '0')
+    .slice(0, 14)}`;
+}
+
 describe('Legal invoicing snapshot v2 (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let tenantPrisma: PrismaService;
   let authService: AuthService;
+  let siteService: SiteService;
   let tenant: TestTenantResult;
   let authToken: string;
   let siteId: string;
   let customerId: string;
   let catalogItemId: string;
+  let vehicleId: string;
+  let vendorId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -41,6 +56,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     prisma = app.get<PrismaService>(PrismaService);
     authService = app.get<AuthService>(AuthService);
+    siteService = app.get<SiteService>(SiteService);
 
     tenant = await createTestTenant(prisma, 'aut298');
     tenantPrisma = createTenantAwarePrisma(prisma, tenant.tenantId);
@@ -59,9 +75,31 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       CASCADE;
     `);
 
-    await seedReadySellerAndAccountingProfile(prisma, tenant.tenantId);
+    await seedReadySellerAndAccountingProfile(prisma, tenant.tenantId, {
+      includeVehicleMargin: true,
+    });
     const customer = await seedInvoiceReadyCustomer(prisma, tenant.tenantId);
     customerId = customer.id;
+
+    const vendor = await tenantPrisma.vendor.create({
+      data: {
+        name: 'Used Cars GmbH',
+        email: `vendor-${Date.now()}@cars.test`,
+        account_number: 'VC-001',
+      },
+    });
+    vendorId = vendor.id;
+
+    const vehicle = await tenantPrisma.vehicle.create({
+      data: {
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2018,
+        vin: vin(`AUT298-${Date.now()}`),
+        customer_id: customerId,
+      },
+    });
+    vehicleId = vehicle.id;
 
     const catalogItem = await tenantPrisma.catalogItem.create({
       data: {
@@ -124,6 +162,79 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .expect(201);
 
     return invoiceRes.body;
+  }
+
+  async function createCompletedWorkshopDraftInvoice() {
+    const orderRes = await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        vehicleId,
+        odometer: 120000,
+        fuelLevel: 40,
+        notes: 'Brake noise',
+      })
+      .expect(201);
+
+    const taskRes = await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderRes.body.id}/tasks`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ title: 'Replace brake pads' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(
+        `/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}/line-items`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedLineItemsVersion: 0,
+        items: [
+          {
+            type: 'LABOR',
+            itemNo: 'LAB-001',
+            description: 'Brake labor',
+            qty: 2,
+            unitPrice: 80,
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/workshop/orders/${orderRes.body.id}/tasks/${taskRes.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ status: 'DONE' })
+      .expect(200);
+
+    const invoiceRes = await request(app.getHttpServer())
+      .post('/api/invoices/drafts')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ workshopOrderId: orderRes.body.id })
+      .expect(201);
+
+    return { orderId: orderRes.body.id, invoice: invoiceRes.body };
+  }
+
+  async function createSecondSite() {
+    const legalEntity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenant.tenantId },
+    });
+    const user = await tenantPrisma.user.findFirstOrThrow({
+      where: { email: tenant.email },
+    });
+    const site = await runWithTenantContext(tenant.tenantId, () =>
+      siteService.createSite({
+        legalEntityId: legalEntity.id,
+        code: 'SECOND',
+        name: 'Second Site',
+      }),
+    );
+    await runWithTenantContext(tenant.tenantId, () =>
+      siteService.addSiteMembership(site.id, { userId: user.id }),
+    );
+    return site;
   }
 
   it('LI-02/LI-03: sales finalize writes v2 seller snapshot from source site', async () => {
@@ -243,5 +354,124 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .expect(422);
 
     expect(response.body.code).toBe('ACCOUNTING_MAPPING_INCOMPLETE');
+  });
+
+  it('LI-02: workshop issue writes v2 seller snapshot from source site', async () => {
+    const { invoice } = await createCompletedWorkshopDraftInvoice();
+
+    const issueRes = await request(app.getHttpServer())
+      .patch(`/api/invoices/${invoice.id}/issue`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const stored = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: issueRes.body.id },
+      include: { items: true },
+    });
+
+    expect(stored.status).toBe('ISSUED');
+    expect(stored.site_id).toBe(siteId);
+    expect(stored.snapshot).toMatchObject({
+      schema_version: 2,
+      site_id: siteId,
+      seller: {
+        name: expect.stringContaining('GmbH'),
+      },
+    });
+    expect(stored.items[0].accounting_snapshot).toMatchObject({
+      sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.LABOR,
+    });
+  });
+
+  it('LI-02: vehicle sale finalize writes v2 seller snapshot and margin block', async () => {
+    const purchaseRes = await request(app.getHttpServer())
+      .post('/api/vehicle-purchases')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        seller_type: 'VENDOR',
+        vendor_id: vendorId,
+        vin: vin(`SALE-${Date.now()}`),
+        make: 'Volkswagen',
+        model: 'Golf',
+        year: 2018,
+        purchase_price: 10000,
+      })
+      .expect(201);
+
+    const received = await request(app.getHttpServer())
+      .post(`/api/vehicle-purchases/${purchaseRes.body.id}/receive`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+
+    const saleRes = await request(app.getHttpServer())
+      .post('/api/vehicle-sales')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vehicle_id: received.body.vehicle_id,
+        customer_id: customerId,
+        sale_price: 12000,
+      })
+      .expect(201);
+
+    const finalized = await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+
+    const stored = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: finalized.body.invoice.id },
+      include: { items: true },
+    });
+
+    expect(stored.site_id).toBe(siteId);
+    expect(stored.snapshot).toMatchObject({
+      schema_version: 2,
+      site_id: siteId,
+      margin: expect.objectContaining({
+        calculation_profile: 'vehicle-margin-v1',
+      }),
+    });
+    expect(stored.items[0].accounting_snapshot).toMatchObject({
+      sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
+    });
+  });
+
+  it('LI-02: active site switch does not relabel a workshop draft seller on issue', async () => {
+    const secondSite = await createSecondSite();
+    const { invoice } = await createCompletedWorkshopDraftInvoice();
+
+    await request(app.getHttpServer())
+      .patch('/api/me/active-site')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ siteId: secondSite.id })
+      .expect(200);
+
+    const issueRes = await request(app.getHttpServer())
+      .patch(`/api/invoices/${invoice.id}/issue`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(issueRes.body.site_id).toBe(siteId);
+    expect(issueRes.body.snapshot).toMatchObject({
+      schema_version: 2,
+      site_id: siteId,
+    });
+
+    await request(app.getHttpServer())
+      .patch('/api/me/active-site')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ siteId: siteId })
+      .expect(200);
+  });
+
+  it('LI-03: rejects sales finalize for workshop-sourced drafts', async () => {
+    const { invoice } = await createCompletedWorkshopDraftInvoice();
+
+    const response = await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${invoice.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(400);
+
+    expect(response.body.code).toBe('SOURCE_DOCUMENT_REQUIRED');
   });
 });
