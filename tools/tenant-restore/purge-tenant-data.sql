@@ -23,6 +23,7 @@ VALUES
   ('audit_logs'),
   ('brands'),
   ('catalog_oem_concerns'),
+  ('credit_note_sequences'),
   ('customers'),
   ('employees'),
   ('finance_settings'),
@@ -74,12 +75,14 @@ VALUES
   ('sales_order_items'),
   ('vehicle_ledger_entries'),
   ('workshop_tasks'),
+  ('credit_notes'),
   ('invoice_items'),
   ('labor_entries'),
   ('workshop_inspections'),
   ('workshop_media'),
   ('workshop_task_line_items'),
   ('workshop_voice_note_drafts'),
+  ('credit_note_items'),
   ('parts_reservations'),
   ('workshop_inspection_items'),
   ('inventory_transactions');
@@ -134,6 +137,14 @@ VALUES
   ('catalog_oem_concerns', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('catalog_provider_settings', 'labor_categories', 'default_labor_category_id', 'id', 'RESTRICT', 'CASCADE'),
   ('catalog_provider_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('credit_note_items', 'credit_notes', 'credit_note_id', 'id', 'CASCADE', 'CASCADE'),
+  ('credit_note_items', 'invoice_items', 'tenant_id,original_invoice_item_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('credit_note_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('credit_note_sequences', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('credit_notes', 'invoices', 'tenant_id,original_invoice_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('credit_notes', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('credit_notes', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('credit_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('employee_leave_balances', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -481,6 +492,8 @@ DELETE FROM public."workshop_inspection_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_reservations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."credit_note_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_voice_note_drafts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_task_line_items"
@@ -492,6 +505,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoice_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."credit_notes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_tasks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -595,6 +610,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employees"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customers"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."credit_note_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_oem_concerns"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
