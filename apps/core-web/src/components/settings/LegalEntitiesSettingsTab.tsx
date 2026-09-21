@@ -36,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
+import { useDebouncedAutoSave, type DocumentSaveStatus } from '@/hooks/useDebouncedAutoSave'
 
 type SellerFormState = {
   name: string
@@ -258,10 +258,12 @@ function formatProfileMissingField(field: string) {
   }
 }
 
-function LegalEntityAccountingProfileForm({
+export function LegalEntityAccountingProfileForm({
   entity,
+  onSaveStatusChange,
 }: {
   entity: LegalEntityRecord
+  onSaveStatusChange?: (status: DocumentSaveStatus) => void
 }) {
   const { data: profile, isLoading } = useAccountingProfile(entity.id)
   const updateMutation = useUpdateAccountingProfile()
@@ -325,6 +327,10 @@ function LegalEntityAccountingProfileForm({
     save: saveProfile,
     shouldSave: () => true,
   })
+
+  React.useEffect(() => {
+    onSaveStatusChange?.(saveStatus)
+  }, [onSaveStatusChange, saveStatus])
 
   const updateForm = (updater: (current: ProfileFormState) => ProfileFormState) => {
     setForm((current) => {

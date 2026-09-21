@@ -37,6 +37,7 @@ import { WorkshopHoursSettingsTab } from "@/components/settings/WorkshopHoursSet
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
+import { AccountingExportSettingsTab } from "@/components/settings/AccountingExportSettingsTab"
 import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
 import { SitesSettingsTab } from "@/components/settings/SitesSettingsTab"
 import { VehicleDataSettingsTab } from "@/components/settings/VehicleDataSettingsTab"
@@ -384,6 +385,14 @@ export default function SettingsPage() {
 
                 {/* ── Finance Tab ── */}
                 <TabsContent value="finance" className="space-y-6">
+                    <Tabs defaultValue="fiscal" className="space-y-6">
+                        <TabsList>
+                            <TabsTrigger value="fiscal">Fiscal control</TabsTrigger>
+                            {canManageTeam ? (
+                                <TabsTrigger value="accounting-export">Accounting export</TabsTrigger>
+                            ) : null}
+                        </TabsList>
+                        <TabsContent value="fiscal" className="space-y-6">
                     <form onSubmit={handleSaveRequest} className="space-y-8">
                         <div className="grid gap-6 p-6 bg-white border rounded-lg shadow-sm">
                             <div className="space-y-4">
@@ -435,6 +444,13 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                     </form>
+                        </TabsContent>
+                        {canManageTeam ? (
+                            <TabsContent value="accounting-export" className="space-y-6">
+                                <AccountingExportSettingsTab canManageExports={canManageTeam} />
+                            </TabsContent>
+                        ) : null}
+                    </Tabs>
                 </TabsContent>
 
                 <TabsContent value="voice-translation" className="space-y-6">
