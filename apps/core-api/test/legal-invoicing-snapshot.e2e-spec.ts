@@ -597,22 +597,24 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .send({ lock_date: '2099-12-31T00:00:00.000Z' })
       .expect(200);
 
-    const response = await request(app.getHttpServer())
-      .put(`/api/sales/invoices/${draft.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .expect(422);
+    try {
+      const response = await request(app.getHttpServer())
+        .put(`/api/sales/invoices/${draft.id}/finalize`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(422);
 
-    expect(response.body.code).toBe('FISCAL_PERIOD_LOCKED');
+      expect(response.body.code).toBe('FISCAL_PERIOD_LOCKED');
 
-    const invoiceAfter = await tenantPrisma.invoice.findFirstOrThrow({
-      where: { id: draft.id },
-    });
-    expect(invoiceAfter.status).toBe('DRAFT');
-
-    await request(app.getHttpServer())
-      .patch('/api/finance/settings')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ lock_date: null })
-      .expect(200);
+      const invoiceAfter = await tenantPrisma.invoice.findFirstOrThrow({
+        where: { id: draft.id },
+      });
+      expect(invoiceAfter.status).toBe('DRAFT');
+    } finally {
+      await request(app.getHttpServer())
+        .patch('/api/finance/settings')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ lock_date: null })
+        .expect(200);
+    }
   });
 });
