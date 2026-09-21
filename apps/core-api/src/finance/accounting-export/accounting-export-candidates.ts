@@ -1,13 +1,15 @@
-import { InvoiceStatus, InvoiceTaxMode } from '@prisma/client';
+import { InvoiceStatus, InvoiceTaxMode, Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
 import { isInvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.validation.js';
 import type { CreditNoteSnapshotV2 } from '../../credit-notes/credit-note-snapshot.js';
 import { computeSnapshotHash } from './accounting-export-hash.js';
+import { buildExportDocumentDateFilter } from './accounting-export-period.js';
 import type {
   AccountingExportBlocker,
   AccountingExportBookingRow,
   AccountingExportCandidate,
+  AccountingExportDocumentKind,
   AccountingExportManifestDocument,
   AccountingExportTotalsBucket,
 } from './accounting-export.types.js';
@@ -260,6 +262,9 @@ function buildInvoiceRows(
       documentDate,
       lineId: item.id,
       polarity: 'S',
+      net: snapshotItem.net,
+      tax: snapshotItem.tax,
+      taxRate: allocation.taxRate,
       gross,
       debtorAccount: allocation.debtorAccount,
       revenueAccount: allocation.revenueAccount,
@@ -302,6 +307,9 @@ function buildCreditRows(creditNote: {
       documentDate: snapshot.date,
       lineId: item.id,
       polarity: 'H',
+      net: item.net,
+      tax: item.tax,
+      taxRate: allocation.taxRate,
       gross: item.gross,
       debtorAccount: allocation.debtorAccount,
       revenueAccount: allocation.revenueAccount,
@@ -318,6 +326,86 @@ function buildCreditRows(creditNote: {
   return rows;
 }
 
+function addSignedMoney(
+  existing: string,
+  amount: string,
+  negate: boolean,
+): string {
+  const value = new Prisma.Decimal(amount);
+  const signed = negate ? value.neg() : value;
+  return new Prisma.Decimal(existing).plus(signed).toFixed(2);
+}
+
+function ownershipBlockerForDocument(
+  document: {
+    id: string;
+    number: string | null;
+    siteId: string | null;
+    kind: AccountingExportDocumentKind;
+  },
+  authorizedSiteIds: Set<string>,
+): AccountingExportBlocker {
+  const canDisclose =
+    document.siteId !== null && authorizedSiteIds.has(document.siteId);
+
+  if (canDisclose) {
+    return {
+      code: 'MISSING_OWNERSHIP_EVIDENCE',
+      message: 'Document ownership or numbering evidence is incomplete.',
+      documentId: document.id,
+      documentKind: document.kind,
+      documentNumber: document.number,
+    };
+  }
+
+  return {
+    code: 'MISSING_OWNERSHIP_EVIDENCE',
+    message:
+      'A document in the selected period has incomplete ownership evidence.',
+  };
+}
+
+export async function loadTenantOwnershipBlockers(
+  prisma: PrismaService,
+  tenantId: string,
+  dateFrom: Date,
+  dateTo: Date,
+  authorizedSiteIds: Set<string>,
+): Promise<AccountingExportBlocker[]> {
+  const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
+  const ownershipStatuses = [
+    ...ELIGIBLE_INVOICE_STATUSES,
+    InvoiceStatus.CANCELLED,
+  ];
+
+  const invoices = await prisma.invoice.findMany({
+    where: {
+      tenant_id: tenantId,
+      date: dateFilter,
+      status: { in: ownershipStatuses },
+      OR: [{ legal_entity_id: null }, { site_id: null }],
+    },
+    select: {
+      id: true,
+      invoice_number: true,
+      site_id: true,
+    },
+    orderBy: [{ date: 'asc' }, { id: 'asc' }],
+  });
+
+  return invoices.map((invoice) =>
+    ownershipBlockerForDocument(
+      {
+        id: invoice.id,
+        number: invoice.invoice_number,
+        siteId: invoice.site_id,
+        kind: 'INVOICE',
+      },
+      authorizedSiteIds,
+    ),
+  );
+}
+
 export async function loadAccountingExportCandidates(
   prisma: PrismaService,
   tenantId: string,
@@ -325,12 +413,13 @@ export async function loadAccountingExportCandidates(
   dateFrom: Date,
   dateTo: Date,
 ): Promise<AccountingExportCandidate[]> {
+  const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
   const [invoices, creditNotes] = await Promise.all([
     prisma.invoice.findMany({
       where: {
         tenant_id: tenantId,
         legal_entity_id: legalEntityId,
-        date: { gte: dateFrom, lte: dateTo },
+        date: dateFilter,
         status: {
           in: [...ELIGIBLE_INVOICE_STATUSES, InvoiceStatus.CANCELLED],
         },
@@ -343,7 +432,7 @@ export async function loadAccountingExportCandidates(
         tenant_id: tenantId,
         legal_entity_id: legalEntityId,
         status: 'FINALIZED',
-        date: { gte: dateFrom, lte: dateTo },
+        date: dateFilter,
       },
       include: { items: true },
       orderBy: [{ date: 'asc' }, { credit_number: 'asc' }, { id: 'asc' }],
@@ -444,27 +533,32 @@ export function computeSignedTotals(
   const buckets = new Map<string, AccountingExportTotalsBucket>();
 
   for (const row of rows) {
-    const taxRate = '0.00';
-    const bucketKey = `${row.revenueAccount}:${taxRate}`;
+    const bucketKey = `${row.revenueAccount}:${row.taxRate}`;
     const existing = buckets.get(bucketKey) ?? {
       account: row.revenueAccount,
-      taxRate,
+      taxRate: row.taxRate,
       net: '0.00',
       tax: '0.00',
       gross: '0.00',
     };
 
-    const grossValue = Number.parseFloat(row.gross);
-    const signedGross = row.polarity === 'H' ? -grossValue : grossValue;
-    const nextGross = Number.parseFloat(existing.gross) + signedGross;
-
+    const negate = row.polarity === 'H';
     buckets.set(bucketKey, {
       ...existing,
-      gross: nextGross.toFixed(2),
+      net: addSignedMoney(existing.net, row.net, negate),
+      tax: addSignedMoney(existing.tax, row.tax, negate),
+      gross: addSignedMoney(existing.gross, row.gross, negate),
     });
   }
 
-  return [...buckets.values()].sort((left, right) =>
-    left.account < right.account ? -1 : left.account > right.account ? 1 : 0,
-  );
+  return [...buckets.values()].sort((left, right) => {
+    if (left.account !== right.account) {
+      return left.account < right.account ? -1 : 1;
+    }
+    return left.taxRate < right.taxRate
+      ? -1
+      : left.taxRate > right.taxRate
+        ? 1
+        : 0;
+  });
 }

@@ -7,6 +7,8 @@ import {
 import {
   AuditActorType,
   AuditLogAction,
+  Prisma,
+  type AccountingExport,
   type LegalEntityAccountingProfile,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -27,6 +29,7 @@ import {
   computeSignedTotals,
   flattenBookingRows,
   loadAccountingExportCandidates,
+  loadTenantOwnershipBlockers,
 } from './accounting-export-candidates.js';
 import {
   computePreviewHash,
@@ -51,6 +54,22 @@ import type {
   GenerateAccountingExportDto,
   PreviewAccountingExportDto,
 } from './dto/accounting-export.dto.js';
+
+const ACCOUNTING_EXPORT_SUMMARY_SELECT = {
+  id: true,
+  legal_entity_id: true,
+  date_from: true,
+  date_to: true,
+  file_sha256: true,
+  document_count: true,
+  row_count: true,
+  byte_length: true,
+  createdAt: true,
+  created_by_user_id: true,
+  site_ids: true,
+  profile_snapshot: true,
+  document_manifest: true,
+} as const;
 
 function toProfileSnapshot(
   profile: LegalEntityAccountingProfile,
@@ -79,7 +98,10 @@ export class AccountingExportService {
   async preview(dto: PreviewAccountingExportDto) {
     const context = await this.buildValidatedContext(dto);
     const bookingRows = flattenBookingRows(context.candidates);
-    const blockers = collectUniqueBlockers(context.candidates);
+    const blockers = [
+      ...collectUniqueBlockers(context.candidates),
+      ...context.ownershipBlockers,
+    ];
     const manifest = buildManifestDocuments(context.candidates);
     const previewHash = computePreviewHash({
       legalEntityId: dto.legalEntityId,
@@ -138,7 +160,10 @@ export class AccountingExportService {
 
     const context = await this.buildValidatedContext(dto);
     const bookingRows = flattenBookingRows(context.candidates);
-    const blockers = collectUniqueBlockers(context.candidates);
+    const blockers = [
+      ...collectUniqueBlockers(context.candidates),
+      ...context.ownershipBlockers,
+    ];
     const manifest = buildManifestDocuments(context.candidates);
     const previewHash = computePreviewHash({
       legalEntityId: dto.legalEntityId,
@@ -226,80 +251,114 @@ export class AccountingExportService {
       runId: exportId,
     });
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      await assertCompleteAccountingExportScope(
-        this.prisma,
-        tenantId,
-        currentUser.id,
-        context.sites,
-      );
+    let created: AccountingExport;
+    try {
+      created = await this.prisma.$transaction(async (tx) => {
+        await assertCompleteAccountingExportScope(
+          this.prisma,
+          tenantId,
+          currentUser.id,
+          context.sites,
+        );
 
-      const settings = await tx.financeSettings.findFirst({
-        where: { tenant_id: tenantId },
-        select: { lock_date: true },
-      });
-      assertClosedExportPeriod(context.dateTo, settings?.lock_date ?? null);
-
-      const profile = await tx.legalEntityAccountingProfile.findFirst({
-        where: {
-          tenant_id: tenantId,
-          legal_entity_id: dto.legalEntityId,
-        },
-      });
-      if (!profile || profile.version !== dto.profileVersion) {
-        throw new ConflictException({
-          code: 'EXPORT_PREVIEW_STALE',
-          message: 'Accounting profile version changed during generation.',
+        const settings = await tx.financeSettings.findFirst({
+          where: { tenant_id: tenantId },
+          select: { lock_date: true },
         });
-      }
+        assertClosedExportPeriod(context.dateTo, settings?.lock_date ?? null);
 
-      const row = await tx.accountingExport.create({
-        data: {
-          id: exportId,
-          tenant_id: tenantId,
-          legal_entity_id: dto.legalEntityId,
-          created_by_user_id: currentUser.id,
-          date_from: context.dateFrom,
-          date_to: context.dateTo,
-          profile_snapshot: profileSnapshot,
-          document_manifest: manifest,
-          site_ids: context.sites.map((site) => site.id),
-          file_bytes: new Uint8Array(serialized.bytes),
-          file_sha256: serialized.sha256,
-          byte_length: serialized.byteLength,
-          row_count: serialized.rowCount,
-          document_count: context.candidates.length,
-          idempotency_key: dto.idempotencyKey,
-          request_hash: requestHash,
-          createdAt,
-        },
-      });
-
-      await tx.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          entity_type: 'AccountingExport',
-          entity_id: row.id,
-          action: AuditLogAction.CREATE,
-          actor_user_id: currentUser.id,
-          actor_email: this.tenantContext.getAuthenticatedUser()?.email ?? null,
-          actor_role: this.tenantContext.getAuthenticatedUser()?.role ?? null,
-          actor_type: AuditActorType.USER,
-          after: {
-            event: 'accounting_export.generated',
-            legalEntityId: dto.legalEntityId,
-            dateFrom: dto.dateFrom,
-            dateTo: dto.dateTo,
-            sha256: serialized.sha256,
-            filename,
-            documentCount: context.candidates.length,
-            rowCount: serialized.rowCount,
+        const profile = await tx.legalEntityAccountingProfile.findFirst({
+          where: {
+            tenant_id: tenantId,
+            legal_entity_id: dto.legalEntityId,
           },
-        },
-      });
+        });
+        if (!profile || profile.version !== dto.profileVersion) {
+          throw new ConflictException({
+            code: 'EXPORT_PREVIEW_STALE',
+            message: 'Accounting profile version changed during generation.',
+          });
+        }
 
-      return row;
-    });
+        if (!profile.is_enabled) {
+          throw new UnprocessableEntityException({
+            code: 'EXPORT_PROFILE_DISABLED',
+            message: 'DATEV export profile is not enabled.',
+          });
+        }
+
+        const row = await tx.accountingExport.create({
+          data: {
+            id: exportId,
+            tenant_id: tenantId,
+            legal_entity_id: dto.legalEntityId,
+            created_by_user_id: currentUser.id,
+            date_from: context.dateFrom,
+            date_to: context.dateTo,
+            profile_snapshot: profileSnapshot,
+            document_manifest: manifest,
+            site_ids: context.sites.map((site) => site.id),
+            file_bytes: new Uint8Array(serialized.bytes),
+            file_sha256: serialized.sha256,
+            byte_length: serialized.byteLength,
+            row_count: serialized.rowCount,
+            document_count: context.candidates.length,
+            idempotency_key: dto.idempotencyKey,
+            request_hash: requestHash,
+            createdAt,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            entity_type: 'AccountingExport',
+            entity_id: row.id,
+            action: AuditLogAction.CREATE,
+            actor_user_id: currentUser.id,
+            actor_email:
+              this.tenantContext.getAuthenticatedUser()?.email ?? null,
+            actor_role: this.tenantContext.getAuthenticatedUser()?.role ?? null,
+            actor_type: AuditActorType.USER,
+            after: {
+              event: 'accounting_export.generated',
+              legalEntityId: dto.legalEntityId,
+              dateFrom: dto.dateFrom,
+              dateTo: dto.dateTo,
+              sha256: serialized.sha256,
+              filename,
+              documentCount: context.candidates.length,
+              rowCount: serialized.rowCount,
+            },
+          },
+        });
+
+        return row;
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const raced = await this.prisma.accountingExport.findFirst({
+          where: {
+            tenant_id: tenantId,
+            idempotency_key: dto.idempotencyKey,
+          },
+        });
+        if (raced) {
+          if (raced.request_hash !== requestHash) {
+            throw new ConflictException({
+              code: 'EXPORT_IDEMPOTENCY_CONFLICT',
+              message:
+                'This idempotency key was already used with a different request body.',
+            });
+          }
+          return this.serializeCreatedExport(raced, filename);
+        }
+      }
+      throw error;
+    }
 
     return this.serializeCreatedExport(created, filename);
   }
@@ -324,33 +383,65 @@ export class AccountingExportService {
           ? { legal_entity_id: query.legalEntityId }
           : {}),
       },
+      select: ACCOUNTING_EXPORT_SUMMARY_SELECT,
       orderBy: { createdAt: 'desc' },
     });
 
-    const authorized: typeof exports = [];
-    for (const exportRun of exports) {
+    const allSiteIds = [
+      ...new Set(
+        exports.flatMap((exportRun) =>
+          Array.isArray(exportRun.site_ids)
+            ? (exportRun.site_ids as string[])
+            : [],
+        ),
+      ),
+    ];
+
+    type ExportSite = {
+      id: string;
+      code: string;
+      name: string;
+      is_active: boolean;
+    };
+    type ExportMembership = { site_id: string };
+
+    const [sites, memberships]: [ExportSite[], ExportMembership[]] =
+      await Promise.all([
+        allSiteIds.length > 0
+          ? this.prisma.site.findMany({
+              where: { tenant_id: tenantId, id: { in: allSiteIds } },
+              select: { id: true, code: true, name: true, is_active: true },
+            })
+          : Promise.resolve([] as ExportSite[]),
+        allSiteIds.length > 0
+          ? this.prisma.siteMembership.findMany({
+              where: {
+                tenant_id: tenantId,
+                user_id: currentUser.id,
+                site_id: { in: allSiteIds },
+                is_active: true,
+              },
+              select: { site_id: true },
+            })
+          : Promise.resolve([] as ExportMembership[]),
+      ]);
+
+    const siteById = new Map(sites.map((site) => [site.id, site]));
+    const coveredSiteIds = new Set(memberships.map((row) => row.site_id));
+
+    const authorized = exports.filter((exportRun) => {
       const siteIds = Array.isArray(exportRun.site_ids)
         ? (exportRun.site_ids as string[])
         : [];
-      const sites = await this.prisma.site.findMany({
-        where: { tenant_id: tenantId, id: { in: siteIds } },
-        select: { id: true, code: true, name: true, is_active: true },
-      });
+      const exportSites = siteIds
+        .map((siteId) => siteById.get(siteId))
+        .filter((site): site is NonNullable<typeof site> => Boolean(site));
 
-      try {
-        await assertCompleteAccountingExportScope(
-          this.prisma,
-          tenantId,
-          currentUser.id,
-          sites.map((site) => ({
-            id: site.id,
-            code: site.code,
-            name: site.name,
-            isActive: site.is_active,
-          })),
-        );
-      } catch {
-        continue;
+      if (
+        exportSites.some((site) => !site.is_active) ||
+        exportSites.some((site) => !coveredSiteIds.has(site.id))
+      ) {
+        return false;
       }
 
       if (
@@ -359,11 +450,11 @@ export class AccountingExportService {
           (value) => value.toLowerCase().includes(search.toLowerCase()),
         )
       ) {
-        continue;
+        return false;
       }
 
-      authorized.push(exportRun);
-    }
+      return true;
+    });
 
     const total = authorized.length;
     const pageRows = authorized.slice((page - 1) * limit, page * limit);
@@ -452,15 +543,33 @@ export class AccountingExportService {
       throw new NotFoundException('Legal entity not found');
     }
 
+    const settings = await this.prisma.financeSettings.findFirst({
+      where: { tenant_id: tenantId },
+      select: { lock_date: true, fiscal_year_start_month: true },
+    });
+
+    const profile = await this.prisma.legalEntityAccountingProfile.findFirst({
+      where: {
+        tenant_id: tenantId,
+        legal_entity_id: dto.legalEntityId,
+      },
+    });
+    if (!profile) {
+      throw new UnprocessableEntityException({
+        code: 'EXPORT_PROFILE_NOT_READY',
+        message: 'Accounting export profile is not configured.',
+      });
+    }
+
+    const fiscalYearStartMonth =
+      profile.fiscal_year_start_month ?? settings?.fiscal_year_start_month ?? 1;
+
     const { dateFrom, dateTo } = assertValidExportDateRange(
       dto.dateFrom,
       dto.dateTo,
+      fiscalYearStartMonth,
     );
 
-    const settings = await this.prisma.financeSettings.findFirst({
-      where: { tenant_id: tenantId },
-      select: { lock_date: true },
-    });
     assertClosedExportPeriod(dateTo, settings?.lock_date ?? null);
 
     const sites = await listAccountingExportSites(
@@ -477,26 +586,34 @@ export class AccountingExportService {
       sites,
     );
 
-    const profile = await this.prisma.legalEntityAccountingProfile.findFirst({
+    const userMemberships = await this.prisma.siteMembership.findMany({
       where: {
         tenant_id: tenantId,
-        legal_entity_id: dto.legalEntityId,
+        user_id: currentUser.id,
+        is_active: true,
       },
+      select: { site_id: true },
     });
-    if (!profile) {
-      throw new UnprocessableEntityException({
-        code: 'EXPORT_PROFILE_NOT_READY',
-        message: 'Accounting export profile is not configured.',
-      });
-    }
-
-    const candidates = await loadAccountingExportCandidates(
-      this.prisma,
-      tenantId,
-      dto.legalEntityId,
-      dateFrom,
-      dateTo,
+    const authorizedSiteIds = new Set(
+      userMemberships.map((membership) => membership.site_id),
     );
+
+    const [candidates, ownershipBlockers] = await Promise.all([
+      loadAccountingExportCandidates(
+        this.prisma,
+        tenantId,
+        dto.legalEntityId,
+        dateFrom,
+        dateTo,
+      ),
+      loadTenantOwnershipBlockers(
+        this.prisma,
+        tenantId,
+        dateFrom,
+        dateTo,
+        authorizedSiteIds,
+      ),
+    ]);
 
     const overlaps = await this.findOverlappingRuns(
       tenantId,
@@ -511,6 +628,7 @@ export class AccountingExportService {
       profile,
       sites,
       candidates,
+      ownershipBlockers,
       overlaps,
     };
   }
@@ -523,6 +641,14 @@ export class AccountingExportService {
   ) {
     const runs = await this.prisma.accountingExport.findMany({
       where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+      select: {
+        id: true,
+        date_from: true,
+        date_to: true,
+        createdAt: true,
+        file_sha256: true,
+        document_count: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
 

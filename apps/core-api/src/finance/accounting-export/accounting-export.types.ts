@@ -42,6 +42,9 @@ export type AccountingExportBookingRow = {
   documentDate: string;
   lineId: string;
   polarity: 'S' | 'H';
+  net: string;
+  tax: string;
+  taxRate: string;
   gross: string;
   debtorAccount: string;
   revenueAccount: string;

@@ -1,5 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
+import { InvoiceStatus } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
+import { buildExportDocumentDateFilter } from './accounting-export-period.js';
 
 export type AccountingExportSite = {
   id: string;
@@ -15,13 +17,21 @@ export async function listAccountingExportSites(
   dateFrom: Date,
   dateTo: Date,
 ): Promise<AccountingExportSite[]> {
+  const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
   const invoiceSiteIds = await prisma.invoice.findMany({
     where: {
       tenant_id: tenantId,
       legal_entity_id: legalEntityId,
       site_id: { not: null },
-      status: { in: ['FINALIZED', 'ISSUED', 'PAID'] },
-      date: { gte: dateFrom, lte: dateTo },
+      status: {
+        in: [
+          InvoiceStatus.FINALIZED,
+          InvoiceStatus.ISSUED,
+          InvoiceStatus.PAID,
+          InvoiceStatus.CANCELLED,
+        ],
+      },
+      date: dateFilter,
     },
     select: { site_id: true },
     distinct: ['site_id'],
@@ -32,7 +42,7 @@ export async function listAccountingExportSites(
       tenant_id: tenantId,
       legal_entity_id: legalEntityId,
       status: 'FINALIZED',
-      date: { gte: dateFrom, lte: dateTo },
+      date: dateFilter,
     },
     select: { site_id: true },
     distinct: ['site_id'],

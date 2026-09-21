@@ -11,9 +11,30 @@ export function parseIsoDateOnly(value: string): Date {
   return parsed;
 }
 
+export function exclusiveUtcEndOfDateOnly(dateTo: Date): Date {
+  return new Date(dateTo.getTime() + 24 * 60 * 60 * 1000);
+}
+
+export function buildExportDocumentDateFilter(
+  dateFrom: Date,
+  dateTo: Date,
+): { gte: Date; lt: Date } {
+  return {
+    gte: dateFrom,
+    lt: exclusiveUtcEndOfDateOnly(dateTo),
+  };
+}
+
+function fiscalYearForDate(date: Date, fiscalYearStartMonth: number): number {
+  const month = date.getUTCMonth() + 1;
+  const year = date.getUTCFullYear();
+  return month < fiscalYearStartMonth ? year - 1 : year;
+}
+
 export function assertValidExportDateRange(
   dateFrom: string,
   dateTo: string,
+  fiscalYearStartMonth = 1,
 ): {
   dateFrom: Date;
   dateTo: Date;
@@ -28,7 +49,10 @@ export function assertValidExportDateRange(
     });
   }
 
-  if (from.getUTCFullYear() !== to.getUTCFullYear()) {
+  if (
+    fiscalYearForDate(from, fiscalYearStartMonth) !==
+    fiscalYearForDate(to, fiscalYearStartMonth)
+  ) {
     throw new UnprocessableEntityException({
       code: 'EXPORT_INVALID_RANGE',
       message: 'Export range must stay within one fiscal year.',
