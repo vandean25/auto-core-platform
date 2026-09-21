@@ -490,4 +490,129 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     expect(response.body.code).toBe('SOURCE_DOCUMENT_REQUIRED');
   });
+
+  it('AUT-299: blocks sales finalize when seller identity is incomplete', async () => {
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenant.tenantId },
+    });
+    await tenantPrisma.legalEntity.update({
+      where: { id: entity.id },
+      data: { vat_id: null, tax_number: null },
+    });
+
+    const draft = await createSalesOrderInvoice();
+    const sequenceBefore = await tenantPrisma.invoiceSequence.findMany();
+    const stockBefore = await tenantPrisma.inventoryStock.findFirstOrThrow({
+      where: { catalog_item_id: catalogItemId, site_id: siteId },
+    });
+    const order = await tenantPrisma.salesOrder.findFirstOrThrow({
+      where: { id: draft.sales_order_id! },
+    });
+
+    const response = await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${draft.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(422);
+
+    expect(response.body.code).toBe('SELLER_IDENTITY_INCOMPLETE');
+    expect(response.body.missingFields).toContain('vat_id');
+
+    const sequenceAfter = await tenantPrisma.invoiceSequence.findMany();
+    expect(sequenceAfter).toEqual(sequenceBefore);
+
+    const invoiceAfter = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: draft.id },
+    });
+    expect(invoiceAfter.status).toBe('DRAFT');
+    expect(invoiceAfter.invoice_number).toBeNull();
+
+    const stockAfter = await tenantPrisma.inventoryStock.findFirstOrThrow({
+      where: { catalog_item_id: catalogItemId, site_id: siteId },
+    });
+    expect(stockAfter.quantity_on_hand).toEqual(stockBefore.quantity_on_hand);
+
+    const orderAfter = await tenantPrisma.salesOrder.findFirstOrThrow({
+      where: { id: order.id },
+    });
+    expect(orderAfter.status).toBe(order.status);
+
+    await seedReadySellerAndAccountingProfile(prisma, tenant.tenantId, {
+      includeVehicleMargin: true,
+    });
+  });
+
+  it('AUT-299: allows sales finalize after seller identity is complete', async () => {
+    await seedReadySellerAndAccountingProfile(prisma, tenant.tenantId, {
+      includeVehicleMargin: true,
+    });
+
+    const draft = await createSalesOrderInvoice();
+
+    const finalizeRes = await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${draft.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(finalizeRes.body.status).toBe('FINALIZED');
+    expect(finalizeRes.body.invoice_number).toMatch(/^RE-/);
+  });
+
+  it('AUT-299: blocks workshop issue when customer identity is incomplete', async () => {
+    await tenantPrisma.customer.update({
+      where: { id: customerId },
+      data: { address_street: null },
+    });
+
+    const { invoice } = await createCompletedWorkshopDraftInvoice();
+    const sequenceBefore = await tenantPrisma.invoiceSequence.findMany();
+
+    const response = await request(app.getHttpServer())
+      .patch(`/api/invoices/${invoice.id}/issue`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(422);
+
+    expect(response.body.code).toBe('CUSTOMER_IDENTITY_INCOMPLETE');
+    expect(response.body.missingFields).toContain('address_street');
+
+    const sequenceAfter = await tenantPrisma.invoiceSequence.findMany();
+    expect(sequenceAfter).toEqual(sequenceBefore);
+
+    const stored = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id },
+    });
+    expect(stored.status).toBe('DRAFT');
+
+    await tenantPrisma.customer.update({
+      where: { id: customerId },
+      data: { address_street: 'Kundenstraße 2' },
+    });
+  });
+
+  it('AUT-299: blocks sales finalize when fiscal period is locked', async () => {
+    const draft = await createSalesOrderInvoice();
+
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ lock_date: '2099-12-31T00:00:00.000Z' })
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .put(`/api/sales/invoices/${draft.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(422);
+
+    expect(response.body.code).toBe('FISCAL_PERIOD_LOCKED');
+
+    const invoiceAfter = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: draft.id },
+    });
+    expect(invoiceAfter.status).toBe('DRAFT');
+
+    await request(app.getHttpServer())
+      .patch('/api/finance/settings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ lock_date: null })
+      .expect(200);
+  });
 });

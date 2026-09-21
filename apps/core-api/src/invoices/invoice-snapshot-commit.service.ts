@@ -20,6 +20,7 @@ import {
   type AccountingTaxMode,
   type ResolvedAccountingAllocation,
 } from '../finance/accounting-profile/accounting-profile.types.js';
+import { lockFinanceSettingsAndAssertOpen } from '../finance/fiscal-lock.helpers.js';
 import { computeSellerReadiness } from '../site/legal-entity-readiness.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -89,7 +90,9 @@ export class InvoiceSnapshotCommitService {
       );
     }
 
+    this.assertSupportedTaxProfile(invoice.tax_mode);
     await lockSitesAndAssertActive(tx, tenantId, [ownership.siteId]);
+    await lockFinanceSettingsAndAssertOpen(tx, tenantId, invoice.date);
 
     const seller = await tx.legalEntity.findFirst({
       where: {
@@ -251,6 +254,19 @@ export class InvoiceSnapshotCommitService {
       prepared,
     );
     return prepared.snapshot;
+  }
+
+  private assertSupportedTaxProfile(taxMode: InvoiceTaxMode): void {
+    if (
+      taxMode !== InvoiceTaxMode.STANDARD &&
+      taxMode !== InvoiceTaxMode.MARGIN_SCHEME
+    ) {
+      throw new UnprocessableEntityException({
+        code: 'UNSUPPORTED_TAX_PROFILE',
+        message: 'Only STANDARD and MARGIN_SCHEME invoices are supported.',
+        taxMode,
+      });
+    }
   }
 
   private collectCustomerMissingFields(customer: Customer): string[] {

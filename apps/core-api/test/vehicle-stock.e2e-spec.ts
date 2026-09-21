@@ -584,10 +584,12 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ lock_date: '2026-12-31T00:00:00.000Z' })
       .expect(200);
 
-    await request(app.getHttpServer())
+    const lockedResponse = await request(app.getHttpServer())
       .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
       .set('Authorization', `Bearer ${authToken}`)
-      .expect(403);
+      .expect(422);
+
+    expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
 
     await request(app.getHttpServer())
       .patch('/api/finance/settings')

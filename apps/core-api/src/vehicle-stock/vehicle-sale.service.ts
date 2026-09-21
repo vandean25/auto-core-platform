@@ -226,6 +226,91 @@ export class VehicleSaleService {
       );
       await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
 
+      const site = await tx.site.findFirst({
+        where: { id: persistedSiteId, tenant_id: tenantId },
+        select: { id: true, legal_entity_id: true },
+      });
+      if (!site) {
+        throw new NotFoundException('Vehicle sale site not found');
+      }
+
+      const entries = await tx.vehicleLedgerEntry.findMany({
+        where: { tenant_id: tenantId, vehicle_id: sale.vehicle_id },
+      });
+      const basis = costBasis(entries);
+      const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
+      const net = sale.sale_price.sub(vat);
+      const invoiceDate = new Date();
+      const dueDate = new Date(invoiceDate);
+      dueDate.setDate(dueDate.getDate() + 14);
+      const description =
+        `${sale.vehicle.year} ${sale.vehicle.make} ${sale.vehicle.model} VIN ${sale.vehicle.vin ?? ''}`.trim();
+      const margin = {
+        cost_basis: basis.toFixed(2),
+        margin_tax: vat.toFixed(2),
+        tax_rate: DEFAULT_VAT_RATE.toFixed(2),
+        calculation_profile: 'vehicle-margin-v1',
+      };
+
+      await this.snapshotCommit.prepareV2Snapshot({
+        tx,
+        tenantId,
+        invoice: {
+          id: 'preview',
+          tenant_id: tenantId,
+          customer_id: sale.customer_id,
+          vehicle_id: sale.vehicle_id,
+          vehicle_sale_id: sale.id,
+          sales_order_id: null,
+          workshop_order_id: null,
+          site_id: site.id,
+          legal_entity_id: site.legal_entity_id,
+          currency: 'EUR',
+          status: InvoiceStatus.DRAFT,
+          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+          invoice_number: null,
+          date: invoiceDate,
+          due_date: dueDate,
+          supply_date_from: null,
+          supply_date_to: null,
+          total_net: net,
+          total_tax: vat,
+          total_gross: sale.sale_price,
+          notes: null,
+          internal_notes: null,
+          snapshot: null,
+          global_discount_type: null,
+          global_discount_value: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          customer: sale.customer,
+          vehicle: sale.vehicle,
+          items: [
+            {
+              id: 'preview-line',
+              tenant_id: tenantId,
+              invoice_id: 'preview',
+              catalog_item_id: null,
+              description,
+              quantity: new Prisma.Decimal(1),
+              unit_price: sale.sale_price,
+              tax_rate: DEFAULT_VAT_RATE,
+              line_discount_type: null,
+              line_discount_value: null,
+              line_total: sale.sale_price,
+              revenue_group_name: MARGIN_REVENUE_GROUP,
+              accounting_snapshot: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+        },
+        invoiceNumber: '',
+        margin,
+      });
+
+      const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
+
       await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
         id,
         tenantId,
@@ -244,27 +329,6 @@ export class VehicleSaleService {
         throw new NotFoundException(`Vehicle sale ${id} not found`);
       }
 
-      const entries = await tx.vehicleLedgerEntry.findMany({
-        where: { tenant_id: tenantId, vehicle_id: posted.vehicle_id },
-      });
-      const basis = costBasis(entries);
-      const vat = marginVatGross(posted.sale_price, basis, DEFAULT_VAT_RATE);
-      const net = posted.sale_price.sub(vat);
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 14);
-
-      const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
-      const description =
-        `${posted.vehicle.year} ${posted.vehicle.make} ${posted.vehicle.model} VIN ${posted.vehicle.vin ?? ''}`.trim();
-
-      const site = await tx.site.findFirst({
-        where: { id: persistedSiteId, tenant_id: tenantId },
-        select: { id: true, legal_entity_id: true },
-      });
-      if (!site) {
-        throw new NotFoundException('Vehicle sale site not found');
-      }
-
       const invoice = await tx.invoice.create({
         data: {
           tenant_id: tenantId,
@@ -277,7 +341,7 @@ export class VehicleSaleService {
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           status: InvoiceStatus.FINALIZED,
           invoice_number: invoiceNumber,
-          date: new Date(),
+          date: invoiceDate,
           due_date: dueDate,
           total_net: net,
           total_tax: vat,
@@ -302,12 +366,7 @@ export class VehicleSaleService {
         tenantId,
         invoice,
         invoiceNumber,
-        margin: {
-          cost_basis: basis.toFixed(2),
-          margin_tax: vat.toFixed(2),
-          tax_rate: DEFAULT_VAT_RATE.toFixed(2),
-          calculation_profile: 'vehicle-margin-v1',
-        },
+        margin,
       });
       await this.snapshotCommit.persistV2Snapshot(
         tx,

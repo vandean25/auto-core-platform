@@ -45,8 +45,6 @@ export class InvoiceFinalizationService {
       });
     }
 
-    const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
-
     const fullInvoice = await tx.invoice.findFirst({
       where: { id: invoice.id, tenant_id: tenantId },
       include: {
@@ -63,8 +61,10 @@ export class InvoiceFinalizationService {
       tx,
       tenantId,
       invoice: fullInvoice,
-      invoiceNumber,
+      invoiceNumber: fullInvoice.invoice_number ?? '',
     });
+
+    const invoiceNumber = await generateInvoiceNumber(tx, tenantId);
 
     await processSaleInventoryDeduction({
       tx,

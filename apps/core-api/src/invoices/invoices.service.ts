@@ -264,18 +264,16 @@ export class InvoicesService {
 
       assertInvoiceHasSourceDocument(invoice);
 
-      await this.financeService.validateTransactionDate(invoice.date);
-
-      const invoiceNumber =
-        invoice.invoice_number ??
-        (await this.generateInvoiceNumber(tx, tenantId));
-
       const prepared = await this.snapshotCommit.prepareV2Snapshot({
         tx,
         tenantId,
         invoice,
-        invoiceNumber,
+        invoiceNumber: invoice.invoice_number ?? '',
       });
+
+      const invoiceNumber =
+        invoice.invoice_number ??
+        (await this.generateInvoiceNumber(tx, tenantId));
 
       await guardedStatusUpdate(bindStatusUpdateMany(tx.invoice), {
         id: invoiceId,

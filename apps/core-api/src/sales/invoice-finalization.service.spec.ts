@@ -242,6 +242,35 @@ describe('InvoiceFinalizationService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('does not consume an invoice number when snapshot validation fails', async () => {
+    snapshotCommit.prepareV2Snapshot.mockRejectedValue(
+      new BadRequestException({
+        code: 'SELLER_IDENTITY_INCOMPLETE',
+        missingFields: ['vat_id'],
+      }),
+    );
+    tx.invoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: InvoiceStatus.DRAFT,
+      items: [],
+      customer: { id: 'customer-1' },
+      vehicle: null,
+    });
+
+    await expect(
+      service.finalizeInTransaction(tx as never, 'tenant-1', {
+        id: 'inv-1',
+        sales_order_id: 'so-1',
+        status: InvoiceStatus.DRAFT,
+        items: [],
+      } as never),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(tx.invoiceSequence.upsert).not.toHaveBeenCalled();
+    expect(tx.invoice.updateMany).not.toHaveBeenCalled();
+    expect(tx.inventoryStock.findMany).not.toHaveBeenCalled();
+  });
+
   it('rejects workshop-sourced drafts on the sales finalize path', async () => {
     await expect(
       service.finalizeInTransaction(tx as never, 'tenant-1', {
