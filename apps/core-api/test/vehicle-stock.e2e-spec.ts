@@ -461,30 +461,34 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ lock_date: '2026-12-31T00:00:00.000Z' })
       .expect(200);
 
-    const createRes = await request(app.getHttpServer())
-      .post('/api/vehicle-purchases')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({
-        seller_type: 'VENDOR',
-        vendor_id: vendorId,
-        vin: vin('LOCK01'),
-        make: 'Volkswagen',
-        model: 'Golf',
-        year: 2018,
-        purchase_price: 10000,
-      })
-      .expect(201);
+    try {
+      const createRes = await request(app.getHttpServer())
+        .post('/api/vehicle-purchases')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          seller_type: 'VENDOR',
+          vendor_id: vendorId,
+          vin: vin('LOCK01'),
+          make: 'Volkswagen',
+          model: 'Golf',
+          year: 2018,
+          purchase_price: 10000,
+        })
+        .expect(201);
 
-    await request(app.getHttpServer())
-      .post(`/api/vehicle-purchases/${createRes.body.id}/receive`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .expect(403);
+      const lockedResponse = await request(app.getHttpServer())
+        .post(`/api/vehicle-purchases/${createRes.body.id}/receive`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(422);
 
-    await request(app.getHttpServer())
-      .patch('/api/finance/settings')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ lock_date: null })
-      .expect(200);
+      expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
+    } finally {
+      await request(app.getHttpServer())
+        .patch('/api/finance/settings')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ lock_date: null })
+        .expect(200);
+    }
   });
 
   it('rejects a cross-tenant vendor on purchase create', async () => {
@@ -584,16 +588,20 @@ describe('Vehicle stock trading (e2e)', () => {
       .send({ lock_date: '2026-12-31T00:00:00.000Z' })
       .expect(200);
 
-    await request(app.getHttpServer())
-      .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .expect(403);
+    try {
+      const lockedResponse = await request(app.getHttpServer())
+        .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(422);
 
-    await request(app.getHttpServer())
-      .patch('/api/finance/settings')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ lock_date: null })
-      .expect(200);
+      expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
+    } finally {
+      await request(app.getHttpServer())
+        .patch('/api/finance/settings')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ lock_date: null })
+        .expect(200);
+    }
   });
 
   it('lists draft purchases as ON_ORDER rows on the stock list', async () => {

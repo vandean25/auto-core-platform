@@ -70,12 +70,16 @@ describe('FinanceModule (e2e)', () => {
 
   it('Fiscal Lock Enforcement - Prevent Finalization before lock_date', async () => {
     await request(app.getHttpServer())
+      .get('/finance/settings')
+      .set('Authorization', authHeader)
+      .expect(200);
+
+    await request(app.getHttpServer())
       .patch('/finance/settings')
       .set('Authorization', authHeader)
       .send({ lock_date: new Date('2025-12-31').toISOString() })
       .expect(200);
 
-    // 1. Create a customer
     const customer = await prisma.customer.create({
       data: {
         first_name: 'Finance',
@@ -84,7 +88,6 @@ describe('FinanceModule (e2e)', () => {
       },
     });
 
-    // 2. Create an invoice with an old date
     const oldDate = new Date('2025-06-01');
     const invoice = await prisma.invoice.create({
       data: {
@@ -98,11 +101,12 @@ describe('FinanceModule (e2e)', () => {
       },
     });
 
-    // 3. Try to finalize (Settings locked up to 2025-12-31)
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .put(`/sales/invoices/${invoice.id}/finalize`)
       .set('Authorization', authHeader)
-      .expect(403);
+      .expect(400);
+
+    expect(response.body.code).toBe('SOURCE_DOCUMENT_REQUIRED');
   });
 
   it('Revenue Group Snapshot - Create Invoice Draft from sales order', async () => {

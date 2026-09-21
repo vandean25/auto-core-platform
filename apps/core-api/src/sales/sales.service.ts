@@ -101,8 +101,6 @@ export class SalesService {
       throw new BadRequestException('Only DRAFT invoices can be finalized');
     }
 
-    await this.financeService.validateTransactionDate(invoice.date);
-
     return this.prisma.$transaction(async (tx) =>
       this.invoiceFinalization.finalizeInTransaction(tx, tenantId, invoice),
     );

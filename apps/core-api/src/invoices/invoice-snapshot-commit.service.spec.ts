@@ -64,6 +64,9 @@ describe('InvoiceSnapshotCommitService', () => {
     legalEntity: { findFirst: jest.fn() },
     legalEntityAccountingProfile: { findFirst: jest.fn() },
     catalogItem: { findMany: jest.fn() },
+    financeSettings: {
+      findFirst: jest.fn().mockResolvedValue({ lock_date: null }),
+    },
   };
 
   let service: InvoiceSnapshotCommitService;
@@ -194,5 +197,155 @@ describe('InvoiceSnapshotCommitService', () => {
     expect(prepared.snapshot.items[1].accounting_allocation?.sourceCategoryKey).toBe(
       'revenue_group:5',
     );
+  });
+
+  it('rejects incomplete seller identity with SELLER_IDENTITY_INCOMPLETE', async () => {
+    tx.legalEntity.findFirst.mockResolvedValue({
+      ...seller,
+      vat_id: null,
+      tax_number: null,
+    });
+
+    await expect(
+      service.prepareV2Snapshot({
+        tx: tx as never,
+        tenantId: 'tenant-1',
+        invoice: {
+          id: 'inv-1',
+          tenant_id: 'tenant-1',
+          customer_id: customer.id,
+          vehicle_id: null,
+          sales_order_id: null,
+          workshop_order_id: 'wo-1',
+          vehicle_sale_id: null,
+          site_id: 'site-1',
+          legal_entity_id: 'le-1',
+          currency: 'EUR',
+          status: InvoiceStatus.DRAFT,
+          tax_mode: InvoiceTaxMode.STANDARD,
+          invoice_number: null,
+          date: new Date('2026-04-01'),
+          due_date: new Date('2026-04-15'),
+          supply_date_from: null,
+          supply_date_to: null,
+          total_net: new Prisma.Decimal(100),
+          total_tax: new Prisma.Decimal(20),
+          total_gross: new Prisma.Decimal(120),
+          notes: null,
+          internal_notes: null,
+          snapshot: null,
+          global_discount_type: null,
+          global_discount_value: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          customer,
+          vehicle: null,
+          items: [],
+        },
+        invoiceNumber: '',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'SELLER_IDENTITY_INCOMPLETE',
+        missingFields: ['vat_id'],
+      },
+    });
+  });
+
+  it('rejects incomplete customer identity with CUSTOMER_IDENTITY_INCOMPLETE', async () => {
+    await expect(
+      service.prepareV2Snapshot({
+        tx: tx as never,
+        tenantId: 'tenant-1',
+        invoice: {
+          id: 'inv-1',
+          tenant_id: 'tenant-1',
+          customer_id: customer.id,
+          vehicle_id: null,
+          sales_order_id: null,
+          workshop_order_id: 'wo-1',
+          vehicle_sale_id: null,
+          site_id: 'site-1',
+          legal_entity_id: 'le-1',
+          currency: 'EUR',
+          status: InvoiceStatus.DRAFT,
+          tax_mode: InvoiceTaxMode.STANDARD,
+          invoice_number: null,
+          date: new Date('2026-04-01'),
+          due_date: new Date('2026-04-15'),
+          supply_date_from: null,
+          supply_date_to: null,
+          total_net: new Prisma.Decimal(100),
+          total_tax: new Prisma.Decimal(20),
+          total_gross: new Prisma.Decimal(120),
+          notes: null,
+          internal_notes: null,
+          snapshot: null,
+          global_discount_type: null,
+          global_discount_value: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          customer: { ...customer, address_street: null },
+          vehicle: null,
+          items: [],
+        },
+        invoiceNumber: '',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'CUSTOMER_IDENTITY_INCOMPLETE',
+        missingFields: ['address_street'],
+      },
+    });
+  });
+
+  it('rejects locked fiscal periods with FISCAL_PERIOD_LOCKED', async () => {
+    tx.financeSettings.findFirst.mockResolvedValue({
+      lock_date: new Date('2026-12-31'),
+    });
+
+    await expect(
+      service.prepareV2Snapshot({
+        tx: tx as never,
+        tenantId: 'tenant-1',
+        invoice: {
+          id: 'inv-1',
+          tenant_id: 'tenant-1',
+          customer_id: customer.id,
+          vehicle_id: null,
+          sales_order_id: null,
+          workshop_order_id: 'wo-1',
+          vehicle_sale_id: null,
+          site_id: 'site-1',
+          legal_entity_id: 'le-1',
+          currency: 'EUR',
+          status: InvoiceStatus.DRAFT,
+          tax_mode: InvoiceTaxMode.STANDARD,
+          invoice_number: null,
+          date: new Date('2026-06-01'),
+          due_date: new Date('2026-06-15'),
+          supply_date_from: null,
+          supply_date_to: null,
+          total_net: new Prisma.Decimal(100),
+          total_tax: new Prisma.Decimal(20),
+          total_gross: new Prisma.Decimal(120),
+          notes: null,
+          internal_notes: null,
+          snapshot: null,
+          global_discount_type: null,
+          global_discount_value: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          customer,
+          vehicle: null,
+          items: [],
+        },
+        invoiceNumber: '',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'FISCAL_PERIOD_LOCKED',
+      },
+    });
   });
 });

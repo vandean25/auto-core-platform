@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceTaxMode, Prisma } from '@prisma/client';
 import { UpdateFinanceSettingsDto } from './dto/update-finance-settings.dto.js';
@@ -55,9 +55,11 @@ export class FinanceService {
       select: { lock_date: true },
     });
     if (settings?.lock_date && date <= settings.lock_date) {
-      throw new ForbiddenException(
-        `Transaction date ${date.toISOString()} is in a locked fiscal period (Locked up to ${settings.lock_date.toISOString()})`,
-      );
+      throw new UnprocessableEntityException({
+        code: 'FISCAL_PERIOD_LOCKED',
+        message: `Transaction date ${date.toISOString()} is in a locked fiscal period.`,
+        lockDate: settings.lock_date.toISOString(),
+      });
     }
   }
 
