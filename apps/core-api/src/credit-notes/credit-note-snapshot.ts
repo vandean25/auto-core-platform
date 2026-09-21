@@ -4,7 +4,6 @@ import {
   INVOICE_SNAPSHOT_COUNTRY_PROFILE_VERSION,
   INVOICE_SNAPSHOT_SCHEMA_VERSION,
   INVOICE_SNAPSHOT_TEMPLATE_VERSION,
-  buildSellerSnapshot,
 } from '../invoices/invoice-snapshot-v2.js';
 import type { OriginalLineSnapshot } from './credit-note-allocation.js';
 
@@ -130,7 +129,9 @@ export function buildCreditNoteSnapshot(input: {
       accounting_allocation: line.accounting_allocation as never,
     })),
     tax_breakdown: [...taxBuckets.values()],
-    ...(input.originalSnapshot.margin ? { margin: input.originalSnapshot.margin } : {}),
+    ...(input.originalSnapshot.margin
+      ? { margin: input.originalSnapshot.margin }
+      : {}),
     total_net: moneyString(totalNet),
     total_tax: moneyString(totalTax),
     total_gross: moneyString(totalGross),

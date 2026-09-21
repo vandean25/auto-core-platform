@@ -9,7 +9,6 @@ import {
 import {
   CreditNoteStatus,
   InvoiceStatus,
-  InvoiceTaxMode,
   Prisma,
   type CreditNote,
   type CreditNoteItem,
@@ -90,7 +89,7 @@ export class CreditNotesService {
       invoiceItemIds: new Set(invoice.items.map((item) => item.id)),
     });
 
-    const creditDate = this.parseCreditDate(dto.date, invoice.date);
+    const creditDate = this.parseCreditDate(dto.date);
     this.assertCreditDateAllowed(creditDate, invoice.date);
 
     const { totals, itemPayloads } = this.buildDraftItemPayloads({
@@ -168,11 +167,7 @@ export class CreditNotesService {
           tenantId,
           row.original_invoice_id,
         );
-        return this.serializeCreditNote(
-          row,
-          snapshot,
-          priorCredits,
-        );
+        return this.serializeCreditNote(row, snapshot, priorCredits);
       }),
     );
 
@@ -227,7 +222,7 @@ export class CreditNotesService {
     const remaining = computeRemainingLineBalances(originalLines, priorCredits);
 
     const nextDate = dto.date
-      ? this.parseCreditDate(dto.date, invoice.date)
+      ? this.parseCreditDate(dto.date)
       : creditNote.date;
     this.assertCreditDateAllowed(nextDate, invoice.date);
 
@@ -342,7 +337,11 @@ export class CreditNotesService {
     }
 
     const finalized = await this.prisma.$transaction(async (tx) => {
-      await this.lockOriginalInvoice(tx, tenantId, creditNote.original_invoice_id);
+      await this.lockOriginalInvoice(
+        tx,
+        tenantId,
+        creditNote.original_invoice_id,
+      );
 
       const invoice = await tx.invoice.findFirstOrThrow({
         where: { id: creditNote.original_invoice_id, tenant_id: tenantId },
@@ -415,7 +414,8 @@ export class CreditNotesService {
           request_hash: requestHash,
           finalized_at: committedAt,
         },
-        conflictMessage: 'Credit note was already transitioned by another request',
+        conflictMessage:
+          'Credit note was already transitioned by another request',
       });
 
       for (const item of itemPayloads) {
@@ -561,7 +561,11 @@ export class CreditNotesService {
         message: 'Only committed invoices can be credited.',
       });
     }
-    if (!invoice.site_id || !invoice.legal_entity_id || !invoice.invoice_number) {
+    if (
+      !invoice.site_id ||
+      !invoice.legal_entity_id ||
+      !invoice.invoice_number
+    ) {
       throw new UnprocessableEntityException({
         code: 'LEGACY_DOCUMENT_UNSUPPORTED',
         message: 'Invoice ownership or numbering evidence is incomplete.',
@@ -570,7 +574,7 @@ export class CreditNotesService {
     void originalSnapshot;
   }
 
-  private parseCreditDate(value: string, originalInvoiceDate: Date): Date {
+  private parseCreditDate(value: string): Date {
     const parsed = new Date(`${value}T00:00:00.000Z`);
     if (Number.isNaN(parsed.getTime())) {
       throw new BadRequestException('Invalid credit date.');
@@ -585,7 +589,8 @@ export class CreditNotesService {
     if (creditDate < originalDate) {
       throw new UnprocessableEntityException({
         code: 'FISCAL_PERIOD_LOCKED',
-        message: 'Credit date cannot be earlier than the original invoice date.',
+        message:
+          'Credit date cannot be earlier than the original invoice date.',
       });
     }
   }
@@ -603,14 +608,16 @@ export class CreditNotesService {
         return input.originalLines
           .map((line) => ({
             originalItemId: line.id,
-            quantity: input.remaining.get(line.id)?.quantity ?? new Prisma.Decimal(0),
+            quantity:
+              input.remaining.get(line.id)?.quantity ?? new Prisma.Decimal(0),
           }))
           .filter((line) => line.quantity.gt(0));
       }
       return input.originalLines
         .map((line) => ({
           originalItemId: line.id,
-          quantity: input.remaining.get(line.id)?.quantity ?? new Prisma.Decimal(0),
+          quantity:
+            input.remaining.get(line.id)?.quantity ?? new Prisma.Decimal(0),
         }))
         .filter((line) => line.quantity.gt(0));
     }
@@ -623,7 +630,9 @@ export class CreditNotesService {
     }
 
     if (!input.dto.lines?.length) {
-      throw new BadRequestException('Partial credits require at least one line.');
+      throw new BadRequestException(
+        'Partial credits require at least one line.',
+      );
     }
 
     return this.resolveExplicitLines({
@@ -652,16 +661,22 @@ export class CreditNotesService {
         !originalLineIds.has(line.originalItemId) ||
         !input.invoiceItemIds.has(line.originalItemId)
       ) {
-        throw new BadRequestException('Credit line does not belong to the original invoice.');
+        throw new BadRequestException(
+          'Credit line does not belong to the original invoice.',
+        );
       }
       if (seen.has(line.originalItemId)) {
-        throw new BadRequestException('Duplicate credit lines are not allowed.');
+        throw new BadRequestException(
+          'Duplicate credit lines are not allowed.',
+        );
       }
       seen.add(line.originalItemId);
 
       const quantity = new Prisma.Decimal(line.quantity);
       if (quantity.lte(0)) {
-        throw new BadRequestException('Credit quantity must be greater than zero.');
+        throw new BadRequestException(
+          'Credit quantity must be greater than zero.',
+        );
       }
 
       const balance = input.remaining.get(line.originalItemId);
@@ -776,7 +791,9 @@ export class CreditNotesService {
       if (balance.quantity.lte(0)) {
         continue;
       }
-      const credited = draftLines.find((line) => line.originalItemId === lineId);
+      const credited = draftLines.find(
+        (line) => line.originalItemId === lineId,
+      );
       if (!credited || !credited.quantity.eq(balance.quantity)) {
         return false;
       }
@@ -843,10 +860,12 @@ export class CreditNotesService {
     const remainingLines =
       originalSnapshot === null
         ? []
-        : [...computeRemainingLineBalances(
-            extractOriginalLineSnapshots(originalSnapshot),
-            priorCredits,
-          ).entries()].map(([originalItemId, balance]) => ({
+        : [
+            ...computeRemainingLineBalances(
+              extractOriginalLineSnapshots(originalSnapshot),
+              priorCredits,
+            ).entries(),
+          ].map(([originalItemId, balance]) => ({
             originalItemId,
             remainingQuantity: balance.quantity.toFixed(3),
             remainingNet: balance.net.toFixed(2),
