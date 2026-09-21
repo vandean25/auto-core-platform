@@ -79,16 +79,16 @@ export function allocateCreditLineAmounts(input: {
     throw new Error('Credit quantity exceeds remaining balance');
   }
 
-  if (
-    remaining.quantity.gt(0) &&
-    (remaining.net.lte(0) || remaining.tax.lte(0) || remaining.gross.lte(0))
-  ) {
-    throw new Error(
-      'No remaining creditable amount is available for this line',
-    );
-  }
-
   if (creditQuantity.eq(remaining.quantity)) {
+    if (
+      remaining.net.lte(0) &&
+      remaining.tax.lte(0) &&
+      remaining.gross.lte(0)
+    ) {
+      throw new Error(
+        'No remaining creditable amount is available for this line',
+      );
+    }
     return remaining;
   }
 
@@ -107,6 +107,12 @@ export function allocateCreditLineAmounts(input: {
     remaining.tax,
   );
   const gross = Prisma.Decimal.min(net.add(tax), remaining.gross);
+
+  if (net.lte(0) && tax.lte(0) && gross.lte(0)) {
+    throw new Error(
+      'No remaining creditable amount is available for this line',
+    );
+  }
 
   return { quantity: creditQuantity, net, tax, gross };
 }

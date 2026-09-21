@@ -29,6 +29,7 @@ import { SiteContextService } from '../site/site-context.service.js';
 import {
   allocateCreditLineAmounts,
   computeRemainingLineBalances,
+  type AllocatedLineAmounts,
   type LineBalance,
   type OriginalLineSnapshot,
   type PriorCreditLine,
@@ -137,6 +138,7 @@ export class CreditNotesService {
   async list(query: CreditNoteListQueryDto = {}) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
+    await this.assertCreditAccess(tenantId, siteId);
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
     const search = query.search?.trim();
@@ -628,22 +630,13 @@ export class CreditNotesService {
     invoiceItemIds: Set<string>;
   }): DraftLineInput[] {
     if (input.dto.mode === 'FULL') {
-      if (isMarginSchemeSnapshot(input.originalSnapshot)) {
-        return input.originalLines
-          .map((line) => ({
-            originalItemId: line.id,
-            quantity:
-              input.remaining.get(line.id)?.quantity ?? new Prisma.Decimal(0),
-          }))
-          .filter((line) => line.quantity.gt(0));
-      }
       return input.originalLines
         .map((line) => ({
           originalItemId: line.id,
           quantity:
             input.remaining.get(line.id)?.quantity ?? new Prisma.Decimal(0),
         }))
-        .filter((line) => line.quantity.gt(0));
+        .filter((line) => this.lineHasRemainingCredit(input.remaining, line));
     }
 
     if (isMarginSchemeSnapshot(input.originalSnapshot)) {
@@ -704,13 +697,18 @@ export class CreditNotesService {
       }
 
       const balance = input.remaining.get(line.originalItemId);
-      if (!balance || this.hasNoRemainingMoney(balance)) {
+      if (
+        !this.lineHasRemainingCredit(input.remaining, {
+          originalItemId: line.originalItemId,
+          quantity,
+        })
+      ) {
         throw new ConflictException({
           code: 'CREDIT_LIMIT_EXCEEDED',
           message: 'No remaining creditable amount is available for this line.',
         });
       }
-      if (quantity.gt(balance.quantity)) {
+      if (!balance || quantity.gt(balance.quantity)) {
         throw new ConflictException({
           code: 'CREDIT_LIMIT_EXCEEDED',
           message: 'Credit quantity exceeds the remaining balance.',
@@ -752,11 +750,22 @@ export class CreditNotesService {
         throw new BadRequestException('Unknown original invoice line.');
       }
 
-      const amounts = allocateCreditLineAmounts({
-        original,
-        creditQuantity: line.quantity,
-        priorCredits: input.priorCredits,
-      });
+      let amounts: AllocatedLineAmounts;
+      try {
+        amounts = allocateCreditLineAmounts({
+          original,
+          creditQuantity: line.quantity,
+          priorCredits: input.priorCredits,
+        });
+      } catch (error) {
+        if (error instanceof Error) {
+          throw new ConflictException({
+            code: 'CREDIT_LIMIT_EXCEEDED',
+            message: error.message,
+          });
+        }
+        throw error;
+      }
       const lineSnapshot = buildCreditNoteLineSnapshot({
         originalItemId: line.originalItemId,
         originalSnapshotItem: snapshotItem,
@@ -795,7 +804,7 @@ export class CreditNotesService {
     );
     for (const line of input.draftLines) {
       const balance = remaining.get(line.originalItemId);
-      if (!balance || this.hasNoRemainingMoney(balance)) {
+      if (!balance || !this.lineHasRemainingCredit(remaining, line)) {
         throw new ConflictException({
           code: 'CREDIT_LIMIT_EXCEEDED',
           message: 'No remaining creditable amount is available for this line.',
@@ -814,11 +823,19 @@ export class CreditNotesService {
   }
 
   private hasNoRemainingMoney(balance: LineBalance): boolean {
+    return balance.net.lte(0) && balance.tax.lte(0) && balance.gross.lte(0);
+  }
+
+  private lineHasRemainingCredit(
+    remaining: Map<string, LineBalance>,
+    line: DraftLineInput,
+  ): boolean {
+    const balance = remaining.get(line.originalItemId);
     return (
-      balance.quantity.lte(0) ||
-      balance.net.lte(0) ||
-      balance.tax.lte(0) ||
-      balance.gross.lte(0)
+      line.quantity.gt(0) &&
+      balance !== undefined &&
+      balance.quantity.gt(0) &&
+      !this.hasNoRemainingMoney(balance)
     );
   }
 

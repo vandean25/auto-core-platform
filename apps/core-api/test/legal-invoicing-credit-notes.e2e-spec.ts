@@ -11,6 +11,7 @@ import {
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  runWithTenantContext,
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import {
@@ -320,6 +321,12 @@ describe('Legal invoicing credit notes (e2e)', () => {
 
   it('LI-08: racing partial finalize rejects the second credit', async () => {
     const invoice = await finalizeSalesInvoice(3, 50);
+    const invoiceSnapshot = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id },
+    });
+    const originalGross = Number(
+      (invoiceSnapshot.snapshot as { total_gross: string }).total_gross,
+    );
 
     const firstDraft = await createDraftCredit(invoice.id, {
       date: '2026-09-21',
@@ -335,14 +342,19 @@ describe('Legal invoicing credit notes (e2e)', () => {
       lines: [{ originalItemId: invoice.items[0].id, quantity: '2.000' }],
     }).expect(201);
 
-    await finalizeCredit(firstDraft.body.id, 'race-partial-1').expect(201);
+    const [firstResult, secondResult] = await Promise.all([
+      finalizeCredit(firstDraft.body.id, 'race-partial-1'),
+      finalizeCredit(secondDraft.body.id, 'race-partial-2'),
+    ]);
 
-    const rejected = await finalizeCredit(
-      secondDraft.body.id,
-      'race-partial-2',
-    ).expect(409);
+    const statuses = [firstResult.status, secondResult.status].sort();
+    expect(statuses).toEqual([201, 409]);
 
-    expect(rejected.body.code).toBe('CREDIT_LIMIT_EXCEEDED');
+    const failed = firstResult.status === 409 ? firstResult : secondResult;
+    expect(failed.body.code).toBe('CREDIT_LIMIT_EXCEEDED');
+
+    const succeeded = firstResult.status === 201 ? firstResult : secondResult;
+    expect(Number(succeeded.body.totalGross)).toBeLessThanOrEqual(originalGross);
   });
 
   it('LI-09: rejects credit dates inside locked fiscal period', async () => {
@@ -528,6 +540,48 @@ describe('Legal invoicing credit notes (e2e)', () => {
     expect(negativeQty.body.message).toContain(
       'Credit quantity must be greater than zero.',
     );
+
+    const zeroQty = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Zero qty',
+      mode: 'PARTIAL',
+      lines: [{ originalItemId: invoice.items[0].id, quantity: '0.000' }],
+    }).expect(400);
+
+    expect(zeroQty.body.message).toContain(
+      'Credit quantity must be greater than zero.',
+    );
+  });
+
+  it('LI-10: rejects non-admin list access', async () => {
+    const salesTenant = await createTestTenant(prisma, 'aut302-sales');
+    const salesTenantPrisma = createTenantAwarePrisma(prisma, salesTenant.tenantId);
+    const salesSiteId = await resolveTestMainSiteId(prisma, salesTenant.tenantId);
+    await runWithTenantContext(salesTenant.tenantId, async () => {
+      await salesTenantPrisma.tenantMember.updateMany({
+        where: {
+          tenant_id: salesTenant.tenantId,
+          user: { firebaseUid: salesTenant.firebaseUid },
+        },
+        data: { role: 'SALES' },
+      });
+    });
+
+    const salesToken = createTestAuthToken(authService, {
+      ...salesTenant,
+      role: 'SALES',
+    });
+
+    await request(app.getHttpServer())
+      .patch('/api/me/active-site')
+      .set('Authorization', `Bearer ${salesToken}`)
+      .send({ siteId: salesSiteId })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .get('/api/credit-notes')
+      .set('Authorization', `Bearer ${salesToken}`)
+      .expect(403);
   });
 
   it('LI-11: rejects margin partial updates and finalized mutations', async () => {

@@ -127,6 +127,27 @@ describe('credit-note-allocation', () => {
     ).toThrow('No remaining creditable amount is available for this line');
   });
 
+  it('allocates zero-tax lines without treating tax zero as depleted', () => {
+    const original: OriginalLineSnapshot = {
+      id: 'line-zero-tax',
+      quantity: d('2.000'),
+      net: d('100.00'),
+      tax: d('0.00'),
+      gross: d('100.00'),
+    };
+
+    const allocation = allocateCreditLineAmounts({
+      original,
+      creditQuantity: d('1.000'),
+      priorCredits: [],
+    });
+
+    expect(allocation.net.toFixed(2)).toBe('50.00');
+    expect(allocation.tax.toFixed(2)).toBe('0.00');
+    expect(allocation.gross.toFixed(2)).toBe('50.00');
+    expect(allocation.net.add(allocation.tax).eq(allocation.gross)).toBe(true);
+  });
+
   it('keeps net plus tax equal to gross for non-final partials', () => {
     const original: OriginalLineSnapshot = {
       id: 'line-rounding',
