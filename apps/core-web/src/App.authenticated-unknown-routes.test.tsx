@@ -37,6 +37,10 @@ vi.mock('./pages/vehicle-stock/VehicleStockList', () => ({
   default: () => <div>Vehicle Stock List</div>,
 }))
 
+vi.mock('./pages/sales/InvoiceListPage', () => ({
+  default: () => <div>Sales Invoices List</div>,
+}))
+
 function renderAtPath(pathname: string) {
   window.history.pushState({}, '', pathname)
 
@@ -81,15 +85,26 @@ describe('App authenticated unknown routes (AUT-222)', () => {
     window.history.pushState({}, '', '/')
   })
 
-  it.each(['/invoices', '/this-route-does-not-exist-qa'])(
-    'shows a 404 page inside the app shell for unknown route %s',
-    async (path) => {
-      renderAtPath(path)
+  it('shows a 404 page inside the app shell for unknown routes', async () => {
+    renderAtPath('/this-route-does-not-exist-qa')
 
-      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
-      expect(screen.getByText('ACP')).toBeInTheDocument()
-    },
-  )
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(screen.getByText('ACP')).toBeInTheDocument()
+  })
+
+  it('redirects /invoices to the sales invoices list (AUT-311)', async () => {
+    renderAtPath('/invoices')
+
+    expect(await screen.findByText('Sales Invoices List')).toBeInTheDocument()
+    expect(window.location.pathname).toBe(APP_ROUTE_PATHS.salesInvoices)
+  })
+
+  it('redirects /finance/invoices to the sales invoices list (AUT-311)', async () => {
+    renderAtPath('/finance/invoices')
+
+    expect(await screen.findByText('Sales Invoices List')).toBeInTheDocument()
+    expect(window.location.pathname).toBe(APP_ROUTE_PATHS.salesInvoices)
+  })
 
   it('redirects /workshop/pick to the pick list', async () => {
     renderAtPath('/workshop/pick')

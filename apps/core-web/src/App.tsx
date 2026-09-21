@@ -40,6 +40,7 @@ const PurchaseOrderDetail = React.lazy(() => import('./pages/purchase-orders/Pur
 const StockTransferList = React.lazy(() => import('./pages/stock-transfers/StockTransferList'))
 const StockTransferDetail = React.lazy(() => import('./pages/stock-transfers/StockTransferDetail'))
 const InvoiceCreatePage = React.lazy(() => import('./pages/sales/InvoiceCreatePage'))
+const InvoiceListPage = React.lazy(() => import('./pages/sales/InvoiceListPage'))
 const InvoiceDetailPage = React.lazy(() => import('./pages/sales/InvoiceDetailPage'))
 const PurchaseInvoiceCreatePage = React.lazy(() => import('./pages/purchase-invoices/PurchaseInvoiceCreatePage'))
 const PurchaseBillsPage = React.lazy(() => import('./pages/purchase-bills/PurchaseBillsPage'))
@@ -124,6 +125,15 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.purchaseBillDetail} element={<PurchaseBillDetailPage />} />
               <Route path={APP_ROUTE_PATHS.salesInvoiceNew} element={<InvoiceCreatePage />} />
               <Route path={APP_ROUTE_PATHS.salesInvoiceDetail} element={<InvoiceDetailPage />} />
+              <Route path={APP_ROUTE_PATHS.salesInvoices} element={<InvoiceListPage />} />
+              <Route
+                path={APP_ROUTE_PATHS.financeInvoices}
+                element={<Navigate to={APP_ROUTE_PATHS.salesInvoices} replace />}
+              />
+              <Route
+                path={APP_ROUTE_PATHS.invoicesLegacy}
+                element={<Navigate to={APP_ROUTE_PATHS.salesInvoices} replace />}
+              />
               <Route path={APP_ROUTE_PATHS.creditNotes} element={<CreditNotesPage />} />
               <Route path={APP_ROUTE_PATHS.creditNoteDetail} element={<CreditNoteDetailPage />} />
               <Route path={APP_ROUTE_PATHS.purchaseInvoiceNew} element={<PurchaseInvoiceCreatePage />} />

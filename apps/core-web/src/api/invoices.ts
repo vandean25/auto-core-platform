@@ -36,6 +36,7 @@ export function useCreateDraftInvoice() {
       return response.json() as Promise<Invoice>
     },
     onSuccess: (_invoice, orderId) => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
       queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
       queryClient.invalidateQueries({ queryKey: workshopKeys.order(orderId) })
     },
@@ -94,6 +95,7 @@ export function useIssueInvoice() {
     },
     onSuccess: (invoice) => {
       queryClient.setQueryData(invoiceKeys.detail(invoice.id), invoice)
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
       if (invoice.workshop_order_id) {
         queryClient.invalidateQueries({
           queryKey: workshopKeys.order(invoice.workshop_order_id),

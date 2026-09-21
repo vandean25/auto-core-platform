@@ -92,7 +92,7 @@ export default function CreditNotesPage() {
         </div>
         <Button
           variant="outline"
-          onClick={() => navigate(APP_ROUTE_PATHS.salesOrders)}
+          onClick={() => navigate(APP_ROUTE_PATHS.salesInvoices)}
         >
           Open Sales Invoices
         </Button>
