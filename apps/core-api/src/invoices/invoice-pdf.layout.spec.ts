@@ -9,9 +9,11 @@ import {
   buildInvoiceMetaSection,
   buildInvoiceNotesSection,
   buildInvoiceSellerSection,
+  buildInvoiceTaxBreakdownSection,
   buildInvoiceTotalsSection,
   buildInvoiceVehicleSection,
   isDachRechnungSnapshot,
+  resolveMarginSchemeLegalNote,
 } from './invoice-pdf.layout.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
@@ -365,13 +367,35 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('120.00');
     });
 
-    it('renders German totals for v2 standard invoices', () => {
+    it('renders German totals with per-rate VAT buckets for v2 standard invoices', () => {
       const html = buildInvoiceTotalsSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
+      expect(html).toContain('20.00 % USt');
+      expect(html).toContain('Netto 250.00');
       expect(html).toContain('Netto:');
       expect(html).toContain('Umsatzsteuer:');
       expect(html).toContain('Brutto:');
       expect(html).toContain('300.00');
-      expect(html).not.toContain('tax_breakdown');
+      expect(html).not.toContain('cost_basis');
+      expect(html).not.toContain('margin_tax');
+    });
+
+    it('renders multiple VAT rate buckets for multi-rate v2 invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_breakdown = [
+        { rate: '20.00', net: '200.00', tax: '40.00', gross: '240.00' },
+        { rate: '19.00', net: '100.00', tax: '19.00', gross: '119.00' },
+      ];
+      snapshot.total_net = '300.00';
+      snapshot.total_tax = '59.00';
+      snapshot.total_gross = '359.00';
+
+      const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
+      expect(html).toContain('20.00 % USt');
+      expect(html).toContain('19.00 % USt');
+      expect(html).toContain('Netto 200.00');
+      expect(html).toContain('Netto 100.00');
+      expect(html).toContain('359.00');
     });
 
     it('renders margin scheme legal notice when tax_mode is MARGIN_SCHEME', () => {
@@ -380,6 +404,71 @@ describe('invoice-pdf.layout', () => {
       const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
       expect(html).toContain('Differenzbesteuerung gemäß § 24 UStG');
       expect(html).not.toContain('Net:');
+      expect(html).not.toContain('Umsatzsteuer-Aufschlüsselung');
+    });
+
+    it('renders only gross total and country margin note for v2 margin invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_mode = 'MARGIN_SCHEME';
+      snapshot.tax_breakdown = [];
+      snapshot.total_net = '0.00';
+      snapshot.total_tax = '0.00';
+      snapshot.total_gross = '15000.00';
+
+      const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
+      expect(html).toContain('Brutto:');
+      expect(html).toContain('15000.00');
+      expect(html).toContain('Differenzbesteuerung gemäß § 24 UStG');
+      expect(html).not.toContain('Umsatzsteuer-Aufschlüsselung');
+      expect(html).not.toContain('Netto:');
+      expect(html).not.toContain('Umsatzsteuer:');
+      expect(html).not.toContain('cost_basis');
+      expect(html).not.toContain('margin_tax');
+    });
+
+    it('uses Austrian margin wording for AT v2 margin invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_mode = 'MARGIN_SCHEME';
+      snapshot.seller = {
+        ...snapshot.seller!,
+        country_iso: 'AT',
+      };
+
+      const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
+      expect(html).toContain('§ 24 UStG 1994');
+      expect(html).not.toContain('margin_tax');
+      expect(html).not.toContain('cost_basis');
+    });
+  });
+
+  describe('buildInvoiceTaxBreakdownSection', () => {
+    it('returns empty string when tax_breakdown is absent', () => {
+      const snapshot = createSnapshot();
+      expect(buildInvoiceTaxBreakdownSection(snapshot, escapeHtml)).toBe('');
+    });
+
+    it('returns empty string for margin-scheme invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_mode = 'MARGIN_SCHEME';
+      expect(buildInvoiceTaxBreakdownSection(snapshot, escapeHtml)).toBe('');
+    });
+
+    it('renders per-rate buckets for v2 standard invoices', () => {
+      const html = buildInvoiceTaxBreakdownSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
+      expect(html).toContain('20.00 % USt');
+      expect(html).toContain('Netto 250.00');
+      expect(html).toContain('50.00');
+    });
+  });
+
+  describe('resolveMarginSchemeLegalNote', () => {
+    it('returns German wording for DE sellers', () => {
+      expect(resolveMarginSchemeLegalNote('DE')).toContain('§ 24 UStG');
+    });
+
+    it('returns Austrian wording for AT sellers', () => {
+      expect(resolveMarginSchemeLegalNote('AT')).toContain('§ 24 UStG 1994');
     });
   });
 
