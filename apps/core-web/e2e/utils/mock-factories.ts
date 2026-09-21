@@ -841,6 +841,85 @@ export const createMockLegalEntity = (
   ...overrides,
 });
 
+type MockCreditNote = {
+  id: string;
+  originalInvoiceId: string;
+  status: 'DRAFT' | 'FINALIZED' | 'VOID';
+  creditNumber: string | null;
+  date: string;
+  reason: string;
+  version: number;
+  totalNet: string;
+  totalTax: string;
+  totalGross: string;
+  items: Array<{
+    id: string;
+    originalInvoiceItemId: string;
+    quantity: string;
+    snapshot: Record<string, unknown> | null;
+  }>;
+  remainingLines: Array<{
+    originalItemId: string;
+    remainingQuantity: string;
+    remainingNet: string;
+    remainingTax: string;
+    remainingGross: string;
+  }>;
+};
+
+export const createMockCreditNote = (
+  overrides: Partial<MockCreditNote> = {},
+): MockCreditNote => ({
+  id: 'credit-note-1',
+  originalInvoiceId: 'invoice-1',
+  status: 'DRAFT',
+  creditNumber: null,
+  date: '2026-09-22',
+  reason: 'Wrong quantity billed',
+  version: 1,
+  totalNet: '50.00',
+  totalTax: '10.00',
+  totalGross: '60.00',
+  items: [
+    {
+      id: 'credit-item-1',
+      originalInvoiceItemId: 'invoice-item-1',
+      quantity: '1.000',
+      snapshot: null,
+    },
+  ],
+  remainingLines: [
+    {
+      originalItemId: 'invoice-item-1',
+      remainingQuantity: '1.000',
+      remainingNet: '50.00',
+      remainingTax: '10.00',
+      remainingGross: '60.00',
+    },
+  ],
+  ...overrides,
+});
+
+export const createMockInvoiceCreditContext = (
+  overrides: {
+    creditNotes?: MockCreditNote[];
+    remainingLines?: MockCreditNote['remainingLines'];
+    coverageStatus?: 'NONE' | 'PARTIALLY_CREDITED' | 'FULLY_CREDITED';
+  } = {},
+) => ({
+  creditNotes: overrides.creditNotes ?? [],
+  remainingLines: overrides.remainingLines ?? [
+    {
+      originalItemId: 'invoice-item-1',
+      remainingQuantity: '2.000',
+      remainingNet: '100.00',
+      remainingTax: '20.00',
+      remainingGross: '120.00',
+    },
+  ],
+  coverageStatus: overrides.coverageStatus ?? 'NONE',
+});
+
 export const createMockListResponse = <T>(items: T[], total = items.length) => {
   const totalPages = Math.ceil(total / 10);
 

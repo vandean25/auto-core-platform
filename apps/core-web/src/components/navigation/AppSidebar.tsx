@@ -162,6 +162,15 @@ const coreModules: SidebarModule[] = [
     isActive: (pathname) => pathname.startsWith('/purchase-orders'),
   },
   {
+    id: 'credit-notes',
+    label: 'Credit Notes',
+    to: '/finance/credit-notes',
+    icon: ReceiptText,
+    isVisible: (context) =>
+      context.activeRole === 'OWNER' || context.activeRole === 'ADMIN',
+    isActive: (pathname) => pathname.startsWith('/finance/credit-notes'),
+  },
+  {
     id: 'purchase-bills',
     label: 'Purchase Bills',
     to: '/purchase-bills',

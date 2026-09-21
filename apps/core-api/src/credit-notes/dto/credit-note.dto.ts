@@ -189,4 +189,20 @@ export class CreditNoteListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  originalInvoiceId?: string;
+}
+
+export class InvoiceCreditContextResponseDto {
+  @ApiProperty({ type: [CreditNoteResponseDto] })
+  creditNotes!: CreditNoteResponseDto[];
+
+  @ApiProperty({ type: [CreditNoteRemainingLineDto] })
+  remainingLines!: CreditNoteRemainingLineDto[];
+
+  @ApiProperty({ enum: ['NONE', 'PARTIALLY_CREDITED', 'FULLY_CREDITED'] })
+  coverageStatus!: 'NONE' | 'PARTIALLY_CREDITED' | 'FULLY_CREDITED';
 }

@@ -1520,6 +1520,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/credit-notes/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CreditNotesController_getPdf"];
+        put?: never;
+        post: operations["CreditNotesController_generatePdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/invoices/{id}/credit-notes": {
         parameters: {
             query?: never;
@@ -1527,7 +1543,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["InvoiceCreditNotesController_listForInvoice"];
         put?: never;
         post: operations["InvoiceCreditNotesController_createFromInvoice"];
         delete?: never;
@@ -4113,6 +4129,12 @@ export interface components {
         };
         VoidCreditNoteDto: {
             expectedVersion: number;
+        };
+        InvoiceCreditContextResponseDto: {
+            creditNotes: components["schemas"]["CreditNoteResponseDto"][];
+            remainingLines: components["schemas"]["CreditNoteRemainingLineDto"][];
+            /** @enum {string} */
+            coverageStatus: "NONE" | "PARTIALLY_CREDITED" | "FULLY_CREDITED";
         };
         CreateCreditNoteDto: {
             /** @example 2026-09-21 */
@@ -8381,6 +8403,7 @@ export interface operations {
                 page?: number;
                 limit?: number;
                 search?: string;
+                originalInvoiceId?: string;
             };
             header?: never;
             path?: never;
@@ -8492,6 +8515,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditNoteResponseDto"];
+                };
+            };
+        };
+    };
+    CreditNotesController_getPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    CreditNotesController_generatePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    InvoiceCreditNotesController_listForInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceCreditContextResponseDto"];
                 };
             };
         };

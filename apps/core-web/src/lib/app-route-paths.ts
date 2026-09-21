@@ -33,6 +33,8 @@ export const APP_ROUTE_PATHS = {
   purchaseBillDetail: '/purchase-bills/:id',
   salesInvoiceNew: '/sales/invoices/new',
   salesInvoiceDetail: '/sales/invoices/:id',
+  creditNotes: '/finance/credit-notes',
+  creditNoteDetail: '/finance/credit-notes/:id',
   purchaseInvoiceNew: '/purchase-invoices/new',
   settings: '/settings',
   hr: '/hr',

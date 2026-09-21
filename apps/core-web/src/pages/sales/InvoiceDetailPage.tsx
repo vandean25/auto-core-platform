@@ -1,15 +1,18 @@
 import { Fragment, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useInvoice } from '@/api/sales'
+import { useInvoiceCreditContext } from '@/api/useCreditNotes'
 import { useWorkshopOrder } from '@/api/workshop'
 import type { InvoiceItem, WorkshopTask } from '@/api/types'
+import { CreateCreditNoteDialog } from '@/components/finance/CreateCreditNoteDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
-import { Printer, Loader2 } from 'lucide-react'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { Printer, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { useGenerateInvoicePdf, downloadInvoicePdf } from '@/api/invoices'
@@ -124,11 +127,16 @@ function formatLineDiscount(summary: InvoiceLineSummary) {
   return `-${formatCurrency(summary.discountAmount)}`
 }
 
+const CREDIT_ELIGIBLE_STATUSES = new Set(['FINALIZED', 'ISSUED', 'PAID'])
+
 export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
+  const { data: creditContext } = useInvoiceCreditContext(id)
   const generatePdf = useGenerateInvoicePdf()
   const [isDownloading, setIsDownloading] = useState(false)
+  const [creditDialogOpen, setCreditDialogOpen] = useState(false)
   
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
@@ -227,6 +235,17 @@ export default function InvoiceDetailPage() {
       ? invoice.customer.company_name
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
+  const canCreateCreditNote = CREDIT_ELIGIBLE_STATUSES.has(invoice.status)
+  const remainingByItemId = new Map(
+    (creditContext?.remainingLines ?? []).map((line) => [line.originalItemId, line]),
+  )
+  const coverageLabel =
+    creditContext?.coverageStatus === 'FULLY_CREDITED'
+      ? 'Fully credited'
+      : creditContext?.coverageStatus === 'PARTIALLY_CREDITED'
+        ? 'Partially credited'
+        : null
+
   const handlePrint = async () => {
     const toastId = toast.loading('Preparing PDF, this may take a few seconds...')
     let url: string | null = null
@@ -271,16 +290,22 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  const renderLine = (summary: InvoiceLineSummary) => (
-    <TableRow key={summary.item.id}>
-      <TableCell>{summary.item.description}</TableCell>
-      <TableCell className="text-right">{formatNumber(toNumber(summary.item.quantity))}</TableCell>
-      <TableCell className="text-right">{formatCurrency(toNumber(summary.item.unit_price))}</TableCell>
-      <TableCell className="text-right">{formatLineDiscount(summary)}</TableCell>
-      <TableCell className="text-right">{formatNumber(toNumber(summary.item.tax_rate))}%</TableCell>
-      <TableCell className="text-right font-medium">{formatCurrency(summary.netAfterDiscount)}</TableCell>
-    </TableRow>
-  )
+  const renderLine = (summary: InvoiceLineSummary) => {
+    const remaining = remainingByItemId.get(summary.item.id)
+    return (
+      <TableRow key={summary.item.id}>
+        <TableCell>{summary.item.description}</TableCell>
+        <TableCell className="text-right">{formatNumber(toNumber(summary.item.quantity))}</TableCell>
+        <TableCell className="text-right">
+          {remaining ? formatNumber(Number(remaining.remainingQuantity)) : '—'}
+        </TableCell>
+        <TableCell className="text-right">{formatCurrency(toNumber(summary.item.unit_price))}</TableCell>
+        <TableCell className="text-right">{formatLineDiscount(summary)}</TableCell>
+        <TableCell className="text-right">{formatNumber(toNumber(summary.item.tax_rate))}%</TableCell>
+        <TableCell className="text-right font-medium">{formatCurrency(summary.netAfterDiscount)}</TableCell>
+      </TableRow>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -290,8 +315,17 @@ export default function InvoiceDetailPage() {
             {invoice.invoice_number ?? `Invoice ${invoice.id.slice(0, 8)}`}
           </h1>
           <StatusBadge status={invoice.status} />
+          {coverageLabel ? (
+            <StatusBadge status="PARTIAL" label={coverageLabel} />
+          ) : null}
         </div>
         <div className="flex gap-2">
+          {canCreateCreditNote ? (
+            <Button variant="outline" onClick={() => setCreditDialogOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Credit Note
+            </Button>
+          ) : null}
           <Button onClick={() => void handlePrint()} disabled={generatePdf.isPending || isDownloading}>
             {generatePdf.isPending || isDownloading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -302,6 +336,47 @@ export default function InvoiceDetailPage() {
           </Button>
         </div>
       </div>
+
+      {creditContext && creditContext.creditNotes.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">Related Credit Notes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {creditContext.creditNotes.map((creditNote) => (
+              <div
+                key={creditNote.id}
+                className="flex items-center justify-between rounded-md border px-4 py-3"
+              >
+                <div className="space-y-1">
+                  <Link
+                    to={APP_ROUTE_PATHS.creditNoteDetail.replace(':id', creditNote.id)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {creditNote.creditNumber ?? `Draft ${creditNote.id.slice(0, 8)}`}
+                  </Link>
+                  <div className="text-sm text-muted-foreground">{creditNote.reason}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-sm font-medium">
+                    {formatCurrency(Number(creditNote.totalGross))}
+                  </div>
+                  <StatusBadge status={creditNote.status} />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <CreateCreditNoteDialog
+        invoice={invoice}
+        open={creditDialogOpen}
+        onOpenChange={setCreditDialogOpen}
+        onCreated={(creditNoteId) =>
+          navigate(APP_ROUTE_PATHS.creditNoteDetail.replace(':id', creditNoteId))
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="space-y-6 lg:col-span-1">
@@ -337,6 +412,7 @@ export default function InvoiceDetailPage() {
                   <TableRow>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Remaining</TableHead>
                     <TableHead className="text-right">Unit Price</TableHead>
                     <TableHead className="text-right">Discount</TableHead>
                     <TableHead className="text-right">Tax</TableHead>
@@ -346,20 +422,20 @@ export default function InvoiceDetailPage() {
                 <TableBody>
                   {invoice.items.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
                         No line items.
                       </TableCell>
                     </TableRow>
                   ) : isWorkshopInvoice && isWorkshopOrderLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                      <TableCell colSpan={7} className="py-6 text-center text-muted-foreground">
                         Loading task groups...
                       </TableCell>
                     </TableRow>
                   ) : isWorkshopInvoice && workshopOrderError ? (
                     <>
                       <TableRow>
-                        <TableCell colSpan={6} className="py-3 text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="py-3 text-center text-muted-foreground">
                           Failed to load workshop task groups. Showing ungrouped line items.
                         </TableCell>
                       </TableRow>
@@ -371,13 +447,13 @@ export default function InvoiceDetailPage() {
                       return (
                         <Fragment key={group.key}>
                           <TableRow className="bg-slate-100/80 hover:bg-slate-100/80">
-                            <TableCell colSpan={6} className="font-semibold text-slate-700">
+                            <TableCell colSpan={7} className="font-semibold text-slate-700">
                               Task: {group.title}
                             </TableCell>
                           </TableRow>
                           {group.lines.map((line) => renderLine(line))}
                           <TableRow className="bg-slate-50/60 hover:bg-slate-50/60">
-                            <TableCell colSpan={5} className="text-right text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                            <TableCell colSpan={6} className="text-right text-xs uppercase tracking-wide text-slate-500 font-semibold">
                               Task Subtotal
                             </TableCell>
                             <TableCell className="text-right font-semibold">
