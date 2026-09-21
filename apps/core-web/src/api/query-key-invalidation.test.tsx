@@ -7,10 +7,10 @@ import { useCreateDraftInvoice, useIssueInvoice, useUpdateInvoiceDiscount } from
 import { useReceiveGoods } from './purchase-orders'
 import {
   invoiceKeys,
-  useCreateInvoice,
   useFinalizeInvoice,
   useUpdateInvoice,
 } from './sales'
+import { useCreateInvoiceFromOrder } from './sales-orders'
 import { workshopKeys } from './workshop'
 
 const mocks = vi.hoisted(() => ({
@@ -48,17 +48,17 @@ describe('query-key factory invalidation', () => {
     vi.clearAllMocks()
   })
 
-  it('refreshes the invoice list and detail after create', async () => {
+  it('refreshes the invoice list after create-from-order', async () => {
     const queryClient = createQueryClient()
     queryClient.setQueryData(invoiceKeys.all, [{ id: 'inv-0', status: 'DRAFT' }])
+    queryClient.setQueryData(['sales-orders', 'detail', 'so-1'], { id: 'so-1' })
     mocks.fetchWithAuth.mockResolvedValue(jsonOk({ id: 'inv-1', status: 'DRAFT' }))
 
-    const { result } = renderHook(() => useCreateInvoice(), { wrapper: createWrapper(queryClient) })
-
-    await result.current.mutateAsync({
-      customerId: 'cust-1',
-      items: [{ description: 'Labor', quantity: 1, unitPrice: 80, taxRate: 0.2 }],
+    const { result } = renderHook(() => useCreateInvoiceFromOrder(), {
+      wrapper: createWrapper(queryClient),
     })
+
+    await result.current.mutateAsync('so-1')
 
     await waitFor(() => {
       expect(queryClient.getQueryState(invoiceKeys.all)?.isInvalidated).toBe(true)
