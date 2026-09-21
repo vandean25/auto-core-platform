@@ -514,6 +514,66 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
     await expect(page.getByRole('button', { name: /Credit Note/i })).toHaveCount(0);
+    await expect(
+      page.getByText(/Credit notes can only be issued by OWNER or ADMIN/i),
+    ).toBeVisible();
+  });
+
+  test('non-admin users see read-only draft credit note detail', async ({ page }) => {
+    const draftCredit = createMockCreditNote({
+      id: CREDIT_NOTE_ID,
+      originalInvoiceId: INVOICE_ID,
+      status: 'DRAFT',
+      version: 1,
+    });
+    let patchRequestCount = 0;
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem('e2e-active-role', 'SALES');
+    });
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/credit-notes/${CREDIT_NOTE_ID}`),
+      async (route) => {
+        if (route.request().method() === 'PATCH') {
+          patchRequestCount += 1;
+          await route.fulfill({
+            status: 403,
+            contentType: 'application/json',
+            body: JSON.stringify({ message: 'Forbidden' }),
+          });
+          return;
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(draftCredit),
+        });
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/sales/invoices/${INVOICE_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(finalizedInvoice),
+        });
+      },
+    );
+
+    await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
+    await expect(
+      page.getByText(/Only OWNER or ADMIN can edit or void this draft credit note/i),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Finalize' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Void' })).toHaveCount(0);
+    await expect(page.getByLabel('Reason')).toHaveCount(0);
+    await page.getByText('Wrong quantity billed').click();
+    await page.waitForTimeout(1000);
+    expect(patchRequestCount).toBe(0);
   });
 
   test('credit notes list page follows golden rules', async ({ page }) => {

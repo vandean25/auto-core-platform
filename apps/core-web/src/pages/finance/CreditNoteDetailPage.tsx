@@ -78,6 +78,8 @@ export default function CreditNoteDetailPage() {
   const [voidOpen, setVoidOpen] = React.useState(false)
   const [isDownloading, setIsDownloading] = React.useState(false)
   const lastSavedRef = React.useRef<string | null>(null)
+  const creditNoteId = creditNote?.id
+  const creditNoteStatus = creditNote?.status
 
   React.useEffect(() => {
     if (!creditNote) return
@@ -91,9 +93,10 @@ export default function CreditNoteDetailPage() {
       })),
     )
     lastSavedRef.current = null
-  }, [creditNote])
+  }, [creditNoteId, creditNoteStatus])
 
   const isDraft = creditNote?.status === 'DRAFT'
+  const canEditDraft = isDraft && canManageCreditNote
   const isFinalized = creditNote?.status === 'FINALIZED'
 
   const remainingByItemId = React.useMemo(
@@ -161,7 +164,7 @@ export default function CreditNoteDetailPage() {
 
   const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
     useDebouncedAutoSave({
-      enabled: isDraft,
+      enabled: canEditDraft,
       save: persistDraft,
       shouldSave: (snapshot) =>
         Boolean(snapshot.reason.trim()) &&
@@ -177,7 +180,7 @@ export default function CreditNoteDetailPage() {
 
   const queueAutoSave = React.useCallback(
     (next: { date?: string; reason?: string; lines?: DraftLineState[] }) => {
-      if (!isDraft) return
+      if (!canEditDraft) return
       const snapshot = {
         date: next.date ?? date,
         reason: next.reason ?? reason,
@@ -186,7 +189,7 @@ export default function CreditNoteDetailPage() {
       }
       void triggerAutoSave(snapshot)
     },
-    [date, isDraft, lines, reason, triggerAutoSave, version],
+    [canEditDraft, date, lines, reason, triggerAutoSave, version],
   )
 
   const handleFinalize = async () => {
@@ -319,8 +322,8 @@ export default function CreditNoteDetailPage() {
           <StatusBadge status={creditNote.status} />
         </div>
         <div className="flex items-center gap-3">
-          {isDraft ? <DocumentSaveIndicator status={saveStatus} /> : null}
-          {isDraft && canManageCreditNote ? (
+          {canEditDraft ? <DocumentSaveIndicator status={saveStatus} /> : null}
+          {canEditDraft ? (
             <>
               <Button variant="outline" onClick={() => setVoidOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -376,7 +379,7 @@ export default function CreditNoteDetailPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="credit-note-date">Date</Label>
-                {isDraft ? (
+                {canEditDraft ? (
                   <Input
                     id="credit-note-date"
                     type="date"
@@ -392,7 +395,7 @@ export default function CreditNoteDetailPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="credit-note-reason">Reason</Label>
-                {isDraft ? (
+                {canEditDraft ? (
                   <Input
                     id="credit-note-reason"
                     value={reason}
@@ -405,6 +408,11 @@ export default function CreditNoteDetailPage() {
                   <div className="font-medium">{creditNote.reason}</div>
                 )}
               </div>
+              {isDraft && !canManageCreditNote ? (
+                <p className="text-xs text-slate-500">
+                  Only OWNER or ADMIN can edit or void this draft credit note.
+                </p>
+              ) : null}
               {creditNote.status === 'FINALIZED' ? (
                 <p className="text-xs text-slate-500">
                   Finalized credits cannot be changed here. Contact support and your
@@ -460,7 +468,7 @@ export default function CreditNoteDetailPage() {
                           {getOriginalLineDescription(item.originalInvoiceItemId)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {isDraft ? (
+                          {canEditDraft ? (
                             <div className="ml-auto max-w-[160px]">
                               <Input
                                 className="text-right"

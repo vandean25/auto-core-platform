@@ -137,7 +137,9 @@ export default function InvoiceDetailPage() {
   const sessionQuery = useAuthSession()
   const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
-  const { data: creditContext } = useInvoiceCreditContext(id)
+  const { data: creditContext } = useInvoiceCreditContext(
+    canManageCreditNote ? id : '',
+  )
   const generatePdf = useGenerateInvoicePdf()
   const [isDownloading, setIsDownloading] = useState(false)
   const [creditDialogOpen, setCreditDialogOpen] = useState(false)
@@ -239,10 +241,12 @@ export default function InvoiceDetailPage() {
       ? invoice.customer.company_name
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
+  const isCreditEligible = CREDIT_ELIGIBLE_STATUSES.has(invoice.status)
   const canCreateCreditNote =
     canManageCreditNote &&
-    CREDIT_ELIGIBLE_STATUSES.has(invoice.status) &&
+    isCreditEligible &&
     creditContext?.coverageStatus !== 'FULLY_CREDITED'
+  const showCreditNoteGuidance = isCreditEligible && !canManageCreditNote
   const remainingByItemId = new Map(
     (creditContext?.remainingLines ?? []).map((line) => [line.originalItemId, line]),
   )
@@ -326,7 +330,13 @@ export default function InvoiceDetailPage() {
             <StatusBadge status="PARTIAL" label={coverageLabel} />
           ) : null}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-end gap-2">
+          {showCreditNoteGuidance ? (
+            <p className="max-w-sm text-right text-xs text-slate-500">
+              Credit notes can only be issued by OWNER or ADMIN.
+            </p>
+          ) : null}
+          <div className="flex gap-2">
           {canCreateCreditNote ? (
             <Button variant="outline" onClick={() => setCreditDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -341,6 +351,7 @@ export default function InvoiceDetailPage() {
             )}
             {generatePdf.isPending ? 'Generating...' : isDownloading ? 'Downloading...' : 'Print'}
           </Button>
+          </div>
         </div>
       </div>
 
