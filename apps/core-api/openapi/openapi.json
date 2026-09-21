@@ -2120,6 +2120,189 @@
         ]
       }
     },
+    "/api/finance/accounting-exports/preview": {
+      "post": {
+        "operationId": "AccountingExportController_preview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewAccountingExportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingExportPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AccountingExport"
+        ]
+      }
+    },
+    "/api/finance/accounting-exports": {
+      "post": {
+        "operationId": "AccountingExportController_generate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateAccountingExportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingExportCreatedResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AccountingExport"
+        ]
+      },
+      "get": {
+        "operationId": "AccountingExportController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 25,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legalEntityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AccountingExportSummaryDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AccountingExport"
+        ]
+      }
+    },
+    "/api/finance/accounting-exports/{id}": {
+      "get": {
+        "operationId": "AccountingExportController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingExportDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "AccountingExport"
+        ]
+      }
+    },
+    "/api/finance/accounting-exports/{id}/download": {
+      "get": {
+        "operationId": "AccountingExportController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AccountingExport"
+        ]
+      }
+    },
     "/api/brands": {
       "post": {
         "operationId": "BrandController_create",
@@ -10102,6 +10285,361 @@
           "data",
           "total",
           "period"
+        ]
+      },
+      "PreviewAccountingExportDto": {
+        "type": "object",
+        "properties": {
+          "legalEntityId": {
+            "type": "string"
+          },
+          "dateFrom": {
+            "type": "string",
+            "example": "2026-01-01"
+          },
+          "dateTo": {
+            "type": "string",
+            "example": "2026-01-31"
+          }
+        },
+        "required": [
+          "legalEntityId",
+          "dateFrom",
+          "dateTo"
+        ]
+      },
+      "AccountingExportTotalsBucketDto": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "net": {
+            "type": "string"
+          },
+          "tax": {
+            "type": "string"
+          },
+          "gross": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "account",
+          "taxRate",
+          "net",
+          "tax",
+          "gross"
+        ]
+      },
+      "AccountingExportBlockerDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "documentKind": {
+            "type": "string",
+            "enum": [
+              "INVOICE",
+              "CREDIT_NOTE"
+            ]
+          },
+          "documentNumber": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "AccountingExportOverlapSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dateFrom": {
+            "type": "string"
+          },
+          "dateTo": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "fileSha256": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "dateFrom",
+          "dateTo",
+          "createdAt",
+          "fileSha256",
+          "documentCount"
+        ]
+      },
+      "AccountingExportPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "legalEntityId": {
+            "type": "string"
+          },
+          "dateFrom": {
+            "type": "string"
+          },
+          "dateTo": {
+            "type": "string"
+          },
+          "profileVersion": {
+            "type": "number"
+          },
+          "previewHash": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          },
+          "rowCount": {
+            "type": "number"
+          },
+          "totals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingExportTotalsBucketDto"
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingExportBlockerDto"
+            }
+          },
+          "overlaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingExportOverlapSummaryDto"
+            }
+          },
+          "canGenerate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "legalEntityId",
+          "dateFrom",
+          "dateTo",
+          "profileVersion",
+          "previewHash",
+          "documentCount",
+          "rowCount",
+          "totals",
+          "blockers",
+          "overlaps",
+          "canGenerate"
+        ]
+      },
+      "GenerateAccountingExportDto": {
+        "type": "object",
+        "properties": {
+          "legalEntityId": {
+            "type": "string"
+          },
+          "dateFrom": {
+            "type": "string",
+            "example": "2026-01-01"
+          },
+          "dateTo": {
+            "type": "string",
+            "example": "2026-01-31"
+          },
+          "previewHash": {
+            "type": "string"
+          },
+          "profileVersion": {
+            "type": "number"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "acknowledgeOverlap": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "legalEntityId",
+          "dateFrom",
+          "dateTo",
+          "previewHash",
+          "profileVersion",
+          "idempotencyKey"
+        ]
+      },
+      "AccountingExportCreatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          },
+          "rowCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "sha256",
+          "documentCount",
+          "rowCount",
+          "createdAt"
+        ]
+      },
+      "AccountingExportSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "legalEntityId": {
+            "type": "string"
+          },
+          "dateFrom": {
+            "type": "string"
+          },
+          "dateTo": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          },
+          "rowCount": {
+            "type": "number"
+          },
+          "byteLength": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "legalEntityId",
+          "dateFrom",
+          "dateTo",
+          "filename",
+          "sha256",
+          "documentCount",
+          "rowCount",
+          "byteLength",
+          "createdAt",
+          "createdByUserId"
+        ]
+      },
+      "AccountingExportDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "legalEntityId": {
+            "type": "string"
+          },
+          "dateFrom": {
+            "type": "string"
+          },
+          "dateTo": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "documentCount": {
+            "type": "number"
+          },
+          "rowCount": {
+            "type": "number"
+          },
+          "byteLength": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "createdByUserId": {
+            "type": "string",
+            "nullable": true
+          },
+          "profileSnapshot": {
+            "type": "object"
+          },
+          "documentManifest": {
+            "type": "object"
+          },
+          "siteIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "legalEntityId",
+          "dateFrom",
+          "dateTo",
+          "filename",
+          "sha256",
+          "documentCount",
+          "rowCount",
+          "byteLength",
+          "createdAt",
+          "createdByUserId",
+          "profileSnapshot",
+          "documentManifest",
+          "siteIds"
         ]
       },
       "CreateBrandDto": {

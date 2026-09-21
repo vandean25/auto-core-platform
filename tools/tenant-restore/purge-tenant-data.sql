@@ -36,6 +36,7 @@ VALUES
   ('vendors'),
   ('voice_translation_settings'),
   ('_VendorBrands'),
+  ('accounting_exports'),
   ('attendance_events'),
   ('catalog_items'),
   ('catalog_oem_concern_makes'),
@@ -121,6 +122,8 @@ INSERT INTO tenant_restore_expected_foreign_keys (
 VALUES
   ('_VendorBrands', 'brands', 'A', 'id', 'CASCADE', 'CASCADE'),
   ('_VendorBrands', 'vendors', 'B', 'id', 'CASCADE', 'CASCADE'),
+  ('accounting_exports', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('accounting_exports', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('audit_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -585,6 +588,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."catalog_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."attendance_events"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."accounting_exports"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."_VendorBrands" AS child
 WHERE EXISTS (SELECT 1 FROM public."brands" AS parent_0 WHERE parent_0."id" = child."A" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'))
