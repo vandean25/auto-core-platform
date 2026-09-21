@@ -60,6 +60,7 @@ export default function SalesOrderCreate() {
     const navigate = useNavigate()
     const [searchParams] = useSearchParams()
     const preselectedCustomerId = searchParams.get('customerId')
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
     const createMutation = useCreateSalesOrder()
     const updateMutation = useUpdateSalesOrder()
     const orderIdRef = useRef<string | null>(null)
@@ -124,9 +125,10 @@ export default function SalesOrderCreate() {
         })
     }, [customerId, notes, items, form.formState.isDirty, triggerAutoSave])
 
-    // Set customer if loaded
+    // Set customer if loaded from URL query
     useEffect(() => {
         if (preselectedCustomer) {
+            setSelectedCustomer(preselectedCustomer)
             form.setValue('customer_id', preselectedCustomer.id, { shouldDirty: true })
         }
     }, [preselectedCustomer, form])
@@ -196,31 +198,21 @@ export default function SalesOrderCreate() {
                             <FormField
                                 control={form.control}
                                 name="customer_id"
-                                render={({ field }) => {
-                                    const placeholderCustomer: Customer | null = field.value
-                                        ? {
-                                            id: field.value,
-                                            type: 'PRIVATE',
-                                            first_name: 'Loading...',
-                                            last_name: '',
-                                            email: '',
-                                        }
-                                        : null
-
-                                    return (
+                                render={({ field }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Customer</FormLabel>
                                         <FormControl>
                                             <CustomerSearch
-                                                value={preselectedCustomer || placeholderCustomer}
+                                                value={selectedCustomer}
                                                 onChange={(customer) => {
+                                                    setSelectedCustomer(customer)
                                                     field.onChange(customer?.id ?? '')
                                                 }}
                                             />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
-                                )}}
+                                )}
                             />
                             <div className="mt-4">
                                 <FormField
