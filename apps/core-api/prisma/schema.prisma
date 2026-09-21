@@ -61,6 +61,9 @@ model Tenant {
   invoices                 Invoice[]
   invoiceSequences         InvoiceSequence[]
   invoiceItems             InvoiceItem[]
+  creditNotes              CreditNote[]
+  creditNoteItems          CreditNoteItem[]
+  creditNoteSequences      CreditNoteSequence[]
   purchaseInvoices         PurchaseInvoice[]
   purchaseInvoiceLines     PurchaseInvoiceLine[]
   inspectionTemplates      InspectionTemplate[]
@@ -191,6 +194,7 @@ model LegalEntity {
   sites                Site[]
   accountingProfile    LegalEntityAccountingProfile?
   invoices             Invoice[]
+  creditNotes          CreditNote[]
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
@@ -256,6 +260,7 @@ model Site {
   vehiclePurchases         VehiclePurchase[]
   vehicleSales             VehicleSale[]
   invoices                 Invoice[]
+  creditNotes              CreditNote[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1129,6 +1134,12 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum CreditNoteStatus {
+  DRAFT
+  FINALIZED
+  VOID
+}
+
 enum DiscountType {
   PERCENTAGE
   FLAT_AMOUNT
@@ -1180,11 +1191,13 @@ model Invoice {
   pdf_generated_at     DateTime?
   pdf_generation_error String?
 
-  items InvoiceItem[]
+  items        InvoiceItem[]
+  credit_notes CreditNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenant_id, id])
   @@unique([tenant_id, invoice_number]) // tenant-scoped
   @@unique([tenant_id, sales_order_id]) // tenant-scoped
   @@unique([tenant_id, workshop_order_id]) // tenant-scoped
@@ -1227,12 +1240,85 @@ model InvoiceItem {
   revenue_group_name  String? // Snapshot for accounting export
   accounting_snapshot Json?
 
+  credit_note_items CreditNoteItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenant_id, id])
   @@index([tenant_id])
   @@index([catalog_item_id])
   @@map("invoice_items")
+}
+
+model CreditNote {
+  id                  String           @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant           @relation(fields: [tenant_id], references: [id])
+  original_invoice_id String
+  original_invoice    Invoice          @relation(fields: [tenant_id, original_invoice_id], references: [tenant_id, id])
+  site_id             String
+  site                Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  legal_entity_id     String
+  legal_entity        LegalEntity      @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  status              CreditNoteStatus @default(DRAFT)
+  credit_number       String?
+  date                DateTime         @db.Date
+  reason              String
+  version             Int              @default(1)
+  total_net           Decimal          @default(0) @db.Decimal(10, 2)
+  total_tax           Decimal          @default(0) @db.Decimal(10, 2)
+  total_gross         Decimal          @default(0) @db.Decimal(10, 2)
+  snapshot            Json?
+  idempotency_key     String?
+  request_hash        String?
+  finalized_at        DateTime?
+  pdf_storage_bucket  String?
+  pdf_storage_key     String?
+  pdf_generated_at    DateTime?
+  pdf_generation_error String?
+  items               CreditNoteItem[]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, credit_number])
+  @@unique([tenant_id, idempotency_key])
+  @@index([tenant_id])
+  @@index([tenant_id, site_id, date])
+  @@index([tenant_id, legal_entity_id, date])
+  @@map("credit_notes")
+}
+
+model CreditNoteItem {
+  id                       String      @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant      @relation(fields: [tenant_id], references: [id])
+  credit_note_id           String
+  credit_note              CreditNote  @relation(fields: [credit_note_id], references: [id], onDelete: Cascade)
+  original_invoice_item_id String
+  original_invoice_item    InvoiceItem @relation(fields: [tenant_id, original_invoice_item_id], references: [tenant_id, id])
+  quantity                 Decimal     @db.Decimal(10, 3)
+  snapshot                 Json?
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  @@unique([tenant_id, credit_note_id, original_invoice_item_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@map("credit_note_items")
+}
+
+model CreditNoteSequence {
+  id        String @id @default(uuid())
+  tenant_id String
+  tenant    Tenant @relation(fields: [tenant_id], references: [id])
+  year      Int
+  current   Int    @default(0)
+
+  @@unique([tenant_id, year])
+  @@index([tenant_id])
+  @@map("credit_note_sequences")
 }
 
 enum PurchaseInvoiceStatus {

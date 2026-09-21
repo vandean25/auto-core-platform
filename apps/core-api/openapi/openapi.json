@@ -4645,6 +4645,256 @@
         ]
       }
     },
+    "/api/credit-notes": {
+      "get": {
+        "operationId": "CreditNotesController_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 25,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/CreditNoteResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      }
+    },
+    "/api/credit-notes/{id}": {
+      "get": {
+        "operationId": "CreditNotesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      },
+      "patch": {
+        "operationId": "CreditNotesController_updateDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCreditNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      }
+    },
+    "/api/credit-notes/{id}/finalize": {
+      "post": {
+        "operationId": "CreditNotesController_finalize",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeCreditNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      }
+    },
+    "/api/credit-notes/{id}/void": {
+      "post": {
+        "operationId": "CreditNotesController_void",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoidCreditNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      }
+    },
+    "/api/invoices/{id}/credit-notes": {
+      "post": {
+        "operationId": "InvoiceCreditNotesController_createFromInvoice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCreditNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditNoteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "InvoiceCreditNotes"
+        ]
+      }
+    },
     "/api/labor/search": {
       "get": {
         "operationId": "LaborController_search",
@@ -13418,6 +13668,231 @@
             "nullable": true
           }
         }
+      },
+      "CreditNoteStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "FINALIZED",
+          "VOID"
+        ]
+      },
+      "CreditNoteItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "originalInvoiceItemId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "originalInvoiceItemId",
+          "quantity",
+          "snapshot"
+        ]
+      },
+      "CreditNoteRemainingLineDto": {
+        "type": "object",
+        "properties": {
+          "originalItemId": {
+            "type": "string"
+          },
+          "remainingQuantity": {
+            "type": "string"
+          },
+          "remainingNet": {
+            "type": "string"
+          },
+          "remainingTax": {
+            "type": "string"
+          },
+          "remainingGross": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "originalItemId",
+          "remainingQuantity",
+          "remainingNet",
+          "remainingTax",
+          "remainingGross"
+        ]
+      },
+      "CreditNoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "originalInvoiceId": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreditNoteStatus"
+              }
+            ]
+          },
+          "creditNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "totalNet": {
+            "type": "string"
+          },
+          "totalTax": {
+            "type": "string"
+          },
+          "totalGross": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNoteItemResponseDto"
+            }
+          },
+          "remainingLines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNoteRemainingLineDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "originalInvoiceId",
+          "status",
+          "creditNumber",
+          "date",
+          "reason",
+          "version",
+          "totalNet",
+          "totalTax",
+          "totalGross",
+          "items",
+          "remainingLines"
+        ]
+      },
+      "CreditNotePartialLineDto": {
+        "type": "object",
+        "properties": {
+          "originalItemId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.000"
+          }
+        },
+        "required": [
+          "originalItemId",
+          "quantity"
+        ]
+      },
+      "UpdateCreditNoteDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "date": {
+            "type": "string",
+            "example": "2026-09-21"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNotePartialLineDto"
+            }
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "FinalizeCreditNoteDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "idempotencyKey"
+        ]
+      },
+      "VoidCreditNoteDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "CreateCreditNoteDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-09-21"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "FULL",
+              "PARTIAL"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditNotePartialLineDto"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "reason",
+          "mode"
+        ]
       },
       "LaborOperationSearchItemDto": {
         "type": "object",
