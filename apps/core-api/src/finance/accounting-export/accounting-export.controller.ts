@@ -28,7 +28,9 @@ import {
 
 @Controller('finance/accounting-exports')
 export class AccountingExportController {
-  constructor(private readonly accountingExportService: AccountingExportService) {}
+  constructor(
+    private readonly accountingExportService: AccountingExportService,
+  ) {}
 
   @Post('preview')
   @HttpCode(200)

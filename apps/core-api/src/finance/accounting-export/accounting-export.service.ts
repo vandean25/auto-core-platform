@@ -1,11 +1,14 @@
 import {
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { AuditActorType, AuditLogAction, type LegalEntityAccountingProfile } from '@prisma/client';
+import {
+  AuditActorType,
+  AuditLogAction,
+  type LegalEntityAccountingProfile,
+} from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -352,11 +355,9 @@ export class AccountingExportService {
 
       if (
         search &&
-        ![
-          exportRun.id,
-          exportRun.legal_entity_id,
-          exportRun.file_sha256,
-        ].some((value) => value.toLowerCase().includes(search.toLowerCase()))
+        ![exportRun.id, exportRun.legal_entity_id, exportRun.file_sha256].some(
+          (value) => value.toLowerCase().includes(search.toLowerCase()),
+        )
       ) {
         continue;
       }

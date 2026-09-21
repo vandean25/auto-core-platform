@@ -79,7 +79,10 @@ function buildColumnHeaderRow(): string[] {
 }
 
 function buildDataRow(row: AccountingExportBookingRow): string[] {
-  const fields = Array.from({ length: DATEV_BUCHUNGSSTAPEL_COLUMN_COUNT }, () => '');
+  const fields = Array.from(
+    { length: DATEV_BUCHUNGSSTAPEL_COLUMN_COUNT },
+    () => '',
+  );
 
   assertDatevEncodable(row.documentNumber);
   assertDatevEncodable(row.bookingText);
@@ -92,10 +95,16 @@ function buildDataRow(row: AccountingExportBookingRow): string[] {
   fields[DATEV_DATA_COLUMN_INDEX.KONTO] = row.debtorAccount;
   fields[DATEV_DATA_COLUMN_INDEX.GEGENKONTO] = row.revenueAccount;
   fields[DATEV_DATA_COLUMN_INDEX.BU_SCHLUESSEL] = row.buKey ?? '';
-  fields[DATEV_DATA_COLUMN_INDEX.BELEGDATUM] = formatDatevDateDdMm(row.documentDate);
-  fields[DATEV_DATA_COLUMN_INDEX.BELEGFELD_1] = quoteDatevField(row.documentNumber);
+  fields[DATEV_DATA_COLUMN_INDEX.BELEGDATUM] = formatDatevDateDdMm(
+    row.documentDate,
+  );
+  fields[DATEV_DATA_COLUMN_INDEX.BELEGFELD_1] = quoteDatevField(
+    row.documentNumber,
+  );
   fields[DATEV_DATA_COLUMN_INDEX.BELEGFELD_2] = '';
-  fields[DATEV_DATA_COLUMN_INDEX.BUCHUNGSTEXT] = quoteDatevField(row.bookingText);
+  fields[DATEV_DATA_COLUMN_INDEX.BUCHUNGSTEXT] = quoteDatevField(
+    row.bookingText,
+  );
 
   return fields;
 }

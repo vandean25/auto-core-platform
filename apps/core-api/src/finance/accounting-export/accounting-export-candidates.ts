@@ -2,7 +2,6 @@ import { InvoiceStatus, InvoiceTaxMode } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
 import { isInvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.validation.js';
-import type { InvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.js';
 import type { CreditNoteSnapshotV2 } from '../../credit-notes/credit-note-snapshot.js';
 import { computeSnapshotHash } from './accounting-export-hash.js';
 import type {
@@ -105,12 +104,13 @@ function collectBlockersForInvoice(invoice: {
     return blockers;
   }
 
-  const snapshot = invoice.snapshot as InvoiceSnapshotV2;
+  const snapshot = invoice.snapshot;
 
   if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
     blockers.push({
       code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-      message: 'Margin-scheme invoices are not supported by the active export profile.',
+      message:
+        'Margin-scheme invoices are not supported by the active export profile.',
       documentId: invoice.id,
       documentKind: 'INVOICE',
       documentNumber: invoice.invoice_number,
@@ -121,7 +121,8 @@ function collectBlockersForInvoice(invoice: {
     const allocation =
       parseAllocation(item.accounting_snapshot) ??
       parseAllocation(
-        snapshot.items.find((line) => line.id === item.id)?.accounting_allocation,
+        snapshot.items.find((line) => line.id === item.id)
+          ?.accounting_allocation,
       );
     if (!allocation) {
       blockers.push({
@@ -136,7 +137,8 @@ function collectBlockersForInvoice(invoice: {
     if (allocation.countryIso !== 'DE') {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_COUNTRY',
-        message: 'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
+        message:
+          'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
         documentId: invoice.id,
         documentKind: 'INVOICE',
         documentNumber: invoice.invoice_number,
@@ -145,7 +147,8 @@ function collectBlockersForInvoice(invoice: {
     if (allocation.taxMode === 'MARGIN_SCHEME') {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-        message: 'Margin-scheme allocations cannot be exported with the active profile.',
+        message:
+          'Margin-scheme allocations cannot be exported with the active profile.',
         documentId: invoice.id,
         documentKind: 'INVOICE',
         documentNumber: invoice.invoice_number,
@@ -179,7 +182,8 @@ function collectBlockersForCreditNote(creditNote: {
   if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
     blockers.push({
       code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-      message: 'Margin-scheme credits are not supported by the active export profile.',
+      message:
+        'Margin-scheme credits are not supported by the active export profile.',
       documentId: creditNote.id,
       documentKind: 'CREDIT_NOTE',
       documentNumber: creditNote.credit_number,
@@ -201,7 +205,8 @@ function collectBlockersForCreditNote(creditNote: {
     if (allocation.countryIso !== 'DE') {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_COUNTRY',
-        message: 'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
+        message:
+          'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
         documentId: creditNote.id,
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
@@ -210,7 +215,8 @@ function collectBlockersForCreditNote(creditNote: {
     if (allocation.taxMode === 'MARGIN_SCHEME') {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-        message: 'Margin-scheme allocations cannot be exported with the active profile.',
+        message:
+          'Margin-scheme allocations cannot be exported with the active profile.',
         documentId: creditNote.id,
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
@@ -257,10 +263,7 @@ function buildInvoiceRows(
       gross,
       debtorAccount: allocation.debtorAccount,
       revenueAccount: allocation.revenueAccount,
-      buKey:
-        allocation.taxTreatment === 'manual_bu'
-          ? allocation.buKey
-          : null,
+      buKey: allocation.taxTreatment === 'manual_bu' ? allocation.buKey : null,
       bookingText: buildBookingText({
         documentKind: 'INVOICE',
         documentNumber: invoice.invoice_number,
@@ -276,7 +279,10 @@ function buildCreditRows(creditNote: {
   credit_number: string | null;
   snapshot: unknown;
 }): AccountingExportBookingRow[] {
-  if (!isCreditNoteSnapshotV2(creditNote.snapshot) || !creditNote.credit_number) {
+  if (
+    !isCreditNoteSnapshotV2(creditNote.snapshot) ||
+    !creditNote.credit_number
+  ) {
     return [];
   }
 
@@ -299,10 +305,7 @@ function buildCreditRows(creditNote: {
       gross: item.gross,
       debtorAccount: allocation.debtorAccount,
       revenueAccount: allocation.revenueAccount,
-      buKey:
-        allocation.taxTreatment === 'manual_bu'
-          ? allocation.buKey
-          : null,
+      buKey: allocation.taxTreatment === 'manual_bu' ? allocation.buKey : null,
       bookingText: buildBookingText({
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
@@ -329,10 +332,7 @@ export async function loadAccountingExportCandidates(
         legal_entity_id: legalEntityId,
         date: { gte: dateFrom, lte: dateTo },
         status: {
-          in: [
-            ...ELIGIBLE_INVOICE_STATUSES,
-            InvoiceStatus.CANCELLED,
-          ],
+          in: [...ELIGIBLE_INVOICE_STATUSES, InvoiceStatus.CANCELLED],
         },
       },
       include: { items: { orderBy: { createdAt: 'asc' } } },
@@ -353,9 +353,8 @@ export async function loadAccountingExportCandidates(
   const invoiceCandidates = invoices.map((invoice) => {
     const blockers = collectBlockersForInvoice(invoice);
     const documentDate = invoice.date.toISOString().slice(0, 10);
-    const rows = blockers.length > 0
-      ? []
-      : buildInvoiceRows(invoice, documentDate);
+    const rows =
+      blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate);
 
     return {
       id: invoice.id,

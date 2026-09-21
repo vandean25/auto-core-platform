@@ -11,7 +11,10 @@ export function parseIsoDateOnly(value: string): Date {
   return parsed;
 }
 
-export function assertValidExportDateRange(dateFrom: string, dateTo: string): {
+export function assertValidExportDateRange(
+  dateFrom: string,
+  dateTo: string,
+): {
   dateFrom: Date;
   dateTo: Date;
 } {
@@ -54,7 +57,11 @@ export function assertClosedExportPeriod(
     ),
   );
   const dateToOnly = new Date(
-    Date.UTC(dateTo.getUTCFullYear(), dateTo.getUTCMonth(), dateTo.getUTCDate()),
+    Date.UTC(
+      dateTo.getUTCFullYear(),
+      dateTo.getUTCMonth(),
+      dateTo.getUTCDate(),
+    ),
   );
 
   if (dateToOnly > lockDateOnly) {
