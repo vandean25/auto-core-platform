@@ -108,4 +108,35 @@ describe('toRenderableInvoiceSnapshot', () => {
       toRenderableInvoiceSnapshot({ schema_version: 1 }, 'RE-1', 'inv-1'),
     ).toBeNull();
   });
+
+  it('omits tax_breakdown for margin-scheme snapshots', () => {
+    const renderable = toRenderableInvoiceSnapshot(
+      {
+        ...v2Snapshot,
+        tax_mode: 'MARGIN_SCHEME',
+        tax_breakdown: [{ rate: '20.00', net: '15000.00', tax: '3000.00', gross: '18000.00' }],
+        total_gross: '15000.00',
+        total_tax: '0.00',
+        items: [
+          {
+            ...v2Snapshot.items[0],
+            net: '15000.00',
+            tax: '0.00',
+            gross: '15000.00',
+          },
+        ],
+        margin: {
+          cost_basis: '12000.00',
+          margin_tax: '500.00',
+          tax_rate: '20.00',
+          calculation_profile: 'vehicle-margin-v1',
+        },
+      },
+      'RE-2026-0002',
+      'inv-2',
+    );
+
+    expect(renderable?.tax_breakdown).toBeUndefined();
+    expect(renderable?.items[0].line_total).toBe('15000.00');
+  });
 });

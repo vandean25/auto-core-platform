@@ -39,6 +39,8 @@ export function toRenderableInvoiceSnapshot(
     supply_date_to: snapshot.supply_date_to,
     payment_terms: snapshot.payment_terms,
     currency: snapshot.currency,
-    tax_breakdown: snapshot.tax_breakdown,
+    ...(snapshot.tax_mode === 'MARGIN_SCHEME'
+      ? {}
+      : { tax_breakdown: snapshot.tax_breakdown }),
   };
 }

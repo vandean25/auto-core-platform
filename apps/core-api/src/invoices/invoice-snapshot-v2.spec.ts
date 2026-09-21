@@ -249,7 +249,13 @@ describe('buildInvoiceSnapshotV2', () => {
       calculation_profile: 'vehicle-margin-v1',
     });
     expect(snapshot.tax_mode).toBe(InvoiceTaxMode.MARGIN_SCHEME);
-    expect(snapshot.items[0].description).toContain('VIN');
+    expect(snapshot.tax_breakdown).toEqual([]);
+    expect(snapshot.items[0]?.tax).toBe('0.00');
+    expect(snapshot.items[0]?.gross).toBe('15000.00');
+    expect(snapshot.total_gross).toBe('15000.00');
+    expect(snapshot.total_tax).toBe('0.00');
+    expect(JSON.stringify(snapshot.items)).not.toContain('3000.00');
+    expect(JSON.stringify(snapshot.items)).not.toContain('18000.00');
   });
 });
 
