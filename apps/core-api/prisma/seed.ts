@@ -12,6 +12,7 @@ import {
   seedLabor,
   seedCustomersAndVehicles,
   seedDemoSiteAccess,
+  seedDemoWorkshopAccountingProfile,
 } from '../src/prisma/fixtures/index.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -24,6 +25,12 @@ async function main() {
 
   const foundation = await seedTenantFoundation(prisma);
   const finance = await seedFinance(prisma, foundation.defaultTenant.id);
+  await seedDemoWorkshopAccountingProfile(
+    prisma,
+    foundation.defaultTenant.id,
+    foundation.defaultLegalEntity.id,
+    finance.revenueGroups,
+  );
   const brands = await seedBrands(prisma, foundation.defaultTenant.id);
   const inventory = await seedInventory(prisma, foundation, finance, brands.allBrands);
   const labor = await seedLabor(prisma, foundation.defaultTenant.id);

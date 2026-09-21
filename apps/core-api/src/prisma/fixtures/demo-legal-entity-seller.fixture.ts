@@ -3,7 +3,7 @@
  *
  * Fictional AT address and UID for local seed / UAT — not a real company.
  * After `npx prisma db seed` (wipe + reseed), no manual Settings step is required
- * for seller readiness; accounting profile setup remains separate (Legal Invoicing).
+ * for seller readiness; accounting profile is seeded separately (AUT-314).
  */
 export const DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS = {
   address_street: 'Hauptstraße 1',
