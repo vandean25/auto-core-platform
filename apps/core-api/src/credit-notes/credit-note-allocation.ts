@@ -79,22 +79,34 @@ export function allocateCreditLineAmounts(input: {
     throw new Error('Credit quantity exceeds remaining balance');
   }
 
+  if (
+    remaining.quantity.gt(0) &&
+    (remaining.net.lte(0) || remaining.tax.lte(0) || remaining.gross.lte(0))
+  ) {
+    throw new Error(
+      'No remaining creditable amount is available for this line',
+    );
+  }
+
   if (creditQuantity.eq(remaining.quantity)) {
     return remaining;
   }
 
-  const net = original.net
-    .mul(creditQuantity)
-    .div(original.quantity)
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-  const tax = original.tax
-    .mul(creditQuantity)
-    .div(original.quantity)
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
-  const gross = original.gross
-    .mul(creditQuantity)
-    .div(original.quantity)
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+  const net = Prisma.Decimal.min(
+    original.net
+      .mul(creditQuantity)
+      .div(original.quantity)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    remaining.net,
+  );
+  const tax = Prisma.Decimal.min(
+    original.tax
+      .mul(creditQuantity)
+      .div(original.quantity)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP),
+    remaining.tax,
+  );
+  const gross = Prisma.Decimal.min(net.add(tax), remaining.gross);
 
   return { quantity: creditQuantity, net, tax, gross };
 }
