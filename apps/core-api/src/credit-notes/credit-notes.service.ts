@@ -90,7 +90,6 @@ export class CreditNotesService {
     });
 
     const creditDate = this.parseCreditDate(dto.date);
-    this.assertCreditDateAllowed(creditDate, invoice.date);
 
     const { totals, itemPayloads } = this.buildDraftItemPayloads({
       draftLines,
@@ -99,28 +98,37 @@ export class CreditNotesService {
       originalLines,
     });
 
-    const creditNote = await this.prisma.creditNote.create({
-      data: {
-        tenant_id: tenantId,
-        original_invoice_id: invoice.id,
-        site_id: invoice.site_id!,
-        legal_entity_id: invoice.legal_entity_id!,
-        status: CreditNoteStatus.DRAFT,
-        date: creditDate,
-        reason: dto.reason.trim(),
-        total_net: totals.net,
-        total_tax: totals.tax,
-        total_gross: totals.gross,
-        items: {
-          create: itemPayloads.map((item) => ({
-            tenant_id: tenantId,
-            original_invoice_item_id: item.originalItemId,
-            quantity: item.quantity,
-            snapshot: item.snapshot as Prisma.InputJsonValue,
-          })),
+    const creditNote = await this.prisma.$transaction(async (tx) => {
+      await this.assertCreditDatesAllowed(
+        tx,
+        tenantId,
+        creditDate,
+        invoice.date,
+      );
+
+      return tx.creditNote.create({
+        data: {
+          tenant_id: tenantId,
+          original_invoice_id: invoice.id,
+          site_id: invoice.site_id!,
+          legal_entity_id: invoice.legal_entity_id!,
+          status: CreditNoteStatus.DRAFT,
+          date: creditDate,
+          reason: dto.reason.trim(),
+          total_net: totals.net,
+          total_tax: totals.tax,
+          total_gross: totals.gross,
+          items: {
+            create: itemPayloads.map((item) => ({
+              tenant_id: tenantId,
+              original_invoice_item_id: item.originalItemId,
+              quantity: item.quantity,
+              snapshot: item.snapshot as Prisma.InputJsonValue,
+            })),
+          },
         },
-      },
-      include: { items: true },
+        include: { items: true },
+      });
     });
 
     return this.serializeCreditNote(creditNote, originalSnapshot, priorCredits);
@@ -224,7 +232,6 @@ export class CreditNotesService {
     const nextDate = dto.date
       ? this.parseCreditDate(dto.date)
       : creditNote.date;
-    this.assertCreditDateAllowed(nextDate, invoice.date);
 
     const draftLines = dto.lines
       ? this.resolveExplicitLines({
@@ -240,6 +247,10 @@ export class CreditNotesService {
           quantity: item.quantity,
         }));
 
+    if (dto.lines && isMarginSchemeSnapshot(originalSnapshot)) {
+      this.assertFullCreditDraft(draftLines, remaining);
+    }
+
     const { totals, itemPayloads } = this.buildDraftItemPayloads({
       draftLines,
       originalSnapshot,
@@ -248,6 +259,8 @@ export class CreditNotesService {
     });
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertCreditDatesAllowed(tx, tenantId, nextDate, invoice.date);
+
       const result = await tx.creditNote.updateMany({
         where: {
           id,
@@ -349,7 +362,7 @@ export class CreditNotesService {
       const originalSnapshot = this.requireV2Snapshot(invoice);
       await lockSitesAndAssertActive(tx, tenantId, [creditNote.site_id]);
       await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditNote.date);
-      this.assertCreditDateAllowed(creditNote.date, invoice.date);
+      this.assertCreditDateNotBeforeOriginal(creditNote.date, invoice.date);
 
       const priorCredits = await this.loadPriorCredits(
         tenantId,
@@ -582,16 +595,27 @@ export class CreditNotesService {
     return parsed;
   }
 
-  private assertCreditDateAllowed(creditDate: Date, originalInvoiceDate: Date) {
+  private async assertCreditDatesAllowed(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    creditDate: Date,
+    originalInvoiceDate: Date,
+  ): Promise<void> {
+    this.assertCreditDateNotBeforeOriginal(creditDate, originalInvoiceDate);
+    await lockFinanceSettingsAndAssertOpen(tx, tenantId, creditDate);
+  }
+
+  private assertCreditDateNotBeforeOriginal(
+    creditDate: Date,
+    originalInvoiceDate: Date,
+  ) {
     const originalDate = new Date(
       originalInvoiceDate.toISOString().slice(0, 10) + 'T00:00:00.000Z',
     );
     if (creditDate < originalDate) {
-      throw new UnprocessableEntityException({
-        code: 'FISCAL_PERIOD_LOCKED',
-        message:
-          'Credit date cannot be earlier than the original invoice date.',
-      });
+      throw new BadRequestException(
+        'Credit date cannot be earlier than the original invoice date.',
+      );
     }
   }
 
@@ -680,7 +704,13 @@ export class CreditNotesService {
       }
 
       const balance = input.remaining.get(line.originalItemId);
-      if (!balance || quantity.gt(balance.quantity)) {
+      if (!balance || this.hasNoRemainingMoney(balance)) {
+        throw new ConflictException({
+          code: 'CREDIT_LIMIT_EXCEEDED',
+          message: 'No remaining creditable amount is available for this line.',
+        });
+      }
+      if (quantity.gt(balance.quantity)) {
         throw new ConflictException({
           code: 'CREDIT_LIMIT_EXCEEDED',
           message: 'Credit quantity exceeds the remaining balance.',
@@ -765,7 +795,13 @@ export class CreditNotesService {
     );
     for (const line of input.draftLines) {
       const balance = remaining.get(line.originalItemId);
-      if (!balance || line.quantity.gt(balance.quantity)) {
+      if (!balance || this.hasNoRemainingMoney(balance)) {
+        throw new ConflictException({
+          code: 'CREDIT_LIMIT_EXCEEDED',
+          message: 'No remaining creditable amount is available for this line.',
+        });
+      }
+      if (line.quantity.gt(balance.quantity)) {
         throw new ConflictException({
           code: 'CREDIT_LIMIT_EXCEEDED',
           message: 'Credit quantity exceeds the remaining balance.',
@@ -773,19 +809,22 @@ export class CreditNotesService {
       }
     }
     if (isMarginSchemeSnapshot(input.originalSnapshot)) {
-      const isFull = this.isFullCreditDraft(input.draftLines, remaining);
-      if (!isFull) {
-        throw new UnprocessableEntityException({
-          code: 'UNSUPPORTED_TAX_PROFILE',
-          message: 'Margin-scheme invoices only support full-document credits.',
-        });
-      }
+      this.assertFullCreditDraft(input.draftLines, remaining);
     }
+  }
+
+  private hasNoRemainingMoney(balance: LineBalance): boolean {
+    return (
+      balance.quantity.lte(0) ||
+      balance.net.lte(0) ||
+      balance.tax.lte(0) ||
+      balance.gross.lte(0)
+    );
   }
 
   private isFullCreditDraft(
     draftLines: DraftLineInput[],
-    remaining: Map<string, { quantity: Prisma.Decimal }>,
+    remaining: Map<string, LineBalance>,
   ): boolean {
     for (const [lineId, balance] of remaining.entries()) {
       if (balance.quantity.lte(0)) {
@@ -799,6 +838,18 @@ export class CreditNotesService {
       }
     }
     return true;
+  }
+
+  private assertFullCreditDraft(
+    draftLines: DraftLineInput[],
+    remaining: Map<string, LineBalance>,
+  ): void {
+    if (!this.isFullCreditDraft(draftLines, remaining)) {
+      throw new UnprocessableEntityException({
+        code: 'UNSUPPORTED_TAX_PROFILE',
+        message: 'Margin-scheme invoices only support full-document credits.',
+      });
+    }
   }
 
   private async loadPriorCredits(

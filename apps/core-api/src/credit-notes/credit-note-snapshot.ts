@@ -23,6 +23,9 @@ export type CreditNoteLineSnapshot = {
   original_item_id: string;
   description: string;
   quantity: string;
+  unit_price: string;
+  line_discount_type: string | null;
+  line_discount_value: string | null;
   net: string;
   tax: string;
   gross: string;
@@ -118,10 +121,10 @@ export function buildCreditNoteSnapshot(input: {
       id: line.original_item_id,
       description: line.description,
       quantity: line.quantity,
-      unit_price: line.net,
+      unit_price: line.unit_price,
       tax_rate: line.tax_rate,
-      line_discount_type: null,
-      line_discount_value: null,
+      line_discount_type: line.line_discount_type,
+      line_discount_value: line.line_discount_value,
       net: line.net,
       tax: line.tax,
       gross: line.gross,
@@ -160,6 +163,9 @@ export function buildCreditNoteLineSnapshot(input: {
     original_item_id: input.originalItemId,
     description: input.originalSnapshotItem.description,
     quantity: quantityString(input.quantity),
+    unit_price: input.originalSnapshotItem.unit_price,
+    line_discount_type: input.originalSnapshotItem.line_discount_type,
+    line_discount_value: input.originalSnapshotItem.line_discount_value,
     net: moneyString(input.net),
     tax: moneyString(input.tax),
     gross: moneyString(input.gross),
