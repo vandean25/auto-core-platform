@@ -35,8 +35,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useAuthSession } from '@/api/auth-session'
 import { useDebouncedAutoSave } from '@/hooks/useDebouncedAutoSave'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import {
+  canManageCreditNotes,
+  validateCreditQuantity,
+} from '@/lib/credit-note-quantity'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
 import { generateId } from '@/lib/id'
@@ -56,6 +61,8 @@ type DraftLineState = {
 export default function CreditNoteDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const sessionQuery = useAuthSession()
+  const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: creditNote, isLoading, isError, error } = useCreditNote(id)
   const { data: originalInvoice } = useInvoice(creditNote?.originalInvoiceId ?? '')
   const updateDraft = useUpdateCreditNoteDraft()
@@ -89,13 +96,38 @@ export default function CreditNoteDetailPage() {
   const isDraft = creditNote?.status === 'DRAFT'
   const isFinalized = creditNote?.status === 'FINALIZED'
 
+  const remainingByItemId = React.useMemo(
+    () =>
+      new Map(
+        (creditNote?.remainingLines ?? []).map((line) => [line.originalItemId, line]),
+      ),
+    [creditNote?.remainingLines],
+  )
+
+  const lineValidationErrors = React.useMemo(() => {
+    const errors = new Map<string, string>()
+    lines.forEach((line) => {
+      const remaining = remainingByItemId.get(line.originalItemId)
+      const error = validateCreditQuantity(
+        line.quantity,
+        remaining?.remainingQuantity,
+      )
+      if (error) {
+        errors.set(line.originalItemId, error)
+      }
+    })
+    return errors
+  }, [lines, remainingByItemId])
+
+  const hasInvalidLines = lineValidationErrors.size > 0
+
   const saveDraft = React.useCallback(
     async (
       snapshot: { date: string; reason: string; lines: DraftLineState[]; version: number },
       signal: AbortSignal,
-    ) => {
+    ): Promise<number> => {
       const serialized = JSON.stringify(snapshot)
-      if (serialized === lastSavedRef.current) return
+      if (serialized === lastSavedRef.current) return snapshot.version
 
       const updated = await updateDraft.mutateAsync({
         id,
@@ -112,16 +144,35 @@ export default function CreditNoteDetailPage() {
       })
       lastSavedRef.current = serialized
       setVersion(updated.version)
+      return updated.version
     },
     [id, updateDraft],
+  )
+
+  const persistDraft = React.useCallback(
+    async (
+      snapshot: { date: string; reason: string; lines: DraftLineState[]; version: number },
+      signal: AbortSignal,
+    ) => {
+      await saveDraft(snapshot, signal)
+    },
+    [saveDraft],
   )
 
   const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
     useDebouncedAutoSave({
       enabled: isDraft,
-      save: saveDraft,
+      save: persistDraft,
       shouldSave: (snapshot) =>
-        Boolean(snapshot.reason.trim()) && snapshot.lines.length > 0,
+        Boolean(snapshot.reason.trim()) &&
+        snapshot.lines.length > 0 &&
+        snapshot.lines.every((line) => {
+          const remaining = remainingByItemId.get(line.originalItemId)
+          return (
+            validateCreditQuantity(line.quantity, remaining?.remainingQuantity) ===
+            null
+          )
+        }),
     })
 
   const queueAutoSave = React.useCallback(
@@ -140,15 +191,40 @@ export default function CreditNoteDetailPage() {
 
   const handleFinalize = async () => {
     if (!creditNote) return
+
+    if (saveStatus === 'saving') {
+      toast.error('Please wait for the draft to finish saving before finalizing.')
+      return
+    }
+
+    if (saveStatus === 'error') {
+      toast.error('Resolve the autosave error before finalizing this credit note.')
+      return
+    }
+
+    if (!reason.trim()) {
+      toast.error('Please enter a reason before finalizing.')
+      return
+    }
+
+    if (hasInvalidLines) {
+      toast.error('Fix invalid credited quantities before finalizing.')
+      return
+    }
+
     clearPendingSave()
     abortInFlightSave()
-    await triggerAutoSave({ date, reason, lines, version }, { immediate: true })
 
     try {
+      const expectedVersion = await saveDraft(
+        { date, reason, lines, version },
+        new AbortController().signal,
+      )
+
       await finalizeCreditNote.mutateAsync({
         id: creditNote.id,
         payload: {
-          expectedVersion: version,
+          expectedVersion,
           idempotencyKey: generateId(),
         },
       })
@@ -228,10 +304,6 @@ export default function CreditNoteDetailPage() {
   const originalInvoiceLabel =
     originalInvoice?.invoice_number ?? creditNote.originalInvoiceId.slice(0, 8)
 
-  const remainingByItemId = new Map(
-    creditNote.remainingLines.map((line) => [line.originalItemId, line]),
-  )
-
   const getOriginalLineDescription = (originalItemId: string) => {
     const invoiceItem = originalInvoice?.items.find((item) => item.id === originalItemId)
     return invoiceItem?.description ?? originalItemId.slice(0, 8)
@@ -248,13 +320,23 @@ export default function CreditNoteDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           {isDraft ? <DocumentSaveIndicator status={saveStatus} /> : null}
-          {isDraft ? (
+          {isDraft && canManageCreditNote ? (
             <>
               <Button variant="outline" onClick={() => setVoidOpen(true)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Void
               </Button>
-              <Button onClick={() => setFinalizeOpen(true)}>Finalize</Button>
+              <Button
+                onClick={() => setFinalizeOpen(true)}
+                disabled={
+                  saveStatus === 'saving' ||
+                  saveStatus === 'error' ||
+                  hasInvalidLines ||
+                  finalizeCreditNote.isPending
+                }
+              >
+                Finalize
+              </Button>
             </>
           ) : null}
           {isFinalized ? (
@@ -371,6 +453,7 @@ export default function CreditNoteDetailPage() {
                 <TableBody>
                   {creditNote.items.map((item) => {
                     const remaining = remainingByItemId.get(item.originalInvoiceItemId)
+                    const lineError = lineValidationErrors.get(item.originalInvoiceItemId)
                     return (
                       <TableRow key={item.id}>
                         <TableCell>
@@ -378,24 +461,30 @@ export default function CreditNoteDetailPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           {isDraft ? (
-                            <Input
-                              className="ml-auto max-w-[120px] text-right"
-                              value={
-                                lines.find(
-                                  (line) =>
-                                    line.originalItemId === item.originalInvoiceItemId,
-                                )?.quantity ?? item.quantity
-                              }
-                              onChange={(event) => {
-                                const nextLines = lines.map((line) =>
-                                  line.originalItemId === item.originalInvoiceItemId
-                                    ? { ...line, quantity: event.target.value }
-                                    : line,
-                                )
-                                setLines(nextLines)
-                                queueAutoSave({ lines: nextLines })
-                              }}
-                            />
+                            <div className="ml-auto max-w-[160px]">
+                              <Input
+                                className="text-right"
+                                aria-invalid={Boolean(lineError)}
+                                value={
+                                  lines.find(
+                                    (line) =>
+                                      line.originalItemId === item.originalInvoiceItemId,
+                                  )?.quantity ?? item.quantity
+                                }
+                                onChange={(event) => {
+                                  const nextLines = lines.map((line) =>
+                                    line.originalItemId === item.originalInvoiceItemId
+                                      ? { ...line, quantity: event.target.value }
+                                      : line,
+                                  )
+                                  setLines(nextLines)
+                                  queueAutoSave({ lines: nextLines })
+                                }}
+                              />
+                              {lineError ? (
+                                <p className="mt-1 text-xs text-destructive">{lineError}</p>
+                              ) : null}
+                            </div>
                           ) : (
                             item.quantity
                           )}

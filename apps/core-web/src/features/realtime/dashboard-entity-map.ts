@@ -1,10 +1,12 @@
 import type { QueryKey } from "@tanstack/react-query";
+import { creditNoteKeys } from "@/api/useCreditNotes";
 import { customerKeys } from "@/api/customers";
 import { hrKeys } from "@/api/hr";
 import { inventoryKeys } from "@/api/inventory";
 import { mechanicQueueKeys } from "@/api/mechanic";
 import { purchaseInvoiceKeys } from "@/api/usePurchaseInvoices";
 import { purchaseOrderKeys } from "@/api/purchase-orders";
+import { invoiceKeys } from "@/api/sales";
 import { salesOrderKeys } from "@/api/sales-orders";
 import { stockTransferKeys } from "@/api/stock-transfers";
 import { vehicleKeys } from "@/api/vehicles";
@@ -111,6 +113,10 @@ const entityInvalidationMap: Record<
   PARTS_REQUISITION: {
     dashboardSourceKeys: ["workshop-orders"],
     domainQueryKeys: workshopAndMechanicQueueKeys,
+  },
+  CREDIT_NOTE: {
+    dashboardSourceKeys: ["credit-notes"],
+    domainQueryKeys: [creditNoteKeys.all, invoiceKeys.all],
   },
 };
 

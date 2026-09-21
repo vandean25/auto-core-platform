@@ -29,9 +29,23 @@ const e2eAuthSession: AuthSession = {
 }
 
 function getE2EAuthSession(pathname = window.location.pathname): AuthSession {
+  const roleOverride = window.localStorage.getItem('e2e-active-role')
+  const validRoles = new Set<AuthSession['activeRole']>([
+    'OWNER',
+    'ADMIN',
+    'TECH',
+    'SALES',
+  ])
+  const activeRole =
+    roleOverride && validRoles.has(roleOverride as AuthSession['activeRole'])
+      ? (roleOverride as AuthSession['activeRole'])
+      : isMechanicPath(pathname)
+        ? 'TECH'
+        : 'ADMIN'
+
   return {
     ...e2eAuthSession,
-    activeRole: isMechanicPath(pathname) ? 'TECH' : 'ADMIN',
+    activeRole,
   }
 }
 

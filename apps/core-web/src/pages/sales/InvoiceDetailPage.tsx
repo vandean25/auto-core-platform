@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useAuthSession } from '@/api/auth-session'
 import { useInvoice } from '@/api/sales'
 import { useInvoiceCreditContext } from '@/api/useCreditNotes'
 import { useWorkshopOrder } from '@/api/workshop'
@@ -12,6 +13,7 @@ import { calculateDiscountAmount, parseDiscountValue } from '@/lib/discount'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { canManageCreditNotes } from '@/lib/credit-note-quantity'
 import { Printer, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -132,6 +134,8 @@ const CREDIT_ELIGIBLE_STATUSES = new Set(['FINALIZED', 'ISSUED', 'PAID'])
 export default function InvoiceDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const sessionQuery = useAuthSession()
+  const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   const { data: creditContext } = useInvoiceCreditContext(id)
   const generatePdf = useGenerateInvoicePdf()
@@ -235,7 +239,10 @@ export default function InvoiceDetailPage() {
       ? invoice.customer.company_name
       : `${invoice.customer.first_name} ${invoice.customer.last_name}`.trim()
 
-  const canCreateCreditNote = CREDIT_ELIGIBLE_STATUSES.has(invoice.status)
+  const canCreateCreditNote =
+    canManageCreditNote &&
+    CREDIT_ELIGIBLE_STATUSES.has(invoice.status) &&
+    creditContext?.coverageStatus !== 'FULLY_CREDITED'
   const remainingByItemId = new Map(
     (creditContext?.remainingLines ?? []).map((line) => [line.originalItemId, line]),
   )
@@ -369,14 +376,16 @@ export default function InvoiceDetailPage() {
         </Card>
       ) : null}
 
-      <CreateCreditNoteDialog
-        invoice={invoice}
-        open={creditDialogOpen}
-        onOpenChange={setCreditDialogOpen}
-        onCreated={(creditNoteId) =>
-          navigate(APP_ROUTE_PATHS.creditNoteDetail.replace(':id', creditNoteId))
-        }
-      />
+      {canManageCreditNote ? (
+        <CreateCreditNoteDialog
+          invoice={invoice}
+          open={creditDialogOpen}
+          onOpenChange={setCreditDialogOpen}
+          onCreated={(creditNoteId) =>
+            navigate(APP_ROUTE_PATHS.creditNoteDetail.replace(':id', creditNoteId))
+          }
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="space-y-6 lg:col-span-1">
