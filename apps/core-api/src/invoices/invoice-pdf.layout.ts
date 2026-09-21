@@ -136,6 +136,49 @@ const buildLineDiscountLabel = (
   return `Rabatt ${item.line_discount_value}`;
 };
 
+export const MARGIN_SCHEME_LEGAL_NOTES = {
+  AT: 'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).',
+  DE: 'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).',
+} as const;
+
+export const resolveMarginSchemeLegalNote = (
+  countryIso: 'AT' | 'DE' | undefined,
+): string =>
+  countryIso === 'AT'
+    ? MARGIN_SCHEME_LEGAL_NOTES.AT
+    : MARGIN_SCHEME_LEGAL_NOTES.DE;
+
+export const buildInvoiceTaxBreakdownSection = (
+  snapshot: InvoiceSnapshot,
+  escapeHtml: EscapeHtml,
+): string => {
+  if (
+    snapshot.tax_mode === 'MARGIN_SCHEME' ||
+    !isDachRechnungSnapshot(snapshot) ||
+    !snapshot.tax_breakdown?.length
+  ) {
+    return '';
+  }
+
+  const rows = snapshot.tax_breakdown
+    .map(
+      (bucket) => `
+      <div class="total-row tax-rate-row">
+        <span>${escapeHtml(bucket.rate)} % USt (Netto ${escapeHtml(bucket.net)}):</span>
+        <span>${escapeHtml(bucket.tax)}</span>
+      </div>
+    `,
+    )
+    .join('');
+
+  return `
+    <div class="tax-breakdown">
+      <div class="section-title">Umsatzsteuer-Aufschlüsselung</div>
+      ${rows}
+    </div>
+  `;
+};
+
 export const buildInvoiceDocumentStyles = (): string => `
   ${buildBasePdfStyles()}
 
@@ -155,6 +198,8 @@ export const buildInvoiceDocumentStyles = (): string => `
   td { padding: 10px 8px; vertical-align: top; word-break: break-word; }
 
   .totals { margin-left: auto; width: 260px; break-inside: avoid; }
+  .tax-breakdown { margin-left: auto; width: 260px; break-inside: avoid; margin-bottom: 8px; }
+  .tax-breakdown .section-title { font-size: 11px; margin-bottom: 6px; }
   .total-row { display: flex; justify-content: space-between; padding: 4px 0; }
   .total-row.grand { font-weight: 800; font-size: 13px; border-top: 1px solid #d1d5db; margin-top: 8px; padding-top: 10px; }
 
@@ -343,6 +388,9 @@ export const buildInvoiceTotalsSection = (
 ): string => {
   if (snapshot.tax_mode === 'MARGIN_SCHEME') {
     const grossLabel = isDachRechnungSnapshot(snapshot) ? 'Brutto:' : 'Gross:';
+    const legalNote = resolveMarginSchemeLegalNote(
+      snapshot.seller?.country_iso,
+    );
 
     return `
       <div class="totals">
@@ -351,12 +399,15 @@ export const buildInvoiceTotalsSection = (
           <span>${escapeHtml(snapshot.total_gross)}</span>
         </div>
       </div>
-      <div class="legal-line">Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).</div>
+      <div class="legal-line">${escapeHtml(legalNote)}</div>
     `;
   }
 
+  const taxBreakdown = buildInvoiceTaxBreakdownSection(snapshot, escapeHtml);
+
   if (isDachRechnungSnapshot(snapshot)) {
     return `
+    ${taxBreakdown}
     <div class="totals">
       <div class="total-row">
         <span>Netto:</span>

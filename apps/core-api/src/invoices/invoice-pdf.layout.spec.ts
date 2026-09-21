@@ -9,11 +9,23 @@ import {
   buildInvoiceMetaSection,
   buildInvoiceNotesSection,
   buildInvoiceSellerSection,
+  buildInvoiceTaxBreakdownSection,
   buildInvoiceTotalsSection,
   buildInvoiceVehicleSection,
   isDachRechnungSnapshot,
+  MARGIN_SCHEME_LEGAL_NOTES,
+  resolveMarginSchemeLegalNote,
 } from './invoice-pdf.layout.js';
+import { buildInvoiceSnapshotV2 } from './invoice-snapshot-v2.js';
+import { toRenderableInvoiceSnapshot } from './invoice-snapshot-render.adapter.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
+import {
+  CustomerType,
+  DiscountType,
+  InvoiceStatus,
+  InvoiceTaxMode,
+  Prisma,
+} from '@prisma/client';
 
 describe('invoice-pdf.layout', () => {
   const createV2Seller = () => ({
@@ -365,13 +377,35 @@ describe('invoice-pdf.layout', () => {
       expect(html).toContain('120.00');
     });
 
-    it('renders German totals for v2 standard invoices', () => {
+    it('renders German totals with per-rate VAT buckets for v2 standard invoices', () => {
       const html = buildInvoiceTotalsSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
+      expect(html).toContain('20.00 % USt');
+      expect(html).toContain('Netto 250.00');
       expect(html).toContain('Netto:');
       expect(html).toContain('Umsatzsteuer:');
       expect(html).toContain('Brutto:');
       expect(html).toContain('300.00');
-      expect(html).not.toContain('tax_breakdown');
+      expect(html).not.toContain('cost_basis');
+      expect(html).not.toContain('margin_tax');
+    });
+
+    it('renders multiple VAT rate buckets for multi-rate v2 invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_breakdown = [
+        { rate: '20.00', net: '200.00', tax: '40.00', gross: '240.00' },
+        { rate: '19.00', net: '100.00', tax: '19.00', gross: '119.00' },
+      ];
+      snapshot.total_net = '300.00';
+      snapshot.total_tax = '59.00';
+      snapshot.total_gross = '359.00';
+
+      const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
+      expect(html).toContain('20.00 % USt');
+      expect(html).toContain('19.00 % USt');
+      expect(html).toContain('Netto 200.00');
+      expect(html).toContain('Netto 100.00');
+      expect(html).toContain('359.00');
     });
 
     it('renders margin scheme legal notice when tax_mode is MARGIN_SCHEME', () => {
@@ -380,6 +414,155 @@ describe('invoice-pdf.layout', () => {
       const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
       expect(html).toContain('Differenzbesteuerung gemäß § 24 UStG');
       expect(html).not.toContain('Net:');
+      expect(html).not.toContain('Umsatzsteuer-Aufschlüsselung');
+    });
+
+    it('renders only gross total and country margin note for builder-driven v2 margin invoices', () => {
+      const v2Snapshot = buildInvoiceSnapshotV2({
+        invoice: {
+          id: 'inv-margin',
+          tenant_id: 'tenant-1',
+          invoice_number: 'RE-2026-0099',
+          customer_id: 'cust-1',
+          vehicle_id: 'veh-1',
+          sales_order_id: null,
+          workshop_order_id: null,
+          vehicle_sale_id: 'vs-1',
+          site_id: 'site-1',
+          legal_entity_id: 'le-1',
+          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+          status: InvoiceStatus.FINALIZED,
+          date: new Date('2026-09-20T10:00:00.000Z'),
+          due_date: new Date('2026-10-04T10:00:00.000Z'),
+          supply_date_from: new Date('2026-09-20T00:00:00.000Z'),
+          supply_date_to: new Date('2026-09-20T00:00:00.000Z'),
+          currency: 'EUR',
+          global_discount_type: null,
+          global_discount_value: null,
+          total_net: new Prisma.Decimal('14500.00'),
+          total_tax: new Prisma.Decimal('500.00'),
+          total_gross: new Prisma.Decimal('15000.00'),
+          notes: null,
+          internal_notes: null,
+          snapshot: null,
+          pdf_storage_bucket: null,
+          pdf_storage_key: null,
+          pdf_generated_at: null,
+          pdf_generation_error: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          items: [],
+          customer: createV2Snapshot().customer,
+          vehicle: createV2Snapshot().vehicle,
+        },
+        seller: {
+          ...createV2Snapshot().seller!,
+          payment_terms_days: 14,
+          payment_terms_text: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
+        },
+        siteId: 'site-1',
+        legalEntityId: 'le-1',
+        lineAllocations: [
+          {
+            id: 'line-margin',
+            description: '2019 BMW 320d VIN WBA8E9G50JNU12345',
+            quantity: new Prisma.Decimal('1.000'),
+            unitPrice: new Prisma.Decimal('15000.00'),
+            taxRate: new Prisma.Decimal('20.00'),
+            lineDiscountType: null,
+            lineDiscountValue: null,
+            revenueGroupName: 'Vehicle used (margin)',
+            accountingAllocation: {
+              profileCode: 'ACP-DATEV-DE-EUR-1',
+              profileVersion: 1,
+              sourceCategoryKey: 'vehicle_margin',
+              sourceCategoryLabel: 'Vehicle margin scheme',
+              revenueAccount: '8600',
+              debtorAccount: '1000',
+              taxMode: 'MARGIN_SCHEME',
+              taxRate: '0.00',
+              taxTreatment: 'automatic',
+              buKey: null,
+              countryIso: 'DE',
+              currency: 'EUR',
+            },
+          },
+        ],
+        margin: {
+          cost_basis: '12000.00',
+          margin_tax: '500.00',
+          tax_rate: '20.00',
+          calculation_profile: 'vehicle-margin-v1',
+        },
+      });
+      const snapshot = toRenderableInvoiceSnapshot(
+        v2Snapshot,
+        'RE-2026-0099',
+        'inv-margin',
+      );
+
+      expect(snapshot).not.toBeNull();
+      const html = buildInvoiceTotalsSection(snapshot!, escapeHtml);
+      expect(html).toContain('Brutto:');
+      expect(html).toContain('15000.00');
+      expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
+      expect(html).not.toContain('Umsatzsteuer-Aufschlüsselung');
+      expect(html).not.toContain('Netto:');
+      expect(html).not.toContain('Umsatzsteuer:');
+      expect(html).not.toContain('18000.00');
+      expect(html).not.toContain('3000.00');
+      expect(html).not.toContain('cost_basis');
+      expect(html).not.toContain('margin_tax');
+    });
+
+    it('uses Austrian margin wording for AT v2 margin invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_mode = 'MARGIN_SCHEME';
+      snapshot.seller = {
+        ...snapshot.seller!,
+        country_iso: 'AT',
+      };
+
+      const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
+      expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.AT);
+      expect(html).not.toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
+      expect(html).not.toContain('margin_tax');
+      expect(html).not.toContain('cost_basis');
+    });
+  });
+
+  describe('buildInvoiceTaxBreakdownSection', () => {
+    it('returns empty string when tax_breakdown is absent', () => {
+      const snapshot = createSnapshot();
+      expect(buildInvoiceTaxBreakdownSection(snapshot, escapeHtml)).toBe('');
+    });
+
+    it('returns empty string for margin-scheme invoices', () => {
+      const snapshot = createV2Snapshot();
+      snapshot.tax_mode = 'MARGIN_SCHEME';
+      expect(buildInvoiceTaxBreakdownSection(snapshot, escapeHtml)).toBe('');
+    });
+
+    it('renders per-rate buckets for v2 standard invoices', () => {
+      const html = buildInvoiceTaxBreakdownSection(createV2Snapshot(), escapeHtml);
+      expect(html).toContain('Umsatzsteuer-Aufschlüsselung');
+      expect(html).toContain('20.00 % USt');
+      expect(html).toContain('Netto 250.00');
+      expect(html).toContain('50.00');
+    });
+  });
+
+  describe('resolveMarginSchemeLegalNote', () => {
+    it('returns German wording for DE sellers', () => {
+      expect(resolveMarginSchemeLegalNote('DE')).toBe(
+        MARGIN_SCHEME_LEGAL_NOTES.DE,
+      );
+    });
+
+    it('returns Austrian wording for AT sellers', () => {
+      expect(resolveMarginSchemeLegalNote('AT')).toBe(
+        MARGIN_SCHEME_LEGAL_NOTES.AT,
+      );
     });
   });
 

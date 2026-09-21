@@ -314,6 +314,27 @@ export function buildInvoiceSnapshotV2(
 
   const snapshotItems: InvoiceSnapshotV2Item[] = lineAllocations.map((line) => {
     const net = netByLine.get(line.id) ?? new Prisma.Decimal(0);
+
+    if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+      return {
+        id: line.id,
+        description: line.description,
+        quantity: quantityString(line.quantity),
+        unit_price: moneyString(line.unitPrice),
+        tax_rate: moneyString(line.taxRate),
+        line_discount_type: line.lineDiscountType,
+        line_discount_value:
+          line.lineDiscountValue === null
+            ? null
+            : moneyString(line.lineDiscountValue),
+        net: moneyString(net),
+        tax: '0.00',
+        gross: moneyString(net),
+        revenue_group_name: line.revenueGroupName,
+        accounting_allocation: line.accountingAllocation,
+      };
+    }
+
     const tax = halfUpTax(net, line.taxRate);
     const gross = net.add(tax);
     return {
@@ -335,18 +356,25 @@ export function buildInvoiceSnapshotV2(
     };
   });
 
-  const totalNet = snapshotItems.reduce(
-    (sum, item) => sum.add(toMoney(item.net)),
-    new Prisma.Decimal(0),
-  );
-  const totalTax = snapshotItems.reduce(
-    (sum, item) => sum.add(toMoney(item.tax)),
-    new Prisma.Decimal(0),
-  );
-  const totalGross = snapshotItems.reduce(
-    (sum, item) => sum.add(toMoney(item.gross)),
-    new Prisma.Decimal(0),
-  );
+  const isMarginScheme = invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  const totalNet = isMarginScheme
+    ? toMoney(invoice.total_gross)
+    : snapshotItems.reduce(
+        (sum, item) => sum.add(toMoney(item.net)),
+        new Prisma.Decimal(0),
+      );
+  const totalTax = isMarginScheme
+    ? new Prisma.Decimal(0)
+    : snapshotItems.reduce(
+        (sum, item) => sum.add(toMoney(item.tax)),
+        new Prisma.Decimal(0),
+      );
+  const totalGross = isMarginScheme
+    ? toMoney(invoice.total_gross)
+    : snapshotItems.reduce(
+        (sum, item) => sum.add(toMoney(item.gross)),
+        new Prisma.Decimal(0),
+      );
 
   const supplyFrom = invoice.supply_date_from ?? invoice.date;
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
@@ -393,14 +421,16 @@ export function buildInvoiceSnapshotV2(
       text: seller.payment_terms_text ?? '',
     },
     items: snapshotItems,
-    tax_breakdown: buildTaxBreakdown(
-      snapshotItems.map((item) => ({
-        taxRate: toMoney(item.tax_rate),
-        net: toMoney(item.net),
-        tax: toMoney(item.tax),
-        gross: toMoney(item.gross),
-      })),
-    ),
+    tax_breakdown: isMarginScheme
+      ? []
+      : buildTaxBreakdown(
+          snapshotItems.map((item) => ({
+            taxRate: toMoney(item.tax_rate),
+            net: toMoney(item.net),
+            tax: toMoney(item.tax),
+            gross: toMoney(item.gross),
+          })),
+        ),
     ...(margin ? { margin } : {}),
     total_net: moneyString(totalNet),
     total_tax: moneyString(totalTax),
