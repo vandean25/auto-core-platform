@@ -338,14 +338,6 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
       where: { tenant_id: tenant.tenantId },
     });
-    const profile = await tenantPrisma.legalEntityAccountingProfile.findFirstOrThrow({
-      where: {
-        tenant_id: tenant.tenantId,
-        legal_entity_id: entity.id,
-      },
-    });
-    const originalMappingRules = profile.mapping_rules;
-
     await tenantPrisma.legalEntityAccountingProfile.update({
       where: {
         tenant_id_legal_entity_id: {
@@ -365,14 +357,8 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
 
     expect(response.body.code).toBe('ACCOUNTING_MAPPING_INCOMPLETE');
 
-    await tenantPrisma.legalEntityAccountingProfile.update({
-      where: {
-        tenant_id_legal_entity_id: {
-          tenant_id: tenant.tenantId,
-          legal_entity_id: entity.id,
-        },
-      },
-      data: { mapping_rules: originalMappingRules },
+    await seedReadySellerAndAccountingProfile(prisma, tenant.tenantId, {
+      includeVehicleMargin: true,
     });
   });
 

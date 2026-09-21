@@ -2,6 +2,42 @@ import type { PrismaService } from '../src/prisma/prisma.service.js';
 import { createTenantAwarePrisma } from './tenant-test-utils.js';
 import { FIXED_SOURCE_CATEGORY_KEYS } from '../src/finance/accounting-profile/accounting-profile.types.js';
 
+function buildDefaultMappingRules(
+  taxRate: string,
+  includeVehicleMargin = false,
+) {
+  return [
+    {
+      sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.MANUAL_LINE,
+      sourceCategoryLabel: 'Manual invoice lines',
+      taxMode: 'STANDARD',
+      taxRate,
+      revenueAccount: '8400',
+      taxTreatment: 'automatic',
+    },
+    {
+      sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.LABOR,
+      sourceCategoryLabel: 'Labor / workshop services',
+      taxMode: 'STANDARD',
+      taxRate,
+      revenueAccount: '8500',
+      taxTreatment: 'automatic',
+    },
+    ...(includeVehicleMargin
+      ? [
+          {
+            sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
+            sourceCategoryLabel: 'Vehicle margin scheme',
+            taxMode: 'MARGIN_SCHEME',
+            taxRate: '0.00',
+            revenueAccount: '8600',
+            taxTreatment: 'automatic',
+          },
+        ]
+      : []),
+  ];
+}
+
 export async function seedReadySellerAndAccountingProfile(
   prisma: PrismaService,
   tenantId: string,
@@ -31,6 +67,11 @@ export async function seedReadySellerAndAccountingProfile(
     },
   });
 
+  const mappingRules = buildDefaultMappingRules(
+    taxRate,
+    options.includeVehicleMargin,
+  );
+
   const profile = await tenantPrisma.legalEntityAccountingProfile.upsert({
     where: {
       tenant_id_legal_entity_id: {
@@ -38,7 +79,9 @@ export async function seedReadySellerAndAccountingProfile(
         legal_entity_id: entity.id,
       },
     },
-    update: {},
+    update: {
+      mapping_rules: mappingRules,
+    },
     create: {
       tenant_id: tenantId,
       legal_entity_id: entity.id,
@@ -48,36 +91,7 @@ export async function seedReadySellerAndAccountingProfile(
       client_number: '1',
       account_length: 4,
       default_debtor_account: '1000',
-      mapping_rules: [
-        {
-          sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.MANUAL_LINE,
-          sourceCategoryLabel: 'Manual invoice lines',
-          taxMode: 'STANDARD',
-          taxRate,
-          revenueAccount: '8400',
-          taxTreatment: 'automatic',
-        },
-        {
-          sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.LABOR,
-          sourceCategoryLabel: 'Labor / workshop services',
-          taxMode: 'STANDARD',
-          taxRate,
-          revenueAccount: '8500',
-          taxTreatment: 'automatic',
-        },
-        ...(options.includeVehicleMargin
-          ? [
-              {
-                sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
-                sourceCategoryLabel: 'Vehicle margin scheme',
-                taxMode: 'MARGIN_SCHEME',
-                taxRate: '0.00',
-                revenueAccount: '8600',
-                taxTreatment: 'automatic',
-              },
-            ]
-          : []),
-      ],
+      mapping_rules: mappingRules,
     },
   });
 
