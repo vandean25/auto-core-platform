@@ -1,3 +1,5 @@
+import { computeSellerReadiness } from '../../site/legal-entity-readiness.js';
+import { DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS } from './demo-legal-entity-seller.fixture.js';
 import { seedTenantFoundation } from './tenant-foundation.fixture.js';
 
 describe('tenant-foundation.fixture', () => {
@@ -18,6 +20,7 @@ describe('tenant-foundation.fixture', () => {
           name: 'Default Workshop',
           country_iso: 'AT',
           is_active: true,
+          ...DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS,
         }),
       },
       site: {
@@ -59,6 +62,32 @@ describe('tenant-foundation.fixture', () => {
 
     expect(result.defaultTenant.slug).toBe('default-workshop');
     expect(result.defaultLegalEntity.country_iso).toBe('AT');
+    expect(mockPrisma.legalEntity.create).toHaveBeenCalledWith({
+      data: {
+        tenant_id: 'tenant-1',
+        name: 'Default Workshop',
+        country_iso: 'AT',
+        is_active: true,
+        ...DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS,
+      },
+    });
+    expect(
+      computeSellerReadiness({
+        country_iso: 'AT',
+        name: 'Default Workshop',
+        address_line2: null,
+        tax_number: null,
+        iban: null,
+        bic: null,
+        bank_name: null,
+        email: null,
+        phone: null,
+        registration_number: null,
+        registration_court: null,
+        representatives: null,
+        ...DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS,
+      }).isReady,
+    ).toBe(true);
     expect(result.mainSite.code).toBe('MAIN');
     expect(result.grzSite.code).toBe('GRZ');
     expect(result.systemLocations).toHaveLength(2);

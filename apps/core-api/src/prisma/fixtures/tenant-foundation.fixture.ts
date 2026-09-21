@@ -1,4 +1,5 @@
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
+import { DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS } from './demo-legal-entity-seller.fixture.js';
 
 async function seedSiteSystemLocations(
   prisma: SeedPrismaClient,
@@ -51,6 +52,7 @@ export async function seedTenantFoundation(
       name: defaultTenant.name,
       country_iso: 'AT',
       is_active: true,
+      ...DEFAULT_WORKSHOP_DEMO_SELLER_FIELDS,
     },
   });
 
