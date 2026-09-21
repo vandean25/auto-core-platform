@@ -272,7 +272,9 @@ export const buildInvoiceVehicleSection = (
   }
 
   const vehicle = snapshot.vehicle;
-  const vehicleLabel = isDachRechnungSnapshot(snapshot) ? 'Fahrzeug' : 'Vehicle';
+  const vehicleLabel = isDachRechnungSnapshot(snapshot)
+    ? 'Fahrzeug'
+    : 'Vehicle';
   const plateLabel = isDachRechnungSnapshot(snapshot) ? 'Kennzeichen' : 'Plate';
   const vinLabel = isDachRechnungSnapshot(snapshot) ? 'FIN' : 'VIN';
 
