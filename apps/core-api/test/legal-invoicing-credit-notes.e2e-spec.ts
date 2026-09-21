@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -149,6 +150,70 @@ describe('Legal invoicing credit notes (e2e)', () => {
       .send(body);
   }
 
+  function finalizeCredit(creditNoteId: string, idempotencyKey: string) {
+    return request(app.getHttpServer())
+      .post(`/api/credit-notes/${creditNoteId}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedVersion: 1, idempotencyKey });
+  }
+
+  afterEach(async () => {
+    await tenantPrisma.financeSettings.updateMany({
+      where: { tenant_id: tenant.tenantId },
+      data: { lock_date: null },
+    });
+  });
+
+  async function patchInvoiceSnapshotForLowCentLine(invoiceId: string) {
+    const invoice = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoiceId },
+      include: { items: true },
+    });
+    const snapshot = invoice.snapshot as Record<string, unknown>;
+    const item = (snapshot.items as Array<Record<string, unknown>>)[0];
+
+    const patchedSnapshot = {
+      ...snapshot,
+      items: [
+        {
+          ...item,
+          quantity: '10.000',
+          unit_price: '0.01',
+          net: '0.05',
+          tax: '0.01',
+          gross: '0.06',
+        },
+      ],
+      tax_breakdown: [
+        {
+          rate: item.tax_rate,
+          net: '0.05',
+          tax: '0.01',
+          gross: '0.06',
+        },
+      ],
+      total_net: '0.05',
+      total_tax: '0.01',
+      total_gross: '0.06',
+    };
+
+    await tenantPrisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        total_net: 0.05,
+        total_tax: 0.01,
+        total_gross: 0.06,
+        snapshot: patchedSnapshot,
+      },
+    });
+
+    return {
+      ...invoice,
+      items: invoice.items,
+      snapshot: patchedSnapshot,
+    };
+  }
+
   it('LI-07: assigns independent CN numbers and replays finalize idempotently', async () => {
     const invoice = await finalizeSalesInvoice();
 
@@ -158,19 +223,11 @@ describe('Legal invoicing credit notes (e2e)', () => {
       mode: 'FULL',
     }).expect(201);
 
-    const first = await request(app.getHttpServer())
-      .post(`/api/credit-notes/${draft.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ expectedVersion: 1, idempotencyKey: 'cn-finalize-1' })
-      .expect(201);
+    const first = await finalizeCredit(draft.body.id, 'cn-finalize-1').expect(201);
 
     expect(first.body.creditNumber).toMatch(/^CN-2026-\d{4}$/);
 
-    const replay = await request(app.getHttpServer())
-      .post(`/api/credit-notes/${draft.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ expectedVersion: 1, idempotencyKey: 'cn-finalize-1' })
-      .expect(201);
+    const replay = await finalizeCredit(draft.body.id, 'cn-finalize-1').expect(201);
 
     expect(replay.body.creditNumber).toBe(first.body.creditNumber);
 
@@ -191,11 +248,9 @@ describe('Legal invoicing credit notes (e2e)', () => {
       lines: [{ originalItemId: invoice.items[0].id, quantity: '1.000' }],
     }).expect(201);
 
-    const firstFinal = await request(app.getHttpServer())
-      .post(`/api/credit-notes/${firstDraft.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ expectedVersion: 1, idempotencyKey: 'partial-1' })
-      .expect(201);
+    const firstFinal = await finalizeCredit(firstDraft.body.id, 'partial-1').expect(
+      201,
+    );
 
     const secondDraft = await createDraftCredit(invoice.id, {
       date: '2026-09-21',
@@ -204,11 +259,9 @@ describe('Legal invoicing credit notes (e2e)', () => {
       lines: [{ originalItemId: invoice.items[0].id, quantity: '2.000' }],
     }).expect(201);
 
-    const secondFinal = await request(app.getHttpServer())
-      .post(`/api/credit-notes/${secondDraft.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ expectedVersion: 1, idempotencyKey: 'partial-2' })
-      .expect(201);
+    const secondFinal = await finalizeCredit(secondDraft.body.id, 'partial-2').expect(
+      201,
+    );
 
     const invoiceSnapshot = await tenantPrisma.invoice.findFirstOrThrow({
       where: { id: invoice.id },
@@ -228,31 +281,100 @@ describe('Legal invoicing credit notes (e2e)', () => {
     }).expect(409);
   });
 
+  it('LI-08: sequential penny partials never exceed remaining net', async () => {
+    const invoice = await finalizeSalesInvoice(10, 0.01);
+    const patched = await patchInvoiceSnapshotForLowCentLine(invoice.id);
+    const lineId = patched.items[0].id;
+
+    let creditedNet = 0;
+    for (let index = 0; index < 5; index += 1) {
+      const draft = await createDraftCredit(invoice.id, {
+        date: '2026-09-21',
+        reason: `Penny partial ${index + 1}`,
+        mode: 'PARTIAL',
+        lines: [{ originalItemId: lineId, quantity: '1.000' }],
+      }).expect(201);
+
+      const finalized = await finalizeCredit(
+        draft.body.id,
+        `penny-partial-${index}`,
+      ).expect(201);
+
+      expect(
+        Number(finalized.body.items[0].snapshot.net) +
+          Number(finalized.body.items[0].snapshot.tax),
+      ).toBeCloseTo(Number(finalized.body.items[0].snapshot.gross), 2);
+      creditedNet += Number(finalized.body.items[0].snapshot.net);
+    }
+
+    expect(creditedNet).toBeLessThanOrEqual(0.05);
+    expect(creditedNet.toFixed(2)).toBe('0.05');
+
+    await createDraftCredit(invoice.id, {
+      date: '2026-09-21',
+      reason: 'Money depleted',
+      mode: 'PARTIAL',
+      lines: [{ originalItemId: lineId, quantity: '1.000' }],
+    }).expect(409);
+  });
+
+  it('LI-08: racing partial finalize rejects the second credit', async () => {
+    const invoice = await finalizeSalesInvoice(3, 50);
+
+    const firstDraft = await createDraftCredit(invoice.id, {
+      date: '2026-09-21',
+      reason: 'Race partial 1',
+      mode: 'PARTIAL',
+      lines: [{ originalItemId: invoice.items[0].id, quantity: '2.000' }],
+    }).expect(201);
+
+    const secondDraft = await createDraftCredit(invoice.id, {
+      date: '2026-09-21',
+      reason: 'Race partial 2',
+      mode: 'PARTIAL',
+      lines: [{ originalItemId: invoice.items[0].id, quantity: '2.000' }],
+    }).expect(201);
+
+    await finalizeCredit(firstDraft.body.id, 'race-partial-1').expect(201);
+
+    const rejected = await finalizeCredit(
+      secondDraft.body.id,
+      'race-partial-2',
+    ).expect(409);
+
+    expect(rejected.body.code).toBe('CREDIT_LIMIT_EXCEEDED');
+  });
+
   it('LI-09: rejects credit dates inside locked fiscal period', async () => {
     const invoice = await finalizeSalesInvoice();
 
     await tenantPrisma.financeSettings.updateMany({
       where: { tenant_id: tenant.tenantId },
-      data: { lock_date: new Date('2026-09-20T23:59:59.999Z') },
+      data: { lock_date: new Date('2026-09-21T23:59:59.999Z') },
     });
 
-    await createDraftCredit(invoice.id, {
-      date: '2026-09-20',
-      reason: 'Locked period attempt',
-      mode: 'FULL',
-    }).expect(422);
+    try {
+      const locked = await createDraftCredit(invoice.id, {
+        date: '2026-09-21',
+        reason: 'Locked period attempt',
+        mode: 'FULL',
+      }).expect(422);
 
-    const openPeriodDraft = await createDraftCredit(invoice.id, {
-      date: '2026-09-21',
-      reason: 'Open period credit',
-      mode: 'FULL',
-    }).expect(201);
+      expect(locked.body.code).toBe('FISCAL_PERIOD_LOCKED');
 
-    await request(app.getHttpServer())
-      .post(`/api/credit-notes/${openPeriodDraft.body.id}/finalize`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .send({ expectedVersion: 1, idempotencyKey: 'open-period' })
-      .expect(201);
+      const openPeriodDraft = await createDraftCredit(invoice.id, {
+        date: '2026-09-22',
+        reason: 'Open period credit',
+        mode: 'FULL',
+      }).expect(201);
+
+      await finalizeCredit(openPeriodDraft.body.id, 'open-period').expect(201);
+    } finally {
+      await tenantPrisma.financeSettings.updateMany({
+        where: { tenant_id: tenant.tenantId },
+        data: { lock_date: null },
+      });
+    }
   });
 
   it('LI-10/LI-11: rejects ineligible originals and leaves inventory unchanged', async () => {
@@ -324,5 +446,184 @@ describe('Legal invoicing credit notes (e2e)', () => {
       reason: 'Should fail',
       mode: 'FULL',
     }).expect(422);
+  });
+
+  it('LI-10: allows credits against PAID originals', async () => {
+    const invoice = await finalizeSalesInvoice();
+
+    await tenantPrisma.invoice.updateMany({
+      where: { id: invoice.id },
+      data: { status: 'PAID' },
+    });
+
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Paid invoice correction',
+      mode: 'FULL',
+    }).expect(201);
+
+    await finalizeCredit(draft.body.id, 'paid-original').expect(201);
+  });
+
+  it('LI-10: rejects legacy v1 snapshots and foreign lines', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const invoiceRecord = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id },
+    });
+
+    const legacyInvoice = await tenantPrisma.invoice.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        customer_id: customerId,
+        site_id: siteId,
+        legal_entity_id: invoiceRecord.legal_entity_id,
+        status: 'FINALIZED',
+        invoice_number: 'LEG-001',
+        date: new Date('2026-09-21'),
+        due_date: new Date('2026-10-05'),
+        total_net: 10,
+        total_tax: 2,
+        total_gross: 12,
+        snapshot: { schema_version: 1, total_gross: '12.00' },
+        items: {
+          create: {
+            tenant_id: tenant.tenantId,
+            description: 'Legacy line',
+            quantity: 1,
+            unit_price: 10,
+            tax_rate: 20,
+            line_total: 10,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    const legacyResponse = await createDraftCredit(legacyInvoice.id, {
+      date: '2026-09-22',
+      reason: 'Legacy unsupported',
+      mode: 'FULL',
+    }).expect(422);
+
+    expect(legacyResponse.body.code).toBe('LEGACY_DOCUMENT_UNSUPPORTED');
+
+    const foreignLine = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Foreign line',
+      mode: 'PARTIAL',
+      lines: [{ originalItemId: randomUUID(), quantity: '1.000' }],
+    }).expect(400);
+
+    expect(foreignLine.body.message).toContain(
+      'Credit line does not belong to the original invoice.',
+    );
+
+    const negativeQty = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Negative qty',
+      mode: 'PARTIAL',
+      lines: [{ originalItemId: invoice.items[0].id, quantity: '-1.000' }],
+    }).expect(400);
+
+    expect(negativeQty.body.message).toContain(
+      'Credit quantity must be greater than zero.',
+    );
+  });
+
+  it('LI-11: rejects margin partial updates and finalized mutations', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const invoiceRecord = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id },
+    });
+    const snapshot = invoiceRecord.snapshot as Record<string, unknown>;
+
+    await tenantPrisma.invoice.update({
+      where: { id: invoice.id },
+      data: {
+        snapshot: {
+          ...snapshot,
+          tax_mode: 'MARGIN_SCHEME',
+          margin: {
+            cost_basis: '80.00',
+            margin_tax: '4.00',
+            tax_rate: '20.00',
+            calculation_profile: 'vehicle-margin-v1',
+          },
+        },
+      },
+    });
+
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Margin full draft',
+      mode: 'FULL',
+    }).expect(201);
+
+    const partialPatch = await request(app.getHttpServer())
+      .patch(`/api/credit-notes/${draft.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedVersion: 1,
+        lines: [
+          {
+            originalItemId: invoice.items[0].id,
+            quantity: '1.000',
+          },
+        ],
+      })
+      .expect(422);
+
+    expect(partialPatch.body.code).toBe('UNSUPPORTED_TAX_PROFILE');
+
+    const finalizedDraft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Finalize mutation guard',
+      mode: 'FULL',
+    }).expect(201);
+
+    await finalizeCredit(finalizedDraft.body.id, 'finalized-mutation').expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/credit-notes/${finalizedDraft.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedVersion: 2, reason: 'Too late' })
+      .expect(409);
+
+    await request(app.getHttpServer())
+      .post(`/api/credit-notes/${finalizedDraft.body.id}/void`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedVersion: 2 })
+      .expect(409);
+  });
+
+  it('LI-11: finalized credits leave inventory unchanged and preserve unit price', async () => {
+    const invoice = await finalizeSalesInvoice();
+    const stockBefore = await tenantPrisma.inventoryStock.findMany({
+      where: { site_id: siteId },
+    });
+    const originalSnapshot = (
+      await tenantPrisma.invoice.findFirstOrThrow({ where: { id: invoice.id } })
+    ).snapshot as { items: Array<{ unit_price: string }> };
+
+    const draft = await createDraftCredit(invoice.id, {
+      date: '2026-09-22',
+      reason: 'Inventory neutral credit',
+      mode: 'FULL',
+    }).expect(201);
+
+    const finalized = await finalizeCredit(
+      draft.body.id,
+      'inventory-neutral',
+    ).expect(201);
+
+    const stockAfter = await tenantPrisma.inventoryStock.findMany({
+      where: { site_id: siteId },
+    });
+    expect(stockAfter).toEqual(stockBefore);
+
+    expect(finalized.body.items[0].snapshot.unit_price).toBe(
+      originalSnapshot.items[0].unit_price,
+    );
+    expect(finalized.body.items[0].snapshot.line_discount_type).toBeDefined();
   });
 });
