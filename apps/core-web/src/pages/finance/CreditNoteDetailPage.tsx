@@ -142,7 +142,7 @@ export default function CreditNoteDetailPage() {
     if (!creditNote) return
     clearPendingSave()
     abortInFlightSave()
-    await triggerAutoSave({ date, reason, lines }, { immediate: true })
+    await triggerAutoSave({ date, reason, lines, version }, { immediate: true })
 
     try {
       await finalizeCreditNote.mutateAsync({
