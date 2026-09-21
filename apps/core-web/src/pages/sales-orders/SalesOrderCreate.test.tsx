@@ -31,24 +31,31 @@ vi.mock('sonner', () => ({
 
 vi.mock('@/components/sales/CustomerSearch', () => ({
   CustomerSearch: ({
+    value,
     onChange,
   }: {
+    value?: Customer | null
     onChange: (customer: Customer | null) => void
   }) => (
-    <button
-      type="button"
-      onClick={() =>
-        onChange({
-          id: 'cust-1',
-          type: 'PRIVATE',
-          first_name: 'Ada',
-          last_name: 'Lovelace',
-          email: 'ada@example.com',
-        })
-      }
-    >
-      Select customer
-    </button>
+    <div>
+      <span data-testid="customer-search-value">
+        {value ? `${value.first_name} ${value.last_name}`.trim() : 'No customer'}
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          onChange({
+            id: 'cust-1',
+            type: 'PRIVATE',
+            first_name: 'Ada',
+            last_name: 'Lovelace',
+            email: 'ada@example.com',
+          })
+        }
+      >
+        Select customer
+      </button>
+    </div>
   ),
 }))
 
@@ -85,6 +92,20 @@ describe('SalesOrderCreate autosave', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     )
+
+  it('shows the selected customer instead of a loading placeholder', async () => {
+    asMock(salesOrdersApi.useCreateSalesOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ id: 'so-1', order_number: 'SO-2026-0001' }),
+      isPending: false,
+    })
+
+    renderPage()
+
+    expect(screen.getByTestId('customer-search-value')).toHaveTextContent('No customer')
+    fireEvent.click(screen.getByRole('button', { name: 'Select customer' }))
+    expect(screen.getByTestId('customer-search-value')).toHaveTextContent('Ada Lovelace')
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
+  })
 
   it('auto-saves a draft after a customer is selected', async () => {
     const createMutation = vi.fn().mockResolvedValue({ id: 'so-1', order_number: 'SO-2026-0001' })
