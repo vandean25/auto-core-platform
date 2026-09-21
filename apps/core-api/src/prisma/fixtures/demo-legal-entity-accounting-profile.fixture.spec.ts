@@ -1,37 +1,56 @@
 import { resolveAccountingAllocation } from '../../finance/accounting-profile/accounting-profile.resolver.js';
-import { FIXED_SOURCE_CATEGORY_KEYS } from '../../finance/accounting-profile/accounting-profile.types.js';
+import {
+  FIXED_SOURCE_CATEGORY_KEYS,
+  revenueGroupSourceCategoryKey,
+} from '../../finance/accounting-profile/accounting-profile.types.js';
+import { DEMO_WORKSHOP_REVENUE_GROUP_SPECS } from './demo-workshop-revenue-groups.fixture.js';
 import {
   DEMO_WORKSHOP_ACCOUNTING_PROFILE_DEFAULTS,
   buildDemoWorkshopAccountingMappingRules,
   seedDemoWorkshopAccountingProfile,
 } from './demo-legal-entity-accounting-profile.fixture.js';
 
-const demoRevenueGroups = [
-  {
-    id: 1,
-    name: 'Parts / Goods 20%',
-    tax_rate: { toString: () => '20' },
-    account_number: '4000',
-  },
-  {
-    id: 2,
-    name: 'Services / Labor 20%',
-    tax_rate: { toString: () => '20' },
-    account_number: '4001',
-  },
-  {
-    id: 3,
-    name: 'Tax Free / Margin',
-    tax_rate: { toString: () => '0' },
-    account_number: '4099',
-  },
-];
+function demoRevenueGroupsWithIds(ids: number[]) {
+  return ids.map((id, index) => ({
+    id,
+    name: DEMO_WORKSHOP_REVENUE_GROUP_SPECS[index].name,
+    tax_rate: { toString: () => String(DEMO_WORKSHOP_REVENUE_GROUP_SPECS[index].tax_rate) },
+    account_number: DEMO_WORKSHOP_REVENUE_GROUP_SPECS[index].account_number,
+  }));
+}
+
+/** Typical live UAT ids after wipe+reseed when the revenue_groups sequence has advanced. */
+const liveUatRevenueGroups = demoRevenueGroupsWithIds([4, 5, 6]);
 
 describe('demo-legal-entity-accounting-profile.fixture', () => {
-  it('builds mapping rules that satisfy finalize allocation paths', () => {
+  it('includes fixed and revenue_group mappings for catalog finalize (live UAT ids 4–6)', () => {
     const mappingRules = buildDemoWorkshopAccountingMappingRules(
-      demoRevenueGroups as never,
+      liveUatRevenueGroups as never,
     );
+    const keys = mappingRules.map((rule) => rule.sourceCategoryKey);
+
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        FIXED_SOURCE_CATEGORY_KEYS.MANUAL_LINE,
+        FIXED_SOURCE_CATEGORY_KEYS.LABOR,
+        FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
+        revenueGroupSourceCategoryKey(4),
+        revenueGroupSourceCategoryKey(5),
+        revenueGroupSourceCategoryKey(6),
+      ]),
+    );
+    expect(mappingRules).toHaveLength(6);
+
+    const partsRule = mappingRules.find(
+      (rule) => rule.sourceCategoryKey === revenueGroupSourceCategoryKey(4),
+    );
+    expect(partsRule).toMatchObject({
+      sourceCategoryLabel: 'Parts / Goods 20%',
+      taxMode: 'STANDARD',
+      taxRate: '20.00',
+      revenueAccount: '4000',
+    });
+
     const profile = {
       id: 'profile-1',
       tenant_id: 'tenant-1',
@@ -72,19 +91,19 @@ describe('demo-legal-entity-accounting-profile.fixture', () => {
 
     expect(
       resolveAccountingAllocation(profile, 'AT', {
-        sourceCategoryKey: 'revenue_group:1',
+        sourceCategoryKey: revenueGroupSourceCategoryKey(4),
         sourceCategoryLabel: 'Parts / Goods 20%',
         taxMode: 'STANDARD',
         taxRate: '20.00',
-        revenueGroupId: 1,
+        revenueGroupId: 4,
       }),
     ).not.toBeNull();
 
-    for (const group of demoRevenueGroups) {
+    for (const group of liveUatRevenueGroups) {
       const taxRate = Number.parseFloat(group.tax_rate.toString()).toFixed(2);
       expect(
         resolveAccountingAllocation(profile, 'AT', {
-          sourceCategoryKey: `revenue_group:${group.id}`,
+          sourceCategoryKey: revenueGroupSourceCategoryKey(group.id),
           sourceCategoryLabel: group.name,
           taxMode: 'STANDARD',
           taxRate,
@@ -94,9 +113,9 @@ describe('demo-legal-entity-accounting-profile.fixture', () => {
     }
   });
 
-  it('seeds a disabled accounting profile for the default workshop legal entity', async () => {
+  it('seeds a disabled accounting profile with revenue_group rules from finance seed', async () => {
     const mappingRules = buildDemoWorkshopAccountingMappingRules(
-      demoRevenueGroups as never,
+      liveUatRevenueGroups as never,
     );
     const upsert = jest.fn().mockResolvedValue({
       id: 'profile-1',
@@ -108,7 +127,7 @@ describe('demo-legal-entity-accounting-profile.fixture', () => {
       { legalEntityAccountingProfile: { upsert } } as never,
       'tenant-1',
       'le-1',
-      demoRevenueGroups as never,
+      liveUatRevenueGroups as never,
     );
 
     expect(upsert).toHaveBeenCalledWith({
@@ -120,13 +139,25 @@ describe('demo-legal-entity-accounting-profile.fixture', () => {
       },
       update: expect.objectContaining({
         is_enabled: false,
-        mapping_rules: mappingRules,
+        mapping_rules: expect.arrayContaining([
+          expect.objectContaining({
+            sourceCategoryKey: revenueGroupSourceCategoryKey(4),
+            revenueAccount: '4000',
+          }),
+          expect.objectContaining({
+            sourceCategoryKey: revenueGroupSourceCategoryKey(5),
+            revenueAccount: '4001',
+          }),
+          expect.objectContaining({
+            sourceCategoryKey: revenueGroupSourceCategoryKey(6),
+            revenueAccount: '4099',
+          }),
+        ]),
       }),
       create: expect.objectContaining({
         tenant_id: 'tenant-1',
         legal_entity_id: 'le-1',
         is_enabled: false,
-        mapping_rules: mappingRules,
       }),
     });
   });

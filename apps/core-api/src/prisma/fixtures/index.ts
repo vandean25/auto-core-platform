@@ -8,3 +8,4 @@ export * from './labor.fixture.js';
 export * from './customer.fixture.js';
 export * from './demo-site-access.fixture.js';
 export * from './demo-legal-entity-accounting-profile.fixture.js';
+export * from './demo-workshop-revenue-groups.fixture.js';

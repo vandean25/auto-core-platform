@@ -1,4 +1,5 @@
 import type { SeedPrismaClient, FinanceContext } from './types.js';
+import { DEMO_WORKSHOP_REVENUE_GROUP_SPECS } from './demo-workshop-revenue-groups.fixture.js';
 
 export async function seedFinance(
   prisma: SeedPrismaClient,
@@ -6,48 +7,23 @@ export async function seedFinance(
 ): Promise<FinanceContext> {
   console.log('Seeding Finance Module settings...');
 
-  // Revenue Groups (Austrian standards)
-  const revenueGroups = await Promise.all([
-    prisma.revenueGroup.upsert({
-      where: {
-        tenant_id_name: { tenant_id: tenantId, name: 'Parts / Goods 20%' },
-      },
-      update: {},
-      create: {
-        tenant_id: tenantId,
-        name: 'Parts / Goods 20%',
-        tax_rate: 20.0,
-        account_number: '4000',
-        is_default: true,
-      },
-    }),
-    prisma.revenueGroup.upsert({
-      where: {
-        tenant_id_name: { tenant_id: tenantId, name: 'Services / Labor 20%' },
-      },
-      update: {},
-      create: {
-        tenant_id: tenantId,
-        name: 'Services / Labor 20%',
-        tax_rate: 20.0,
-        account_number: '4001',
-        is_default: false,
-      },
-    }),
-    prisma.revenueGroup.upsert({
-      where: {
-        tenant_id_name: { tenant_id: tenantId, name: 'Tax Free / Margin' },
-      },
-      update: {},
-      create: {
-        tenant_id: tenantId,
-        name: 'Tax Free / Margin',
-        tax_rate: 0.0,
-        account_number: '4099',
-        is_default: false,
-      },
-    }),
-  ]);
+  const revenueGroups = await Promise.all(
+    DEMO_WORKSHOP_REVENUE_GROUP_SPECS.map((spec) =>
+      prisma.revenueGroup.upsert({
+        where: {
+          tenant_id_name: { tenant_id: tenantId, name: spec.name },
+        },
+        update: {},
+        create: {
+          tenant_id: tenantId,
+          name: spec.name,
+          tax_rate: spec.tax_rate,
+          account_number: spec.account_number,
+          is_default: spec.is_default,
+        },
+      }),
+    ),
+  );
 
   const currentYear = new Date().getFullYear();
   const financeSettings = await prisma.financeSettings.upsert({

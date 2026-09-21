@@ -13,6 +13,10 @@ import type { SeedPrismaClient } from './types.js';
  *
  * `is_enabled` stays false so DATEV export remains gated (M4); invoice finalize still
  * requires a profile row and complete mappings for fiscal snapshot allocation.
+ *
+ * Catalog / parts lines resolve `revenue_group:{id}` (not manual_line); mapping rules
+ * are built from the revenue groups returned by `seedFinance` so ids match the DB
+ * (e.g. 4/5/6 after prior reseeds when the id sequence has advanced).
  */
 export const DEMO_WORKSHOP_ACCOUNTING_PROFILE_DEFAULTS = {
   profile_code: DEFAULT_DE_PROFILE_CODE,
