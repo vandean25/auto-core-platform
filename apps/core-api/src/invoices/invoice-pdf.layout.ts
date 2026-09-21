@@ -216,7 +216,7 @@ export const buildInvoiceHeader = (
   snapshot: InvoiceSnapshot,
 ): string => {
   const title = isCreditNoteSnapshot(snapshot)
-    ? snapshot.credit_title ?? 'Rechnungskorrektur'
+    ? (snapshot.credit_title ?? 'Rechnungskorrektur')
     : isDachRechnungSnapshot(snapshot)
       ? 'Rechnung'
       : 'Invoice';

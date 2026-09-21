@@ -146,7 +146,10 @@ export class CreditNotesService {
       originalSnapshot,
       priorCredits,
     );
-    const coverageStatus = this.resolveCoverageStatus(remainingLines, priorCredits);
+    const coverageStatus = this.resolveCoverageStatus(
+      remainingLines,
+      priorCredits,
+    );
 
     const creditNotes = await this.prisma.creditNote.findMany({
       where: {
