@@ -6,6 +6,7 @@ export async function lockFinanceSettingsAndAssertOpen(
   tenantId: string,
   date: Date,
 ): Promise<void> {
+  // eslint-disable-next-line no-restricted-syntax -- ADR-0023 issuance must serialize with tenant-qualified finance_settings row lock.
   await tx.$queryRaw`
     SELECT id
     FROM finance_settings
