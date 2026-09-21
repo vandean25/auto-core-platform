@@ -9,7 +9,6 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
 import { FIXED_SOURCE_CATEGORY_KEYS } from '../src/finance/accounting-profile/accounting-profile.types.js';
 import {
-  cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -131,7 +130,17 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
   });
 
   afterAll(async () => {
-    await cleanupTestTenantGraph(prisma, tenant.tenantId);
+    await tenantPrisma.invoiceItem.deleteMany();
+    await tenantPrisma.invoice.deleteMany();
+    await tenantPrisma.invoiceSequence.deleteMany();
+    await tenantPrisma.salesOrderItem.deleteMany();
+    await tenantPrisma.salesOrder.deleteMany();
+    await tenantPrisma.vehicleLedgerEntry.deleteMany();
+    await tenantPrisma.vehicleSale.deleteMany();
+    await tenantPrisma.vehiclePurchase.deleteMany();
+    await tenantPrisma.workshopTaskLineItem.deleteMany();
+    await tenantPrisma.workshopTask.deleteMany();
+    await tenantPrisma.workshopOrder.deleteMany();
     await teardownTestApp(app, prisma);
   });
 
