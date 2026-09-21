@@ -142,7 +142,11 @@
           },
           {
             "group": "Finance",
-            "pages": ["settings/finance", "settings/revenue-groups"]
+            "pages": [
+              "settings/finance",
+              "settings/legal-entities",
+              "settings/revenue-groups"
+            ]
           },
           {
             "group": "Workshop",
