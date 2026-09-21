@@ -9,6 +9,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
 import { FIXED_SOURCE_CATEGORY_KEYS } from '../src/finance/accounting-profile/accounting-profile.types.js';
 import {
+  cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -130,6 +131,7 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
   });
 
   afterAll(async () => {
+    await cleanupTestTenantGraph(prisma, tenant.tenantId);
     await teardownTestApp(app, prisma);
   });
 
@@ -336,6 +338,14 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
     const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
       where: { tenant_id: tenant.tenantId },
     });
+    const profile = await tenantPrisma.legalEntityAccountingProfile.findFirstOrThrow({
+      where: {
+        tenant_id: tenant.tenantId,
+        legal_entity_id: entity.id,
+      },
+    });
+    const originalMappingRules = profile.mapping_rules;
+
     await tenantPrisma.legalEntityAccountingProfile.update({
       where: {
         tenant_id_legal_entity_id: {
@@ -354,6 +364,16 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .expect(422);
 
     expect(response.body.code).toBe('ACCOUNTING_MAPPING_INCOMPLETE');
+
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: {
+        tenant_id_legal_entity_id: {
+          tenant_id: tenant.tenantId,
+          legal_entity_id: entity.id,
+        },
+      },
+      data: { mapping_rules: originalMappingRules },
+    });
   });
 
   it('LI-02: workshop issue writes v2 seller snapshot from source site', async () => {
