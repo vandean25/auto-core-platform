@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useSalesOrder, useCreateInvoiceFromOrder, useUpdateSalesOrder } from '@/api/sales-orders'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,17 +30,16 @@ import {
 
 export default function SalesOrderDetail() {
     const { id } = useParams<{ id: string }>()
+    const navigate = useNavigate()
     const { data: order, isLoading } = useSalesOrder(id!)
     const createInvoiceMutation = useCreateInvoiceFromOrder()
     const updateSalesOrder = useUpdateSalesOrder()
 
     const handleCreateInvoice = async () => {
         try {
-            await createInvoiceMutation.mutateAsync(id!)
-            toast.success('Invoice created successfully')
-            // Optionally redirect to the new invoice?
-            // Since API returns invoice object, we could grab ID but mutation hook might not expose it easily unless we change it.
-            // But we invalidate queries so status should update.
+            const invoice = await createInvoiceMutation.mutateAsync(id!)
+            toast.success('Invoice draft created')
+            navigate(`/sales/invoices/${invoice.id}/edit`)
         } catch (error: unknown) {
             toast.error(getErrorMessage(error, 'Failed to create invoice'))
         }
@@ -96,10 +95,9 @@ export default function SalesOrderDetail() {
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>Create Final Invoice?</AlertDialogTitle>
+                                    <AlertDialogTitle>Create invoice draft?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This will finalize the sales order and generate an official invoice number.
-                                        You cannot modify the order after this.
+                                        This creates a draft invoice linked to this sales order. Review and finalize it from the draft editor.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

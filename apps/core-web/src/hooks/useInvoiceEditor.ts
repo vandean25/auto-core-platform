@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { generateId } from '@/lib/id'
 import type { Customer } from '../api/types'
 
@@ -65,6 +65,18 @@ export function useInvoiceEditor() {
         setItems(prev => prev.filter((_, i) => i !== index))
     }
 
+    const hydrateFromSnapshot = useCallback((snapshot: {
+        customer: Customer | null
+        date: Date
+        dueDate: Date
+        items: InvoiceEditorItem[]
+    }) => {
+        setCustomer(snapshot.customer)
+        setDate(snapshot.date)
+        setDueDate(snapshot.dueDate)
+        setItems(snapshot.items)
+    }, [])
+
     const isValid = useMemo(() => {
         return !!customer && items.length > 0 && items.every(i => i.description.trim() !== '')
     }, [customer, items])
@@ -80,6 +92,7 @@ export function useInvoiceEditor() {
         addItem,
         updateItem,
         removeItem,
+        hydrateFromSnapshot,
         totals,
         isValid
     }

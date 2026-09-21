@@ -87,10 +87,10 @@ const quickActions: { heading: string; items: QuickAction[] }[] = [
         description: 'Capture a new customer order.',
       },
       {
-        href: '/sales/invoices/new',
+        href: '/sales-orders',
         icon: ReceiptText,
         label: 'Create Sales Invoice',
-        description: 'Issue a final tax invoice.',
+        description: 'Open a sales order and use Create Invoice for a sourced draft.',
       },
       {
         href: '/purchase-orders/new',

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Invoice } from './types'
 import { fetchWithAuth } from './client'
+import { throwIfSalesResponseNotOk } from './sales-api-errors'
 
 export const invoiceKeys = {
     all: ['invoices'] as const,
@@ -21,28 +22,6 @@ export interface CreateInvoicePayload {
     internalNotes?: string
 }
 
-export function useCreateInvoice() {
-    const queryClient = useQueryClient()
-    return useMutation({
-        mutationFn: async ({
-            signal,
-            ...payload
-        }: CreateInvoicePayload & { signal?: AbortSignal }) => {
-            const response = await fetchWithAuth('/api/sales/invoices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal,
-            })
-            if (!response.ok) throw new Error('Failed to create invoice')
-            return response.json() as Promise<Invoice>
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
-        },
-    })
-}
-
 export function useUpdateInvoice() {
     const queryClient = useQueryClient()
     return useMutation({
@@ -61,11 +40,12 @@ export function useUpdateInvoice() {
                 body: JSON.stringify(payload),
                 signal,
             })
-            if (!response.ok) throw new Error('Failed to update invoice')
+            await throwIfSalesResponseNotOk(response, 'Failed to update invoice')
             return response.json() as Promise<Invoice>
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
         },
     })
 }
@@ -77,11 +57,12 @@ export function useFinalizeInvoice() {
             const response = await fetchWithAuth(`/api/sales/invoices/${invoiceId}/finalize`, {
                 method: 'PUT',
             })
-            if (!response.ok) throw new Error('Failed to finalize invoice')
+            await throwIfSalesResponseNotOk(response, 'Failed to finalize invoice')
             return response.json() as Promise<Invoice>
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: invoiceKeys.all })
+            queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(data.id) })
         },
     })
 }

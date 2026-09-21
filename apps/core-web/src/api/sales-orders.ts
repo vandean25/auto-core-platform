@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { SalesOrder } from './types'
 import { fetchWithAuth } from './client'
 import { invoiceKeys } from './sales'
+import { throwIfSalesResponseNotOk } from './sales-api-errors'
+import type { Invoice } from './types'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 
@@ -110,8 +112,8 @@ export function useCreateInvoiceFromOrder() {
             const response = await fetchWithAuth(`/api/sales-orders/${id}/create-invoice`, {
                 method: 'POST',
             })
-            if (!response.ok) throw new Error('Failed to create invoice from order')
-            return response.json()
+            await throwIfSalesResponseNotOk(response, 'Failed to create invoice from order')
+            return response.json() as Promise<Invoice>
         },
         onSuccess: (_invoice, orderId) => {
             queryClient.invalidateQueries({ queryKey: salesOrderKeys.detail(orderId) })

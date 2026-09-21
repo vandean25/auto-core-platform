@@ -1,12 +1,11 @@
 import * as React from "react"
-import { useNavigate } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { format } from "date-fns"
-import { Search, Trash2, Plus, Loader2 } from "lucide-react"
+import { Search, Trash2, Plus, Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 
 import { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
-import { useCreateInvoice, useFinalizeInvoice, useUpdateInvoice } from "@/api/sales"
-import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
+import { useFinalizeInvoice, useInvoice, useUpdateInvoice } from "@/api/sales"
 import { useInventory } from "@/api/inventory"
 import { CustomerSearch } from "@/components/sales/CustomerSearch"
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator"
@@ -32,24 +31,65 @@ import {
 } from "@/components/ui/command"
 import type { InventoryItem } from "@/api/types"
 import { StatusBadge } from "@/components/status/StatusBadge"
+import { getErrorMessage } from "@/lib/error-utils"
 
 const DEFAULT_TAX_RATE = 20
 
-export default function InvoiceCreatePage() {
+export default function InvoiceDraftEditPage() {
+  const { id: invoiceId } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { data: invoice, isLoading, error } = useInvoice(invoiceId ?? "")
   const editor = useInvoiceEditor()
-  const createInvoiceMutation = useCreateInvoice()
   const updateInvoiceMutation = useUpdateInvoice()
   const finalizeInvoiceMutation = useFinalizeInvoice()
-  const invoiceIdRef = React.useRef<string | null>(null)
   const lastSavedRef = React.useRef<string | null>(null)
-  const createMutationRef = React.useRef(createInvoiceMutation)
+  const hydratedRef = React.useRef(false)
+  const draftNotesRef = React.useRef<string | undefined>(undefined)
   const updateMutationRef = React.useRef(updateInvoiceMutation)
 
   React.useEffect(() => {
-    createMutationRef.current = createInvoiceMutation
+    hydratedRef.current = false
+    lastSavedRef.current = null
+    draftNotesRef.current = undefined
+  }, [invoiceId])
+
+  React.useEffect(() => {
     updateMutationRef.current = updateInvoiceMutation
   })
+
+  React.useEffect(() => {
+    if (!invoice || hydratedRef.current) return
+    const items = invoice.items.map((item) => ({
+      tempId: item.id,
+      id: item.id,
+      catalog_item_id: item.catalog_item_id ?? undefined,
+      description: item.description,
+      quantity: Number(item.quantity),
+      unit_price: Number(item.unit_price),
+      tax_rate: Number(item.tax_rate),
+    }))
+    draftNotesRef.current = invoice.notes ?? undefined
+    editor.hydrateFromSnapshot({
+      customer: invoice.customer,
+      date: new Date(invoice.date),
+      dueDate: new Date(invoice.due_date),
+      items,
+    })
+    lastSavedRef.current = invoice.customer
+      ? JSON.stringify({
+          customerId: invoice.customer.id,
+          items: items.map((item) => ({
+            catalogItemId: item.catalog_item_id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unit_price,
+            taxRate: item.tax_rate,
+          })),
+          notes: draftNotesRef.current,
+        })
+      : null
+    hydratedRef.current = true
+  }, [invoice, editor.hydrateFromSnapshot])
 
   const [partSearchOpen, setPartSearchOpen] = React.useState(false)
   const [activeRowIndex, setActiveRowIndex] = React.useState<number | null>(null)
@@ -68,7 +108,7 @@ export default function InvoiceCreatePage() {
         unitPrice: item.unit_price,
         taxRate: item.tax_rate,
       })),
-      notes: "Created from web editor",
+      notes: draftNotesRef.current,
     }
   }, [editor.customer, editor.items])
 
@@ -77,29 +117,23 @@ export default function InvoiceCreatePage() {
       payload: NonNullable<ReturnType<typeof buildPayload>>,
       signal: AbortSignal,
     ) => {
+      if (!invoiceId) return
       const serialized = JSON.stringify(payload)
       if (serialized === lastSavedRef.current) return
 
-      if (invoiceIdRef.current) {
-        await updateMutationRef.current.mutateAsync({
-          id: invoiceIdRef.current,
-          payload,
-          signal,
-        })
-      } else {
-        const created = await createMutationRef.current.mutateAsync({
-          ...payload,
-          signal,
-        })
-        invoiceIdRef.current = created.id
-      }
+      await updateMutationRef.current.mutateAsync({
+        id: invoiceId,
+        payload,
+        signal,
+      })
       lastSavedRef.current = serialized
     },
-    [],
+    [invoiceId],
   )
 
   const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave({
     save: saveDraft,
+    enabled: Boolean(invoiceId && invoice?.status === "DRAFT" && invoice.sales_order_id),
     shouldSave: (payload) =>
       Boolean(
         payload.customerId &&
@@ -110,12 +144,12 @@ export default function InvoiceCreatePage() {
 
   React.useEffect(() => {
     const payload = buildPayload()
-    if (!payload) return
+    if (!payload || !hydratedRef.current) return
     triggerAutoSave(payload)
   }, [buildPayload, triggerAutoSave])
 
   const handleFinalize = async () => {
-    if (!editor.customer) return
+    if (!editor.customer || !invoiceId) return
     if (!confirm("Are you sure? This will lock the invoice and deduct stock.")) return
 
     clearPendingSave()
@@ -123,21 +157,15 @@ export default function InvoiceCreatePage() {
     if (!payload) return
 
     try {
-      if (!invoiceIdRef.current) {
-        const invoice = await createInvoiceMutation.mutateAsync(payload)
-        invoiceIdRef.current = invoice.id
-      } else {
-        await updateInvoiceMutation.mutateAsync({
-          id: invoiceIdRef.current,
-          payload,
-        })
-      }
-
-      await finalizeInvoiceMutation.mutateAsync(invoiceIdRef.current)
+      await updateInvoiceMutation.mutateAsync({
+        id: invoiceId,
+        payload,
+      })
+      await finalizeInvoiceMutation.mutateAsync(invoiceId)
       toast.success("Invoice finalized and number generated!")
-      navigate(APP_ROUTE_PATHS.salesInvoices)
-    } catch (error) {
-      toast.error("Failed to finalize invoice")
+      navigate(`/sales/invoices/${invoiceId}`)
+    } catch (finalizeError) {
+      toast.error(getErrorMessage(finalizeError, "Failed to finalize invoice"))
     }
   }
 
@@ -159,12 +187,59 @@ export default function InvoiceCreatePage() {
     setActiveRowIndex(null)
   }
 
+  if (!invoiceId) {
+    return <div className="p-8 text-center">Invoice not found</div>
+  }
+
+  if (isLoading) {
+    return <div className="p-8 text-center">Loading invoice draft...</div>
+  }
+
+  if (error || !invoice) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        {getErrorMessage(error, "Failed to load invoice")}
+      </div>
+    )
+  }
+
+  if (!invoice.sales_order_id) {
+    return (
+      <div className="max-w-xl mx-auto space-y-4 p-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Unsupported draft</h1>
+        <p className="text-slate-500">
+          This invoice was not created from a sales order. Edit workshop or vehicle-sale invoices from
+          their source workflows instead.
+        </p>
+        <Button asChild variant="outline">
+          <Link to={`/sales/invoices/${invoice.id}`}>View invoice</Link>
+        </Button>
+      </div>
+    )
+  }
+
+  if (invoice.status !== "DRAFT") {
+    return (
+      <div className="max-w-xl mx-auto space-y-4 p-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Invoice is not editable</h1>
+        <p className="text-slate-500">Only draft invoices can be edited here.</p>
+        <Button asChild variant="outline">
+          <Link to={`/sales/invoices/${invoice.id}`}>View invoice</Link>
+        </Button>
+      </div>
+    )
+  }
+
   return (
     <>
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">New Invoice</h1>
+          <Button variant="ghost" size="icon" asChild>
+            <Link to={`/sales-orders/${invoice.sales_order_id}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <h1 className="text-2xl font-semibold tracking-tight">Edit Invoice Draft</h1>
           <StatusBadge status="DRAFT" />
         </div>
         <div className="flex gap-4 items-center">
@@ -180,12 +255,8 @@ export default function InvoiceCreatePage() {
         </div>
       </div>
 
-      {/* Paper Container */}
       <div className="max-w-5xl mx-auto bg-white shadow-sm border rounded-lg p-8">
-
-        {/* Sections A & B */}
         <div className="grid grid-cols-2 gap-12 mb-12">
-          {/* Section A: Customer */}
           <div className="space-y-4">
             <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
               Bill To
@@ -202,7 +273,6 @@ export default function InvoiceCreatePage() {
             )}
           </div>
 
-          {/* Section B: Meta Data */}
           <div className="space-y-4 text-right">
             <div className="flex flex-col items-end gap-2">
               <Label className="text-muted-foreground uppercase text-xs font-bold tracking-wider">
@@ -229,7 +299,6 @@ export default function InvoiceCreatePage() {
           </div>
         </div>
 
-        {/* Section C: Line Items */}
         <div className="mb-12">
           <Table>
             <TableHeader>
@@ -311,7 +380,6 @@ export default function InvoiceCreatePage() {
           </Button>
         </div>
 
-        {/* Section D: Totals */}
         <div className="flex justify-end border-t pt-8">
           <div className="w-64 space-y-3">
             <div className="flex justify-between text-sm text-muted-foreground">
@@ -328,10 +396,8 @@ export default function InvoiceCreatePage() {
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* Part Search Dialog */}
       <CommandDialog
         open={partSearchOpen}
         onOpenChange={setPartSearchOpen}
@@ -358,7 +424,6 @@ export default function InvoiceCreatePage() {
           </CommandGroup>
         </CommandList>
       </CommandDialog>
-
     </>
   )
 }
