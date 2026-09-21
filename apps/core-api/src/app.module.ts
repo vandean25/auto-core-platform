@@ -25,6 +25,7 @@ import { SalesOrderModule } from './sales/sales-order/sales-order.module.js';
 import { WorkshopModule } from './workshop/workshop.module.js';
 import { MechanicModule } from './mechanic/mechanic.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
+import { CreditNotesModule } from './credit-notes/credit-notes.module.js';
 import { LaborModule } from './labor/labor.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { VehicleModule } from './vehicle/vehicle.module.js';
@@ -60,6 +61,7 @@ import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
     WorkshopModule,
     MechanicModule,
     InvoicesModule,
+    CreditNotesModule,
     LaborModule,
     CatalogModule,
     VehicleModule,
