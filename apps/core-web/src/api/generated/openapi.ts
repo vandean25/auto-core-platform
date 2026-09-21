@@ -1456,6 +1456,86 @@ export interface paths {
         patch: operations["VoiceTranslationController_updateSettings"];
         trace?: never;
     };
+    "/api/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CreditNotesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/credit-notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CreditNotesController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["CreditNotesController_updateDraft"];
+        trace?: never;
+    };
+    "/api/credit-notes/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CreditNotesController_finalize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/credit-notes/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["CreditNotesController_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invoices/{id}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["InvoiceCreditNotesController_createFromInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/labor/search": {
         parameters: {
             query?: never;
@@ -3985,6 +4065,62 @@ export interface components {
             googleLocation?: string;
             /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
             googleServiceAccountJson?: string | null;
+        };
+        /** @enum {string} */
+        CreditNoteStatus: "DRAFT" | "FINALIZED" | "VOID";
+        CreditNoteItemResponseDto: {
+            id: string;
+            originalInvoiceItemId: string;
+            quantity: string;
+            snapshot: Record<string, never> | null;
+        };
+        CreditNoteRemainingLineDto: {
+            originalItemId: string;
+            remainingQuantity: string;
+            remainingNet: string;
+            remainingTax: string;
+            remainingGross: string;
+        };
+        CreditNoteResponseDto: {
+            id: string;
+            originalInvoiceId: string;
+            status: components["schemas"]["CreditNoteStatus"];
+            creditNumber: string | null;
+            date: string;
+            reason: string;
+            version: number;
+            totalNet: string;
+            totalTax: string;
+            totalGross: string;
+            items: components["schemas"]["CreditNoteItemResponseDto"][];
+            remainingLines: components["schemas"]["CreditNoteRemainingLineDto"][];
+        };
+        CreditNotePartialLineDto: {
+            originalItemId: string;
+            /** @example 1.000 */
+            quantity: string;
+        };
+        UpdateCreditNoteDto: {
+            expectedVersion: number;
+            /** @example 2026-09-21 */
+            date?: string;
+            reason?: string;
+            lines?: components["schemas"]["CreditNotePartialLineDto"][];
+        };
+        FinalizeCreditNoteDto: {
+            expectedVersion: number;
+            idempotencyKey: string;
+        };
+        VoidCreditNoteDto: {
+            expectedVersion: number;
+        };
+        CreateCreditNoteDto: {
+            /** @example 2026-09-21 */
+            date: string;
+            reason: string;
+            /** @enum {string} */
+            mode: "FULL" | "PARTIAL";
+            lines?: components["schemas"]["CreditNotePartialLineDto"][];
         };
         LaborOperationSearchItemDto: {
             /** Format: uuid */
@@ -8235,6 +8371,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceTranslationSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    CreditNotesController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["CreditNoteResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    CreditNotesController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteResponseDto"];
+                };
+            };
+        };
+    };
+    CreditNotesController_updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCreditNoteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteResponseDto"];
+                };
+            };
+        };
+    };
+    CreditNotesController_finalize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinalizeCreditNoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteResponseDto"];
+                };
+            };
+        };
+    };
+    CreditNotesController_void: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoidCreditNoteDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteResponseDto"];
+                };
+            };
+        };
+    };
+    InvoiceCreditNotesController_createFromInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCreditNoteDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteResponseDto"];
                 };
             };
         };
