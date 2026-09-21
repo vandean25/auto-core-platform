@@ -3,7 +3,7 @@ title: "Invoices"
 description: "Read a tax invoice, print the PDF, and know when the number is real."
 ---
 
-There is no standalone invoice list in the sidebar. You open a tax invoice from a [sales order](/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Create Sales Invoice**.
+There is no dedicated invoice item in the sidebar, but you can browse drafts and finalized invoices at **`/sales/invoices`**. You can also open a tax invoice from a [sales order](/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Create Sales Invoice** (which opens the sales order list).
 
 The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
 
@@ -29,6 +29,6 @@ Need who changed a draft line yesterday? [Audit logs](/settings/audit-logs), not
 
 <AccordionGroup>
   <Accordion title="Create Sales Invoice from search">
-    **Ctrl+K → Create Sales Invoice** opens a blank invoice editor. Pick a customer, add lines, save a draft, then **Finalize & Print**. The browser asks: this will lock the invoice and deduct stock.
+    **Ctrl+K → Create Sales Invoice** opens the sales order list. Open an order and use **Create Invoice** to start a sourced draft, then edit and finalize from the draft editor. Standalone blank invoices are not supported.
   </Accordion>
 </AccordionGroup>

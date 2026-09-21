@@ -206,8 +206,8 @@ jobs:
             throw new Error('tax_rate drift detected in frontend shared API types: string-based tax_rate is not allowed.')
           }
 
-          const invoiceCreatePage = fs.readFileSync('apps/core-web/src/pages/sales/InvoiceCreatePage.tsx', 'utf8')
-          const mapsTaxRate = /taxRate:\s*(Number\()?\s*item\.tax_rate/.test(invoiceCreatePage)
+          const invoiceDraftEditPage = fs.readFileSync('apps/core-web/src/pages/sales/InvoiceDraftEditPage.tsx', 'utf8')
+          const mapsTaxRate = /taxRate:\s*(Number\()?\s*item\.tax_rate/.test(invoiceDraftEditPage)
           if (!mapsTaxRate) {
             throw new Error('Invoice payload mapping missing: expected taxRate to map from item.tax_rate.')
           }
