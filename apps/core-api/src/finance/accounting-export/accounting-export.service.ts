@@ -376,7 +376,7 @@ export class AccountingExportService {
     const limit = query.limit ?? 25;
     const search = query.search?.trim();
 
-    const exports = await this.prisma.accountingExport.findMany({
+    const exportRuns = await this.prisma.accountingExport.findMany({
       where: {
         tenant_id: tenantId,
         ...(query.legalEntityId
@@ -389,7 +389,7 @@ export class AccountingExportService {
 
     const allSiteIds = [
       ...new Set(
-        exports.flatMap((exportRun) =>
+        exportRuns.flatMap((exportRun) =>
           Array.isArray(exportRun.site_ids)
             ? (exportRun.site_ids as string[])
             : [],
@@ -429,7 +429,7 @@ export class AccountingExportService {
     const siteById = new Map(sites.map((site) => [site.id, site]));
     const coveredSiteIds = new Set(memberships.map((row) => row.site_id));
 
-    const authorized = exports.filter((exportRun) => {
+    const authorized = exportRuns.filter((exportRun) => {
       const siteIds = Array.isArray(exportRun.site_ids)
         ? (exportRun.site_ids as string[])
         : [];
