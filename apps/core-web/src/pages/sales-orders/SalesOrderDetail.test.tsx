@@ -1,7 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import SalesOrderDetail from './SalesOrderDetail'
 import * as salesOrdersApi from '@/api/sales-orders'
 
@@ -47,6 +47,10 @@ const baseOrder = {
 }
 
 describe('SalesOrderDetail create invoice', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
@@ -99,11 +103,9 @@ describe('SalesOrderDetail create invoice', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getAllByRole('button', { name: /Create Invoice/i })[0])
-    await waitFor(() => {
-      expect(screen.getAllByRole('button', { name: /Create Invoice/i }).length).toBeGreaterThan(1)
-    })
-    fireEvent.click(screen.getAllByRole('button', { name: /Create Invoice/i })[1])
+    fireEvent.click(screen.getByRole('button', { name: /Create Invoice/i }))
+    const dialog = await screen.findByRole('alertdialog')
+    fireEvent.click(within(dialog).getByRole('button', { name: /^Create Invoice$/i }))
 
     await waitFor(() => {
       expect(createInvoice).toHaveBeenCalledWith('so-1')
