@@ -1,11 +1,11 @@
 ---
 title: "Sales orders"
-description: "Sell parts over the counter: pick a customer, add lines, then create the tax invoice."
+description: "Sell parts over the counter: pick a customer, add lines, then review and finalize its invoice draft."
 ---
 
 **Sales Orders** is the counter pipeline. List subtitle: manage your sales pipeline and job cards. Top-right: **+ Order**. Click the row. Right-click **Delete** only while status is **DRAFT**.
 
-Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, **INVOICED**. The header action you use every day is **Create Invoice**, not a separate Confirm button.
+Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, **INVOICED**. The header action you use every day is **Create Invoice**. It starts a linked invoice draft; it does not issue the tax invoice immediately.
 
 <Steps>
   <Step title="New order">
@@ -14,13 +14,16 @@ Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, 
   <Step title="Work the draft">
     Detail shows customer card and lines. Auto-save applies on complex documents. You cannot edit after **INVOICED**.
   </Step>
-  <Step title="Create Invoice">
-    Top-right **Create Invoice**. From **DRAFT** it runs immediately. From later statuses it asks **Create Final Invoice?** — this finalizes the order and issues an official number. You cannot modify the order after that.
+  <Step title="Create the invoice draft">
+    Top-right **Create Invoice**, then confirm. From **DRAFT**, this confirms the sales order and creates a linked draft. From later statuses, it creates the linked draft without issuing it. The draft editor opens at `/sales/invoices/:id/edit`.
+  </Step>
+  <Step title="Review and finalize">
+    Review the linked draft and let its changes save. **Finalize & Print** issues the official invoice number. Finalization moves the sales order to **INVOICED**, after which the order cannot be edited.
   </Step>
 </Steps>
 
 <Warning>
-A locked [fiscal lock date](/settings/finance) blocks backdated invoices. Stock for catalog lines comes off the shelf when the invoice is issued, through the inventory ledger — not a silent quantity edit.
+A locked [fiscal lock date](/settings/finance) blocks backdated invoices. Stock for catalog lines comes off the shelf when the invoice is finalized, through the inventory ledger — not a silent quantity edit.
 </Warning>
 
 Continue on [Invoices](/workflows/invoices) to print.
