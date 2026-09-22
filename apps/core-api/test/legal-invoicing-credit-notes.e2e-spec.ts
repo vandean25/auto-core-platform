@@ -126,11 +126,6 @@ describe('Legal invoicing credit notes (e2e)', () => {
       })
       .expect(201);
 
-    await tenantPrisma.salesOrder.updateMany({
-      where: { id: orderRes.body.id },
-      data: { status: 'CONFIRMED' },
-    });
-
     const invoiceRes = await request(app.getHttpServer())
       .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
       .set('Authorization', `Bearer ${authToken}`)
