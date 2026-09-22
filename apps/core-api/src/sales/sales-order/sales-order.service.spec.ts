@@ -219,6 +219,61 @@ describe('SalesOrderService', () => {
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
+  it('confirms DRAFT sales order in the same transaction as invoice creation', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'so-1',
+      site_id: 'site-1',
+      status: SalesOrderStatus.DRAFT,
+      customer_id: 'cust-1',
+      vehicle_id: null,
+      notes: null,
+      items: [
+        {
+          catalog_item_id: 'cat-1',
+          description: 'Brake pads',
+          quantity: new Prisma.Decimal(1),
+          unit_price: new Prisma.Decimal(10),
+          tax_rate: new Prisma.Decimal(20),
+          total: new Prisma.Decimal(10),
+        },
+      ],
+    });
+
+    const invoiceTransaction = {
+      site: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ id: 'site-1', legal_entity_id: 'le-1' }),
+      },
+      salesOrder: {
+        findFirst: jest.fn().mockResolvedValue({ status: SalesOrderStatus.DRAFT }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      invoice: {
+        create: jest.fn().mockResolvedValue({ id: 'inv-1', status: 'DRAFT' }),
+      },
+    };
+
+    mockPrisma.$transaction.mockImplementation(async (callback: unknown) =>
+      (callback as (tx: typeof invoiceTransaction) => Promise<unknown>)(
+        invoiceTransaction,
+      ),
+    );
+
+    await service.createInvoiceFromOrder('so-1');
+
+    expect(invoiceTransaction.salesOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'so-1',
+          status: SalesOrderStatus.DRAFT,
+        }),
+        data: { status: SalesOrderStatus.CONFIRMED },
+      }),
+    );
+    expect(invoiceTransaction.invoice.create).toHaveBeenCalled();
+  });
+
   it('deletes sales order only when it is DRAFT and has no invoice', async () => {
     mockPrisma.salesOrder.deleteMany.mockResolvedValue({ count: 1 });
 

@@ -108,6 +108,9 @@ describe('Legal invoicing credit notes (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
+  /** Stable invoice date so credit-note tests can use fixed calendar dates on any CI day. */
+  const fixtureInvoiceDate = new Date('2026-09-21T12:00:00.000Z');
+
   async function finalizeSalesInvoice(quantity = 2, unitPrice = 50) {
     const orderRes = await request(app.getHttpServer())
       .post('/api/sales-orders')
@@ -126,15 +129,15 @@ describe('Legal invoicing credit notes (e2e)', () => {
       })
       .expect(201);
 
-    await tenantPrisma.salesOrder.updateMany({
-      where: { id: orderRes.body.id },
-      data: { status: 'CONFIRMED' },
-    });
-
     const invoiceRes = await request(app.getHttpServer())
       .post(`/api/sales-orders/${orderRes.body.id}/create-invoice`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(201);
+
+    await tenantPrisma.invoice.update({
+      where: { id: invoiceRes.body.id },
+      data: { date: fixtureInvoiceDate },
+    });
 
     const finalized = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)

@@ -7,6 +7,11 @@ import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
 import { useInvoiceEditor } from "@/hooks/useInvoiceEditor"
 import { invoiceKeys, useFinalizeInvoice, useInvoice, useUpdateInvoice } from "@/api/sales"
+import { useSalesOrder } from "@/api/sales-orders"
+import {
+  isSalesOrderFinalizeBlocked,
+  SALES_ORDER_FINALIZE_BLOCKED_MESSAGE,
+} from "@/lib/sales-order-invoice-eligibility"
 import { useInventory } from "@/api/inventory"
 import { CustomerSearch } from "@/components/sales/CustomerSearch"
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator"
@@ -51,6 +56,9 @@ export default function InvoiceDraftEditPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: invoice, isLoading, error } = useInvoice(invoiceId ?? "")
+  const linkedSalesOrderId = invoice?.sales_order_id ?? ""
+  const { data: linkedSalesOrder, isLoading: isLoadingLinkedSalesOrder } =
+    useSalesOrder(linkedSalesOrderId)
   const editor = useInvoiceEditor()
   const updateInvoiceMutation = useUpdateInvoice()
   const finalizeInvoiceMutation = useFinalizeInvoice()
@@ -265,6 +273,13 @@ export default function InvoiceDraftEditPage() {
     )
   }
 
+  const salesOrderBlocksFinalize =
+    Boolean(invoice.sales_order_id) &&
+    isSalesOrderFinalizeBlocked(
+      linkedSalesOrder?.status,
+      isLoadingLinkedSalesOrder,
+    )
+
   if (invoice.status !== "DRAFT") {
     return (
       <div className="max-w-xl mx-auto space-y-4 p-8">
@@ -291,11 +306,26 @@ export default function InvoiceDraftEditPage() {
         </div>
         <div className="flex gap-4 items-center">
           <DocumentSaveIndicator status={saveStatus} />
+          {salesOrderBlocksFinalize && linkedSalesOrder?.status === 'INVOICED' && (
+            <p className="text-sm text-muted-foreground max-w-sm text-right">
+              {SALES_ORDER_FINALIZE_BLOCKED_MESSAGE}
+            </p>
+          )}
           <Button
             type="button"
             variant="destructive"
             onClick={() => setFinalizeOpen(true)}
-            disabled={!editor.isValid || isFinalizing || finalizeInvoiceMutation.isPending}
+            disabled={
+              !editor.isValid ||
+              isFinalizing ||
+              finalizeInvoiceMutation.isPending ||
+              salesOrderBlocksFinalize
+            }
+            title={
+              linkedSalesOrder?.status === 'INVOICED'
+                ? SALES_ORDER_FINALIZE_BLOCKED_MESSAGE
+                : undefined
+            }
           >
             {(isFinalizing || finalizeInvoiceMutation.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

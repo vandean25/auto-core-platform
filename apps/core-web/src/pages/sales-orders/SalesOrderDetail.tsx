@@ -86,7 +86,7 @@ export default function SalesOrderDetail() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    {order.status !== 'INVOICED' && order.status !== 'DRAFT' && (
+                    {order.status !== 'INVOICED' && (
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button size="lg" className="gap-2">
@@ -97,7 +97,9 @@ export default function SalesOrderDetail() {
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Create invoice draft?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        This creates a draft invoice linked to this sales order. Review and finalize it from the draft editor.
+                                        {order.status === 'DRAFT'
+                                            ? 'This confirms the sales order and creates a draft invoice linked to it. Review and finalize the invoice from the draft editor.'
+                                            : 'This creates a draft invoice linked to this sales order. Review and finalize it from the draft editor.'}
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -106,14 +108,6 @@ export default function SalesOrderDetail() {
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
-                    )}
-                    {/* Allow converting DRAFT directly if needed, or require CONFIRMED step first. 
-                         For now, let's allow it for any non-invoiced status for flexibility unless business logic forbids. 
-                     */}
-                    {order.status === 'DRAFT' && (
-                        <Button onClick={handleCreateInvoice} size="lg" className="gap-2">
-                            <FileText className="h-4 w-4" /> Create Invoice
-                        </Button>
                     )}
                     {order.status === 'INVOICED' && (
                         <Button variant="outline" size="lg" className="gap-2" disabled>

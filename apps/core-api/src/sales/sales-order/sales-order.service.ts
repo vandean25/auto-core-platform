@@ -25,6 +25,7 @@ import {
   assertVehicleBelongsToTenant,
 } from '../helpers/sales-tenant-validation.helpers.js';
 import { buildInvoiceDueDate } from '../helpers/invoice-line-items.helpers.js';
+import { ensureSalesOrderInvoiceable } from '../helpers/invoice-sales-order-transition.helpers.js';
 import {
   findDefaultSalesOrders,
   findPaginatedSalesOrders,
@@ -356,6 +357,8 @@ export class SalesOrderService {
         if (!site) {
           throw new NotFoundException('Sales order site not found');
         }
+
+        await ensureSalesOrderInvoiceable(tx, tenantId, orderSiteId, order.id);
 
         const invoice = await tx.invoice.create({
           data: {

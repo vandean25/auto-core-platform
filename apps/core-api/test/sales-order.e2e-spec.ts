@@ -161,15 +161,9 @@ describe('Sales Order Workflow (e2e)', () => {
     const pendingOrder = await prisma.salesOrder.findFirst({
       where: { id: orderId },
     });
-    expect(pendingOrder.status).toBe('DRAFT');
+    expect(pendingOrder.status).toBe('CONFIRMED');
 
-    // 4. Update order to CONFIRMED before finalizing invoice (as required by SalesService validation)
-    await prisma.salesOrder.updateMany({
-      where: { id: orderId },
-      data: { status: 'CONFIRMED' },
-    });
-
-    // 5. Finalize invoice to lock order
+    // 4. Finalize invoice to lock order (create-invoice auto-confirms DRAFT sales orders)
     const finalizeRes = await request(app.getHttpServer())
       .put(`/api/sales/invoices/${invoiceRes.body.id}/finalize`)
         .set('Authorization', `Bearer ${authToken}`)
