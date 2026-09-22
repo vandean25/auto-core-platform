@@ -5,6 +5,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDraftEditPage from './InvoiceDraftEditPage'
 import { invoiceKeys } from '@/api/sales'
 import * as salesApi from '@/api/sales'
+import * as salesOrdersApi from '@/api/sales-orders'
 import * as inventoryApi from '@/api/inventory'
 import type { Customer } from '@/api/types'
 import { DOCUMENT_AUTOSAVE_DEBOUNCE_MS } from '@/hooks/useDebouncedAutoSave'
@@ -20,6 +21,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('@/api/sales')
+vi.mock('@/api/sales-orders')
 vi.mock('@/api/inventory')
 vi.mock('sonner', () => ({
   toast: {
@@ -97,6 +99,10 @@ describe('InvoiceDraftEditPage autosave', () => {
     vi.clearAllMocks()
     mockNavigate.mockReset()
     asMock(inventoryApi.useInventory).mockReturnValue({ data: { data: [] }, isLoading: false })
+    asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: { id: 'so-1', status: 'CONFIRMED' },
+      isLoading: false,
+    })
     asMock(salesApi.useInvoice).mockImplementation(() => ({
       data: invoiceRef.current,
       isLoading: false,
@@ -232,6 +238,28 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(finalized)
       expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
     })
+  })
+
+  it('does not block finalize when the linked sales order is still draft', async () => {
+    asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: { id: 'so-1', status: 'DRAFT' },
+      isLoading: false,
+    })
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockInvoice),
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+
+    renderPage()
+
+    const finalizeButton = await screen.findByRole('button', { name: /Finalize & Print/i })
+    expect(finalizeButton).not.toBeDisabled()
+    fireEvent.click(finalizeButton)
+    expect(await screen.findByText(/Finalize invoice\?/i)).toBeInTheDocument()
   })
 
   it('calls finalize after confirm and navigates only on success', async () => {

@@ -59,6 +59,29 @@ describe('SalesOrderDetail create invoice', () => {
     })
   })
 
+  it('explains that create invoice confirms a draft sales order', async () => {
+    asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/sales-orders/so-1']}>
+          <Routes>
+            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Create Invoice/i }))
+
+    expect(
+      screen.getByText(/confirms the sales order and creates a draft invoice/i),
+    ).toBeInTheDocument()
+  })
+
   it('navigates to the sourced draft editor after creating an invoice', async () => {
     const createInvoice = vi.fn().mockResolvedValue({ id: 'inv-42', status: 'DRAFT' })
     asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({
@@ -77,6 +100,7 @@ describe('SalesOrderDetail create invoice', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /Create Invoice/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Create Invoice$/i }))
 
     await waitFor(() => {
       expect(createInvoice).toHaveBeenCalledWith('so-1')
