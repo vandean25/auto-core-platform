@@ -99,8 +99,11 @@ describe('SalesOrderDetail create invoice', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Create Invoice/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^Create Invoice$/i }))
+    fireEvent.click(screen.getAllByRole('button', { name: /Create Invoice/i })[0])
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /Create Invoice/i }).length).toBeGreaterThan(1)
+    })
+    fireEvent.click(screen.getAllByRole('button', { name: /Create Invoice/i })[1])
 
     await waitFor(() => {
       expect(createInvoice).toHaveBeenCalledWith('so-1')
