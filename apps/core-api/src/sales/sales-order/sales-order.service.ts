@@ -358,12 +358,7 @@ export class SalesOrderService {
           throw new NotFoundException('Sales order site not found');
         }
 
-        await ensureSalesOrderInvoiceable(
-          tx,
-          tenantId,
-          orderSiteId,
-          order.id,
-        );
+        await ensureSalesOrderInvoiceable(tx, tenantId, orderSiteId, order.id);
 
         const invoice = await tx.invoice.create({
           data: {

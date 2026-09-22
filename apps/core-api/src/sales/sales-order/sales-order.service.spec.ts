@@ -237,7 +237,7 @@ describe('SalesOrderService', () => {
           total: new Prisma.Decimal(10),
         },
       ],
-    } as never);
+    });
 
     const invoiceTransaction = {
       site: {
