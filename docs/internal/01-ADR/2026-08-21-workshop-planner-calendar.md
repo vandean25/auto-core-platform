@@ -38,7 +38,7 @@ The Service Advisor already has three workshop doors:
 
 The next module is a Service Advisor **planner**:
 
-1. Define when this tenant's workshop is open (hours + slot size + holidays).
+1. Define when the active site's workshop is open (hours + slot size + holidays).
 2. See which bay is free at a given time.
 3. Create a workshop order in that free spot.
 
@@ -52,7 +52,7 @@ Without a separate time surface, advisors will keep booking in a list, double-bo
 - **New frontend surface:** `/workshop/planner` — sidebar label **Workshop Planner**.
 - **Existing board stays** `/workshop/board` — sidebar label **Workshop Board**. Do not merge the calendar into the kanban.
 - **Does not introduce:** a separate `Appointment` entity, pre-generated slot rows, customer self-booking, recurring *job* series, or labor-AW duration engine.
-- **Does introduce:** tenant-owned **holidays** (closed days and short days) as an override of weekday hours, plus an on-demand **OpenHolidays API** import that copies nationwide public holidays into those rows. Planner reads never call the vendor.
+- **Does introduce:** site-owned **holidays** (closed days and short days) as an override of weekday hours, plus an on-demand **OpenHolidays API** import that copies nationwide public holidays into those rows. Planner reads never call the vendor.
 - **Cross-module dependencies:** CRM (customer + vehicle search already used by intake), Dashboard/Realtime (`WORKSHOP_ORDER` already broadcasts), Settings (new hours tab).
 
 ### 2. Occupancy is the workshop order
@@ -62,17 +62,26 @@ A booking **is** a `WorkshopOrder` in `SCHEDULED` (or later active) status with:
 - `scheduled_start_at` / `scheduled_end_at` (`DateTime`, timestamptz)
 - `bay_id` (already exists)
 
-Free space is the inverse of those intervals against tenant opening hours. No `Appointment` table and no `WorkshopSlot` rows.
+Free space is the inverse of those intervals against the active site's opening hours. No `Appointment` table and no `WorkshopSlot` rows.
 
 **Why not a separate Appointment?** `SCHEDULED` already means future work. A second entity needs conversion, numbering, and two UIs for one job. Intake must promote the booked order, not mint a sibling.
 
 **Why not generated slots?** A row per bay × day × 30-minute cell explodes, needs regeneration when hours change, and makes a 90-minute job span N rows. Occupancy queries on `[start, end)` are enough.
 
-### 3. Hours are tenant settings, not FinanceSettings
+### 3. Hours are site settings, not FinanceSettings
 
-New singleton `WorkshopSettings` + child `WorkshopOpeningHour` rows (one per weekday) + `WorkshopHoliday` rows (tenant-owned closed or short days). Do **not** hang operational hours off `FinanceSettings`. Fiscal lock date and invoice prefixes are a different concern.
+The original planner design described a tenant singleton, but ADR-0022 superseded
+that shape before the current schema. Timezone, slot length, holiday country,
+opening hours, and holidays now belong to **`Site`**. `WorkshopOpeningHour` and
+`WorkshopHoliday` carry `site_id`; the latter is unique per
+`(tenant_id, site_id, observed_on)`. Do **not** hang operational hours off
+`FinanceSettings`. Fiscal lock date and invoice prefixes are a different concern.
 
-**Amendment (ADR-0022):** timezone, slot length, holiday country, opening hours, and holidays move off this tenant singleton onto **`Site`**. `GET`/`PUT /api/workshop/settings` stay those routes and become SiteContext read/write of the **current site**. The `workshop_settings` table is dropped in the Multi-Location **contract** migration after expand/backfill/validate. Unique `workshop_holidays` becomes `(tenant_id, site_id, observed_on)`. This ADR’s occupancy model is otherwise unchanged.
+`GET`/`PUT /api/workshop/settings` remain the public routes and use
+`SiteContextService` to read or write the authenticated user's active site. The
+`workshop_settings` table was dropped by the Multi-Location contract migration
+after expand/backfill/validate. There is no `WorkshopSettings` model in the
+current schema.
 
 Defaults for a new workshop tenant:
 
@@ -94,7 +103,7 @@ Defaults for a new workshop tenant:
 
 Import is `POST /api/workshop/holidays/import`: server fetches `GET https://openholidaysapi.org/PublicHolidays`, keeps `type=Public` nationwide (plus optional subdivision), copies into `WorkshopHoliday` with `source=IMPORTED` and `repeats_annually=false`. Timeout 3s → 502. Easter Monday is a dated row for that year; re-import next year. Manual Betriebsurlaub is never overwritten.
 
-**Effective hours for a local date:** matching holiday wins (closed all day, or holiday `open_time`/`close_time`). Else the weekday row. Annual holidays match month+day every year; 29 Feb is skipped in non-leap years.
+**Effective hours for a local date:** matching holiday for the active site wins (closed all day, or holiday `open_time`/`close_time`). Else the site's weekday row. Annual holidays match month+day every year; 29 Feb is skipped in non-leap years.
 
 The planner grid is derived from these settings. Advisors may still book outside hours, on Sunday, or on a holiday (rush job); the UI warns, the API does not 422. The grid must still *look* closed or shortened so a stall does not appear free. This matches ADR-0018's "never block operational flow" for *hours*, while still hard-blocking *bay collisions* (section 5).
 
@@ -123,7 +132,7 @@ Walk-in intake is unchanged: omit schedule fields → `INTAKE` as today.
 Overlap set: orders in `SCHEDULED`, `INTAKE`, `IN_PROGRESS` with non-null `bay_id`.
 
 - **Timed:** both schedule timestamps set → occupy `[scheduled_start_at, scheduled_end_at)`.
-- **Unscheduled on-floor:** `INTAKE` or `IN_PROGRESS` with a bay and null timestamps → occupy that bay for **today in the tenant timezone** using effective hours (holiday override included). If today is fully closed, occupy local midnight→next midnight. Walk-ins must not make a stall look empty on the planner.
+- **Unscheduled on-floor:** `INTAKE` or `IN_PROGRESS` with a bay and null timestamps → occupy that bay for **today in the active site's timezone** using effective hours (holiday override included). If today is fully closed, occupy local midnight→next midnight. Walk-ins must not make a stall look empty on the planner.
 
 `COMPLETED` / `INVOICED` do not occupy the bay.
 
@@ -139,12 +148,12 @@ When the advisor hits **Start Service** (or `+ Order`) for a vehicle that alread
 
 This is the load-bearing integration. Without it the planner creates orphans and the door creates duplicates.
 
-Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tasks are added to a scheduled order, default `scheduled_date` to the calendar date of `scheduled_start_at` in the tenant timezone. Do not invent task-level start/end in Phase 1.
+Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tasks are added to a scheduled order, default `scheduled_date` to the calendar date of `scheduled_start_at` in the active site's timezone. Do not invent task-level start/end in Phase 1.
 
 ### 7. Real-time, deletion, fiscal, inventory
 
 - **Deletion:** `SCHEDULED` orders may be deleted (no-show / cancelled booking). Aligns with current deletion-policy language for pre-work states. No new `CANCELLED` status in Phase 1. `WorkshopHoliday` may be hard-deleted; it is not referenced by orders.
-- **Realtime:** reuse `WORKSHOP_ORDER` WebSocket events. Add planner query keys to `dashboard-entity-map.ts`. `WorkshopSettings`, opening hours, and holidays are rare; refetch on navigating back from Settings (same as Employee/Bay in the board spec).
+- **Realtime:** reuse `WORKSHOP_ORDER` WebSocket events. Add planner query keys to `dashboard-entity-map.ts`. Site planner settings, opening hours, and holidays are rare; refetch on navigating back from Settings (same as Employee/Bay in the board spec).
 - **Fiscal:** none. Booking does not create invoices or touch `lock_date`.
 - **Inventory:** none. Planner does not read or write stock.
 
@@ -154,7 +163,7 @@ Mechanic-queue `WorkshopTask.scheduled_date` stays date-only. When the first tas
 
 - Advisors get a clock and a free-stall picture without replacing the board.
 - One document number from booking through invoice.
-- Hours are first-class tenant setup for a new workshop, including holidays.
+- Hours are first-class site setup for a new workshop, including holidays.
 - Bay integrity is enforced where physics requires it.
 
 ### Negative
