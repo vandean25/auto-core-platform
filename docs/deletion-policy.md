@@ -94,6 +94,21 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 
 Retention and tenant-purge exceptions require a separate approved policy; this baseline authorizes no historical deletion or snapshot repair.
 
+## ADR-0024 / AUT-318 — Document branding rules
+
+ADR-0024 is accepted; the following detailed lifecycle rules are the **approved baseline from the [AUT-318 feature spec](internal/02-Feature-Specs/Finance/document-branding-and-letterhead.md)** (Dejan Dosenovic, Product Owner, 2026-09-27). They are not claims about current API enforcement until implementation ships.
+
+| Entity | Planned delete support | Rule |
+|---|---|---|
+| DocumentBrandProfile | Reset / discard draft | Reset confirms a new ACP-default revision; discard removes only the draft. No public hard-delete endpoint. Issued snapshots and referenced assets remain intact. |
+| DocumentBrandAsset | Conditional cleanup | Never delete while referenced by an active/draft profile, unexpired proposal/active extraction or committed invoice. Unreferenced source uploads expire after 30 days; quarantined/rejected uploads after 24 hours; unreferenced logos after a 7-day grace period. Cleanup locks entity/assets, rechecks references, marks DELETING, deletes only the exact object generation, then retains a metadata tombstone. |
+| DocumentBrandExtraction | Discard / expire payload | Discard never changes active branding. Expire source/proposal payloads after 30 days once jobs are terminal; retain safe metadata for audit. Referenced logo assets follow their own retention guards. |
+| InvoiceBrandAssetReference | No | Retained with the committed invoice; no ordinary delete endpoint or short TTL. |
+| Branded invoice PDF | No overwrite/delete | Publish once; retain exact archive generation/bytes. Profile reset, asset cleanup and task retry cannot overwrite it. |
+| LegalEntity | Existing guards plus branding retention | Preserve current site/finance guards. Retained branding history blocks hard deletion; only unused, unprotected branding setup can be removed with an otherwise deletable entity. |
+
+Active-reference changes, invoice commitment and cleanup serialize on the legal entity before child rows. Cleanup must not race a first profile or invoice reference. Do not apply short GCS lifecycle rules to retained logos or invoice archives. These rules grant no tenant-purge or fiscal-retention exception.
+
 ## UI Contract
 
 - Show row context `Delete` only for entities with delete support.

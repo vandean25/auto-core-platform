@@ -1,8 +1,8 @@
 ---
 title: "ADR-0024: LegalEntity Document Branding and Letterhead Extraction"
 date: "2026-09-27"
-status: proposed
-deciders: "Product Owner (Dejan Dosenovic); acceptance pending"
+status: accepted
+deciders: "Product Owner (Dejan Dosenovic, 2026-09-27)"
 linear-project: "https://linear.app/auto-core-platform/project/legalentity-document-branding-and-letterhead-28dc131cc98c"
 linear-milestone: "0 — Spec & ADR"
 tags: [adr, legal-entity, branding, invoice, pdf]
@@ -12,7 +12,7 @@ tags: [adr, legal-entity, branding, invoice, pdf]
 
 ## Status
 
-**Proposed — 2026-09-27.** Product-owner review is required before acceptance. This record specifies the boundary for the subsequent Feature Spec; AUT-317 introduces no runtime schema, UI, extraction service or PDF code.
+**Accepted — 2026-09-27 (Product Owner, Dejan Dosenovic).** Acceptance was confirmed after [PR #585](https://github.com/vandean25/auto-core-platform/pull/585) merged. This record specifies the boundary for the subsequent Feature Spec; AUT-317 introduces no runtime schema, UI, extraction service or PDF code.
 
 ## Context
 
@@ -130,9 +130,9 @@ Original uploads and extraction proposals need a bounded cleanup policy distinct
 
 - [x] Read AUT-317 through Linear CLI and inspect related ADRs and renderer boundaries.
 - [x] Draft ADR-0024, register its number and record proposed deferrals.
-- [ ] Product owner reviews the proposed decisions; record acceptance and date only after explicit approval.
-- [ ] Open the ADR PR, complete repository-required checks and review, then mark it ready.
-- [ ] Subsequent Feature Spec fixes schema/API details, limits, extraction provider policy, authorization, deletion policy and release fixtures against the accepted ADR.
+- [x] Product owner accepted the decisions — Dejan Dosenovic, 2026-09-27.
+- [x] ADR delivered in merged [PR #585](https://github.com/vandean25/auto-core-platform/pull/585).
+- [x] AUT-318 Feature Spec defines schema/API details, limits, provider ownership, authorization, deletion policy and release fixtures; PO approved 2026-09-27. Provider activation and rendered-fixture acceptance remain release gates.
 - [ ] Implement profile/manual preview and snapshot integration before enabling assisted extraction. Runtime work follows a separately approved plan and TDD.
 
 Slice 1 targets branding of newly committed invoices through existing issuance paths. Extra presets, franchise packs and job-card reuse are deferred in the [deferrals log](../.architecture/deferrals.md). Credit-note branding also requires an explicit follow-on contract for whether it inherits the original appearance; this ADR does not silently extend that scope.
@@ -146,7 +146,7 @@ Slice 1 targets branding of newly committed invoices through existing issuance p
 
 ## Validation and Approval Gates
 
-- [ ] Dejan Dosenovic accepts this decision record; then change this status and the index to Accepted.
+- [x] Dejan Dosenovic accepted this decision record on 2026-09-27; status and index record acceptance.
 - [ ] Feature Spec proves two tenants and two legal entities cannot share unauthorized profiles/assets; document access remains site-scoped.
 - [ ] Tests cover extraction failure, malicious inputs, manual setup, explicit confirmation and stale-revision rejection.
 - [ ] Render fixtures cover default/branded output, multi-page tables, long text and protected legal blocks.
@@ -155,6 +155,7 @@ Slice 1 targets branding of newly committed invoices through existing issuance p
 
 ## References
 
+- [Document Brand Profile and Letterhead Extraction — AUT-318 approved spec](../02-Feature-Specs/Finance/document-branding-and-letterhead.md).
 - [ADR-0004: Invoice Snapshotting Policy](2026-04-12-invoice-snapshotting.md).
 - [ADR-0007: Asynchronous PDF Generation Pipeline](2026-04-12-async-pdf-pipeline.md).
 - [ADR-0023: Legal Invoice Snapshots, Credit Notes and Accounting Export](2026-09-20-legal-invoicing-and-accounting-export.md).
