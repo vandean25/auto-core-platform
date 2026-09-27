@@ -319,8 +319,38 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(toast.error).toHaveBeenCalledWith(
         'ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete',
       )
+      expect(
+        screen.getByText(/ACCOUNTING_MAPPING_INCOMPLETE: Accounting mapping is incomplete/i),
+      ).toBeInTheDocument()
       expect(mockNavigate).not.toHaveBeenCalled()
     })
+  })
+
+  it('shows ATP 409 finalize errors inside the confirm dialog', async () => {
+    const atpMessage =
+      'Insufficient ATP for item OF-1031-BMW - Oil Filter - BMW model 31 (Req: 1, Available: 0)'
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    const finalizeMutation = vi.fn().mockRejectedValue(new Error(atpMessage))
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: finalizeMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Insufficient ATP for item OF-1031-BMW/i)).toBeInTheDocument()
+      expect(toast.error).toHaveBeenCalledWith(atpMessage)
+    })
+
+    expect(screen.getByText(/Finalize invoice\?/i)).toBeInTheDocument()
   })
 
   it('surfaces API message when autosave fails', async () => {
