@@ -214,6 +214,7 @@ export class CreditNotePdfService {
         credit_number: true,
         pdf_storage_bucket: true,
         pdf_storage_key: true,
+        pdf_generated_at: true,
       },
     });
 
@@ -221,21 +222,43 @@ export class CreditNotePdfService {
       throw new NotFoundException('Credit note not found');
     }
 
-    if (!creditNote.pdf_storage_key) {
-      throw new NotFoundException('Credit note PDF is not generated yet');
+    const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
+    if (cachedPdf) {
+      const pdf = await this.storage.getPdfStream({
+        bucket: cachedPdf.bucket,
+        key: cachedPdf.key,
+      });
+      const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
+      return {
+        filename,
+        contentType: pdf.contentType ?? 'application/pdf',
+        contentLength: pdf.contentLength,
+        stream: pdf.stream,
+      };
     }
 
-    const pdf = await this.storage.getPdfStream({
-      bucket: creditNote.pdf_storage_bucket ?? undefined,
-      key: creditNote.pdf_storage_key,
-    });
-    const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
-    return {
-      filename,
-      contentType: pdf.contentType ?? 'application/pdf',
-      stream: pdf.stream,
-      contentLength: pdf.contentLength,
-    };
+    const fallbackKey = `credit-notes/${creditNoteId}.pdf`;
+    try {
+      const pdf = await this.storage.getPdfStream({ key: fallbackKey });
+      await this.backfillPdfMetadataFromStorage(
+        creditNoteId,
+        tenantId,
+        pdf.bucket,
+        pdf.key,
+      );
+      const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
+      return {
+        filename,
+        contentType: pdf.contentType ?? 'application/pdf',
+        contentLength: pdf.contentLength,
+        stream: pdf.stream,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new NotFoundException('Credit note PDF is not generated yet');
+      }
+      throw error;
+    }
   }
 
   private async loadCreditNoteForGeneration(
@@ -268,7 +291,7 @@ export class CreditNotePdfService {
     upload: { bucket: string; key: string },
     generatedAt: Date,
   ) {
-    await this.prisma.client.creditNote.updateMany({
+    const result = await this.prisma.client.creditNote.updateMany({
       where: { id: creditNoteId, tenant_id: tenantId },
       data: {
         pdf_storage_bucket: upload.bucket,
@@ -277,6 +300,34 @@ export class CreditNotePdfService {
         pdf_generation_error: null,
       },
     });
+
+    if (result.count === 0) {
+      throw new NotFoundException(
+        `Credit note ${creditNoteId} was not found for PDF metadata persistence`,
+      );
+    }
+  }
+
+  private async backfillPdfMetadataFromStorage(
+    creditNoteId: string,
+    tenantId: string,
+    bucket: string,
+    key: string,
+  ) {
+    try {
+      const generatedAt = new Date();
+      await this.persistGeneratedPdf(
+        creditNoteId,
+        tenantId,
+        { bucket, key },
+        generatedAt,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to backfill credit note PDF metadata (creditNoteId=${creditNoteId}): ${message}`,
+      );
+    }
   }
 
   private async safeStoreGenerationError(

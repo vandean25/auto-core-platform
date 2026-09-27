@@ -274,6 +274,12 @@ export async function downloadCreditNotePdf(
 
 export type CreditNotePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
 
+function shouldPollCreditNotePdfAfterGeneration(
+  mode: CreditNotePdfGenerationMode,
+): boolean {
+  return mode === 'enqueued' || mode === 'generated' || mode === 'cached'
+}
+
 export async function generateAndDownloadCreditNotePdf(
   creditNoteId: string,
   options?: {
@@ -294,7 +300,7 @@ export async function generateAndDownloadCreditNotePdf(
   }
 
   return downloadPdfFromGetUrl(`${CREDIT_NOTES_API}/${creditNoteId}/pdf`, {
-    poll: body.mode === 'enqueued',
+    poll: shouldPollCreditNotePdfAfterGeneration(body.mode),
     pollOptions: {
       onPoll: options?.onPoll,
       signal: options?.signal,
