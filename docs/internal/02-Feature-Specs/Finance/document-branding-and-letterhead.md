@@ -58,7 +58,7 @@ All fields are required in a complete draft; optional values use explicit null. 
 | `headerText` | Plain text, max 120 Unicode code points, max two explicit lines | empty string |
 | `footerText` | Plain text, max 120 Unicode code points, one explicit line | empty string |
 
-Normalize text to NFC and line endings to LF. Reject control characters other than the permitted header newline, bidi override controls, markup delimiters `<`/`>`, and `${...}` / `{{...}}` interpolation syntax. Escape all text when rendering, including rejected-input diagnostic previews. Do not infer seller addresses, tax identifiers or bank details from decorative text.
+Normalize text to NFC and line endings to LF. Reject all Unicode control (`Cc`) and format (`Cf`) characters, except at most one `U+000A` newline in `headerText`; `footerText` permits no newline. In particular, reject bidi overrides and isolates (`U+202A`–`U+202E`, `U+2066`–`U+2069`). Also reject markup delimiters `<`/`>` and `${...}` / `{{...}}` interpolation syntax. Escape all text when rendering, including rejected-input diagnostic previews. Do not infer seller addresses, tax identifiers or bank details from decorative text.
 
 `acp-sans-v1` means one bundled Noto Sans font build with regular/bold weights, a recorded checksum and license. Package the same files with preview assets and the PDF worker; no remote font fetch or operating-system fallback for new branded renders. This does not change historical renderer versions.
 
@@ -164,7 +164,7 @@ Return 401 unauthenticated, 403 for insufficient role/active membership, and 404
 | Validation/rasterization | Isolated process, 256 MiB memory limit, 15-second wall limit; reject embedded executable content, embedded files and PDF actions |
 | Provider | One bounded request per attempt, 30-second deadline, maximum 8 KiB structured result; no tools or external fetching |
 | API quota | 20 uploads and 10 extraction requests per legal entity per rolling hour; atomic server counters, 429 at limit |
-| Preview | 30 requests per user/minute; complete body maximum 16 KiB; logo embedded as authorized PNG data |
+| Preview | 30 requests per user/minute; POST `/preview` request body maximum 16 KiB (theme JSON and sample profile enum, with no file upload). HTML response body maximum 8 MiB, including an authorized READY logo embedded as a PNG data URI and any bundled preview font data. Reject an oversized response explicitly; never truncate the logo or chrome. |
 
 Quarantine validation must fail closed; encrypted, malformed or unsafe files become REJECTED. Raw sources never reach `page.setContent` or the invoice renderer. Rasterization is input preprocessing, not a replacement PDF renderer. Select and pin the sandboxed rasterizer in the extraction implementation issue, with the resource/hostile-PDF acceptance cases below.
 
