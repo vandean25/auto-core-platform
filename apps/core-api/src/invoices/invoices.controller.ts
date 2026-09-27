@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpException,
   Logger,
   Param,
@@ -100,6 +101,8 @@ export class InvoicesController {
   }
 
   @Get(':id/pdf')
+  @Header('Cache-Control', 'no-store')
+  @Header('Pragma', 'no-cache')
   @ApiProduces('application/pdf')
   @ApiOkResponse({
     schema: {

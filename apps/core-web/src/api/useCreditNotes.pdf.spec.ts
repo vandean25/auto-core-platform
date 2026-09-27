@@ -77,4 +77,30 @@ describe('generateAndDownloadCreditNotePdf', () => {
       'Renderer failed',
     )
   })
+
+  it('does not poll when POST returns cached mode', async () => {
+    const creditNoteId = 'cn-cached'
+    let pdfGetCalls = 0
+
+    asMock(fetchWithAuth).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/pdf') && init?.method === 'POST') {
+        return {
+          ok: true,
+          json: async () => ({ mode: 'cached', creditNoteId }),
+        }
+      }
+      if (url.endsWith('/pdf')) {
+        pdfGetCalls += 1
+        return {
+          ok: true,
+          blob: async () => new Blob(['%PDF'], { type: 'application/pdf' }),
+        }
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const blob = await generateAndDownloadCreditNotePdf(creditNoteId)
+    expect(blob.type).toBe('application/pdf')
+    expect(pdfGetCalls).toBe(1)
+  })
 })

@@ -92,6 +92,7 @@ export async function downloadPdfFromGetUrl(
   const fetchPdf = () =>
     fetchWithAuth(url, {
       headers: { Accept: 'application/pdf' },
+      cache: 'no-store',
       signal: options?.pollOptions?.signal,
     })
 
