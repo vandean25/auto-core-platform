@@ -296,9 +296,10 @@ export default function InvoiceDetailPage() {
       document.body.removeChild(link)
 
       toast.success('Invoice PDF downloaded successfully', { id: toastId })
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Failed to generate PDF'
-      toast.error(message, { id: toastId })
+    } catch (printError: unknown) {
+      toast.error(getErrorMessage(printError, 'Failed to generate PDF'), {
+        id: toastId,
+      })
     } finally {
       setIsDownloading(false)
       if (url) {

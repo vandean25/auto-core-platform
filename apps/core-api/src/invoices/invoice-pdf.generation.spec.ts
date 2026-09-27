@@ -35,7 +35,10 @@ describe('invoice-pdf.generation', () => {
   });
 
   describe('assertInvoicePdfGenerationAllowed', () => {
-    it('allows ISSUED and PAID invoices', () => {
+    it('allows FINALIZED, ISSUED, and PAID invoices', () => {
+      expect(() =>
+        assertInvoicePdfGenerationAllowed(InvoiceStatus.FINALIZED),
+      ).not.toThrow();
       expect(() =>
         assertInvoicePdfGenerationAllowed(InvoiceStatus.ISSUED),
       ).not.toThrow();

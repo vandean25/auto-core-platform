@@ -31,10 +31,16 @@ export const readCachedPdfMetadata = (
   };
 };
 
+const INVOICE_PDF_ELIGIBLE_STATUSES = new Set<InvoiceStatus>([
+  InvoiceStatus.FINALIZED,
+  InvoiceStatus.ISSUED,
+  InvoiceStatus.PAID,
+]);
+
 export const assertInvoicePdfGenerationAllowed = (status: InvoiceStatus) => {
-  if (status !== InvoiceStatus.ISSUED && status !== InvoiceStatus.PAID) {
+  if (!INVOICE_PDF_ELIGIBLE_STATUSES.has(status)) {
     throw new BadRequestException(
-      'Invoice PDF can only be generated for ISSUED/PAID invoices',
+      'Invoice PDF can only be generated for FINALIZED, ISSUED, or PAID invoices.',
     );
   }
 };

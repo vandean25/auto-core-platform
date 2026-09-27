@@ -269,6 +269,30 @@ describe('InvoicePdfService.generateNow', () => {
     );
   });
 
+  it('generates PDF for FINALIZED invoices', async () => {
+    prisma.client.invoice.findFirst.mockResolvedValue({
+      id: invoiceId,
+      status: InvoiceStatus.FINALIZED,
+      snapshot: validSnapshot,
+      pdf_storage_bucket: null,
+      pdf_storage_key: null,
+      pdf_generated_at: null,
+      customer_id: 'customer-1',
+      workshop_order_id: null,
+    });
+
+    await expect(service.generateNow(invoiceId)).resolves.toEqual(
+      expect.objectContaining({
+        invoiceId,
+        bucket: 'bucket',
+        key: 'invoices/invoice-1.pdf',
+      }),
+    );
+
+    expect(renderer.render).toHaveBeenCalled();
+    expect(storage.uploadPdf).toHaveBeenCalled();
+  });
+
   it('throws when invoice is missing', async () => {
     prisma.client.invoice.findFirst.mockResolvedValue(null);
 
