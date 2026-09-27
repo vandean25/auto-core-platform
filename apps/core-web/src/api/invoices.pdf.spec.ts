@@ -32,7 +32,7 @@ describe('generateAndDownloadInvoicePdf', () => {
           blob: async () => new Blob(['%PDF'], { type: 'application/pdf' }),
         }
       }
-      if (url.endsWith(`/api/invoices/${invoiceId}`)) {
+      if (url.endsWith(`/api/sales/invoices/${invoiceId}`)) {
         return {
           ok: true,
           json: async () => ({ pdf_generation_error: null }),
@@ -63,7 +63,7 @@ describe('generateAndDownloadInvoicePdf', () => {
           json: async () => ({ message: 'Invoice PDF is not generated yet' }),
         }
       }
-      if (url.endsWith(`/api/invoices/${invoiceId}`)) {
+      if (url.endsWith(`/api/sales/invoices/${invoiceId}`)) {
         return {
           ok: true,
           json: async () => ({ pdf_generation_error: 'Renderer failed' }),

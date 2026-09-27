@@ -6,6 +6,7 @@ import type { DiscountType, Invoice } from './types'
 import { workshopKeys } from './workshop'
 
 const INVOICES_API = '/api/invoices'
+const SALES_INVOICES_API = '/api/sales/invoices'
 
 export interface UpdateInvoiceDiscountLine {
   id: string
@@ -129,15 +130,23 @@ export function useGenerateInvoicePdf() {
   })
 }
 
+export type InvoicePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
+
 async function fetchInvoicePdfGenerationError(
   invoiceId: string,
 ): Promise<string | null> {
-  const response = await fetchWithAuth(`${INVOICES_API}/${invoiceId}`)
+  const response = await fetchWithAuth(`${SALES_INVOICES_API}/${invoiceId}`)
   if (!response.ok) {
     return null
   }
   const invoice = (await response.json()) as Invoice
   return invoice.pdf_generation_error ?? null
+}
+
+function shouldPollInvoicePdfAfterGeneration(
+  mode: InvoicePdfGenerationMode,
+): boolean {
+  return mode === 'enqueued' || mode === 'generated' || mode === 'cached'
 }
 
 export async function downloadInvoicePdf(
@@ -154,8 +163,6 @@ export async function downloadInvoicePdf(
       : undefined,
   })
 }
-
-export type InvoicePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
 
 export async function generateAndDownloadInvoicePdf(
   invoiceId: string,
@@ -180,7 +187,7 @@ export async function generateAndDownloadInvoicePdf(
   }
 
   return downloadPdfFromGetUrl(`${INVOICES_API}/${invoiceId}/pdf`, {
-    poll: body.mode === 'enqueued',
+    poll: shouldPollInvoicePdfAfterGeneration(body.mode),
     pollOptions: {
       onPoll: options?.onPoll,
       signal: options?.signal,
