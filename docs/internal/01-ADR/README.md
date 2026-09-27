@@ -29,5 +29,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0021 | Vehicle Intelligence — Provider Ports, JIT Catalog, Make-Based Routing | Accepted | 2026-08-28 | [2026-08-28-vehicle-intelligence-catalog-providers.md](2026-08-28-vehicle-intelligence-catalog-providers.md) |
 | ADR-0022 | Site Is Request-Scoped Operational Ownership (ADR-0013 Unchanged) | Accepted | 2026-08-31 | [2026-08-31-site-operational-scope.md](2026-08-31-site-operational-scope.md) |
 | ADR-0023 | Legal Invoice Snapshots, Credit Notes and Accounting Export | Accepted | 2026-09-20 | [2026-09-20-legal-invoicing-and-accounting-export.md](2026-09-20-legal-invoicing-and-accounting-export.md) |
+| ADR-0024 | LegalEntity Document Branding and Letterhead Extraction | Proposed | 2026-09-27 | [2026-09-27-legal-entity-document-branding.md](2026-09-27-legal-entity-document-branding.md) |
 
-Next free number: **ADR-0024**.
+Next free number: **ADR-0025**.

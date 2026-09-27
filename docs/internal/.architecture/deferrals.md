@@ -35,6 +35,19 @@ Baseline: [ADR-0023](../01-ADR/2026-09-20-legal-invoicing-and-accounting-export.
 
 No follow-on is implicitly authorized by reserved fields or the accepted snapshot version.
 
+### Document branding follow-ons (AUT-317 / ADR-0024)
+
+**Status:** Proposed deferrals — 2026-09-27; pending product-owner acceptance of [ADR-0024](../01-ADR/2026-09-27-legal-entity-document-branding.md). Owner: Product Owner.
+
+| Deferred capability | Reason / cost of waiting | Re-entry trigger |
+|---|---|---|
+| Extra layout presets and custom fonts | One code-owned preset and bundled font bound the initial render matrix; some letterheads are only approximated | Confirmed customer layout cannot fit the initial preset; approve render and legal-content fixtures |
+| Franchise branding packs | Cross-entity distribution, overrides and governance add a separate lifecycle | Signed franchise requirement with explicit entity ownership and update policy |
+| Workshop job-card reuse | Operational documents have different content and snapshot timing | Approved workshop specification defines authorization, content and freeze behavior |
+| Credit-note branding | Must choose original-invoice versus current-entity appearance explicitly | Credit branding specification approved alongside immutable credit render fixtures |
+
+Pixel-perfect arbitrary letterhead cloning, tenant React templates, structured e-invoice visual packs and vehicle/parts `Brand` styling are non-goals, not implicitly scheduled follow-ons.
+
 ### Single-tenant restore tooling
 
 **Status**: Deferred
