@@ -146,7 +146,7 @@ async function fetchInvoicePdfGenerationError(
 function shouldPollInvoicePdfAfterGeneration(
   mode: InvoicePdfGenerationMode,
 ): boolean {
-  return mode === 'enqueued' || mode === 'generated' || mode === 'cached'
+  return mode === 'enqueued' || mode === 'generated'
 }
 
 export async function downloadInvoicePdf(

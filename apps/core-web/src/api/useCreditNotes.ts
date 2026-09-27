@@ -277,7 +277,7 @@ export type CreditNotePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
 function shouldPollCreditNotePdfAfterGeneration(
   mode: CreditNotePdfGenerationMode,
 ): boolean {
-  return mode === 'enqueued' || mode === 'generated' || mode === 'cached'
+  return mode === 'enqueued' || mode === 'generated'
 }
 
 export async function generateAndDownloadCreditNotePdf(

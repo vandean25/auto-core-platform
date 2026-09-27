@@ -1,9 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_PDF_POLL_INTERVAL_MS,
+  downloadPdfFromGetUrl,
   isPdfNotReadyHttpStatus,
   pollUntilPdfBlob,
 } from './async-pdf'
+
+vi.mock('@/api/client', () => ({
+  fetchWithAuth: vi.fn(),
+}))
+
+import { fetchWithAuth } from '@/api/client'
 
 describe('isPdfNotReadyHttpStatus', () => {
   it('detects not-yet-generated 404 responses', () => {
@@ -57,5 +64,26 @@ describe('pollUntilPdfBlob', () => {
       }),
     ).rejects.toThrow('Playwright crashed')
     expect(fetchPdf).not.toHaveBeenCalled()
+  })
+})
+
+describe('downloadPdfFromGetUrl', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('requests PDF bytes with cache disabled', async () => {
+    vi.mocked(fetchWithAuth).mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob(['%PDF'], { type: 'application/pdf' }),
+    } as Response)
+
+    await downloadPdfFromGetUrl('/api/credit-notes/cn-1/pdf')
+
+    expect(fetchWithAuth).toHaveBeenCalledWith('/api/credit-notes/cn-1/pdf', {
+      headers: { Accept: 'application/pdf' },
+      cache: 'no-store',
+      signal: undefined,
+    })
   })
 })

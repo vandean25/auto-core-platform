@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/node';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
+import { applyPdfDownloadCacheControlIfNeeded } from '../pdf/pdf-download-cache.js';
 import {
   ApplicationError,
   ConflictError,
@@ -40,6 +41,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
 
     const user = TenantContextStorage.getUser();
@@ -52,6 +54,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const resolved = this.resolveException(exception, context);
     const eventId = this.captureSentryIfInternal(exception, resolved.status);
+
+    applyPdfDownloadCacheControlIfNeeded(request, response);
 
     response.status(resolved.status).json({
       statusCode: resolved.status,
