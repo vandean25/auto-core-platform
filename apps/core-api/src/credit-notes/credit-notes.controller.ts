@@ -138,7 +138,6 @@ export class CreditNotesController {
       handleCreditNotePdfWorkerError(id, error, this.logger);
     }
   }
-
 }
 
 @Controller('invoices')
