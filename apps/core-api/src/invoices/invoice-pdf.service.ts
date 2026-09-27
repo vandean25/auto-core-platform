@@ -225,6 +225,7 @@ export class InvoicePdfService {
         invoice_number: true,
         pdf_storage_bucket: true,
         pdf_storage_key: true,
+        pdf_generated_at: true,
       },
     });
 
@@ -232,21 +233,43 @@ export class InvoicePdfService {
       throw new NotFoundException('Invoice not found');
     }
 
-    if (!invoice.pdf_storage_key) {
-      throw new NotFoundException('Invoice PDF is not generated yet');
+    const cachedPdf = readCachedPdfMetadata(invoice);
+    if (cachedPdf) {
+      const pdf = await this.storage.getPdfStream({
+        bucket: cachedPdf.bucket,
+        key: cachedPdf.key,
+      });
+      const filename = `invoice-${invoice.invoice_number ?? invoice.id}.pdf`;
+      return {
+        filename,
+        contentType: pdf.contentType ?? 'application/pdf',
+        contentLength: pdf.contentLength,
+        stream: pdf.stream,
+      };
     }
 
-    const pdf = await this.storage.getPdfStream({
-      bucket: invoice.pdf_storage_bucket ?? undefined,
-      key: invoice.pdf_storage_key,
-    });
-    const filename = `invoice-${invoice.invoice_number ?? invoice.id}.pdf`;
-    return {
-      filename,
-      contentType: pdf.contentType ?? 'application/pdf',
-      contentLength: pdf.contentLength,
-      stream: pdf.stream,
-    };
+    const fallbackKey = `invoices/${invoiceId}.pdf`;
+    try {
+      const pdf = await this.storage.getPdfStream({ key: fallbackKey });
+      await this.backfillPdfMetadataFromStorage(
+        invoiceId,
+        tenantId,
+        pdf.bucket,
+        pdf.key,
+      );
+      const filename = `invoice-${invoice.invoice_number ?? invoice.id}.pdf`;
+      return {
+        filename,
+        contentType: pdf.contentType ?? 'application/pdf',
+        contentLength: pdf.contentLength,
+        stream: pdf.stream,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new NotFoundException('Invoice PDF is not generated yet');
+      }
+      throw error;
+    }
   }
 
   private async loadInvoiceForGeneration(invoiceId: string, tenantId: string) {
@@ -289,7 +312,7 @@ export class InvoicePdfService {
     upload: { bucket: string; key: string },
     generatedAt: Date,
   ) {
-    await this.prisma.client.invoice.updateMany({
+    const result = await this.prisma.client.invoice.updateMany({
       where: { id: invoiceId, tenant_id: tenantId },
       data: {
         pdf_storage_bucket: upload.bucket,
@@ -298,6 +321,34 @@ export class InvoicePdfService {
         pdf_generation_error: null,
       },
     });
+
+    if (result.count === 0) {
+      throw new NotFoundException(
+        `Invoice ${invoiceId} was not found for PDF metadata persistence`,
+      );
+    }
+  }
+
+  private async backfillPdfMetadataFromStorage(
+    invoiceId: string,
+    tenantId: string,
+    bucket: string,
+    key: string,
+  ) {
+    try {
+      const generatedAt = new Date();
+      await this.persistGeneratedPdf(
+        invoiceId,
+        tenantId,
+        { bucket, key },
+        generatedAt,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to backfill invoice PDF metadata (invoiceId=${invoiceId}): ${message}`,
+      );
+    }
   }
 
   private async safeStoreGenerationError(

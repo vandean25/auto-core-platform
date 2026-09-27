@@ -301,3 +301,101 @@ describe('InvoicePdfService.generateNow', () => {
     );
   });
 });
+
+describe('InvoicePdfService.getPdf', () => {
+  const tenantId = 'tenant-1';
+  const invoiceId = 'invoice-1';
+
+  let service: InvoicePdfService;
+  let storage: jest.Mocked<Pick<PdfStorage, 'getPdfStream'>>;
+  let prisma: {
+    client: {
+      invoice: {
+        findFirst: jest.Mock;
+        updateMany: jest.Mock;
+      };
+    };
+  };
+
+  beforeEach(() => {
+    storage = {
+      getPdfStream: jest.fn().mockResolvedValue({
+        bucket: 'bucket',
+        key: 'invoices/invoice-1.pdf',
+        stream: {} as never,
+        contentType: 'application/pdf',
+        contentLength: 100,
+      }),
+    };
+    prisma = {
+      client: {
+        invoice: {
+          findFirst: jest.fn(),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      },
+    };
+
+    service = new InvoicePdfService(
+      prisma as unknown as PrismaService,
+      {} as InvoicePdfRenderer,
+      storage,
+      {} as CloudTasksService,
+      {
+        getTenantId: jest.fn().mockResolvedValue(tenantId),
+      } as unknown as TenantContextService,
+    );
+  });
+
+  it('streams from cached metadata when pdf_storage fields are set', async () => {
+    prisma.client.invoice.findFirst.mockResolvedValue({
+      id: invoiceId,
+      invoice_number: 'RE-2026-0001',
+      pdf_storage_bucket: 'bucket',
+      pdf_storage_key: 'invoices/invoice-1.pdf',
+      pdf_generated_at: new Date('2026-04-01T00:00:00.000Z'),
+    });
+
+    const result = await service.getPdf(invoiceId);
+
+    expect(storage.getPdfStream).toHaveBeenCalledWith({
+      bucket: 'bucket',
+      key: 'invoices/invoice-1.pdf',
+    });
+    expect(result.filename).toBe('invoice-RE-2026-0001.pdf');
+  });
+
+  it('falls back to the default GCS key when metadata is missing', async () => {
+    prisma.client.invoice.findFirst.mockResolvedValue({
+      id: invoiceId,
+      invoice_number: 'RE-2026-0001',
+      pdf_storage_bucket: null,
+      pdf_storage_key: null,
+      pdf_generated_at: null,
+    });
+
+    await service.getPdf(invoiceId);
+
+    expect(storage.getPdfStream).toHaveBeenCalledWith({
+      key: 'invoices/invoice-1.pdf',
+    });
+    expect(prisma.client.invoice.updateMany).toHaveBeenCalled();
+  });
+
+  it('returns not generated yet when metadata and storage are missing', async () => {
+    prisma.client.invoice.findFirst.mockResolvedValue({
+      id: invoiceId,
+      invoice_number: null,
+      pdf_storage_bucket: null,
+      pdf_storage_key: null,
+      pdf_generated_at: null,
+    });
+    storage.getPdfStream.mockRejectedValue(
+      new NotFoundException('PDF not found in storage'),
+    );
+
+    await expect(service.getPdf(invoiceId)).rejects.toThrow(
+      'Invoice PDF is not generated yet',
+    );
+  });
+});
