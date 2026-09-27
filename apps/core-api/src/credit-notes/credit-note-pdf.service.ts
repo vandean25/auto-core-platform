@@ -10,7 +10,10 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { toRenderableCreditNoteSnapshot } from './credit-note-snapshot-render.adapter.js';
 import {
   assertCreditNotePdfGenerationAllowed,
+  buildCreditNotePdfStorageCandidates,
+  creditNotePdfObjectKey,
   readCachedCreditNotePdfMetadata,
+  type CachedPdfMetadata,
 } from './credit-note-pdf.generation.js';
 
 export type CreditNotePdfRequestGenerationResponse = {
@@ -55,7 +58,11 @@ export class CreditNotePdfService {
       throw new NotFoundException('Credit note not found');
     }
 
-    const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
+    const cachedPdf = await this.resolveVerifiedCachedPdfMetadata(
+      creditNoteId,
+      tenantId,
+      creditNote,
+    );
     if (cachedPdf) {
       return {
         mode: 'cached',
@@ -124,7 +131,11 @@ export class CreditNotePdfService {
           tenantId,
         );
 
-        const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
+        const cachedPdf = await this.resolveVerifiedCachedPdfMetadata(
+          creditNoteId,
+          tenantId,
+          creditNote,
+        );
         if (cachedPdf) {
           return {
             creditNoteId: creditNote.id,
@@ -147,7 +158,7 @@ export class CreditNotePdfService {
           );
         }
 
-        const key = `credit-notes/${creditNoteId}.pdf`;
+        const key = creditNotePdfObjectKey(creditNoteId);
 
         try {
           const upload = await renderAndUploadPdf({
@@ -222,42 +233,130 @@ export class CreditNotePdfService {
       throw new NotFoundException('Credit note not found');
     }
 
-    const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
-    if (cachedPdf) {
-      const pdf = await this.storage.getPdfStream({
-        bucket: cachedPdf.bucket,
-        key: cachedPdf.key,
-      });
-      const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
-      return {
-        filename,
-        contentType: pdf.contentType ?? 'application/pdf',
-        contentLength: pdf.contentLength,
-        stream: pdf.stream,
-      };
+    const opened = await this.openCreditNotePdfStream(creditNoteId, creditNote);
+    if (!opened) {
+      throw new NotFoundException('Credit note PDF is not generated yet');
     }
 
-    const fallbackKey = `credit-notes/${creditNoteId}.pdf`;
-    try {
-      const pdf = await this.storage.getPdfStream({ key: fallbackKey });
+    const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
+    const needsMetadataBackfill =
+      !cachedPdf ||
+      cachedPdf.bucket !== opened.bucket ||
+      cachedPdf.key !== opened.key;
+    if (needsMetadataBackfill) {
       await this.backfillPdfMetadataFromStorage(
         creditNoteId,
         tenantId,
-        pdf.bucket,
-        pdf.key,
+        opened.bucket,
+        opened.key,
       );
-      const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
-      return {
-        filename,
-        contentType: pdf.contentType ?? 'application/pdf',
-        contentLength: pdf.contentLength,
-        stream: pdf.stream,
-      };
+    }
+
+    const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
+    return {
+      filename,
+      contentType: opened.contentType ?? 'application/pdf',
+      contentLength: opened.contentLength,
+      stream: opened.stream,
+    };
+  }
+
+  private async resolveVerifiedCachedPdfMetadata(
+    creditNoteId: string,
+    tenantId: string,
+    creditNote: {
+      pdf_storage_bucket: string | null;
+      pdf_storage_key: string | null;
+      pdf_generated_at: Date | null;
+    },
+  ): Promise<CachedPdfMetadata | null> {
+    const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
+    if (!cachedPdf) {
+      return null;
+    }
+
+    const opened = await this.tryOpenPdfStream(creditNoteId, creditNote, {
+      bucket: cachedPdf.bucket,
+      key: cachedPdf.key,
+    });
+    if (opened) {
+      return cachedPdf;
+    }
+
+    await this.clearPdfStorageMetadata(creditNoteId, tenantId);
+    return null;
+  }
+
+  private async openCreditNotePdfStream(
+    creditNoteId: string,
+    creditNote: {
+      pdf_storage_bucket: string | null;
+      pdf_storage_key: string | null;
+      pdf_generated_at: Date | null;
+    },
+  ) {
+    const candidates = buildCreditNotePdfStorageCandidates(
+      creditNote,
+      creditNoteId,
+    );
+
+    for (const candidate of candidates) {
+      const opened = await this.tryOpenPdfStream(
+        creditNoteId,
+        creditNote,
+        candidate,
+      );
+      if (opened) {
+        return opened;
+      }
+    }
+
+    return null;
+  }
+
+  private async tryOpenPdfStream(
+    creditNoteId: string,
+    creditNote: {
+      pdf_storage_bucket: string | null;
+      pdf_storage_key: string | null;
+      pdf_generated_at: Date | null;
+    },
+    candidate: { bucket?: string; key: string },
+  ) {
+    try {
+      return await this.storage.getPdfStream({
+        bucket: candidate.bucket,
+        key: candidate.key,
+      });
     } catch (error) {
       if (error instanceof NotFoundException) {
-        throw new NotFoundException('Credit note PDF is not generated yet');
+        this.logger.debug(
+          `Credit note PDF object missing (creditNoteId=${creditNoteId}, bucket=${candidate.bucket ?? 'default'}, key=${candidate.key}, pdfGeneratedAt=${creditNote.pdf_generated_at?.toISOString() ?? 'null'})`,
+        );
+        return null;
       }
       throw error;
+    }
+  }
+
+  private async clearPdfStorageMetadata(
+    creditNoteId: string,
+    tenantId: string,
+  ) {
+    try {
+      await this.prisma.client.creditNote.updateMany({
+        where: { id: creditNoteId, tenant_id: tenantId },
+        data: {
+          pdf_storage_bucket: null,
+          pdf_storage_key: null,
+          pdf_generated_at: null,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to clear stale credit note PDF metadata (creditNoteId=${creditNoteId}): ${message}`,
+      );
     }
   }
 

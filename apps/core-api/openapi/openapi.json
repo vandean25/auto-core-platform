@@ -4898,6 +4898,65 @@
         ]
       }
     },
+    "/api/credit-notes/{id}/pdf": {
+      "get": {
+        "operationId": "CreditNotesController_getPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      },
+      "post": {
+        "operationId": "CreditNotesController_generatePdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CreditNotes"
+        ]
+      }
+    },
     "/api/credit-notes/{id}": {
       "get": {
         "operationId": "CreditNotesController_findOne",
@@ -5036,65 +5095,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CreditNoteResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "CreditNotes"
-        ]
-      }
-    },
-    "/api/credit-notes/{id}/pdf": {
-      "post": {
-        "operationId": "CreditNotesController_generatePdf",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "CreditNotes"
-        ]
-      },
-      "get": {
-        "operationId": "CreditNotesController_getPdf",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/pdf": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
                 }
               }
             }

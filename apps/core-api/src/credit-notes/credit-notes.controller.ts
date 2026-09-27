@@ -83,6 +83,19 @@ export class CreditNotesController {
     return this.creditNotesService.list(query);
   }
 
+  @Get(':id/pdf')
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({
+    schema: {
+      type: 'string',
+      format: 'binary',
+    },
+  })
+  async getPdf(@Param('id') id: string) {
+    const pdf = await this.creditNotePdfService.getPdf(id);
+    return toPdfStreamableFile(pdf);
+  }
+
   @Get(':id')
   @ApiOkResponse({ type: CreditNoteResponseDto })
   findOne(@Param('id') id: string) {
@@ -124,19 +137,6 @@ export class CreditNotesController {
     } catch (error) {
       handleCreditNotePdfWorkerError(id, error, this.logger);
     }
-  }
-
-  @Get(':id/pdf')
-  @ApiProduces('application/pdf')
-  @ApiOkResponse({
-    schema: {
-      type: 'string',
-      format: 'binary',
-    },
-  })
-  async getPdf(@Param('id') id: string) {
-    const pdf = await this.creditNotePdfService.getPdf(id);
-    return toPdfStreamableFile(pdf);
   }
 }
 

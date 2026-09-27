@@ -1536,6 +1536,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/credit-notes/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["CreditNotesController_getPdf"];
+        put?: never;
+        post: operations["CreditNotesController_generatePdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/credit-notes/{id}": {
         parameters: {
             query?: never;
@@ -1578,22 +1594,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["CreditNotesController_void"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/credit-notes/{id}/pdf": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["CreditNotesController_getPdf"];
-        put?: never;
-        post: operations["CreditNotesController_generatePdf"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8693,6 +8693,48 @@ export interface operations {
             };
         };
     };
+    CreditNotesController_getPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    CreditNotesController_generatePdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
     CreditNotesController_findOne: {
         parameters: {
             query?: never;
@@ -8785,48 +8827,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CreditNoteResponseDto"];
-                };
-            };
-        };
-    };
-    CreditNotesController_getPdf: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/pdf": string;
-                };
-            };
-        };
-    };
-    CreditNotesController_generatePdf: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
                 };
             };
         };
