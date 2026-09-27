@@ -23,8 +23,7 @@ vi.mock('@/api/workshop', () => ({
   useWorkshopOrder: () => ({ data: undefined, isLoading: false, error: null }),
 }))
 vi.mock('@/api/invoices', () => ({
-  useGenerateInvoicePdf: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  downloadInvoicePdf: vi.fn(),
+  generateAndDownloadInvoicePdf: vi.fn(),
 }))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
