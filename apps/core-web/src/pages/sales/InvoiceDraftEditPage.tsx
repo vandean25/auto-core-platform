@@ -152,6 +152,9 @@ export default function InvoiceDraftEditPage() {
   )
 
   const [finalizeOpen, setFinalizeOpen] = React.useState(false)
+  const [finalizeErrorMessage, setFinalizeErrorMessage] = React.useState<string | null>(
+    null,
+  )
   const [isFinalizing, setIsFinalizing] = React.useState(false)
   const isFinalizingRef = React.useRef(false)
 
@@ -200,6 +203,7 @@ export default function InvoiceDraftEditPage() {
     abortInFlightSave()
     isFinalizingRef.current = true
     setIsFinalizing(true)
+    setFinalizeErrorMessage(null)
 
     try {
       await updateInvoiceMutation.mutateAsync({
@@ -217,7 +221,9 @@ export default function InvoiceDraftEditPage() {
       setFinalizeOpen(false)
       navigate(APP_ROUTE_PATHS.salesInvoiceDetail.replace(":id", invoiceId))
     } catch (finalizeError) {
-      toast.error(getErrorMessage(finalizeError, "Failed to finalize invoice"))
+      const message = getErrorMessage(finalizeError, "Failed to finalize invoice")
+      setFinalizeErrorMessage(message)
+      toast.error(message)
     } finally {
       isFinalizingRef.current = false
       setIsFinalizing(false)
@@ -314,7 +320,10 @@ export default function InvoiceDraftEditPage() {
           <Button
             type="button"
             variant="destructive"
-            onClick={() => setFinalizeOpen(true)}
+            onClick={() => {
+              setFinalizeErrorMessage(null)
+              setFinalizeOpen(true)
+            }}
             disabled={
               !editor.isValid ||
               isFinalizing ||
@@ -481,7 +490,9 @@ export default function InvoiceDraftEditPage() {
       <AlertDialog
         open={finalizeOpen}
         onOpenChange={(open) => {
-          if (!isFinalizing) setFinalizeOpen(open)
+          if (isFinalizing) return
+          if (!open) setFinalizeErrorMessage(null)
+          setFinalizeOpen(open)
         }}
       >
         <AlertDialogContent>
@@ -491,6 +502,11 @@ export default function InvoiceDraftEditPage() {
               This will lock the invoice, assign an official RE number, and deduct stock for
               catalog lines. You cannot edit the draft after this.
             </AlertDialogDescription>
+            {finalizeErrorMessage ? (
+              <p className="text-sm text-destructive" role="alert">
+                {finalizeErrorMessage}
+              </p>
+            ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isFinalizing}>Cancel</AlertDialogCancel>
