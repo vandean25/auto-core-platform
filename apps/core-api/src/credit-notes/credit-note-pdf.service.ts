@@ -238,12 +238,19 @@ export class CreditNotePdfService {
       throw new NotFoundException('Credit note PDF is not generated yet');
     }
 
-    await this.backfillPdfMetadataFromStorage(
-      creditNoteId,
-      tenantId,
-      opened.bucket,
-      opened.key,
-    );
+    const cachedPdf = readCachedCreditNotePdfMetadata(creditNote);
+    const needsMetadataBackfill =
+      !cachedPdf ||
+      cachedPdf.bucket !== opened.bucket ||
+      cachedPdf.key !== opened.key;
+    if (needsMetadataBackfill) {
+      await this.backfillPdfMetadataFromStorage(
+        creditNoteId,
+        tenantId,
+        opened.bucket,
+        opened.key,
+      );
+    }
 
     const filename = `credit-note-${creditNote.credit_number ?? creditNote.id}.pdf`;
     return {
