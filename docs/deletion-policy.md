@@ -94,9 +94,9 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 
 Retention and tenant-purge exceptions require a separate approved policy; this baseline authorizes no historical deletion or snapshot repair.
 
-## ADR-0024 / AUT-318 — Proposed document branding rules
+## ADR-0024 / AUT-318 — Document branding rules
 
-ADR-0024 is accepted; the following detailed lifecycle rules are **proposed in the [AUT-318 feature spec](internal/02-Feature-Specs/Finance/document-branding-and-letterhead.md)** and await spec approval. They are not claims about current API enforcement.
+ADR-0024 is accepted; the following detailed lifecycle rules are the **approved baseline from the [AUT-318 feature spec](internal/02-Feature-Specs/Finance/document-branding-and-letterhead.md)** (Dejan Dosenovic, Product Owner, 2026-09-27). They are not claims about current API enforcement until implementation ships.
 
 | Entity | Planned delete support | Rule |
 |---|---|---|

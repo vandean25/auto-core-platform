@@ -2,7 +2,7 @@
 title: "Document Brand Profile and Letterhead Extraction"
 date: "2026-09-27"
 module: finance
-status: draft
+status: approved
 linear-project: "https://linear.app/auto-core-platform/project/legalentity-document-branding-and-letterhead-28dc131cc98c"
 linear-milestone: "0 — Spec & ADR"
 tags: [feature-spec, finance, legal-entity, pdf]
@@ -14,7 +14,7 @@ tags: [feature-spec, finance, legal-entity, pdf]
 
 An OWNER/ADMIN configures a legal entity's invoice appearance manually or uploads a PDF/PNG letterhead, reviews extracted suggestions in a sample invoice preview, and confirms the result. Newly committed invoices freeze that confirmed appearance alongside their seller and financial facts. Profile changes and extraction failures cannot change an existing invoice or its archived PDF.
 
-This draft implements the decisions in [ADR-0024](../../01-ADR/2026-09-27-legal-entity-document-branding.md), accepted by Dejan Dosenovic on 2026-09-27. The spec itself still requires review. Numeric limits and lifecycle choices below are proposed product defaults. No runtime implementation or provider activation is part of AUT-318.
+**Approved by Dejan Dosenovic (Product Owner) on 2026-09-27.** This spec implements the decisions in [ADR-0024](../../01-ADR/2026-09-27-legal-entity-document-branding.md), accepted on the same date. Numeric limits and lifecycle choices below are the approved product baseline. Provider activation and rendered-invoice acceptance gates remain open as recorded below. No runtime implementation or provider activation is part of AUT-318.
 
 ## User Stories
 
@@ -98,7 +98,7 @@ Index extraction state/lease for recovery and asset state/expiry for cleanup. Ad
 
 ### Deletion Policy Impact
 
-The proposed rules are also recorded in [the deletion policy](../../../deletion-policy.md). Reset means a new confirmed default revision; it does not delete the profile or invoices. No public hard-delete profile endpoint exists. Assets referenced by an active/draft logo, active extraction or committed invoice are ineligible for cleanup. Used asset reference rows and invoice archives are retained without an application TTL.
+The approved rules are also recorded in [the deletion policy](../../../deletion-policy.md). Reset means a new confirmed default revision; it does not delete the profile or invoices. No public hard-delete profile endpoint exists. Assets referenced by an active/draft logo, active extraction or committed invoice are ineligible for cleanup. Used asset reference rows and invoice archives are retained without an application TTL.
 
 Unreferenced original source files and extraction proposals expire 30 days after creation; source expiry is not extended by retaining a proposal's derived logo. Before source cleanup, make related jobs terminal and remove their source relation only as part of cleanup after the retention period. Derived/direct logos that have no protecting reference receive a 7-day grace period from when their last reference is removed. Quarantined/rejected uploads expire after 24 hours. Never apply these short bucket lifecycle rules to retained logo/archive objects.
 
@@ -153,7 +153,7 @@ Return 401 unauthenticated, 403 for insufficient role/active membership, and 404
 
 ### Upload and processing limits
 
-| Resource | Proposed limit / handling |
+| Resource | Approved limit / handling |
 |---|---|
 | SOURCE | PDF or PNG, detected bytes must match type, maximum 10 MiB |
 | LOGO | PNG only, maximum 2 MiB; server decodes and re-encodes to strip metadata |
@@ -278,18 +278,27 @@ Backend integration tests belong in `apps/core-api/test/document-branding.e2e-sp
 
 ## Delivery Sequence and Review Gates
 
-1. **AUT-318 spec review:** approve token/geometry/retention/authorization choices. ACP-managed provider ownership is already accepted; resolve exact provider configuration before extraction activation.
+1. **AUT-318 spec review complete:** token/geometry/retention/authorization choices and ACP-managed provider ownership are approved. Resolve exact provider configuration before extraction activation.
 2. **Profile and assets:** migrations, guards, draft/confirm/reset, quarantined storage, manual editor/preview and deletion rules. Include contract artifacts and tests.
 3. **Invoice and archive integration:** reader support, commitment locks/snapshots/references, versioned renderer and create-only publication across all origins. Enable only after historical/concurrency fixtures pass.
 4. **Assisted extraction:** provider approval, parser sandbox, queue recovery, quotas, mock/live fixtures and proposal UI. Keep manual flow available during failures.
 5. **Release acceptance:** PO and accountant approve branded sample Rechnung fixtures; confirm deployment ordering, asset retention and monitoring. Job-card/offer/credit branding stays deferred.
 
-These are proposed build-issue boundaries, not newly created Linear issues. Create and link implementation issues after this spec is approved. No runtime plan is approved by merging a draft spec.
+Implementation issues follow these approved boundaries. Each runtime issue still requires its detailed implementation plan and the repository's normal TDD/review workflow; spec approval does not waive provider or visual release gates.
+
+| Order | Linear issue | Prerequisite |
+|---|---|---|
+| 1 | [AUT-322 — Profile, assets and manual settings](https://linear.app/auto-core-platform/issue/AUT-322) | AUT-318 spec PR lands |
+| 2 | [AUT-323 — Immutable invoice snapshots and PDF archives](https://linear.app/auto-core-platform/issue/AUT-323) | AUT-322 |
+| 3 | [AUT-324 — ACP-managed extraction and confirmation](https://linear.app/auto-core-platform/issue/AUT-324) | AUT-323; provider gate before activation |
+| 4 | [AUT-325 — Visual acceptance and release gates](https://linear.app/auto-core-platform/issue/AUT-325) | AUT-324 and all acceptance evidence |
+
+The dependency chain determines delivery order. Existing project milestone labels place extraction in milestone 2 and invoice PDF in milestone 3; those labels do not override the approved invoice-before-extraction sequence.
 
 ## Open Questions / Approval Record
 
 - [x] ADR accepted: Dejan Dosenovic, 2026-09-27; [PR #585](https://github.com/vandean25/auto-core-platform/pull/585) merged.
-- [ ] PO accepts this spec's proposed limits, retention, draft/confirm behavior, preset geometry and administration scope.
+- [x] PO accepts this spec's limits, retention, draft/confirm behavior, preset geometry and administration scope — Dejan Dosenovic, 2026-09-27.
 - [x] PO selects ACP-managed extraction — Dejan Dosenovic, 2026-09-27. Tenant provider settings are excluded.
 - [ ] Before extraction activation, product/operations records exact provider/model/version, region, retention/data terms, cost cap and parser package/version with the implementation issue. Until then outbound extraction stays disabled.
 - [ ] PO + accountant accept rendered branded fixtures before release. This spec is not accountant sign-off or proof of legal sufficiency.
@@ -309,4 +318,4 @@ These are proposed build-issue boundaries, not newly created Linear issues. Crea
 | Milestone | 0 — Spec & ADR |
 | Issue | [AUT-318](https://linear.app/auto-core-platform/issue/AUT-318/feature-spec-document-brand-profile-and-briefvorlage-theme) |
 | Dependency | AUT-317 Done; ADR-0024 accepted by PO |
-| Status | Draft for review; runtime implementation and provider activation await their recorded gates |
+| Status | PO approved 2026-09-27; provider activation and rendered-fixture acceptance remain release gates |

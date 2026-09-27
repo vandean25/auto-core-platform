@@ -37,7 +37,7 @@ No follow-on is implicitly authorized by reserved fields or the accepted snapsho
 
 ### Document branding follow-ons (AUT-317 / ADR-0024)
 
-**Status:** Deferred follow-ons — 2026-09-27; [ADR-0024](../01-ADR/2026-09-27-legal-entity-document-branding.md) accepted by Product Owner. Owner: Product Owner. Slice 1 is detailed in the [AUT-318 draft spec](../02-Feature-Specs/Finance/document-branding-and-letterhead.md).
+**Status:** Deferred follow-ons — 2026-09-27; [ADR-0024](../01-ADR/2026-09-27-legal-entity-document-branding.md) accepted by Product Owner. Owner: Product Owner. Slice 1 is detailed in the [AUT-318 approved spec](../02-Feature-Specs/Finance/document-branding-and-letterhead.md).
 
 | Deferred capability | Reason / cost of waiting | Re-entry trigger |
 |---|---|---|

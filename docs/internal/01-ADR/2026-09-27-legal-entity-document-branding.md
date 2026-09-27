@@ -132,7 +132,7 @@ Original uploads and extraction proposals need a bounded cleanup policy distinct
 - [x] Draft ADR-0024, register its number and record proposed deferrals.
 - [x] Product owner accepted the decisions — Dejan Dosenovic, 2026-09-27.
 - [x] ADR delivered in merged [PR #585](https://github.com/vandean25/auto-core-platform/pull/585).
-- [ ] Subsequent Feature Spec fixes schema/API details, limits, extraction provider policy, authorization, deletion policy and release fixtures against the accepted ADR.
+- [x] AUT-318 Feature Spec defines schema/API details, limits, provider ownership, authorization, deletion policy and release fixtures; PO approved 2026-09-27. Provider activation and rendered-fixture acceptance remain release gates.
 - [ ] Implement profile/manual preview and snapshot integration before enabling assisted extraction. Runtime work follows a separately approved plan and TDD.
 
 Slice 1 targets branding of newly committed invoices through existing issuance paths. Extra presets, franchise packs and job-card reuse are deferred in the [deferrals log](../.architecture/deferrals.md). Credit-note branding also requires an explicit follow-on contract for whether it inherits the original appearance; this ADR does not silently extend that scope.
@@ -155,7 +155,7 @@ Slice 1 targets branding of newly committed invoices through existing issuance p
 
 ## References
 
-- [Document Brand Profile and Letterhead Extraction — AUT-318 draft spec](../02-Feature-Specs/Finance/document-branding-and-letterhead.md).
+- [Document Brand Profile and Letterhead Extraction — AUT-318 approved spec](../02-Feature-Specs/Finance/document-branding-and-letterhead.md).
 - [ADR-0004: Invoice Snapshotting Policy](2026-04-12-invoice-snapshotting.md).
 - [ADR-0007: Asynchronous PDF Generation Pipeline](2026-04-12-async-pdf-pipeline.md).
 - [ADR-0023: Legal Invoice Snapshots, Credit Notes and Accounting Export](2026-09-20-legal-invoicing-and-accounting-export.md).
