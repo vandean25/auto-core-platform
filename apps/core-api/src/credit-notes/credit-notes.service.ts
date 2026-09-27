@@ -1022,6 +1022,8 @@ export class CreditNotesService {
         snapshot: (item.snapshot as Record<string, unknown> | null) ?? null,
       })),
       remainingLines,
+      pdfGeneratedAt: creditNote.pdf_generated_at?.toISOString() ?? null,
+      pdfGenerationError: creditNote.pdf_generation_error ?? null,
     };
   }
 }

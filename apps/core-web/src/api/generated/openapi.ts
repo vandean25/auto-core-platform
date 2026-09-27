@@ -4266,6 +4266,8 @@ export interface components {
             totalGross: string;
             items: components["schemas"]["CreditNoteItemResponseDto"][];
             remainingLines: components["schemas"]["CreditNoteRemainingLineDto"][];
+            pdfGeneratedAt?: string | null;
+            pdfGenerationError?: string | null;
         };
         CreditNotePartialLineDto: {
             originalItemId: string;

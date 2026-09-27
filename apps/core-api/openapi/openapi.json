@@ -14410,6 +14410,14 @@
             "items": {
               "$ref": "#/components/schemas/CreditNoteRemainingLineDto"
             }
+          },
+          "pdfGeneratedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdfGenerationError": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [

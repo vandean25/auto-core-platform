@@ -168,6 +168,12 @@ export class CreditNoteResponseDto {
 
   @ApiProperty({ type: [CreditNoteRemainingLineDto] })
   remainingLines!: CreditNoteRemainingLineDto[];
+
+  @ApiProperty({ type: String, nullable: true, required: false })
+  pdfGeneratedAt?: string | null;
+
+  @ApiProperty({ type: String, nullable: true, required: false })
+  pdfGenerationError?: string | null;
 }
 
 export class CreditNoteListQueryDto {
