@@ -13,6 +13,53 @@ type CreditNotePdfCacheFields = {
   pdf_generated_at: Date | null;
 };
 
+export type CreditNotePdfStorageCandidate = {
+  bucket?: string;
+  key: string;
+};
+
+export const creditNotePdfObjectKey = (creditNoteId: string): string =>
+  `credit-notes/${creditNoteId}.pdf`;
+
+export const isCreditNotePdfGenerationComplete = (
+  creditNote: CreditNotePdfCacheFields & {
+    pdf_generation_error?: string | null;
+  },
+): boolean =>
+  Boolean(creditNote.pdf_generated_at) && !creditNote.pdf_generation_error;
+
+export const buildCreditNotePdfStorageCandidates = (
+  creditNote: CreditNotePdfCacheFields,
+  creditNoteId: string,
+): CreditNotePdfStorageCandidate[] => {
+  const candidates: CreditNotePdfStorageCandidate[] = [];
+  const seen = new Set<string>();
+
+  const add = (candidate: CreditNotePdfStorageCandidate) => {
+    if (!candidate.key || seen.has(candidate.key)) {
+      return;
+    }
+    seen.add(candidate.key);
+    candidates.push(candidate);
+  };
+
+  const cached = readCachedCreditNotePdfMetadata(creditNote);
+  if (cached) {
+    add({ bucket: cached.bucket, key: cached.key });
+  }
+
+  if (creditNote.pdf_storage_key) {
+    add({
+      bucket: creditNote.pdf_storage_bucket ?? undefined,
+      key: creditNote.pdf_storage_key,
+    });
+  }
+
+  add({ key: creditNotePdfObjectKey(creditNoteId) });
+
+  return candidates;
+};
+
 export const readCachedCreditNotePdfMetadata = (
   creditNote: CreditNotePdfCacheFields,
 ): CachedPdfMetadata | null => {
