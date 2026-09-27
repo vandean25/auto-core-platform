@@ -4,10 +4,9 @@ import { Loader2, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useInvoice } from '@/api/sales'
 import {
-  downloadCreditNotePdf,
+  generateAndDownloadCreditNotePdf,
   useCreditNote,
   useFinalizeCreditNote,
-  useGenerateCreditNotePdf,
   useUpdateCreditNoteDraft,
   useVoidCreditNote,
 } from '@/api/useCreditNotes'
@@ -44,6 +43,7 @@ import {
 } from '@/lib/credit-note-quantity'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
+import { triggerBlobDownload } from '@/lib/download'
 import { generateId } from '@/lib/id'
 
 const formatDate = (value: string) =>
@@ -68,15 +68,13 @@ export default function CreditNoteDetailPage() {
   const updateDraft = useUpdateCreditNoteDraft()
   const finalizeCreditNote = useFinalizeCreditNote()
   const voidCreditNote = useVoidCreditNote()
-  const generatePdf = useGenerateCreditNotePdf()
-
   const [date, setDate] = React.useState('')
   const [reason, setReason] = React.useState('')
   const [lines, setLines] = React.useState<DraftLineState[]>([])
   const [version, setVersion] = React.useState(1)
   const [finalizeOpen, setFinalizeOpen] = React.useState(false)
   const [voidOpen, setVoidOpen] = React.useState(false)
-  const [isDownloading, setIsDownloading] = React.useState(false)
+  const [isPrinting, setIsPrinting] = React.useState(false)
   const lastSavedRef = React.useRef<string | null>(null)
   const creditNoteId = creditNote?.id
   const creditNoteStatus = creditNote?.status
@@ -256,39 +254,25 @@ export default function CreditNoteDetailPage() {
   const handlePrint = async () => {
     if (!creditNote) return
     const toastId = toast.loading('Preparing PDF, this may take a few seconds...')
-    let url: string | null = null
     try {
-      const res = await generatePdf.mutateAsync(creditNote.id)
-      if (res.mode === 'enqueued') {
-        toast.success(
-          'Credit note PDF generation has been queued in the background.',
-          { id: toastId },
-        )
-        return
-      }
+      setIsPrinting(true)
+      const blob = await generateAndDownloadCreditNotePdf(creditNote.id, {
+        onPoll: (attempt) => {
+          if (attempt === 1) {
+            toast.loading('Generating PDF in the background...', { id: toastId })
+          }
+        },
+      })
 
-      toast.loading('Downloading PDF...', { id: toastId })
-      setIsDownloading(true)
-      const blob = await downloadCreditNotePdf(creditNote.id)
-      url = window.URL.createObjectURL(blob)
       const fileName = `credit-note-${creditNote.creditNumber ?? creditNote.id}`
         .replace(/[^a-z0-9]/gi, '_')
         .toLowerCase()
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${fileName}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      triggerBlobDownload(blob, `${fileName}.pdf`)
       toast.success('Credit note PDF downloaded successfully', { id: toastId })
     } catch (printError: unknown) {
       toast.error(getErrorMessage(printError, 'Failed to generate PDF'), { id: toastId })
     } finally {
-      setIsDownloading(false)
-      if (url) {
-        const urlToRevoke = url
-        window.setTimeout(() => window.URL.revokeObjectURL(urlToRevoke), 0)
-      }
+      setIsPrinting(false)
     }
   }
 
@@ -343,11 +327,8 @@ export default function CreditNoteDetailPage() {
             </>
           ) : null}
           {isFinalized ? (
-            <Button
-              onClick={() => void handlePrint()}
-              disabled={generatePdf.isPending || isDownloading}
-            >
-              {generatePdf.isPending || isDownloading ? (
+            <Button onClick={() => void handlePrint()} disabled={isPrinting}>
+              {isPrinting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Printer className="mr-2 h-4 w-4" />

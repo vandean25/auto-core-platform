@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
+import { downloadPdfFromGetUrl } from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import { invoiceKeys } from './sales'
 
@@ -245,16 +246,60 @@ export function useGenerateCreditNotePdf() {
   })
 }
 
-export async function downloadCreditNotePdf(creditNoteId: string): Promise<Blob> {
+async function fetchCreditNotePdfGenerationError(
+  creditNoteId: string,
+): Promise<string | null> {
+  const response = await fetchWithAuth(`${CREDIT_NOTES_API}/${creditNoteId}`)
+  if (!response.ok) {
+    return null
+  }
+  const creditNote = (await response.json()) as CreditNoteResponseDto
+  return creditNote.pdfGenerationError ?? null
+}
+
+export async function downloadCreditNotePdf(
+  creditNoteId: string,
+  options?: { poll?: boolean },
+): Promise<Blob> {
+  return downloadPdfFromGetUrl(`${CREDIT_NOTES_API}/${creditNoteId}/pdf`, {
+    poll: options?.poll,
+    pollOptions: options?.poll
+      ? {
+          checkGenerationFailed: () =>
+            fetchCreditNotePdfGenerationError(creditNoteId),
+        }
+      : undefined,
+  })
+}
+
+export type CreditNotePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
+
+export async function generateAndDownloadCreditNotePdf(
+  creditNoteId: string,
+  options?: {
+    onPoll?: (attempt: number) => void
+    signal?: AbortSignal
+  },
+): Promise<Blob> {
   const response = await fetchWithAuth(
     `${CREDIT_NOTES_API}/${creditNoteId}/pdf`,
-    {
-      headers: { Accept: 'application/pdf' },
-    },
+    { method: 'POST', signal: options?.signal },
   )
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.message || 'Failed to download credit note PDF')
+    await parseError(response, 'Failed to generate credit note PDF')
   }
-  return response.blob()
+
+  const body = (await response.json()) as {
+    mode: CreditNotePdfGenerationMode
+  }
+
+  return downloadPdfFromGetUrl(`${CREDIT_NOTES_API}/${creditNoteId}/pdf`, {
+    poll: body.mode === 'enqueued',
+    pollOptions: {
+      onPoll: options?.onPoll,
+      signal: options?.signal,
+      checkGenerationFailed: () =>
+        fetchCreditNotePdfGenerationError(creditNoteId),
+    },
+  })
 }

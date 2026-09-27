@@ -438,6 +438,84 @@ test.describe('Credit notes UI', () => {
     ).toBeVisible();
   });
 
+  test('print polls after enqueued PDF generation', async ({ page }) => {
+    const finalizedCredit = createMockCreditNote({
+      id: CREDIT_NOTE_ID,
+      originalInvoiceId: INVOICE_ID,
+      status: 'FINALIZED',
+      creditNumber: 'CN-2026-0001',
+      version: 3,
+    });
+    let pdfGetAttempts = 0;
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/credit-notes/${CREDIT_NOTE_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...finalizedCredit,
+            pdfGenerationError: null,
+          }),
+        });
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/sales/invoices/${INVOICE_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(finalizedInvoice),
+        });
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/credit-notes/${CREDIT_NOTE_ID}/pdf`),
+      async (route) => {
+        if (route.request().method() === 'POST') {
+          await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              mode: 'enqueued',
+              creditNoteId: CREDIT_NOTE_ID,
+              generatedAt: null,
+            }),
+          });
+          return;
+        }
+
+        pdfGetAttempts += 1;
+        if (pdfGetAttempts < 2) {
+          await route.fulfill({
+            status: 404,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              message: 'Credit note PDF is not generated yet',
+            }),
+          });
+          return;
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/pdf',
+          body: Buffer.from('%PDF-1.4 credit-note'),
+        });
+      },
+    );
+
+    await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
+    await page.getByRole('button', { name: 'Print' }).click();
+    await expect(page.getByText(/PDF downloaded successfully/i)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test('autosave failure blocks finalize', async ({ page }) => {
     const staleDraft = createMockCreditNote({
       id: CREDIT_NOTE_ID,
