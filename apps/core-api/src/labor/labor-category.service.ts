@@ -29,10 +29,7 @@ export class LaborCategoryService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
-  ) {
-    void this.prisma;
-    void this.tenantContext;
-  }
+  ) {}
 
   // ── findAll ───────────────────────────────────────────────────────────────
 

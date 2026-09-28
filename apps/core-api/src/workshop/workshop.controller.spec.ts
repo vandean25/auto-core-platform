@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, RequestMethod, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, RequestMethod } from '@nestjs/common';
+import { createGlobalValidationPipe } from '../common/validation.pipe.js';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
 import {
@@ -162,11 +163,7 @@ describe('WorkshopController', () => {
   });
 
   it('validates FindAllWorkshopOrdersQueryDto with ValidationPipe', async () => {
-    const pipe = new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    });
+    const pipe = createGlobalValidationPipe();
 
     const validQuery = {
       search: 'brake',

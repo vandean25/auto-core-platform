@@ -194,13 +194,7 @@ export class WorkshopPickPartsService {
     private readonly tenantContext: TenantContextService,
     @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
-  ) {
-    void this.prisma;
-    void this.ledgerService;
-    void this.atpService;
-    void this.tenantContext;
-    void this.siteContext;
-  }
+  ) {}
 
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
     const tenantId = await this.tenantContext.getTenantId();
