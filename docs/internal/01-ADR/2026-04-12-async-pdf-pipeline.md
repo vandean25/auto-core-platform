@@ -34,16 +34,19 @@ We have implemented an **Asynchronous Headless-Browser PDF Pipeline** using Goog
 
 | Entity | Trigger Status |
 |--------|---------------|
-| `Invoice` | `ISSUED` / `PAID` |
+| `Invoice` | `FINALIZED` / `ISSUED` / `PAID` |
+| `CreditNote` | `FINALIZED` |
 | `WorkshopOrder` | `INVOICED` |
 
 Any future entity requiring PDF support (e.g., `PurchaseOrder`) must be explicitly added to this table and its corresponding service registered in the pipeline.
 
-1. **Triggering:** When a document transitions to a PDF-eligible status, the backend dispatches an asynchronous task to a Cloud Tasks queue (via `cloud-tasks.service.ts`). For `Invoice`, PDF generation is only allowed once the record is `ISSUED` or `PAID`. The API immediately returns an HTTP 200 to the frontend.
+1. **Triggering:** When a document is requested for PDF generation, the backend returns one of three modes: `cached` when the stored object is available, `enqueued` when production dispatches a Cloud Tasks job, or `generated` when the local/non-production path renders inline. For `Invoice`, PDF generation is allowed for `FINALIZED`, `ISSUED`, or `PAID`; for `CreditNote`, it is allowed only for `FINALIZED`.
 2. **Rendering:** A background worker picks up the task, validates that the requested entity type is supported by this pipeline and that the record is still in an allowed renderable status, and uses `playwright-browser.service.ts` to spin up a headless Chromium instance.
 3. **Execution:** The worker generates the full HTML for the target document and passes it directly to Playwright via `page.setContent(...)`. Playwright then executes `page.pdf()` using strict A4 dimensions and pre-calculated margins. The current implementation does **not** navigate to an internal `/render/...` HTTP route.
-4. **Storage:** The resulting binary buffer is uploaded to Google Cloud Storage (Bucket). The `pdf_storage_key` and `pdf_generated_at` timestamps are written back to the entity (e.g., `Invoice` or `WorkshopOrder` table).
-5. **Real-Time Notification:** The update to the database record triggers the Prisma real-time extension, broadcasting a WebSocket event. The frontend UI, which has been showing a "Generating PDF..." spinner, receives the event, invalidates its query cache, and smoothly replaces the spinner with a "Download PDF" button.
+4. **Storage:** The resulting binary buffer is uploaded to Google Cloud Storage (Bucket). The `pdf_storage_key` and `pdf_generated_at` timestamps are written back to the entity (e.g., `Invoice`, `CreditNote`, or `WorkshopOrder` table).
+5. **Retrieval and readiness:** The PDF `GET` endpoint streams the stored object. When the generation response is `enqueued` or `generated`, the frontend polls that endpoint every 1.5 seconds for up to 90 seconds. A `404` whose message contains `not generated yet` is treated as a transient not-ready response; a persisted `pdf_generation_error` fails the poll immediately. A `cached` response downloads directly.
+6. **Storage consistency and cache control:** PDF downloads use `Cache-Control: no-store` and `Pragma: no-cache` on the API and `cache: 'no-store'` in the frontend. Retrieval falls back to the canonical object key and backfills database metadata when storage is available before the metadata update is visible; credit-note retrieval also verifies cached metadata before reusing it.
+7. **Real-Time Notification:** PDF metadata updates can still trigger the Prisma real-time extension, but the current invoice and credit-note Print flows use explicit `GET` polling rather than relying on a WebSocket event to discover readiness.
 
 ### Security Model for PDF Generation
 
@@ -65,7 +68,7 @@ Production uses a **split deployment** between the user-facing API and a dedicat
 #### Application authentication (HMAC + tenant binding)
 
 4. **HMAC worker secret.** Every task carries `x-cloud-tasks-secret` (shared GSM secret) and a signed JSON body `{ kind, resourceId, tenantId, signature }`. `CloudTasksWorkerGuard` and `PdfTaskTenantGuard` validate the secret and bind tenant context before rendering.
-5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`ISSUED`/`PAID` for `Invoice`, `INVOICED` for `WorkshopOrder`).
+5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`FINALIZED`/`ISSUED`/`PAID` for `Invoice`, `FINALIZED` for `CreditNote`, `INVOICED` for `WorkshopOrder`).
 6. **Server-side HTML generation.** PDFs are produced from server-generated HTML via `page.setContent(...)` — no browser navigation to an internal render route.
 
 #### Fail-closed production behavior
@@ -109,8 +112,11 @@ If Cloud Tasks configuration is incomplete on `core-api` (missing queue, target 
 ## References
 
 - `apps/core-api/src/common/cloud-tasks.service.ts`
+- `apps/core-api/src/common/pdf/pdf-download-cache.ts`
 - `apps/core-api/src/common/playwright-browser.service.ts`
+- `apps/core-api/src/credit-notes/credit-note-pdf.service.ts`
 - `apps/core-api/src/invoices/invoice-pdf.service.ts`
+- `apps/core-web/src/lib/async-pdf.ts`
 - `apps/core-api/src/workshop/workshop-pdf.service.ts`
 - ADR-0001: `2026-04-12-prisma-extends-realtime-sync.md` — governs the WebSocket emission pattern used in Step 5 of this pipeline
 
