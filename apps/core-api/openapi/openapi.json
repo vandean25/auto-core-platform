@@ -8181,6 +8181,422 @@
           "Audit Logs"
         ]
       }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding": {
+      "get": {
+        "operationId": "DocumentBrandingController_getProfile",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile and resolved active defaults",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read the document branding profile",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/draft": {
+      "put": {
+        "operationId": "DocumentBrandingController_saveDraft",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDocumentBrandDraftDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Save a complete manual document branding draft",
+        "tags": [
+          "Document branding"
+        ]
+      },
+      "delete": {
+        "operationId": "DocumentBrandingController_discardDraft",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "expectedRevision",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Discard a document branding draft",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/confirm": {
+      "post": {
+        "operationId": "DocumentBrandingController_confirm",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpectedDocumentBrandRevisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm the current document branding draft",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/reset": {
+      "post": {
+        "operationId": "DocumentBrandingController_reset",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpectedDocumentBrandRevisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm ACP default document branding",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/preview": {
+      "post": {
+        "operationId": "DocumentBrandingController_preview",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentBrandPreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Render a synthetic document branding preview",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
+      "post": {
+        "operationId": "DocumentBrandingController_uploadAsset",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "purpose",
+                  "file"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "SOURCE",
+                      "LOGO"
+                    ]
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Quarantined or validated asset metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandAssetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload a private document branding asset",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}": {
+      "get": {
+        "operationId": "DocumentBrandingController_getAsset",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandAssetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read document branding asset metadata",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}/content": {
+      "get": {
+        "operationId": "DocumentBrandingController_getAssetContent",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download a ready document branding asset",
+        "tags": [
+          "Document branding"
+        ]
+      }
     }
   },
   "info": {
@@ -18320,6 +18736,272 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "DocumentBrandThemeResponseDto": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "enum": [
+              1
+            ]
+          },
+          "presetId": {
+            "type": "string",
+            "enum": [
+              "standard-v1"
+            ]
+          },
+          "logoAssetId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "primaryColor": {
+            "type": "string",
+            "example": "#111827",
+            "pattern": "^#[0-9A-F]{6}$"
+          },
+          "secondaryColor": {
+            "type": "string",
+            "example": "#E5E7EB",
+            "pattern": "^#[0-9A-F]{6}$"
+          },
+          "fontId": {
+            "type": "string",
+            "enum": [
+              "acp-sans-v1"
+            ]
+          },
+          "headerBand": {
+            "type": "string",
+            "enum": [
+              "none",
+              "primary",
+              "secondary"
+            ]
+          },
+          "footerBand": {
+            "type": "string",
+            "enum": [
+              "none",
+              "primary",
+              "secondary"
+            ]
+          },
+          "headerText": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "footerText": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "presetId",
+          "logoAssetId",
+          "primaryColor",
+          "secondaryColor",
+          "fontId",
+          "headerBand",
+          "footerBand",
+          "headerText",
+          "footerText"
+        ]
+      },
+      "DocumentBrandProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "activeRevision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "activeTheme": {
+            "$ref": "#/components/schemas/DocumentBrandThemeResponseDto"
+          },
+          "draftTheme": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentBrandThemeResponseDto"
+              }
+            ]
+          },
+          "confirmedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmedByUserId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "extractionAvailable": {
+                "type": "boolean",
+                "example": false
+              }
+            }
+          }
+        },
+        "required": [
+          "revision",
+          "activeRevision",
+          "activeTheme",
+          "draftTheme",
+          "confirmedAt",
+          "confirmedByUserId",
+          "capabilities"
+        ]
+      },
+      "SaveDocumentBrandDraftDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "theme": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "theme"
+        ]
+      },
+      "ExpectedDocumentBrandRevisionDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "expectedRevision"
+        ]
+      },
+      "DocumentBrandPreviewDto": {
+        "type": "object",
+        "properties": {
+          "theme": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "sample": {
+            "type": "string",
+            "enum": [
+              "AT_STANDARD",
+              "DE_STANDARD"
+            ]
+          }
+        },
+        "required": [
+          "theme",
+          "sample"
+        ]
+      },
+      "DocumentBrandPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "html": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "themeHash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "html",
+          "warnings",
+          "themeHash"
+        ]
+      },
+      "DocumentBrandAssetResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "SOURCE",
+              "LOGO"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUARANTINED",
+              "READY",
+              "REJECTED",
+              "DELETING",
+              "DELETED"
+            ]
+          },
+          "detectedMimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "byteLength": {
+            "type": "number",
+            "minimum": 0
+          },
+          "pixelWidth": {
+            "type": "number",
+            "nullable": true
+          },
+          "pixelHeight": {
+            "type": "number",
+            "nullable": true
+          },
+          "failureCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "state",
+          "detectedMimeType",
+          "byteLength",
+          "pixelWidth",
+          "pixelHeight",
+          "failureCode",
+          "createdAt",
+          "expiresAt"
         ]
       }
     }

@@ -9,6 +9,7 @@ import {
   type PdfTaskKind,
   signPdfTaskPayload,
 } from '../pdf/pdf-task-payload.js';
+import { signDocumentBrandingUploadTask } from '../../document-branding/document-branding-upload-task.js';
 
 const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,
@@ -214,5 +215,75 @@ export class CloudTasksService {
         return { taskId };
       },
     );
+  }
+
+  async enqueueDocumentBrandingAssetValidation(params: {
+    assetId: string;
+    tenantId: string;
+    targetBaseUrl: string;
+  }): Promise<{ taskId: string }> {
+    if (!this.isEnabled()) {
+      throw new InternalServerErrorException(
+        'Cloud Tasks is not enabled or not configured',
+      );
+    }
+    const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+    const location = process.env.CLOUD_TASKS_LOCATION;
+    const queue = process.env.CLOUD_TASKS_QUEUE;
+    const invokerServiceAccount = process.env.CLOUD_TASKS_INVOKER_SA;
+    if (!workerSecret || !location || !queue || !invokerServiceAccount) {
+      throw new InternalServerErrorException(
+        'Cloud Tasks is missing required configuration environment variables',
+      );
+    }
+
+    const projectId = await this.getProjectId();
+    let url: string;
+    try {
+      const baseUrl = params.targetBaseUrl.endsWith('/')
+        ? params.targetBaseUrl
+        : `${params.targetBaseUrl}/`;
+      url = new URL(
+        `document-branding/assets/${params.assetId}/worker`,
+        baseUrl,
+      ).toString();
+    } catch {
+      throw new InternalServerErrorException(
+        'Invalid Cloud Tasks target base URL',
+      );
+    }
+    const [task] = await this.client.createTask({
+      parent: this.client.queuePath(projectId, location, queue),
+      task: {
+        httpRequest: {
+          httpMethod: 'POST',
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-cloud-tasks-secret': workerSecret,
+            'x-tenant-id': params.tenantId,
+          },
+          body: Buffer.from(
+            JSON.stringify(
+              signDocumentBrandingUploadTask(
+                { assetId: params.assetId, tenantId: params.tenantId },
+                workerSecret,
+              ),
+            ),
+          ),
+          oidcToken: {
+            serviceAccountEmail: invokerServiceAccount,
+            audience: resolveCloudTasksOidcAudience(params.targetBaseUrl),
+          },
+        },
+        dispatchDeadline: { seconds: 600 },
+      },
+    });
+    if (!task.name) {
+      throw new InternalServerErrorException(
+        'Cloud Tasks returned a malformed task without a name',
+      );
+    }
+    return { taskId: task.name.split('/').pop() || task.name };
   }
 }

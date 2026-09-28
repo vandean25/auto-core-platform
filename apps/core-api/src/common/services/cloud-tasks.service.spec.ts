@@ -1,5 +1,6 @@
 import { CloudTasksService } from './cloud-tasks.service.js';
 import { verifyPdfTaskPayload } from '../pdf/pdf-task-payload.js';
+import { verifyDocumentBrandingUploadTask } from '../../document-branding/document-branding-upload-task.js';
 
 describe('CloudTasksService', () => {
   const originalEnv = { ...process.env };
@@ -117,6 +118,36 @@ describe('CloudTasksService', () => {
     expect(verifyPdfTaskPayload(payload, workerSecret)).toEqual({
       kind: 'workshop-order',
       resourceId: 'workshop-1',
+      tenantId: 'tenant-1',
+    });
+  });
+
+  it('creates a distinct signed document branding validation task', async () => {
+    const { service, createTask } = createService();
+    createTask.mockResolvedValue([
+      {
+        name: 'projects/test/locations/europe-west3/queues/pdf-queue/tasks/brand-validation',
+      },
+    ]);
+    await expect(
+      service.enqueueDocumentBrandingAssetValidation({
+        assetId: 'asset-1',
+        tenantId: 'tenant-1',
+        targetBaseUrl: 'https://app.example.com/api',
+      }),
+    ).resolves.toEqual({ taskId: 'brand-validation' });
+
+    const request = createTask.mock.calls[0][0];
+    expect(request.task.httpRequest.url).toBe(
+      'https://app.example.com/api/document-branding/assets/asset-1/worker',
+    );
+    expect(
+      verifyDocumentBrandingUploadTask(
+        decodeTaskBody(createTask),
+        workerSecret,
+      ),
+    ).toEqual({
+      assetId: 'asset-1',
       tenantId: 'tenant-1',
     });
   });

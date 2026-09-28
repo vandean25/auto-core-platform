@@ -1,0 +1,269 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
+import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
+
+const INITIAL_DISPATCH_GRACE_MS = 60 * 1000;
+const DISPATCH_RECOVERY_GRACE_MS = 11 * 60 * 1000;
+
+@Injectable()
+export class DocumentBrandingUploadRecoveryService {
+  private readonly logger = new Logger(
+    DocumentBrandingUploadRecoveryService.name,
+  );
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: DocumentBrandingAssetStorage,
+    private readonly tasks: DocumentBrandingUploadTaskService,
+  ) {}
+
+  @Cron(CronExpression.EVERY_MINUTE, {
+    name: 'document-branding-upload-recovery',
+  })
+  async recoverAndClean() {
+    const tenants = await this.prisma.tenant.findMany({ select: { id: true } });
+    const tenantIds = tenants.map(({ id }) => id);
+    if (tenantIds.length === 0) return;
+
+    const now = new Date();
+    const staleBefore = new Date(now.getTime() - INITIAL_DISPATCH_GRACE_MS);
+    const dispatchedStaleBefore = new Date(
+      now.getTime() - DISPATCH_RECOVERY_GRACE_MS,
+    );
+    await this.prisma.documentBrandQuotaEvent.deleteMany({
+      where: {
+        tenant_id: { in: tenantIds },
+        created_at: { lt: new Date(now.getTime() - 60 * 60 * 1000) },
+      },
+    });
+    await this.prisma.documentBrandAsset.updateMany({
+      where: {
+        tenant_id: { in: tenantIds },
+        state: 'QUARANTINED',
+        validation_attempt_count: { gte: 3 },
+        validation_lease_until: { lt: now },
+      },
+      data: {
+        state: 'REJECTED',
+        failure_code: 'VALIDATION_RETRIES_EXHAUSTED',
+        expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+        validation_lease_until: null,
+      },
+    });
+    const pending = await this.prisma.documentBrandAsset.findMany({
+      where: {
+        tenant_id: { in: tenantIds },
+        state: 'QUARANTINED',
+        validation_attempt_count: { lt: 3 },
+        OR: [
+          { validation_lease_until: { lt: now } },
+          {
+            validation_lease_until: null,
+            OR: [
+              {
+                validation_dispatched_at: null,
+                createdAt: { lt: staleBefore },
+              },
+              { validation_dispatched_at: { lt: dispatchedStaleBefore } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, tenant_id: true },
+      take: 100,
+      orderBy: { createdAt: 'asc' },
+    });
+    await Promise.all(
+      pending.map(({ id, tenant_id }) =>
+        this.tasks
+          .enqueue({ assetId: id, tenantId: tenant_id })
+          .catch((error: unknown) => {
+            this.logger.warn(
+              `Could not requeue quarantined branding asset ${id}: ${safeError(error)}`,
+            );
+          }),
+      ),
+    );
+
+    const expired = await this.prisma.documentBrandAsset.findMany({
+      where: {
+        tenant_id: { in: tenantIds },
+        expires_at: { lte: now },
+        state: { in: ['QUARANTINED', 'REJECTED', 'DELETING'] },
+      },
+      select: { id: true, tenant_id: true, legal_entity_id: true },
+      take: 100,
+      orderBy: { expires_at: 'asc' },
+    });
+    await Promise.all(expired.map((asset) => this.deleteExpired(asset)));
+    const publishedWithQuarantine =
+      await this.prisma.documentBrandAsset.findMany({
+        where: {
+          tenant_id: { in: tenantIds },
+          state: 'READY',
+          quarantine_bucket: { not: null },
+          quarantine_object_key: { not: null },
+          quarantine_object_generation: { not: null },
+        },
+        select: {
+          id: true,
+          tenant_id: true,
+          quarantine_bucket: true,
+          quarantine_object_key: true,
+          quarantine_object_generation: true,
+        },
+        take: 100,
+        orderBy: { updatedAt: 'asc' },
+      });
+    await Promise.all(
+      publishedWithQuarantine.map(async (asset) => {
+        if (
+          !asset.quarantine_bucket ||
+          !asset.quarantine_object_key ||
+          !asset.quarantine_object_generation
+        ) {
+          return;
+        }
+        try {
+          await this.storage.deleteGeneration(
+            asset.quarantine_bucket,
+            asset.quarantine_object_key,
+            asset.quarantine_object_generation,
+          );
+          await this.prisma.documentBrandAsset.updateMany({
+            where: { id: asset.id, tenant_id: asset.tenant_id, state: 'READY' },
+            data: {
+              quarantine_bucket: null,
+              quarantine_object_key: null,
+              quarantine_object_generation: null,
+            },
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Could not remove the quarantine copy for branding asset ${asset.id}: ${safeError(error)}`,
+          );
+        }
+      }),
+    );
+  }
+
+  private async deleteExpired(asset: {
+    id: string;
+    tenant_id: string;
+    legal_entity_id: string;
+  }) {
+    const target = await this.prisma.$transaction(async (tx) => {
+      const entity = await tx.legalEntity.findFirst({
+        where: { tenant_id: asset.tenant_id, id: asset.legal_entity_id },
+        select: { id: true, is_active: true },
+      });
+      if (!entity) return null;
+      const entityLock = await tx.legalEntity.updateMany({
+        where: {
+          tenant_id: asset.tenant_id,
+          id: asset.legal_entity_id,
+          is_active: entity.is_active,
+        },
+        data: { is_active: entity.is_active },
+      });
+      if (entityLock.count !== 1) return null;
+      const current = await tx.documentBrandAsset.findFirst({
+        where: {
+          id: asset.id,
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+        },
+      });
+      if (
+        !current ||
+        current.state === 'DELETED' ||
+        (current.state !== 'DELETING' &&
+          (!current.expires_at ||
+            current.expires_at > new Date() ||
+            (current.state !== 'QUARANTINED' && current.state !== 'REJECTED')))
+      )
+        return null;
+
+      const [profileReference, derivedAsset] = await Promise.all([
+        tx.documentBrandProfile.findFirst({
+          where: {
+            tenant_id: asset.tenant_id,
+            legal_entity_id: asset.legal_entity_id,
+            OR: [
+              { active_logo_asset_id: asset.id },
+              { draft_logo_asset_id: asset.id },
+            ],
+          },
+          select: { id: true },
+        }),
+        tx.documentBrandAsset.findFirst({
+          where: {
+            tenant_id: asset.tenant_id,
+            legal_entity_id: asset.legal_entity_id,
+            source_asset_id: asset.id,
+          },
+          select: { id: true },
+        }),
+      ]);
+      if (profileReference || derivedAsset) return null;
+
+      if (current.state !== 'DELETING') {
+        const marked = await tx.documentBrandAsset.updateMany({
+          where: {
+            id: current.id,
+            tenant_id: asset.tenant_id,
+            legal_entity_id: asset.legal_entity_id,
+            state: current.state,
+            expires_at: { lte: new Date() },
+          },
+          data: { state: 'DELETING' },
+        });
+        if (marked.count !== 1) return null;
+      }
+      return {
+        bucket: current.bucket,
+        object_key: current.object_key,
+        object_generation: current.object_generation,
+        quarantine_bucket: current.quarantine_bucket,
+        quarantine_object_key: current.quarantine_object_key,
+        quarantine_object_generation: current.quarantine_object_generation,
+      };
+    });
+    if (!target) return;
+
+    try {
+      if (target.object_key && target.bucket && target.object_generation) {
+        await this.storage.deleteGeneration(
+          target.bucket,
+          target.object_key,
+          target.object_generation,
+        );
+      }
+      if (
+        target.quarantine_bucket &&
+        target.quarantine_object_key &&
+        target.quarantine_object_generation
+      ) {
+        await this.storage.deleteGeneration(
+          target.quarantine_bucket,
+          target.quarantine_object_key,
+          target.quarantine_object_generation,
+        );
+      }
+      await this.prisma.documentBrandAsset.updateMany({
+        where: { id: asset.id, tenant_id: asset.tenant_id, state: 'DELETING' },
+        data: { state: 'DELETED', validation_lease_until: null },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Could not delete expired branding asset ${asset.id}: ${safeError(error)}`,
+      );
+    }
+  }
+}
+
+function safeError(error: unknown): string {
+  return error instanceof Error ? error.name : 'unknown error';
+}

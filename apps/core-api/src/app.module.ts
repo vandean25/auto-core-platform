@@ -44,6 +44,7 @@ import { HrModule } from './hr/hr.module.js';
 import { PartsRequisitionModule } from './parts-requisition/parts-requisition.module.js';
 import { HealthController } from './health.controller.js';
 import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
+import { DocumentBrandingModule } from './document-branding/document-branding.module.js';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
     AuditModule,
     HrModule,
     PartsRequisitionModule,
+    DocumentBrandingModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
