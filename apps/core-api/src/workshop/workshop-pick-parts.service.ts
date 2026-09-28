@@ -39,6 +39,151 @@ import type {
 
 import Decimal = Prisma.Decimal;
 
+export interface ValidateOrderStagingParams {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  siteId: string;
+  orderId: string;
+  destinationLocationId: string;
+}
+
+export type SetOrderStagingLocationParams = ValidateOrderStagingParams;
+
+export interface PersistStageStateContext {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  siteId: string;
+  order?: { id: string };
+  orderId?: string;
+  destinationLocationId: string;
+  plans: StagePlan[];
+  reservationsByLine: Map<string, ReservationSlice[]>;
+  transferGroupId: string;
+  fullyStagedLineIds?: Set<string>;
+}
+
+function aggregateQuantitiesByStock(
+  plans: StagePlan[],
+): Array<{ stock: SourceStock; quantity: Decimal }> {
+  const quantitiesByStock = new Map<
+    string,
+    { stock: SourceStock; quantity: Decimal }
+  >();
+  for (const plan of plans) {
+    const existing = quantitiesByStock.get(plan.sourceStock.id);
+    if (existing) {
+      existing.quantity = existing.quantity.add(plan.quantity);
+    } else {
+      quantitiesByStock.set(plan.sourceStock.id, {
+        stock: plan.sourceStock,
+        quantity: plan.quantity,
+      });
+    }
+  }
+  return Array.from(quantitiesByStock.values());
+}
+
+async function lockEntityRows(
+  tx: Prisma.TransactionClient,
+  tableName:
+    | 'workshop_tasks'
+    | 'workshop_task_line_items'
+    | 'parts_reservations'
+    | 'inventory_stocks',
+  tenantId: string,
+  ids: readonly string[],
+): Promise<void> {
+  const uniqueIds = Array.from(new Set(ids)).sort();
+  if (uniqueIds.length === 0) {
+    return;
+  }
+
+  const tableIdentifier = Prisma.raw(tableName);
+  const idList = Prisma.join(uniqueIds);
+  // eslint-disable-next-line no-restricted-syntax -- phase-3 lock hierarchy requires sorted tenant-qualified row locks.
+  await tx.$queryRaw`
+    SELECT id
+    FROM ${tableIdentifier}
+    WHERE tenant_id = ${tenantId}
+      AND id IN (${idList})
+    ORDER BY id
+    FOR UPDATE
+  `;
+}
+
+async function updateReservations(
+  db: Prisma.TransactionClient | PrismaService,
+  tenantId: string,
+  plans: StagePlan[],
+): Promise<void> {
+  await chunkedPromiseAll(plans, async (plan) => {
+    const receivedQuantity = plan.reservation.quantity_received.add(
+      plan.quantity,
+    );
+    const data: Prisma.PartsReservationUpdateManyMutationInput = {
+      quantity_received: { increment: plan.quantity },
+      quantity_staged: { increment: plan.quantity },
+      status: receivedQuantity.gte(plan.reservation.quantity)
+        ? PartsReservationStatus.STAGED
+        : PartsReservationStatus.OPEN,
+    };
+    if (plan.reservation.quantity_received.eq(0)) {
+      data.tote_cost_basis = plan.costBasis;
+    }
+
+    const updateResult = await db.partsReservation.updateMany({
+      where: {
+        tenant_id: tenantId,
+        id: plan.reservation.id,
+        kind: PartsReservationKind.ON_HAND,
+        status: PartsReservationStatus.OPEN,
+        quantity_received: plan.reservation.quantity_received,
+      },
+      data,
+    });
+    if (updateResult.count !== 1) {
+      throw new ConflictException(
+        `Parts reservation ${plan.reservation.id} changed during staging. Refresh and retry.`,
+      );
+    }
+  });
+}
+
+async function updateLineItemStatuses(
+  db: Prisma.TransactionClient | PrismaService,
+  tenantId: string,
+  fullyStagedLineIds: string[],
+): Promise<void> {
+  if (fullyStagedLineIds.length === 0) {
+    return;
+  }
+  await db.workshopTaskLineItem.updateMany({
+    where: {
+      tenant_id: tenantId,
+      id: { in: fullyStagedLineIds },
+      type: WorkshopLineItemType.PART,
+      part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+    },
+    data: { part_execution_status: WorkshopPartLineExecutionStatus.STAGED },
+  });
+}
+
+async function incrementTaskVersions(
+  db: Prisma.TransactionClient | PrismaService,
+  tenantId: string,
+  taskIds: string[],
+): Promise<void> {
+  const versionUpdate = await db.workshopTask.updateMany({
+    where: { tenant_id: tenantId, id: { in: taskIds } },
+    data: { line_items_version: { increment: 1 } },
+  });
+  if (versionUpdate.count !== taskIds.length) {
+    throw new ConflictException(
+      'Workshop task changed during pick execution. Refresh and retry.',
+    );
+  }
+}
+
 @Injectable()
 export class WorkshopPickPartsService {
   constructor(
@@ -49,7 +194,13 @@ export class WorkshopPickPartsService {
     private readonly tenantContext: TenantContextService,
     @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
-  ) {}
+  ) {
+    void this.prisma;
+    void this.ledgerService;
+    void this.atpService;
+    void this.tenantContext;
+    void this.siteContext;
+  }
 
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
     const tenantId = await this.tenantContext.getTenantId();
@@ -57,16 +208,15 @@ export class WorkshopPickPartsService {
 
     return this.prisma.$transaction(async (tx) => {
       const { order, destinationLocation } =
-        await this.validateOrderAndStagingLocation(
+        await this.validateOrderAndStagingLocation({
           tx,
           tenantId,
           siteId,
           orderId,
-          dto.destinationLocationId,
-        );
+          destinationLocationId: dto.destinationLocationId,
+        });
       const requestedPicks = aggregateRequestedPicks(dto.items);
-      const lockRowsFn: LockRowsFn = (t, table, tenant, ids) =>
-        this.lockRows(t, table, tenant, ids);
+      const lockRowsFn: LockRowsFn = lockEntityRows;
 
       const { lines, reservationsByLine } = await loadAndLockPickContext(
         tx,
@@ -92,18 +242,19 @@ export class WorkshopPickPartsService {
         transferGroupId,
       );
 
-      await this.releaseReservedStock(tx, tenantId, plans);
+      await this.releaseReservedStock(tx, plans);
       await this.ledgerService.recordTransactions(ledgerTransactions, tx);
-      const { movedLines } = await this.persistStageState(
+      const { movedLines } = await this.persistStageState({
         tx,
         tenantId,
         siteId,
-        orderId,
-        destinationLocation.id,
+        order,
+        orderId: order.id,
+        destinationLocationId: destinationLocation.id,
         plans,
         reservationsByLine,
         transferGroupId,
-      );
+      });
 
       return {
         id: order.id,
@@ -115,13 +266,11 @@ export class WorkshopPickPartsService {
   }
 
   private async validateOrderAndStagingLocation(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    siteId: string,
-    orderId: string,
-    destinationLocationId: string,
+    params: ValidateOrderStagingParams,
   ) {
-    const order = await tx.workshopOrder.findFirst({
+    const { tx, tenantId, siteId, orderId, destinationLocationId } = params;
+    const db = tx ?? this.prisma;
+    const order = await db.workshopOrder.findFirst({
       where: { id: orderId, tenant_id: tenantId, site_id: siteId },
       select: {
         id: true,
@@ -151,7 +300,7 @@ export class WorkshopPickPartsService {
       );
     }
 
-    const destinationLocation = await tx.storageLocation.findFirst({
+    const destinationLocation = await db.storageLocation.findFirst({
       where: {
         id: destinationLocationId,
         tenant_id: tenantId,
@@ -179,126 +328,32 @@ export class WorkshopPickPartsService {
 
   private async releaseReservedStock(
     tx: Prisma.TransactionClient,
-    _tenantId: string,
     plans: StagePlan[],
   ): Promise<void> {
-    const quantitiesByStock = new Map<
-      string,
-      { stock: SourceStock; quantity: Decimal }
-    >();
-    for (const plan of plans) {
-      const existing = quantitiesByStock.get(plan.sourceStock.id);
-      if (existing) {
-        existing.quantity = existing.quantity.add(plan.quantity);
-      } else {
-        quantitiesByStock.set(plan.sourceStock.id, {
-          stock: plan.sourceStock,
-          quantity: plan.quantity,
-        });
-      }
-    }
-
-    await chunkedPromiseAll(
-      [...quantitiesByStock.values()],
-      async ({ stock, quantity }) => {
-        try {
-          await this.atpService.releaseOnHand(
-            { stockId: stock.id, quantity },
-            tx,
-          );
-        } catch (error) {
-          if (error instanceof ConflictException) {
-            throw new ConflictException(
-              `Inventory ATP changed before staging stock ${stock.id}. Refresh and retry.`,
-            );
-          }
-          throw error;
-        }
-      },
-    );
-  }
-
-  private async updateReservations(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    plans: StagePlan[],
-  ): Promise<void> {
-    await chunkedPromiseAll(plans, async (plan) => {
-      const receivedQuantity = plan.reservation.quantity_received.add(
-        plan.quantity,
-      );
-      const data: Prisma.PartsReservationUpdateManyMutationInput = {
-        quantity_received: { increment: plan.quantity },
-        quantity_staged: { increment: plan.quantity },
-        status: receivedQuantity.gte(plan.reservation.quantity)
-          ? PartsReservationStatus.STAGED
-          : PartsReservationStatus.OPEN,
-      };
-      if (plan.reservation.quantity_received.eq(0)) {
-        data.tote_cost_basis = plan.costBasis;
-      }
-
-      const updateResult = await tx.partsReservation.updateMany({
-        where: {
-          tenant_id: tenantId,
-          id: plan.reservation.id,
-          kind: PartsReservationKind.ON_HAND,
-          status: PartsReservationStatus.OPEN,
-          quantity_received: plan.reservation.quantity_received,
-        },
-        data,
-      });
-      if (updateResult.count !== 1) {
-        throw new ConflictException(
-          `Parts reservation ${plan.reservation.id} changed during staging. Refresh and retry.`,
+    const stockReleases = aggregateQuantitiesByStock(plans);
+    await chunkedPromiseAll(stockReleases, async ({ stock, quantity }) => {
+      try {
+        await this.atpService.releaseOnHand(
+          { stockId: stock.id, quantity },
+          tx ?? this.prisma,
         );
+      } catch (error) {
+        if (error instanceof ConflictException) {
+          throw new ConflictException(
+            `Inventory ATP changed before staging stock ${stock.id}. Refresh and retry.`,
+          );
+        }
+        throw error;
       }
     });
-  }
-
-  private async updateLineItemStatuses(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    fullyStagedLineIds: string[],
-  ): Promise<void> {
-    if (fullyStagedLineIds.length === 0) {
-      return;
-    }
-    await tx.workshopTaskLineItem.updateMany({
-      where: {
-        tenant_id: tenantId,
-        id: { in: fullyStagedLineIds },
-        type: WorkshopLineItemType.PART,
-        part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
-      },
-      data: { part_execution_status: WorkshopPartLineExecutionStatus.STAGED },
-    });
-  }
-
-  private async incrementTaskVersions(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    taskIds: string[],
-  ): Promise<void> {
-    const versionUpdate = await tx.workshopTask.updateMany({
-      where: { tenant_id: tenantId, id: { in: taskIds } },
-      data: { line_items_version: { increment: 1 } },
-    });
-    if (versionUpdate.count !== taskIds.length) {
-      throw new ConflictException(
-        'Workshop task changed during pick execution. Refresh and retry.',
-      );
-    }
   }
 
   private async setOrderStagingLocation(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    siteId: string,
-    orderId: string,
-    destinationLocationId: string,
+    params: SetOrderStagingLocationParams,
   ): Promise<void> {
-    const orderUpdateResult = await tx.workshopOrder.updateMany({
+    const { tx, tenantId, siteId, orderId, destinationLocationId } = params;
+    const db = tx ?? this.prisma;
+    const orderUpdateResult = await db.workshopOrder.updateMany({
       where: {
         tenant_id: tenantId,
         id: orderId,
@@ -318,65 +373,54 @@ export class WorkshopPickPartsService {
     }
   }
 
-  private async persistStageState(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-    siteId: string,
-    orderId: string,
-    destinationLocationId: string,
-    plans: StagePlan[],
-    reservationsByLine: Map<string, ReservationSlice[]>,
-    transferGroupId: string,
-  ) {
-    await this.updateReservations(tx, tenantId, plans);
+  private async persistStageState(ctx: PersistStageStateContext) {
+    const {
+      tx,
+      tenantId,
+      siteId,
+      destinationLocationId,
+      plans,
+      reservationsByLine,
+      transferGroupId,
+    } = ctx;
+    const orderId = ctx.orderId ?? ctx.order?.id;
+    if (!orderId) {
+      throw new ConflictException(
+        'Workshop order ID missing from staging context',
+      );
+    }
+
+    const db = tx ?? this.prisma;
+    await updateReservations(db, tenantId, plans);
 
     const stagedByLine = calculateStagedQuantitiesByLine(
       plans,
       reservationsByLine,
     );
-    const fullyStagedLineIds = findFullyStagedLineIds(plans, stagedByLine);
-    await this.updateLineItemStatuses(tx, tenantId, fullyStagedLineIds);
+    const fullyStagedLineIds =
+      ctx.fullyStagedLineIds ?? findFullyStagedLineIds(plans, stagedByLine);
+    await updateLineItemStatuses(
+      db,
+      tenantId,
+      Array.isArray(fullyStagedLineIds)
+        ? fullyStagedLineIds
+        : [...fullyStagedLineIds],
+    );
 
     const taskIds = [
       ...new Set(plans.map((plan) => plan.line.workshop_task_id)),
     ];
-    await this.incrementTaskVersions(tx, tenantId, taskIds);
+    await incrementTaskVersions(db, tenantId, taskIds);
 
-    await this.setOrderStagingLocation(
-      tx,
+    await this.setOrderStagingLocation({
+      tx: db,
       tenantId,
       siteId,
       orderId,
       destinationLocationId,
-    );
+    });
 
     const movedLines = buildMovedLines(plans, transferGroupId);
     return { movedLines };
-  }
-
-  private async lockRows(
-    tx: Prisma.TransactionClient,
-    tableName:
-      | 'workshop_tasks'
-      | 'workshop_task_line_items'
-      | 'parts_reservations'
-      | 'inventory_stocks',
-    tenantId: string,
-    ids: readonly string[],
-  ): Promise<void> {
-    const sortedIds = [...new Set(ids)].sort();
-    if (sortedIds.length === 0) {
-      return;
-    }
-
-    // eslint-disable-next-line no-restricted-syntax -- phase-3 lock hierarchy requires sorted tenant-qualified row locks.
-    await tx.$queryRaw`
-      SELECT id
-      FROM ${Prisma.raw(tableName)}
-      WHERE tenant_id = ${tenantId}
-        AND id IN (${Prisma.join(sortedIds)})
-      ORDER BY id
-      FOR UPDATE
-    `;
   }
 }
