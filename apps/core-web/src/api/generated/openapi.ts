@@ -7650,10 +7650,15 @@ export interface operations {
     WorkshopController_findAll: {
         parameters: {
             query?: {
+                /** @description Free-text search term for order number, customer, plate, or vehicle */
                 search?: string;
+                /** @description Page number */
                 page?: number;
+                /** @description Number of items per page */
                 pageSize?: number;
+                /** @description Field name to sort by */
                 sortField?: string;
+                /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
             };
             header?: never;

@@ -3035,6 +3035,7 @@
             "name": "search",
             "required": false,
             "in": "query",
+            "description": "Free-text search term for order number, customer, plate, or vehicle",
             "schema": {
               "type": "string"
             }
@@ -3043,6 +3044,7 @@
             "name": "page",
             "required": false,
             "in": "query",
+            "description": "Page number",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -3052,6 +3054,7 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Number of items per page",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -3061,6 +3064,7 @@
             "name": "sortField",
             "required": false,
             "in": "query",
+            "description": "Field name to sort by",
             "schema": {
               "type": "string"
             }
@@ -3069,6 +3073,7 @@
             "name": "sortDirection",
             "required": false,
             "in": "query",
+            "description": "Sort direction",
             "schema": {
               "type": "string",
               "enum": [

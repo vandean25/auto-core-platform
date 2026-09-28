@@ -16,3 +16,4 @@ export * from './workshop-planner.dto.js';
 export * from './workshop-response.dto.js';
 export * from './workshop-search-response.dto.js';
 export * from './workshop-settings.dto.js';
+export * from './find-all-workshop-orders-query.dto.js';

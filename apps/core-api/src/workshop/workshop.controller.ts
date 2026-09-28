@@ -36,6 +36,7 @@ import {
   BoardActiveResponseDto,
   CreateWorkshopOrderDto,
   CreateWorkshopTaskDto,
+  FindAllWorkshopOrdersQueryDto,
   PickWorkshopPartsDto,
   PickWorkshopPartsResponseDto,
   RegisterIntakeDto,
@@ -57,14 +58,6 @@ import * as invoice from './workshop-invoice.service.js';
 import * as pdf from './workshop-pdf.service.js';
 import * as pick from './workshop-pick-parts.service.js';
 import * as task from './workshop-task.service.js';
-
-export class FindAllWorkshopOrdersQueryDto {
-  search?: string;
-  page?: string;
-  pageSize?: string;
-  sortField?: string;
-  sortDirection?: 'asc' | 'desc';
-}
 
 function parsePositiveInteger(value?: string): number | undefined {
   if (value === undefined) {

@@ -342,21 +342,21 @@ export class VehicleStockQueryService {
 
   private async countDrafts(
     includeDrafts: boolean,
-    where: Prisma.VehiclePurchaseWhereInput,
+    siteScopedWhere: Prisma.VehiclePurchaseWhereInput,
   ): Promise<number> {
     if (!includeDrafts) return 0;
-    return this.prisma.vehiclePurchase.count({ where });
+    return this.prisma.vehiclePurchase.count({ where: siteScopedWhere });
   }
 
   private async fetchDrafts(
     includeDrafts: boolean,
     window: { skip: number; take: number },
-    where: Prisma.VehiclePurchaseWhereInput,
+    siteScopedWhere: Prisma.VehiclePurchaseWhereInput,
     orderBy: Prisma.VehiclePurchaseOrderByWithRelationInput[],
   ) {
     if (!includeDrafts || window.take <= 0) return [];
     return this.prisma.vehiclePurchase.findMany({
-      where,
+      where: siteScopedWhere,
       orderBy,
       skip: window.skip,
       take: window.take,
@@ -487,7 +487,11 @@ export class VehicleStockQueryService {
   private async resolveDestinationLot(
     tenantId: string,
     siteId: string,
-    vehicle: { stock_status: VehicleStockStatus | null; location: { site_id: string } | null; location_id: string | null },
+    vehicle: {
+      stock_status: VehicleStockStatus | null;
+      location: { site_id: string } | null;
+      location_id: string | null;
+    },
     dto: PatchVehicleStockDto,
   ): Promise<string> {
     if (vehicle.stock_status === VehicleStockStatus.SOLD) {

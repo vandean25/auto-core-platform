@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, RequestMethod } from '@nestjs/common';
+import { BadRequestException, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 const SWAGGER_API_RESPONSE = 'swagger/apiResponse';
 import {
@@ -20,6 +20,7 @@ import { WorkshopPlannerService } from './workshop-planner.service.js';
 import { WorkshopSettingsService } from './workshop-settings.service.js';
 import { WorkshopTaskService } from './workshop-task.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { FindAllWorkshopOrdersQueryDto } from './dto/find-all-workshop-orders-query.dto.js';
 import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto.js';
 import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
 
@@ -158,6 +159,49 @@ describe('WorkshopController', () => {
       sortDirection: 'desc',
     });
     expect(result).toEqual({ data: [], meta: {} });
+  });
+
+  it('validates FindAllWorkshopOrdersQueryDto with ValidationPipe', async () => {
+    const pipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    });
+
+    const validQuery = {
+      search: 'brake',
+      page: '1',
+      pageSize: '20',
+      sortField: 'order_number',
+      sortDirection: 'desc',
+    };
+
+    const transformed = await pipe.transform(validQuery, {
+      type: 'query',
+      metatype: FindAllWorkshopOrdersQueryDto,
+    });
+
+    expect(transformed).toEqual(validQuery);
+
+    await expect(
+      pipe.transform(
+        { ...validQuery, unknownField: 'not-allowed' },
+        {
+          type: 'query',
+          metatype: FindAllWorkshopOrdersQueryDto,
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
+
+    await expect(
+      pipe.transform(
+        { ...validQuery, sortDirection: 'invalid-dir' },
+        {
+          type: 'query',
+          metatype: FindAllWorkshopOrdersQueryDto,
+        },
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 
   describe('parsePaginationParams', () => {
