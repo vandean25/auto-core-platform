@@ -52,6 +52,8 @@ describe('VehicleSaleService', () => {
   };
   let ledger: { listForVehicle: jest.Mock; append: jest.Mock };
   let snapshotCommit: {
+    lockCommitmentContext: jest.Mock;
+    lockInvoiceRow: jest.Mock;
     prepareV2Snapshot: jest.Mock;
     persistV2Snapshot: jest.Mock;
   };
@@ -96,6 +98,14 @@ describe('VehicleSaleService', () => {
       append: jest.fn(),
     };
     snapshotCommit = {
+      lockCommitmentContext: jest.fn().mockImplementation(async () => {
+        await prisma.$queryRaw`SELECT id FROM sites FOR UPDATE`;
+        return {
+          tenantId,
+          ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
+        };
+      }),
+      lockInvoiceRow: jest.fn().mockResolvedValue(undefined),
       prepareV2Snapshot: jest.fn().mockResolvedValue({
         snapshot: { schema_version: 2 },
         ownership: { siteId: 'site-1', legalEntityId: 'le-1' },
@@ -135,7 +145,7 @@ describe('VehicleSaleService', () => {
     expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
   });
 
-  it('does not expose identity resolution state from finalized sale vehicles', async () => {
+  it('preserves finalized-sale privacy and lock order', async () => {
     const vehicle = {
       id: vehicleId,
       make: 'Peugeot',
@@ -174,6 +184,7 @@ describe('VehicleSaleService', () => {
       customer,
     };
     prisma.vehicleSale.findFirst
+      .mockResolvedValueOnce(sale)
       .mockResolvedValueOnce(sale)
       .mockResolvedValueOnce(sale);
     prisma.vehicle.findFirst.mockResolvedValue(vehicle);
@@ -224,6 +235,27 @@ describe('VehicleSaleService', () => {
     );
     expect(result.invoice.vehicle).not.toHaveProperty(
       'identity_resolution_token',
+    );
+    expect(result.invoice).not.toHaveProperty('snapshot');
+    expect(
+      snapshotCommit.lockCommitmentContext.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.$queryRaw.mock.invocationCallOrder[0]);
+    expect(prisma.invoice.create.mock.invocationCallOrder[0]).toBeLessThan(
+      snapshotCommit.lockInvoiceRow.mock.invocationCallOrder[0],
+    );
+    expect(snapshotCommit.lockInvoiceRow).toHaveBeenCalledWith(
+      prisma,
+      tenantId,
+      'invoice-1',
+    );
+    expect(
+      snapshotCommit.lockInvoiceRow.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.invoiceSequence.upsert.mock.invocationCallOrder[0]);
+    expect(
+      snapshotCommit.prepareV2Snapshot.mock.invocationCallOrder[0],
+    ).toBeLessThan(prisma.invoiceSequence.upsert.mock.invocationCallOrder[0]);
+    expect(snapshotCommit.prepareV2Snapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ lockInvoiceRow: false }),
     );
   });
 

@@ -532,6 +532,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{legalEntityId}/document-branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the document branding profile */
+        get: operations["DocumentBrandingController_getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save a complete manual document branding draft */
+        put: operations["DocumentBrandingController_saveDraft"];
+        post?: never;
+        /** Discard a document branding draft */
+        delete: operations["DocumentBrandingController_discardDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm the current document branding draft */
+        post: operations["DocumentBrandingController_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm ACP default document branding */
+        post: operations["DocumentBrandingController_reset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render a synthetic document branding preview */
+        post: operations["DocumentBrandingController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload a private document branding asset */
+        post: operations["DocumentBrandingController_uploadAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read document branding asset metadata */
+        get: operations["DocumentBrandingController_getAsset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download a ready document branding asset */
+        get: operations["DocumentBrandingController_getAssetContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers": {
         parameters: {
             query?: never;
@@ -2483,143 +2620,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/legal-entities/{legalEntityId}/document-branding": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read the document branding profile */
-        get: operations["DocumentBrandingController_getProfile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/draft": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save a complete manual document branding draft */
-        put: operations["DocumentBrandingController_saveDraft"];
-        post?: never;
-        /** Discard a document branding draft */
-        delete: operations["DocumentBrandingController_discardDraft"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Confirm the current document branding draft */
-        post: operations["DocumentBrandingController_confirm"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Confirm ACP default document branding */
-        post: operations["DocumentBrandingController_reset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Render a synthetic document branding preview */
-        post: operations["DocumentBrandingController_preview"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/assets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Upload a private document branding asset */
-        post: operations["DocumentBrandingController_uploadAsset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read document branding asset metadata */
-        get: operations["DocumentBrandingController_getAsset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}/content": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Download a ready document branding asset */
-        get: operations["DocumentBrandingController_getAssetContent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3059,6 +3059,78 @@ export interface components {
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */
             workshopOrderId: string;
+        };
+        DocumentBrandThemeResponseDto: {
+            /** @enum {number} */
+            schemaVersion: 1;
+            /** @enum {string} */
+            presetId: "standard-v1";
+            /** Format: uuid */
+            logoAssetId: string | null;
+            /** @example #111827 */
+            primaryColor: string;
+            /** @example #E5E7EB */
+            secondaryColor: string;
+            /** @enum {string} */
+            fontId: "acp-sans-v1";
+            /** @enum {string} */
+            headerBand: "none" | "primary" | "secondary";
+            /** @enum {string} */
+            footerBand: "none" | "primary" | "secondary";
+            headerText: string;
+            footerText: string;
+        };
+        DocumentBrandProfileResponseDto: {
+            revision: number;
+            activeRevision: number;
+            activeTheme: components["schemas"]["DocumentBrandThemeResponseDto"];
+            draftTheme: components["schemas"]["DocumentBrandThemeResponseDto"] | null;
+            /** Format: date-time */
+            confirmedAt: string | null;
+            /** Format: uuid */
+            confirmedByUserId: string | null;
+            capabilities: {
+                /** @example false */
+                extractionAvailable?: boolean;
+            };
+        };
+        SaveDocumentBrandDraftDto: {
+            expectedRevision: number;
+            theme: {
+                [key: string]: unknown;
+            };
+        };
+        ExpectedDocumentBrandRevisionDto: {
+            expectedRevision: number;
+        };
+        DocumentBrandPreviewDto: {
+            theme: {
+                [key: string]: unknown;
+            };
+            /** @enum {string} */
+            sample: "AT_STANDARD" | "DE_STANDARD";
+        };
+        DocumentBrandPreviewResponseDto: {
+            html: string;
+            warnings: string[];
+            themeHash: string;
+        };
+        DocumentBrandAssetResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            purpose: "SOURCE" | "LOGO";
+            /** @enum {string} */
+            state: "QUARANTINED" | "READY" | "REJECTED" | "DELETING" | "DELETED";
+            detectedMimeType: string | null;
+            byteLength: number;
+            pixelWidth: number | null;
+            pixelHeight: number | null;
+            failureCode: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string | null;
         };
         /** @enum {string} */
         CustomerType: "PRIVATE" | "COMPANY";
@@ -5646,78 +5718,6 @@ export interface components {
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
         };
-        DocumentBrandThemeResponseDto: {
-            /** @enum {number} */
-            schemaVersion: 1;
-            /** @enum {string} */
-            presetId: "standard-v1";
-            /** Format: uuid */
-            logoAssetId: string | null;
-            /** @example #111827 */
-            primaryColor: string;
-            /** @example #E5E7EB */
-            secondaryColor: string;
-            /** @enum {string} */
-            fontId: "acp-sans-v1";
-            /** @enum {string} */
-            headerBand: "none" | "primary" | "secondary";
-            /** @enum {string} */
-            footerBand: "none" | "primary" | "secondary";
-            headerText: string;
-            footerText: string;
-        };
-        DocumentBrandProfileResponseDto: {
-            revision: number;
-            activeRevision: number;
-            activeTheme: components["schemas"]["DocumentBrandThemeResponseDto"];
-            draftTheme: components["schemas"]["DocumentBrandThemeResponseDto"] | null;
-            /** Format: date-time */
-            confirmedAt: string | null;
-            /** Format: uuid */
-            confirmedByUserId: string | null;
-            capabilities: {
-                /** @example false */
-                extractionAvailable?: boolean;
-            };
-        };
-        SaveDocumentBrandDraftDto: {
-            expectedRevision: number;
-            theme: {
-                [key: string]: unknown;
-            };
-        };
-        ExpectedDocumentBrandRevisionDto: {
-            expectedRevision: number;
-        };
-        DocumentBrandPreviewDto: {
-            theme: {
-                [key: string]: unknown;
-            };
-            /** @enum {string} */
-            sample: "AT_STANDARD" | "DE_STANDARD";
-        };
-        DocumentBrandPreviewResponseDto: {
-            html: string;
-            warnings: string[];
-            themeHash: string;
-        };
-        DocumentBrandAssetResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            purpose: "SOURCE" | "LOGO";
-            /** @enum {string} */
-            state: "QUARANTINED" | "READY" | "REJECTED" | "DELETING" | "DELETED";
-            detectedMimeType: string | null;
-            byteLength: number;
-            pixelWidth: number | null;
-            pixelHeight: number | null;
-            failureCode: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            expiresAt: string | null;
-        };
     };
     responses: never;
     parameters: never;
@@ -6863,6 +6863,233 @@ export interface operations {
                 };
                 content: {
                     "application/json": Record<string, never>;
+                };
+            };
+        };
+    };
+    DocumentBrandingController_getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profile and resolved active defaults */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_saveDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDocumentBrandDraftDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_discardDraft: {
+        parameters: {
+            query: {
+                expectedRevision: number;
+            };
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_confirm: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpectedDocumentBrandRevisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_reset: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpectedDocumentBrandRevisionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentBrandPreviewDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_uploadAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** @enum {string} */
+                    purpose: "SOURCE" | "LOGO";
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Quarantined or validated asset metadata */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_getAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_getAssetContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                    "application/pdf": string;
                 };
             };
         };
@@ -11012,233 +11239,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_getProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Profile and resolved active defaults */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_saveDraft: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveDocumentBrandDraftDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_discardDraft: {
-        parameters: {
-            query: {
-                expectedRevision: number;
-            };
-            header?: never;
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_confirm: {
-        parameters: {
-            query?: never;
-            header: {
-                "idempotency-key": string;
-                "Idempotency-Key": string;
-            };
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExpectedDocumentBrandRevisionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_reset: {
-        parameters: {
-            query?: never;
-            header: {
-                "idempotency-key": string;
-                "Idempotency-Key": string;
-            };
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExpectedDocumentBrandRevisionDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_preview: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DocumentBrandPreviewDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandPreviewResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_uploadAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** @enum {string} */
-                    purpose: "SOURCE" | "LOGO";
-                    /** Format: binary */
-                    file: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Quarantined or validated asset metadata */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_getAsset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-                assetId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
-                };
-            };
-        };
-    };
-    DocumentBrandingController_getAssetContent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                legalEntityId: string;
-                assetId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": string;
-                    "application/pdf": string;
                 };
             };
         };

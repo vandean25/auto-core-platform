@@ -1,6 +1,9 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -22,22 +25,45 @@ import {
 } from '../finance/accounting-profile/accounting-profile.types.js';
 import { lockFinanceSettingsAndAssertOpen } from '../finance/fiscal-lock.helpers.js';
 import { computeSellerReadiness } from '../site/legal-entity-readiness.js';
-import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
+import {
+  lockLegalEntityAndAssertActive,
+  lockSitesAndAssertActive,
+} from '../site/document-retarget.helpers.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import {
   buildInvoiceSnapshotV2,
+  INVOICE_BRANDED_TEMPLATE_VERSION,
+  type InvoiceSnapshotV2Branding,
   type InvoiceSnapshotV2,
   type InvoiceSnapshotV2Margin,
 } from './invoice-snapshot-v2.js';
 import {
+  lockInvoiceSource,
   resolveInvoiceOwnershipFromSource,
   type ResolvedInvoiceOwnership,
 } from './invoice-ownership.resolver.js';
+import {
+  DEFAULT_DOCUMENT_BRAND_THEME,
+  validateDocumentBrandTheme,
+} from '../document-branding/theme-v1.js';
 
 type InvoiceWithRelations = Invoice & {
   items: InvoiceItem[];
   customer: Customer;
   vehicle: Vehicle | null;
+};
+
+type InvoiceSourceIdentity = Pick<
+  Invoice,
+  'sales_order_id' | 'workshop_order_id' | 'vehicle_sale_id'
+> &
+  Partial<Pick<Invoice, 'site_id' | 'legal_entity_id'>>;
+
+type InvoiceCommitmentContext = {
+  tenantId: string;
+  sourceIdentity: InvoiceSourceIdentity;
+  authorizedSiteIds: string[];
+  ownership: ResolvedInvoiceOwnership;
 };
 
 type CommitInvoiceSnapshotInput = {
@@ -46,6 +72,8 @@ type CommitInvoiceSnapshotInput = {
   invoice: InvoiceWithRelations;
   invoiceNumber: string;
   margin?: InvoiceSnapshotV2Margin;
+  lockInvoiceRow?: boolean;
+  commitmentContext?: InvoiceCommitmentContext;
 };
 
 type PreparedInvoiceSnapshot = {
@@ -54,11 +82,101 @@ type PreparedInvoiceSnapshot = {
   dueDate: Date;
   supplyFrom: Date;
   supplyTo: Date;
+  logoAssetId: string | null;
 };
 
 @Injectable()
 export class InvoiceSnapshotCommitService {
   constructor(private readonly siteContext: SiteContextService) {}
+
+  async lockCommitmentContext(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    sourceIdentity: InvoiceSourceIdentity,
+    date: Date,
+  ): Promise<InvoiceCommitmentContext> {
+    if (process.env.INVOICE_BRANDING_WRITER_ENABLED !== 'true') {
+      throw new ServiceUnavailableException({
+        code: 'INVOICE_BRANDING_WRITER_DISABLED',
+        message:
+          'Invoice commitment is temporarily unavailable while branded invoice issuance is disabled.',
+      });
+    }
+
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    const sourceOwnership = await resolveInvoiceOwnershipFromSource(
+      tx,
+      tenantId,
+      authorizedSiteIds,
+      sourceIdentity,
+    );
+    if (
+      sourceIdentity.site_id &&
+      sourceIdentity.site_id !== sourceOwnership.siteId
+    ) {
+      throw new BadRequestException(
+        'Invoice site ownership does not match its source document.',
+      );
+    }
+    if (
+      sourceIdentity.legal_entity_id &&
+      sourceIdentity.legal_entity_id !== sourceOwnership.legalEntityId
+    ) {
+      throw new BadRequestException(
+        'Invoice legal entity does not match its source document site.',
+      );
+    }
+
+    await lockLegalEntityAndAssertActive(
+      tx,
+      tenantId,
+      sourceOwnership.legalEntityId,
+    );
+    await lockSitesAndAssertActive(tx, tenantId, [sourceOwnership.siteId]);
+    await lockFinanceSettingsAndAssertOpen(tx, tenantId, date);
+    await lockInvoiceSource(tx, tenantId, authorizedSiteIds, sourceIdentity);
+
+    const ownership = await resolveInvoiceOwnershipFromSource(
+      tx,
+      tenantId,
+      authorizedSiteIds,
+      sourceIdentity,
+    );
+    if (
+      ownership.siteId !== sourceOwnership.siteId ||
+      ownership.legalEntityId !== sourceOwnership.legalEntityId
+    ) {
+      throw new ConflictException({
+        code: 'INVOICE_SOURCE_OWNERSHIP_CHANGED',
+        message: 'Invoice source ownership changed during commitment.',
+      });
+    }
+
+    return {
+      tenantId,
+      sourceIdentity,
+      authorizedSiteIds: [...authorizedSiteIds],
+      ownership,
+    };
+  }
+
+  async lockInvoiceRow(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    invoiceId: string,
+  ): Promise<void> {
+    // eslint-disable-next-line no-restricted-syntax -- tenant-scoped invoice lock follows the ordered source lock.
+    const invoiceRows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM invoices
+      WHERE id = ${invoiceId}
+        AND tenant_id = ${tenantId}
+      FOR UPDATE
+    `;
+    if (invoiceRows.length !== 1) {
+      throw new NotFoundException('Invoice not found');
+    }
+  }
 
   async prepareV2Snapshot(
     input: Omit<CommitInvoiceSnapshotInput, 'invoiceNumber'> & {
@@ -67,32 +185,16 @@ export class InvoiceSnapshotCommitService {
   ): Promise<PreparedInvoiceSnapshot> {
     const { tx, tenantId, invoice, margin } = input;
     const invoiceNumber = input.invoiceNumber ?? invoice.invoice_number ?? '';
-
-    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
-    const ownership = await resolveInvoiceOwnershipFromSource(
-      tx,
-      tenantId,
-      authorizedSiteIds,
-      invoice,
-    );
-
-    if (invoice.site_id && invoice.site_id !== ownership.siteId) {
-      throw new BadRequestException(
-        'Invoice site ownership does not match its source document.',
-      );
-    }
-    if (
-      invoice.legal_entity_id &&
-      invoice.legal_entity_id !== ownership.legalEntityId
-    ) {
-      throw new BadRequestException(
-        'Invoice legal entity does not match its source document site.',
-      );
-    }
-
     this.assertSupportedTaxProfile(invoice.tax_mode);
-    await lockSitesAndAssertActive(tx, tenantId, [ownership.siteId]);
-    await lockFinanceSettingsAndAssertOpen(tx, tenantId, invoice.date);
+    const commitmentContext =
+      input.commitmentContext ??
+      (await this.lockCommitmentContext(tx, tenantId, invoice, invoice.date));
+    this.assertCommitmentContextMatches(tenantId, invoice, commitmentContext);
+    const { ownership } = commitmentContext;
+
+    if (input.lockInvoiceRow !== false) {
+      await this.lockInvoiceRow(tx, tenantId, invoice.id);
+    }
 
     const seller = await tx.legalEntity.findFirst({
       where: {
@@ -190,6 +292,13 @@ export class InvoiceSnapshotCommitService {
     const dueDate = new Date(invoice.date);
     dueDate.setDate(dueDate.getDate() + paymentDays);
 
+    const committedAt = new Date();
+    const branding = await this.resolveBrandingSnapshot(
+      tx,
+      tenantId,
+      ownership.legalEntityId,
+      committedAt,
+    );
     const snapshot = buildInvoiceSnapshotV2({
       invoice: {
         ...invoice,
@@ -203,6 +312,8 @@ export class InvoiceSnapshotCommitService {
       legalEntityId: ownership.legalEntityId,
       lineAllocations,
       margin,
+      branding,
+      committedAt,
     });
 
     return {
@@ -211,6 +322,7 @@ export class InvoiceSnapshotCommitService {
       dueDate,
       supplyFrom,
       supplyTo,
+      logoAssetId: branding.logo?.asset_id ?? null,
     };
   }
 
@@ -241,6 +353,17 @@ export class InvoiceSnapshotCommitService {
         },
       });
     }
+
+    if (prepared.logoAssetId) {
+      await tx.invoiceBrandAssetReference.create({
+        data: {
+          tenant_id: tenantId,
+          legal_entity_id: prepared.ownership.legalEntityId,
+          invoice_id: invoiceId,
+          asset_id: prepared.logoAssetId,
+        },
+      });
+    }
   }
 
   async commitV2Snapshot(
@@ -267,6 +390,134 @@ export class InvoiceSnapshotCommitService {
         taxMode,
       });
     }
+  }
+
+  private assertCommitmentContextMatches(
+    tenantId: string,
+    invoice: InvoiceSourceIdentity,
+    context: InvoiceCommitmentContext,
+  ): void {
+    if (
+      context.tenantId !== tenantId ||
+      context.sourceIdentity.sales_order_id !== invoice.sales_order_id ||
+      context.sourceIdentity.workshop_order_id !== invoice.workshop_order_id ||
+      context.sourceIdentity.vehicle_sale_id !== invoice.vehicle_sale_id
+    ) {
+      throw new ConflictException({
+        code: 'INVOICE_SOURCE_OWNERSHIP_CHANGED',
+        message: 'Invoice source changed during commitment.',
+      });
+    }
+  }
+
+  private async resolveBrandingSnapshot(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    legalEntityId: string,
+    resolvedAt: Date,
+  ): Promise<InvoiceSnapshotV2Branding> {
+    const profile = await tx.documentBrandProfile.findFirst({
+      where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+      select: {
+        id: true,
+        active_revision: true,
+        active_theme: true,
+        active_logo_asset_id: true,
+      },
+    });
+    const theme = profile?.active_theme
+      ? validateDocumentBrandTheme(profile.active_theme)
+      : DEFAULT_DOCUMENT_BRAND_THEME;
+    const logoAssetId = theme.logoAssetId;
+    if (profile && profile.active_logo_asset_id !== logoAssetId) {
+      throw new UnprocessableEntityException({
+        code: 'BRAND_RENDER_INPUT_UNAVAILABLE',
+        message: 'Confirmed branding data is inconsistent.',
+      });
+    }
+
+    let logo: InvoiceSnapshotV2Branding['logo'] = null;
+    if (logoAssetId) {
+      // eslint-disable-next-line no-restricted-syntax -- tenant/entity-scoped asset row lock serializes issuance with profile cleanup.
+      const lockedAssets = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM document_brand_assets
+        WHERE id = ${logoAssetId}
+          AND tenant_id = ${tenantId}
+          AND legal_entity_id = ${legalEntityId}
+        ORDER BY id
+        FOR UPDATE
+      `;
+      if (lockedAssets.length !== 1) {
+        throw this.brandAssetUnavailable();
+      }
+      const asset = await tx.documentBrandAsset.findFirst({
+        where: {
+          id: logoAssetId,
+          tenant_id: tenantId,
+          legal_entity_id: legalEntityId,
+          purpose: 'LOGO',
+          state: 'READY',
+        },
+        select: {
+          id: true,
+          bucket: true,
+          object_key: true,
+          object_generation: true,
+          sha256: true,
+          detected_mime_type: true,
+          pixel_width: true,
+          pixel_height: true,
+        },
+      });
+      if (
+        !asset?.bucket ||
+        !asset.object_key ||
+        !asset.object_generation ||
+        !asset.sha256 ||
+        asset.detected_mime_type !== 'image/png' ||
+        !asset.pixel_width ||
+        !asset.pixel_height
+      ) {
+        throw this.brandAssetUnavailable();
+      }
+      logo = {
+        asset_id: asset.id,
+        bucket: asset.bucket,
+        key: asset.object_key,
+        generation: asset.object_generation,
+        sha256: asset.sha256,
+        mime_type: 'image/png',
+        width: asset.pixel_width,
+        height: asset.pixel_height,
+      };
+    }
+
+    return {
+      schema_version: 1,
+      profile_id: profile?.id ?? null,
+      profile_revision: profile?.active_revision ?? 0,
+      preset_id: theme.presetId,
+      renderer_version: INVOICE_BRANDED_TEMPLATE_VERSION,
+      font_id: theme.fontId,
+      tokens: {
+        primary_color: theme.primaryColor,
+        secondary_color: theme.secondaryColor,
+        header_band: theme.headerBand,
+        footer_band: theme.footerBand,
+        header_text: theme.headerText,
+        footer_text: theme.footerText,
+      },
+      logo,
+      resolved_at: resolvedAt.toISOString(),
+    };
+  }
+
+  private brandAssetUnavailable(): UnprocessableEntityException {
+    return new UnprocessableEntityException({
+      code: 'BRAND_RENDER_INPUT_UNAVAILABLE',
+      message: 'Confirmed logo asset is unavailable.',
+    });
   }
 
   private collectCustomerMissingFields(customer: Customer): string[] {

@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Prisma as PrismaTypes } from '@prisma/client';
 import { assertPersistedSiteId } from '../site/document-retarget.helpers.js';
 
 export type ResolvedInvoiceOwnership = {
@@ -8,7 +9,7 @@ export type ResolvedInvoiceOwnership = {
 };
 
 export async function resolveInvoiceOwnershipFromSource(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTypes.TransactionClient,
   tenantId: string,
   authorizedSiteIds: readonly string[],
   invoice: {
@@ -100,4 +101,63 @@ export async function resolveInvoiceOwnershipFromSource(
     message:
       'Invoice issuance requires a source document with persisted site ownership.',
   });
+}
+
+export async function lockInvoiceSource(
+  tx: PrismaTypes.TransactionClient,
+  tenantId: string,
+  authorizedSiteIds: readonly string[],
+  invoice: {
+    sales_order_id: string | null;
+    workshop_order_id: string | null;
+    vehicle_sale_id: string | null;
+  },
+): Promise<void> {
+  const siteIds = [...authorizedSiteIds];
+  if (siteIds.length === 0) {
+    throw new NotFoundException('Invoice source not found');
+  }
+
+  let lockedRows: Array<{ id: string }>;
+  if (invoice.sales_order_id) {
+    // eslint-disable-next-line no-restricted-syntax -- tenant and authorized-site scoped row lock required by invoice commit ordering.
+    lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM sales_orders
+      WHERE id = ${invoice.sales_order_id}
+        AND tenant_id = ${tenantId}
+        AND site_id IN (${Prisma.join(siteIds)})
+      FOR UPDATE
+    `;
+  } else if (invoice.workshop_order_id) {
+    // eslint-disable-next-line no-restricted-syntax -- tenant and authorized-site scoped row lock required by invoice commit ordering.
+    lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM workshop_orders
+      WHERE id = ${invoice.workshop_order_id}
+        AND tenant_id = ${tenantId}
+        AND site_id IN (${Prisma.join(siteIds)})
+      FOR UPDATE
+    `;
+  } else if (invoice.vehicle_sale_id) {
+    // eslint-disable-next-line no-restricted-syntax -- tenant and authorized-site scoped row lock required by invoice commit ordering.
+    lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM vehicle_sales
+      WHERE id = ${invoice.vehicle_sale_id}
+        AND tenant_id = ${tenantId}
+        AND site_id IN (${Prisma.join(siteIds)})
+      FOR UPDATE
+    `;
+  } else {
+    throw new BadRequestException({
+      code: 'SOURCE_DOCUMENT_REQUIRED',
+      message:
+        'Invoice issuance requires a source document with persisted site ownership.',
+    });
+  }
+
+  if (lockedRows.length !== 1) {
+    throw new NotFoundException('Invoice source not found');
+  }
 }

@@ -173,6 +173,17 @@ describe('validateEnv', () => {
     const env = validateEnv(productionEnv());
     expect(env.REDIS_URL).toBeUndefined();
   });
+
+  it('defaults branded invoice writing off and parses its explicit setting', () => {
+    expect(validateEnv(productionEnv()).INVOICE_BRANDING_WRITER_ENABLED).toBe(
+      false,
+    );
+    expect(
+      validateEnv(
+        productionEnv({ INVOICE_BRANDING_WRITER_ENABLED: 'true' }),
+      ).INVOICE_BRANDING_WRITER_ENABLED,
+    ).toBe(true);
+  });
 });
 
 describe('DOCUMENTED_ENV_KEYS', () => {

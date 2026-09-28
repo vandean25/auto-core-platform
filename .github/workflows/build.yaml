@@ -277,10 +277,14 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
         run: npm test --workspace=core-api -- --ci --runInBand
 
+      - name: Install backend Playwright browser
+        run: npm exec --workspace=core-api -- playwright install --with-deps chromium
+
       - name: Run E2E tests
         timeout-minutes: 15
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
+          INVOICE_BRANDING_WRITER_ENABLED: 'true'
         run: |
           npm exec --workspace=core-api -- prisma migrate deploy
           npm run test:e2e --workspace=core-api -- --ci --runInBand

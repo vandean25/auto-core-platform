@@ -103,6 +103,39 @@ describe('toRenderableInvoiceSnapshot', () => {
     expect(renderable?.tax_breakdown?.[0].gross).toBe('120.00');
   });
 
+  it('preserves the branded template version and frozen branding data', () => {
+    const branding = {
+      schema_version: 1,
+      profile_id: null,
+      profile_revision: 0,
+      preset_id: 'standard-v1',
+      renderer_version: 'invoice-brand-v1',
+      font_id: 'acp-sans-v1',
+      tokens: {
+        primary_color: '#111827',
+        secondary_color: '#E5E7EB',
+        header_band: 'none',
+        footer_band: 'none',
+        header_text: '',
+        footer_text: '',
+      },
+      logo: null,
+      resolved_at: '2026-09-20T12:00:00.000Z',
+    } as const;
+    const renderable = toRenderableInvoiceSnapshot(
+      {
+        ...v2Snapshot,
+        template_version: 'invoice-brand-v1',
+        branding,
+      },
+      'RE-2026-0001',
+      'inv-1',
+    );
+
+    expect(renderable?.template_version).toBe('invoice-brand-v1');
+    expect(renderable?.branding).toEqual(branding);
+  });
+
   it('returns null for non-v2 snapshots', () => {
     expect(
       toRenderableInvoiceSnapshot({ schema_version: 1 }, 'RE-1', 'inv-1'),

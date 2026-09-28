@@ -8,6 +8,7 @@ import {
   type Vehicle,
 } from '@prisma/client';
 import type {
+  InvoiceSnapshotV2Branding,
   InvoiceSnapshotV2Seller,
   InvoiceSnapshotV2TaxBucket,
 } from './invoice-snapshot-v2.js';
@@ -61,6 +62,8 @@ export type InvoiceSnapshot = {
   snapshot_created_at: string;
 
   schema_version?: 1 | 2;
+  template_version?: string;
+  branding?: InvoiceSnapshotV2Branding;
   seller?: InvoiceSnapshotV2Seller;
   supply_date_from?: string;
   supply_date_to?: string;

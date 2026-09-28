@@ -28,6 +28,7 @@ import {
   guardedStatusUpdate,
 } from '../common/utils/status-transition.js';
 import { InvoiceSnapshotCommitService } from '../invoices/invoice-snapshot-commit.service.js';
+import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
@@ -99,6 +100,7 @@ export class VehicleSaleService {
     const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
     return {
       ...sale,
+      invoice: sale.invoice ? omitInvoiceSnapshot(sale.invoice) : sale.invoice,
       vehicle: stripVehicleIdentityResolutionState(sale.vehicle),
       cost_basis_preview: basis,
       margin_vat_preview: vat,
@@ -205,7 +207,7 @@ export class VehicleSaleService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     return this.prisma.$transaction(async (tx) => {
-      const sale = await tx.vehicleSale.findFirst({
+      let sale = await tx.vehicleSale.findFirst({
         where: { id, tenant_id: tenantId, site_id: siteId },
         include: { vehicle: true, customer: true },
       });
@@ -213,6 +215,40 @@ export class VehicleSaleService {
         throw new NotFoundException(`Vehicle sale ${id} not found`);
       }
 
+      const persistedSiteId = assertPersistedSiteId(
+        sale.site_id,
+        'Vehicle sale site ownership is required',
+      );
+      const invoiceDate = new Date();
+      const dueDate = new Date(invoiceDate);
+      dueDate.setDate(dueDate.getDate() + 14);
+      const commitmentContext = await this.snapshotCommit.lockCommitmentContext(
+        tx,
+        tenantId,
+        {
+          sales_order_id: null,
+          workshop_order_id: null,
+          vehicle_sale_id: sale.id,
+          site_id: persistedSiteId,
+        },
+        invoiceDate,
+      );
+
+      const lockedSale = await tx.vehicleSale.findFirst({
+        where: {
+          id,
+          tenant_id: tenantId,
+          site_id: commitmentContext.ownership.siteId,
+          status: VehicleSaleStatus.DRAFT,
+        },
+        include: { vehicle: true, customer: true },
+      });
+      if (!lockedSale) {
+        throw new ConflictException(
+          'Vehicle sale state or site changed concurrently. Please refresh.',
+        );
+      }
+      sale = lockedSale;
       await this.assertSellable(
         tenantId,
         sale.vehicle_id,
@@ -220,29 +256,12 @@ export class VehicleSaleService {
         tx,
       );
 
-      const persistedSiteId = assertPersistedSiteId(
-        sale.site_id,
-        'Vehicle sale site ownership is required',
-      );
-      await lockSitesAndAssertActive(tx, tenantId, [persistedSiteId]);
-
-      const site = await tx.site.findFirst({
-        where: { id: persistedSiteId, tenant_id: tenantId },
-        select: { id: true, legal_entity_id: true },
-      });
-      if (!site) {
-        throw new NotFoundException('Vehicle sale site not found');
-      }
-
       const entries = await tx.vehicleLedgerEntry.findMany({
         where: { tenant_id: tenantId, vehicle_id: sale.vehicle_id },
       });
       const basis = costBasis(entries);
       const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
       const net = sale.sale_price.sub(vat);
-      const invoiceDate = new Date();
-      const dueDate = new Date(invoiceDate);
-      dueDate.setDate(dueDate.getDate() + 14);
       const description =
         `${sale.vehicle.year} ${sale.vehicle.make} ${sale.vehicle.model} VIN ${sale.vehicle.vin ?? ''}`.trim();
       const margin = {
@@ -251,69 +270,6 @@ export class VehicleSaleService {
         tax_rate: DEFAULT_VAT_RATE.toFixed(2),
         calculation_profile: 'vehicle-margin-v1',
       };
-
-      await this.snapshotCommit.prepareV2Snapshot({
-        tx,
-        tenantId,
-        invoice: {
-          id: 'preview',
-          tenant_id: tenantId,
-          customer_id: sale.customer_id,
-          vehicle_id: sale.vehicle_id,
-          vehicle_sale_id: sale.id,
-          sales_order_id: null,
-          workshop_order_id: null,
-          site_id: site.id,
-          legal_entity_id: site.legal_entity_id,
-          currency: 'EUR',
-          status: InvoiceStatus.DRAFT,
-          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
-          invoice_number: null,
-          date: invoiceDate,
-          due_date: dueDate,
-          supply_date_from: null,
-          supply_date_to: null,
-          total_net: net,
-          total_tax: vat,
-          total_gross: sale.sale_price,
-          notes: null,
-          internal_notes: null,
-          snapshot: null,
-          pdf_storage_bucket: null,
-          pdf_storage_key: null,
-          pdf_generated_at: null,
-          pdf_generation_error: null,
-          global_discount_type: null,
-          global_discount_value: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          customer: sale.customer,
-          vehicle: sale.vehicle,
-          items: [
-            {
-              id: 'preview-line',
-              tenant_id: tenantId,
-              invoice_id: 'preview',
-              catalog_item_id: null,
-              description,
-              quantity: new Prisma.Decimal(1),
-              unit_price: sale.sale_price,
-              tax_rate: DEFAULT_VAT_RATE,
-              line_discount_type: null,
-              line_discount_value: null,
-              line_total: sale.sale_price,
-              revenue_group_name: MARGIN_REVENUE_GROUP,
-              accounting_snapshot: null,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            },
-          ],
-        },
-        invoiceNumber: '',
-        margin,
-      });
-
-      const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
 
       await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
         id,
@@ -339,12 +295,12 @@ export class VehicleSaleService {
           customer_id: posted.customer_id,
           vehicle_id: posted.vehicle_id,
           vehicle_sale_id: posted.id,
-          site_id: site.id,
-          legal_entity_id: site.legal_entity_id,
+          site_id: commitmentContext.ownership.siteId,
+          legal_entity_id: commitmentContext.ownership.legalEntityId,
           currency: 'EUR',
           tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
           status: InvoiceStatus.FINALIZED,
-          invoice_number: invoiceNumber,
+          invoice_number: null,
           date: invoiceDate,
           due_date: dueDate,
           total_net: net,
@@ -365,13 +321,31 @@ export class VehicleSaleService {
         include: { items: true, customer: true, vehicle: true },
       });
 
+      await this.snapshotCommit.lockInvoiceRow(tx, tenantId, invoice.id);
       const prepared = await this.snapshotCommit.prepareV2Snapshot({
         tx,
         tenantId,
         invoice,
-        invoiceNumber,
         margin,
+        commitmentContext,
+        lockInvoiceRow: false,
       });
+      const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
+      const invoiceNumberUpdate = await tx.invoice.updateMany({
+        where: {
+          id: invoice.id,
+          tenant_id: tenantId,
+          status: InvoiceStatus.FINALIZED,
+          invoice_number: null,
+        },
+        data: { invoice_number: invoiceNumber },
+      });
+      if (invoiceNumberUpdate.count !== 1) {
+        throw new ConflictException(
+          'Invoice was already transitioned by another request',
+        );
+      }
+      const invoiceWithNumber = { ...invoice, invoice_number: invoiceNumber };
       await this.snapshotCommit.persistV2Snapshot(
         tx,
         tenantId,
@@ -420,13 +394,13 @@ export class VehicleSaleService {
         ...posted,
         status: VehicleSaleStatus.INVOICED,
         vehicle: stripVehicleIdentityResolutionState(posted.vehicle),
-        invoice: {
-          ...invoice,
-          vehicle: invoice.vehicle
-            ? stripVehicleIdentityResolutionState(invoice.vehicle)
-            : invoice.vehicle,
+        invoice: omitInvoiceSnapshot({
+          ...invoiceWithNumber,
+          vehicle: invoiceWithNumber.vehicle
+            ? stripVehicleIdentityResolutionState(invoiceWithNumber.vehicle)
+            : invoiceWithNumber.vehicle,
           snapshot,
-        },
+        }),
       };
     });
   }

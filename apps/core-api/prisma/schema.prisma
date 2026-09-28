@@ -108,6 +108,7 @@ model Tenant {
   stockTransferCommands         StockTransferCommand[]
   documentBrandProfiles         DocumentBrandProfile[]
   documentBrandAssets           DocumentBrandAsset[]
+  invoiceBrandAssetReferences   InvoiceBrandAssetReference[]
   documentBrandQuotaEvents      DocumentBrandQuotaEvent[]
   documentBrandQuotaLocks       DocumentBrandQuotaLock[]
 
@@ -175,37 +176,38 @@ model PlatformAdmin {
 // ============================================================================
 
 model LegalEntity {
-  id                   String                        @id @default(uuid())
-  tenant_id            String
-  tenant               Tenant                        @relation(fields: [tenant_id], references: [id])
-  name                 String
-  country_iso          LegalEntityCountry
-  is_active            Boolean                       @default(true)
-  address_street       String?
-  address_line2        String?
-  address_zip          String?
-  address_city         String?
-  tax_number           String?
-  vat_id               String?
-  iban                 String?
-  bic                  String?
-  bank_name            String?
-  email                String?
-  phone                String?
-  registration_number  String?
-  registration_court   String?
-  representatives      String?
-  payment_terms_days   Int?
-  payment_terms_text   String?
-  sites                Site[]
-  accountingProfile    LegalEntityAccountingProfile?
-  accountingExports    AccountingExport[]
-  documentBrandProfile DocumentBrandProfile?
-  documentBrandAssets  DocumentBrandAsset[]
-  invoices             Invoice[]
-  creditNotes          CreditNote[]
-  createdAt            DateTime                      @default(now())
-  updatedAt            DateTime                      @updatedAt
+  id                          String                        @id @default(uuid())
+  tenant_id                   String
+  tenant                      Tenant                        @relation(fields: [tenant_id], references: [id])
+  name                        String
+  country_iso                 LegalEntityCountry
+  is_active                   Boolean                       @default(true)
+  address_street              String?
+  address_line2               String?
+  address_zip                 String?
+  address_city                String?
+  tax_number                  String?
+  vat_id                      String?
+  iban                        String?
+  bic                         String?
+  bank_name                   String?
+  email                       String?
+  phone                       String?
+  registration_number         String?
+  registration_court          String?
+  representatives             String?
+  payment_terms_days          Int?
+  payment_terms_text          String?
+  sites                       Site[]
+  accountingProfile           LegalEntityAccountingProfile?
+  accountingExports           AccountingExport[]
+  documentBrandProfile        DocumentBrandProfile?
+  documentBrandAssets         DocumentBrandAsset[]
+  invoiceBrandAssetReferences InvoiceBrandAssetReference[]
+  invoices                    Invoice[]
+  creditNotes                 CreditNote[]
+  createdAt                   DateTime                      @default(now())
+  updatedAt                   DateTime                      @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, name])
@@ -288,8 +290,9 @@ model DocumentBrandAsset {
   createdAt                    DateTime                  @default(now())
   updatedAt                    DateTime                  @updatedAt
 
-  draftForProfiles  DocumentBrandProfile[] @relation("DocumentBrandDraftLogo")
-  activeForProfiles DocumentBrandProfile[] @relation("DocumentBrandActiveLogo")
+  draftForProfiles  DocumentBrandProfile[]       @relation("DocumentBrandDraftLogo")
+  activeForProfiles DocumentBrandProfile[]       @relation("DocumentBrandActiveLogo")
+  invoiceReferences InvoiceBrandAssetReference[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, legal_entity_id, id])
@@ -1338,13 +1341,18 @@ model Invoice {
 
   snapshot Json?
 
-  pdf_storage_bucket   String?
-  pdf_storage_key      String?
-  pdf_generated_at     DateTime?
-  pdf_generation_error String?
+  pdf_storage_bucket     String?
+  pdf_storage_key        String?
+  pdf_archive_bucket     String?
+  pdf_archive_key        String?
+  pdf_archive_generation String?
+  pdf_archive_sha256     String?
+  pdf_generated_at       DateTime?
+  pdf_generation_error   String?
 
-  items        InvoiceItem[]
-  credit_notes CreditNote[]
+  items                 InvoiceItem[]
+  credit_notes          CreditNote[]
+  brand_asset_reference InvoiceBrandAssetReference?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1354,10 +1362,29 @@ model Invoice {
   @@unique([tenant_id, sales_order_id]) // tenant-scoped
   @@unique([tenant_id, workshop_order_id]) // tenant-scoped
   @@unique([tenant_id, vehicle_sale_id])
+  @@unique([tenant_id, legal_entity_id, id])
   @@index([tenant_id])
   @@index([tenant_id, site_id, date])
   @@index([tenant_id, legal_entity_id, date])
   @@map("invoices")
+}
+
+model InvoiceBrandAssetReference {
+  id              String             @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant             @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "ibr_tenant_fkey")
+  legal_entity_id String
+  legal_entity    LegalEntity        @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict, map: "ibr_entity_fkey")
+  invoice_id      String
+  invoice         Invoice            @relation(fields: [tenant_id, legal_entity_id, invoice_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict, map: "ibr_invoice_fkey")
+  asset_id        String
+  asset           DocumentBrandAsset @relation(fields: [tenant_id, legal_entity_id, asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict, map: "ibr_asset_fkey")
+  createdAt       DateTime           @default(now())
+
+  @@unique([tenant_id, id], map: "ibr_tenant_id_uq")
+  @@unique([tenant_id, legal_entity_id, invoice_id], map: "ibr_tenant_invoice_uq")
+  @@index([tenant_id, legal_entity_id, asset_id], map: "invoice_brand_asset_references_asset_scope_idx")
+  @@map("invoice_brand_asset_references")
 }
 
 model InvoiceSequence {

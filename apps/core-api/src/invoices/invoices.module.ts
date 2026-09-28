@@ -6,9 +6,10 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
+import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule],
+  imports: [PrismaModule, CommonModule, DocumentBrandingModule],
   controllers: [InvoicesController],
   providers: [
     InvoicesService,

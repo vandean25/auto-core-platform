@@ -6,6 +6,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { buildInvoiceSnapshotV2 } from './invoice-snapshot-v2.js';
+import { isInvoiceSnapshotV2 } from './invoice-snapshot-v2.validation.js';
 import type { ResolvedAccountingAllocation } from '../finance/accounting-profile/accounting-profile.types.js';
 
 const allocation = (
@@ -256,6 +257,119 @@ describe('buildInvoiceSnapshotV2', () => {
     expect(snapshot.total_tax).toBe('0.00');
     expect(JSON.stringify(snapshot.items)).not.toContain('3000.00');
     expect(JSON.stringify(snapshot.items)).not.toContain('18000.00');
+  });
+});
+
+describe('isInvoiceSnapshotV2 branding validation', () => {
+  const baseSnapshot = {
+    schema_version: 2,
+    document_kind: 'INVOICE',
+    template_version: 'invoice-pdf-v1',
+    site_id: 'site-1',
+    legal_entity_id: 'entity-1',
+    currency: 'EUR',
+    seller: { name: 'Example GmbH' },
+    items: [{}],
+    tax_breakdown: [],
+    total_net: '100.00',
+    total_tax: '20.00',
+    total_gross: '120.00',
+    snapshot_created_at: '2026-09-28T12:00:00.000Z',
+  };
+
+  const defaultBranding = {
+    schema_version: 1,
+    profile_id: null,
+    profile_revision: 0,
+    preset_id: 'standard-v1',
+    renderer_version: 'invoice-brand-v1',
+    font_id: 'acp-sans-v1',
+    tokens: {
+      primary_color: '#111827',
+      secondary_color: '#E5E7EB',
+      header_band: 'none',
+      footer_band: 'none',
+      header_text: '',
+      footer_text: '',
+    },
+    logo: null,
+    resolved_at: '2026-09-28T12:00:00.000Z',
+  };
+
+  const confirmedBranding = {
+    ...defaultBranding,
+    profile_id: '8f507f3d-40e1-47c9-a451-73a2682c8b17',
+    profile_revision: 4,
+    tokens: {
+      ...defaultBranding.tokens,
+      header_text: 'Example GmbH',
+    },
+    logo: {
+      asset_id: '3b825bc1-dcc9-4f2e-91fc-1b9905e6ba2e',
+      bucket: 'private-branding',
+      key: 'tenant/entity/logo.png',
+      generation: '1730000000000000',
+      sha256: 'a'.repeat(64),
+      mime_type: 'image/png',
+      width: 640,
+      height: 240,
+    },
+  };
+
+  it.each([
+    ['ACP defaults with revision zero', defaultBranding],
+    ['a confirmed profile and exact logo generation', confirmedBranding],
+  ])('accepts %s', (_description, branding) => {
+    expect(
+      isInvoiceSnapshotV2({
+        ...baseSnapshot,
+        template_version: 'invoice-brand-v1',
+        branding,
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    [
+      'malformed nested tokens',
+      { ...defaultBranding, tokens: { ...defaultBranding.tokens, header_band: 'html' } },
+    ],
+    [
+      'low-contrast primary color',
+      {
+        ...defaultBranding,
+        tokens: { ...defaultBranding.tokens, primary_color: '#FFFFFF' },
+      },
+    ],
+    [
+      'malformed exact logo metadata',
+      {
+        ...confirmedBranding,
+        logo: { ...confirmedBranding.logo, sha256: 'not-a-hash' },
+      },
+    ],
+    ['an unknown branding schema version', { ...defaultBranding, schema_version: 2 }],
+  ])('rejects %s', (_description, branding) => {
+    expect(
+      isInvoiceSnapshotV2({
+        ...baseSnapshot,
+        template_version: 'invoice-brand-v1',
+        branding,
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects invoice-brand-v1 when its required branding object is absent', () => {
+    expect(
+      isInvoiceSnapshotV2({
+        ...baseSnapshot,
+        template_version: 'invoice-brand-v1',
+      }),
+    ).toBe(false);
+  });
+
+  it('continues to accept historical V2 snapshots without branding', () => {
+    expect(isInvoiceSnapshotV2(baseSnapshot)).toBe(true);
   });
 });
 

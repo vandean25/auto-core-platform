@@ -16,6 +16,7 @@ import {
 import { buildFormattedInvoiceItems } from './helpers/invoice-line-items.helpers.js';
 import { reconcileDraftInvoiceItems } from './helpers/invoice-draft-reconciliation.helpers.js';
 import { InvoiceFinalizationService } from './invoice-finalization.service.js';
+import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
 
 @Injectable()
 export class SalesService {
@@ -101,18 +102,20 @@ export class SalesService {
       throw new BadRequestException('Only DRAFT invoices can be finalized');
     }
 
-    return this.prisma.$transaction(async (tx) =>
+    const finalized = await this.prisma.$transaction(async (tx) =>
       this.invoiceFinalization.finalizeInTransaction(tx, tenantId, invoice),
     );
+    return omitInvoiceSnapshot(finalized);
   }
 
   async findAll() {
     const tenantId = await this.tenantContext.getTenantId();
-    return this.prisma.invoice.findMany({
+    const invoices = await this.prisma.invoice.findMany({
       where: { tenant_id: tenantId },
       include: { customer: true, items: true },
       orderBy: { createdAt: 'desc' },
     });
+    return invoices.map(omitInvoiceSnapshot);
   }
 
   async findOne(id: string) {
@@ -125,11 +128,11 @@ export class SalesService {
     if (!invoice) {
       throw new NotFoundException(`Invoice with ID ${id} not found`);
     }
-    return {
+    return omitInvoiceSnapshot({
       ...invoice,
       vehicle: invoice.vehicle
         ? stripVehicleIdentityResolutionState(invoice.vehicle)
         : invoice.vehicle,
-    };
+    });
   }
 }

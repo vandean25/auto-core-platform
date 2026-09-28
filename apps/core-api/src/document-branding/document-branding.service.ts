@@ -12,6 +12,7 @@ import type { DocumentBrandProfile } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { lockLegalEntityAndAssertActive } from '../site/document-retarget.helpers.js';
 import {
   assertTenantAdmin,
   requireActiveCurrentUser,
@@ -354,28 +355,7 @@ export class DocumentBrandingService {
     const tenantId = await this.tenantContext.getTenantId();
     await requireActiveCurrentUser(this.prisma, this.tenantContext, tenantId);
     return this.prisma.$transaction(async (tx) => {
-      const lockResult = await tx.legalEntity.updateMany({
-        where: {
-          id: legalEntityId,
-          tenant_id: tenantId,
-          is_active: true,
-        },
-        data: { is_active: true },
-      });
-      if (lockResult.count === 0) {
-        const entity = await tx.legalEntity.findFirst({
-          where: { id: legalEntityId, tenant_id: tenantId },
-          select: { id: true },
-        });
-        if (entity) {
-          throw new UnprocessableEntityException({
-            code: 'LEGAL_ENTITY_INACTIVE',
-            message:
-              'Document branding cannot be changed for an inactive entity.',
-          });
-        }
-        throw new NotFoundException('Legal entity not found');
-      }
+      await lockLegalEntityAndAssertActive(tx, tenantId, legalEntityId);
 
       let profile = await tx.documentBrandProfile.findFirst({
         where: { tenant_id: tenantId, legal_entity_id: legalEntityId },

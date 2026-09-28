@@ -468,10 +468,28 @@ describe('Legal invoicing snapshot v2 (e2e)', () => {
       .expect(200);
 
     expect(issueRes.body.site_id).toBe(siteId);
-    expect(issueRes.body.snapshot).toMatchObject({
+    expect(issueRes.body.snapshot).toBeUndefined();
+
+    const issued = await tenantPrisma.invoice.findFirstOrThrow({
+      where: { id: invoice.id },
+      select: { snapshot: true },
+    });
+    expect(issued.snapshot).toMatchObject({
       schema_version: 2,
       site_id: siteId,
+      template_version: 'invoice-brand-v1',
+      branding: {
+        schema_version: 1,
+        renderer_version: 'invoice-brand-v1',
+      },
     });
+    const issuedSnapshot = issued.snapshot as {
+      snapshot_created_at: string;
+      branding: { resolved_at: string };
+    };
+    expect(issuedSnapshot.branding.resolved_at).toBe(
+      issuedSnapshot.snapshot_created_at,
+    );
 
     await request(app.getHttpServer())
       .patch('/api/me/active-site')
