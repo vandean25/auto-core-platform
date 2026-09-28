@@ -45,11 +45,11 @@ Reuse the Settings employees DataTable. Additional columns:
 | Column | Control |
 |--------|---------|
 | Hire date | Inline date, save-on-blur (`hiredOn`). OWNER/ADMIN only; SALES read-only. |
-| Leave days | Inline int ≥ 0 (`annualLeaveDays`). OWNER/ADMIN only; SALES read-only. |
-| Remaining | Read-only computed `remainingLeaveDays` |
+| Leave allowance | Inline int ≥ 0 (`annualLeaveMinutes`). OWNER/ADMIN only; SALES read-only. |
+| Remaining | Read-only computed `remainingLeaveMinutes` (with an approximate day value when available) |
 | Login | Existing linked user (unchanged) |
 
-Search includes name, role, hire date, remaining. Row click opens a sheet with the same fields plus **Carryover (this year)** (number, OWNER/ADMIN, `PATCH /api/hr/employees/:id/leave-balance` `{ year: currentLocalYear, carryoverDays }`). Right-click Delete unchanged.
+Search includes name, role, hire date, remaining. Row click opens a sheet with the same fields plus **Carryover (this year)** (minutes, OWNER/ADMIN, `PATCH /api/hr/employees/:id/leave-balance` `{ year: leaveBalanceYear, carryoverMinutes }`). Right-click Delete unchanged.
 
 Settings → Employees renders this same table so there is not a second roster.
 
@@ -97,7 +97,7 @@ Empty state if `/api/hr/me` is 403: Card "No employee record linked" + link to H
 
 ## HrLeavePage
 
-- **Top-right:** remaining chip `Remaining: {n} days` + `+ Leave`.
+- **Top-right:** remaining chip `Remaining: {n} min` with an optional approximate day value + `+ Leave`.
 - List of own bookings (DataTable). Row click opens sheet (view). Right-click Cancel when allowed.
 - OWNER/ADMIN and SALES: `TeamLeaveMonthGrid` below (CSS grid, employees × days). BOOKED cells use `StatusBadge`. Click empty cell (OWNER/ADMIN only) opens `LeaveBookingSheet` with that employee + day. No FullCalendar.
 
@@ -105,7 +105,7 @@ Empty state if `/api/hr/me` is 403: Card "No employee record linked" + link to H
 
 - `Sheet` (not Dialog). Primary action top-right of `SheetHeader`: `+ Leave`.
 - Fields: employee (locked to self unless OWNER/ADMIN), start, end, note.
-- Preview line: none in Phase 1 (no extra preview API). After submit, the leave list shows `daysCharged`.
+- Preview line: none in Phase 1 (no extra preview API). After submit, the leave list shows `minutesCharged`.
 - OWNER/ADMIN sheet includes employee select and submits `POST /api/hr/leave`. Self-service submits `POST /api/hr/me/leave`.
 - Insufficient remaining or overlap: toast from `409` message; sheet stays open.
 
