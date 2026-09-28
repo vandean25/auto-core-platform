@@ -231,7 +231,7 @@ describe('WorkshopHolidayController', () => {
     expect(mockHolidayService.importPublicHolidays).toHaveBeenCalled();
 
     mockHolidayService.updateHoliday.mockResolvedValue({ id: 'h-1' });
-    await controller.updateHoliday('11111111-1111-1111-1111-111111111111', { name: 'Updated' } as any);
+    await controller.updateHoliday('11111111-1111-1111-1111-111111111111', { name: 'Updated' });
     expect(mockHolidayService.updateHoliday).toHaveBeenCalledWith(
       '11111111-1111-1111-1111-111111111111',
       { name: 'Updated' },
