@@ -18,7 +18,6 @@ import {
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
-  ApiNoContentResponse,
   ApiOkResponse,
   ApiProduces,
   ApiQuery,
@@ -72,7 +71,9 @@ function parsePositiveInteger(value?: string): number | undefined {
     return undefined;
   }
   if (!/^\d+$/.test(value) || parseInt(value, 10) <= 0) {
-    throw new BadRequestException('page and pageSize must be positive integers');
+    throw new BadRequestException(
+      'page and pageSize must be positive integers',
+    );
   }
   return parseInt(value, 10);
 }
@@ -100,7 +101,11 @@ export function ApiWorkshopPaginationQueries() {
       required: false,
       schema: { type: 'integer', minimum: 1 },
     }),
-    ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } }),
+    ApiQuery({
+      name: 'sortField',
+      required: false,
+      schema: { type: 'string' },
+    }),
     ApiQuery({
       name: 'sortDirection',
       required: false,
