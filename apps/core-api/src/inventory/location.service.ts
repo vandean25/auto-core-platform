@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { LocationType, Prisma } from '@prisma/client';
+import { LocationType, Prisma, StorageLocation } from '@prisma/client';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -121,6 +121,38 @@ export class LocationService {
       throw new NotFoundException('Location not found');
     }
 
+    await this.validateUpdatePayload(id, data, location, scope);
+
+    await this.prisma.storageLocation.updateMany({
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
+      data: {
+        name: data.name,
+        code: data.code,
+        type: data.type,
+        parent_id: data.parentId,
+      },
+    });
+
+    const updated = await this.prisma.storageLocation.findFirst({
+      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
+    });
+    if (!updated) {
+      throw new NotFoundException('Location not found');
+    }
+    return updated;
+  }
+
+  private async validateUpdatePayload(
+    id: string,
+    data: {
+      name?: string;
+      code?: string;
+      type?: LocationType;
+      parentId?: string;
+    },
+    location: StorageLocation,
+    scope: LocationScope,
+  ): Promise<void> {
     if (data.code && data.code !== location.code) {
       const existing = await this.prisma.storageLocation.findFirst({
         where: {
@@ -142,24 +174,6 @@ export class LocationService {
       }
       await this.validateHierarchy(type, parentId, scope);
     }
-
-    await this.prisma.storageLocation.updateMany({
-      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
-      data: {
-        name: data.name,
-        code: data.code,
-        type: data.type,
-        parent_id: data.parentId,
-      },
-    });
-
-    const updated = await this.prisma.storageLocation.findFirst({
-      where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
-    });
-    if (!updated) {
-      throw new NotFoundException('Location not found');
-    }
-    return updated;
   }
 
   async remove(id: string) {

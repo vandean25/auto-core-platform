@@ -35,27 +35,42 @@ const DRAFT_SORT_WHITELIST = STOCK_SORT_WHITELIST.filter(
   (field) => field !== 'stock_status',
 );
 const STOCK_STATUS_VALUES = new Set<string>(Object.values(VehicleStockStatus));
-const DEALER_INVENTORY_ROLES: readonly VehicleInventoryRole[] = [
+export const DEALER_INVENTORY_ROLES: readonly VehicleInventoryRole[] = [
   VehicleInventoryRole.USED,
   VehicleInventoryRole.NEW,
   VehicleInventoryRole.DEMO,
 ];
 const DEFAULT_ORDER_BY = { updatedAt: 'desc' } as const;
+
+const RESERVED_CUSTOMER_SELECT = {
+  id: true,
+  first_name: true,
+  last_name: true,
+  company_name: true,
+  type: true,
+} as const;
+
 const VEHICLE_LIST_INCLUDE = {
   reserved_for_customer: {
-    select: {
-      id: true,
-      first_name: true,
-      last_name: true,
-      company_name: true,
-      type: true,
-    },
+    select: RESERVED_CUSTOMER_SELECT,
   },
   location: true,
 } as const;
 
 function isVehicleStockStatus(value: string): value is VehicleStockStatus {
   return STOCK_STATUS_VALUES.has(value);
+}
+
+function parseStockStatus(value?: string): VehicleStockStatus | undefined {
+  if (!value) return undefined;
+  if (!isVehicleStockStatus(value)) {
+    throw new BadRequestException('Invalid stock_status');
+  }
+  return value;
+}
+
+function shouldIncludeDrafts(stockStatus?: VehicleStockStatus): boolean {
+  return !stockStatus || stockStatus === VehicleStockStatus.ON_ORDER;
 }
 
 function searchClause(search?: string) {
@@ -92,6 +107,186 @@ function concatPageWindow(
   };
 }
 
+function parsePagination(params: { page?: number; limit?: number }) {
+  const page = params.page && params.page > 0 ? params.page : 1;
+  const limit = Math.min(
+    params.limit && params.limit > 0 ? params.limit : 25,
+    100,
+  );
+  return { page, limit };
+}
+
+function buildPaginationMeta(total: number, page: number, limit: number) {
+  const totalPages = Math.ceil(total / limit);
+  return {
+    total,
+    page,
+    limit,
+    pageSize: limit,
+    totalPages,
+    pageCount: totalPages,
+  };
+}
+
+function buildListOrderBy(sortField?: string, sortDirection?: 'asc' | 'desc') {
+  const sorting = sortField
+    ? [{ field: sortField, direction: sortDirection ?? 'asc' }]
+    : [];
+  return {
+    vehicleOrderBy: (QueryBuilder.buildOrderBy(
+      sorting,
+      STOCK_SORT_WHITELIST,
+    ) ?? [DEFAULT_ORDER_BY]) as Prisma.VehicleOrderByWithRelationInput[],
+    draftOrderBy: (QueryBuilder.buildOrderBy(sorting, DRAFT_SORT_WHITELIST) ?? [
+      DEFAULT_ORDER_BY,
+    ]) as Prisma.VehiclePurchaseOrderByWithRelationInput[],
+  };
+}
+
+export function buildVehicleListWhere(
+  tenantId: string,
+  siteId: string,
+  stockStatus?: VehicleStockStatus,
+  search?: string,
+): {
+  vehicleWhere: Prisma.VehicleWhereInput;
+  draftWhere: Prisma.VehiclePurchaseWhereInput;
+} {
+  const searchFilter = searchClause(search);
+  const vehicleWhere: Prisma.VehicleWhereInput = {
+    tenant_id: tenantId,
+    location: { site_id: siteId },
+    inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
+    ...(stockStatus ? { stock_status: stockStatus } : {}),
+    ...searchFilter,
+  };
+  const draftWhere: Prisma.VehiclePurchaseWhereInput = {
+    tenant_id: tenantId,
+    site_id: siteId,
+    status: VehiclePurchaseStatus.DRAFT,
+    ...searchFilter,
+  };
+  return { vehicleWhere, draftWhere };
+}
+
+export function mapDraftVehiclePurchase(
+  purchase: Prisma.VehiclePurchaseGetPayload<object>,
+) {
+  return {
+    id: purchase.id,
+    draft_purchase_id: purchase.id,
+    make: purchase.make,
+    model: purchase.model,
+    year: purchase.year,
+    vin: purchase.vin,
+    plate: purchase.plate,
+    color: purchase.color,
+    stock_status: VehicleStockStatus.ON_ORDER,
+    inventory_role: VehicleInventoryRole.USED,
+    mileage: purchase.mileage,
+    location: null,
+    reserved_for_customer: null,
+    updatedAt: purchase.updatedAt,
+  };
+}
+
+export function mapStockVehicle(
+  vehicle: Prisma.VehicleGetPayload<{
+    include: typeof VEHICLE_LIST_INCLUDE;
+  }>,
+) {
+  return {
+    ...stripVehicleIdentityResolutionState(vehicle),
+    draft_purchase_id: null,
+  };
+}
+
+export function validatePatchTransitions(
+  vehicle: {
+    inventory_role: VehicleInventoryRole;
+    stock_status: VehicleStockStatus | null;
+  } | null,
+  vehicleId: string,
+): asserts vehicle is {
+  inventory_role: VehicleInventoryRole;
+  stock_status: VehicleStockStatus | null;
+} {
+  if (!vehicle) {
+    throw new NotFoundException(`Vehicle ${vehicleId} not found`);
+  }
+  if (!DEALER_INVENTORY_ROLES.includes(vehicle.inventory_role)) {
+    throw new ConflictException(
+      'Only dealer stock vehicles can be patched here',
+    );
+  }
+}
+
+function validateLotInput(dto: PatchVehicleStockDto): void {
+  if (dto.location_id === null) {
+    throw new UnprocessableEntityException(
+      'A parked dealer vehicle must have a vehicle lot',
+    );
+  }
+}
+
+function applyReservationUpdate(
+  where: Prisma.VehicleWhereInput,
+  data: Prisma.VehicleUncheckedUpdateManyInput,
+  currentStatus: VehicleStockStatus | null,
+  reservedCustomerId?: string | null,
+): void {
+  if (reservedCustomerId === null) {
+    data.reserved_for_customer_id = null;
+    if (currentStatus === VehicleStockStatus.RESERVED) {
+      data.stock_status = VehicleStockStatus.IN_STOCK;
+      where.stock_status = VehicleStockStatus.RESERVED;
+    }
+  } else if (reservedCustomerId) {
+    data.reserved_for_customer_id = reservedCustomerId;
+    data.stock_status = VehicleStockStatus.RESERVED;
+    where.stock_status = {
+      in: [VehicleStockStatus.IN_STOCK, VehicleStockStatus.RESERVED],
+    };
+  }
+}
+
+export function buildPatchUpdateData(
+  vehicleId: string,
+  tenantId: string,
+  vehicle: { stock_status: VehicleStockStatus | null },
+  dto: PatchVehicleStockDto,
+  isLocationChange = false,
+  siteId?: string,
+  destinationLocationId?: string,
+): {
+  where: Prisma.VehicleWhereInput;
+  data: Prisma.VehicleUncheckedUpdateManyInput;
+} {
+  const data: Prisma.VehicleUncheckedUpdateManyInput = {
+    site_id: isLocationChange ? siteId : undefined,
+    location_id: destinationLocationId,
+    mileage: dto.mileage,
+    color: dto.color,
+    key_number: dto.key_number,
+    registration_certificate_no: dto.registration_certificate_no,
+  };
+
+  const where: Prisma.VehicleWhereInput = {
+    id: vehicleId,
+    tenant_id: tenantId,
+    inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
+  };
+
+  applyReservationUpdate(
+    where,
+    data,
+    vehicle.stock_status,
+    dto.reserved_for_customer_id,
+  );
+
+  return { where, data };
+}
+
 @Injectable()
 export class VehicleStockQueryService {
   constructor(
@@ -110,124 +305,77 @@ export class VehicleStockQueryService {
   }) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const page = params.page && params.page > 0 ? params.page : 1;
-    const limit = Math.min(
-      params.limit && params.limit > 0 ? params.limit : 25,
-      100,
+    const { page, limit } = parsePagination(params);
+    const stockStatus = parseStockStatus(params.stock_status);
+    const includeDrafts = shouldIncludeDrafts(stockStatus);
+    const { vehicleOrderBy, draftOrderBy } = buildListOrderBy(
+      params.sortField,
+      params.sortDirection,
     );
-    const stockStatus = this.parseStockStatus(params.stock_status);
-    const includeDrafts =
-      !stockStatus || stockStatus === VehicleStockStatus.ON_ORDER;
-    const sorting = params.sortField
-      ? [{ field: params.sortField, direction: params.sortDirection ?? 'asc' }]
-      : [];
-    const vehicleOrderBy = QueryBuilder.buildOrderBy(
-      sorting,
-      STOCK_SORT_WHITELIST,
-    ) ?? [DEFAULT_ORDER_BY];
-    const draftOrderBy = QueryBuilder.buildOrderBy(
-      sorting,
-      DRAFT_SORT_WHITELIST,
-    ) ?? [DEFAULT_ORDER_BY];
-
-    const vehicleWhere: Prisma.VehicleWhereInput = {
-      tenant_id: tenantId,
-      location: { site_id: siteId },
-      inventory_role: {
-        in: [
-          VehicleInventoryRole.USED,
-          VehicleInventoryRole.NEW,
-          VehicleInventoryRole.DEMO,
-        ],
-      },
-      ...(stockStatus ? { stock_status: stockStatus } : {}),
-      ...searchClause(params.search),
-    };
-    const draftWhere: Prisma.VehiclePurchaseWhereInput = {
-      tenant_id: tenantId,
-      site_id: siteId,
-      status: VehiclePurchaseStatus.DRAFT,
-      ...searchClause(params.search),
-    };
+    const { vehicleWhere, draftWhere } = buildVehicleListWhere(
+      tenantId,
+      siteId,
+      stockStatus,
+      params.search,
+    );
 
     const [vehicleTotal, draftTotal] = await Promise.all([
       this.prisma.vehicle.count({ where: vehicleWhere }),
-      includeDrafts
-        ? this.prisma.vehiclePurchase.count({ where: draftWhere })
-        : 0,
+      this.countDrafts(includeDrafts, draftWhere),
     ]);
     const total = vehicleTotal + draftTotal;
-    const window = concatPageWindow(
-      includeDrafts ? draftTotal : 0,
-      page,
-      limit,
-    );
+    const window = concatPageWindow(draftTotal, page, limit);
 
-    const emptyPurchases: Prisma.VehiclePurchaseGetPayload<object>[] = [];
-    const emptyVehicles: Prisma.VehicleGetPayload<{
-      include: typeof VEHICLE_LIST_INCLUDE;
-    }>[] = [];
     const [drafts, vehicles] = await Promise.all([
-      includeDrafts && window.first.take > 0
-        ? this.prisma.vehiclePurchase.findMany({
-            where: draftWhere,
-            orderBy:
-              draftOrderBy as Prisma.VehiclePurchaseOrderByWithRelationInput[],
-            skip: window.first.skip,
-            take: window.first.take,
-          })
-        : emptyPurchases,
-      window.second.take > 0
-        ? this.prisma.vehicle.findMany({
-            where: vehicleWhere,
-            include: VEHICLE_LIST_INCLUDE,
-            orderBy: vehicleOrderBy as Prisma.VehicleOrderByWithRelationInput[],
-            skip: window.second.skip,
-            take: window.second.take,
-          })
-        : emptyVehicles,
+      this.fetchDrafts(includeDrafts, window.first, draftWhere, draftOrderBy),
+      this.fetchStockVehicles(window.second, vehicleWhere, vehicleOrderBy),
     ]);
 
     return {
       data: [
-        ...drafts.map((purchase) => ({
-          id: purchase.id,
-          draft_purchase_id: purchase.id,
-          make: purchase.make,
-          model: purchase.model,
-          year: purchase.year,
-          vin: purchase.vin,
-          plate: purchase.plate,
-          color: purchase.color,
-          stock_status: VehicleStockStatus.ON_ORDER,
-          inventory_role: VehicleInventoryRole.USED,
-          mileage: purchase.mileage,
-          location: null,
-          reserved_for_customer: null,
-          updatedAt: purchase.updatedAt,
-        })),
-        ...vehicles.map((vehicle) => ({
-          ...stripVehicleIdentityResolutionState(vehicle),
-          draft_purchase_id: null,
-        })),
+        ...drafts.map(mapDraftVehiclePurchase),
+        ...vehicles.map(mapStockVehicle),
       ],
-      meta: {
-        total,
-        page,
-        limit,
-        pageSize: limit,
-        totalPages: Math.ceil(total / limit),
-        pageCount: Math.ceil(total / limit),
-      },
+      meta: buildPaginationMeta(total, page, limit),
     };
   }
 
-  private parseStockStatus(value?: string): VehicleStockStatus | undefined {
-    if (!value) return undefined;
-    if (!isVehicleStockStatus(value)) {
-      throw new BadRequestException('Invalid stock_status');
-    }
-    return value;
+  private async countDrafts(
+    includeDrafts: boolean,
+    siteScopedWhere: Prisma.VehiclePurchaseWhereInput,
+  ): Promise<number> {
+    if (!includeDrafts) return 0;
+    return this.prisma.vehiclePurchase.count({ where: siteScopedWhere });
+  }
+
+  private async fetchDrafts(
+    includeDrafts: boolean,
+    window: { skip: number; take: number },
+    siteScopedWhere: Prisma.VehiclePurchaseWhereInput,
+    orderBy: Prisma.VehiclePurchaseOrderByWithRelationInput[],
+  ) {
+    if (!includeDrafts || window.take <= 0) return [];
+    return this.prisma.vehiclePurchase.findMany({
+      where: siteScopedWhere,
+      orderBy,
+      skip: window.skip,
+      take: window.take,
+    });
+  }
+
+  private async fetchStockVehicles(
+    window: { skip: number; take: number },
+    where: Prisma.VehicleWhereInput,
+    orderBy: Prisma.VehicleOrderByWithRelationInput[],
+  ) {
+    if (window.take <= 0) return [];
+    return this.prisma.vehicle.findMany({
+      where,
+      include: VEHICLE_LIST_INCLUDE,
+      orderBy,
+      skip: window.skip,
+      take: window.take,
+    });
   }
 
   async detail(vehicleId: string) {
@@ -241,13 +389,7 @@ export class VehicleStockQueryService {
       },
       include: {
         reserved_for_customer: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            company_name: true,
-            type: true,
-          },
+          select: RESERVED_CUSTOMER_SELECT,
         },
         location: true,
         purchases: { orderBy: { createdAt: 'desc' } },
@@ -281,61 +423,16 @@ export class VehicleStockQueryService {
       },
       include: { location: true },
     });
-    if (!vehicle) {
-      throw new NotFoundException(`Vehicle ${vehicleId} not found`);
-    }
-    if (!DEALER_INVENTORY_ROLES.includes(vehicle.inventory_role)) {
-      throw new ConflictException(
-        'Only dealer stock vehicles can be patched here',
-      );
-    }
 
-    if (dto.location_id === null) {
-      throw new UnprocessableEntityException(
-        'A parked dealer vehicle must have a vehicle lot',
-      );
-    }
+    validatePatchTransitions(vehicle, vehicleId);
+    validateLotInput(dto);
 
     const isLocationChange =
       dto.location_id !== undefined && dto.location_id !== vehicle.location_id;
-    let destinationLocationId: string | undefined;
-    if (isLocationChange) {
-      if (vehicle.stock_status === VehicleStockStatus.SOLD) {
-        throw new ConflictException('SOLD vehicles cannot be moved');
-      }
-      if (!vehicle.location || vehicle.location.site_id !== siteId) {
-        throw new UnprocessableEntityException(
-          'Vehicle lot does not belong to the active site',
-        );
-      }
-      if (!dto.expectedLocationId) {
-        throw new UnprocessableEntityException(
-          'expectedLocationId is required when changing a vehicle lot',
-        );
-      }
-      if (dto.expectedLocationId !== vehicle.location_id) {
-        throw new ConflictException(
-          'Vehicle location changed concurrently. Please refresh.',
-        );
-      }
-      const destination = await this.prisma.storageLocation.findFirst({
-        where: {
-          id: dto.location_id ?? undefined,
-          tenant_id: tenantId,
-          site_id: siteId,
-          type: 'vehicle_lot',
-          is_system: false,
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-      if (!destination) {
-        throw new UnprocessableEntityException(
-          'Destination must be an active vehicle lot on the active site',
-        );
-      }
-      destinationLocationId = destination.id;
-    }
+    const destinationLocationId = isLocationChange
+      ? await this.resolveDestinationLot(tenantId, siteId, vehicle, dto)
+      : undefined;
+
     if (dto.reserved_for_customer_id) {
       await assertTenantCustomerExists(
         this.prisma,
@@ -344,34 +441,15 @@ export class VehicleStockQueryService {
       );
     }
 
-    const data: Prisma.VehicleUncheckedUpdateManyInput = {
-      site_id: isLocationChange ? siteId : undefined,
-      location_id: destinationLocationId,
-      mileage: dto.mileage,
-      color: dto.color,
-      key_number: dto.key_number,
-      registration_certificate_no: dto.registration_certificate_no,
-    };
-
-    const where: Prisma.VehicleWhereInput = {
-      id: vehicleId,
-      tenant_id: tenantId,
-      inventory_role: { in: [...DEALER_INVENTORY_ROLES] },
-    };
-
-    if (dto.reserved_for_customer_id === null) {
-      data.reserved_for_customer_id = null;
-      if (vehicle.stock_status === VehicleStockStatus.RESERVED) {
-        data.stock_status = VehicleStockStatus.IN_STOCK;
-        where.stock_status = VehicleStockStatus.RESERVED;
-      }
-    } else if (dto.reserved_for_customer_id) {
-      data.reserved_for_customer_id = dto.reserved_for_customer_id;
-      data.stock_status = VehicleStockStatus.RESERVED;
-      where.stock_status = {
-        in: [VehicleStockStatus.IN_STOCK, VehicleStockStatus.RESERVED],
-      };
-    }
+    const { where, data } = buildPatchUpdateData(
+      vehicleId,
+      tenantId,
+      vehicle,
+      dto,
+      isLocationChange,
+      siteId,
+      destinationLocationId,
+    );
 
     const updated = isLocationChange
       ? await this.prisma.$transaction(async (tx) => {
@@ -396,6 +474,7 @@ export class VehicleStockQueryService {
           });
         })
       : await this.prisma.vehicle.updateMany({ where, data });
+
     if (updated.count === 0) {
       throw new ConflictException(
         'Vehicle status changed concurrently and cannot be patched',
@@ -403,5 +482,52 @@ export class VehicleStockQueryService {
     }
 
     return this.detail(vehicleId);
+  }
+
+  private async resolveDestinationLot(
+    tenantId: string,
+    siteId: string,
+    vehicle: {
+      stock_status: VehicleStockStatus | null;
+      location: { site_id: string } | null;
+      location_id: string | null;
+    },
+    dto: PatchVehicleStockDto,
+  ): Promise<string> {
+    if (vehicle.stock_status === VehicleStockStatus.SOLD) {
+      throw new ConflictException('SOLD vehicles cannot be moved');
+    }
+    if (!vehicle.location || vehicle.location.site_id !== siteId) {
+      throw new UnprocessableEntityException(
+        'Vehicle lot does not belong to the active site',
+      );
+    }
+    if (!dto.expectedLocationId) {
+      throw new UnprocessableEntityException(
+        'expectedLocationId is required when changing a vehicle lot',
+      );
+    }
+    if (dto.expectedLocationId !== vehicle.location_id) {
+      throw new ConflictException(
+        'Vehicle location changed concurrently. Please refresh.',
+      );
+    }
+    const destination = await this.prisma.storageLocation.findFirst({
+      where: {
+        id: dto.location_id ?? undefined,
+        tenant_id: tenantId,
+        site_id: siteId,
+        type: 'vehicle_lot',
+        is_system: false,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!destination) {
+      throw new UnprocessableEntityException(
+        'Destination must be an active vehicle lot on the active site',
+      );
+    }
+    return destination.id;
   }
 }

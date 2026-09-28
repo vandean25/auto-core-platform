@@ -2701,56 +2701,6 @@
         ]
       }
     },
-    "/api/workshop/settings": {
-      "get": {
-        "operationId": "WorkshopController_getSettings",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkshopSettingsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      },
-      "put": {
-        "operationId": "WorkshopController_updateSettings",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateWorkshopSettingsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WorkshopSettingsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Workshop"
-        ]
-      }
-    },
     "/api/workshop/holidays": {
       "get": {
         "operationId": "WorkshopController_listHolidays",
@@ -2786,6 +2736,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -2815,6 +2766,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -2846,6 +2798,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -2886,6 +2839,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -2907,6 +2861,59 @@
             "description": ""
           }
         },
+        "summary": "",
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/settings": {
+      "get": {
+        "operationId": "WorkshopController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "put": {
+        "operationId": "WorkshopController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -2954,6 +2961,7 @@
             }
           }
         },
+        "summary": "",
         "tags": [
           "Workshop"
         ]
@@ -3027,6 +3035,7 @@
             "name": "search",
             "required": false,
             "in": "query",
+            "description": "Free-text search term for order number, customer, plate, or vehicle",
             "schema": {
               "type": "string"
             }
@@ -3035,6 +3044,7 @@
             "name": "page",
             "required": false,
             "in": "query",
+            "description": "Page number",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -3044,6 +3054,7 @@
             "name": "pageSize",
             "required": false,
             "in": "query",
+            "description": "Number of items per page",
             "schema": {
               "type": "integer",
               "minimum": 1
@@ -3053,6 +3064,7 @@
             "name": "sortField",
             "required": false,
             "in": "query",
+            "description": "Field name to sort by",
             "schema": {
               "type": "string"
             }
@@ -3061,6 +3073,7 @@
             "name": "sortDirection",
             "required": false,
             "in": "query",
+            "description": "Sort direction",
             "schema": {
               "type": "string",
               "enum": [
@@ -3395,8 +3408,7 @@
                       "type": "string"
                     },
                     "statusCode": {
-                      "type": "number",
-                      "example": 400
+                      "type": "number"
                     }
                   }
                 }
@@ -3417,8 +3429,7 @@
                       "type": "string"
                     },
                     "statusCode": {
-                      "type": "number",
-                      "example": 404
+                      "type": "number"
                     }
                   }
                 }
@@ -11350,106 +11361,6 @@
           }
         }
       },
-      "WorkshopOpeningHourDto": {
-        "type": "object",
-        "properties": {
-          "weekday": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 7
-          },
-          "isClosed": {
-            "type": "boolean"
-          },
-          "openTime": {
-            "type": "string",
-            "example": "07:30"
-          },
-          "closeTime": {
-            "type": "string",
-            "example": "17:00"
-          }
-        },
-        "required": [
-          "weekday",
-          "isClosed",
-          "openTime",
-          "closeTime"
-        ]
-      },
-      "WorkshopSettingsResponseDto": {
-        "type": "object",
-        "properties": {
-          "timezone": {
-            "type": "string"
-          },
-          "slotMinutes": {
-            "type": "number",
-            "enum": [
-              15,
-              30,
-              60
-            ]
-          },
-          "holidayCountryIso": {
-            "type": "string",
-            "example": "AT"
-          },
-          "holidaySubdivisionCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "openingHours": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
-            }
-          }
-        },
-        "required": [
-          "timezone",
-          "slotMinutes",
-          "holidayCountryIso",
-          "openingHours"
-        ]
-      },
-      "UpdateWorkshopSettingsDto": {
-        "type": "object",
-        "properties": {
-          "timezone": {
-            "type": "string",
-            "example": "Europe/Vienna"
-          },
-          "slotMinutes": {
-            "type": "number",
-            "enum": [
-              15,
-              30,
-              60
-            ]
-          },
-          "holidayCountryIso": {
-            "type": "string",
-            "example": "AT"
-          },
-          "holidaySubdivisionCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "openingHours": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
-            }
-          }
-        },
-        "required": [
-          "timezone",
-          "slotMinutes",
-          "holidayCountryIso",
-          "openingHours"
-        ]
-      },
       "WorkshopHolidaySource": {
         "type": "string",
         "enum": [
@@ -11605,6 +11516,106 @@
             "nullable": true
           }
         }
+      },
+      "WorkshopOpeningHourDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "example": "07:30"
+          },
+          "closeTime": {
+            "type": "string",
+            "example": "17:00"
+          }
+        },
+        "required": [
+          "weekday",
+          "isClosed",
+          "openTime",
+          "closeTime"
+        ]
+      },
+      "WorkshopSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "enum": [
+              15,
+              30,
+              60
+            ]
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "slotMinutes",
+          "holidayCountryIso",
+          "openingHours"
+        ]
+      },
+      "UpdateWorkshopSettingsDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "enum": [
+              15,
+              30,
+              60
+            ]
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "slotMinutes",
+          "holidayCountryIso",
+          "openingHours"
+        ]
       },
       "PlannerRangeDto": {
         "type": "object",

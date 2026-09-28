@@ -11,42 +11,19 @@ export const HR_TEST_REMAINING_AFTER_WEEK_MINUTES = 10025;
 export const HR_TEST_ALLOWANCE_30_MINUTES = 15450;
 export const HR_TEST_CARRYOVER_5_MINUTES = 2575;
 
+const DEFAULT_WORKDAY_SCHEDULE = {
+  is_working: true,
+  start_time: '07:30',
+  end_time: '17:00',
+  break_minutes: 0,
+} as const;
+
 const DEFAULT_SCHEDULE_DAYS = [
-  {
-    weekday: 1,
-    is_working: true,
-    start_time: '07:30',
-    end_time: '17:00',
-    break_minutes: 0,
-  },
-  {
-    weekday: 2,
-    is_working: true,
-    start_time: '07:30',
-    end_time: '17:00',
-    break_minutes: 0,
-  },
-  {
-    weekday: 3,
-    is_working: true,
-    start_time: '07:30',
-    end_time: '17:00',
-    break_minutes: 0,
-  },
-  {
-    weekday: 4,
-    is_working: true,
-    start_time: '07:30',
-    end_time: '17:00',
-    break_minutes: 0,
-  },
-  {
-    weekday: 5,
-    is_working: true,
-    start_time: '07:30',
-    end_time: '17:00',
-    break_minutes: 0,
-  },
+  { weekday: 1, ...DEFAULT_WORKDAY_SCHEDULE },
+  { weekday: 2, ...DEFAULT_WORKDAY_SCHEDULE },
+  { weekday: 3, ...DEFAULT_WORKDAY_SCHEDULE },
+  { weekday: 4, ...DEFAULT_WORKDAY_SCHEDULE },
+  { weekday: 5, ...DEFAULT_WORKDAY_SCHEDULE },
   {
     weekday: 6,
     is_working: true,
@@ -287,16 +264,36 @@ export async function cleanupTestUsers(
   });
 }
 
-export async function createTestTenant(
-  prisma: PrismaService,
-  prefix = 'e2e-tenant',
-): Promise<TestTenantResult> {
-  const unique = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
-  const slug = `${prefix}-${unique}`;
+function formatTenantCreationError(slug: string, error: unknown): Error {
+  let details = String(error);
+  let code = 'unknown';
+  let meta = 'null';
 
-  let tenant: { id: string };
+  if (error instanceof Error) {
+    details = error.message;
+  }
+  if (error && typeof error === 'object') {
+    const errorObj = error as Record<string, unknown>;
+    if (typeof errorObj.code === 'string' || typeof errorObj.code === 'number') {
+      code = String(errorObj.code);
+    }
+    if (errorObj.meta !== undefined) {
+      meta = JSON.stringify(errorObj.meta);
+    }
+  }
+  return new Error(
+    `[createTestTenant] Failed to create tenant slug='${slug}' code=${code} meta=${meta}: ${details}`,
+    { cause: error },
+  );
+}
+
+async function createTenantRecord(
+  prisma: PrismaService,
+  slug: string,
+  unique: string,
+): Promise<{ id: string }> {
   try {
-    tenant = await prisma.tenant.create({
+    return await prisma.tenant.create({
       data: {
         id: randomUUID(),
         name: `E2E Tenant ${unique}`,
@@ -309,20 +306,90 @@ export async function createTestTenant(
       },
     });
   } catch (error) {
-    const details = error instanceof Error ? error.message : String(error);
-    const code =
-      error && typeof error === 'object' && 'code' in error
-        ? String(error.code)
-        : 'unknown';
-    const meta =
-      error && typeof error === 'object' && 'meta' in error
-        ? JSON.stringify(error.meta)
-        : 'null';
-    throw new Error(
-      `[createTestTenant] Failed to create tenant slug='${slug}' code=${code} meta=${meta}: ${details}`,
-      { cause: error },
-    );
+    throw formatTenantCreationError(slug, error);
   }
+}
+
+async function seedTenantMainSite(
+  tenantPrisma: any,
+  tenantId: string,
+  userId: string,
+  unique: string,
+): Promise<void> {
+  const legalEntity = await tenantPrisma.legalEntity.create({
+    data: {
+      tenant_id: tenantId,
+      name: `E2E GmbH ${unique}`,
+      country_iso: 'AT',
+      is_active: true,
+    },
+  });
+  const site = await tenantPrisma.site.create({
+    data: {
+      tenant_id: tenantId,
+      legal_entity_id: legalEntity.id,
+      code: 'MAIN',
+      name: `E2E Site ${unique}`,
+      timezone: 'Europe/Vienna',
+      slot_minutes: 30,
+      holiday_country_iso: 'AT',
+      is_active: true,
+    },
+  });
+  await tenantPrisma.siteMembership.create({
+    data: {
+      tenant_id: tenantId,
+      user_id: userId,
+      site_id: site.id,
+      is_active: true,
+    },
+  });
+  await tenantPrisma.workshopOpeningHour.createMany({
+    data: DEFAULT_SCHEDULE_DAYS.map((day) => ({
+      tenant_id: tenantId,
+      site_id: site.id,
+      weekday: day.weekday,
+      is_closed: !day.is_working,
+      open_time: day.start_time ?? '07:30',
+      close_time: day.end_time ?? '17:00',
+    })),
+    skipDuplicates: true,
+  });
+  await tenantPrisma.storageLocation.createMany({
+    data: [
+      {
+        tenant_id: tenantId,
+        site_id: site.id,
+        code: 'TRANSIT',
+        name: 'In Transit',
+        type: 'in_transit',
+        is_system: true,
+      },
+      {
+        tenant_id: tenantId,
+        site_id: site.id,
+        code: 'LOT',
+        name: 'Vehicle Lot',
+        type: 'vehicle_lot',
+        is_system: false,
+      },
+    ],
+    skipDuplicates: true,
+  });
+  await tenantPrisma.user.update({
+    where: { id: userId },
+    data: { active_site_id: site.id },
+  });
+}
+
+export async function createTestTenant(
+  prisma: PrismaService,
+  prefix = 'e2e-tenant',
+): Promise<TestTenantResult> {
+  const unique = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  const slug = `${prefix}-${unique}`;
+
+  const tenant = await createTenantRecord(prisma, slug, unique);
 
   const firebaseUid = `e2e-user-${tenant.id}`;
   const email = `e2e-${tenant.id}@example.com`;
@@ -347,70 +414,7 @@ export async function createTestTenant(
   // Multi-Location foundation: one LegalEntity + one MAIN Site + membership
   // so every e2e tenant has a working site (backfill equivalent).
   const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
-  const legalEntity = await tenantPrisma.legalEntity.create({
-    data: {
-      tenant_id: tenant.id,
-      name: `E2E GmbH ${unique}`,
-      country_iso: 'AT',
-      is_active: true,
-    },
-  });
-  const site = await tenantPrisma.site.create({
-    data: {
-      tenant_id: tenant.id,
-      legal_entity_id: legalEntity.id,
-      code: 'MAIN',
-      name: `E2E Site ${unique}`,
-      timezone: 'Europe/Vienna',
-      slot_minutes: 30,
-      holiday_country_iso: 'AT',
-      is_active: true,
-    },
-  });
-  await tenantPrisma.siteMembership.create({
-    data: {
-      tenant_id: tenant.id,
-      user_id: createdUser.id,
-      site_id: site.id,
-      is_active: true,
-    },
-  });
-  await tenantPrisma.workshopOpeningHour.createMany({
-    data: DEFAULT_SCHEDULE_DAYS.map((day) => ({
-      tenant_id: tenant.id,
-      site_id: site.id,
-      weekday: day.weekday,
-      is_closed: !day.is_working,
-      open_time: day.start_time ?? '07:30',
-      close_time: day.end_time ?? '17:00',
-    })),
-    skipDuplicates: true,
-  });
-  await tenantPrisma.storageLocation.createMany({
-    data: [
-      {
-        tenant_id: tenant.id,
-        site_id: site.id,
-        code: 'TRANSIT',
-        name: 'In Transit',
-        type: 'in_transit',
-        is_system: true,
-      },
-      {
-        tenant_id: tenant.id,
-        site_id: site.id,
-        code: 'LOT',
-        name: 'Vehicle Lot',
-        type: 'vehicle_lot',
-        is_system: false,
-      },
-    ],
-    skipDuplicates: true,
-  });
-  await tenantPrisma.user.update({
-    where: { id: createdUser.id },
-    data: { active_site_id: site.id },
-  });
+  await seedTenantMainSite(tenantPrisma, tenant.id, createdUser.id, unique);
 
   return {
     tenantId: tenant.id,
@@ -519,17 +523,24 @@ function wrapDelegateWithTenantContext<T extends object>(
   });
 }
 
+function extractBasePrismaClient<T extends object>(prisma: T): T {
+  if (!prisma || typeof prisma !== 'object') {
+    return prisma;
+  }
+  if ('client' in prisma) {
+    const wrapped = prisma as { client?: unknown };
+    if (wrapped.client && typeof wrapped.client === 'object') {
+      return wrapped.client as T;
+    }
+  }
+  return prisma;
+}
+
 export function createTenantAwarePrisma<T extends object>(
   prisma: T,
   tenantId: string,
 ): T {
-  const base =
-    prisma &&
-    typeof prisma === 'object' &&
-    'client' in prisma &&
-    (prisma as { client?: object }).client
-      ? ((prisma as { client: object }).client as T)
-      : prisma;
+  const base = extractBasePrismaClient(prisma);
 
   return new Proxy(base, {
     get(target, prop, receiver) {
