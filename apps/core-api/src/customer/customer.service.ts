@@ -13,6 +13,93 @@ import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 import { SiteContextService } from '../site/site-context.service.js';
 
+function isPrismaCustomerQuery(
+  params: unknown,
+): params is Prisma.CustomerFindManyArgs {
+  if (!params || typeof params !== 'object') {
+    return false;
+  }
+  const query = params as Record<string, unknown>;
+  return [query.where, query.orderBy, query.skip].some(
+    (field) => field !== undefined,
+  );
+}
+
+function buildLegacySearchWhere(
+  tenantId: string,
+  search?: string,
+): Prisma.CustomerWhereInput {
+  if (!search) {
+    return { tenant_id: tenantId };
+  }
+  const searchFields = [
+    'first_name',
+    'last_name',
+    'company_name',
+    'email',
+  ] as const;
+  return {
+    tenant_id: tenantId,
+    OR: searchFields.map((field) => ({
+      [field]: { contains: search, mode: 'insensitive' as const },
+    })),
+  };
+}
+
+async function queryTenantCustomers(
+  prisma: PrismaService,
+  tenantId: string,
+  params: Prisma.CustomerFindManyArgs,
+) {
+  const where: Prisma.CustomerWhereInput = {
+    ...(params.where ?? {}),
+    tenant_id: tenantId,
+  };
+  const [data, total] = await Promise.all([
+    prisma.customer.findMany({ ...params, where }),
+    prisma.customer.count({ where }),
+  ]);
+  return { data, total };
+}
+
+async function getCustomerReferenceCounts(
+  prisma: PrismaService,
+  tenantId: string,
+  customerId: string,
+  authorizedSiteIds: string[],
+) {
+  const siteScoped = {
+    tenant_id: tenantId,
+    customer_id: customerId,
+    site_id: { in: authorizedSiteIds },
+  };
+  const tenantScoped = { tenant_id: tenantId, customer_id: customerId };
+
+  const [
+    salesOrders,
+    invoices,
+    workshopOrders,
+    vehicles,
+    vehiclePurchases,
+    vehicleSales,
+  ] = await Promise.all([
+    prisma.salesOrder.count({ where: siteScoped }),
+    prisma.invoice.count({ where: tenantScoped }),
+    prisma.workshopOrder.count({ where: siteScoped }),
+    prisma.vehicle.count({ where: tenantScoped }),
+    prisma.vehiclePurchase.count({ where: siteScoped }),
+    prisma.vehicleSale.count({ where: siteScoped }),
+  ]);
+  return {
+    salesOrders,
+    invoices,
+    workshopOrders,
+    vehicles,
+    vehiclePurchases,
+    vehicleSales,
+  };
+}
+
 @Injectable()
 export class CustomerService {
   constructor(
@@ -23,62 +110,26 @@ export class CustomerService {
 
   async create(createCustomerDto: CreateCustomerDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const customer = await this.prisma.client.customer.create({
+    return this.prisma.customer.create({
       data: {
+        ...createCustomerDto,
         tenant_id: tenantId,
-        type: createCustomerDto.type,
-        company_name: createCustomerDto.company_name,
-        first_name: createCustomerDto.first_name,
-        last_name: createCustomerDto.last_name,
-        email: createCustomerDto.email,
-        phone: createCustomerDto.phone,
-        vat_id: createCustomerDto.vat_id,
-        address_street: createCustomerDto.address_street,
-        address_city: createCustomerDto.address_city,
-        address_zip: createCustomerDto.address_zip,
-        address_country: createCustomerDto.address_country,
       },
     });
-
-    return customer;
   }
 
   async findAll(
     params?: string | Prisma.CustomerFindManyArgs,
   ): Promise<{ data: Customer[]; total: number }> {
     const tenantId = await this.tenantContext.getTenantId();
-    // If params is just a Prisma query object from QueryBuilder
-    if (
-      params &&
-      typeof params === 'object' &&
-      (params.where || params.orderBy || params.skip !== undefined)
-    ) {
-      const [data, total] = await Promise.all([
-        this.prisma.client.customer.findMany({
-          ...params,
-          where: { ...(params.where ?? {}), tenant_id: tenantId },
-        }),
-        this.prisma.customer.count({
-          where: { ...(params.where ?? {}), tenant_id: tenantId },
-        }),
-      ]);
-      return { data, total };
+    if (isPrismaCustomerQuery(params)) {
+      return queryTenantCustomers(this.prisma, tenantId, params);
     }
 
     // Fallback for legacy calls (if any)
     const search = typeof params === 'string' ? params : undefined;
-    const result = await this.prisma.client.customer.findMany({
-      where: search
-        ? {
-            tenant_id: tenantId,
-            OR: [
-              { first_name: { contains: search, mode: 'insensitive' } },
-              { last_name: { contains: search, mode: 'insensitive' } },
-              { company_name: { contains: search, mode: 'insensitive' } },
-              { email: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : { tenant_id: tenantId },
+    const result = await this.prisma.customer.findMany({
+      where: buildLegacySearchWhere(tenantId, search),
       orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
     });
     return { data: result, total: result.length };
@@ -129,12 +180,10 @@ export class CustomerService {
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {
     await this.ensureCustomerExists(id);
-    const customer = await this.prisma.customer.update({
+    return this.prisma.customer.update({
       where: { id },
       data: updateCustomerDto,
     });
-
-    return customer;
   }
 
   async remove(id: string) {
@@ -142,63 +191,28 @@ export class CustomerService {
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     await this.ensureCustomerExists(id);
 
-    const [
-      salesOrdersCount,
-      invoicesCount,
-      workshopOrdersCount,
-      vehiclesCount,
-      vehiclePurchasesCount,
-      vehicleSalesCount,
-    ] = await Promise.all([
-      this.prisma.salesOrder.count({
-        where: {
-          tenant_id: tenantId,
-          customer_id: id,
-          site_id: { in: authorizedSiteIds },
-        },
-      }),
-      this.prisma.invoice.count({
-        where: { tenant_id: tenantId, customer_id: id },
-      }),
-      this.prisma.workshopOrder.count({
-        where: {
-          tenant_id: tenantId,
-          customer_id: id,
-          site_id: { in: authorizedSiteIds },
-        },
-      }),
-      this.prisma.vehicle.count({
-        where: { tenant_id: tenantId, customer_id: id },
-      }),
-      this.prisma.vehiclePurchase.count({
-        where: {
-          tenant_id: tenantId,
-          customer_id: id,
-          site_id: { in: authorizedSiteIds },
-        },
-      }),
-      this.prisma.vehicleSale.count({
-        where: {
-          tenant_id: tenantId,
-          customer_id: id,
-          site_id: { in: authorizedSiteIds },
-        },
-      }),
-    ]);
+    const counts = await getCustomerReferenceCounts(
+      this.prisma,
+      tenantId,
+      id,
+      authorizedSiteIds,
+    );
 
-    if (
-      salesOrdersCount > 0 ||
-      invoicesCount > 0 ||
-      workshopOrdersCount > 0 ||
-      vehiclePurchasesCount > 0 ||
-      vehicleSalesCount > 0
-    ) {
+    const hasActiveReferences = [
+      counts.salesOrders,
+      counts.invoices,
+      counts.workshopOrders,
+      counts.vehiclePurchases,
+      counts.vehicleSales,
+    ].some((count) => count > 0);
+
+    if (hasActiveReferences) {
       throw new BadRequestException(
         'Customer cannot be deleted because it has linked orders or invoices. Use archive/deactivate instead.',
       );
     }
 
-    if (vehiclesCount > 0) {
+    if (counts.vehicles > 0) {
       throw new BadRequestException(
         'Customer cannot be deleted while vehicles are linked. Reassign or remove vehicles first.',
       );
