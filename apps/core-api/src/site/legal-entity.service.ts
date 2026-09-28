@@ -195,7 +195,15 @@ export class LegalEntityService {
     const tenantId = await this.tenantContext.getTenantId();
     const existing = await this.prisma.legalEntity.findFirst({
       where: { id, tenant_id: tenantId },
-      include: { _count: { select: { sites: true } } },
+      include: {
+        documentBrandProfile: { select: { id: true } },
+        _count: {
+          select: {
+            sites: true,
+            documentBrandAssets: true,
+          },
+        },
+      },
     });
     if (!existing) {
       throw new NotFoundException('Legal entity not found');
@@ -204,6 +212,15 @@ export class LegalEntityService {
     if (existing._count.sites > 0) {
       throw new ConflictException(
         'Cannot hard-delete a legal entity that has sites. Deactivate the entity instead.',
+      );
+    }
+
+    if (
+      existing.documentBrandProfile !== null ||
+      existing._count.documentBrandAssets > 0
+    ) {
+      throw new ConflictException(
+        'Cannot hard-delete a legal entity while document-branding data is retained.',
       );
     }
 

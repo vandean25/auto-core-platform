@@ -1,0 +1,12 @@
+{
+  "family": "Noto Sans",
+  "package": "@fontsource/noto-sans",
+  "version": "5.2.7",
+  "license": "OFL-1.1",
+  "files": {
+    "NotoSans-Regular.woff2": "sha256:0d352d8a993d3f79d860e44d74ee3e132649253f2af24caad088c3aed6ec08c8",
+    "NotoSans-Bold.woff2": "sha256:f81cddbd38deb95a01750bcee7131bb0b03f7d2f1c5341bda406e5d2e8c0afd8",
+    "NotoSans-LatinExt-Regular.woff2": "sha256:c8e6bf928ae88c948ebc49dbe1df01ea5505d12408904ea3302309b26487fbca",
+    "NotoSans-LatinExt-Bold.woff2": "sha256:100ec48333aa5406f0804a6e1a1045b78e6d615d5e11e9b01b16fea7fde223f9"
+  }
+}

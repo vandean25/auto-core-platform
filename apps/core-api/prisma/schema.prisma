@@ -40,95 +40,100 @@ model Tenant {
   updated_at DateTime   @updatedAt
   is_active  Boolean    @default(true)
 
-  revenueGroups            RevenueGroup[]
-  financeSettings          FinanceSettings?
-  voiceTranslationSettings VoiceTranslationSettings?
-  brands                   Brand[]
-  catalogItems             CatalogItem[]
-  storageLocations         StorageLocation[]
-  inventoryStocks          InventoryStock[]
-  inventoryTransactions    InventoryTransaction[]
-  vendors                  Vendor[]
-  purchaseOrders           PurchaseOrder[]
-  purchaseOrderItems       PurchaseOrderItem[]
-  customers                Customer[]
-  vehicles                 Vehicle[]
-  vehiclePurchases         VehiclePurchase[]
-  vehicleSales             VehicleSale[]
-  vehicleLedgerEntries     VehicleLedgerEntry[]
-  salesOrders              SalesOrder[]
-  salesOrderItems          SalesOrderItem[]
-  invoices                 Invoice[]
-  invoiceSequences         InvoiceSequence[]
-  invoiceItems             InvoiceItem[]
-  creditNotes              CreditNote[]
-  creditNoteItems          CreditNoteItem[]
-  creditNoteSequences      CreditNoteSequence[]
-  purchaseInvoices         PurchaseInvoice[]
-  purchaseInvoiceLines     PurchaseInvoiceLine[]
-  inspectionTemplates      InspectionTemplate[]
-  inspectionTemplateItems  InspectionTemplateItem[]
-  workshopInspections      WorkshopInspection[]
-  workshopInspectionItems  WorkshopInspectionItem[]
-  workshopMedia            WorkshopMedia[]
-  workshopVoiceNoteDrafts  WorkshopVoiceNoteDraft[]
-  voiceNoteRateLimits      VoiceNoteRateLimit[]
-  workshopOrders           WorkshopOrder[]
-  workshopTasks            WorkshopTask[]
-  workshopTaskLineItems    WorkshopTaskLineItem[]
-  employees                Employee[]
-  bays                     Bay[]
-  workshopOpeningHours     WorkshopOpeningHour[]
-  workshopHolidays         WorkshopHoliday[]
-  employeeLeaveBalances    EmployeeLeaveBalance[]
-  leaveRequests            LeaveRequest[]
-  attendanceEvents         AttendanceEvent[]
-  employeeWorkSchedules    EmployeeWorkSchedule[]
-  employeeWorkScheduleDays EmployeeWorkScheduleDay[]
-  laborCategories          LaborCategory[]
-  laborOperations          LaborOperation[]
-  laborEntries             LaborEntry[]
-  catalogProviderSettings  CatalogProviderSettings?
-  catalogOemConcerns       CatalogOemConcern[]
-  catalogOemConcernMakes   CatalogOemConcernMake[]
-  vehicleMakeAliases       VehicleMakeAlias[]
-  auditLogs                AuditLog[]
-  memberships              TenantMember[]
-  siteMemberships          SiteMembership[]
-  partsReservations        PartsReservation[]
-  partsRequisitions        PartsRequisition[]
-  partsRequisitionLines    PartsRequisitionLine[]
-  activeUsers              User[]                    @relation("UserActiveTenant")
-  legalEntities            LegalEntity[]
+  revenueGroups                 RevenueGroup[]
+  financeSettings               FinanceSettings?
+  voiceTranslationSettings      VoiceTranslationSettings?
+  brands                        Brand[]
+  catalogItems                  CatalogItem[]
+  storageLocations              StorageLocation[]
+  inventoryStocks               InventoryStock[]
+  inventoryTransactions         InventoryTransaction[]
+  vendors                       Vendor[]
+  purchaseOrders                PurchaseOrder[]
+  purchaseOrderItems            PurchaseOrderItem[]
+  customers                     Customer[]
+  vehicles                      Vehicle[]
+  vehiclePurchases              VehiclePurchase[]
+  vehicleSales                  VehicleSale[]
+  vehicleLedgerEntries          VehicleLedgerEntry[]
+  salesOrders                   SalesOrder[]
+  salesOrderItems               SalesOrderItem[]
+  invoices                      Invoice[]
+  invoiceSequences              InvoiceSequence[]
+  invoiceItems                  InvoiceItem[]
+  creditNotes                   CreditNote[]
+  creditNoteItems               CreditNoteItem[]
+  creditNoteSequences           CreditNoteSequence[]
+  purchaseInvoices              PurchaseInvoice[]
+  purchaseInvoiceLines          PurchaseInvoiceLine[]
+  inspectionTemplates           InspectionTemplate[]
+  inspectionTemplateItems       InspectionTemplateItem[]
+  workshopInspections           WorkshopInspection[]
+  workshopInspectionItems       WorkshopInspectionItem[]
+  workshopMedia                 WorkshopMedia[]
+  workshopVoiceNoteDrafts       WorkshopVoiceNoteDraft[]
+  voiceNoteRateLimits           VoiceNoteRateLimit[]
+  workshopOrders                WorkshopOrder[]
+  workshopTasks                 WorkshopTask[]
+  workshopTaskLineItems         WorkshopTaskLineItem[]
+  employees                     Employee[]
+  bays                          Bay[]
+  workshopOpeningHours          WorkshopOpeningHour[]
+  workshopHolidays              WorkshopHoliday[]
+  employeeLeaveBalances         EmployeeLeaveBalance[]
+  leaveRequests                 LeaveRequest[]
+  attendanceEvents              AttendanceEvent[]
+  employeeWorkSchedules         EmployeeWorkSchedule[]
+  employeeWorkScheduleDays      EmployeeWorkScheduleDay[]
+  laborCategories               LaborCategory[]
+  laborOperations               LaborOperation[]
+  laborEntries                  LaborEntry[]
+  catalogProviderSettings       CatalogProviderSettings?
+  catalogOemConcerns            CatalogOemConcern[]
+  catalogOemConcernMakes        CatalogOemConcernMake[]
+  vehicleMakeAliases            VehicleMakeAlias[]
+  auditLogs                     AuditLog[]
+  memberships                   TenantMember[]
+  siteMemberships               SiteMembership[]
+  partsReservations             PartsReservation[]
+  partsRequisitions             PartsRequisition[]
+  partsRequisitionLines         PartsRequisitionLine[]
+  activeUsers                   User[]                         @relation("UserActiveTenant")
+  legalEntities                 LegalEntity[]
   legalEntityAccountingProfiles LegalEntityAccountingProfile[]
-  accountingExports        AccountingExport[]
-  sites                    Site[]
-  stockTransfers           StockTransfer[]
-  stockTransferLines       StockTransferLine[]
-  stockTransferCommands    StockTransferCommand[]
+  accountingExports             AccountingExport[]
+  sites                         Site[]
+  stockTransfers                StockTransfer[]
+  stockTransferLines            StockTransferLine[]
+  stockTransferCommands         StockTransferCommand[]
+  documentBrandProfiles         DocumentBrandProfile[]
+  documentBrandAssets           DocumentBrandAsset[]
+  documentBrandQuotaEvents      DocumentBrandQuotaEvent[]
+  documentBrandQuotaLocks       DocumentBrandQuotaLock[]
 
   @@map("tenants")
 }
 
 model User {
-  id               String           @id @default(uuid())
-  firebaseUid      String?          @unique @map("firebase_uid")
-  email            String           @unique
-  firstName        String?          @map("first_name")
-  lastName         String?          @map("last_name")
-  active_tenant_id String?
-  activeTenant     Tenant?          @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
-  active_site_id   String?
-  memberships      TenantMember[]
-  siteMemberships  SiteMembership[]
-  platformAdmin    PlatformAdmin?
-  employees        Employee[]
-  transfersRequested   StockTransfer[] @relation("StockTransferRequestedBy")
-  transfersApproved    StockTransfer[] @relation("StockTransferApprovedBy")
-  transfersShipped     StockTransfer[] @relation("StockTransferShippedBy")
-  transfersReceived    StockTransfer[] @relation("StockTransferReceivedBy")
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                             String                 @id @default(uuid())
+  firebaseUid                    String?                @unique @map("firebase_uid")
+  email                          String                 @unique
+  firstName                      String?                @map("first_name")
+  lastName                       String?                @map("last_name")
+  active_tenant_id               String?
+  activeTenant                   Tenant?                @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
+  active_site_id                 String?
+  memberships                    TenantMember[]
+  siteMemberships                SiteMembership[]
+  platformAdmin                  PlatformAdmin?
+  employees                      Employee[]
+  transfersRequested             StockTransfer[]        @relation("StockTransferRequestedBy")
+  transfersApproved              StockTransfer[]        @relation("StockTransferApprovedBy")
+  transfersShipped               StockTransfer[]        @relation("StockTransferShippedBy")
+  transfersReceived              StockTransfer[]        @relation("StockTransferReceivedBy")
+  confirmedDocumentBrandProfiles DocumentBrandProfile[] @relation("DocumentBrandConfirmedBy")
+  createdAt                      DateTime               @default(now())
+  updatedAt                      DateTime               @updatedAt
 
   @@index([active_tenant_id])
   @@map("users")
@@ -170,12 +175,12 @@ model PlatformAdmin {
 // ============================================================================
 
 model LegalEntity {
-  id                   String             @id @default(uuid())
+  id                   String                        @id @default(uuid())
   tenant_id            String
-  tenant               Tenant             @relation(fields: [tenant_id], references: [id])
+  tenant               Tenant                        @relation(fields: [tenant_id], references: [id])
   name                 String
   country_iso          LegalEntityCountry
-  is_active            Boolean            @default(true)
+  is_active            Boolean                       @default(true)
   address_street       String?
   address_line2        String?
   address_zip          String?
@@ -195,15 +200,133 @@ model LegalEntity {
   sites                Site[]
   accountingProfile    LegalEntityAccountingProfile?
   accountingExports    AccountingExport[]
+  documentBrandProfile DocumentBrandProfile?
+  documentBrandAssets  DocumentBrandAsset[]
   invoices             Invoice[]
   creditNotes          CreditNote[]
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, name])
   @@index([tenant_id])
   @@map("legal_entities")
+}
+
+enum DocumentBrandAssetPurpose {
+  SOURCE
+  LOGO
+}
+
+enum DocumentBrandAssetState {
+  QUARANTINED
+  READY
+  REJECTED
+  DELETING
+  DELETED
+}
+
+enum DocumentBrandQuotaAction {
+  ASSET_UPLOAD
+  PREVIEW
+}
+
+model DocumentBrandQuotaEvent {
+  id              String                   @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  legal_entity_id String?
+  user_id         String?
+  action          DocumentBrandQuotaAction
+  created_at      DateTime                 @default(now())
+
+  @@index([tenant_id, legal_entity_id, action, created_at])
+  @@index([tenant_id, user_id, action, created_at])
+  @@map("document_brand_quota_events")
+}
+
+model DocumentBrandQuotaLock {
+  id         String                   @id @default(uuid())
+  tenant_id  String
+  tenant     Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  action     DocumentBrandQuotaAction
+  scope_key  String
+  updated_at DateTime                 @updatedAt
+
+  @@unique([tenant_id, action, scope_key])
+  @@map("document_brand_quota_locks")
+}
+
+model DocumentBrandAsset {
+  id                           String                    @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                    @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  legal_entity_id              String
+  legal_entity                 LegalEntity               @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  source_asset_id              String?
+  source_asset                 DocumentBrandAsset?       @relation("DocumentBrandSource", fields: [tenant_id, legal_entity_id, source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  derived_assets               DocumentBrandAsset[]      @relation("DocumentBrandSource")
+  purpose                      DocumentBrandAssetPurpose
+  state                        DocumentBrandAssetState   @default(QUARANTINED)
+  bucket                       String?
+  object_key                   String?
+  object_generation            String?
+  sha256                       String?
+  byte_length                  Int
+  detected_mime_type           String?
+  pixel_width                  Int?
+  pixel_height                 Int?
+  original_filename            String?                   @db.VarChar(255)
+  quarantine_bucket            String?
+  quarantine_object_key        String?
+  quarantine_object_generation String?
+  validation_attempt_count     Int                       @default(0)
+  validation_dispatched_at     DateTime?
+  validation_lease_until       DateTime?
+  expires_at                   DateTime?
+  failure_code                 String?
+  createdAt                    DateTime                  @default(now())
+  updatedAt                    DateTime                  @updatedAt
+
+  draftForProfiles  DocumentBrandProfile[] @relation("DocumentBrandDraftLogo")
+  activeForProfiles DocumentBrandProfile[] @relation("DocumentBrandActiveLogo")
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, legal_entity_id, id])
+  @@unique([tenant_id, bucket, object_key, object_generation])
+  @@index([tenant_id, legal_entity_id, state, expires_at])
+  @@index([tenant_id, legal_entity_id, source_asset_id])
+  @@map("document_brand_assets")
+}
+
+model DocumentBrandProfile {
+  id                                String              @id @default(uuid())
+  tenant_id                         String
+  tenant                            Tenant              @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  legal_entity_id                   String
+  legal_entity                      LegalEntity         @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  revision                          Int                 @default(1)
+  active_revision                   Int                 @default(0)
+  active_theme                      Json?
+  draft_theme                       Json?
+  active_logo_asset_id              String?
+  activeLogoAsset                   DocumentBrandAsset? @relation("DocumentBrandActiveLogo", fields: [tenant_id, legal_entity_id, active_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  draft_logo_asset_id               String?
+  draftLogoAsset                    DocumentBrandAsset? @relation("DocumentBrandDraftLogo", fields: [tenant_id, legal_entity_id, draft_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  confirmed_at                      DateTime?
+  confirmed_by_user_id              String?
+  confirmedByUser                   User?               @relation("DocumentBrandConfirmedBy", fields: [confirmed_by_user_id], references: [id], onDelete: SetNull)
+  last_confirmation_key             String?
+  last_confirmation_hash            String?
+  last_confirmation_result_revision Int?
+  createdAt                         DateTime            @default(now())
+  updatedAt                         DateTime            @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, legal_entity_id])
+  @@unique([tenant_id, legal_entity_id, id])
+  @@index([tenant_id])
+  @@map("document_brand_profiles")
 }
 
 model LegalEntityAccountingProfile {
@@ -1281,34 +1404,34 @@ model InvoiceItem {
 }
 
 model CreditNote {
-  id                  String           @id @default(uuid())
-  tenant_id           String
-  tenant              Tenant           @relation(fields: [tenant_id], references: [id])
-  original_invoice_id String
-  original_invoice    Invoice          @relation(fields: [tenant_id, original_invoice_id], references: [tenant_id, id])
-  site_id             String
-  site                Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
-  legal_entity_id     String
-  legal_entity        LegalEntity      @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
-  status              CreditNoteStatus @default(DRAFT)
-  credit_number       String?
-  date                DateTime         @db.Date
-  reason              String
-  version             Int              @default(1)
-  total_net           Decimal          @default(0) @db.Decimal(10, 2)
-  total_tax           Decimal          @default(0) @db.Decimal(10, 2)
-  total_gross         Decimal          @default(0) @db.Decimal(10, 2)
-  snapshot            Json?
-  idempotency_key     String?
-  request_hash        String?
-  finalized_at        DateTime?
-  pdf_storage_bucket  String?
-  pdf_storage_key     String?
-  pdf_generated_at    DateTime?
+  id                   String           @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant           @relation(fields: [tenant_id], references: [id])
+  original_invoice_id  String
+  original_invoice     Invoice          @relation(fields: [tenant_id, original_invoice_id], references: [tenant_id, id])
+  site_id              String
+  site                 Site             @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  legal_entity_id      String
+  legal_entity         LegalEntity      @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  status               CreditNoteStatus @default(DRAFT)
+  credit_number        String?
+  date                 DateTime         @db.Date
+  reason               String
+  version              Int              @default(1)
+  total_net            Decimal          @default(0) @db.Decimal(10, 2)
+  total_tax            Decimal          @default(0) @db.Decimal(10, 2)
+  total_gross          Decimal          @default(0) @db.Decimal(10, 2)
+  snapshot             Json?
+  idempotency_key      String?
+  request_hash         String?
+  finalized_at         DateTime?
+  pdf_storage_bucket   String?
+  pdf_storage_key      String?
+  pdf_generated_at     DateTime?
   pdf_generation_error String?
-  items               CreditNoteItem[]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  items                CreditNoteItem[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, credit_number])

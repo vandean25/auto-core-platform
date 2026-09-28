@@ -16,6 +16,7 @@ import {
   useUpdateLegalEntity,
 } from '@/api/site-admin'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
+import { DocumentBrandingSettings } from '@/components/settings/document-branding/DocumentBrandingSettings'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -993,6 +994,7 @@ export function LegalEntitiesSettingsTab() {
             onSaved={(updated) => setSelectedEntity(updated)}
           />
           <LegalEntityAccountingProfileForm entity={selectedEntity} />
+          <DocumentBrandingSettings entity={selectedEntity} />
         </>
       ) : null}
     </div>
