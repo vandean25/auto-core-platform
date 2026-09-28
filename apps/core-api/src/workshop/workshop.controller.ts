@@ -1,15 +1,17 @@
 import {
+  applyDecorators,
   BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   HttpCode,
+  Inject,
+  Logger,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
-  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -21,206 +23,207 @@ import {
   ApiProduces,
   ApiQuery,
   ApiResponse,
+  ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { pipeline } from 'node:stream/promises';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 import { PdfWorker } from '../common/index.js';
-import { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
-import { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto.js';
-import { AddWorkshopTaskLineFromCatalogDto } from './dto/add-workshop-task-line-from-catalog.dto.js';
-import { RegisterIntakeDto } from './dto/register-intake.dto.js';
-import { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
-import { PickWorkshopPartsDto } from './dto/pick-workshop-parts.dto.js';
-import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto.js';
-import { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
-import { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto.js';
-import { WorkshopPdfGenerationResponseDto } from './dto/workshop-pdf-generation-response.dto.js';
 import {
+  AddWorkshopTaskLineFromCatalogDto,
+  AddWorkshopTaskLineFromCatalogResponseDto,
+  AssignBoardDto,
+  BoardActiveResponseDto,
+  CreateWorkshopOrderDto,
+  CreateWorkshopTaskDto,
+  PickWorkshopPartsDto,
+  PickWorkshopPartsResponseDto,
+  RegisterIntakeDto,
+  ReplaceWorkshopTaskLineItemsDto,
+  UpdateWorkshopOrderDto,
+  UpdateWorkshopTaskDto,
   WorkshopOrderResponseDto,
+  WorkshopPdfGenerationResponseDto,
+  WorkshopResourcesResponseDto,
+  WorkshopSearchResponseDto,
   WorkshopTaskResponseDto,
-} from './dto/workshop-response.dto.js';
-import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
-import { WorkshopSearchResponseDto } from './dto/workshop-search-response.dto.js';
+} from './dto/index.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto.js';
-import { AssignBoardDto } from './dto/assign-board.dto.js';
-import {
-  BoardActiveResponseDto,
-  WorkshopResourcesResponseDto,
-} from './dto/board-response.dto.js';
-import {
-  CreateWorkshopHolidayDto,
-  ImportWorkshopHolidaysDto,
-  ImportWorkshopHolidaysResponseDto,
-  ListWorkshopHolidaysQueryDto,
-  UpdateWorkshopHolidayDto,
-  WorkshopHolidayDto,
-  WorkshopHolidayListResponseDto,
-} from './dto/workshop-holiday.dto.js';
-import {
-  PlannerGridResponseDto,
-  PlannerQueryDto,
-} from './dto/workshop-planner.dto.js';
-import {
-  UpdateWorkshopSettingsDto,
-  WorkshopSettingsResponseDto,
-} from './dto/workshop-settings.dto.js';
-import { WorkshopHolidayService } from './workshop-holiday.service.js';
-import { WorkshopPlannerService } from './workshop-planner.service.js';
-import { WorkshopBoardService } from './workshop-board.service.js';
-import { WorkshopIntakeService } from './workshop-intake.service.js';
-import { WorkshopInvoiceService } from './workshop-invoice.service.js';
-import { WorkshopPdfService } from './workshop-pdf.service.js';
-import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
-import { WorkshopSettingsService } from './workshop-settings.service.js';
-import { WorkshopTaskService } from './workshop-task.service.js';
-import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
+import * as board from './workshop-board.service.js';
+import * as line from './workshop-catalog-line.service.js';
+import * as intake from './workshop-intake.service.js';
+import * as invoice from './workshop-invoice.service.js';
+import * as pdf from './workshop-pdf.service.js';
+import * as pick from './workshop-pick-parts.service.js';
+import * as task from './workshop-task.service.js';
 
+export class FindAllWorkshopOrdersQueryDto {
+  search?: string;
+  page?: string;
+  pageSize?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+function parsePositiveInteger(value?: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!/^\d+$/.test(value) || parseInt(value, 10) <= 0) {
+    throw new BadRequestException('page and pageSize must be positive integers');
+  }
+  return parseInt(value, 10);
+}
+
+export function parsePaginationParams(
+  page?: string,
+  pageSize?: string,
+): { page?: number; pageSize?: number } {
+  return {
+    page: parsePositiveInteger(page),
+    pageSize: parsePositiveInteger(pageSize),
+  };
+}
+
+export function ApiWorkshopPaginationQueries() {
+  return applyDecorators(
+    ApiQuery({ name: 'search', required: false, schema: { type: 'string' } }),
+    ApiQuery({
+      name: 'page',
+      required: false,
+      schema: { type: 'integer', minimum: 1 },
+    }),
+    ApiQuery({
+      name: 'pageSize',
+      required: false,
+      schema: { type: 'integer', minimum: 1 },
+    }),
+    ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } }),
+    ApiQuery({
+      name: 'sortDirection',
+      required: false,
+      schema: { type: 'string', enum: ['asc', 'desc'] },
+    }),
+  );
+}
+
+const ERROR_SCHEMA = {
+  type: 'object',
+  properties: {
+    message: { type: 'string' },
+    code: { type: 'string' },
+    statusCode: { type: 'number' },
+  },
+} as const;
+
+async function enqueuePdfGeneration(
+  pdfService: pdf.WorkshopPdfService,
+  orderId: string,
+) {
+  const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
+  const result = await pdfService.requestGeneration(orderId, { targetBaseUrl });
+  if (result.mode === 'enqueued') {
+    return {
+      message: 'PDF generation enqueued',
+      enqueued: true,
+      taskId: result.taskId,
+    };
+  }
+  return {
+    message: 'PDF is ready',
+    enqueued: false,
+  };
+}
+
+async function servePdfDownload(
+  pdfService: pdf.WorkshopPdfService,
+  orderId: string,
+  res: Response,
+) {
+  const { stream, filename, contentType, contentLength } =
+    await pdfService.getPdf(orderId);
+  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  res.set({
+    'Content-Type': contentType,
+    'Content-Disposition': `inline; filename="${safeFilename}"`,
+  });
+  if (contentLength != null) {
+    res.set('Content-Length', contentLength.toString());
+  }
+  await pipeline(stream, res);
+}
+
+@ApiTags('Workshop')
 @Controller('workshop')
 export class WorkshopController {
+  private readonly logger = new Logger(WorkshopController.name);
+
+  @Inject(invoice.WorkshopInvoiceService)
+  private readonly invoiceService!: invoice.WorkshopInvoiceService;
+
   constructor(
-    private readonly intakeService: WorkshopIntakeService,
-    private readonly taskService: WorkshopTaskService,
-    private readonly pickPartsService: WorkshopPickPartsService,
-    private readonly boardService: WorkshopBoardService,
-    private readonly invoiceService: WorkshopInvoiceService,
-    private readonly pdfService: WorkshopPdfService,
-    private readonly settingsService: WorkshopSettingsService,
-    private readonly holidayService: WorkshopHolidayService,
-    private readonly plannerService: WorkshopPlannerService,
-    private readonly catalogLineService: WorkshopCatalogLineService,
-  ) {}
-
-  @Get('settings')
-  @ApiOkResponse({ type: WorkshopSettingsResponseDto })
-  getSettings() {
-    return this.settingsService.getSettings();
-  }
-
-  @Put('settings')
-  @ApiOkResponse({ type: WorkshopSettingsResponseDto })
-  updateSettings(@Body() dto: UpdateWorkshopSettingsDto) {
-    return this.settingsService.updateSettings(dto);
-  }
-
-  @Get('holidays')
-  @ApiOkResponse({ type: WorkshopHolidayListResponseDto })
-  listHolidays(@Query() query: ListWorkshopHolidaysQueryDto) {
-    return this.holidayService.listHolidays(query.from, query.to);
-  }
-
-  @Post('holidays')
-  @ApiCreatedResponse({ type: WorkshopHolidayDto })
-  createHoliday(@Body() dto: CreateWorkshopHolidayDto) {
-    return this.holidayService.createHoliday(dto);
-  }
-
-  @Post('holidays/import')
-  @ApiOkResponse({ type: ImportWorkshopHolidaysResponseDto })
-  importHolidays(@Body() dto: ImportWorkshopHolidaysDto) {
-    return this.holidayService.importPublicHolidays(dto);
-  }
-
-  @Patch('holidays/:id')
-  @ApiOkResponse({ type: WorkshopHolidayDto })
-  updateHoliday(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateWorkshopHolidayDto,
+    private readonly boardService: board.WorkshopBoardService,
+    private readonly catalogLineService: line.WorkshopCatalogLineService,
+    private readonly pdfService: pdf.WorkshopPdfService,
+    private readonly taskService: task.WorkshopTaskService,
+    private readonly pickPartsService: pick.WorkshopPickPartsService,
+    private readonly intakeService: intake.WorkshopIntakeService,
   ) {
-    return this.holidayService.updateHoliday(id, dto);
+    this.logAction('initialized');
   }
 
-  @Delete('holidays/:id')
-  @HttpCode(204)
-  @ApiNoContentResponse()
-  deleteHoliday(@Param('id', ParseUUIDPipe) id: string) {
-    return this.holidayService.deleteHoliday(id);
-  }
-
-  @Get('planner')
-  @ApiOkResponse({ type: PlannerGridResponseDto })
-  getPlanner(@Query() query: PlannerQueryDto) {
-    return this.plannerService.getPlanner(query);
+  private logAction(action: string) {
+    this.logger.debug(action);
   }
 
   @Post('register')
   @ApiCreatedResponse({ type: VehicleListItemDto })
   register(@Body() dto: RegisterIntakeDto) {
+    this.logAction('register');
     return this.intakeService.register(dto);
   }
 
   @Post('orders')
   @ApiCreatedResponse({ type: WorkshopOrderResponseDto })
   create(@Body() createWorkshopOrderDto: CreateWorkshopOrderDto) {
+    this.logAction('create');
     return this.intakeService.create(createWorkshopOrderDto);
   }
 
   @Get('orders')
-  @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({
-    name: 'pageSize',
-    required: false,
-    schema: { type: 'integer', minimum: 1 },
-  })
-  @ApiQuery({ name: 'sortField', required: false, schema: { type: 'string' } })
-  @ApiQuery({
-    name: 'sortDirection',
-    required: false,
-    schema: { type: 'string', enum: ['asc', 'desc'] },
-  })
+  @ApiWorkshopPaginationQueries()
   @ApiPaginatedResponse(WorkshopOrderResponseDto)
-  findAll(
-    @Query('search') search?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
-    @Query('sortField') sortField?: string,
-    @Query('sortDirection') sortDirection?: 'asc' | 'desc',
-  ) {
-    const integerPattern = /^\d+$/;
-    const isInvalidPage =
-      page !== undefined &&
-      (!integerPattern.test(page) || parseInt(page, 10) <= 0);
-    const isInvalidPageSize =
-      pageSize !== undefined &&
-      (!integerPattern.test(pageSize) || parseInt(pageSize, 10) <= 0);
-
-    if (isInvalidPage || isInvalidPageSize) {
-      throw new BadRequestException(
-        'page and pageSize must be positive integers',
-      );
-    }
-
+  findAll(@Query() query: FindAllWorkshopOrdersQueryDto) {
+    this.logAction('findAll');
+    const pagination = parsePaginationParams(query.page, query.pageSize);
     return this.intakeService.findAll({
-      search,
-      page: page ? parseInt(page, 10) : undefined,
-      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
-      sortField,
-      sortDirection,
+      search: query.search,
+      ...pagination,
+      sortField: query.sortField,
+      sortDirection: query.sortDirection,
     });
   }
 
   @Get('orders/:id')
   @ApiOkResponse({ type: WorkshopOrderResponseDto })
   findOne(@Param('id') id: string) {
+    this.logAction('findOne');
     return this.intakeService.findOne(id);
   }
 
   @Patch('orders/:id')
   @ApiOkResponse({ type: WorkshopOrderResponseDto })
   updateOrder(@Param('id') id: string, @Body() dto: UpdateWorkshopOrderDto) {
+    this.logAction('updateOrder');
     return this.intakeService.updateOrder(id, dto);
   }
 
   @Post('orders/:id/tasks')
   @ApiCreatedResponse({ type: WorkshopTaskResponseDto })
   createTask(@Param('id') id: string, @Body() dto: CreateWorkshopTaskDto) {
+    this.logAction('createTask');
     return this.taskService.createTask(id, dto);
   }
 
@@ -234,6 +237,7 @@ export class WorkshopController {
     @Param('taskId') taskId: string,
     @Body() dto: AddWorkshopTaskLineFromCatalogDto,
   ) {
+    this.logAction('addTaskLineFromCatalog');
     return this.catalogLineService.addLineFromCatalog(orderId, taskId, dto);
   }
 
@@ -243,6 +247,7 @@ export class WorkshopController {
     type: PickWorkshopPartsResponseDto,
   })
   pickParts(@Param('id') orderId: string, @Body() dto: PickWorkshopPartsDto) {
+    this.logAction('pickParts');
     return this.pickPartsService.pickParts(orderId, dto);
   }
 
@@ -253,6 +258,7 @@ export class WorkshopController {
     @Param('taskId') taskId: string,
     @Body() dto: UpdateWorkshopTaskDto,
   ) {
+    this.logAction('updateTask');
     return this.taskService.updateTask(orderId, taskId, dto);
   }
 
@@ -266,31 +272,18 @@ export class WorkshopController {
     status: 400,
     description:
       'Task cannot be deleted because the order is invoiced or already has a linked invoice.',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        code: { type: 'string' },
-        statusCode: { type: 'number', example: 400 },
-      },
-    },
+    schema: ERROR_SCHEMA,
   })
   @ApiResponse({
     status: 404,
     description: 'Workshop task or order was not found.',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        code: { type: 'string' },
-        statusCode: { type: 'number', example: 404 },
-      },
-    },
+    schema: ERROR_SCHEMA,
   })
   deleteTask(
     @Param('orderId') orderId: string,
     @Param('taskId') taskId: string,
   ) {
+    this.logAction('deleteTask');
     return this.taskService.deleteTask(orderId, taskId);
   }
 
@@ -301,18 +294,21 @@ export class WorkshopController {
     @Param('taskId') taskId: string,
     @Body() dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
+    this.logAction('replaceTaskLineItems');
     return this.taskService.replaceTaskLineItems(orderId, taskId, dto);
   }
 
   @Post('orders/:id/create-invoice')
   @ApiCreatedResponse({ type: InvoiceResponseDto })
   createInvoiceFromOrder(@Param('id') id: string) {
+    this.logAction('createInvoiceFromOrder');
     return this.invoiceService.createInvoiceFromOrder(id);
   }
 
   @Get('search')
   @ApiOkResponse({ type: WorkshopSearchResponseDto })
   search(@Query('q') q: string) {
+    this.logAction('search');
     return this.intakeService.search(q);
   }
 
@@ -322,29 +318,14 @@ export class WorkshopController {
     type: WorkshopPdfGenerationResponseDto,
   })
   async generatePdf(@Param('id', ParseUUIDPipe) id: string) {
-    const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
-
-    const result = await this.pdfService.requestGeneration(id, {
-      targetBaseUrl,
-    });
-
-    if (result.mode === 'enqueued') {
-      return {
-        message: 'PDF generation enqueued',
-        enqueued: true,
-        taskId: result.taskId,
-      };
-    }
-
-    return {
-      message: 'PDF is ready',
-      enqueued: false,
-    };
+    this.logAction('generatePdf');
+    return enqueuePdfGeneration(this.pdfService, id);
   }
 
   @Post('orders/:id/pdf/worker')
   @PdfWorker('workshop-order')
   async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
+    this.logAction('generatePdfWorker');
     await this.pdfService.generateNow(id);
   }
 
@@ -358,20 +339,8 @@ export class WorkshopController {
     },
   })
   async getPdf(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
-    const { stream, filename, contentType, contentLength } =
-      await this.pdfService.getPdf(id);
-
-    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    res.set({
-      'Content-Type': contentType,
-      'Content-Disposition': `inline; filename="${safeFilename}"`,
-    });
-
-    if (contentLength != null) {
-      res.set('Content-Length', contentLength.toString());
-    }
-
-    await pipeline(stream, res);
+    this.logAction('getPdf');
+    await servePdfDownload(this.pdfService, id, res);
   }
 
   // ─── Board Endpoints ───────────────────────────────────────────────────────
@@ -379,18 +348,21 @@ export class WorkshopController {
   @Get('resources')
   @ApiOkResponse({ type: WorkshopResourcesResponseDto })
   getBoardResources() {
+    this.logAction('getBoardResources');
     return this.boardService.getBoardResources();
   }
 
   @Get('board/active')
   @ApiOkResponse({ type: BoardActiveResponseDto })
   getBoardActive() {
+    this.logAction('getBoardActive');
     return this.boardService.getBoardActive();
   }
 
   @Patch('board/assign')
   @ApiOkResponse({ description: 'Updated workshop order assignment.' })
   assignBoard(@Body() dto: AssignBoardDto) {
+    this.logAction('assignBoard');
     return this.boardService.assignBoard(dto);
   }
 }

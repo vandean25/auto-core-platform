@@ -756,22 +756,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/workshop/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["WorkshopController_getSettings"];
-        put: operations["WorkshopController_updateSettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/workshop/holidays": {
         parameters: {
             query?: never;
@@ -818,6 +802,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["WorkshopController_updateHoliday"];
+        trace?: never;
+    };
+    "/api/workshop/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getSettings"];
+        put: operations["WorkshopController_updateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/workshop/planner": {
@@ -3372,33 +3372,6 @@ export interface components {
             /** Format: uuid */
             expectedSiteId?: string;
         };
-        WorkshopOpeningHourDto: {
-            weekday: number;
-            isClosed: boolean;
-            /** @example 07:30 */
-            openTime: string;
-            /** @example 17:00 */
-            closeTime: string;
-        };
-        WorkshopSettingsResponseDto: {
-            timezone: string;
-            /** @enum {number} */
-            slotMinutes: 15 | 30 | 60;
-            /** @example AT */
-            holidayCountryIso: string;
-            holidaySubdivisionCode?: string | null;
-            openingHours: components["schemas"]["WorkshopOpeningHourDto"][];
-        };
-        UpdateWorkshopSettingsDto: {
-            /** @example Europe/Vienna */
-            timezone: string;
-            /** @enum {number} */
-            slotMinutes: 15 | 30 | 60;
-            /** @example AT */
-            holidayCountryIso: string;
-            holidaySubdivisionCode?: string | null;
-            openingHours: components["schemas"]["WorkshopOpeningHourDto"][];
-        };
         /** @enum {string} */
         WorkshopHolidaySource: "MANUAL" | "IMPORTED";
         WorkshopHolidayDto: {
@@ -3444,6 +3417,33 @@ export interface components {
             isClosed?: boolean;
             openTime?: string | null;
             closeTime?: string | null;
+        };
+        WorkshopOpeningHourDto: {
+            weekday: number;
+            isClosed: boolean;
+            /** @example 07:30 */
+            openTime: string;
+            /** @example 17:00 */
+            closeTime: string;
+        };
+        WorkshopSettingsResponseDto: {
+            timezone: string;
+            /** @enum {number} */
+            slotMinutes: 15 | 30 | 60;
+            /** @example AT */
+            holidayCountryIso: string;
+            holidaySubdivisionCode?: string | null;
+            openingHours: components["schemas"]["WorkshopOpeningHourDto"][];
+        };
+        UpdateWorkshopSettingsDto: {
+            /** @example Europe/Vienna */
+            timezone: string;
+            /** @enum {number} */
+            slotMinutes: 15 | 30 | 60;
+            /** @example AT */
+            holidayCountryIso: string;
+            holidaySubdivisionCode?: string | null;
+            openingHours: components["schemas"]["WorkshopOpeningHourDto"][];
         };
         PlannerRangeDto: {
             from: string;
@@ -7447,48 +7447,6 @@ export interface operations {
             };
         };
     };
-    WorkshopController_getSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkshopSettingsResponseDto"];
-                };
-            };
-        };
-    };
-    WorkshopController_updateSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateWorkshopSettingsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkshopSettingsResponseDto"];
-                };
-            };
-        };
-    };
     WorkshopController_listHolidays: {
         parameters: {
             query?: {
@@ -7597,6 +7555,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopHolidayDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopSettingsResponseDto"];
                 };
             };
         };
@@ -7864,7 +7864,6 @@ export interface operations {
                     "application/json": {
                         message?: string;
                         code?: string;
-                        /** @example 400 */
                         statusCode?: number;
                     };
                 };
@@ -7878,7 +7877,6 @@ export interface operations {
                     "application/json": {
                         message?: string;
                         code?: string;
-                        /** @example 404 */
                         statusCode?: number;
                     };
                 };
