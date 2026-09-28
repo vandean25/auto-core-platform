@@ -35,7 +35,7 @@ const DRAFT_SORT_WHITELIST = STOCK_SORT_WHITELIST.filter(
   (field) => field !== 'stock_status',
 );
 const STOCK_STATUS_VALUES = new Set<string>(Object.values(VehicleStockStatus));
-const DEALER_INVENTORY_ROLES: readonly VehicleInventoryRole[] = [
+export const DEALER_INVENTORY_ROLES: readonly VehicleInventoryRole[] = [
   VehicleInventoryRole.USED,
   VehicleInventoryRole.NEW,
   VehicleInventoryRole.DEMO,

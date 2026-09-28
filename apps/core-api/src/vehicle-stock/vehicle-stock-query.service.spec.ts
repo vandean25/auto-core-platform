@@ -10,6 +10,7 @@ import { SiteContextService } from '../site/site-context.service.js';
 import {
   buildPatchUpdateData,
   buildVehicleListWhere,
+  DEALER_INVENTORY_ROLES,
   mapDraftVehiclePurchase,
   mapStockVehicle,
   validatePatchTransitions,
@@ -400,7 +401,7 @@ describe('VehicleStockQueryService', () => {
       expect(() =>
         validatePatchTransitions(
           {
-            inventory_role: VehicleInventoryRole.NEW,
+            inventory_role: VehicleInventoryRole.CUSTOMER,
             stock_status: VehicleStockStatus.IN_STOCK,
           },
           'v-1',
