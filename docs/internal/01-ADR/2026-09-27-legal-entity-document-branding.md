@@ -133,7 +133,7 @@ Original uploads and extraction proposals need a bounded cleanup policy distinct
 - [x] Product owner accepted the decisions — Dejan Dosenovic, 2026-09-27.
 - [x] ADR delivered in merged [PR #585](https://github.com/vandean25/auto-core-platform/pull/585).
 - [x] AUT-318 Feature Spec defines schema/API details, limits, provider ownership, authorization, deletion policy and release fixtures; PO approved 2026-09-27. Provider activation and rendered-fixture acceptance remain release gates.
-- [ ] Implement profile/manual preview and snapshot integration before enabling assisted extraction. Runtime work follows a separately approved plan and TDD.
+- [x] Implement profile/manual preview and snapshot integration in [PR #597](https://github.com/vandean25/auto-core-platform/pull/597) and [PR #598](https://github.com/vandean25/auto-core-platform/pull/598). Keep assisted extraction behind its provider and operational release gates; runtime work follows a separately approved plan and TDD.
 
 Slice 1 targets branding of newly committed invoices through existing issuance paths. Extra presets, franchise packs and job-card reuse are deferred in the [deferrals log](../.architecture/deferrals.md). Credit-note branding also requires an explicit follow-on contract for whether it inherits the original appearance; this ADR does not silently extend that scope.
 
