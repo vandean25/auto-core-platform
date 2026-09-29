@@ -1,78 +1,91 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PlaywrightBrowserService } from '../src/common/services/playwright-browser.service.js';
 import { InvoicePdfRenderer } from '../src/invoices/invoice-pdf.renderer.js';
 import type { InvoiceSnapshot } from '../src/invoices/invoice-snapshot.js';
+import {
+  createDocumentBrandingVisualFixtures,
+  createTransparentLogoPng,
+  type VisualFixture,
+} from '../scripts/document-branding-visual-fixtures.js';
 
 const LONG_INVOICE_ITEM_COUNT = 100;
-const LOGO_BYTES = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-  'base64',
+const LONG_COURT_TEXT = `Handelsgericht Wien ${'mit ergänzenden Firmenbuchangaben '.repeat(8)}`;
+const LONG_REPRESENTATIVE_TEXT = `Max Mustermann ${'bevollmächtigter Vertreter '.repeat(12)}`;
+const MARGIN_SCHEME_DE_NOTE = 'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).';
+const MARGIN_SCHEME_AT_NOTE = 'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).';
+const LONG_HEADER_VISIBLE_PREFIX = 'Workshop & North Worksh';
+const LONG_FOOTER_TEXT = `Keine Veränderung der Rechnungsdaten. ${'Werkstatt Service '.repeat(12)}`;
+const LONG_FOOTER_VISIBLE_PREFIX = 'Keine Veränderung der Rechnungsdaten. Werkstatt';
+const RENDERER_VERSION = 'invoice-brand-v1';
+const FONT_ID = 'acp-sans-v1';
+const FONT_MANIFEST_PATH = new URL(
+  '../src/document-branding/assets/font-manifest.json',
+  import.meta.url,
 );
+const FIXTURES = createDocumentBrandingVisualFixtures();
 
-type Fixture = {
-  country: 'AT' | 'DE';
-  invoiceNumber: string;
-  itemCount: number;
-  marginScheme: boolean;
-  branded: boolean;
+type VisualArtifactEntry = {
+  fixture_id: string;
+  country: VisualFixture['country'];
+  tax_profile: VisualFixture['taxProfile'];
+  header_band: VisualFixture['headerBand'];
+  footer_band: VisualFixture['footerBand'];
+  logo_dimensions: VisualFixture['logo'];
+  page_count: number;
+  pdf_sha256: string;
 };
 
-const FIXTURES: Fixture[] = [
-  {
-    country: 'AT',
-    invoiceNumber: 'RE-AT-DEFAULT-0001',
-    itemCount: 1,
-    marginScheme: false,
-    branded: false,
-  },
-  {
-    country: 'AT',
-    invoiceNumber: 'RE-AT-CUSTOM-0002',
-    itemCount: 1,
-    marginScheme: false,
-    branded: true,
-  },
-  {
-    country: 'DE',
-    invoiceNumber: 'RE-DE-STANDARD-0003',
-    itemCount: LONG_INVOICE_ITEM_COUNT,
-    marginScheme: false,
-    branded: true,
-  },
-  {
-    country: 'DE',
-    invoiceNumber: 'RE-DE-MARGIN-0004',
-    itemCount: LONG_INVOICE_ITEM_COUNT,
-    marginScheme: true,
-    branded: true,
-  },
-];
+type VisualArtifactManifest = {
+  renderer_version: typeof RENDERER_VERSION;
+  font_id: typeof FONT_ID;
+  font_manifest_sha256: string;
+  chromium_version: string;
+  generated_at_utc: string;
+  approvals: {
+    status: 'PENDING';
+    reviewer: null;
+    reviewed_at: null;
+    evidence_url: null;
+  };
+  fixtures: VisualArtifactEntry[];
+};
 
-function createSnapshot(fixture: Fixture): InvoiceSnapshot {
+function invoiceNumberFor(fixture: VisualFixture): string {
+  return `RE-${fixture.country}-${fixture.id.toUpperCase()}`;
+}
+
+function createSnapshot(fixture: VisualFixture): InvoiceSnapshot {
+  const invoiceNumber = invoiceNumberFor(fixture);
   const totalNet = (fixture.itemCount * 100).toFixed(2);
-  const totalTax = fixture.marginScheme
+  const totalTax = fixture.taxProfile === 'margin'
     ? '0.00'
     : (fixture.itemCount * 20).toFixed(2);
-  const totalGross = fixture.marginScheme
+  const totalGross = fixture.taxProfile === 'margin'
     ? totalNet
     : (fixture.itemCount * 120).toFixed(2);
+  const decorativeText = fixture.decorativeTextLength
+    ? 'Workshop & North '.repeat(8).slice(0, fixture.decorativeTextLength)
+    : '';
+  const longLegalText = fixture.longLegalFields
+    ? LONG_COURT_TEXT
+    : 'Handelsgericht Wien';
 
   return {
-    id: `invoice-${fixture.invoiceNumber}`,
-    invoice_number: fixture.invoiceNumber,
+    id: `invoice-${invoiceNumber}`,
+    invoice_number: invoiceNumber,
     date: '2026-09-20T00:00:00.000Z',
     due_date: '2026-10-04T00:00:00.000Z',
     total_net: totalNet,
     total_tax: totalTax,
     total_gross: totalGross,
     notes: 'Frozen legal fixture note',
-    tax_mode: fixture.marginScheme ? 'MARGIN_SCHEME' : 'STANDARD',
+    tax_mode: fixture.taxProfile === 'margin' ? 'MARGIN_SCHEME' : 'STANDARD',
     schema_version: 2,
-    template_version: 'invoice-brand-v1',
+    template_version: RENDERER_VERSION,
     document_kind: 'INVOICE',
     currency: 'EUR',
     seller: {
@@ -90,8 +103,10 @@ function createSnapshot(fixture: Fixture): InvoiceSnapshot {
       email: 'rechnung@werkstatt.example',
       phone: '+4312345678',
       registration_number: 'FN 123456a',
-      registration_court: 'Handelsgericht Wien',
-      representatives: 'Max Mustermann',
+      registration_court: longLegalText,
+      representatives: fixture.longLegalFields
+        ? LONG_REPRESENTATIVE_TEXT
+        : 'Max Mustermann',
     },
     supply_date_from: '2026-09-18',
     supply_date_to: '2026-09-20',
@@ -99,7 +114,7 @@ function createSnapshot(fixture: Fixture): InvoiceSnapshot {
       days: 14,
       text: 'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
     },
-    tax_breakdown: fixture.marginScheme
+    tax_breakdown: fixture.taxProfile === 'margin'
       ? []
       : [
           {
@@ -134,7 +149,7 @@ function createSnapshot(fixture: Fixture): InvoiceSnapshot {
       description: `Fixture line ${String(index + 1).padStart(3, '0')} — ${'protected service detail '.repeat(6)}`,
       quantity: '1',
       unit_price: '100.00',
-      tax_rate: fixture.marginScheme ? '0.00' : '20.00',
+      tax_rate: fixture.taxProfile === 'margin' ? '0.00' : '20.00',
       line_discount_type: null,
       line_discount_value: null,
       line_total: '100.00',
@@ -146,26 +161,30 @@ function createSnapshot(fixture: Fixture): InvoiceSnapshot {
       profile_id: fixture.branded ? 'profile-1' : null,
       profile_revision: fixture.branded ? 3 : 0,
       preset_id: 'standard-v1',
-      renderer_version: 'invoice-brand-v1',
-      font_id: 'acp-sans-v1',
+      renderer_version: RENDERER_VERSION,
+      font_id: FONT_ID,
       tokens: {
         primary_color: fixture.branded ? '#334155' : '#111827',
         secondary_color: '#E5E7EB',
-        header_band: fixture.branded ? 'primary' : 'none',
-        footer_band: fixture.branded ? 'secondary' : 'none',
-        header_text: fixture.branded ? 'Workshop & North' : '',
-        footer_text: 'Keine Veränderung der Rechnungsdaten.',
+        header_band: fixture.headerBand,
+        footer_band: fixture.footerBand,
+        header_text: decorativeText,
+        footer_text: fixture.branded
+          ? fixture.decorativeTextLength === 120
+            ? LONG_FOOTER_TEXT
+            : 'Keine Veränderung der Rechnungsdaten.'
+          : '',
       },
-      logo: fixture.branded
+      logo: fixture.logo
         ? {
-            asset_id: 'asset-1',
+            asset_id: `asset-${fixture.id}`,
             bucket: 'test-bucket',
-            key: 'test/logo.png',
+            key: `test/${fixture.id}.png`,
             generation: '1',
-            sha256: createHash('sha256').update(LOGO_BYTES).digest('hex'),
+            sha256: '',
             mime_type: 'image/png',
-            width: 1,
-            height: 1,
+            width: fixture.logo.width,
+            height: fixture.logo.height,
           }
         : null,
       resolved_at: '2026-09-20T12:00:00.000Z',
@@ -193,13 +212,43 @@ describe('branded invoice render fixtures (e2e)', () => {
   let browserService: PlaywrightBrowserService;
   let renderer: InvoicePdfRenderer;
   let artifactDirectory: string;
+  let cleanupArtifactDirectory: boolean;
   let externalRequests: string[];
+  let manifest: VisualArtifactManifest;
 
   beforeAll(async () => {
     browserService = new PlaywrightBrowserService();
-    artifactDirectory = await mkdtemp(join(tmpdir(), 'aut323-render-'));
+    const configuredArtifactDirectory = process.env.DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR;
+    if (configuredArtifactDirectory) {
+      artifactDirectory = configuredArtifactDirectory;
+      cleanupArtifactDirectory = false;
+      await mkdir(artifactDirectory, { recursive: true });
+    } else {
+      artifactDirectory = await mkdtemp(join(tmpdir(), 'document-branding-visual-'));
+      cleanupArtifactDirectory = true;
+    }
+
     externalRequests = [];
     const browser = await browserService.getBrowser();
+    const fontManifest = await readFile(FONT_MANIFEST_PATH);
+    manifest = {
+      renderer_version: RENDERER_VERSION,
+      font_id: FONT_ID,
+      font_manifest_sha256: createHash('sha256').update(fontManifest).digest('hex'),
+      chromium_version: browser.version(),
+      generated_at_utc: new Date().toISOString(),
+      approvals: {
+        status: 'PENDING',
+        reviewer: null,
+        reviewed_at: null,
+        evidence_url: null,
+      },
+      fixtures: [],
+    };
+    await writeFile(
+      join(artifactDirectory, 'manifest.json'),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
 
     const observedBrowser = {
       newPage: async () => {
@@ -220,73 +269,100 @@ describe('branded invoice render fixtures (e2e)', () => {
 
   afterAll(async () => {
     await browserService.onModuleDestroy();
-    if (artifactDirectory) {
+    if (cleanupArtifactDirectory && artifactDirectory) {
       await rm(artifactDirectory, { recursive: true, force: true });
     }
   });
 
   it('branded rendering never requests external resources', async () => {
     externalRequests.length = 0;
-    const snapshot = createSnapshot(FIXTURES[1]);
-    snapshot.branding!.tokens.header_text =
-      'https://attacker.example/logo.png';
+    const fixture = FIXTURES.find((candidate) => candidate.branded);
+    if (!fixture) throw new Error('Expected at least one branded visual fixture.');
+    const snapshot = createSnapshot(fixture);
+    snapshot.branding!.tokens.header_text = 'https://attacker.example/logo.png';
+    const logoPng = fixture.logo
+      ? await createTransparentLogoPng(fixture.logo)
+      : undefined;
+    if (snapshot.branding?.logo && logoPng) {
+      snapshot.branding.logo.sha256 = createHash('sha256').update(logoPng).digest('hex');
+    }
 
-    await renderer.render(snapshot, { logoPng: LOGO_BYTES });
+    await renderer.render(snapshot, logoPng ? { logoPng } : undefined);
 
     expect(externalRequests).toEqual([]);
   });
 
-  it.each(FIXTURES)(
-    '$invoiceNumber preserves protected content and exact totals',
-    async (fixture) => {
-      externalRequests.length = 0;
-      const snapshot = createSnapshot(fixture);
-      const pdfBytes = await renderer.render(
-        snapshot,
-        fixture.branded ? { logoPng: LOGO_BYTES } : undefined,
-      );
-      const artifactPath = join(artifactDirectory, `${fixture.invoiceNumber}.pdf`);
-      await writeFile(artifactPath, pdfBytes);
-      const { pageCount, text: extractedText } = await readPdfText(pdfBytes);
-      const normalizedText = extractedText.replace(/\s+/g, ' ').trim();
+  it.each(FIXTURES)('$id preserves protected content and exact totals', async (fixture) => {
+    externalRequests.length = 0;
+    const snapshot = createSnapshot(fixture);
+    const logoPng = fixture.logo
+      ? await createTransparentLogoPng(fixture.logo)
+      : undefined;
+    if (snapshot.branding?.logo && logoPng) {
+      snapshot.branding.logo.sha256 = createHash('sha256').update(logoPng).digest('hex');
+    }
 
-      expect(normalizedText).toContain('Werkstatt GmbH');
-      expect(normalizedText).toContain('Kunden AG');
-      expect(normalizedText).toContain(fixture.invoiceNumber);
-      expect(normalizedText).toContain(
-        'Zahlbar innerhalb von 14 Tagen ohne Abzug.',
-      );
-      expect(normalizedText).toContain('Hauptstraße 1');
-      expect(normalizedText).toContain(
-        fixture.country === 'AT' ? 'UID: ATU12345678' : 'USt-IdNr.: DE123456789',
-      );
-      expect(normalizedText).toContain('IBAN: DE89370400440532013000');
-      expect(normalizedText).toContain('Fixture line 001');
-      expect(normalizedText).toContain(
-        `Fixture line ${String(fixture.itemCount).padStart(3, '0')}`,
-      );
+    const pdfBytes = await renderer.render(snapshot, logoPng ? { logoPng } : undefined);
+    const invoiceNumber = invoiceNumberFor(fixture);
+    const artifactPath = join(artifactDirectory, `${fixture.id}.pdf`);
+    await writeFile(artifactPath, pdfBytes);
+    const { pageCount, text: extractedText } = await readPdfText(pdfBytes);
+    const normalizedText = extractedText.replace(/\s+/g, ' ').trim();
+    manifest.fixtures.push({
+      fixture_id: fixture.id,
+      country: fixture.country,
+      tax_profile: fixture.taxProfile,
+      header_band: fixture.headerBand,
+      footer_band: fixture.footerBand,
+      logo_dimensions: fixture.logo,
+      page_count: pageCount,
+      pdf_sha256: createHash('sha256').update(pdfBytes).digest('hex'),
+    });
+    await writeFile(
+      join(artifactDirectory, 'manifest.json'),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+    );
 
-      if (fixture.marginScheme) {
-        expect(normalizedText).toContain(
-          'Differenzbesteuerung gemäß § 24 UStG',
-        );
-        expect(normalizedText).toContain(`Brutto: ${snapshot.total_gross}`);
-        expect(normalizedText).not.toContain('Umsatzsteuer:');
-      } else {
-        expect(normalizedText).toContain(`Netto: ${snapshot.total_net}`);
-        expect(normalizedText).toContain(
-          `Umsatzsteuer: ${snapshot.total_tax}`,
-        );
-        expect(normalizedText).toContain(`Brutto: ${snapshot.total_gross}`);
-      }
+    expect(normalizedText).toContain('Werkstatt GmbH');
+    expect(normalizedText).toContain('Kunden AG');
+    expect(normalizedText).toContain(invoiceNumber);
+    expect(normalizedText).toContain('Zahlbar innerhalb von 14 Tagen ohne Abzug.');
+    expect(normalizedText).toContain('Hauptstraße 1');
+    expect(normalizedText).toContain(
+      fixture.country === 'AT' ? 'UID: ATU12345678' : 'USt-IdNr.: DE123456789',
+    );
+    expect(normalizedText).toContain('IBAN: DE89370400440532013000');
+    expect(normalizedText).toContain('Fixture line 001');
+    expect(normalizedText).toContain(
+      `Fixture line ${String(fixture.itemCount).padStart(3, '0')}`,
+    );
+    if (fixture.longLegalFields) {
+      expect(normalizedText).toContain(LONG_COURT_TEXT);
+      expect(normalizedText).toContain(LONG_REPRESENTATIVE_TEXT);
+    }
+    if (fixture.decorativeTextLength === 120) {
+      expect(normalizedText).toContain(LONG_HEADER_VISIBLE_PREFIX);
+      expect(normalizedText).toContain(LONG_FOOTER_VISIBLE_PREFIX);
+      expect(normalizedText).toContain('…');
+    }
 
-      if (fixture.itemCount === 1) {
-        expect(pageCount).toBeGreaterThanOrEqual(1);
-      } else {
-        expect(pageCount).toBeGreaterThanOrEqual(10);
-      }
-      expect(externalRequests).toEqual([]);
-      await expect(readFile(artifactPath)).resolves.toEqual(pdfBytes);
-    },
-  );
+    if (fixture.taxProfile === 'margin') {
+      expect(normalizedText).toContain(MARGIN_SCHEME_DE_NOTE);
+      expect(normalizedText).not.toContain(MARGIN_SCHEME_AT_NOTE);
+      expect(normalizedText).toContain(`Brutto: ${snapshot.total_gross}`);
+      expect(normalizedText).not.toContain('Umsatzsteuer:');
+    } else {
+      expect(normalizedText).toContain(`Netto: ${snapshot.total_net}`);
+      expect(normalizedText).toContain(`Umsatzsteuer: ${snapshot.total_tax}`);
+      expect(normalizedText).toContain(`Brutto: ${snapshot.total_gross}`);
+    }
+
+    if (fixture.itemCount === LONG_INVOICE_ITEM_COUNT) {
+      expect(pageCount).toBeGreaterThanOrEqual(10);
+    } else {
+      expect(pageCount).toBeGreaterThanOrEqual(1);
+    }
+    expect(externalRequests).toEqual([]);
+    await expect(readFile(artifactPath)).resolves.toEqual(pdfBytes);
+  });
 });

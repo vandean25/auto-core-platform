@@ -285,10 +285,20 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           INVOICE_BRANDING_WRITER_ENABLED: 'true'
+          DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR: ${{ runner.temp }}/document-branding-visual-fixtures
         run: |
           npm run test:e2e:runner --workspace=core-api
           npm exec --workspace=core-api -- prisma migrate deploy
           npm run test:e2e:ci --workspace=core-api
+
+      - name: Upload document branding visual fixtures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: document-branding-visual-fixtures
+          path: ${{ runner.temp }}/document-branding-visual-fixtures
+          retention-days: 14
+          if-no-files-found: warn
 
   frontend:
     # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).

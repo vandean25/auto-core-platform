@@ -1,5 +1,6 @@
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import {
+  buildBrandedInvoiceHeaderTemplate,
   buildCreditNoteOriginalReferenceSection,
   buildInvoiceCustomerSection,
   buildInvoiceDocumentStyles,
@@ -106,6 +107,29 @@ describe('invoice-pdf.layout', () => {
     snapshot_created_at: '2026-09-20T12:00:00.000Z',
   });
 
+  const createBrandedSnapshot = (): InvoiceSnapshot => ({
+    ...createV2Snapshot(),
+    template_version: 'invoice-brand-v1',
+    branding: {
+      schema_version: 1,
+      profile_id: 'profile-1',
+      profile_revision: 3,
+      preset_id: 'standard-v1',
+      renderer_version: 'invoice-brand-v1',
+      font_id: 'acp-sans-v1',
+      tokens: {
+        primary_color: '#334155',
+        secondary_color: '#E5E7EB',
+        header_band: 'primary',
+        footer_band: 'secondary',
+        header_text: 'Workshop',
+        footer_text: 'Footer',
+      },
+      logo: null,
+      resolved_at: '2026-09-20T12:00:00.000Z',
+    },
+  });
+
   const createSnapshot = (): InvoiceSnapshot => ({
     id: 'invoice-1',
     invoice_number: 'RE-2026-0001',
@@ -183,6 +207,16 @@ describe('invoice-pdf.layout', () => {
       expect(styles).toContain('.totals');
       expect(styles).toContain('table-layout: fixed');
     });
+
+    it('keeps branded financial table headers in ACP colors', () => {
+      const styles = buildInvoiceDocumentStyles(true, '', createBrandedSnapshot());
+      const tableHeaderBackgroundRules = (styles.match(/th\s*\{[^}]*\}/g) ?? [])
+        .filter((rule) => rule.includes('background:'));
+
+      expect(tableHeaderBackgroundRules).toHaveLength(1);
+      expect(tableHeaderBackgroundRules[0]).toContain('background: #f9fafb;');
+      expect(tableHeaderBackgroundRules[0]).not.toContain('#E5E7EB');
+    });
   });
 
   describe('buildInvoiceFooterTemplate', () => {
@@ -205,6 +239,74 @@ describe('invoice-pdf.layout', () => {
       );
       expect(footer).toContain('Rechnung RE-2026-0042');
       expect(footer).not.toContain('Invoice');
+    });
+
+    it('preserves branded footer band colors in print output', () => {
+      const snapshot = createBrandedSnapshot();
+      const footer = buildInvoiceFooterTemplate(
+        'RE-2026-0042',
+        escapeHtml,
+        snapshot,
+      );
+
+      expect(footer).toContain(
+        'background:#E5E7EB;-webkit-print-color-adjust:exact;print-color-adjust:exact',
+      );
+    });
+
+    it('uses one-line 9pt decorative footer text and keeps page numbers at 8pt', () => {
+      const footer = buildInvoiceFooterTemplate(
+        'RE-2026-0042',
+        escapeHtml,
+        createBrandedSnapshot(),
+      );
+      const decorativeText = footer.match(/<span style="[^"]*">Footer<\/span>/)?.[0];
+
+      expect(decorativeText).toContain('font-size:9pt');
+      expect(decorativeText).toContain('white-space:nowrap');
+      expect(footer).toContain('font-size:8pt;color:#6b7280');
+    });
+  });
+
+  describe('buildBrandedInvoiceHeaderTemplate', () => {
+    it('preserves branded header band colors in print output', () => {
+      const header = buildBrandedInvoiceHeaderTemplate(
+        createBrandedSnapshot(),
+        null,
+        escapeHtml,
+      );
+
+      expect(header).toContain(
+        'background:#334155;-webkit-print-color-adjust:exact;print-color-adjust:exact',
+      );
+    });
+
+    it('uses two-line 9pt ellipsis for a long decorative header', () => {
+      const snapshot = createBrandedSnapshot();
+      const headerText = 'Workshop & North '.repeat(8).slice(0, 120);
+      snapshot.branding!.tokens.header_text = headerText;
+      const header = buildBrandedInvoiceHeaderTemplate(snapshot, null, escapeHtml);
+      const decorativeLines = header.match(/<span class="decorative-header-line"[^>]*>[\s\S]*?<\/span>/g) ?? [];
+
+      expect(header).toContain('font-size:9pt');
+      expect(decorativeLines).toHaveLength(2);
+      for (const line of decorativeLines) {
+        expect(line).toContain('style="display:block;white-space:nowrap"');
+      }
+      expect(decorativeLines[0]).toContain('Workshop &amp; North');
+      expect(decorativeLines[1]).toMatch(/…<\/span>$/);
+    });
+
+    it('renders an explicit ellipsis for an overflowing one-line footer', () => {
+      const snapshot = createBrandedSnapshot();
+      snapshot.branding!.tokens.footer_text = 'Service footer '.repeat(12);
+      const footer = buildInvoiceFooterTemplate(
+        'RE-2026-0042',
+        escapeHtml,
+        snapshot,
+      );
+
+      expect(footer).toMatch(/Service footer.*…<\/span>/);
     });
   });
 
