@@ -931,7 +931,7 @@ export async function executeFindAllPurchaseOrders(
 
   const where = buildLegacyPurchaseOrderWhere(tenantId, siteId, params);
   const data = await prisma.purchaseOrder.findMany({
-    where,
+    where: { ...where, tenant_id: tenantId, site_id: siteId },
     include: { vendor: true, items: true },
     orderBy: { createdAt: 'desc' },
   });

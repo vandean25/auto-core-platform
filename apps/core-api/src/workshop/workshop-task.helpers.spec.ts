@@ -4,19 +4,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PartsReservationStatus,
   Prisma,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
 import {
+  assertLineQuantityDemand,
   buildNewTaskLineItemRecord,
   buildTaskUpdateFieldData,
   classifyDeletedLineItems,
   computeFieldNameText,
+  findLineReservationHistory,
+  handleDeletedLineItems,
   handleTaskLineItemsError,
+  lockWorkshopRows,
   resolveDefaultTaskScheduledDate,
   resolveOrderStatusConflict,
+  updateExistingTaskLineItems,
 } from './workshop-task.helpers.js';
 
 describe('workshop-task.helpers', () => {
@@ -175,7 +181,11 @@ describe('workshop-task.helpers', () => {
         { workshop_task_line_item_id: 'item-2', quantity_consumed: 0 },
       ];
 
-      const result = classifyDeletedLineItems(existing, submittedIds, reservations);
+      const result = classifyDeletedLineItems(
+        existing,
+        submittedIds,
+        reservations,
+      );
       expect(result.deletedIds).toEqual(['item-2']);
       expect(result.hardDeleteIds).toEqual([]);
       expect(result.cancelIds).toEqual(['item-2']);
@@ -192,7 +202,11 @@ describe('workshop-task.helpers', () => {
         { workshop_task_line_item_id: 'item-2', quantity_consumed: 1 },
       ];
 
-      const result = classifyDeletedLineItems(existing, submittedIds, reservations);
+      const result = classifyDeletedLineItems(
+        existing,
+        submittedIds,
+        reservations,
+      );
       expect(result.deletedIds).toEqual(['item-2']);
       expect(result.hardDeleteIds).toEqual([]);
       expect(result.cancelIds).toEqual([]);
@@ -321,6 +335,560 @@ describe('workshop-task.helpers', () => {
         select: { timezone: true },
       });
       expect(date).toBeDefined();
+    });
+  });
+
+  describe('assertLineQuantityDemand', () => {
+    it('passes when submitted quantity meets or exceeds consumed + active demand', () => {
+      const existingItems = [{ id: 'line-1' }];
+      const dto = {
+        expectedLineItemsVersion: 1,
+        items: [
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Part 1',
+            qty: 5,
+            unitPrice: 10,
+          },
+        ],
+      };
+      const reservations = [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity: 4,
+          quantity_consumed: 1,
+          quantity_returned: 0,
+          status: PartsReservationStatus.OPEN,
+        },
+      ];
+
+      expect(() =>
+        assertLineQuantityDemand(existingItems, dto, reservations),
+      ).not.toThrow();
+    });
+
+    it('throws ConflictException when requested quantity is less than minimum quantity', () => {
+      const existingItems = [{ id: 'line-1' }];
+      const dto = {
+        expectedLineItemsVersion: 1,
+        items: [
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Part 1',
+            qty: 2,
+            unitPrice: 10,
+          },
+        ],
+      };
+      const reservations = [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity: 4,
+          quantity_consumed: 1,
+          quantity_returned: 0,
+          status: PartsReservationStatus.OPEN,
+        },
+      ];
+
+      expect(() =>
+        assertLineQuantityDemand(existingItems, dto, reservations),
+      ).toThrow(
+        new ConflictException(
+          'Workshop line quantity cannot be reduced below allocated or consumed demand',
+        ),
+      );
+    });
+
+    it('throws ConflictException when parts reservation has negative remaining demand', () => {
+      const existingItems = [{ id: 'line-1' }];
+      const dto = {
+        expectedLineItemsVersion: 1,
+        items: [
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Part 1',
+            qty: 5,
+            unitPrice: 10,
+          },
+        ],
+      };
+      const reservations = [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity: 2,
+          quantity_consumed: 3,
+          quantity_returned: 0,
+          status: PartsReservationStatus.OPEN,
+        },
+      ];
+
+      expect(() =>
+        assertLineQuantityDemand(existingItems, dto, reservations),
+      ).toThrow(
+        new ConflictException(
+          'Parts reservation line-1 has invalid negative remaining demand',
+        ),
+      );
+    });
+
+    it('ignores cancelled or completed reservations when calculating active commitment', () => {
+      const existingItems = [{ id: 'line-1' }];
+      const dto = {
+        expectedLineItemsVersion: 1,
+        items: [
+          {
+            id: 'line-1',
+            type: WorkshopLineItemType.PART,
+            itemNo: 'P-1',
+            description: 'Part 1',
+            qty: 1,
+            unitPrice: 10,
+          },
+        ],
+      };
+      const reservations = [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity: 10,
+          quantity_consumed: 0,
+          quantity_returned: 0,
+          status: PartsReservationStatus.CANCELLED,
+        },
+      ];
+
+      expect(() =>
+        assertLineQuantityDemand(existingItems, dto, reservations),
+      ).not.toThrow();
+    });
+  });
+
+  describe('handleDeletedLineItems', () => {
+    it('returns early when no items are deleted', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            deleteMany: jest.fn(),
+            updateMany: jest.fn(),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+      const existing = [{ id: 'line-1', part_execution_status: null }];
+      const submittedIds = ['line-1'];
+
+      await handleDeletedLineItems(ctx, existing, submittedIds, []);
+
+      expect(ctx.tx.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
+      expect(ctx.tx.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('releases active reservations via releaseReservation callback', async () => {
+      const releaseMock = jest.fn().mockResolvedValue(undefined);
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+            updateMany: jest.fn(),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+        returnLocationId: 'loc-ret',
+        releaseReservation: releaseMock,
+      };
+      const existing = [{ id: 'line-1', part_execution_status: null }];
+      const submittedIds: string[] = [];
+      const reservations = [
+        {
+          id: 'res-1',
+          workshop_task_line_item_id: 'line-1',
+          quantity: 5,
+          quantity_consumed: 0,
+          quantity_returned: 0,
+          quantity_staged: 2,
+          status: PartsReservationStatus.STAGED,
+        },
+      ];
+
+      await handleDeletedLineItems(ctx, existing, submittedIds, reservations);
+
+      expect(releaseMock).toHaveBeenCalledWith(
+        'res-1',
+        { returnLocationId: 'loc-ret' },
+        ctx.tx,
+      );
+    });
+
+    it('throws ConflictException when consumed line items are deleted without active reservations', async () => {
+      const ctx = {
+        tx: {} as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+      const existing = [{ id: 'line-1', part_execution_status: null }];
+      const submittedIds: string[] = [];
+      const reservations = [
+        {
+          id: 'res-1',
+          workshop_task_line_item_id: 'line-1',
+          quantity: 2,
+          quantity_consumed: 2,
+          quantity_returned: 0,
+          quantity_staged: 0,
+          status: PartsReservationStatus.FULFILLED,
+        },
+      ];
+
+      await expect(
+        handleDeletedLineItems(ctx, existing, submittedIds, reservations),
+      ).rejects.toThrow(
+        new ConflictException(
+          'Consumed line items must be released before removal',
+        ),
+      );
+    });
+
+    it('hard-deletes lines that have no operational history and are unconsumed', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+            updateMany: jest.fn(),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+      const existing = [{ id: 'line-1', part_execution_status: null }];
+      const submittedIds: string[] = [];
+
+      await handleDeletedLineItems(ctx, existing, submittedIds, []);
+
+      expect(ctx.tx.workshopTaskLineItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'ten-1',
+          workshop_task_id: 'task-1',
+          id: { in: ['line-1'] },
+          workshop_task: { workshop_order: { site_id: 'site-1' } },
+        },
+      });
+    });
+
+    it('cancels lines that have operational history but are unconsumed', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            deleteMany: jest.fn(),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+      const existing = [{ id: 'line-1', part_execution_status: null }];
+      const submittedIds: string[] = [];
+      const reservations = [
+        {
+          id: 'res-1',
+          workshop_task_line_item_id: 'line-1',
+          quantity: 2,
+          quantity_consumed: 0,
+          quantity_returned: 2,
+          quantity_staged: 0,
+          status: PartsReservationStatus.CANCELLED,
+        },
+      ];
+
+      await handleDeletedLineItems(ctx, existing, submittedIds, reservations);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'ten-1',
+          workshop_task_id: 'task-1',
+          id: { in: ['line-1'] },
+          workshop_task: { workshop_order: { site_id: 'site-1' } },
+        },
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
+      });
+    });
+  });
+
+  describe('updateExistingTaskLineItems', () => {
+    it('returns early when there are no items with an id to update', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: { updateMany: jest.fn() },
+          partsReservation: { findMany: jest.fn() },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await updateExistingTaskLineItems(ctx, [
+        {
+          type: WorkshopLineItemType.LABOR,
+          itemNo: 'LAB-1',
+          description: 'New item',
+          qty: 1,
+          unitPrice: 50,
+        },
+      ]);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).not.toHaveBeenCalled();
+      expect(ctx.tx.partsReservation.findMany).not.toHaveBeenCalled();
+    });
+
+    it('updates labor item fields correctly', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          partsReservation: { findMany: jest.fn().mockResolvedValue([]) },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await updateExistingTaskLineItems(ctx, [
+        {
+          id: 'labor-1',
+          type: WorkshopLineItemType.LABOR,
+          itemNo: 'LAB-1',
+          description: 'Oil change',
+          qty: 2,
+          unitPrice: 60,
+          actualHours: 1.5,
+          standardAw: 2,
+          internalCostRate: 40,
+          laborOperationId: 'op-123',
+        },
+      ]);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'labor-1',
+          tenant_id: 'ten-1',
+          workshop_task_id: 'task-1',
+          workshop_task: { workshop_order: { site_id: 'site-1' } },
+        },
+        data: {
+          description: 'Oil change',
+          quantity: new Prisma.Decimal(2),
+          unit_price: new Prisma.Decimal(60),
+          actual_hours: new Prisma.Decimal(1.5),
+          standard_aw: new Prisma.Decimal(2),
+          internal_cost_rate: new Prisma.Decimal(40),
+          labor_operation_id: 'op-123',
+        },
+      });
+    });
+
+    it('computes CONSUMED execution status when consumed >= requested qty', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          partsReservation: {
+            findMany: jest.fn().mockResolvedValue([
+              {
+                workshop_task_line_item_id: 'part-1',
+                quantity_consumed: new Prisma.Decimal(2),
+                quantity_staged: new Prisma.Decimal(0),
+              },
+            ]),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await updateExistingTaskLineItems(ctx, [
+        {
+          id: 'part-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'P-1',
+          description: 'Filter',
+          qty: 2,
+          unitPrice: 15,
+        },
+      ]);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            part_execution_status: WorkshopPartLineExecutionStatus.CONSUMED,
+          }),
+        }),
+      );
+    });
+
+    it('computes STAGED execution status when staged > 0 and consumed < requested qty', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          partsReservation: {
+            findMany: jest.fn().mockResolvedValue([
+              {
+                workshop_task_line_item_id: 'part-1',
+                quantity_consumed: new Prisma.Decimal(0),
+                quantity_staged: new Prisma.Decimal(2),
+              },
+            ]),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await updateExistingTaskLineItems(ctx, [
+        {
+          id: 'part-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'P-1',
+          description: 'Filter',
+          qty: 2,
+          unitPrice: 15,
+        },
+      ]);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+          }),
+        }),
+      );
+    });
+
+    it('computes PENDING_PICK execution status when neither consumed nor staged', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          partsReservation: { findMany: jest.fn().mockResolvedValue([]) },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await updateExistingTaskLineItems(ctx, [
+        {
+          id: 'part-1',
+          type: WorkshopLineItemType.PART,
+          itemNo: 'P-1',
+          description: 'Filter',
+          qty: 2,
+          unitPrice: 15,
+        },
+      ]);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            part_execution_status: WorkshopPartLineExecutionStatus.PENDING_PICK,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('lockWorkshopRows', () => {
+    it('returns early when ids array is empty', async () => {
+      const tx = { $queryRaw: jest.fn() } as any;
+      await lockWorkshopRows(tx, 'workshop_tasks', 'ten-1', []);
+      expect(tx.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('locks workshop_tasks with siteId via joined workshop_orders query', async () => {
+      const tx = { $queryRaw: jest.fn().mockResolvedValue([]) } as any;
+      await lockWorkshopRows(
+        tx,
+        'workshop_tasks',
+        'ten-1',
+        ['task-2', 'task-1'],
+        'site-1',
+      );
+      expect(tx.$queryRaw).toHaveBeenCalled();
+    });
+
+    it('locks generic table rows for parts_reservations', async () => {
+      const tx = { $queryRaw: jest.fn().mockResolvedValue([]) } as any;
+      await lockWorkshopRows(tx, 'parts_reservations', 'ten-1', ['res-1']);
+      expect(tx.$queryRaw).toHaveBeenCalled();
+    });
+  });
+
+  describe('findLineReservationHistory', () => {
+    it('returns empty array when existingItems is empty', async () => {
+      const tx = {
+        partsReservation: { findMany: jest.fn() },
+      } as any;
+
+      const result = await findLineReservationHistory(
+        tx,
+        'ten-1',
+        'site-1',
+        [],
+      );
+
+      expect(result).toEqual([]);
+      expect(tx.partsReservation.findMany).not.toHaveBeenCalled();
+    });
+
+    it('queries partsReservation scoped to tenant and site', async () => {
+      const tx = {
+        partsReservation: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'res-1' }]),
+        },
+      } as any;
+
+      const result = await findLineReservationHistory(tx, 'ten-1', 'site-1', [
+        { id: 'line-1' },
+      ]);
+
+      expect(result).toEqual([{ id: 'res-1' }]);
+      expect(tx.partsReservation.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'ten-1',
+          workshop_task_line_item_id: { in: ['line-1'] },
+          workshop_task_line_item: {
+            workshop_task: { workshop_order: { site_id: 'site-1' } },
+          },
+        },
+        select: {
+          id: true,
+          workshop_task_line_item_id: true,
+          quantity: true,
+          quantity_consumed: true,
+          quantity_returned: true,
+          quantity_staged: true,
+          status: true,
+        },
+      });
     });
   });
 });
