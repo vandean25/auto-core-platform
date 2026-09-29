@@ -18,12 +18,13 @@ locals {
 
   secret_environment_variables = merge(
     {
-      DATABASE_URL          = var.database_secret_name
-      DATABASE_URL_POOLED   = var.database_pooled_secret_name
-      SENTRY_DSN            = var.sentry_dsn_secret_name
-      INVOICE_PDF_BUCKET    = var.invoice_pdf_bucket_secret_name
-      WORKSHOP_MEDIA_BUCKET = var.workshop_media_bucket_secret_name
-      SECRET_ENCRYPTION_KEY = var.secret_encryption_key_secret_name
+      DATABASE_URL             = var.database_secret_name
+      DATABASE_URL_POOLED      = var.database_pooled_secret_name
+      SENTRY_DSN               = var.sentry_dsn_secret_name
+      INVOICE_PDF_BUCKET       = var.invoice_pdf_bucket_secret_name
+      DOCUMENT_BRANDING_BUCKET = var.document_branding_bucket_secret_name
+      WORKSHOP_MEDIA_BUCKET    = var.workshop_media_bucket_secret_name
+      SECRET_ENCRYPTION_KEY    = var.secret_encryption_key_secret_name
     },
     var.cloud_tasks_enabled ? {
       CLOUD_TASKS_WORKER_SECRET = var.cloud_tasks_worker_secret_name

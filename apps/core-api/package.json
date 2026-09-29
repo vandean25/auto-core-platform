@@ -23,6 +23,8 @@
     "test:cov": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js --coverage",
     "test:debug": "node --inspect-brk --experimental-vm-modules ../../node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "node --max-old-space-size=6144 --experimental-vm-modules ../../node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
+    "test:e2e:runner": "node --test scripts/run-e2e-batches.spec.mjs",
+    "test:e2e:ci": "node scripts/run-e2e-batches.mjs",
     "check:cloudrun-env": "tsx scripts/check-cloudrun-env-contract.ts",
     "lint:prisma-tenant": "tsx scripts/lint-prisma-tenant.ts prisma/schema.prisma",
     "openapi:generate": "node --loader ts-node/esm scripts/generate-openapi.ts",

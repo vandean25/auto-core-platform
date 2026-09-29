@@ -35,6 +35,19 @@ gcloud storage buckets describe "gs://$INVOICE_PDF_BUCKET" --format=json
 gcloud storage buckets get-iam-policy "gs://$INVOICE_PDF_BUCKET"
 ```
 
+Letterhead sources, quarantine objects, and derived logos use the separate
+`DOCUMENT_BRANDING_BUCKET` secret. Do not point it at the invoice archive
+bucket: their access and retention lifecycles differ. Terraform and both
+Cloud Build deployment configurations inject this secret into the API and PDF
+worker. Resolve and inspect it separately before enabling uploads:
+
+```bash
+DOCUMENT_BRANDING_BUCKET_SECRET_NAME="${TF_VAR_document_branding_bucket_secret_name:-DOCUMENT_BRANDING_BUCKET}"
+DOCUMENT_BRANDING_BUCKET="$(gcloud secrets versions access latest --secret="$DOCUMENT_BRANDING_BUCKET_SECRET_NAME" --project="$PROJECT_ID")"
+gcloud storage buckets describe "gs://$DOCUMENT_BRANDING_BUCKET" --format=json
+gcloud storage buckets get-iam-policy "gs://$DOCUMENT_BRANDING_BUCKET"
+```
+
 Also resolve the effective Cloud Run runtime service account from the deployed
 service configuration. Do not assume the Compute default account. Record the
 writer and cleanup principals separately. The current Terraform service runs

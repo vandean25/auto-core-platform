@@ -635,6 +635,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{legalEntityId}/document-branding/extractions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start document letterhead extraction */
+        post: operations["DocumentBrandingController_createExtraction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/extractions/{extractionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a letterhead extraction proposal */
+        get: operations["DocumentBrandingController_getExtraction"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/extractions/{extractionId}/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discard a letterhead extraction */
+        post: operations["DocumentBrandingController_discardExtraction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}": {
         parameters: {
             query?: never;
@@ -3099,6 +3150,8 @@ export interface components {
             theme: {
                 [key: string]: unknown;
             };
+            /** Format: uuid */
+            extractionId?: string;
         };
         ExpectedDocumentBrandRevisionDto: {
             expectedRevision: number;
@@ -3131,6 +3184,27 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             expiresAt: string | null;
+        };
+        CreateDocumentBrandExtractionDto: {
+            /** Format: uuid */
+            sourceAssetId: string;
+            expectedRevision: number;
+        };
+        DocumentBrandExtractionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            state: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "DISCARDED";
+            proposal: components["schemas"]["DocumentBrandThemeResponseDto"] | null;
+            warnings: string[];
+            baseRevision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            completedAt: string | null;
+            /** Format: date-time */
+            expiresAt: string | null;
+            failureCode: string | null;
         };
         /** @enum {string} */
         CustomerType: "PRIVATE" | "COMPANY";
@@ -7045,6 +7119,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentBrandAssetResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_createExtraction: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDocumentBrandExtractionDto"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandExtractionResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_getExtraction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+                extractionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandExtractionResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_discardExtraction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+                extractionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandExtractionResponseDto"];
                 };
             };
         };

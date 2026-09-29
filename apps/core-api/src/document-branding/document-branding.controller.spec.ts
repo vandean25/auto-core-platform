@@ -2,6 +2,7 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { DocumentBrandingController } from './document-branding.controller.js';
 import { DocumentBrandingService } from './document-branding.service.js';
 import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
+import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
 
 describe('DocumentBrandingController quota headers', () => {
   const branding = {
@@ -10,8 +11,15 @@ describe('DocumentBrandingController quota headers', () => {
   const uploads = {
     upload: jest.fn(),
   } as unknown as DocumentBrandingUploadService;
+  const extractions = {
+    create: jest.fn(),
+  } as unknown as DocumentBrandingExtractionService;
   const response = { setHeader: jest.fn() };
-  const controller = new DocumentBrandingController(branding, uploads);
+  const controller = new DocumentBrandingController(
+    branding,
+    uploads,
+    extractions,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();

@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -54,6 +58,8 @@ describe('DocumentBrandingService', () => {
         findFirstOrThrow: jest.fn().mockResolvedValue(baseProfile),
       },
       documentBrandAsset: { findFirst: jest.fn().mockResolvedValue(null) },
+      documentBrandExtraction: { findFirst: jest.fn().mockResolvedValue(null) },
+      invoiceBrandAssetReference: { findFirst: jest.fn().mockResolvedValue(null) },
       user: { findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }) },
       tenantMember: {
         findFirst: jest.fn().mockResolvedValue({ id: 'member-1' }),
@@ -154,6 +160,33 @@ describe('DocumentBrandingService', () => {
     expect(updateCall.data).not.toHaveProperty('active_theme');
   });
 
+  it('starts a grace period when replacing the last draft reference to a derived logo', async () => {
+    const profileWithLogo = {
+      ...baseProfile,
+      draft_logo_asset_id: logoAssetId,
+      draft_theme: { ...DEFAULT_DOCUMENT_BRAND_THEME, logoAssetId },
+    };
+    tx.documentBrandProfile.findFirst
+      .mockResolvedValueOnce(profileWithLogo)
+      .mockResolvedValueOnce(null);
+    tx.documentBrandProfile.findFirstOrThrow.mockResolvedValue({
+      ...baseProfile,
+      revision: 2,
+    });
+    tx.documentBrandAsset.updateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+    await service.saveDraft(legalEntityId, {
+      expectedRevision: 1,
+      theme: DEFAULT_DOCUMENT_BRAND_THEME,
+    });
+
+    const graceUpdate = tx.documentBrandAsset.updateMany.mock.calls[0][0];
+    expect(graceUpdate.where).toMatchObject({ id: logoAssetId, purpose: 'LOGO' });
+    expect(graceUpdate.data.expires_at.getTime()).toBeGreaterThan(
+      Date.now() + 6 * 24 * 60 * 60 * 1000,
+    );
+  });
+
   it('rejects a stale draft revision', async () => {
     tx.documentBrandProfile.findFirst.mockResolvedValue({
       ...baseProfile,
@@ -183,9 +216,24 @@ describe('DocumentBrandingService', () => {
         tenant_id: tenantId,
         legal_entity_id: legalEntityId,
         purpose: 'LOGO',
-        state: 'READY',
       },
-      select: { id: true },
+      select: { id: true, state: true },
+    });
+  });
+
+  it('returns a validation error for an owned logo that is not ready', async () => {
+    const theme = { ...DEFAULT_DOCUMENT_BRAND_THEME, logoAssetId };
+    tx.documentBrandProfile.findFirst.mockResolvedValue(baseProfile);
+    tx.documentBrandAsset.findFirst.mockResolvedValue({
+      id: logoAssetId,
+      state: 'QUARANTINED',
+    });
+
+    await expect(
+      service.saveDraft(legalEntityId, { expectedRevision: 1, theme }),
+    ).rejects.toMatchObject({
+      constructor: UnprocessableEntityException,
+      response: { code: 'BRAND_ASSET_NOT_READY' },
     });
   });
 
