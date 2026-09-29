@@ -898,7 +898,10 @@ describe('WorkshopIntakeService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 'u-1' });
       mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
       mockPrisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-1' });
-      mockPrisma.bay.findFirst.mockResolvedValue({ id: 'bay-2', site_id: 'site-2' });
+      mockPrisma.bay.findFirst.mockResolvedValue({
+        id: 'bay-2',
+        site_id: 'site-2',
+      });
       mockPrisma.$queryRaw.mockResolvedValue([
         { id: 'site-1', is_active: true },
         { id: 'site-2', is_active: true },
