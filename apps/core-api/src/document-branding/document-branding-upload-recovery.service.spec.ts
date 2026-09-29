@@ -105,6 +105,10 @@ describe('DocumentBrandingUploadRecoveryService', () => {
         invoiceBrandAssetReference: {
           findFirst: jest.fn().mockResolvedValue(null),
         },
+      documentBrandExtraction: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       }),
     );
 
@@ -160,10 +164,76 @@ describe('DocumentBrandingUploadRecoveryService', () => {
         invoiceBrandAssetReference: {
           findFirst: jest.fn().mockResolvedValue(null),
         },
+        documentBrandExtraction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
       }),
     );
     await service.recoverAndClean();
     expect(storage.deleteGeneration).not.toHaveBeenCalled();
+  });
+
+  it('terminalizes source-backed jobs and clears their source reference at source expiry', async () => {
+    (prisma.documentBrandAsset.findMany as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: 'source-1', tenant_id: 'tenant-1', legal_entity_id: 'entity-1' },
+      ])
+      .mockResolvedValue([]);
+    const extractionUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const assetUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const asset = {
+      id: 'source-1',
+      tenant_id: 'tenant-1',
+      legal_entity_id: 'entity-1',
+      purpose: 'SOURCE',
+      state: 'READY',
+      expires_at: new Date(Date.now() - 1_000),
+      bucket: 'private-branding',
+      object_key: 'source/1.png',
+      object_generation: '10',
+      quarantine_bucket: null,
+      quarantine_object_key: null,
+      quarantine_object_generation: null,
+    };
+    const txAssetFindFirst = jest.fn(({ where }) =>
+      Promise.resolve(where.state === 'DELETING' ? { ...asset, state: 'DELETING' } : asset),
+    );
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) =>
+      callback({
+        legalEntity: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'entity-1', is_active: true }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        documentBrandAsset: {
+          findFirst: txAssetFindFirst,
+          updateMany: assetUpdateMany,
+        },
+        documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
+        invoiceBrandAssetReference: { findFirst: jest.fn().mockResolvedValue(null) },
+        documentBrandExtraction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          updateMany: extractionUpdateMany,
+        },
+      }),
+    );
+
+    await service.recoverAndClean();
+
+    expect(extractionUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ state: { in: ['QUEUED', 'RUNNING'] } }),
+        data: expect.objectContaining({ state: 'FAILED', failure_code: 'BRAND_SOURCE_EXPIRED' }),
+      }),
+    );
+    expect(extractionUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { source_asset_id: null } }),
+    );
+    expect(assetUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { source_asset_id: null } }),
+    );
   });
 
   it.each([
@@ -221,6 +291,10 @@ describe('DocumentBrandingUploadRecoveryService', () => {
           documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
           invoiceBrandAssetReference: {
             findFirst: jest.fn().mockResolvedValue({ id: 'reference-1' }),
+          },
+          documentBrandExtraction: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
           },
         }),
       );
@@ -295,6 +369,10 @@ describe('DocumentBrandingUploadRecoveryService', () => {
             lockOrder.push('invoice-reference-check');
             return invoiceReferenceFindFirst(...args);
           }),
+        },
+        documentBrandExtraction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
       }),
     );

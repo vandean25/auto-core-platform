@@ -18,6 +18,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'SENTRY_TRACES_SAMPLE_RATE',
   'ENABLE_SENTRY_DEBUG_ROUTE',
   'INVOICE_PDF_BUCKET',
+  'DOCUMENT_BRANDING_BUCKET',
   'INVOICE_BRANDING_WRITER_ENABLED',
   'WORKSHOP_MEDIA_BUCKET',
   'CLOUD_TASKS_ENABLED',
@@ -87,6 +88,7 @@ const envSchema = z
     SENTRY_TRACES_SAMPLE_RATE: optionalString,
     ENABLE_SENTRY_DEBUG_ROUTE: optionalString,
     INVOICE_PDF_BUCKET: optionalString,
+    DOCUMENT_BRANDING_BUCKET: optionalString,
     INVOICE_BRANDING_WRITER_ENABLED: optionalBooleanString.transform(
       (value) => value === 'true',
     ),

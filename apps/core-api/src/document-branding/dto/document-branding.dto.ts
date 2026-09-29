@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsInt, IsObject, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsUUID,
+  Min,
+} from 'class-validator';
 
 export class SaveDocumentBrandDraftDto {
   @ApiProperty({ minimum: 0 })
@@ -10,9 +17,25 @@ export class SaveDocumentBrandDraftDto {
   @ApiProperty({ type: 'object', additionalProperties: true })
   @IsObject()
   theme!: Record<string, unknown>;
+
+  @ApiProperty({ format: 'uuid', required: false })
+  @IsOptional()
+  @IsUUID()
+  extractionId?: string;
 }
 
 export class ExpectedDocumentBrandRevisionDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  expectedRevision!: number;
+}
+
+export class CreateDocumentBrandExtractionDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  sourceAssetId!: string;
+
   @ApiProperty({ minimum: 0 })
   @IsInt()
   @Min(0)
@@ -61,6 +84,37 @@ export class DocumentBrandThemeResponseDto {
   footerText!: string;
 }
 
+export class DocumentBrandExtractionResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({
+    enum: ['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'DISCARDED'],
+  })
+  state!: string;
+
+  @ApiProperty({ type: DocumentBrandThemeResponseDto, nullable: true })
+  proposal!: DocumentBrandThemeResponseDto | null;
+
+  @ApiProperty({ type: [String] })
+  warnings!: string[];
+
+  @ApiProperty({ minimum: 0 })
+  baseRevision!: number;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt!: Date;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  completedAt!: Date | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  expiresAt!: Date | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  failureCode!: string | null;
+}
+
 export class DocumentBrandProfileResponseDto {
   @ApiProperty({ minimum: 0 })
   revision!: number;
@@ -84,7 +138,7 @@ export class DocumentBrandProfileResponseDto {
     type: 'object',
     properties: { extractionAvailable: { type: 'boolean', example: false } },
   })
-  capabilities!: { extractionAvailable: false };
+  capabilities!: { extractionAvailable: boolean };
 }
 
 export class DocumentBrandAssetResponseDto {

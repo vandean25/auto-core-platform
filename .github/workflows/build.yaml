@@ -286,8 +286,9 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           INVOICE_BRANDING_WRITER_ENABLED: 'true'
         run: |
+          npm run test:e2e:runner --workspace=core-api
           npm exec --workspace=core-api -- prisma migrate deploy
-          npm run test:e2e --workspace=core-api -- --ci --runInBand
+          npm run test:e2e:ci --workspace=core-api
 
   frontend:
     # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).

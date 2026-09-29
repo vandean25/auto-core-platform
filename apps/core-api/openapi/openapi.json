@@ -2095,6 +2095,144 @@
         ]
       }
     },
+    "/api/legal-entities/{legalEntityId}/document-branding/extractions": {
+      "post": {
+        "operationId": "DocumentBrandingController_createExtraction",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocumentBrandExtractionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandExtractionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Start document letterhead extraction",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/extractions/{extractionId}": {
+      "get": {
+        "operationId": "DocumentBrandingController_getExtraction",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "extractionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandExtractionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read a letterhead extraction proposal",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
+    "/api/legal-entities/{legalEntityId}/document-branding/extractions/{extractionId}/discard": {
+      "post": {
+        "operationId": "DocumentBrandingController_discardExtraction",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "extractionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandExtractionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Discard a letterhead extraction",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
     "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}": {
       "get": {
         "operationId": "DocumentBrandingController_getAsset",
@@ -10303,6 +10441,10 @@
           "theme": {
             "type": "object",
             "additionalProperties": true
+          },
+          "extractionId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -10430,6 +10572,90 @@
           "failureCode",
           "createdAt",
           "expiresAt"
+        ]
+      },
+      "CreateDocumentBrandExtractionDto": {
+        "type": "object",
+        "properties": {
+          "sourceAssetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "sourceAssetId",
+          "expectedRevision"
+        ]
+      },
+      "DocumentBrandExtractionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "DISCARDED"
+            ]
+          },
+          "proposal": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentBrandThemeResponseDto"
+              }
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "baseRevision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "failureCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "proposal",
+          "warnings",
+          "baseRevision",
+          "createdAt",
+          "completedAt",
+          "expiresAt",
+          "failureCode"
         ]
       },
       "CustomerType": {

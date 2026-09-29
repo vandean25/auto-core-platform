@@ -22,6 +22,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiConsumes,
   ApiBody,
+  ApiAcceptedResponse,
   ApiHeader,
   ApiOperation,
   ApiOkResponse,
@@ -33,6 +34,8 @@ import {
 import {
   DocumentBrandPreviewDto,
   DocumentBrandAssetResponseDto,
+  CreateDocumentBrandExtractionDto,
+  DocumentBrandExtractionResponseDto,
   DocumentBrandPreviewResponseDto,
   DocumentBrandProfileResponseDto,
   ExpectedDocumentBrandRevisionDto,
@@ -40,6 +43,7 @@ import {
 } from './dto/document-branding.dto.js';
 import { DocumentBrandingService } from './document-branding.service.js';
 import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
+import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
 
 const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -50,6 +54,7 @@ export class DocumentBrandingController {
   constructor(
     private readonly branding: DocumentBrandingService,
     private readonly uploads: DocumentBrandingUploadService,
+    private readonly extractions: DocumentBrandingExtractionService,
   ) {}
 
   @Get()
@@ -169,6 +174,47 @@ export class DocumentBrandingController {
       'BRAND_UPLOAD_QUOTA_EXCEEDED',
       60 * 60,
     );
+  }
+
+  @Post('extractions')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Start document letterhead extraction' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiBody({ type: CreateDocumentBrandExtractionDto })
+  @ApiAcceptedResponse({ type: DocumentBrandExtractionResponseDto })
+  createExtraction(
+    @Param('legalEntityId') legalEntityId: string,
+    @Body() dto: CreateDocumentBrandExtractionDto,
+    @Headers('idempotency-key') idempotencyKey: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return withQuotaRetryAfter(
+      () => this.extractions.create(legalEntityId, dto, idempotencyKey),
+      response,
+      'BRAND_EXTRACTION_QUOTA_EXCEEDED',
+      60 * 60,
+    );
+  }
+
+  @Get('extractions/:extractionId')
+  @ApiOperation({ summary: 'Read a letterhead extraction proposal' })
+  @ApiOkResponse({ type: DocumentBrandExtractionResponseDto })
+  getExtraction(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('extractionId') extractionId: string,
+  ) {
+    return this.extractions.get(legalEntityId, extractionId);
+  }
+
+  @Post('extractions/:extractionId/discard')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Discard a letterhead extraction' })
+  @ApiOkResponse({ type: DocumentBrandExtractionResponseDto })
+  discardExtraction(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('extractionId') extractionId: string,
+  ) {
+    return this.extractions.discard(legalEntityId, extractionId);
   }
 
   @Get('assets/:assetId')

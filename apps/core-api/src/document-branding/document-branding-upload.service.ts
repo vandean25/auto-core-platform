@@ -50,10 +50,17 @@ export class DocumentBrandingUploadService {
       tenantId,
     );
     const entity = await this.prisma.legalEntity.findFirst({
-      where: { id: legalEntityId, tenant_id: tenantId, is_active: true },
-      select: { id: true },
+      where: { id: legalEntityId, tenant_id: tenantId },
+      select: { id: true, is_active: true },
     });
     if (!entity) throw new NotFoundException('Legal entity not found');
+    if (!entity.is_active) {
+      throw new UnprocessableEntityException({
+        code: 'LEGAL_ENTITY_INACTIVE',
+        message:
+          'Document branding assets cannot be uploaded for an inactive entity.',
+      });
+    }
 
     const assetId = randomUUID();
     const rootKey = `tenants/${tenantId}/legal-entities/${legalEntityId}/document-branding`;

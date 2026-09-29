@@ -3,6 +3,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Inject,
   NotFoundException,
   Optional,
   UnprocessableEntityException,
@@ -23,6 +24,12 @@ import {
   type DocumentBrandSample,
 } from './document-branding-preview.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
+import { startDerivedLogoGraceIfUnreferenced } from './document-branding-extraction-retention.js';
+import {
+  DOCUMENT_BRAND_EXTRACTION_PROVIDER,
+  DisabledDocumentBrandingExtractionProvider,
+  type DocumentBrandingExtractionProvider,
+} from './document-branding-extraction-provider.js';
 import {
   DEFAULT_DOCUMENT_BRAND_THEME,
   validateDocumentBrandTheme,
@@ -38,6 +45,9 @@ export class DocumentBrandingService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     @Optional() private readonly assetStorage?: DocumentBrandingAssetStorage,
+    @Optional()
+    @Inject(DOCUMENT_BRAND_EXTRACTION_PROVIDER)
+    private readonly extractionProvider: DocumentBrandingExtractionProvider = new DisabledDocumentBrandingExtractionProvider(),
   ) {}
 
   async getProfile(legalEntityId: string) {
@@ -65,6 +75,31 @@ export class DocumentBrandingService {
           legalEntityId,
           theme.logoAssetId,
         );
+        let draftExtractionId = profile.draft_extraction_id;
+        if (dto.extractionId) {
+          const extraction = await tx.documentBrandExtraction.findFirst({
+            where: {
+              id: dto.extractionId,
+              tenant_id: tenantId,
+              legal_entity_id: legalEntityId,
+              state: 'SUCCEEDED',
+              base_revision: dto.expectedRevision,
+              expires_at: { gt: new Date() },
+            },
+            select: { id: true, proposal_logo_asset_id: true },
+          });
+          if (
+            !extraction ||
+            extraction.proposal_logo_asset_id !== theme.logoAssetId
+          ) {
+            throw new ConflictException({
+              code: 'BRAND_EXTRACTION_STALE',
+              message:
+                'This extraction proposal is expired or based on another profile revision.',
+            });
+          }
+          draftExtractionId = extraction.id;
+        }
         const revision = profile.revision + 1;
         await tx.documentBrandProfile
           .updateMany({
@@ -78,12 +113,19 @@ export class DocumentBrandingService {
               revision,
               draft_theme: theme,
               draft_logo_asset_id: theme.logoAssetId,
+              draft_extraction_id: draftExtractionId,
               last_confirmation_key: null,
               last_confirmation_hash: null,
               last_confirmation_result_revision: null,
             },
           })
           .then((result) => this.assertUpdated(result.count));
+        await this.startGraceForReleasedProfileLogos(
+          tx,
+          tenantId,
+          legalEntityId,
+          [profile.draft_logo_asset_id],
+        );
         return this.toResponse(
           await this.readProfile(tx, tenantId, legalEntityId),
         );
@@ -110,12 +152,19 @@ export class DocumentBrandingService {
             revision,
             draft_theme: Prisma.DbNull,
             draft_logo_asset_id: null,
+            draft_extraction_id: null,
             last_confirmation_key: null,
             last_confirmation_hash: null,
             last_confirmation_result_revision: null,
           },
         });
         this.assertUpdated(result.count);
+        await this.startGraceForReleasedProfileLogos(
+          tx,
+          tenantId,
+          legalEntityId,
+          [profile.draft_logo_asset_id],
+        );
         return this.toResponse(
           await this.readProfile(tx, tenantId, legalEntityId),
         );
@@ -328,6 +377,7 @@ export class DocumentBrandingService {
               : (draftTheme?.logoAssetId ?? null),
             draft_theme: Prisma.DbNull,
             draft_logo_asset_id: null,
+            draft_extraction_id: null,
             confirmed_at: new Date(),
             confirmed_by_user_id: currentUser.id,
             last_confirmation_key: idempotencyKey,
@@ -336,6 +386,12 @@ export class DocumentBrandingService {
           },
         });
         this.assertUpdated(result.count);
+        await this.startGraceForReleasedProfileLogos(
+          tx,
+          tenantId,
+          legalEntityId,
+          [profile.active_logo_asset_id, profile.draft_logo_asset_id],
+        );
         return this.toResponse(
           await this.readProfile(tx, tenantId, legalEntityId),
         );
@@ -410,11 +466,16 @@ export class DocumentBrandingService {
         tenant_id: tenantId,
         legal_entity_id: legalEntityId,
         purpose: 'LOGO',
-        state: 'READY',
       },
-      select: { id: true },
+      select: { id: true, state: true },
     });
-    if (!asset) throw new NotFoundException('Ready logo asset not found');
+    if (!asset) throw new NotFoundException('Logo asset not found');
+    if (asset.state !== 'READY') {
+      throw new UnprocessableEntityException({
+        code: 'BRAND_ASSET_NOT_READY',
+        message: 'The logo asset is not ready for use.',
+      });
+    }
   }
 
   private async readProfile(
@@ -427,6 +488,27 @@ export class DocumentBrandingService {
     });
   }
 
+  private async startGraceForReleasedProfileLogos(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    legalEntityId: string,
+    assetIds: Array<string | null>,
+  ) {
+    const releasedAssetIds = [
+      ...new Set(assetIds.filter((id): id is string => !!id)),
+    ];
+    await Promise.all(
+      releasedAssetIds.map((assetId) =>
+        startDerivedLogoGraceIfUnreferenced(tx, {
+          tenantId,
+          legalEntityId,
+          assetId,
+          now: new Date(),
+        }),
+      ),
+    );
+  }
+
   private emptyProfile(tenantId: string, legalEntityId: string) {
     return {
       tenant_id: tenantId,
@@ -437,6 +519,7 @@ export class DocumentBrandingService {
       draft_theme: null,
       active_logo_asset_id: null,
       draft_logo_asset_id: null,
+      draft_extraction_id: null,
       confirmed_at: null,
       confirmed_by_user_id: null,
     } as DocumentBrandProfile;
@@ -454,7 +537,9 @@ export class DocumentBrandingService {
         : null,
       confirmedAt: profile.confirmed_at,
       confirmedByUserId: profile.confirmed_by_user_id,
-      capabilities: { extractionAvailable: false },
+      capabilities: {
+        extractionAvailable: this.extractionProvider.isAvailable(),
+      },
     };
   }
 

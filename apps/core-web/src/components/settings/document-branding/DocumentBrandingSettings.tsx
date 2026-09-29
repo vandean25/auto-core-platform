@@ -11,6 +11,7 @@ import {
   useUploadDocumentBrandAsset,
   type DocumentBrandTheme,
 } from "@/api/document-branding";
+import { LetterheadImport } from "./LetterheadImport";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,26 @@ import {
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { generateId } from "@/lib/id";
 import type { LegalEntityRecord } from "@/api/site-admin";
+
+const READY_SOURCE_STORAGE_PREFIX = "acp.document-brand-source.";
+
+function readReadySourceId(legalEntityId: string): string | null {
+  try {
+    return sessionStorage.getItem(`${READY_SOURCE_STORAGE_PREFIX}${legalEntityId}`);
+  } catch {
+    return null;
+  }
+}
+
+function persistReadySourceId(legalEntityId: string, assetId: string | null) {
+  try {
+    const key = `${READY_SOURCE_STORAGE_PREFIX}${legalEntityId}`;
+    if (assetId) sessionStorage.setItem(key, assetId);
+    else sessionStorage.removeItem(key);
+  } catch {
+    // The validated source remains available for the current mount.
+  }
+}
 
 export function DocumentBrandingSettings({
   entity,
@@ -43,9 +64,20 @@ export function DocumentBrandingSettings({
   const preview = usePreviewDocumentBranding();
   const assetUpload = useUploadDocumentBrandAsset();
   const [pendingLogoId, setPendingLogoId] = React.useState<string | null>(null);
-  const [pendingSourceId, setPendingSourceId] = React.useState<string | null>(
-    null,
-  );
+  const [pendingSource, setPendingSource] = React.useState(() => ({
+    legalEntityId: entity.id,
+    assetId: null as string | null,
+  }));
+  const pendingSourceId = pendingSource.legalEntityId === entity.id
+    ? pendingSource.assetId
+    : null;
+  const [readySource, setReadySource] = React.useState(() => ({
+    legalEntityId: entity.id,
+    assetId: readReadySourceId(entity.id),
+  }));
+  const readySourceId = readySource.legalEntityId === entity.id
+    ? readySource.assetId
+    : readReadySourceId(entity.id);
   const logoAsset = useDocumentBrandAsset(entity.id, pendingLogoId);
   const sourceAsset = useDocumentBrandAsset(entity.id, pendingSourceId);
   const revisionRef = React.useRef(0);
@@ -109,7 +141,11 @@ export function DocumentBrandingSettings({
     setTheme(null);
     setSavedTheme(null);
     setPendingLogoId(null);
-    setPendingSourceId(null);
+    setPendingSource({ legalEntityId: entity.id, assetId: null });
+    setReadySource({
+      legalEntityId: entity.id,
+      assetId: readReadySourceId(entity.id),
+    });
     activeEntityIdRef.current = "";
     revisionRef.current = 0;
   }, [entity.id, clearPendingSave, abortInFlightSave]);
@@ -141,16 +177,24 @@ export function DocumentBrandingSettings({
   }, [logoAsset.data, updateTheme]);
 
   React.useEffect(() => {
-    if (!sourceAsset.data || sourceAsset.data.state === "QUARANTINED") return;
+    if (
+      !sourceAsset.data ||
+      sourceAsset.data.id !== pendingSourceId ||
+      sourceAsset.data.state === "QUARANTINED"
+    ) return;
     if (sourceAsset.data.state === "READY") {
+      persistReadySourceId(entity.id, sourceAsset.data.id);
+      setReadySource({ legalEntityId: entity.id, assetId: sourceAsset.data.id });
       toast.success("Source file validated and stored");
     } else if (sourceAsset.data.state === "REJECTED") {
       toast.error("Source file was rejected", {
         description: sourceAsset.data.failureCode ?? undefined,
       });
+      persistReadySourceId(entity.id, null);
+      setReadySource({ legalEntityId: entity.id, assetId: null });
     }
-    setPendingSourceId(null);
-  }, [sourceAsset.data]);
+    setPendingSource({ legalEntityId: entity.id, assetId: null });
+  }, [entity.id, pendingSourceId, sourceAsset.data]);
 
   const confirmDraft = async () => {
     if (!profile || !theme) return;
@@ -184,11 +228,40 @@ export function DocumentBrandingSettings({
     }
   };
 
+  const applyProposal = async (
+    proposal: DocumentBrandTheme,
+    extractionId: string,
+  ) => {
+    try {
+      const updated = await saveDraft.mutateAsync({
+        legalEntityId: entity.id,
+        expectedRevision: revisionRef.current,
+        theme: proposal,
+        extractionId,
+      });
+      revisionRef.current = updated.revision;
+      setTheme(updated.draftTheme ?? proposal);
+      setSavedTheme(updated.draftTheme ?? proposal);
+      setDraftError(null);
+      preview.reset();
+      toast.success("Suggestions saved to the draft", {
+        description: "Review the draft and confirm it to use it on future invoices.",
+      });
+    } catch (applyError) {
+      toast.error("Proposal could not be applied", {
+        description:
+          applyError instanceof Error
+            ? applyError.message
+            : "The profile revision changed. Start a new extraction.",
+      });
+    }
+  };
+
   const resetToDefaults = async () => {
     if (
       !profile ||
       !window.confirm(
-        "Confirm ACP default invoice branding for this legal entity?",
+        "Confirm ACP default invoice branding for this legal entity? New invoices will use ACP defaults; previously issued invoices and PDFs will not change.",
       )
     )
       return;
@@ -269,7 +342,11 @@ export function DocumentBrandingSettings({
         file,
       });
       if (purpose === "LOGO") setPendingLogoId(asset.id);
-      else setPendingSourceId(asset.id);
+      else {
+        persistReadySourceId(entity.id, null);
+        setReadySource({ legalEntityId: entity.id, assetId: null });
+        setPendingSource({ legalEntityId: entity.id, assetId: asset.id });
+      }
       toast.message(
         `${purpose === "LOGO" ? "Logo" : "Source file"} uploaded; validation is in progress`,
       );
@@ -414,6 +491,15 @@ export function DocumentBrandingSettings({
             </>
           ) : null}
         </div>
+        <div className="sm:col-span-2">
+          <LetterheadImport
+            legalEntityId={entity.id}
+            sourceAssetId={readySourceId}
+            expectedRevision={profile?.revision ?? 0}
+            enabled={Boolean(profile?.capabilities.extractionAvailable) && entity.is_active}
+            onApply={applyProposal}
+          />
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="brand-primary-color">Primary color</Label>
           <Input
@@ -506,6 +592,12 @@ export function DocumentBrandingSettings({
           after resolving any revision conflict. {draftError}
         </p>
       ) : null}
+      <p role="status" className="text-sm text-slate-600">
+        {profile?.activeRevision
+          ? `Active appearance · revision ${profile.activeRevision}`
+          : "Active appearance · ACP defaults"}
+        {profile?.draftTheme ? " · Draft — not yet used on invoices" : " · No saved draft"}
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"

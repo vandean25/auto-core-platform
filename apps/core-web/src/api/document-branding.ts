@@ -39,6 +39,18 @@ export type DocumentBrandAsset = {
   expiresAt: string | null;
 };
 
+export type DocumentBrandExtraction = {
+  id: string;
+  state: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "DISCARDED";
+  proposal: DocumentBrandTheme | null;
+  warnings: string[];
+  baseRevision: number;
+  createdAt: string;
+  completedAt: string | null;
+  expiresAt: string | null;
+  failureCode: string | null;
+};
+
 export const DEFAULT_DOCUMENT_BRAND_THEME: DocumentBrandTheme = {
   schemaVersion: 1,
   presetId: "standard-v1",
@@ -58,6 +70,8 @@ export const documentBrandingKeys = {
     [...documentBrandingKeys.all, "profile", legalEntityId] as const,
   asset: (legalEntityId: string, assetId: string) =>
     [...documentBrandingKeys.all, "asset", legalEntityId, assetId] as const,
+  extraction: (legalEntityId: string, extractionId: string) =>
+    [...documentBrandingKeys.all, "extraction", legalEntityId, extractionId] as const,
 };
 
 async function readError(response: Response, fallback: string) {
@@ -90,6 +104,7 @@ export function useSaveDocumentBrandDraft() {
       legalEntityId: string;
       expectedRevision: number;
       theme: DocumentBrandTheme;
+      extractionId?: string;
       signal?: AbortSignal;
     }) => {
       const { legalEntityId, signal, ...body } = payload;
@@ -286,6 +301,83 @@ export function useUploadDocumentBrandAsset() {
         );
       }
       return response.json() as Promise<DocumentBrandAsset>;
+    },
+  });
+}
+
+export function useCreateDocumentBrandExtraction() {
+  return useMutation({
+    mutationFn: async (payload: {
+      legalEntityId: string;
+      sourceAssetId: string;
+      expectedRevision: number;
+      idempotencyKey: string;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/extractions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": payload.idempotencyKey,
+          },
+          body: JSON.stringify({
+            sourceAssetId: payload.sourceAssetId,
+            expectedRevision: payload.expectedRevision,
+          }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(await readError(response, "Could not start letterhead extraction"));
+      }
+      return response.json() as Promise<DocumentBrandExtraction>;
+    },
+  });
+}
+
+export function useDocumentBrandExtraction(
+  legalEntityId: string,
+  extractionId: string | null,
+  polling: boolean,
+) {
+  return useQuery<DocumentBrandExtraction>({
+    queryKey: documentBrandingKeys.extraction(legalEntityId, extractionId ?? ""),
+    enabled: Boolean(legalEntityId && extractionId),
+    queryFn: async () => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${legalEntityId}/document-branding/extractions/${extractionId}`,
+      );
+      if (!response.ok) {
+        throw new Error(await readError(response, "Could not read extraction status"));
+      }
+      return response.json() as Promise<DocumentBrandExtraction>;
+    },
+    refetchInterval: (query) =>
+      polling && ["QUEUED", "RUNNING"].includes(query.state.data?.state ?? "")
+        ? 2000
+        : false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useDiscardDocumentBrandExtraction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { legalEntityId: string; extractionId: string }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/extractions/${payload.extractionId}/discard`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        throw new Error(await readError(response, "Could not discard extraction"));
+      }
+      return response.json() as Promise<DocumentBrandExtraction>;
+    },
+    onSuccess: (extraction, payload) => {
+      queryClient.setQueryData(
+        documentBrandingKeys.extraction(payload.legalEntityId, payload.extractionId),
+        extraction,
+      );
     },
   });
 }
