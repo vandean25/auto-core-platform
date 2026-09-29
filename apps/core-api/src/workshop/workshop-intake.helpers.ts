@@ -855,7 +855,7 @@ export function buildWorkshopOrderRetargetData(
     scheduled_end_at: Date | null;
   },
   dto: UpdateWorkshopOrderDto,
-): Prisma.WorkshopOrderUpdateManyMutationInput {
+): Prisma.WorkshopOrderUncheckedUpdateManyInput {
   return {
     site_id: dto.siteId,
     bay_id: dto.bayId,
@@ -884,7 +884,7 @@ export function buildWorkshopOrderScheduleUpdateData(
     start: Date;
     end: Date;
   },
-): Prisma.WorkshopOrderUpdateManyMutationInput {
+): Prisma.WorkshopOrderUncheckedUpdateManyInput {
   return {
     reported_issue: dto.reportedIssue,
     notes: dto.notes,

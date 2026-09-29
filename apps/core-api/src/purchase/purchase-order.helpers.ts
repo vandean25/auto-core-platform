@@ -148,7 +148,7 @@ export function toPurchaseOrderItemCreateData(
   tenantId: string,
   item: { catalogItemId: string; quantity: number; unitCost: number },
   orderId?: string,
-) {
+): any {
   return {
     tenant_id: tenantId,
     ...(orderId ? { purchase_order_id: orderId } : {}),

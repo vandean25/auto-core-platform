@@ -20,6 +20,10 @@ import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { Readable } from 'node:stream';
 
+export type InvoicePdfPrismaClient = {
+  client: any;
+};
+
 export type InvoicePdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
   invoiceId: string;
@@ -241,7 +245,7 @@ export async function streamStoredPdf(
 }
 
 export async function clearInvoiceGenerationError(
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<unknown> } } },
+  prisma: InvoicePdfPrismaClient,
   invoiceId: string,
   tenantId: string,
 ): Promise<void> {
@@ -252,7 +256,7 @@ export async function clearInvoiceGenerationError(
 }
 
 export async function safeStoreInvoiceGenerationError(
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<unknown> } } },
+  prisma: InvoicePdfPrismaClient,
   logger: { error: (msg: string, stack?: string) => void },
   invoiceId: string,
   tenantId: string,
@@ -274,7 +278,7 @@ export async function safeStoreInvoiceGenerationError(
 }
 
 export async function persistInvoiceGeneratedPdf(
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<{ count: number }> } } },
+  prisma: InvoicePdfPrismaClient,
   invoiceId: string,
   tenantId: string,
   upload: { bucket: string; key: string },
@@ -298,7 +302,7 @@ export async function persistInvoiceGeneratedPdf(
 }
 
 export async function backfillInvoicePdfMetadata(
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<{ count: number }> } } },
+  prisma: InvoicePdfPrismaClient,
   logger: { warn: (msg: string) => void },
   invoiceId: string,
   tenantId: string,
@@ -369,13 +373,7 @@ export async function dispatchInvoiceGeneration<TGeneratedResult>(params: {
 }
 
 export async function fetchInvoiceForGeneration(
-  prisma: {
-    client: {
-      invoice: {
-        findFirst: (args: unknown) => Promise<any>;
-      };
-    };
-  },
+  prisma: InvoicePdfPrismaClient,
   invoiceId: string,
   tenantId: string,
 ) {
@@ -455,7 +453,7 @@ export async function executeStandardPdfGeneration(params: {
   snapshot: InvoiceSnapshot;
   storage: PdfStorage;
   renderer: InvoicePdfRenderer;
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<{ count: number }> } } };
+  prisma: InvoicePdfPrismaClient;
   onRetry: (error: unknown, attempt: number) => void;
 }): Promise<{
   invoiceId: string;
@@ -506,13 +504,7 @@ export function toPdfStreamResult(
 }
 
 export async function fetchInvoiceForRequest(
-  prisma: {
-    client: {
-      invoice: {
-        findFirst: (args: unknown) => Promise<any>;
-      };
-    };
-  },
+  prisma: InvoicePdfPrismaClient,
   invoiceId: string,
   tenantId: string,
   authorizedSiteIds: string[],
@@ -545,13 +537,7 @@ export async function fetchInvoiceForRequest(
 }
 
 export async function fetchInvoiceForPdfGet(
-  prisma: {
-    client: {
-      invoice: {
-        findFirst: (args: unknown) => Promise<any>;
-      };
-    };
-  },
+  prisma: InvoicePdfPrismaClient,
   invoiceId: string,
   tenantId: string,
   authorizedSiteIds: string[],
@@ -585,7 +571,7 @@ export async function fetchInvoiceForPdfGet(
 
 export async function handleInvoicePdfError(
   logger: Logger,
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<unknown> } } },
+  prisma: InvoicePdfPrismaClient,
   params: {
     invoiceId: string;
     tenantId: string;
@@ -746,7 +732,7 @@ export async function fetchBrandedPdfStream(
 
 export async function fetchFallbackPdfStream(
   storage: PdfStorage,
-  prisma: { client: { invoice: { updateMany: (args: unknown) => Promise<{ count: number }> } } },
+  prisma: InvoicePdfPrismaClient,
   logger: { warn: (msg: string) => void },
   invoiceId: string,
   tenantId: string,
@@ -798,14 +784,7 @@ export async function adoptOrPublishImmutablePdf(
 }
 
 export async function persistBrandedArchiveMetadata(
-  prisma: {
-    client: {
-      invoice: {
-        updateMany: (args: unknown) => Promise<{ count: number }>;
-        findFirst: (args: unknown) => Promise<any>;
-      };
-    };
-  },
+  prisma: InvoicePdfPrismaClient,
   invoiceId: string,
   tenantId: string,
   archive: ImmutablePdfArchive,
@@ -856,13 +835,7 @@ export async function persistBrandedArchiveMetadata(
 }
 
 export async function loadFrozenLogo(
-  prisma: {
-    client: {
-      invoiceBrandAssetReference: {
-        findFirst: (args: unknown) => Promise<any>;
-      };
-    };
-  },
+  prisma: InvoicePdfPrismaClient,
   brandingStorage: { readGeneration: (bucket: string, key: string, gen: string) => Promise<Buffer> } | undefined,
   invoice: {
     id: string;

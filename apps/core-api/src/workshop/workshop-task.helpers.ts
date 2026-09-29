@@ -885,7 +885,7 @@ export async function executeLineItemReplacement(
     reservationId: string,
     options: { returnLocationId?: string },
     client: Prisma.TransactionClient,
-  ) => Promise<void>,
+  ) => Promise<unknown>,
 ) {
   await lockWorkshopRows(tx, 'workshop_tasks', tenantId, [taskId], siteId);
   const { submittedIds, existingItems } = await validateSubmittedLineItemIds(
