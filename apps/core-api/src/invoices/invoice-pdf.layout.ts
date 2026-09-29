@@ -182,8 +182,23 @@ export const buildInvoiceTaxBreakdownSection = (
   `;
 };
 
-export const buildInvoiceDocumentStyles = (): string => `
+export const buildInvoiceDocumentStyles = (
+  branded = false,
+  fontFaceCss = '',
+  snapshot?: InvoiceSnapshot,
+): string => `
   ${buildBasePdfStyles()}
+  ${fontFaceCss}
+
+  ${
+    branded
+      ? `
+    body { font-family: 'ACP Sans', sans-serif; }
+    h1, .section-title { color: ${snapshot?.branding?.tokens.primary_color ?? '#111827'}; }
+    th { background: ${snapshot?.branding?.tokens.secondary_color ?? '#f9fafb'}; }
+  `
+      : ''
+  }
 
   h1 { font-size: 22px; margin: 0; letter-spacing: 0.2px; }
 
@@ -505,6 +520,7 @@ export const buildInvoiceHtmlDocument = (
   invoiceNumber: string,
   escapeHtml: EscapeHtml,
   formatDate: FormatDate,
+  options: { branded?: boolean; fontFaceCss?: string } = {},
 ): string => {
   const isDach = isDachRechnungSnapshot(snapshot);
   const headerLeft = isDach
@@ -518,7 +534,7 @@ export const buildInvoiceHtmlDocument = (
   <!DOCTYPE html>
   <html>
   <head>
-    <style>${buildInvoiceDocumentStyles()}</style>
+    <style>${buildInvoiceDocumentStyles(options.branded, options.fontFaceCss, snapshot)}</style>
   </head>
   <body>
     ${buildInvoiceHeader(invoiceNumber, escapeHtml, snapshot)}
@@ -539,15 +555,56 @@ export const buildInvoiceHtmlDocument = (
 `;
 };
 
+export const buildBrandedInvoiceHeaderTemplate = (
+  snapshot: InvoiceSnapshot,
+  logoDataUrl: string | null,
+  escapeHtml: EscapeHtml,
+  fontFaceCss = '',
+): string => {
+  const branding = snapshot.branding;
+  if (!branding) return '<div></div>';
+  const { tokens } = branding;
+  const bandColor =
+    tokens.header_band === 'primary'
+      ? tokens.primary_color
+      : tokens.header_band === 'secondary'
+        ? tokens.secondary_color
+        : 'transparent';
+  return `<style>${fontFaceCss}</style><div style="width:100%;height:32mm;padding:3mm 16mm 0;box-sizing:border-box;font-family:'ACP Sans',sans-serif;">
+    <div style="height:3mm;background:${bandColor};margin:0 -16mm 2mm"></div>
+    <div style="height:18mm;display:flex;align-items:center;justify-content:space-between;gap:8mm;">
+      ${logoDataUrl ? `<img alt="" src="${logoDataUrl}" style="width:45mm;height:18mm;object-fit:contain;object-position:left center" />` : '<span></span>'}
+      <span style="max-width:80mm;max-height:16mm;overflow:hidden;text-align:right;color:${tokens.primary_color};font-size:10pt;line-height:1.2">${escapeHtml(tokens.header_text)}</span>
+    </div>
+  </div>`;
+};
+
 export const buildInvoiceFooterTemplate = (
   invoiceNumber: string,
   escape: EscapeHtml,
   snapshot: InvoiceSnapshot,
+  fontFaceCss = '',
 ): string => {
   const prefix = isCreditNoteSnapshot(snapshot)
     ? (snapshot.credit_title ?? 'Rechnungskorrektur')
     : isDachRechnungSnapshot(snapshot)
       ? 'Rechnung'
       : 'Invoice';
+  if (snapshot.template_version === 'invoice-brand-v1' && snapshot.branding) {
+    const { tokens } = snapshot.branding;
+    const bandColor =
+      tokens.footer_band === 'primary'
+        ? tokens.primary_color
+        : tokens.footer_band === 'secondary'
+          ? tokens.secondary_color
+          : 'transparent';
+    return `<style>${fontFaceCss}</style><div style="width:100%;height:28mm;padding:0 16mm 4mm;box-sizing:border-box;font-family:'ACP Sans',sans-serif;font-size:8pt;color:#6b7280;">
+      <div style="height:3mm;background:${bandColor};margin:0 -16mm 2mm"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8mm;max-height:16mm;overflow:hidden">
+        <span style="max-width:100mm;overflow:hidden">${escape(snapshot.branding.tokens.footer_text)}</span>
+        <span>${escape(prefix)} ${escape(invoiceNumber)} · <span class="pageNumber"></span> / <span class="totalPages"></span></span>
+      </div>
+    </div>`;
+  }
   return buildPdfFooterTemplate(`${prefix} ${escape(invoiceNumber)}`);
 };

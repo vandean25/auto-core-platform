@@ -13,13 +13,23 @@ import {
 } from './tenant-test-utils.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import {
+  confirmDocumentBrandTheme,
+  createReadyDocumentBrandLogo,
+  exerciseFrozenInvoiceArchiveLifecycle,
+  installFakeInvoiceArchiveStorage,
+  withInvoiceBrandingWriterDisabled,
+} from './invoice-branding-archive-test-utils.js';
 
 describe('Workshop Invoicing (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
   let customerId: string;
   let vehicleId: string;
+  let tenantId: string;
+  let legalEntityId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -30,13 +40,22 @@ describe('Workshop Invoicing (e2e)', () => {
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
+    installFakeInvoiceArchiveStorage(app);
 
-    prisma = app.get<PrismaService>(PrismaService);
+    basePrisma = app.get<PrismaService>(PrismaService);
+    prisma = basePrisma;
 
     const testTenant = await createTestTenant(prisma);
-    prisma = createTenantAwarePrisma(prisma, testTenant.tenantId);
+    tenantId = testTenant.tenantId;
+    prisma = createTenantAwarePrisma(prisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
-    await seedReadySellerAndAccountingProfile(prisma, testTenant.tenantId);
+    await seedReadySellerAndAccountingProfile(prisma, tenantId);
+    legalEntityId = (
+      await prisma.legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantId },
+        select: { id: true },
+      })
+    ).id;
 
     await prisma.$executeRawUnsafe(`
       TRUNCATE TABLE
@@ -80,6 +99,12 @@ describe('Workshop Invoicing (e2e)', () => {
   });
 
   afterAll(async () => {
+    await basePrisma.$executeRawUnsafe(
+      'DELETE FROM "invoice_brand_asset_references" WHERE "tenant_id" = $1',
+      tenantId,
+    );
+    await prisma.documentBrandProfile.deleteMany();
+    await prisma.documentBrandAsset.deleteMany();
     await prisma.invoiceItem.deleteMany();
     await prisma.invoice.deleteMany();
     await prisma.workshopTaskLineItem.deleteMany();
@@ -91,7 +116,10 @@ describe('Workshop Invoicing (e2e)', () => {
     await teardownTestApp(app, prisma);
   });
 
-  it('creates a draft invoice and issues it for a completed workshop order', async () => {
+  it.each(['default', 'confirmed'] as const)(
+    'workshop origin freezes %s branding before invoice effects',
+    async (profileMode) => {
+    const hasConfirmedProfile = profileMode === 'confirmed';
     const api = request(app.getHttpServer());
 
     const orderRes = await api
@@ -161,6 +189,57 @@ describe('Workshop Invoicing (e2e)', () => {
     expect(Number(invoiceRes.body.total_gross)).toBeCloseTo(192);
 
     const invoiceId = invoiceRes.body.id;
+    const logo = hasConfirmedProfile
+      ? await createReadyDocumentBrandLogo(
+          prisma,
+          tenantId,
+          legalEntityId,
+          `workshop-${profileMode}`,
+        )
+      : null;
+    let expectedProfileRevision = 0;
+    if (logo) {
+      const confirmedTheme = await confirmDocumentBrandTheme({
+        app,
+        authToken,
+        legalEntityId,
+        logoAssetId: logo.id,
+        headerText: 'Workshop profile before commitment',
+      });
+      expectedProfileRevision = confirmedTheme.body.activeRevision;
+    }
+    const invoiceSequenceBeforeDisabledCommit =
+      await prisma.invoiceSequence.findFirst({
+        where: { tenant_id: tenantId },
+        select: { current: true },
+      });
+    await withInvoiceBrandingWriterDisabled(() =>
+      api
+        .patch(`/api/invoices/${invoiceId}/issue`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(503),
+    );
+    const rejectedInvoice = await prisma.invoice.findFirstOrThrow({
+      where: { id: invoiceId },
+      select: { status: true, snapshot: true, invoice_number: true },
+    });
+    expect(rejectedInvoice).toMatchObject({
+      status: 'DRAFT',
+      snapshot: null,
+      invoice_number: null,
+    });
+    expect(
+      await prisma.workshopOrder.findFirstOrThrow({
+        where: { id: orderId },
+        select: { status: true },
+      }),
+    ).toMatchObject({ status: 'COMPLETED' });
+    expect(
+      await prisma.invoiceSequence.findFirst({
+        where: { tenant_id: tenantId },
+        select: { current: true },
+      }),
+    ).toEqual(invoiceSequenceBeforeDisabledCommit);
     const issueRes = await api
       .patch(`/api/invoices/${invoiceId}/issue`)
       .set('Authorization', `Bearer ${authToken}`)
@@ -168,6 +247,77 @@ describe('Workshop Invoicing (e2e)', () => {
 
     expect(issueRes.body.status).toBe('ISSUED');
     expect(issueRes.body.invoice_number).toMatch(/RE-\d{4}-\d{4}/);
+    for (const privateField of [
+      'snapshot',
+      'pdf_archive_bucket',
+      'pdf_archive_key',
+      'pdf_archive_generation',
+      'pdf_archive_sha256',
+      'pdf_storage_bucket',
+      'pdf_storage_key',
+    ]) {
+      expect(issueRes.body).not.toHaveProperty(privateField);
+    }
+
+    const committedInvoice = await prisma.invoice.findFirstOrThrow({
+      where: { id: invoiceId },
+      select: { snapshot: true },
+    });
+    const snapshot = committedInvoice.snapshot as {
+      schema_version: number;
+      snapshot_created_at: string;
+      template_version: string;
+      branding: {
+        schema_version: number;
+        renderer_version: string;
+        resolved_at: string;
+        profile_id: string | null;
+        profile_revision: number;
+        preset_id: string;
+        logo: { asset_id: string } | null;
+      };
+    };
+    expect(snapshot.schema_version).toBe(2);
+    expect(snapshot.template_version).toBe('invoice-brand-v1');
+    expect(snapshot.branding).toMatchObject({
+      schema_version: 1,
+      renderer_version: 'invoice-brand-v1',
+    });
+    expect(snapshot.branding.resolved_at).toBe(snapshot.snapshot_created_at);
+    expect(snapshot.branding.preset_id).toBe('standard-v1');
+    expect(snapshot.branding.logo?.asset_id ?? null).toBe(logo?.id ?? null);
+    if (hasConfirmedProfile) {
+      expect(snapshot.branding.profile_id).toEqual(expect.any(String));
+      expect(snapshot.branding.profile_revision).toBe(expectedProfileRevision);
+    } else {
+      expect(snapshot.branding.profile_id).toBeNull();
+      expect(snapshot.branding.profile_revision).toBe(0);
+    }
+
+    await exerciseFrozenInvoiceArchiveLifecycle({
+      app,
+      prisma,
+      authToken,
+      invoiceId,
+      legalEntityId,
+      logoAssetId: logo?.id ?? null,
+    });
+
+    const publicOrder = await api
+      .get(`/api/workshop/orders/${orderId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    for (const privateField of [
+      'snapshot',
+      'pdf_archive_bucket',
+      'pdf_archive_key',
+      'pdf_archive_generation',
+      'pdf_archive_sha256',
+      'pdf_storage_bucket',
+      'pdf_storage_key',
+    ]) {
+      expect(publicOrder.body.invoice).not.toHaveProperty(privateField);
+    }
 
     const lockedOrder = await prisma.workshopOrder.findFirst({
       where: { id: orderId },
@@ -179,7 +329,8 @@ describe('Workshop Invoicing (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({ notes: 'Attempt to edit after invoicing' })
       .expect(400);
-  });
+    },
+  );
 
   it('deletes a task, removes its line items, and recalculates the order status', async () => {
     const api = request(app.getHttpServer());

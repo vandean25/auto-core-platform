@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
@@ -186,28 +187,7 @@ export class DocumentBrandingUploadRecoveryService {
       )
         return null;
 
-      const [profileReference, derivedAsset] = await Promise.all([
-        tx.documentBrandProfile.findFirst({
-          where: {
-            tenant_id: asset.tenant_id,
-            legal_entity_id: asset.legal_entity_id,
-            OR: [
-              { active_logo_asset_id: asset.id },
-              { draft_logo_asset_id: asset.id },
-            ],
-          },
-          select: { id: true },
-        }),
-        tx.documentBrandAsset.findFirst({
-          where: {
-            tenant_id: asset.tenant_id,
-            legal_entity_id: asset.legal_entity_id,
-            source_asset_id: asset.id,
-          },
-          select: { id: true },
-        }),
-      ]);
-      if (profileReference || derivedAsset) return null;
+      if (await this.hasCleanupReferences(tx, asset)) return null;
 
       if (current.state !== 'DELETING') {
         const marked = await tx.documentBrandAsset.updateMany({
@@ -233,23 +213,63 @@ export class DocumentBrandingUploadRecoveryService {
     });
     if (!target) return;
 
+    const confirmedTarget = await this.prisma.$transaction(async (tx) => {
+      const entity = await tx.legalEntity.findFirst({
+        where: { tenant_id: asset.tenant_id, id: asset.legal_entity_id },
+        select: { id: true, is_active: true },
+      });
+      if (!entity) return null;
+      const entityLock = await tx.legalEntity.updateMany({
+        where: {
+          tenant_id: asset.tenant_id,
+          id: asset.legal_entity_id,
+          is_active: entity.is_active,
+        },
+        data: { is_active: entity.is_active },
+      });
+      if (entityLock.count !== 1) return null;
+
+      const current = await tx.documentBrandAsset.findFirst({
+        where: {
+          id: asset.id,
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          state: 'DELETING',
+        },
+      });
+      if (!current || (await this.hasCleanupReferences(tx, asset))) return null;
+      return {
+        bucket: current.bucket,
+        object_key: current.object_key,
+        object_generation: current.object_generation,
+        quarantine_bucket: current.quarantine_bucket,
+        quarantine_object_key: current.quarantine_object_key,
+        quarantine_object_generation: current.quarantine_object_generation,
+      };
+    });
+    if (!confirmedTarget) return;
+
     try {
-      if (target.object_key && target.bucket && target.object_generation) {
+      if (
+        confirmedTarget.object_key &&
+        confirmedTarget.bucket &&
+        confirmedTarget.object_generation
+      ) {
         await this.storage.deleteGeneration(
-          target.bucket,
-          target.object_key,
-          target.object_generation,
+          confirmedTarget.bucket,
+          confirmedTarget.object_key,
+          confirmedTarget.object_generation,
         );
       }
       if (
-        target.quarantine_bucket &&
-        target.quarantine_object_key &&
-        target.quarantine_object_generation
+        confirmedTarget.quarantine_bucket &&
+        confirmedTarget.quarantine_object_key &&
+        confirmedTarget.quarantine_object_generation
       ) {
         await this.storage.deleteGeneration(
-          target.quarantine_bucket,
-          target.quarantine_object_key,
-          target.quarantine_object_generation,
+          confirmedTarget.quarantine_bucket,
+          confirmedTarget.quarantine_object_key,
+          confirmedTarget.quarantine_object_generation,
         );
       }
       await this.prisma.documentBrandAsset.updateMany({
@@ -261,6 +281,43 @@ export class DocumentBrandingUploadRecoveryService {
         `Could not delete expired branding asset ${asset.id}: ${safeError(error)}`,
       );
     }
+  }
+
+  private async hasCleanupReferences(
+    tx: Prisma.TransactionClient,
+    asset: { id: string; tenant_id: string; legal_entity_id: string },
+  ): Promise<boolean> {
+    const [profileReference, derivedAsset, invoiceReference] =
+      await Promise.all([
+        tx.documentBrandProfile.findFirst({
+          where: {
+            tenant_id: asset.tenant_id,
+            legal_entity_id: asset.legal_entity_id,
+            OR: [
+              { active_logo_asset_id: asset.id },
+              { draft_logo_asset_id: asset.id },
+            ],
+          },
+          select: { id: true },
+        }),
+        tx.documentBrandAsset.findFirst({
+          where: {
+            tenant_id: asset.tenant_id,
+            legal_entity_id: asset.legal_entity_id,
+            source_asset_id: asset.id,
+          },
+          select: { id: true },
+        }),
+        tx.invoiceBrandAssetReference.findFirst({
+          where: {
+            tenant_id: asset.tenant_id,
+            legal_entity_id: asset.legal_entity_id,
+            asset_id: asset.id,
+          },
+          select: { id: true },
+        }),
+      ]);
+    return Boolean(profileReference || derivedAsset || invoiceReference);
   }
 }
 

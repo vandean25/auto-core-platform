@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 
@@ -142,6 +143,139 @@ describe('InvoicePdfRenderer', () => {
     expect(html).toContain('E2E GmbH');
     expect(html).toContain('Zahlungsbedingungen:');
     expect(html).not.toContain('<h1>Invoice</h1>');
+  });
+
+  it('renders invoice-brand-v1 chrome from frozen branding and exact logo bytes', async () => {
+    const page = {
+      route: jest.fn().mockResolvedValue(undefined),
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const browser = { newPage: jest.fn().mockResolvedValue(page) };
+    const browserService = {
+      getBrowser: jest.fn().mockResolvedValue(browser),
+      withTimeout: jest.fn((promise: Promise<Buffer>) => promise),
+    };
+    const renderer = new InvoicePdfRenderer(browserService as never);
+
+    await renderer.render(
+      {
+        ...createSnapshot(),
+        schema_version: 2,
+        template_version: 'invoice-brand-v1',
+        branding: {
+          schema_version: 1,
+          profile_id: 'profile-1',
+          profile_revision: 3,
+          preset_id: 'standard-v1',
+          renderer_version: 'invoice-brand-v1',
+          font_id: 'acp-sans-v1',
+          tokens: {
+            primary_color: '#334155',
+            secondary_color: '#E5E7EB',
+            header_band: 'primary',
+            footer_band: 'secondary',
+            header_text: 'Workshop & North',
+            footer_text: 'Vienna',
+          },
+          logo: {
+            asset_id: 'asset-1',
+            bucket: 'private-bucket',
+            key: 'private/logo.png',
+            generation: '17',
+            sha256: createHash('sha256')
+              .update(Buffer.from('logo'))
+              .digest('hex'),
+            mime_type: 'image/png',
+            width: 120,
+            height: 40,
+          },
+          resolved_at: '2026-04-07T12:00:00.000Z',
+        },
+      },
+      { logoPng: Buffer.from('logo') },
+    );
+
+    const pdfOptions = page.pdf.mock.calls[0][0];
+    const html = page.setContent.mock.calls[0][0] as string;
+    expect(html).toContain("font-family: 'ACP Sans'");
+    expect(html).toContain('Service');
+    expect(html).toContain('120.00');
+    expect(pdfOptions.margin).toEqual({
+      top: '32mm',
+      right: '16mm',
+      bottom: '28mm',
+      left: '16mm',
+    });
+    expect(pdfOptions.headerTemplate).toContain('Workshop &amp; North');
+    expect(pdfOptions.headerTemplate).toContain('@font-face');
+    expect(pdfOptions.footerTemplate).toContain('@font-face');
+    expect(pdfOptions.headerTemplate).toContain('data:image/png;base64,bG9nbw==');
+    expect(pdfOptions.footerTemplate).toContain('Vienna');
+  });
+
+  it('aborts external requests during branded rendering', async () => {
+    let registeredHandler:
+      | ((route: { abort: () => Promise<void> }) => Promise<void>)
+      | undefined;
+    const page = {
+      route: jest.fn(
+        async (
+          _url: RegExp,
+          handler: (route: { abort: () => Promise<void> }) => Promise<void>,
+        ) => {
+          registeredHandler = handler;
+        },
+      ),
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockResolvedValue(Buffer.from('pdf')),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const browser = { newPage: jest.fn().mockResolvedValue(page) };
+    const browserService = {
+      getBrowser: jest.fn().mockResolvedValue(browser),
+      withTimeout: jest.fn((promise: Promise<Buffer>) => promise),
+    };
+    const renderer = new InvoicePdfRenderer(browserService as never);
+
+    await renderer.render({
+      ...createSnapshot(),
+      schema_version: 2,
+      template_version: 'invoice-brand-v1',
+      branding: {
+        schema_version: 1,
+        profile_id: null,
+        profile_revision: 0,
+        preset_id: 'standard-v1',
+        renderer_version: 'invoice-brand-v1',
+        font_id: 'acp-sans-v1',
+        tokens: {
+          primary_color: '#111827',
+          secondary_color: '#E5E7EB',
+          header_band: 'none',
+          footer_band: 'none',
+          header_text: 'https://attacker.example/logo.png',
+          footer_text: '',
+        },
+        logo: null,
+        resolved_at: '2026-04-07T12:00:00.000Z',
+      },
+    });
+
+    expect(page.route).toHaveBeenCalledTimes(1);
+    expect(page.route).toHaveBeenCalledWith(
+      /^https?:\/\//,
+      expect.any(Function),
+    );
+    expect(page.route.mock.invocationCallOrder[0]).toBeLessThan(
+      page.setContent.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+
+    const abort = jest.fn().mockResolvedValue(undefined);
+    await registeredHandler?.({ abort });
+
+    expect(abort).toHaveBeenCalledTimes(1);
   });
 
   it('renders VAT rate buckets for v2 standard snapshots', async () => {

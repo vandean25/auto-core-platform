@@ -13,6 +13,13 @@ import {
 } from './tenant-test-utils.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import {
+  confirmDocumentBrandTheme,
+  createReadyDocumentBrandLogo,
+  exerciseFrozenInvoiceArchiveLifecycle,
+  installFakeInvoiceArchiveStorage,
+  withInvoiceBrandingWriterDisabled,
+} from './invoice-branding-archive-test-utils.js';
 
 function vin(tag: string) {
   return `WVW${tag
@@ -33,6 +40,8 @@ describe('Vehicle stock trading (e2e)', () => {
   let vendorId: string;
   let sellerCustomerId: string;
   let buyerId: string;
+  let legalEntityId: string;
+  let archiveReadKeys: string[];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -43,6 +52,7 @@ describe('Vehicle stock trading (e2e)', () => {
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
+    archiveReadKeys = installFakeInvoiceArchiveStorage(app).readKeys;
 
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'vehicle-stock');
@@ -90,10 +100,22 @@ describe('Vehicle stock trading (e2e)', () => {
     await seedReadySellerAndAccountingProfile(prisma, tenantId, {
       includeVehicleMargin: true,
     });
+    legalEntityId = (
+      await prisma.legalEntity.findFirstOrThrow({
+        where: { tenant_id: tenantId },
+        select: { id: true },
+      })
+    ).id;
   });
 
   afterAll(async () => {
     if (tenantId) {
+      await basePrisma.$executeRawUnsafe(
+        'DELETE FROM "invoice_brand_asset_references" WHERE "tenant_id" = $1',
+        tenantId,
+      );
+      await prisma.documentBrandProfile.deleteMany();
+      await prisma.documentBrandAsset.deleteMany();
       await cleanupTestTenantGraph(basePrisma, tenantId);
     }
     if (otherTenantId) {
@@ -364,9 +386,12 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(invoices).toBe(0);
   });
 
-  it('finalizes a margin sale and transfers the VIN to the buyer', async () => {
+  it.each(['default', 'confirmed'] as const)(
+    'vehicle-sale origin freezes %s branding before invoice effects',
+    async (profileMode) => {
+    const hasConfirmedProfile = profileMode === 'confirmed';
     const { received } = await createAndReceive({
-      vin: vin('SALE01'),
+      vin: vin(hasConfirmedProfile ? 'SALE02' : 'SALE01'),
       sellerType: 'VENDOR',
       price: 10000,
     });
@@ -388,6 +413,55 @@ describe('Vehicle stock trading (e2e)', () => {
       .expect(200);
     expect(Number(preview.body.margin_vat_preview)).toBe(333.33);
 
+    const logo = hasConfirmedProfile
+      ? await createReadyDocumentBrandLogo(
+          prisma,
+          tenantId,
+          legalEntityId,
+          `vehicle-sale-${profileMode}`,
+        )
+      : null;
+    let expectedProfileRevision = 0;
+    if (logo) {
+      const confirmedTheme = await confirmDocumentBrandTheme({
+        app,
+        authToken,
+        legalEntityId,
+        logoAssetId: logo.id,
+        headerText: 'Vehicle sale profile before commitment',
+      });
+      expectedProfileRevision = confirmedTheme.body.activeRevision;
+    }
+
+    const invoiceSequenceBeforeDisabledCommit =
+      await prisma.invoiceSequence.findFirst({
+        where: { tenant_id: tenantId },
+        select: { current: true },
+      });
+    await withInvoiceBrandingWriterDisabled(() =>
+      request(app.getHttpServer())
+        .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(503),
+    );
+    const rejectedSale = await prisma.vehicleSale.findFirstOrThrow({
+      where: { id: saleRes.body.id },
+      select: { status: true, invoice: { select: { id: true } } },
+    });
+    const unreleasedVehicle = await prisma.vehicle.findFirstOrThrow({
+      where: { id: vehicleId },
+      select: { stock_status: true, customer_id: true },
+    });
+    expect(rejectedSale).toMatchObject({ status: 'DRAFT', invoice: null });
+    expect(unreleasedVehicle.stock_status).toBe('IN_STOCK');
+    expect(unreleasedVehicle.customer_id).toBeNull();
+    expect(
+      await prisma.invoiceSequence.findFirst({
+        where: { tenant_id: tenantId },
+        select: { current: true },
+      }),
+    ).toEqual(invoiceSequenceBeforeDisabledCommit);
+
     const finalized = await request(app.getHttpServer())
       .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
       .set('Authorization', `Bearer ${authToken}`)
@@ -396,8 +470,114 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(finalized.body.invoice.tax_mode).toBe('MARGIN_SCHEME');
     expect(Number(finalized.body.invoice.total_tax)).toBe(333.33);
     expect(Number(finalized.body.invoice.total_gross)).toBe(12000);
-    expect(finalized.body.invoice.snapshot?.schema_version).toBe(2);
-    expect(finalized.body.invoice.snapshot?.margin).toBeTruthy();
+    for (const privateField of [
+      'snapshot',
+      'pdf_archive_bucket',
+      'pdf_archive_key',
+      'pdf_archive_generation',
+      'pdf_archive_sha256',
+      'pdf_storage_bucket',
+      'pdf_storage_key',
+    ]) {
+      expect(finalized.body.invoice).not.toHaveProperty(privateField);
+    }
+    const committedInvoice = await prisma.invoice.findFirstOrThrow({
+      where: { id: finalized.body.invoice.id },
+      select: { snapshot: true },
+    });
+    const snapshot = committedInvoice.snapshot as {
+      schema_version: number;
+      snapshot_created_at: string;
+      template_version: string;
+      margin?: unknown;
+      branding: {
+        schema_version: number;
+        renderer_version: string;
+        resolved_at: string;
+        profile_id: string | null;
+        profile_revision: number;
+        preset_id: string;
+        logo: { asset_id: string } | null;
+      };
+    };
+    expect(snapshot.schema_version).toBe(2);
+    expect(snapshot.template_version).toBe('invoice-brand-v1');
+    expect(snapshot.margin).toBeTruthy();
+    expect(snapshot.branding).toMatchObject({
+      schema_version: 1,
+      renderer_version: 'invoice-brand-v1',
+    });
+    expect(snapshot.branding.resolved_at).toBe(snapshot.snapshot_created_at);
+    expect(snapshot.branding.preset_id).toBe('standard-v1');
+    expect(snapshot.branding.logo?.asset_id ?? null).toBe(logo?.id ?? null);
+    if (hasConfirmedProfile) {
+      expect(snapshot.branding.profile_id).toEqual(expect.any(String));
+      expect(snapshot.branding.profile_revision).toBe(expectedProfileRevision);
+    } else {
+      expect(snapshot.branding.profile_id).toBeNull();
+      expect(snapshot.branding.profile_revision).toBe(0);
+    }
+
+    await exerciseFrozenInvoiceArchiveLifecycle({
+      app,
+      prisma,
+      authToken,
+      invoiceId: finalized.body.invoice.id,
+      legalEntityId,
+      logoAssetId: logo?.id ?? null,
+    });
+
+    const publicSale = await request(app.getHttpServer())
+      .get(`/api/vehicle-sales/${saleRes.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    for (const privateField of [
+      'snapshot',
+      'pdf_archive_bucket',
+      'pdf_archive_key',
+      'pdf_archive_generation',
+      'pdf_archive_sha256',
+      'pdf_storage_bucket',
+      'pdf_storage_key',
+    ]) {
+      expect(publicSale.body.invoice).not.toHaveProperty(privateField);
+    }
+
+    const committedSiteId = (
+      await prisma.invoice.findFirstOrThrow({
+        where: { id: finalized.body.invoice.id },
+        select: { site_id: true },
+      })
+    ).site_id;
+    const inaccessibleSite = await createAdditionalLotSite({
+      code: `PDF-HIDDEN-${Date.now()}`,
+      grantMembership: true,
+    });
+    await prisma.siteMembership.updateMany({
+      where: { site_id: committedSiteId },
+      data: { is_active: false },
+    });
+    const user = await basePrisma.user.findFirstOrThrow({
+      where: { firebaseUid: `e2e-user-${tenantId}` },
+    });
+    await basePrisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: inaccessibleSite.site.id },
+    });
+    const readCountBeforeDeniedRequest = archiveReadKeys.length;
+    await request(app.getHttpServer())
+      .get(`/api/invoices/${finalized.body.invoice.id}/pdf`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
+    expect(archiveReadKeys).toHaveLength(readCountBeforeDeniedRequest);
+    await prisma.siteMembership.updateMany({
+      where: { site_id: committedSiteId },
+      data: { is_active: true },
+    });
+    await basePrisma.user.update({
+      where: { id: user.id },
+      data: { active_site_id: committedSiteId },
+    });
 
     const vehicle = await prisma.vehicle.findFirst({
       where: { id: vehicleId },
@@ -410,7 +590,8 @@ describe('Vehicle stock trading (e2e)', () => {
       where: { vehicle_id: vehicleId, entry_type: 'SALE' },
     });
     expect(Number(saleLedger?.amount)).toBe(-12000);
-  });
+    },
+  );
 
   it('charges zero margin VAT when sale price is below cost', async () => {
     const { received } = await createAndReceive({

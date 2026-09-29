@@ -13,7 +13,36 @@ import type { ResolvedAccountingAllocation } from '../finance/accounting-profile
 
 export const INVOICE_SNAPSHOT_SCHEMA_VERSION = 2;
 export const INVOICE_SNAPSHOT_TEMPLATE_VERSION = 'invoice-pdf-v1';
+export const INVOICE_BRANDED_TEMPLATE_VERSION = 'invoice-brand-v1';
 export const INVOICE_SNAPSHOT_COUNTRY_PROFILE_VERSION = 'legal-invoicing-v1';
+
+export type InvoiceSnapshotV2Branding = {
+  schema_version: 1;
+  profile_id: string | null;
+  profile_revision: number;
+  preset_id: 'standard-v1';
+  renderer_version: typeof INVOICE_BRANDED_TEMPLATE_VERSION;
+  font_id: 'acp-sans-v1';
+  tokens: {
+    primary_color: string;
+    secondary_color: string;
+    header_band: 'none' | 'primary' | 'secondary';
+    footer_band: 'none' | 'primary' | 'secondary';
+    header_text: string;
+    footer_text: string;
+  };
+  logo: null | {
+    asset_id: string;
+    bucket: string;
+    key: string;
+    generation: string;
+    sha256: string;
+    mime_type: 'image/png';
+    width: number;
+    height: number;
+  };
+  resolved_at: string;
+};
 
 export type InvoiceSnapshotV2Seller = {
   name: string;
@@ -104,6 +133,7 @@ export type InvoiceSnapshotV2 = {
   items: InvoiceSnapshotV2Item[];
   tax_breakdown: InvoiceSnapshotV2TaxBucket[];
   margin?: InvoiceSnapshotV2Margin;
+  branding?: InvoiceSnapshotV2Branding;
   total_net: string;
   total_tax: string;
   total_gross: string;
@@ -137,6 +167,7 @@ type BuildInvoiceSnapshotV2Input = {
   legalEntityId: string;
   lineAllocations: LineAllocationInput[];
   margin?: InvoiceSnapshotV2Margin;
+  branding?: InvoiceSnapshotV2Branding;
   committedAt?: Date;
 };
 
@@ -303,8 +334,15 @@ export function buildSellerSnapshot(
 export function buildInvoiceSnapshotV2(
   input: BuildInvoiceSnapshotV2Input,
 ): InvoiceSnapshotV2 {
-  const { invoice, seller, siteId, legalEntityId, lineAllocations, margin } =
-    input;
+  const {
+    invoice,
+    seller,
+    siteId,
+    legalEntityId,
+    lineAllocations,
+    margin,
+    branding,
+  } = input;
   const committedAt = input.committedAt ?? new Date();
   const netByLine = allocateGlobalDiscount(
     lineAllocations,
@@ -383,7 +421,9 @@ export function buildInvoiceSnapshotV2(
   return {
     schema_version: INVOICE_SNAPSHOT_SCHEMA_VERSION,
     document_kind: 'INVOICE',
-    template_version: INVOICE_SNAPSHOT_TEMPLATE_VERSION,
+    template_version: branding
+      ? INVOICE_BRANDED_TEMPLATE_VERSION
+      : INVOICE_SNAPSHOT_TEMPLATE_VERSION,
     country_profile_version: INVOICE_SNAPSHOT_COUNTRY_PROFILE_VERSION,
     site_id: siteId,
     legal_entity_id: legalEntityId,
@@ -438,5 +478,6 @@ export function buildInvoiceSnapshotV2(
     notes: invoice.notes ?? null,
     tax_mode: invoice.tax_mode,
     snapshot_created_at: committedAt.toISOString(),
+    ...(branding ? { branding } : {}),
   };
 }

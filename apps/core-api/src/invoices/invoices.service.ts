@@ -27,6 +27,7 @@ import {
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
 import { assertPersistedSiteId } from '../site/document-retarget.helpers.js';
+import { omitInvoiceSnapshot } from './invoice-response.mapper.js';
 
 const DEFAULT_VAT_RATE = new Prisma.Decimal(process.env.DEFAULT_VAT_RATE ?? 20);
 const DEFAULT_DUE_DAYS = 14;
@@ -217,12 +218,12 @@ export class InvoicesService {
             workshop_order: true,
           },
         });
-        return {
+        return omitInvoiceSnapshot({
           ...invoice,
           vehicle: invoice.vehicle
             ? stripVehicleIdentityResolutionState(invoice.vehicle)
             : invoice.vehicle,
-        };
+        });
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -320,12 +321,12 @@ export class InvoicesService {
         throw new NotFoundException('Invoice not found');
       }
 
-      return {
+      return omitInvoiceSnapshot({
         ...updated,
         vehicle: updated.vehicle
           ? stripVehicleIdentityResolutionState(updated.vehicle)
           : updated.vehicle,
-      };
+      });
     });
   }
 

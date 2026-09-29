@@ -34,6 +34,8 @@ export function toRenderableInvoiceSnapshot(
     })),
     snapshot_created_at: snapshot.snapshot_created_at,
     schema_version: 2,
+    template_version: snapshot.template_version,
+    ...(snapshot.branding ? { branding: snapshot.branding } : {}),
     seller: snapshot.seller,
     supply_date_from: snapshot.supply_date_from,
     supply_date_to: snapshot.supply_date_to,

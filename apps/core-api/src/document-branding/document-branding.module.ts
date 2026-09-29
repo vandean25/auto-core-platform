@@ -28,6 +28,10 @@ import { DocumentBrandingUploadRecoveryService } from './document-branding-uploa
     DocumentBrandingPdfParser,
     DocumentBrandingUploadRecoveryService,
   ],
-  exports: [DocumentBrandingService, DocumentBrandingUploadService],
+  exports: [
+    DocumentBrandingService,
+    DocumentBrandingUploadService,
+    DocumentBrandingAssetStorage,
+  ],
 })
 export class DocumentBrandingModule {}

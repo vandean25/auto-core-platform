@@ -1,4 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
@@ -6,6 +14,7 @@ import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import {
   buildInvoiceFooterTemplate,
   buildInvoiceHtmlDocument,
+  buildBrandedInvoiceHeaderTemplate,
   isDachRechnungSnapshot,
   type FormatDate,
 } from './invoice-pdf.layout.js';
@@ -13,10 +22,26 @@ import {
 @Injectable()
 export class InvoicePdfRenderer {
   private readonly logger = new Logger(InvoicePdfRenderer.name);
+  private readonly assetDirectory = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../document-branding/assets',
+  );
 
   constructor(private readonly browserService: PlaywrightBrowserService) {}
 
-  async render(snapshot: InvoiceSnapshot): Promise<Buffer> {
+  async render(
+    snapshot: InvoiceSnapshot,
+    assets: { logoPng?: Buffer } = {},
+  ): Promise<Buffer> {
+    const branded = snapshot.template_version === 'invoice-brand-v1';
+    if (branded && !snapshot.branding) {
+      throw this.renderInputUnavailable();
+    }
+    const fontFaceCss = branded ? await this.loadBundledFontCss() : '';
+    const logoDataUrl = branded
+      ? this.resolveLogoDataUrl(snapshot, assets.logoPng)
+      : null;
+
     return Sentry.startSpan(
       { name: 'Render PDF', op: 'pdf.render' },
       async () => {
@@ -25,6 +50,10 @@ export class InvoicePdfRenderer {
         const page = await browser.newPage();
 
         try {
+          if (branded) {
+            await page.route(/^https?:\/\//, (route) => route.abort());
+          }
+
           const formatDate: FormatDate = (value) =>
             this.formatDateValue(value, isDachRechnungSnapshot(snapshot));
           const html = buildInvoiceHtmlDocument(
@@ -32,6 +61,10 @@ export class InvoicePdfRenderer {
             invoiceNumber,
             escapeHtml,
             formatDate,
+            {
+              branded,
+              fontFaceCss,
+            },
           );
           await page.setContent(html, { timeout: 10_000 });
 
@@ -41,18 +74,33 @@ export class InvoicePdfRenderer {
               this.browserService.withTimeout(
                 page.pdf({
                   format: 'A4',
-                  margin: {
-                    top: '50px',
-                    right: '50px',
-                    bottom: '70px',
-                    left: '50px',
-                  },
+                  margin: branded
+                    ? {
+                        top: '32mm',
+                        right: '16mm',
+                        bottom: '28mm',
+                        left: '16mm',
+                      }
+                    : {
+                        top: '50px',
+                        right: '50px',
+                        bottom: '70px',
+                        left: '50px',
+                      },
                   displayHeaderFooter: true,
-                  headerTemplate: '<div></div>',
+                  headerTemplate: branded
+                    ? buildBrandedInvoiceHeaderTemplate(
+                        snapshot,
+                        logoDataUrl,
+                        escapeHtml,
+                        fontFaceCss,
+                      )
+                    : '<div></div>',
                   footerTemplate: buildInvoiceFooterTemplate(
                     invoiceNumber,
                     escapeHtml,
                     snapshot,
+                    fontFaceCss,
                   ),
                   printBackground: true,
                 }),
@@ -75,6 +123,71 @@ export class InvoicePdfRenderer {
         }
       },
     );
+  }
+
+  private resolveLogoDataUrl(
+    snapshot: InvoiceSnapshot,
+    logoPng: Buffer | undefined,
+  ): string | null {
+    const logo = snapshot.branding?.logo;
+    if (!logo) return null;
+    if (
+      !logoPng ||
+      createHash('sha256').update(logoPng).digest('hex') !== logo.sha256
+    ) {
+      throw this.renderInputUnavailable();
+    }
+    return `data:image/png;base64,${logoPng.toString('base64')}`;
+  }
+
+  private async loadBundledFontCss(): Promise<string> {
+    try {
+      const fontNames = [
+        'NotoSans-Regular.woff2',
+        'NotoSans-Bold.woff2',
+        'NotoSans-LatinExt-Regular.woff2',
+        'NotoSans-LatinExt-Bold.woff2',
+      ];
+      const [fontFiles, manifestFile] = await Promise.all([
+        Promise.all(
+          fontNames.map((fontName) =>
+            readFile(resolve(this.assetDirectory, fontName)),
+          ),
+        ),
+        readFile(resolve(this.assetDirectory, 'font-manifest.json')),
+      ]);
+      const manifest = JSON.parse(manifestFile.toString('utf8')) as {
+        files?: Record<string, string>;
+      };
+      if (
+        !manifest.files ||
+        fontFiles.some(
+          (font, index) =>
+            manifest.files?.[fontNames[index] ?? ''] !==
+            `sha256:${createHash('sha256').update(font).digest('hex')}`,
+        )
+      ) {
+        throw this.renderInputUnavailable();
+      }
+      const [regular, bold, regularExtended, boldExtended] = fontFiles.map(
+        (font) => `data:font/woff2;base64,${font.toString('base64')}`,
+      );
+      return `
+        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 400; src: url('${regular}') format('woff2'); }
+        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 700; src: url('${bold}') format('woff2'); }
+        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 400; src: url('${regularExtended}') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
+        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 700; src: url('${boldExtended}') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
+      `;
+    } catch {
+      throw this.renderInputUnavailable();
+    }
+  }
+
+  private renderInputUnavailable(): UnprocessableEntityException {
+    return new UnprocessableEntityException({
+      code: 'BRAND_RENDER_INPUT_UNAVAILABLE',
+      message: 'Frozen branding render inputs are unavailable.',
+    });
   }
 
   private formatDateValue(value: string | Date, useGermanLocale: boolean) {

@@ -1,4 +1,7 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -86,6 +89,34 @@ export function assertPersistedSiteId(
     throw new UnprocessableEntityException(message);
   }
   return siteId;
+}
+
+export async function lockLegalEntityAndAssertActive(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  legalEntityId: string,
+): Promise<void> {
+  const lockResult = await tx.legalEntity.updateMany({
+    where: {
+      id: legalEntityId,
+      tenant_id: tenantId,
+      is_active: true,
+    },
+    data: { is_active: true },
+  });
+  if (lockResult.count > 0) return;
+
+  const entity = await tx.legalEntity.findFirst({
+    where: { id: legalEntityId, tenant_id: tenantId },
+    select: { id: true },
+  });
+  if (entity) {
+    throw new UnprocessableEntityException({
+      code: 'LEGAL_ENTITY_INACTIVE',
+      message: 'The legal entity is inactive.',
+    });
+  }
+  throw new NotFoundException('Legal entity not found');
 }
 
 export async function lockSitesAndAssertActive(

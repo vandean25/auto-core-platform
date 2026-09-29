@@ -116,6 +116,12 @@ describe('DocumentBrandingService', () => {
         revision: 0,
       },
     });
+    expect(tx.legalEntity.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.documentBrandProfile.findFirst.mock.invocationCallOrder[0],
+    );
+    expect(
+      tx.documentBrandProfile.findFirst.mock.invocationCallOrder[0],
+    ).toBeLessThan(tx.documentBrandProfile.create.mock.invocationCallOrder[0]);
     expect(tx.documentBrandProfile.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ revision: 0 }),
@@ -257,4 +263,33 @@ describe('DocumentBrandingService', () => {
     });
     expect(tx.documentBrandProfile.updateMany).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['confirm', () => service.confirm(legalEntityId, 1, 'confirm-lock')],
+    ['reset', () => service.reset(legalEntityId, 1, 'reset-lock')],
+  ])(
+    'locks the legal entity before profile %s reads and writes',
+    async (_, action) => {
+      tx.documentBrandProfile.findFirst.mockResolvedValue({
+        ...baseProfile,
+        revision: 1,
+        draft_theme: DEFAULT_DOCUMENT_BRAND_THEME,
+      });
+      tx.documentBrandProfile.findFirstOrThrow.mockResolvedValue({
+        ...baseProfile,
+        revision: 2,
+      });
+
+      await action();
+
+      expect(
+        tx.legalEntity.updateMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(tx.documentBrandProfile.findFirst.mock.invocationCallOrder[0]);
+      expect(
+        tx.documentBrandProfile.findFirst.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        tx.documentBrandProfile.updateMany.mock.invocationCallOrder[0],
+      );
+    },
+  );
 });

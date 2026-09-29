@@ -81,10 +81,13 @@ describe('DocumentBrandingUploadRecoveryService', () => {
       quarantine_object_key: 'quarantine/asset-1',
       quarantine_object_generation: '123',
     };
-    const txAssetFindFirst = jest
-      .fn()
-      .mockResolvedValueOnce(current)
-      .mockResolvedValueOnce(null);
+    const txAssetFindFirst = jest.fn(({ where }) => {
+      if (where.source_asset_id) return Promise.resolve(null);
+      if (where.state === 'DELETING') {
+        return Promise.resolve({ ...current, state: 'DELETING' });
+      }
+      return Promise.resolve(current);
+    });
     const txUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
     (prisma.$transaction as jest.Mock).mockImplementation(async (callback) =>
       callback({
@@ -99,6 +102,9 @@ describe('DocumentBrandingUploadRecoveryService', () => {
           updateMany: txUpdateMany,
         },
         documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
+        invoiceBrandAssetReference: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
       }),
     );
 
@@ -151,10 +157,163 @@ describe('DocumentBrandingUploadRecoveryService', () => {
         documentBrandProfile: {
           findFirst: jest.fn().mockResolvedValue({ id: 'profile-1' }),
         },
+        invoiceBrandAssetReference: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
       }),
     );
     await service.recoverAndClean();
     expect(storage.deleteGeneration).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      state: 'REJECTED',
+      description: 'transitioning an expired asset to DELETING',
+    },
+    {
+      state: 'DELETING',
+      description: 'deleting an already-DELETING asset on retry',
+    },
+  ])(
+    'committed invoice reference prevents cleanup from $description',
+    async ({ state }) => {
+      (prisma.documentBrandAsset.findMany as jest.Mock)
+        .mockReset()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          {
+            id: 'asset-1',
+            tenant_id: 'tenant-1',
+            legal_entity_id: 'entity-1',
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      const current = {
+        id: 'asset-1',
+        tenant_id: 'tenant-1',
+        legal_entity_id: 'entity-1',
+        state,
+        expires_at: new Date(Date.now() - 1_000),
+        bucket: 'branding',
+        object_key: 'logo/asset-1.png',
+        object_generation: '9',
+        quarantine_bucket: null,
+        quarantine_object_key: null,
+        quarantine_object_generation: null,
+      };
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (prisma.$transaction as jest.Mock).mockImplementation(async (callback) =>
+        callback({
+          legalEntity: {
+            findFirst: jest
+              .fn()
+              .mockResolvedValue({ id: 'entity-1', is_active: true }),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+          documentBrandAsset: {
+            findFirst: jest
+              .fn()
+              .mockResolvedValueOnce(current)
+              .mockResolvedValueOnce(null),
+            updateMany,
+          },
+          documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
+          invoiceBrandAssetReference: {
+            findFirst: jest.fn().mockResolvedValue({ id: 'reference-1' }),
+          },
+        }),
+      );
+
+      await service.recoverAndClean();
+
+      expect(updateMany).not.toHaveBeenCalled();
+      expect(storage.deleteGeneration).not.toHaveBeenCalled();
+    },
+  );
+
+  it('rechecks committed invoice references under the entity lock before generation deletion', async () => {
+    (prisma.documentBrandAsset.findMany as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'asset-1',
+          tenant_id: 'tenant-1',
+          legal_entity_id: 'entity-1',
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    const current = {
+      id: 'asset-1',
+      tenant_id: 'tenant-1',
+      legal_entity_id: 'entity-1',
+      state: 'REJECTED',
+      expires_at: new Date(Date.now() - 1_000),
+      bucket: 'branding',
+      object_key: 'logo/asset-1.png',
+      object_generation: '9',
+      quarantine_bucket: null,
+      quarantine_object_key: null,
+      quarantine_object_generation: null,
+    };
+    const invoiceReferenceFindFirst = jest
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'reference-created-after-transition' });
+    const lockOrder: string[] = [];
+    const markDeleting = jest.fn().mockImplementation(async () => {
+      lockOrder.push('mark-deleting');
+      current.state = 'DELETING';
+      return { count: 1 };
+    });
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) =>
+      callback({
+        legalEntity: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ id: 'entity-1', is_active: true }),
+          updateMany: jest.fn().mockImplementation(async () => {
+            lockOrder.push('entity-lock');
+            return { count: 1 };
+          }),
+        },
+        documentBrandAsset: {
+          findFirst: jest.fn(({ where }) => {
+            lockOrder.push('asset-read');
+            if (where.source_asset_id) return Promise.resolve(null);
+            if (where.state === 'DELETING') {
+              return Promise.resolve({ ...current, state: 'DELETING' });
+            }
+            return Promise.resolve(current);
+          }),
+          updateMany: markDeleting,
+        },
+        documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
+        invoiceBrandAssetReference: {
+          findFirst: jest.fn(async (...args) => {
+            lockOrder.push('invoice-reference-check');
+            return invoiceReferenceFindFirst(...args);
+          }),
+        },
+      }),
+    );
+
+    await service.recoverAndClean();
+
+    expect(invoiceReferenceFindFirst).toHaveBeenCalledTimes(2);
+    expect(storage.deleteGeneration).not.toHaveBeenCalled();
+    expect(lockOrder).toEqual([
+      'entity-lock',
+      'asset-read',
+      'asset-read',
+      'invoice-reference-check',
+      'mark-deleting',
+      'entity-lock',
+      'asset-read',
+      'asset-read',
+      'invoice-reference-check',
+    ]);
   });
 
   it('removes only a published asset quarantine copy after immutable publication', async () => {
