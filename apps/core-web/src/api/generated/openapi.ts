@@ -3149,6 +3149,24 @@ export interface components {
             headerText: string;
             footerText: string;
         };
+        DocumentBrandAssetResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            purpose: "SOURCE" | "LOGO";
+            /** @enum {string} */
+            state: "QUARANTINED" | "READY" | "REJECTED" | "DELETING" | "DELETED";
+            detectedMimeType: string | null;
+            byteLength: number;
+            pixelWidth: number | null;
+            pixelHeight: number | null;
+            failureCode: string | null;
+            originalFilename: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string | null;
+        };
         DocumentBrandProfileResponseDto: {
             revision: number;
             activeRevision: number;
@@ -3193,24 +3211,6 @@ export interface components {
             html: string;
             warnings: string[];
             themeHash: string;
-        };
-        DocumentBrandAssetResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            purpose: "SOURCE" | "LOGO";
-            /** @enum {string} */
-            state: "QUARANTINED" | "READY" | "REJECTED" | "DELETING" | "DELETED";
-            detectedMimeType: string | null;
-            byteLength: number;
-            pixelWidth: number | null;
-            pixelHeight: number | null;
-            failureCode: string | null;
-            originalFilename: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            expiresAt: string | null;
         };
         CreateDocumentBrandExtractionDto: {
             /** Format: uuid */

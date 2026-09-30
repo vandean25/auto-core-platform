@@ -209,6 +209,9 @@ describe("DocumentBrandingSettings", () => {
       screen.queryByText("Upload and validate a PDF or PNG letterhead first."),
     ).toBeNull();
 
+    fixtures.profile.draftSourceAssetId = null;
+    fixtures.profile.draftSourceAsset = null;
+    fixtures.sourceAssetStatus.data = null;
     rerender(
       <DocumentBrandingSettings entity={{ ...entity, id: "entity-2" }} />,
     );
