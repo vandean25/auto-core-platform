@@ -264,6 +264,14 @@ describe('Document branding persistence (e2e)', () => {
       activeRevision: 0,
       activeTheme: defaultTheme,
       draftTheme: null,
+      capabilities: {
+        theme: { decorativeTextMaxCodePoints: 120 },
+        uploads: {
+          logo: {
+            requirementLabel: 'Logo must be PNG (max 2 MiB).',
+          },
+        },
+      },
     });
 
     const draftTheme = { ...defaultTheme, headerText: 'Auto Core' };
@@ -471,5 +479,68 @@ describe('Document branding persistence (e2e)', () => {
         sample: 'AT_STANDARD',
       })
       .expect(429);
+  });
+
+  it('rejects over-limit decorative text and unsupported logo uploads with explicit errors', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+    const authToken = createTestAuthToken(authService, tenantA);
+    const baseUrl = `/api/legal-entities/${entity.id}/document-branding`;
+    const defaultTheme = {
+      schemaVersion: 1,
+      presetId: 'standard-v1',
+      logoAssetId: null,
+      primaryColor: '#111827',
+      secondaryColor: '#E5E7EB',
+      fontId: 'acp-sans-v1',
+      headerBand: 'none',
+      footerBand: 'none',
+      headerText: '',
+      footerText: '',
+    };
+
+    const tooLong = await request(app.getHttpServer())
+      .put(`${baseUrl}/draft`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedRevision: 0,
+        theme: { ...defaultTheme, footerText: 'x'.repeat(121) },
+      })
+      .expect(400);
+    expect(tooLong.body).toMatchObject({
+      code: 'BRAND_THEME_TEXT_TOO_LONG',
+      message: 'Decorative footer text must be at most 120 characters.',
+    });
+
+    await request(app.getHttpServer())
+      .put(`${baseUrl}/draft`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedRevision: 0, theme: defaultTheme })
+      .expect(200);
+
+    const conflict = await request(app.getHttpServer())
+      .put(`${baseUrl}/draft`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedRevision: 0,
+        theme: { ...defaultTheme, headerText: 'Stale tab' },
+      })
+      .expect(409);
+    expect(conflict.body).toMatchObject({
+      code: 'BRAND_REVISION_CONFLICT',
+    });
+
+    const unsupportedLogo = await request(app.getHttpServer())
+      .post(`${baseUrl}/assets`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('purpose', 'LOGO')
+      .attach('file', Buffer.from('%PDF-1.7\n%fixture'), 'letterhead.pdf')
+      .expect(415);
+    expect(unsupportedLogo.body).toMatchObject({
+      code: 'BRAND_FILE_TYPE_UNSUPPORTED',
+      message: 'Logo must be PNG (max 2 MiB).',
+    });
   });
 });

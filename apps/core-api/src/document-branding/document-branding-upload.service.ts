@@ -19,8 +19,12 @@ import {
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
 
-const MAX_LOGO_BYTES = 2 * 1024 * 1024;
-const MAX_SOURCE_BYTES = 10 * 1024 * 1024;
+import {
+  DOCUMENT_BRAND_LOGO_MAX_BYTES,
+  DOCUMENT_BRAND_SOURCE_MAX_BYTES,
+  formatLogoUploadRequirement,
+  formatSourceUploadRequirement,
+} from './document-branding-limits.js';
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
 @Injectable()
@@ -292,7 +296,10 @@ export class DocumentBrandingUploadService {
     if (!file?.buffer?.length) {
       throw new BadRequestException('A file upload is required.');
     }
-    const limit = purpose === 'LOGO' ? MAX_LOGO_BYTES : MAX_SOURCE_BYTES;
+    const limit =
+      purpose === 'LOGO'
+        ? DOCUMENT_BRAND_LOGO_MAX_BYTES
+        : DOCUMENT_BRAND_SOURCE_MAX_BYTES;
     if (file.size > limit || file.buffer.byteLength > limit) {
       throw new PayloadTooLargeException({
         code: 'BRAND_UPLOAD_TOO_LARGE',
@@ -309,7 +316,7 @@ export class DocumentBrandingUploadService {
     if (purpose === 'LOGO' && detectedMimeType !== 'image/png') {
       throw new UnsupportedMediaTypeException({
         code: 'BRAND_FILE_TYPE_UNSUPPORTED',
-        message: 'Logo assets must be PNG images.',
+        message: formatLogoUploadRequirement(),
       });
     }
     if (
@@ -319,7 +326,7 @@ export class DocumentBrandingUploadService {
     ) {
       throw new UnsupportedMediaTypeException({
         code: 'BRAND_FILE_TYPE_UNSUPPORTED',
-        message: 'Source assets must be PDF or PNG files.',
+        message: formatSourceUploadRequirement(),
       });
     }
   }

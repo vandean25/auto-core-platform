@@ -10499,6 +10499,79 @@
           "footerText"
         ]
       },
+      "DocumentBrandThemeCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "decorativeTextMaxCodePoints": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "decorativeTextMaxCodePoints"
+        ]
+      },
+      "DocumentBrandUploadConstraintsDto": {
+        "type": "object",
+        "properties": {
+          "maxBytes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mimeTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accept": {
+            "type": "string"
+          },
+          "requirementLabel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "maxBytes",
+          "mimeTypes",
+          "accept",
+          "requirementLabel"
+        ]
+      },
+      "DocumentBrandUploadCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "logo": {
+            "$ref": "#/components/schemas/DocumentBrandUploadConstraintsDto"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DocumentBrandUploadConstraintsDto"
+          }
+        },
+        "required": [
+          "logo",
+          "source"
+        ]
+      },
+      "DocumentBrandProfileCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "extractionAvailable": {
+            "type": "boolean"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/DocumentBrandThemeCapabilitiesDto"
+          },
+          "uploads": {
+            "$ref": "#/components/schemas/DocumentBrandUploadCapabilitiesDto"
+          }
+        },
+        "required": [
+          "extractionAvailable",
+          "theme",
+          "uploads"
+        ]
+      },
       "DocumentBrandAssetResponseDto": {
         "type": "object",
         "properties": {
@@ -10610,13 +10683,7 @@
             "nullable": true
           },
           "capabilities": {
-            "type": "object",
-            "properties": {
-              "extractionAvailable": {
-                "type": "boolean",
-                "example": false
-              }
-            }
+            "$ref": "#/components/schemas/DocumentBrandProfileCapabilitiesDto"
           },
           "draftSourceAssetId": {
             "type": "string",

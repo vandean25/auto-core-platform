@@ -3166,6 +3166,24 @@ export interface components {
             headerText: string;
             footerText: string;
         };
+        DocumentBrandThemeCapabilitiesDto: {
+            decorativeTextMaxCodePoints: number;
+        };
+        DocumentBrandUploadConstraintsDto: {
+            maxBytes: number;
+            mimeTypes: string[];
+            accept: string;
+            requirementLabel: string;
+        };
+        DocumentBrandUploadCapabilitiesDto: {
+            logo: components["schemas"]["DocumentBrandUploadConstraintsDto"];
+            source: components["schemas"]["DocumentBrandUploadConstraintsDto"];
+        };
+        DocumentBrandProfileCapabilitiesDto: {
+            extractionAvailable: boolean;
+            theme: components["schemas"]["DocumentBrandThemeCapabilitiesDto"];
+            uploads: components["schemas"]["DocumentBrandUploadCapabilitiesDto"];
+        };
         DocumentBrandAssetResponseDto: {
             /** Format: uuid */
             id: string;
@@ -3194,10 +3212,7 @@ export interface components {
             confirmedAt: string | null;
             /** Format: uuid */
             confirmedByUserId: string | null;
-            capabilities: {
-                /** @example false */
-                extractionAvailable?: boolean;
-            };
+            capabilities: components["schemas"]["DocumentBrandProfileCapabilitiesDto"];
             /** Format: uuid */
             draftSourceAssetId: string | null;
             draftSourceAsset: components["schemas"]["DocumentBrandAssetResponseDto"] | null;

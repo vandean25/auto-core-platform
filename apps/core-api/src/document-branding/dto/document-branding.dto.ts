@@ -1,11 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsObject,
   IsOptional,
+  IsString,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 export class SaveDocumentBrandDraftDto {
@@ -126,6 +131,92 @@ export class DocumentBrandExtractionResponseDto {
   failureCode!: string | null;
 }
 
+export class DocumentBrandUploadConstraintsDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  maxBytes!: number;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  mimeTypes!: string[];
+
+  @ApiProperty()
+  @IsString()
+  accept!: string;
+
+  @ApiProperty()
+  @IsString()
+  requirementLabel!: string;
+}
+
+export class DocumentBrandThemeCapabilitiesDto {
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  decorativeTextMaxCodePoints!: number;
+}
+
+export class DocumentBrandUploadCapabilitiesDto {
+  @ApiProperty({ type: DocumentBrandUploadConstraintsDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandUploadConstraintsDto)
+  logo!: DocumentBrandUploadConstraintsDto;
+
+  @ApiProperty({ type: DocumentBrandUploadConstraintsDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandUploadConstraintsDto)
+  source!: DocumentBrandUploadConstraintsDto;
+}
+
+export class DocumentBrandProfileCapabilitiesDto {
+  @ApiProperty()
+  @IsBoolean()
+  extractionAvailable!: boolean;
+
+  @ApiProperty({ type: DocumentBrandThemeCapabilitiesDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandThemeCapabilitiesDto)
+  theme!: DocumentBrandThemeCapabilitiesDto;
+
+  @ApiProperty({ type: DocumentBrandUploadCapabilitiesDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandUploadCapabilitiesDto)
+  uploads!: DocumentBrandUploadCapabilitiesDto;
+}
+
+export class DocumentBrandProfileResponseDto {
+  @ApiProperty({ minimum: 0 })
+  revision!: number;
+
+  @ApiProperty({ minimum: 0 })
+  activeRevision!: number;
+
+  @ApiProperty({ type: DocumentBrandThemeResponseDto })
+  activeTheme!: DocumentBrandThemeResponseDto;
+
+  @ApiProperty({ type: DocumentBrandThemeResponseDto, nullable: true })
+  draftTheme!: DocumentBrandThemeResponseDto | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  confirmedAt!: Date | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  confirmedByUserId!: string | null;
+
+  @ApiProperty({ type: DocumentBrandProfileCapabilitiesDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandProfileCapabilitiesDto)
+  capabilities!: DocumentBrandProfileCapabilitiesDto;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  draftSourceAssetId!: string | null;
+
+  @ApiProperty({ type: () => DocumentBrandAssetResponseDto, nullable: true })
+  draftSourceAsset!: DocumentBrandAssetResponseDto | null;
+}
+
 export class DocumentBrandAssetResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -164,38 +255,6 @@ export class DocumentBrandAssetResponseDto {
 
   @ApiProperty({ type: String, format: 'date-time', nullable: true })
   expiresAt!: Date | null;
-}
-
-export class DocumentBrandProfileResponseDto {
-  @ApiProperty({ minimum: 0 })
-  revision!: number;
-
-  @ApiProperty({ minimum: 0 })
-  activeRevision!: number;
-
-  @ApiProperty({ type: DocumentBrandThemeResponseDto })
-  activeTheme!: DocumentBrandThemeResponseDto;
-
-  @ApiProperty({ type: DocumentBrandThemeResponseDto, nullable: true })
-  draftTheme!: DocumentBrandThemeResponseDto | null;
-
-  @ApiProperty({ type: String, format: 'date-time', nullable: true })
-  confirmedAt!: Date | null;
-
-  @ApiProperty({ type: String, format: 'uuid', nullable: true })
-  confirmedByUserId!: string | null;
-
-  @ApiProperty({
-    type: 'object',
-    properties: { extractionAvailable: { type: 'boolean', example: false } },
-  })
-  capabilities!: { extractionAvailable: boolean };
-
-  @ApiProperty({ type: String, format: 'uuid', nullable: true })
-  draftSourceAssetId!: string | null;
-
-  @ApiProperty({ type: () => DocumentBrandAssetResponseDto, nullable: true })
-  draftSourceAsset!: DocumentBrandAssetResponseDto | null;
 }
 
 export class DocumentBrandPreviewResponseDto {
