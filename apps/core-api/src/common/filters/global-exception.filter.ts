@@ -17,6 +17,7 @@ import {
   BadRequestError,
   ValidationError,
 } from '../errors/application-errors.js';
+import { isClientSafeOperationalHttpError } from '../errors/client-safe-http-error-codes.js';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -27,6 +28,7 @@ type ResolvedError = {
   status: number;
   message: string | string[];
   error?: string;
+  code?: string;
 };
 
 type ErrorRequestContext = {
@@ -61,6 +63,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode: resolved.status,
       message: resolved.message,
       error: resolved.error || this.getHttpStatusName(resolved.status),
+      ...(resolved.code ? { code: resolved.code } : {}),
       ...(eventId ? { eventId } : {}),
     });
   }
@@ -92,28 +95,43 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const responseBody = exception.getResponse();
     let message: string | string[] = exception.message;
     let error: string | undefined;
+    let code: string | undefined;
 
     if (isRecord(responseBody)) {
       message =
         (responseBody.message as string | string[]) || exception.message;
       error = responseBody.error as string | undefined;
+      if (typeof responseBody.code === 'string') {
+        code = responseBody.code;
+      }
     }
 
-    if (status >= 500 && process.env.NODE_ENV === 'production') {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const clientSafeOperational =
+      isRecord(responseBody) && isClientSafeOperationalHttpError(responseBody);
+
+    if (status >= 500 && isProduction) {
       const logPayload = {
         type: 'http_error',
         ...(context.requestId ? { requestId: context.requestId } : {}),
         statusCode: status,
         errorName: exception.constructor.name,
         message: exception.message,
+        ...(code ? { code } : {}),
+        ...(clientSafeOperational ? { operational: true } : {}),
         ...(context.tenantId ? { tenantId: context.tenantId } : {}),
         ...(context.actorId ? { actorId: context.actorId } : {}),
       };
-      this.logger.error(JSON.stringify(logPayload), exception.stack);
-      message = 'Internal server error';
+      if (clientSafeOperational) {
+        this.logger.warn(JSON.stringify(logPayload));
+      } else {
+        this.logger.error(JSON.stringify(logPayload), exception.stack);
+        message = 'Internal server error';
+        code = undefined;
+      }
     }
 
-    return { status, message, error };
+    return { status, message, error, code };
   }
 
   private handlePrismaError(

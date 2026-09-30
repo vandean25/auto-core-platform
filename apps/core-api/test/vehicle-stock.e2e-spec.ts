@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -51,6 +54,7 @@ describe('Vehicle stock trading (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
     archiveReadKeys = installFakeInvoiceArchiveStorage(app).readKeys;
 
@@ -438,12 +442,15 @@ describe('Vehicle stock trading (e2e)', () => {
         where: { tenant_id: tenantId },
         select: { current: true },
       });
-    await withInvoiceBrandingWriterDisabled(() =>
-      request(app.getHttpServer())
+    await withInvoiceBrandingWriterDisabled(async () => {
+      const disabledFinalize = await request(app.getHttpServer())
         .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(503),
-    );
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(disabledFinalize.status).toBe(503);
+      expect(disabledFinalize.body).toMatchObject({
+        code: 'INVOICE_BRANDING_WRITER_DISABLED',
+      });
+    });
     const rejectedSale = await prisma.vehicleSale.findFirstOrThrow({
       where: { id: saleRes.body.id },
       select: { status: true, invoice: { select: { id: true } } },

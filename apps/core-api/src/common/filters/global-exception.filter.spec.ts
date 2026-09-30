@@ -1,4 +1,9 @@
-import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalExceptionFilter } from './global-exception.filter.js';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
@@ -139,5 +144,52 @@ describe('GlobalExceptionFilter', () => {
         error: 'Conflict',
       }),
     );
+  });
+
+  describe('production 5xx masking', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('masks unexpected 5xx responses in production', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new HttpException(
+        'Database connection lost',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      filter.catch(exception, mockHost);
+
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          message: 'Internal server error',
+        }),
+      );
+      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+    });
+
+    it('preserves client-safe operational 503 codes and messages in production', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new ServiceUnavailableException({
+        code: 'INVOICE_BRANDING_WRITER_DISABLED',
+        message:
+          'Invoice commitment is temporarily unavailable while branded invoice issuance is disabled.',
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 503,
+          message:
+            'Invoice commitment is temporarily unavailable while branded invoice issuance is disabled.',
+          code: 'INVOICE_BRANDING_WRITER_DISABLED',
+        }),
+      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    });
   });
 });
