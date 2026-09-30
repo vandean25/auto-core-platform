@@ -125,3 +125,46 @@ gate. An incomplete record means the gate stays disabled.
 | Evidence date (UTC) and reviewer | Not checked |
 | Evidence artifact / change record | [Slice 1 release acceptance record](document-branding-slice-1-release-acceptance.md); target-environment evidence pending |
 | Gate outcome | BLOCKED until the environment checks above are recorded |
+
+## Enable `INVOICE_BRANDING_WRITER_ENABLED` on Cloud Run
+
+Committed deploy defaults keep `INVOICE_BRANDING_WRITER_ENABLED=false` in
+`cloudbuild.yaml`, `cloudbuild.staging.yaml`, and Terraform (`infra/`). The API
+treats any value other than the literal string `true` as disabled and returns
+`503` with code `INVOICE_BRANDING_WRITER_DISABLED` on invoice finalize/issue
+paths (sales, workshop, vehicle sale).
+
+**Prerequisites (all must be complete):**
+
+1. Every row in the evidence record table above is checked and the gate outcome
+   is no longer `BLOCKED`.
+2. Invoice archive bucket IAM and lifecycle rules match the pass conditions in
+   this runbook (writer principal, cleanup principal, retained prefixes).
+3. `DOCUMENT_BRANDING_BUCKET` is resolved and inspected separately from the
+   invoice archive bucket.
+4. A representative retained archive object was read by generation and its
+   SHA-256 metadata matched a freshly computed hash.
+
+**Enable in Cloud Build (tag or staging pipeline):**
+
+1. Set substitution `_INVOICE_BRANDING_WRITER_ENABLED` to `"true"` in the
+   target pipeline config, or override it for a one-off release in the Cloud
+   Build trigger.
+2. Redeploy `core-api` and `core-api-pdf-worker` so both services receive the
+   same value (production `cloudbuild.yaml` sets it on both deploy steps).
+
+**Enable via Terraform:**
+
+1. Set `invoice_branding_writer_enabled = true` for the target workspace.
+2. Apply Terraform and verify Cloud Run shows
+   `INVOICE_BRANDING_WRITER_ENABLED=true` on the API service.
+
+**Post-enable smoke checks:**
+
+1. Finalize a test sales invoice in the target environment and confirm `200` /
+   finalized status (not `503` / `INVOICE_BRANDING_WRITER_DISABLED`).
+2. Download the issued invoice PDF and confirm archive metadata on the invoice
+   record points at the expected immutable object generation.
+
+**Rollback:** set the flag back to `false` and redeploy. Do not delete issued
+archive bytes or logo generations; readers and print paths must keep working.
