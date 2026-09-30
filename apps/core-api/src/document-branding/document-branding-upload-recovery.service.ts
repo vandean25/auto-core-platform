@@ -2,7 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
 import { startDerivedLogoGraceIfUnreferenced } from './document-branding-extraction-retention.js';
@@ -18,6 +20,8 @@ export class DocumentBrandingUploadRecoveryService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly systemPrisma: SystemPrismaService,
+    private readonly requestContext: RequestContextService,
     private readonly storage: DocumentBrandingAssetStorage,
     private readonly tasks: DocumentBrandingUploadTaskService,
   ) {}
@@ -26,24 +30,33 @@ export class DocumentBrandingUploadRecoveryService {
     name: 'document-branding-upload-recovery',
   })
   async recoverAndClean() {
-    const tenants = await this.prisma.tenant.findMany({ select: { id: true } });
-    const tenantIds = tenants.map(({ id }) => id);
-    if (tenantIds.length === 0) return;
+    const tenants = await this.systemPrisma.tenant.findMany({
+      select: { id: true },
+    });
+    if (tenants.length === 0) return;
 
     const now = new Date();
+    for (const { id: tenantId } of tenants) {
+      await this.requestContext.runAsWorker(
+        tenantId,
+        () => this.recoverAndCleanForTenant(now),
+        { workerId: 'document-branding-upload-recovery' },
+      );
+    }
+  }
+
+  private async recoverAndCleanForTenant(now: Date) {
     const staleBefore = new Date(now.getTime() - INITIAL_DISPATCH_GRACE_MS);
     const dispatchedStaleBefore = new Date(
       now.getTime() - DISPATCH_RECOVERY_GRACE_MS,
     );
     await this.prisma.documentBrandQuotaEvent.deleteMany({
       where: {
-        tenant_id: { in: tenantIds },
         created_at: { lt: new Date(now.getTime() - 60 * 60 * 1000) },
       },
     });
     await this.prisma.documentBrandAsset.updateMany({
       where: {
-        tenant_id: { in: tenantIds },
         state: 'QUARANTINED',
         validation_attempt_count: { gte: 3 },
         validation_lease_until: { lt: now },
@@ -57,7 +70,6 @@ export class DocumentBrandingUploadRecoveryService {
     });
     const pending = await this.prisma.documentBrandAsset.findMany({
       where: {
-        tenant_id: { in: tenantIds },
         state: 'QUARANTINED',
         validation_attempt_count: { lt: 3 },
         OR: [
@@ -92,7 +104,6 @@ export class DocumentBrandingUploadRecoveryService {
 
     const expired = await this.prisma.documentBrandAsset.findMany({
       where: {
-        tenant_id: { in: tenantIds },
         expires_at: { lte: now },
         state: { in: ['READY', 'QUARANTINED', 'REJECTED', 'DELETING'] },
       },
@@ -104,7 +115,6 @@ export class DocumentBrandingUploadRecoveryService {
     const publishedWithQuarantine =
       await this.prisma.documentBrandAsset.findMany({
         where: {
-          tenant_id: { in: tenantIds },
           state: 'READY',
           quarantine_bucket: { not: null },
           quarantine_object_key: { not: null },

@@ -1,12 +1,17 @@
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
 import { DocumentBrandingUploadRecoveryService } from './document-branding-upload-recovery.service.js';
 
 describe('DocumentBrandingUploadRecoveryService', () => {
   const tenant = { id: 'tenant-1' };
-  const prisma = {
+  const systemPrisma = {
     tenant: { findMany: jest.fn().mockResolvedValue([tenant]) },
+  } as unknown as SystemPrismaService;
+  const requestContext = new RequestContextService();
+  const prisma = {
     documentBrandQuotaEvent: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -26,12 +31,23 @@ describe('DocumentBrandingUploadRecoveryService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (prisma.tenant.findMany as jest.Mock).mockResolvedValue([tenant]);
+    (systemPrisma.tenant.findMany as jest.Mock).mockResolvedValue([tenant]);
     (prisma.documentBrandAsset.findMany as jest.Mock)
       .mockResolvedValueOnce([{ id: 'asset-1', tenant_id: 'tenant-1' }])
       .mockResolvedValueOnce([])
       .mockResolvedValue([]);
-    service = new DocumentBrandingUploadRecoveryService(prisma, storage, tasks);
+    service = new DocumentBrandingUploadRecoveryService(
+      prisma,
+      systemPrisma,
+      requestContext,
+      storage,
+      tasks,
+    );
+  });
+
+  it('runs recoverAndClean without ambient tenant context', async () => {
+    await expect(service.recoverAndClean()).resolves.toBeUndefined();
+    expect(systemPrisma.tenant.findMany).toHaveBeenCalled();
   });
 
   it('requeues only tenant-scoped quarantined assets and exhausts stale third attempts', async () => {
@@ -39,7 +55,6 @@ describe('DocumentBrandingUploadRecoveryService', () => {
     const query = (prisma.documentBrandAsset.findMany as jest.Mock).mock
       .calls[0][0];
     expect(query.where).toMatchObject({
-      tenant_id: { in: ['tenant-1'] },
       state: 'QUARANTINED',
       validation_attempt_count: { lt: 3 },
     });

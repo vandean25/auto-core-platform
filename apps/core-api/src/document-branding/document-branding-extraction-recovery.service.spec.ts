@@ -1,10 +1,15 @@
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 import { DocumentBrandingExtractionRecoveryService } from './document-branding-extraction-recovery.service.js';
 
 describe('DocumentBrandingExtractionRecoveryService', () => {
-  const prisma = {
+  const systemPrisma = {
     tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+  } as unknown as SystemPrismaService;
+  const requestContext = new RequestContextService();
+  const prisma = {
     documentBrandExtraction: {
       findMany: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -29,7 +34,9 @@ describe('DocumentBrandingExtractionRecoveryService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (prisma.tenant.findMany as jest.Mock).mockResolvedValue([{ id: 'tenant-1' }]);
+    (systemPrisma.tenant.findMany as jest.Mock).mockResolvedValue([
+      { id: 'tenant-1' },
+    ]);
     (prisma.documentBrandExtraction.findMany as jest.Mock)
       .mockResolvedValueOnce([
         {
@@ -45,7 +52,17 @@ describe('DocumentBrandingExtractionRecoveryService', () => {
     (prisma.$transaction as jest.Mock).mockImplementation((callback) => callback(transaction));
     transaction.documentBrandExtraction.updateMany.mockResolvedValue({ count: 1 });
     transaction.documentBrandAsset.updateMany.mockResolvedValue({ count: 1 });
-    service = new DocumentBrandingExtractionRecoveryService(prisma, tasks);
+    service = new DocumentBrandingExtractionRecoveryService(
+      prisma,
+      systemPrisma,
+      requestContext,
+      tasks,
+    );
+  });
+
+  it('runs recover without ambient tenant context', async () => {
+    await expect(service.recover()).resolves.toBeUndefined();
+    expect(systemPrisma.tenant.findMany).toHaveBeenCalled();
   });
 
   it('requeues stale queued jobs with their tenant and entity bindings', async () => {
