@@ -396,6 +396,7 @@ function toAssetResponse(asset: {
   pixel_height: number | null;
   failure_code: string | null;
   original_filename: string | null;
+  preview_object_key: string | null;
   createdAt: Date;
   expires_at: Date | null;
 }) {

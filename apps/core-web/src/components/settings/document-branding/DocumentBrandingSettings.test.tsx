@@ -192,6 +192,7 @@ describe("DocumentBrandingSettings", () => {
       pixelHeight: null,
       failureCode: null,
       originalFilename: null,
+      pagePreviewAvailable: false,
       createdAt: "2026-01-01T00:00:00.000Z",
       expiresAt: null,
     };
