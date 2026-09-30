@@ -205,6 +205,30 @@ export class DocumentBrandingUploadService {
     return toAssetResponse(asset);
   }
 
+  async getAssetPagePreview(legalEntityId: string, assetId: string) {
+    const tenantId = await this.authorizeReader();
+    const asset = await this.findAsset(tenantId, legalEntityId, assetId);
+    if (
+      asset.state !== 'READY' ||
+      !asset.preview_bucket ||
+      !asset.preview_object_key ||
+      !asset.preview_object_generation
+    ) {
+      throw new UnprocessableEntityException({
+        code: 'BRAND_ASSET_PREVIEW_UNAVAILABLE',
+        message: 'This document branding asset has no page preview.',
+      });
+    }
+    return {
+      bytes: await this.storage.readGeneration(
+        asset.preview_bucket,
+        asset.preview_object_key,
+        asset.preview_object_generation,
+      ),
+      contentType: 'image/png',
+    };
+  }
+
   async getAssetContent(legalEntityId: string, assetId: string) {
     const tenantId = await this.authorizeReader();
     const asset = await this.findAsset(tenantId, legalEntityId, assetId);
@@ -317,10 +341,21 @@ function detectMimeType(bytes: Buffer): string {
 function sanitizeFilename(filename: string): string | null {
   const normalized = filename
     .normalize('NFC')
-    .replace(/[\\/\p{Cc}\p{Cf}]/gu, ' ')
+    .replace(/[\\/\p{Cc}\p{Cf}"]/gu, ' ')
     .trim()
     .slice(0, 255);
   return normalized.length > 0 ? normalized : null;
+}
+
+export function buildContentDisposition(
+  disposition: 'attachment' | 'inline',
+  filename: string,
+): string {
+  const ascii = filename
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/["\\]/g, '_');
+  const encoded = encodeURIComponent(filename);
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }
 
 export function mapDocumentBrandAssetResponse(asset: {
@@ -333,6 +368,7 @@ export function mapDocumentBrandAssetResponse(asset: {
   pixel_height: number | null;
   failure_code: string | null;
   original_filename: string | null;
+  preview_object_key: string | null;
   createdAt: Date;
   expires_at: Date | null;
 }) {
@@ -346,6 +382,7 @@ export function mapDocumentBrandAssetResponse(asset: {
     pixelHeight: asset.pixel_height,
     failureCode: asset.failure_code,
     originalFilename: asset.original_filename,
+    pagePreviewAvailable: Boolean(asset.preview_object_key),
     createdAt: asset.createdAt,
     expiresAt: asset.expires_at,
   };

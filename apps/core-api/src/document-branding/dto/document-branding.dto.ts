@@ -156,6 +156,9 @@ export class DocumentBrandAssetResponseDto {
   @ApiProperty({ type: String, nullable: true, maxLength: 255 })
   originalFilename!: string | null;
 
+  @ApiProperty({ type: Boolean })
+  pagePreviewAvailable!: boolean;
+
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
 

@@ -43,7 +43,10 @@ import {
   SaveDocumentBrandDraftSourceDto,
 } from './dto/document-branding.dto.js';
 import { DocumentBrandingService } from './document-branding.service.js';
-import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
+import {
+  buildContentDisposition,
+  DocumentBrandingUploadService,
+} from './document-branding-upload.service.js';
 import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
 
 const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -249,6 +252,25 @@ export class DocumentBrandingController {
     return this.uploads.getAsset(legalEntityId, assetId);
   }
 
+  @Get('assets/:assetId/preview')
+  @ApiOperation({ summary: 'Download the first-page PNG preview of a source asset' })
+  @ApiProduces('image/png')
+  @ApiResponse({ status: 200, schema: { type: 'string', format: 'binary' } })
+  async getAssetPagePreview(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('assetId') assetId: string,
+  ) {
+    const preview = await this.uploads.getAssetPagePreview(
+      legalEntityId,
+      assetId,
+    );
+    return new StreamableFile(preview.bytes, {
+      type: preview.contentType,
+      disposition: buildContentDisposition('inline', 'document-branding-preview.png'),
+      length: preview.bytes.byteLength,
+    });
+  }
+
   @Get('assets/:assetId/content')
   @ApiOperation({ summary: 'Download a ready document branding asset' })
   @ApiProduces('image/png', 'application/pdf')
@@ -267,7 +289,7 @@ export class DocumentBrandingController {
         : 'document-branding-asset.png');
     return new StreamableFile(content.bytes, {
       type: content.contentType,
-      disposition: `${disposition}; filename="${filename}"`,
+      disposition: buildContentDisposition(disposition, filename),
       length: content.bytes.byteLength,
     });
   }

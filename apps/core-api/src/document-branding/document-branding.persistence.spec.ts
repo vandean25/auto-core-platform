@@ -71,6 +71,9 @@ describe('document branding persistence contract', () => {
         'source_asset_id',
         'expires_at',
         'failure_code',
+        'preview_bucket',
+        'preview_object_key',
+        'preview_object_generation',
       ]),
     );
     expect(modelDefinition('DocumentBrandAsset')).toMatch(

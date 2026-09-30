@@ -2400,6 +2400,47 @@
         ]
       }
     },
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}/preview": {
+      "get": {
+        "operationId": "DocumentBrandingController_getAssetPagePreview",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Download the first-page PNG preview of a source asset",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
     "/api/customers": {
       "post": {
         "operationId": "CustomerController_create",
@@ -10507,6 +10548,9 @@
             "nullable": true,
             "maxLength": 255
           },
+          "pagePreviewAvailable": {
+            "type": "boolean"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -10527,6 +10571,7 @@
           "pixelHeight",
           "failureCode",
           "originalFilename",
+          "pagePreviewAvailable",
           "createdAt",
           "expiresAt"
         ]

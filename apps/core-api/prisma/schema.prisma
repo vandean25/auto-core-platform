@@ -287,6 +287,9 @@ model DocumentBrandAsset {
   bucket                       String?
   object_key                   String?
   object_generation            String?
+  preview_bucket               String?
+  preview_object_key           String?
+  preview_object_generation    String?
   sha256                       String?
   byte_length                  Int
   detected_mime_type           String?
