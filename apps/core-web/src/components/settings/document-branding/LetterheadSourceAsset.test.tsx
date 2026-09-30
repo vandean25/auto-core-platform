@@ -15,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   upload: vi.fn(),
   attach: vi.fn(),
   remove: vi.fn(),
+  uploadPending: false,
+  attachPending: false,
+  removePending: false,
   assetQuery: {
     data: null as DocumentBrandAsset | null,
     isFetching: false,
@@ -41,15 +44,15 @@ vi.mock("@/api/document-branding", () => ({
   },
   useUploadDocumentBrandAsset: () => ({
     mutateAsync: mocks.upload,
-    isPending: false,
+    isPending: mocks.uploadPending,
   }),
   useAttachDocumentBrandDraftSource: () => ({
     mutateAsync: mocks.attach,
-    isPending: false,
+    isPending: mocks.attachPending,
   }),
   useRemoveDocumentBrandDraftSource: () => ({
     mutateAsync: mocks.remove,
-    isPending: false,
+    isPending: mocks.removePending,
   }),
   useDocumentBrandAsset: () => mocks.assetQuery,
 }));
@@ -120,6 +123,9 @@ afterEach(() => {
   mocks.fetchWithAuth.mockReset();
   mocks.assetQuery.data = null;
   mocks.assetQuery.pollTimedOut = false;
+  mocks.uploadPending = false;
+  mocks.attachPending = false;
+  mocks.removePending = false;
 });
 
 describe("LetterheadSourceAsset", () => {
@@ -223,6 +229,37 @@ describe("LetterheadSourceAsset", () => {
 
     expect(screen.getByRole("button", { name: "Replace" })).not.toBeDisabled();
     expect(screen.getByRole("button", { name: "Remove" })).not.toBeDisabled();
+  });
+
+  it("disables remove while upload or attach is in flight", () => {
+    mocks.assetQuery.data = quarantinedAsset;
+    mocks.uploadPending = true;
+    renderSource({
+      draftSourceAssetId: "source-1",
+      initialAsset: quarantinedAsset,
+    });
+    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+
+    cleanup();
+    mocks.uploadPending = false;
+    mocks.attachPending = true;
+    renderSource({
+      draftSourceAssetId: "source-1",
+      initialAsset: quarantinedAsset,
+    });
+    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+  });
+
+  it("disables replace and remove when the legal entity is inactive", () => {
+    mocks.assetQuery.data = readyAsset;
+    renderSource({
+      entityActive: false,
+      draftSourceAssetId: "source-1",
+      initialAsset: readyAsset,
+    });
+    expect(screen.getByRole("button", { name: "Replace" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Remove" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Download" })).not.toBeDisabled();
   });
 
   it("shows validation status for a quarantined asset", () => {

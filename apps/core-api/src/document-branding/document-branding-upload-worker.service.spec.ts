@@ -269,6 +269,7 @@ describe('DocumentBrandingUploadWorkerService', () => {
       expect.objectContaining({
         data: expect.objectContaining({
           state: 'READY',
+          preview_object_key: expect.stringMatching(/asset-1-page1\.png$/),
           expires_at: expect.any(Date),
         }),
       }),

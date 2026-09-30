@@ -200,9 +200,9 @@ export function LetterheadSourceAsset({
       : null;
   const previewUrl = useLetterheadPreviewUrl(previewPath);
 
-  const busy =
-    !entityActive || upload.isPending || attach.isPending || remove.isPending;
-  const replaceBusy = upload.isPending || attach.isPending;
+  const mutationBusy =
+    upload.isPending || attach.isPending || remove.isPending;
+  const controlsDisabled = !entityActive || mutationBusy;
 
   return (
     <div className="grid gap-2 sm:col-span-2">
@@ -213,7 +213,7 @@ export function LetterheadSourceAsset({
         id="brand-source"
         type="file"
         accept="application/pdf,image/png,.pdf,.png"
-        disabled={busy}
+        disabled={controlsDisabled}
         onChange={(event) => {
           void uploadSource(event.target.files?.[0]);
           event.target.value = "";
@@ -248,7 +248,7 @@ export function LetterheadSourceAsset({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={replaceBusy}
+                disabled={controlsDisabled}
                 onClick={() =>
                   document.getElementById("brand-source-replace")?.click()
                 }
@@ -260,7 +260,7 @@ export function LetterheadSourceAsset({
                 type="file"
                 className="hidden"
                 accept="application/pdf,image/png,.pdf,.png"
-                disabled={replaceBusy}
+                disabled={controlsDisabled}
                 onChange={(event) => {
                   void uploadSource(event.target.files?.[0]);
                   event.target.value = "";
@@ -270,7 +270,7 @@ export function LetterheadSourceAsset({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={remove.isPending}
+                disabled={controlsDisabled}
                 onClick={() => void removeSource()}
               >
                 Remove
@@ -320,11 +320,16 @@ function useLetterheadPreviewUrl(previewPath: string | null): string | null {
     if (!previewPath) return () => undefined;
 
     void (async () => {
-      const response = await fetchWithAuth(previewPath);
-      if (!active || !response.ok) return;
-      const blob = await response.blob();
-      objectUrl = URL.createObjectURL(blob);
-      if (active) setPreviewUrl(objectUrl);
+      try {
+        const response = await fetchWithAuth(previewPath);
+        if (!active || !response.ok) return;
+        const blob = await response.blob();
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
+      } catch {
+        if (active) setPreviewUrl(null);
+      }
     })();
 
     return () => {
