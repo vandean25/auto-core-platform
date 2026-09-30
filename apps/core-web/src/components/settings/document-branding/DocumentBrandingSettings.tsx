@@ -207,9 +207,18 @@ export function DocumentBrandingSettings({
     clearPendingSave();
     abortInFlightSave();
     const result = await refetchProfile();
-    if (result.data) {
-      applyProfileTheme(result.data);
+    if (!result.isSuccess || !result.data) {
+      const message =
+        result.error instanceof Error
+          ? result.error.message
+          : "Could not load the latest document branding.";
+      setDraftError(message);
+      toast.error("Could not reload document branding", {
+        description: message,
+      });
+      return;
     }
+    applyProfileTheme(result.data);
     toast.message("Loaded the latest document branding from the server.");
   }, [abortInFlightSave, applyProfileTheme, clearPendingSave, refetchProfile]);
 
@@ -220,8 +229,12 @@ export function DocumentBrandingSettings({
     abortInFlightSave();
     try {
       const result = await refetchProfile();
-      if (!result.data) {
-        throw new Error("Could not load the latest document branding.");
+      if (!result.isSuccess || !result.data) {
+        throw new Error(
+          result.error instanceof Error
+            ? result.error.message
+            : "Could not load the latest document branding.",
+        );
       }
       revisionRef.current = result.data.revision;
       const updated = await saveDraft.mutateAsync({
@@ -508,7 +521,9 @@ export function DocumentBrandingSettings({
             These settings apply to future invoices after you confirm them.
           </p>
         </div>
-        <DocumentSaveIndicator status={saveStatus} />
+        <DocumentSaveIndicator
+          status={hasThemeValidationErrors ? "idle" : saveStatus}
+        />
       </div>
 
       {!entity.is_active ? (

@@ -1,4 +1,7 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { DEFAULT_DOCUMENT_BRAND_THEME } from './theme-v1.js';
 import { parseDocumentBrandingExtractionResponse } from './document-branding-extraction-response.js';
 
@@ -22,17 +25,26 @@ describe('parseDocumentBrandingExtractionResponse', () => {
     ['unknown fields', { ...validResponse(), downloadUrl: 'https://example.test' }],
     ['an injected asset identifier', { ...validResponse(), logoAssetId: 'asset-1' }],
     ['malformed JSON', '{"confidence":'],
-    ['invalid color tokens', withTheme({ primaryColor: 'red' })],
     ['markup in decorative text', withTheme({ headerText: '<img src=x>' })],
     ['format controls in text', withTheme({ headerText: 'Auto\u202E Core' })],
-    ['oversized decorative text', withTheme({ headerText: 'x'.repeat(121) })],
     [
       'an out-of-bounds crop rectangle',
       { ...validResponse(), cropRect: { x: 0.5, y: 0, width: 0.6, height: 1 } },
     ],
     ['a low-confidence result', { ...validResponse(), confidence: 'LOW' }],
-  ])('rejects %s', (_description, response) => {
-    expect(() => parseDocumentBrandingExtractionResponse(response)).toThrow();
+  ])('rejects %s with an unprocessable entity error', (_description, response) => {
+    expect(() => parseDocumentBrandingExtractionResponse(response)).toThrow(
+      UnprocessableEntityException,
+    );
+  });
+
+  it.each([
+    ['invalid color tokens', withTheme({ primaryColor: 'red' })],
+    ['oversized decorative text', withTheme({ headerText: 'x'.repeat(121) })],
+  ])('rejects %s with a bad request error', (_description, response) => {
+    expect(() => parseDocumentBrandingExtractionResponse(response)).toThrow(
+      BadRequestException,
+    );
   });
 
   it('rejects structured output over the provider response limit', () => {

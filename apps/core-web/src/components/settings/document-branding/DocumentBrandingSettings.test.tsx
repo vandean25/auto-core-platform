@@ -1,6 +1,17 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LegalEntityRecord } from "@/api/site-admin";
+import { createHttpError } from "@/lib/error-utils";
+import { toast } from "sonner";
+import type { UseDebouncedAutoSaveOptions } from "@/hooks/useDebouncedAutoSave";
+import type { DocumentBrandTheme } from "@/api/document-branding";
 import { DocumentBrandingSettings } from "./DocumentBrandingSettings";
 
 const fixtures = vi.hoisted(() => ({
@@ -56,6 +67,18 @@ const fixtures = vi.hoisted(() => ({
     refetch: vi.fn(),
   },
   upload: vi.fn(),
+  refetchProfile: vi.fn(),
+  saveDraft: vi.fn(),
+  saveStatus: "saved" as "idle" | "saving" | "saved" | "error",
+  autoSaveOptions: null as UseDebouncedAutoSaveOptions<DocumentBrandTheme> | null,
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+  },
 }));
 
 vi.mock("@/api/document-branding", async (importOriginal) => {
@@ -67,13 +90,14 @@ vi.mock("@/api/document-branding", async (importOriginal) => {
       data: fixtures.profile,
       isLoading: false,
       error: null,
+      refetch: fixtures.refetchProfile,
     }),
     useDocumentBrandAsset: (_legalEntityId: string, assetId: string | null) =>
       assetId === "source-1"
         ? fixtures.sourceAssetStatus
         : fixtures.assetStatus,
     useSaveDocumentBrandDraft: () => ({
-      mutateAsync: vi.fn(),
+      mutateAsync: fixtures.saveDraft,
       isPending: false,
     }),
     useConfirmDocumentBranding: () => ({
@@ -116,12 +140,15 @@ vi.mock("@/api/document-branding", async (importOriginal) => {
 });
 
 vi.mock("@/hooks/useDebouncedAutoSave", () => ({
-  useDebouncedAutoSave: () => ({
-    saveStatus: "saved",
-    triggerAutoSave: vi.fn(),
-    clearPendingSave: fixtures.clearPendingSave,
-    abortInFlightSave: fixtures.abortInFlightSave,
-  }),
+  useDebouncedAutoSave: (options: UseDebouncedAutoSaveOptions<DocumentBrandTheme>) => {
+    fixtures.autoSaveOptions = options;
+    return {
+      saveStatus: fixtures.saveStatus,
+      triggerAutoSave: vi.fn(),
+      clearPendingSave: fixtures.clearPendingSave,
+      abortInFlightSave: fixtures.abortInFlightSave,
+    };
+  },
 }));
 
 afterEach(() => {
@@ -132,6 +159,13 @@ afterEach(() => {
   fixtures.assetStatus.data = null;
   fixtures.sourceAssetStatus.data = null;
   fixtures.upload.mockReset();
+  fixtures.refetchProfile.mockReset();
+  fixtures.saveDraft.mockReset();
+  fixtures.saveStatus = "saved";
+  fixtures.autoSaveOptions = null;
+  vi.mocked(toast.error).mockReset();
+  vi.mocked(toast.message).mockReset();
+  vi.mocked(toast.success).mockReset();
 });
 
 const entity = {
@@ -280,6 +314,143 @@ describe("DocumentBrandingSettings", () => {
     await waitFor(() =>
       expect(sessionStorage.getItem("acp.document-brand-source.entity-1")).toBeNull(),
     );
+  });
+
+  it("does not show the saved indicator while decorative text fails validation", () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    expect(screen.getByText("All changes saved")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "x".repeat(121) },
+    });
+
+    expect(screen.queryByText("All changes saved")).toBeNull();
+  });
+
+  function triggerRevisionConflict() {
+    act(() => {
+      fixtures.autoSaveOptions?.onError?.(
+        createHttpError("Branding revision conflict", 409),
+      );
+    });
+  }
+
+  it("shows conflict recovery actions after a revision conflict", () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+    triggerRevisionConflict();
+
+    expect(screen.getByRole("button", { name: "Reload latest" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep my edits" })).toBeTruthy();
+  });
+
+  it("keeps local edits when reload latest refetch fails", async () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "local-edit" },
+    });
+    triggerRevisionConflict();
+    fixtures.refetchProfile.mockResolvedValue({
+      isSuccess: false,
+      data: {
+        ...fixtures.profile,
+        activeTheme: {
+          ...fixtures.profile.activeTheme,
+          footerText: "stale-server-copy",
+        },
+      },
+      error: new Error("network down"),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload latest" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+        "value",
+        "local-edit",
+      ),
+    );
+    expect(toast.message).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  it("applies the server draft when reload latest refetch succeeds", async () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "local-edit" },
+    });
+    triggerRevisionConflict();
+    fixtures.refetchProfile.mockResolvedValue({
+      isSuccess: true,
+      data: {
+        ...fixtures.profile,
+        revision: 9,
+        activeTheme: {
+          ...fixtures.profile.activeTheme,
+          footerText: "server-copy",
+        },
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload latest" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+        "value",
+        "server-copy",
+      ),
+    );
+    expect(toast.message).toHaveBeenCalledWith(
+      "Loaded the latest document branding from the server.",
+    );
+  });
+
+  it("re-applies local edits on the latest revision after a successful refetch", async () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "local-edit" },
+    });
+    triggerRevisionConflict();
+    fixtures.refetchProfile.mockResolvedValue({
+      isSuccess: true,
+      data: { ...fixtures.profile, revision: 9 },
+    });
+    fixtures.saveDraft.mockResolvedValue({
+      ...fixtures.profile,
+      revision: 10,
+      draftTheme: {
+        ...fixtures.profile.activeTheme,
+        footerText: "local-edit",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+
+    await waitFor(() =>
+      expect(fixtures.saveDraft).toHaveBeenCalledWith({
+        legalEntityId: entity.id,
+        expectedRevision: 9,
+        theme: expect.objectContaining({ footerText: "local-edit" }),
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Reload latest" })).toBeNull(),
+    );
+  });
+
+  it("does not save when keep my edits cannot refetch the latest profile", async () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+    triggerRevisionConflict();
+    fixtures.refetchProfile.mockResolvedValue({
+      isSuccess: false,
+      data: fixtures.profile,
+      error: new Error("network down"),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+
+    await waitFor(() => expect(fixtures.saveDraft).not.toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Keep my edits" })).toBeTruthy();
   });
 
   it("shows a character counter and inline validation for over-limit footer text", () => {
