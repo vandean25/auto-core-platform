@@ -70,6 +70,9 @@ const fixtures = vi.hoisted(() => ({
   refetchProfile: vi.fn(),
   saveDraft: vi.fn(),
   saveStatus: "saved" as "idle" | "saving" | "saved" | "error",
+  markIdle: vi.fn(),
+  markSaved: vi.fn(),
+  triggerAutoSave: vi.fn(),
   autoSaveOptions: null as UseDebouncedAutoSaveOptions<DocumentBrandTheme> | null,
 }));
 
@@ -144,9 +147,11 @@ vi.mock("@/hooks/useDebouncedAutoSave", () => ({
     fixtures.autoSaveOptions = options;
     return {
       saveStatus: fixtures.saveStatus,
-      triggerAutoSave: vi.fn(),
+      triggerAutoSave: fixtures.triggerAutoSave,
       clearPendingSave: fixtures.clearPendingSave,
       abortInFlightSave: fixtures.abortInFlightSave,
+      markIdle: fixtures.markIdle,
+      markSaved: fixtures.markSaved,
     };
   },
 }));
@@ -162,6 +167,9 @@ afterEach(() => {
   fixtures.refetchProfile.mockReset();
   fixtures.saveDraft.mockReset();
   fixtures.saveStatus = "saved";
+  fixtures.markIdle.mockReset();
+  fixtures.markSaved.mockReset();
+  fixtures.triggerAutoSave.mockReset();
   fixtures.autoSaveOptions = null;
   vi.mocked(toast.error).mockReset();
   vi.mocked(toast.message).mockReset();
@@ -403,6 +411,7 @@ describe("DocumentBrandingSettings", () => {
     expect(toast.message).toHaveBeenCalledWith(
       "Loaded the latest document branding from the server.",
     );
+    expect(fixtures.markIdle).toHaveBeenCalled();
   });
 
   it("re-applies local edits on the latest revision after a successful refetch", async () => {
@@ -433,8 +442,140 @@ describe("DocumentBrandingSettings", () => {
         theme: expect.objectContaining({ footerText: "local-edit" }),
       }),
     );
+    await waitFor(() => expect(fixtures.markSaved).toHaveBeenCalled());
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Reload latest" })).toBeNull(),
+    );
+  });
+
+  it("clears save failed indicator after keep my edits succeeds", async () => {
+    fixtures.saveStatus = "error";
+    const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
+    expect(screen.getByText("Save failed")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "local-edit" },
+    });
+    triggerRevisionConflict();
+    fixtures.refetchProfile.mockResolvedValue({
+      isSuccess: true,
+      data: { ...fixtures.profile, revision: 9 },
+    });
+    fixtures.saveDraft.mockResolvedValue({
+      ...fixtures.profile,
+      revision: 10,
+      draftTheme: {
+        ...fixtures.profile.activeTheme,
+        footerText: "local-edit",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+
+    await waitFor(() => expect(fixtures.markSaved).toHaveBeenCalled());
+    fixtures.saveStatus = "saved";
+    rerender(<DocumentBrandingSettings entity={entity} />);
+    expect(screen.queryByText("Save failed")).toBeNull();
+    expect(screen.getByText("All changes saved")).toBeTruthy();
+  });
+
+  it("saves the latest theme when footer changes during keep my edits refetch", async () => {
+    let resolveRefetch:
+      | ((value: {
+          isSuccess: boolean;
+          data: typeof fixtures.profile;
+        }) => void)
+      | undefined;
+    fixtures.refetchProfile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve;
+        }),
+    );
+
+    render(<DocumentBrandingSettings entity={entity} />);
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "before-refetch" },
+    });
+    triggerRevisionConflict();
+    fixtures.saveDraft.mockResolvedValue({
+      ...fixtures.profile,
+      revision: 10,
+      draftTheme: {
+        ...fixtures.profile.activeTheme,
+        footerText: "after-refetch",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "after-refetch" },
+    });
+
+    await act(async () => {
+      resolveRefetch?.({
+        isSuccess: true,
+        data: { ...fixtures.profile, revision: 9 },
+      });
+    });
+
+    await waitFor(() =>
+      expect(fixtures.saveDraft).toHaveBeenCalledWith({
+        legalEntityId: entity.id,
+        expectedRevision: 9,
+        theme: expect.objectContaining({ footerText: "after-refetch" }),
+      }),
+    );
+  });
+
+  it("autosaves theme edits that land while keep my edits is saving", async () => {
+    let resolveSave:
+      | ((value: {
+          revision: number;
+          draftTheme: Record<string, unknown>;
+        }) => void)
+      | undefined;
+    fixtures.refetchProfile.mockResolvedValue({
+      isSuccess: true,
+      data: { ...fixtures.profile, revision: 9 },
+    });
+    fixtures.saveDraft.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    render(<DocumentBrandingSettings entity={entity} />);
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "local-edit" },
+    });
+    triggerRevisionConflict();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep my edits" }));
+
+    await waitFor(() => expect(fixtures.refetchProfile).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "typed-during-put" },
+    });
+
+    await act(async () => {
+      resolveSave?.({
+        revision: 10,
+        draftTheme: {
+          ...fixtures.profile.activeTheme,
+          footerText: "local-edit",
+        },
+      });
+    });
+
+    await waitFor(() => expect(fixtures.markSaved).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(fixtures.triggerAutoSave).toHaveBeenCalledWith(
+        expect.objectContaining({ footerText: "typed-during-put" }),
+      ),
     );
   });
 

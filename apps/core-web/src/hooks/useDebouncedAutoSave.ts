@@ -99,10 +99,20 @@ export function useDebouncedAutoSave<TSnapshot>({
     }
   }, [abortInFlightSave, clearPendingSave])
 
+  const markIdle = useCallback(() => {
+    setSaveStatus('idle')
+  }, [])
+
+  const markSaved = useCallback(() => {
+    setSaveStatus('saved')
+  }, [])
+
   return {
     saveStatus,
     triggerAutoSave,
     clearPendingSave,
     abortInFlightSave,
+    markIdle,
+    markSaved,
   }
 }

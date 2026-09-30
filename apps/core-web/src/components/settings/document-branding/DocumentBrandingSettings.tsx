@@ -101,6 +101,9 @@ export function DocumentBrandingSettings({
   const [draftError, setDraftError] = React.useState<string | null>(null);
   const [revisionConflict, setRevisionConflict] = React.useState(false);
   const [reapplyingConflict, setReapplyingConflict] = React.useState(false);
+  const [needsPostConflictAutosave, setNeedsPostConflictAutosave] =
+    React.useState(false);
+  const themeRef = React.useRef<DocumentBrandTheme | null>(null);
 
   React.useEffect(() => {
     if (!profile) return;
@@ -112,6 +115,10 @@ export function DocumentBrandingSettings({
       activeEntityIdRef.current = entity.id;
     }
   }, [entity.id, profile, theme]);
+
+  React.useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
 
   const save = React.useCallback(
     async (snapshot: DocumentBrandTheme, signal: AbortSignal) => {
@@ -138,8 +145,14 @@ export function DocumentBrandingSettings({
   const hasThemeValidationErrors = hasDocumentBrandThemeFieldErrors(
     themeFieldErrors,
   );
-  const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
-    useDebouncedAutoSave({
+  const {
+    saveStatus,
+    triggerAutoSave,
+    clearPendingSave,
+    abortInFlightSave,
+    markIdle,
+    markSaved,
+  } = useDebouncedAutoSave({
       enabled: Boolean(theme) && entity.is_active && !revisionConflict,
       debounceMs: 750,
       save,
@@ -171,6 +184,27 @@ export function DocumentBrandingSettings({
         });
       },
     });
+
+  React.useEffect(() => {
+    if (
+      !needsPostConflictAutosave ||
+      revisionConflict ||
+      reapplyingConflict ||
+      !theme
+    ) {
+      return;
+    }
+    setNeedsPostConflictAutosave(false);
+    void triggerAutoSave(theme);
+  }, [
+    needsPostConflictAutosave,
+    revisionConflict,
+    reapplyingConflict,
+    theme,
+    triggerAutoSave,
+  ]);
+
+  const themeEditingDisabled = !entity.is_active || reapplyingConflict;
 
   React.useEffect(() => {
     if (previousEntityIdRef.current === entity.id) return;
@@ -219,11 +253,19 @@ export function DocumentBrandingSettings({
       return;
     }
     applyProfileTheme(result.data);
+    markIdle();
     toast.message("Loaded the latest document branding from the server.");
-  }, [abortInFlightSave, applyProfileTheme, clearPendingSave, refetchProfile]);
+  }, [
+    abortInFlightSave,
+    applyProfileTheme,
+    clearPendingSave,
+    markIdle,
+    refetchProfile,
+  ]);
 
   const reapplyEditsOnLatestRevision = React.useCallback(async () => {
-    if (!theme) return;
+    const themeToSave = themeRef.current;
+    if (!themeToSave) return;
     setReapplyingConflict(true);
     clearPendingSave();
     abortInFlightSave();
@@ -240,12 +282,15 @@ export function DocumentBrandingSettings({
       const updated = await saveDraft.mutateAsync({
         legalEntityId: entity.id,
         expectedRevision: revisionRef.current,
-        theme,
+        theme: themeRef.current ?? themeToSave,
       });
       revisionRef.current = updated.revision;
-      setSavedTheme(updated.draftTheme ?? theme);
+      const persistedTheme = updated.draftTheme ?? themeRef.current ?? themeToSave;
+      setSavedTheme(persistedTheme);
       setDraftError(null);
       setRevisionConflict(false);
+      setNeedsPostConflictAutosave(true);
+      markSaved();
       toast.success("Your edits were saved on top of the latest revision.");
     } catch (reapplyError) {
       const message =
@@ -263,9 +308,9 @@ export function DocumentBrandingSettings({
     abortInFlightSave,
     clearPendingSave,
     entity.id,
+    markSaved,
     refetchProfile,
     saveDraft,
-    theme,
   ]);
 
   const updateTheme = React.useCallback(
@@ -545,7 +590,7 @@ export function DocumentBrandingSettings({
             type="file"
             accept={uploadCapabilities?.logo.accept ?? "image/png,.png"}
             disabled={
-              !entity.is_active ||
+              themeEditingDisabled ||
               assetUpload.isPending ||
               Boolean(pendingLogoId)
             }
@@ -563,7 +608,7 @@ export function DocumentBrandingSettings({
               type="button"
               variant="link"
               className="h-auto justify-start px-0"
-              disabled={!entity.is_active}
+              disabled={themeEditingDisabled}
               onClick={() => updateTheme("logoAssetId", null)}
             >
               Remove logo
@@ -601,7 +646,7 @@ export function DocumentBrandingSettings({
               "application/pdf,image/png,.pdf,.png"
             }
             disabled={
-              !entity.is_active ||
+              themeEditingDisabled ||
               assetUpload.isPending ||
               Boolean(pendingSourceId)
             }
@@ -634,7 +679,10 @@ export function DocumentBrandingSettings({
             legalEntityId={entity.id}
             sourceAssetId={readySourceId}
             expectedRevision={profile?.revision ?? 0}
-            enabled={Boolean(profile?.capabilities.extractionAvailable) && entity.is_active}
+            enabled={
+              Boolean(profile?.capabilities.extractionAvailable) &&
+              !themeEditingDisabled
+            }
             onApply={applyProposal}
           />
         </div>
@@ -644,7 +692,7 @@ export function DocumentBrandingSettings({
             id="brand-primary-color"
             type="color"
             value={theme.primaryColor}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             aria-invalid={Boolean(themeFieldErrors.primaryColor)}
             aria-describedby={
               themeFieldErrors.primaryColor
@@ -671,7 +719,7 @@ export function DocumentBrandingSettings({
             id="brand-secondary-color"
             type="color"
             value={theme.secondaryColor}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             aria-invalid={Boolean(themeFieldErrors.secondaryColor)}
             aria-describedby={
               themeFieldErrors.secondaryColor
@@ -696,7 +744,7 @@ export function DocumentBrandingSettings({
           <Label htmlFor="brand-header-band">Header band</Label>
           <Select
             value={theme.headerBand}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             onValueChange={(value) => updateTheme("headerBand", value)}
           >
             <SelectTrigger id="brand-header-band">
@@ -713,7 +761,7 @@ export function DocumentBrandingSettings({
           <Label htmlFor="brand-footer-band">Footer band</Label>
           <Select
             value={theme.footerBand}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             onValueChange={(value) => updateTheme("footerBand", value)}
           >
             <SelectTrigger id="brand-footer-band">
@@ -747,7 +795,7 @@ export function DocumentBrandingSettings({
             rows={2}
             className="w-full rounded-md border border-input px-3 py-2 text-sm"
             value={theme.headerText}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             aria-invalid={Boolean(themeFieldErrors.headerText)}
             aria-describedby="brand-header-text-counter brand-header-text-error"
             onChange={(event) => updateTheme("headerText", event.target.value)}
@@ -781,7 +829,7 @@ export function DocumentBrandingSettings({
             id="brand-footer-text"
             maxLength={decorativeTextMaxCodePoints}
             value={theme.footerText}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             aria-invalid={Boolean(themeFieldErrors.footerText)}
             aria-describedby="brand-footer-text-counter brand-footer-text-error"
             onChange={(event) => updateTheme("footerText", event.target.value)}
