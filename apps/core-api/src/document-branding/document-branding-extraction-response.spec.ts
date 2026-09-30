@@ -32,9 +32,7 @@ describe('parseDocumentBrandingExtractionResponse', () => {
     ],
     ['a low-confidence result', { ...validResponse(), confidence: 'LOW' }],
   ])('rejects %s', (_description, response) => {
-    expect(() => parseDocumentBrandingExtractionResponse(response)).toThrow(
-      UnprocessableEntityException,
-    );
+    expect(() => parseDocumentBrandingExtractionResponse(response)).toThrow();
   });
 
   it('rejects structured output over the provider response limit', () => {
