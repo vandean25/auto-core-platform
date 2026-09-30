@@ -11,10 +11,8 @@ import { DocumentBrandingUploadTaskGuard } from './document-branding-upload-task
 import { DocumentBrandingUploadWorkerService } from './document-branding-upload-worker.service.js';
 import { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import { DocumentBrandingUploadRecoveryService } from './document-branding-upload-recovery.service.js';
-import {
-  DOCUMENT_BRAND_EXTRACTION_PROVIDER,
-  DisabledDocumentBrandingExtractionProvider,
-} from './document-branding-extraction-provider.js';
+import { DOCUMENT_BRAND_EXTRACTION_PROVIDER } from './document-branding-extraction-provider.js';
+import { createDocumentBrandingExtractionProvider } from './document-branding-extraction-provider.factory.js';
 import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
 import { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 import { DocumentBrandingExtractionTaskGuard } from './document-branding-extraction-task.guard.js';
@@ -40,7 +38,7 @@ import { DocumentBrandingExtractionRecoveryService } from './document-branding-e
     DocumentBrandingExtractionImageProcessor,
     {
       provide: DOCUMENT_BRAND_EXTRACTION_PROVIDER,
-      useClass: DisabledDocumentBrandingExtractionProvider,
+      useFactory: () => createDocumentBrandingExtractionProvider(),
     },
     DocumentBrandingAssetStorage,
     DocumentBrandingUploadService,

@@ -472,7 +472,10 @@ function isTransientError(error: unknown): boolean {
   if (error instanceof ExtractionFailure) {
     return error.code === 'BRAND_EXTRACTION_ATTEMPT_TIMEOUT';
   }
-  return !(error instanceof HttpException) || error.getStatus() >= 500;
+  if (error instanceof HttpException) {
+    return error.getStatus() === 429 || error.getStatus() >= 500;
+  }
+  return true;
 }
 
 function failureCode(error: unknown): string {
