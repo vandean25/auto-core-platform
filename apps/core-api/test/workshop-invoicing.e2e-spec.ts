@@ -4,10 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
-import {
-  createGlobalValidationPipe,
-  GlobalExceptionFilter,
-} from '../src/common/index.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   createTenantAwarePrisma,
@@ -42,7 +39,6 @@ describe('Workshop Invoicing (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
-    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
     installFakeInvoiceArchiveStorage(app);
 

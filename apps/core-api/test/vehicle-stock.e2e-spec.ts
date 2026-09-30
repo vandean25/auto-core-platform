@@ -3,10 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
-import {
-  createGlobalValidationPipe,
-  GlobalExceptionFilter,
-} from '../src/common/index.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -54,7 +51,6 @@ describe('Vehicle stock trading (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
-    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
     archiveReadKeys = installFakeInvoiceArchiveStorage(app).readKeys;
 
@@ -669,8 +665,7 @@ describe('Vehicle stock trading (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(422);
 
-      expect(lockedResponse.body).not.toHaveProperty('code');
-      expect(lockedResponse.body.message).toMatch(/locked fiscal period/);
+      expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
     } finally {
       await request(app.getHttpServer())
         .patch('/api/finance/settings')
@@ -783,8 +778,7 @@ describe('Vehicle stock trading (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(422);
 
-      expect(lockedResponse.body).not.toHaveProperty('code');
-      expect(lockedResponse.body.message).toMatch(/locked fiscal period/);
+      expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
     } finally {
       await request(app.getHttpServer())
         .patch('/api/finance/settings')

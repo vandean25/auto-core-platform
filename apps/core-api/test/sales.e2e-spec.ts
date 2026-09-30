@@ -3,10 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
-import {
-  createGlobalValidationPipe,
-  GlobalExceptionFilter,
-} from './../src/common/index.js';
+import { createGlobalValidationPipe } from './../src/common/index.js';
 import { PrismaService } from './../src/prisma/prisma.service.js';
 import {
   createTenantAwarePrisma,
@@ -46,7 +43,6 @@ describe('SalesController (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
-    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
     installFakeInvoiceArchiveStorage(app);
     basePrisma = app.get<PrismaService>(PrismaService);
@@ -153,10 +149,7 @@ describe('SalesController (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body).not.toHaveProperty('code');
-    expect(response.body.message).toContain(
-      'Direct source-less invoice creation is not supported',
-    );
+    expect(response.body.code).toBe('SOURCE_DOCUMENT_REQUIRED');
   });
 
   it.each(['default', 'confirmed'] as const)(
