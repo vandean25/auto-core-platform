@@ -51,7 +51,6 @@ describe('ThemeV1 validation', () => {
       { ...DEFAULT_THEME, extra: {} },
     ],
     ['invalid preset identifiers', { ...DEFAULT_THEME, presetId: 'classic' }],
-    ['non-hex colors', { ...DEFAULT_THEME, primaryColor: 'red' }],
     [
       'markup delimiters',
       { ...DEFAULT_THEME, headerText: '<strong>Invoice</strong>' },
@@ -66,14 +65,36 @@ describe('ThemeV1 validation', () => {
       { ...DEFAULT_THEME, headerText: 'one\ntwo\nthree' },
     ],
     ['footer newlines', { ...DEFAULT_THEME, footerText: 'one\ntwo' }],
-    [
-      'text longer than 120 code points',
-      { ...DEFAULT_THEME, footerText: 'x'.repeat(121) },
-    ],
   ])('rejects %s', (_caseName, value) => {
     expect(() => validateTheme(value)).toThrow(
       'Invalid document branding theme',
     );
+  });
+
+  it('rejects decorative text longer than 120 code points with HTTP 400 semantics', () => {
+    try {
+      validateTheme({ ...DEFAULT_THEME, footerText: 'x'.repeat(121) });
+      throw new Error('Expected theme validation to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        response: expect.objectContaining({
+          code: 'BRAND_THEME_TEXT_TOO_LONG',
+          message:
+            'Decorative footer text must be at most 120 characters.',
+        }),
+      });
+    }
+  });
+
+  it('rejects an invalid primary color with a field-specific message', () => {
+    try {
+      validateTheme({ ...DEFAULT_THEME, primaryColor: 'not-a-color' });
+      throw new Error('Expected theme validation to fail');
+    } catch (error) {
+      expect(error).toMatchObject({
+        response: expect.objectContaining({ code: 'BRAND_THEME_COLOR_INVALID' }),
+      });
+    }
   });
 
   it('returns the contrast-specific error code for a low-contrast primary color', () => {

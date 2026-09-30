@@ -21,6 +21,7 @@ export const REQUIRED_CORE_API_PRODUCTION_ENV_KEYS = [
   'CLOUD_TASKS_INVOKER_SA',
   'CLOUD_TASKS_WORKER_SECRET',
   'REDIS_URL',
+  'INVOICE_BRANDING_WRITER_ENABLED',
 ] as const;
 
 export const REQUIRED_PDF_WORKER_BOOT_ENV_KEYS = [
@@ -39,16 +40,19 @@ export interface CloudBuildDeployContracts {
 const DEPLOY_STEP_PATTERN = /^  - id: ([^\r\n]+)\r?$/gm;
 const SET_ARGUMENT_PATTERN = /--set-(?:env-vars|secrets)\s+"([^"]+)"/g;
 
+export function parseCloudBuildDeployStep(
+  cloudBuild: string,
+  stepId: string,
+): CloudRunDeployEnvironment {
+  return parseDeployEnvironment(extractBuildStep(cloudBuild, stepId));
+}
+
 export function parseCloudBuildDeployContracts(
   cloudBuild: string,
 ): CloudBuildDeployContracts {
   return {
-    coreApi: parseDeployEnvironment(
-      extractBuildStep(cloudBuild, 'deploy-cloud-run'),
-    ),
-    pdfWorker: parseDeployEnvironment(
-      extractBuildStep(cloudBuild, 'deploy-pdf-worker'),
-    ),
+    coreApi: parseCloudBuildDeployStep(cloudBuild, 'deploy-cloud-run'),
+    pdfWorker: parseCloudBuildDeployStep(cloudBuild, 'deploy-pdf-worker'),
   };
 }
 

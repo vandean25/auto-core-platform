@@ -213,12 +213,15 @@ describe('Workshop Invoicing (e2e)', () => {
         where: { tenant_id: tenantId },
         select: { current: true },
       });
-    await withInvoiceBrandingWriterDisabled(() =>
-      api
+    await withInvoiceBrandingWriterDisabled(async () => {
+      const disabledIssue = await api
         .patch(`/api/invoices/${invoiceId}/issue`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(503),
-    );
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(disabledIssue.status).toBe(503);
+      expect(disabledIssue.body).toMatchObject({
+        code: 'INVOICE_BRANDING_WRITER_DISABLED',
+      });
+    });
     const rejectedInvoice = await prisma.invoice.findFirstOrThrow({
       where: { id: invoiceId },
       select: { status: true, snapshot: true, invoice_number: true },

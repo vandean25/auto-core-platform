@@ -1,4 +1,10 @@
-import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  HttpException,
+  HttpStatus,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalExceptionFilter } from './global-exception.filter.js';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
@@ -139,5 +145,89 @@ describe('GlobalExceptionFilter', () => {
         error: 'Conflict',
       }),
     );
+  });
+
+  describe('production 5xx masking', () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalNodeEnv;
+    });
+
+    it('masks unexpected 5xx responses in production', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new HttpException(
+        'Database connection lost',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      filter.catch(exception, mockHost);
+
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          message: 'Internal server error',
+        }),
+      );
+      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+    });
+
+    it('masks production 5xx even when operational is true without an allowlisted code', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new HttpException(
+        {
+          operational: true,
+          message: 'database password leaked',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      filter.catch(exception, mockHost);
+
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          message: 'Internal server error',
+        }),
+      );
+      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+    });
+
+    it('preserves client-safe operational 503 codes and messages in production', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new ServiceUnavailableException({
+        code: 'INVOICE_BRANDING_WRITER_DISABLED',
+        message:
+          'Invoice commitment is temporarily unavailable while branded invoice issuance is disabled.',
+      });
+      filter.catch(exception, mockHost);
+
+      expect(mockStatus).toHaveBeenCalledWith(HttpStatus.SERVICE_UNAVAILABLE);
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 503,
+          message:
+            'Invoice commitment is temporarily unavailable while branded invoice issuance is disabled.',
+          code: 'INVOICE_BRANDING_WRITER_DISABLED',
+        }),
+      );
+      expect(mockLoggerError).not.toHaveBeenCalled();
+      expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('does not forward code for non-allowlisted HttpException responses', () => {
+    const exception = new UnprocessableEntityException({
+      code: 'SELLER_IDENTITY_INCOMPLETE',
+      message: 'Seller identity is incomplete.',
+    });
+    filter.catch(exception, mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 422,
+        message: 'Seller identity is incomplete.',
+      }),
+    );
+    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
   });
 });

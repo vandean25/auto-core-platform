@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchWithAuth } from "./client";
-import { getErrorMessage } from "@/lib/error-utils";
+import { createHttpError, getErrorMessage } from "@/lib/error-utils";
 
 export type DocumentBrandTheme = {
   schemaVersion: 1;
@@ -16,6 +16,13 @@ export type DocumentBrandTheme = {
   footerText: string;
 };
 
+export type DocumentBrandUploadConstraints = {
+  maxBytes: number;
+  mimeTypes: string[];
+  accept: string;
+  requirementLabel: string;
+};
+
 export type DocumentBrandProfile = {
   revision: number;
   activeRevision: number;
@@ -23,7 +30,16 @@ export type DocumentBrandProfile = {
   draftTheme: DocumentBrandTheme | null;
   confirmedAt: string | null;
   confirmedByUserId: string | null;
-  capabilities: { extractionAvailable: boolean };
+  capabilities: {
+    extractionAvailable: boolean;
+    theme: { decorativeTextMaxCodePoints: number };
+    uploads: {
+      logo: DocumentBrandUploadConstraints;
+      source: DocumentBrandUploadConstraints;
+    };
+  };
+  draftSourceAssetId: string | null;
+  draftSourceAsset: DocumentBrandAsset | null;
 };
 
 export type DocumentBrandAsset = {
@@ -35,8 +51,22 @@ export type DocumentBrandAsset = {
   pixelWidth: number | null;
   pixelHeight: number | null;
   failureCode: string | null;
+  originalFilename: string | null;
+  pagePreviewAvailable: boolean;
   createdAt: string;
   expiresAt: string | null;
+};
+
+export type DocumentBrandExtraction = {
+  id: string;
+  state: "QUEUED" | "RUNNING" | "SUCCEEDED" | "FAILED" | "DISCARDED";
+  proposal: DocumentBrandTheme | null;
+  warnings: string[];
+  baseRevision: number;
+  createdAt: string;
+  completedAt: string | null;
+  expiresAt: string | null;
+  failureCode: string | null;
 };
 
 export const DEFAULT_DOCUMENT_BRAND_THEME: DocumentBrandTheme = {
@@ -58,10 +88,54 @@ export const documentBrandingKeys = {
     [...documentBrandingKeys.all, "profile", legalEntityId] as const,
   asset: (legalEntityId: string, assetId: string) =>
     [...documentBrandingKeys.all, "asset", legalEntityId, assetId] as const,
+  extraction: (legalEntityId: string, extractionId: string) =>
+    [...documentBrandingKeys.all, "extraction", legalEntityId, extractionId] as const,
 };
 
 async function readError(response: Response, fallback: string) {
-  return getErrorMessage(response, fallback);
+  const payload = (await response.json().catch(() => undefined)) as
+    | {
+        message?: string | string[] | { message?: string };
+        code?: string;
+      }
+    | undefined;
+  const message = payload?.message;
+  if (typeof message === "string" && message.trim()) return message;
+  if (Array.isArray(message)) return message.join(", ");
+  if (message && typeof message === "object" && message.message) {
+    return message.message;
+  }
+  if (payload?.code) {
+    return getErrorMessage({ message: payload.code }, fallback);
+  }
+  return fallback;
+}
+
+async function throwHttpError(response: Response, fallback: string) {
+  throw createHttpError(await readError(response, fallback), response.status);
+}
+
+export function documentBrandAssetUploadErrorMessage(
+  purpose: "SOURCE" | "LOGO",
+  error: unknown,
+  constraints: DocumentBrandUploadConstraints | undefined,
+): string {
+  const status =
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status: unknown }).status === "number"
+      ? (error as { status: number }).status
+      : null;
+  if (status === 415 && constraints?.requirementLabel) {
+    return constraints.requirementLabel;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return purpose === "LOGO"
+    ? "Logo could not be uploaded."
+    : "Source file could not be uploaded.";
 }
 
 export function useDocumentBrandProfile(legalEntityId: string | null) {
@@ -73,9 +147,7 @@ export function useDocumentBrandProfile(legalEntityId: string | null) {
         `/api/legal-entities/${legalEntityId}/document-branding`,
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to load document branding"),
-        );
+        await throwHttpError(response, "Failed to load document branding");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -90,6 +162,7 @@ export function useSaveDocumentBrandDraft() {
       legalEntityId: string;
       expectedRevision: number;
       theme: DocumentBrandTheme;
+      extractionId?: string;
       signal?: AbortSignal;
     }) => {
       const { legalEntityId, signal, ...body } = payload;
@@ -103,9 +176,7 @@ export function useSaveDocumentBrandDraft() {
         },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to save document branding"),
-        );
+        await throwHttpError(response, "Failed to save document branding");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -138,9 +209,7 @@ export function useConfirmDocumentBranding(action: "confirm" | "reset") {
         },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to confirm document branding"),
-        );
+        await throwHttpError(response, "Failed to confirm document branding");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -165,11 +234,9 @@ export function useDiscardDocumentBrandDraft() {
         { method: "DELETE" },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(
-            response,
-            "Failed to discard document branding draft",
-          ),
+        await throwHttpError(
+          response,
+          "Failed to discard document branding draft",
         );
       }
       return response.json() as Promise<DocumentBrandProfile>;
@@ -202,7 +269,7 @@ export function usePreviewDocumentBranding() {
         },
       );
       if (!response.ok) {
-        throw new Error(await readError(response, "Failed to create preview"));
+        await throwHttpError(response, "Failed to create preview");
       }
       return response.json() as Promise<{
         html: string;
@@ -227,8 +294,9 @@ export function useDocumentBrandAsset(
         `/api/legal-entities/${legalEntityId}/document-branding/assets/${assetId}`,
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to read uploaded asset status"),
+        await throwHttpError(
+          response,
+          "Failed to read uploaded asset status",
         );
       }
       return response.json() as Promise<DocumentBrandAsset>;
@@ -266,6 +334,68 @@ export function useDocumentBrandAsset(
   return { ...query, pollTimedOut };
 }
 
+export function useAttachDocumentBrandDraftSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      legalEntityId: string;
+      expectedRevision: number;
+      sourceAssetId: string;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/draft/source`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            expectedRevision: payload.expectedRevision,
+            sourceAssetId: payload.sourceAssetId,
+          }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readError(response, "Failed to attach letterhead source"),
+        );
+      }
+      return response.json() as Promise<DocumentBrandProfile>;
+    },
+    onSuccess: (profile, payload) => {
+      queryClient.setQueryData(
+        documentBrandingKeys.profile(payload.legalEntityId),
+        profile,
+      );
+    },
+  });
+}
+
+export function useRemoveDocumentBrandDraftSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      legalEntityId: string;
+      expectedRevision: number;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/draft/source?expectedRevision=${payload.expectedRevision}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readError(response, "Failed to remove letterhead source"),
+        );
+      }
+      return response.json() as Promise<DocumentBrandProfile>;
+    },
+    onSuccess: (profile, payload) => {
+      queryClient.setQueryData(
+        documentBrandingKeys.profile(payload.legalEntityId),
+        profile,
+      );
+    },
+  });
+}
+
 export function useUploadDocumentBrandAsset() {
   return useMutation({
     mutationFn: async (payload: {
@@ -281,11 +411,92 @@ export function useUploadDocumentBrandAsset() {
         { method: "POST", body },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to upload document branding asset"),
+        await throwHttpError(
+          response,
+          "Failed to upload document branding asset",
         );
       }
       return response.json() as Promise<DocumentBrandAsset>;
+    },
+  });
+}
+
+export function useCreateDocumentBrandExtraction() {
+  return useMutation({
+    mutationFn: async (payload: {
+      legalEntityId: string;
+      sourceAssetId: string;
+      expectedRevision: number;
+      idempotencyKey: string;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/extractions`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": payload.idempotencyKey,
+          },
+          body: JSON.stringify({
+            sourceAssetId: payload.sourceAssetId,
+            expectedRevision: payload.expectedRevision,
+          }),
+        },
+      );
+      if (!response.ok) {
+        await throwHttpError(
+          response,
+          "Could not start letterhead extraction",
+        );
+      }
+      return response.json() as Promise<DocumentBrandExtraction>;
+    },
+  });
+}
+
+export function useDocumentBrandExtraction(
+  legalEntityId: string,
+  extractionId: string | null,
+  polling: boolean,
+) {
+  return useQuery<DocumentBrandExtraction>({
+    queryKey: documentBrandingKeys.extraction(legalEntityId, extractionId ?? ""),
+    enabled: Boolean(legalEntityId && extractionId),
+    queryFn: async () => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${legalEntityId}/document-branding/extractions/${extractionId}`,
+      );
+      if (!response.ok) {
+        await throwHttpError(response, "Could not read extraction status");
+      }
+      return response.json() as Promise<DocumentBrandExtraction>;
+    },
+    refetchInterval: (query) =>
+      polling && ["QUEUED", "RUNNING"].includes(query.state.data?.state ?? "")
+        ? 2000
+        : false,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function useDiscardDocumentBrandExtraction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { legalEntityId: string; extractionId: string }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/extractions/${payload.extractionId}/discard`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        await throwHttpError(response, "Could not discard extraction");
+      }
+      return response.json() as Promise<DocumentBrandExtraction>;
+    },
+    onSuccess: (extraction, payload) => {
+      queryClient.setQueryData(
+        documentBrandingKeys.extraction(payload.legalEntityId, payload.extractionId),
+        extraction,
+      );
     },
   });
 }

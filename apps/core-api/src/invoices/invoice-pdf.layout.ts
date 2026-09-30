@@ -3,6 +3,13 @@ import {
   buildPdfFooterTemplate,
   type EscapeHtml,
 } from '../common/pdf/pdf-layout.js';
+import {
+  FOOTER_DECORATIVE_WIDTH_MM,
+  HEADER_DECORATIVE_MAX_LINES,
+  HEADER_DECORATIVE_WIDTH_MM,
+  FOOTER_DECORATIVE_MAX_LINES,
+  wrapAndEllipsizeDecorativeText,
+} from '../document-branding/decorative-text-layout.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { InvoiceSnapshotV2Seller } from './invoice-snapshot-v2.js';
 
@@ -195,7 +202,6 @@ export const buildInvoiceDocumentStyles = (
       ? `
     body { font-family: 'ACP Sans', sans-serif; }
     h1, .section-title { color: ${snapshot?.branding?.tokens.primary_color ?? '#111827'}; }
-    th { background: ${snapshot?.branding?.tokens.secondary_color ?? '#f9fafb'}; }
   `
       : ''
   }
@@ -570,11 +576,21 @@ export const buildBrandedInvoiceHeaderTemplate = (
       : tokens.header_band === 'secondary'
         ? tokens.secondary_color
         : 'transparent';
+  const headerText = wrapAndEllipsizeDecorativeText(
+    tokens.header_text,
+    HEADER_DECORATIVE_WIDTH_MM,
+    HEADER_DECORATIVE_MAX_LINES,
+  )
+    .lines.map(
+      (line) =>
+        `<span class="decorative-header-line" style="display:block;white-space:nowrap">${escapeHtml(line)}</span>`,
+    )
+    .join('');
   return `<style>${fontFaceCss}</style><div style="width:100%;height:32mm;padding:3mm 16mm 0;box-sizing:border-box;font-family:'ACP Sans',sans-serif;">
-    <div style="height:3mm;background:${bandColor};margin:0 -16mm 2mm"></div>
+    <div style="height:3mm;background:${bandColor};-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0 -16mm 2mm"></div>
     <div style="height:18mm;display:flex;align-items:center;justify-content:space-between;gap:8mm;">
       ${logoDataUrl ? `<img alt="" src="${logoDataUrl}" style="width:45mm;height:18mm;object-fit:contain;object-position:left center" />` : '<span></span>'}
-      <span style="max-width:80mm;max-height:16mm;overflow:hidden;text-align:right;color:${tokens.primary_color};font-size:10pt;line-height:1.2">${escapeHtml(tokens.header_text)}</span>
+      <span style="display:block;max-width:${HEADER_DECORATIVE_WIDTH_MM}mm;max-height:16mm;overflow:hidden;text-align:right;color:${tokens.primary_color};font-size:9pt;line-height:1.2">${headerText}</span>
     </div>
   </div>`;
 };
@@ -598,10 +614,16 @@ export const buildInvoiceFooterTemplate = (
         : tokens.footer_band === 'secondary'
           ? tokens.secondary_color
           : 'transparent';
+    const footerText =
+      wrapAndEllipsizeDecorativeText(
+        snapshot.branding.tokens.footer_text,
+        FOOTER_DECORATIVE_WIDTH_MM,
+        FOOTER_DECORATIVE_MAX_LINES,
+      ).lines[0] ?? '';
     return `<style>${fontFaceCss}</style><div style="width:100%;height:28mm;padding:0 16mm 4mm;box-sizing:border-box;font-family:'ACP Sans',sans-serif;font-size:8pt;color:#6b7280;">
-      <div style="height:3mm;background:${bandColor};margin:0 -16mm 2mm"></div>
+      <div style="height:3mm;background:${bandColor};-webkit-print-color-adjust:exact;print-color-adjust:exact;margin:0 -16mm 2mm"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8mm;max-height:16mm;overflow:hidden">
-        <span style="max-width:100mm;overflow:hidden">${escape(snapshot.branding.tokens.footer_text)}</span>
+        <span style="max-width:${FOOTER_DECORATIVE_WIDTH_MM}mm;overflow:hidden;white-space:nowrap;font-size:9pt">${escape(footerText)}</span>
         <span>${escape(prefix)} ${escape(invoiceNumber)} · <span class="pageNumber"></span> / <span class="totalPages"></span></span>
       </div>
     </div>`;

@@ -57,6 +57,11 @@ export class DocumentBrandingUploadWorkerService {
       objectKey: string;
       generation: string;
     } | null = null;
+    let previewPublished: {
+      bucket: string;
+      objectKey: string;
+      generation: string;
+    } | null = null;
     let readyPersisted = false;
     try {
       if (
@@ -86,6 +91,15 @@ export class DocumentBrandingUploadWorkerService {
         contentType: current.detected_mime_type ?? 'application/octet-stream',
       });
       published = { ...stored, objectKey };
+      if (validated.pagePreviewPng) {
+        const previewObjectKey = `${rootKey}/assets/${assetId}-page1.png`;
+        const previewStored = await this.storage.storeImmutable({
+          objectKey: previewObjectKey,
+          bytes: validated.pagePreviewPng,
+          contentType: 'image/png',
+        });
+        previewPublished = { ...previewStored, objectKey: previewObjectKey };
+      }
       const ready = await this.prisma.documentBrandAsset.updateMany({
         where: {
           id: assetId,
@@ -98,6 +112,9 @@ export class DocumentBrandingUploadWorkerService {
           bucket: stored.bucket,
           object_key: objectKey,
           object_generation: stored.generation,
+          preview_bucket: previewPublished?.bucket ?? null,
+          preview_object_key: previewPublished?.objectKey ?? null,
+          preview_object_generation: previewPublished?.generation ?? null,
           sha256: createHash('sha256').update(validated.bytes).digest('hex'),
           byte_length: validated.bytes.byteLength,
           pixel_width: validated.width,
@@ -112,6 +129,10 @@ export class DocumentBrandingUploadWorkerService {
         },
       });
       if (ready.count !== 1) {
+        if (previewPublished) {
+          await this.deletePublishedGeneration(previewPublished);
+          previewPublished = null;
+        }
         await this.deletePublishedGeneration(published);
         published = null;
         return { state: 'QUARANTINED' as const };
@@ -124,6 +145,9 @@ export class DocumentBrandingUploadWorkerService {
       );
       return { state: 'READY' as const };
     } catch (error) {
+      if (previewPublished && !readyPersisted) {
+        await this.deletePublishedGeneration(previewPublished);
+      }
       if (published && !readyPersisted) {
         await this.deletePublishedGeneration(published);
       }
@@ -172,8 +196,13 @@ export class DocumentBrandingUploadWorkerService {
     original: Buffer,
   ) {
     if (mimeType === 'application/pdf' && purpose === 'SOURCE') {
-      await this.pdfParser.validateAndRasterize(original);
-      return { bytes: original, width: null, height: null };
+      const pdf = await this.pdfParser.validateAndRasterize(original);
+      return {
+        bytes: original,
+        width: pdf.width,
+        height: pdf.height,
+        pagePreviewPng: pdf.raster,
+      };
     }
     if (mimeType !== 'image/png')
       throw invalidAsset('BRAND_FILE_TYPE_UNSUPPORTED');

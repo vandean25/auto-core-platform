@@ -367,6 +367,22 @@ describe('InvoicePdfService.getPdf', () => {
     );
   });
 
+  it('scopes invoice PDF lookup to the tenant and authorized sites', async () => {
+    prisma.client.invoice.findFirst.mockResolvedValue(null);
+
+    await expect(service.getPdf(invoiceId)).rejects.toThrow('Invoice not found');
+
+    expect(prisma.client.invoice.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: invoiceId,
+          tenant_id: tenantId,
+          site_id: { in: ['site-1'] },
+        },
+      }),
+    );
+  });
+
   it('streams from cached metadata when pdf_storage fields are set', async () => {
     prisma.client.invoice.findFirst.mockResolvedValue({
       id: invoiceId,

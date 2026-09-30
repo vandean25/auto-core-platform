@@ -4,12 +4,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import { CloudTasksClient } from '@google-cloud/tasks';
+import { createHash, randomUUID } from 'node:crypto';
 import * as Sentry from '@sentry/node';
 import {
   type PdfTaskKind,
   signPdfTaskPayload,
 } from '../pdf/pdf-task-payload.js';
 import { signDocumentBrandingUploadTask } from '../../document-branding/document-branding-upload-task.js';
+import { signDocumentBrandingExtractionTask } from '../../document-branding/document-branding-extraction-task.js';
 
 const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,
@@ -170,6 +172,7 @@ interface BuildTaskRequestParams {
   invokerServiceAccount: string;
   targetBaseUrl: string;
   delaySeconds?: number;
+  dispatchDeadlineSeconds?: number;
 }
 
 function buildTaskRequest(params: BuildTaskRequestParams) {
@@ -189,7 +192,7 @@ function buildTaskRequest(params: BuildTaskRequestParams) {
       },
     },
     scheduleTime: calculateScheduleTime(params.delaySeconds),
-    dispatchDeadline: { seconds: 600 },
+    dispatchDeadline: { seconds: params.dispatchDeadlineSeconds ?? 600 },
   };
 }
 
@@ -376,4 +379,118 @@ export class CloudTasksService {
     }
     return { taskId: task.name.split('/').pop() || task.name };
   }
+
+  async enqueueDocumentBrandingExtraction(params: {
+    extractionId: string;
+    legalEntityId: string;
+    tenantId: string;
+    expectedAttemptCount: number;
+    targetBaseUrl: string;
+    delaySeconds?: number;
+  }): Promise<{ taskId: string }> {
+    if (!this.isEnabled()) {
+      throw new InternalServerErrorException(
+        'Cloud Tasks is not enabled or not configured',
+      );
+    }
+    const workerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
+    const location = process.env.CLOUD_TASKS_LOCATION;
+    const queue = process.env.CLOUD_TASKS_QUEUE;
+    const invokerServiceAccount = process.env.CLOUD_TASKS_INVOKER_SA;
+    if (!workerSecret || !location || !queue || !invokerServiceAccount) {
+      throw new InternalServerErrorException(
+        'Cloud Tasks is missing required configuration environment variables',
+      );
+    }
+
+    const projectId = await this.getProjectId();
+    let url: string;
+    try {
+      const baseUrl = params.targetBaseUrl.endsWith('/')
+        ? params.targetBaseUrl
+        : `${params.targetBaseUrl}/`;
+      url = new URL(
+        `legal-entities/${params.legalEntityId}/document-branding/extractions/${params.extractionId}/worker`,
+        baseUrl,
+      ).toString();
+    } catch {
+      throw new InternalServerErrorException(
+        'Invalid Cloud Tasks target base URL',
+      );
+    }
+    const parent = this.client.queuePath(projectId, location, queue);
+    const task = buildTaskRequest({
+      url,
+      workerSecret,
+      tenantId: params.tenantId,
+      payload: signDocumentBrandingExtractionTask(
+        {
+          extractionId: params.extractionId,
+          legalEntityId: params.legalEntityId,
+          tenantId: params.tenantId,
+          expectedAttemptCount: params.expectedAttemptCount,
+        },
+        workerSecret,
+      ),
+      invokerServiceAccount,
+      targetBaseUrl: params.targetBaseUrl,
+      delaySeconds: params.delaySeconds,
+      dispatchDeadlineSeconds: 60,
+    });
+    const taskId = deterministicExtractionTaskId(
+      params.extractionId,
+      params.expectedAttemptCount,
+    );
+    const name = this.client.taskPath(projectId, location, queue, taskId);
+    let acceptedTaskName: string | null | undefined;
+    try {
+      const [acceptedTask] = await this.client.createTask({
+        parent,
+        task: { ...task, name },
+      });
+      acceptedTaskName = acceptedTask.name;
+    } catch (error) {
+      if (cloudTasksErrorCode(error) !== 6) throw error;
+      try {
+        const [activeTask] = await this.client.getTask({ name });
+        acceptedTaskName = activeTask.name;
+      } catch (lookupError) {
+        if (cloudTasksErrorCode(lookupError) !== 5) throw lookupError;
+        const freshName = this.client.taskPath(
+          projectId,
+          location,
+          queue,
+          `document-branding-extraction-${randomUUID()}`,
+        );
+        const [acceptedTask] = await this.client.createTask({
+          parent,
+          task: { ...task, name: freshName },
+        });
+        acceptedTaskName = acceptedTask.name;
+      }
+    }
+    if (!acceptedTaskName) {
+      throw new InternalServerErrorException(
+        'Cloud Tasks returned a malformed task without a name',
+      );
+    }
+    return {
+      taskId: acceptedTaskName.split('/').pop() || acceptedTaskName,
+    };
+  }
+}
+
+function deterministicExtractionTaskId(
+  extractionId: string,
+  expectedAttemptCount: number,
+): string {
+  const digest = createHash('sha256')
+    .update(`${extractionId}:${expectedAttemptCount}`)
+    .digest('hex');
+  return `document-branding-extraction-${digest.slice(0, 40)}`;
+}
+
+function cloudTasksErrorCode(error: unknown): number | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null;
+  return typeof error.code === 'number' ? error.code : null;
 }

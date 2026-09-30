@@ -111,30 +111,32 @@ model Tenant {
   invoiceBrandAssetReferences   InvoiceBrandAssetReference[]
   documentBrandQuotaEvents      DocumentBrandQuotaEvent[]
   documentBrandQuotaLocks       DocumentBrandQuotaLock[]
+  documentBrandExtractions      DocumentBrandExtraction[]
 
   @@map("tenants")
 }
 
 model User {
-  id                             String                 @id @default(uuid())
-  firebaseUid                    String?                @unique @map("firebase_uid")
-  email                          String                 @unique
-  firstName                      String?                @map("first_name")
-  lastName                       String?                @map("last_name")
-  active_tenant_id               String?
-  activeTenant                   Tenant?                @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
-  active_site_id                 String?
-  memberships                    TenantMember[]
-  siteMemberships                SiteMembership[]
-  platformAdmin                  PlatformAdmin?
-  employees                      Employee[]
-  transfersRequested             StockTransfer[]        @relation("StockTransferRequestedBy")
-  transfersApproved              StockTransfer[]        @relation("StockTransferApprovedBy")
-  transfersShipped               StockTransfer[]        @relation("StockTransferShippedBy")
-  transfersReceived              StockTransfer[]        @relation("StockTransferReceivedBy")
-  confirmedDocumentBrandProfiles DocumentBrandProfile[] @relation("DocumentBrandConfirmedBy")
-  createdAt                      DateTime               @default(now())
-  updatedAt                      DateTime               @updatedAt
+  id                                String                    @id @default(uuid())
+  firebaseUid                       String?                   @unique @map("firebase_uid")
+  email                             String                    @unique
+  firstName                         String?                   @map("first_name")
+  lastName                          String?                   @map("last_name")
+  active_tenant_id                  String?
+  activeTenant                      Tenant?                   @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
+  active_site_id                    String?
+  memberships                       TenantMember[]
+  siteMemberships                   SiteMembership[]
+  platformAdmin                     PlatformAdmin?
+  employees                         Employee[]
+  transfersRequested                StockTransfer[]           @relation("StockTransferRequestedBy")
+  transfersApproved                 StockTransfer[]           @relation("StockTransferApprovedBy")
+  transfersShipped                  StockTransfer[]           @relation("StockTransferShippedBy")
+  transfersReceived                 StockTransfer[]           @relation("StockTransferReceivedBy")
+  confirmedDocumentBrandProfiles    DocumentBrandProfile[]    @relation("DocumentBrandConfirmedBy")
+  requestedDocumentBrandExtractions DocumentBrandExtraction[] @relation("DocumentBrandExtractionRequestedBy")
+  createdAt                         DateTime                  @default(now())
+  updatedAt                         DateTime                  @updatedAt
 
   @@index([active_tenant_id])
   @@map("users")
@@ -203,6 +205,7 @@ model LegalEntity {
   accountingExports           AccountingExport[]
   documentBrandProfile        DocumentBrandProfile?
   documentBrandAssets         DocumentBrandAsset[]
+  documentBrandExtractions    DocumentBrandExtraction[]
   invoiceBrandAssetReferences InvoiceBrandAssetReference[]
   invoices                    Invoice[]
   creditNotes                 CreditNote[]
@@ -230,7 +233,16 @@ enum DocumentBrandAssetState {
 
 enum DocumentBrandQuotaAction {
   ASSET_UPLOAD
+  EXTRACTION
   PREVIEW
+}
+
+enum DocumentBrandExtractionState {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  DISCARDED
 }
 
 model DocumentBrandQuotaEvent {
@@ -268,11 +280,16 @@ model DocumentBrandAsset {
   source_asset_id              String?
   source_asset                 DocumentBrandAsset?       @relation("DocumentBrandSource", fields: [tenant_id, legal_entity_id, source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   derived_assets               DocumentBrandAsset[]      @relation("DocumentBrandSource")
+  sourceForExtractions         DocumentBrandExtraction[] @relation("DocumentBrandExtractionSource")
+  proposalForExtractions       DocumentBrandExtraction[] @relation("DocumentBrandExtractionProposalLogo")
   purpose                      DocumentBrandAssetPurpose
   state                        DocumentBrandAssetState   @default(QUARANTINED)
   bucket                       String?
   object_key                   String?
   object_generation            String?
+  preview_bucket               String?
+  preview_object_key           String?
+  preview_object_generation    String?
   sha256                       String?
   byte_length                  Int
   detected_mime_type           String?
@@ -290,8 +307,9 @@ model DocumentBrandAsset {
   createdAt                    DateTime                  @default(now())
   updatedAt                    DateTime                  @updatedAt
 
-  draftForProfiles  DocumentBrandProfile[]       @relation("DocumentBrandDraftLogo")
-  activeForProfiles DocumentBrandProfile[]       @relation("DocumentBrandActiveLogo")
+  draftForProfiles       DocumentBrandProfile[] @relation("DocumentBrandDraftLogo")
+  draftSourceForProfiles DocumentBrandProfile[] @relation("DocumentBrandDraftSource")
+  activeForProfiles      DocumentBrandProfile[] @relation("DocumentBrandActiveLogo")
   invoiceReferences InvoiceBrandAssetReference[]
 
   @@unique([tenant_id, id])
@@ -300,6 +318,47 @@ model DocumentBrandAsset {
   @@index([tenant_id, legal_entity_id, state, expires_at])
   @@index([tenant_id, legal_entity_id, source_asset_id])
   @@map("document_brand_assets")
+}
+
+model DocumentBrandExtraction {
+  id                     String                       @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  legal_entity_id        String
+  legal_entity           LegalEntity                  @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  draftForProfiles       DocumentBrandProfile[]       @relation("DocumentBrandDraftExtraction")
+  source_asset_id        String?
+  source_asset           DocumentBrandAsset?          @relation("DocumentBrandExtractionSource", fields: [tenant_id, legal_entity_id, source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  proposal_logo_asset_id String?
+  proposal_logo_asset    DocumentBrandAsset?          @relation("DocumentBrandExtractionProposalLogo", fields: [tenant_id, legal_entity_id, proposal_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  requested_by_user_id   String?
+  requested_by_user      User?                        @relation("DocumentBrandExtractionRequestedBy", fields: [requested_by_user_id], references: [id], onDelete: SetNull)
+  base_revision          Int
+  idempotency_key        String                       @db.VarChar(128)
+  request_hash           String                       @db.Char(64)
+  state                  DocumentBrandExtractionState @default(QUEUED)
+  proposal               Json?
+  warning_codes          String[]                     @default([])
+  failure_code           String?                      @db.VarChar(64)
+  provider_id            String?                      @db.VarChar(64)
+  model_id               String?                      @db.VarChar(128)
+  prompt_version         String?                      @db.VarChar(64)
+  attempt_count          Int                          @default(0)
+  dispatch_count         Int                          @default(0)
+  lease_token            String?                      @db.VarChar(64)
+  lease_until            DateTime?
+  dispatched_at          DateTime?
+  completed_at           DateTime?
+  expires_at             DateTime?
+  createdAt              DateTime                     @default(now())
+  updatedAt              DateTime                     @updatedAt
+
+  @@unique([tenant_id, legal_entity_id, idempotency_key])
+  @@unique([tenant_id, legal_entity_id, id])
+  @@index([tenant_id, legal_entity_id, state, createdAt])
+  @@index([tenant_id, state, lease_until])
+  @@index([expires_at])
+  @@map("document_brand_extractions")
 }
 
 model DocumentBrandProfile {
@@ -316,6 +375,10 @@ model DocumentBrandProfile {
   activeLogoAsset                   DocumentBrandAsset? @relation("DocumentBrandActiveLogo", fields: [tenant_id, legal_entity_id, active_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   draft_logo_asset_id               String?
   draftLogoAsset                    DocumentBrandAsset? @relation("DocumentBrandDraftLogo", fields: [tenant_id, legal_entity_id, draft_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  draft_source_asset_id             String?
+  draftSourceAsset                  DocumentBrandAsset? @relation("DocumentBrandDraftSource", fields: [tenant_id, legal_entity_id, draft_source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  draft_extraction_id               String?
+  draftExtraction                   DocumentBrandExtraction? @relation("DocumentBrandDraftExtraction", fields: [tenant_id, legal_entity_id, draft_extraction_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   confirmed_at                      DateTime?
   confirmed_by_user_id              String?
   confirmedByUser                   User?               @relation("DocumentBrandConfirmedBy", fields: [confirmed_by_user_id], references: [id], onDelete: SetNull)

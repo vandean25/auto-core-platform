@@ -1,9 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Prisma as PrismaTypes } from '@prisma/client';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
+import { startDerivedLogoGraceIfUnreferenced } from './document-branding-extraction-retention.js';
 
 const INITIAL_DISPATCH_GRACE_MS = 60 * 1000;
 const DISPATCH_RECOVERY_GRACE_MS = 11 * 60 * 1000;
@@ -16,6 +20,8 @@ export class DocumentBrandingUploadRecoveryService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly systemPrisma: SystemPrismaService,
+    private readonly requestContext: RequestContextService,
     private readonly storage: DocumentBrandingAssetStorage,
     private readonly tasks: DocumentBrandingUploadTaskService,
   ) {}
@@ -24,24 +30,33 @@ export class DocumentBrandingUploadRecoveryService {
     name: 'document-branding-upload-recovery',
   })
   async recoverAndClean() {
-    const tenants = await this.prisma.tenant.findMany({ select: { id: true } });
-    const tenantIds = tenants.map(({ id }) => id);
-    if (tenantIds.length === 0) return;
+    const tenants = await this.systemPrisma.tenant.findMany({
+      select: { id: true },
+    });
+    if (tenants.length === 0) return;
 
     const now = new Date();
+    for (const { id: tenantId } of tenants) {
+      await this.requestContext.runAsWorker(
+        tenantId,
+        () => this.recoverAndCleanForTenant(now),
+        { workerId: 'document-branding-upload-recovery' },
+      );
+    }
+  }
+
+  private async recoverAndCleanForTenant(now: Date) {
     const staleBefore = new Date(now.getTime() - INITIAL_DISPATCH_GRACE_MS);
     const dispatchedStaleBefore = new Date(
       now.getTime() - DISPATCH_RECOVERY_GRACE_MS,
     );
     await this.prisma.documentBrandQuotaEvent.deleteMany({
       where: {
-        tenant_id: { in: tenantIds },
         created_at: { lt: new Date(now.getTime() - 60 * 60 * 1000) },
       },
     });
     await this.prisma.documentBrandAsset.updateMany({
       where: {
-        tenant_id: { in: tenantIds },
         state: 'QUARANTINED',
         validation_attempt_count: { gte: 3 },
         validation_lease_until: { lt: now },
@@ -55,7 +70,6 @@ export class DocumentBrandingUploadRecoveryService {
     });
     const pending = await this.prisma.documentBrandAsset.findMany({
       where: {
-        tenant_id: { in: tenantIds },
         state: 'QUARANTINED',
         validation_attempt_count: { lt: 3 },
         OR: [
@@ -90,9 +104,8 @@ export class DocumentBrandingUploadRecoveryService {
 
     const expired = await this.prisma.documentBrandAsset.findMany({
       where: {
-        tenant_id: { in: tenantIds },
         expires_at: { lte: now },
-        state: { in: ['QUARANTINED', 'REJECTED', 'DELETING'] },
+        state: { in: ['READY', 'QUARANTINED', 'REJECTED', 'DELETING'] },
       },
       select: { id: true, tenant_id: true, legal_entity_id: true },
       take: 100,
@@ -102,7 +115,6 @@ export class DocumentBrandingUploadRecoveryService {
     const publishedWithQuarantine =
       await this.prisma.documentBrandAsset.findMany({
         where: {
-          tenant_id: { in: tenantIds },
           state: 'READY',
           quarantine_bucket: { not: null },
           quarantine_object_key: { not: null },
@@ -183,10 +195,15 @@ export class DocumentBrandingUploadRecoveryService {
         (current.state !== 'DELETING' &&
           (!current.expires_at ||
             current.expires_at > new Date() ||
-            (current.state !== 'QUARANTINED' && current.state !== 'REJECTED')))
+            (current.state !== 'READY' &&
+              current.state !== 'QUARANTINED' &&
+              current.state !== 'REJECTED')))
       )
         return null;
 
+      if (await this.releaseExpiredExtractionReferences(tx, current, asset)) {
+        return null;
+      }
       if (await this.hasCleanupReferences(tx, asset)) return null;
 
       if (current.state !== 'DELETING') {
@@ -209,6 +226,9 @@ export class DocumentBrandingUploadRecoveryService {
         quarantine_bucket: current.quarantine_bucket,
         quarantine_object_key: current.quarantine_object_key,
         quarantine_object_generation: current.quarantine_object_generation,
+        preview_bucket: current.preview_bucket,
+        preview_object_key: current.preview_object_key,
+        preview_object_generation: current.preview_object_generation,
       };
     });
     if (!target) return;
@@ -245,6 +265,9 @@ export class DocumentBrandingUploadRecoveryService {
         quarantine_bucket: current.quarantine_bucket,
         quarantine_object_key: current.quarantine_object_key,
         quarantine_object_generation: current.quarantine_object_generation,
+        preview_bucket: current.preview_bucket,
+        preview_object_key: current.preview_object_key,
+        preview_object_generation: current.preview_object_generation,
       };
     });
     if (!confirmedTarget) return;
@@ -262,6 +285,17 @@ export class DocumentBrandingUploadRecoveryService {
         );
       }
       if (
+        confirmedTarget.preview_object_key &&
+        confirmedTarget.preview_bucket &&
+        confirmedTarget.preview_object_generation
+      ) {
+        await this.storage.deleteGeneration(
+          confirmedTarget.preview_bucket,
+          confirmedTarget.preview_object_key,
+          confirmedTarget.preview_object_generation,
+        );
+      }
+      if (
         confirmedTarget.quarantine_bucket &&
         confirmedTarget.quarantine_object_key &&
         confirmedTarget.quarantine_object_generation
@@ -274,7 +308,13 @@ export class DocumentBrandingUploadRecoveryService {
       }
       await this.prisma.documentBrandAsset.updateMany({
         where: { id: asset.id, tenant_id: asset.tenant_id, state: 'DELETING' },
-        data: { state: 'DELETED', validation_lease_until: null },
+        data: {
+          state: 'DELETED',
+          validation_lease_until: null,
+          preview_bucket: null,
+          preview_object_key: null,
+          preview_object_generation: null,
+        },
       });
     } catch (error) {
       this.logger.error(
@@ -284,40 +324,124 @@ export class DocumentBrandingUploadRecoveryService {
   }
 
   private async hasCleanupReferences(
-    tx: Prisma.TransactionClient,
+    tx: PrismaTypes.TransactionClient,
     asset: { id: string; tenant_id: string; legal_entity_id: string },
   ): Promise<boolean> {
-    const [profileReference, derivedAsset, invoiceReference] =
-      await Promise.all([
-        tx.documentBrandProfile.findFirst({
-          where: {
-            tenant_id: asset.tenant_id,
-            legal_entity_id: asset.legal_entity_id,
-            OR: [
-              { active_logo_asset_id: asset.id },
-              { draft_logo_asset_id: asset.id },
-            ],
-          },
-          select: { id: true },
-        }),
-        tx.documentBrandAsset.findFirst({
-          where: {
-            tenant_id: asset.tenant_id,
-            legal_entity_id: asset.legal_entity_id,
-            source_asset_id: asset.id,
-          },
-          select: { id: true },
-        }),
-        tx.invoiceBrandAssetReference.findFirst({
-          where: {
-            tenant_id: asset.tenant_id,
-            legal_entity_id: asset.legal_entity_id,
-            asset_id: asset.id,
-          },
-          select: { id: true },
-        }),
-      ]);
-    return Boolean(profileReference || derivedAsset || invoiceReference);
+    const [
+      profileReference,
+      derivedAsset,
+      invoiceReference,
+      extractionReference,
+    ] = await Promise.all([
+      tx.documentBrandProfile.findFirst({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          OR: [
+            { active_logo_asset_id: asset.id },
+            { draft_logo_asset_id: asset.id },
+            { draft_source_asset_id: asset.id },
+          ],
+        },
+        select: { id: true },
+      }),
+      tx.documentBrandAsset.findFirst({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          source_asset_id: asset.id,
+        },
+        select: { id: true },
+      }),
+      tx.invoiceBrandAssetReference.findFirst({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          asset_id: asset.id,
+        },
+        select: { id: true },
+      }),
+      tx.documentBrandExtraction.findFirst({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          OR: [
+            { source_asset_id: asset.id, state: { in: ['QUEUED', 'RUNNING'] } },
+            {
+              proposal_logo_asset_id: asset.id,
+              expires_at: { gt: new Date() },
+            },
+          ],
+        },
+        select: { id: true },
+      }),
+    ]);
+    return Boolean(
+      profileReference ||
+      derivedAsset ||
+      invoiceReference ||
+      extractionReference,
+    );
+  }
+
+  private async releaseExpiredExtractionReferences(
+    tx: PrismaTypes.TransactionClient,
+    current: { id: string; purpose: 'SOURCE' | 'LOGO' },
+    asset: { id: string; tenant_id: string; legal_entity_id: string },
+  ): Promise<boolean> {
+    const now = new Date();
+    if (current.purpose === 'SOURCE') {
+      await tx.documentBrandAsset.updateMany({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          source_asset_id: current.id,
+        },
+        data: { source_asset_id: null },
+      });
+      await tx.documentBrandExtraction.updateMany({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          source_asset_id: current.id,
+          state: { in: ['QUEUED', 'RUNNING'] },
+        },
+        data: {
+          state: 'FAILED',
+          failure_code: 'BRAND_SOURCE_EXPIRED',
+          lease_token: null,
+          lease_until: null,
+          completed_at: now,
+          expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        },
+      });
+      await tx.documentBrandExtraction.updateMany({
+        where: {
+          tenant_id: asset.tenant_id,
+          legal_entity_id: asset.legal_entity_id,
+          source_asset_id: current.id,
+        },
+        data: { source_asset_id: null },
+      });
+    }
+    const released = await tx.documentBrandExtraction.updateMany({
+      where: {
+        tenant_id: asset.tenant_id,
+        legal_entity_id: asset.legal_entity_id,
+        proposal_logo_asset_id: current.id,
+        expires_at: { lte: now },
+      },
+      data: { proposal: Prisma.JsonNull, proposal_logo_asset_id: null },
+    });
+    if (released.count > 0 && current.purpose === 'LOGO') {
+      return startDerivedLogoGraceIfUnreferenced(tx, {
+        tenantId: asset.tenant_id,
+        legalEntityId: asset.legal_entity_id,
+        assetId: current.id,
+        now,
+      });
+    }
+    return false;
   }
 }
 

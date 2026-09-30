@@ -285,9 +285,20 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           INVOICE_BRANDING_WRITER_ENABLED: 'true'
+          DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR: ${{ runner.temp }}/document-branding-visual-fixtures
         run: |
+          npm run test:e2e:runner --workspace=core-api
           npm exec --workspace=core-api -- prisma migrate deploy
-          npm run test:e2e --workspace=core-api -- --ci --runInBand
+          npm run test:e2e:ci --workspace=core-api
+
+      - name: Upload document branding visual fixtures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: document-branding-visual-fixtures
+          path: ${{ runner.temp }}/document-branding-visual-fixtures
+          retention-days: 14
+          if-no-files-found: warn
 
   frontend:
     # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).
@@ -361,7 +372,7 @@ jobs:
           python-version: '3.13'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Initialize Repowise Index
         run: uvx --from repowise==0.49.0 repowise init --no-prose --no-agents --no-claude-md --yes
