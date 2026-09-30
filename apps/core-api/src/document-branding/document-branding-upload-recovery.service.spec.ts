@@ -1,4 +1,5 @@
 import { RequestContextService } from '../common/services/request-context.service.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
@@ -46,8 +47,49 @@ describe('DocumentBrandingUploadRecoveryService', () => {
   });
 
   it('runs recoverAndClean without ambient tenant context', async () => {
+    expect(TenantContextStorage.getUser()).toBeUndefined();
+    (systemPrisma.tenant.findMany as jest.Mock).mockResolvedValue([
+      { id: 'tenant-1' },
+      { id: 'tenant-2' },
+    ]);
+    const tenantIdsAtQuotaDelete: Array<string | undefined> = [];
+    const tenantIdsAtAssetUpdate: Array<string | undefined> = [];
+    const tenantIdsAtAssetFind: Array<string | undefined> = [];
+    (prisma.documentBrandQuotaEvent.deleteMany as jest.Mock).mockReset();
+    (prisma.documentBrandAsset.updateMany as jest.Mock).mockReset();
+    (prisma.documentBrandAsset.findMany as jest.Mock).mockReset();
+    (prisma.documentBrandQuotaEvent.deleteMany as jest.Mock).mockImplementation(
+      () => {
+        tenantIdsAtQuotaDelete.push(TenantContextStorage.getUser()?.tenantId);
+        return Promise.resolve({ count: 0 });
+      },
+    );
+    (prisma.documentBrandAsset.updateMany as jest.Mock).mockImplementation(
+      () => {
+        tenantIdsAtAssetUpdate.push(TenantContextStorage.getUser()?.tenantId);
+        return Promise.resolve({ count: 0 });
+      },
+    );
+    (prisma.documentBrandAsset.findMany as jest.Mock).mockImplementation(() => {
+      tenantIdsAtAssetFind.push(TenantContextStorage.getUser()?.tenantId);
+      return Promise.resolve([]);
+    });
+
     await expect(service.recoverAndClean()).resolves.toBeUndefined();
-    expect(systemPrisma.tenant.findMany).toHaveBeenCalled();
+
+    const perTenant = (ids: Array<string | undefined>) =>
+      expect(ids).toEqual(['tenant-1', 'tenant-2']);
+    perTenant(tenantIdsAtQuotaDelete);
+    perTenant(tenantIdsAtAssetUpdate);
+    expect(tenantIdsAtAssetFind).toEqual([
+      'tenant-1',
+      'tenant-1',
+      'tenant-1',
+      'tenant-2',
+      'tenant-2',
+      'tenant-2',
+    ]);
+    expect(TenantContextStorage.getUser()).toBeUndefined();
   });
 
   it('requeues only tenant-scoped quarantined assets and exhausts stale third attempts', async () => {
