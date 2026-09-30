@@ -153,7 +153,10 @@ describe('SalesController (e2e)', () => {
       })
       .expect(400);
 
-    expect(response.body.code).toBe('SOURCE_DOCUMENT_REQUIRED');
+    expect(response.body).not.toHaveProperty('code');
+    expect(response.body.message).toContain(
+      'Direct source-less invoice creation is not supported',
+    );
   });
 
   it.each(['default', 'confirmed'] as const)(

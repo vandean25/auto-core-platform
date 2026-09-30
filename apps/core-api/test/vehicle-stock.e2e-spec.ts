@@ -669,7 +669,8 @@ describe('Vehicle stock trading (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(422);
 
-      expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
+      expect(lockedResponse.body).not.toHaveProperty('code');
+      expect(lockedResponse.body.message).toMatch(/locked fiscal period/);
     } finally {
       await request(app.getHttpServer())
         .patch('/api/finance/settings')
@@ -782,7 +783,8 @@ describe('Vehicle stock trading (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .expect(422);
 
-      expect(lockedResponse.body.code).toBe('FISCAL_PERIOD_LOCKED');
+      expect(lockedResponse.body).not.toHaveProperty('code');
+      expect(lockedResponse.body.message).toMatch(/locked fiscal period/);
     } finally {
       await request(app.getHttpServer())
         .patch('/api/finance/settings')
