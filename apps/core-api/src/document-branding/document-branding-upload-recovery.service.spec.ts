@@ -131,12 +131,16 @@ describe('DocumentBrandingUploadRecoveryService', () => {
       legal_entity_id: 'entity-1',
       state: 'REJECTED',
       expires_at: new Date(Date.now() - 1_000),
-      bucket: null,
-      object_key: null,
-      object_generation: null,
+      bucket: 'private-branding',
+      object_key: 'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1.pdf',
+      object_generation: '456',
       quarantine_bucket: 'private-branding',
       quarantine_object_key: 'quarantine/asset-1',
       quarantine_object_generation: '123',
+      preview_bucket: 'private-branding',
+      preview_object_key:
+        'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1-page1.png',
+      preview_object_generation: '789',
     };
     const txAssetFindFirst = jest.fn(({ where }) => {
       if (where.source_asset_id) return Promise.resolve(null);
@@ -181,12 +185,25 @@ describe('DocumentBrandingUploadRecoveryService', () => {
     );
     expect(storage.deleteGeneration).toHaveBeenCalledWith(
       'private-branding',
+      'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1.pdf',
+      '456',
+    );
+    expect(storage.deleteGeneration).toHaveBeenCalledWith(
+      'private-branding',
+      'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1-page1.png',
+      '789',
+    );
+    expect(storage.deleteGeneration).toHaveBeenCalledWith(
+      'private-branding',
       'quarantine/asset-1',
       '123',
     );
     expect(prisma.documentBrandAsset.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ state: 'DELETED' }),
+        data: expect.objectContaining({
+          state: 'DELETED',
+          preview_object_key: null,
+        }),
       }),
     );
   });

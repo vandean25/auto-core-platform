@@ -24,6 +24,17 @@ export class SaveDocumentBrandDraftDto {
   extractionId?: string;
 }
 
+export class SaveDocumentBrandDraftSourceDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  expectedRevision!: number;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  sourceAssetId!: string;
+}
+
 export class ExpectedDocumentBrandRevisionDto {
   @ApiProperty({ minimum: 0 })
   @IsInt()
@@ -115,32 +126,6 @@ export class DocumentBrandExtractionResponseDto {
   failureCode!: string | null;
 }
 
-export class DocumentBrandProfileResponseDto {
-  @ApiProperty({ minimum: 0 })
-  revision!: number;
-
-  @ApiProperty({ minimum: 0 })
-  activeRevision!: number;
-
-  @ApiProperty({ type: DocumentBrandThemeResponseDto })
-  activeTheme!: DocumentBrandThemeResponseDto;
-
-  @ApiProperty({ type: DocumentBrandThemeResponseDto, nullable: true })
-  draftTheme!: DocumentBrandThemeResponseDto | null;
-
-  @ApiProperty({ type: String, format: 'date-time', nullable: true })
-  confirmedAt!: Date | null;
-
-  @ApiProperty({ type: String, format: 'uuid', nullable: true })
-  confirmedByUserId!: string | null;
-
-  @ApiProperty({
-    type: 'object',
-    properties: { extractionAvailable: { type: 'boolean', example: false } },
-  })
-  capabilities!: { extractionAvailable: boolean };
-}
-
 export class DocumentBrandAssetResponseDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -168,11 +153,49 @@ export class DocumentBrandAssetResponseDto {
   @ApiProperty({ type: String, nullable: true })
   failureCode!: string | null;
 
+  @ApiProperty({ type: String, nullable: true, maxLength: 255 })
+  originalFilename!: string | null;
+
+  @ApiProperty({ type: Boolean })
+  pagePreviewAvailable!: boolean;
+
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
 
   @ApiProperty({ type: String, format: 'date-time', nullable: true })
   expiresAt!: Date | null;
+}
+
+export class DocumentBrandProfileResponseDto {
+  @ApiProperty({ minimum: 0 })
+  revision!: number;
+
+  @ApiProperty({ minimum: 0 })
+  activeRevision!: number;
+
+  @ApiProperty({ type: DocumentBrandThemeResponseDto })
+  activeTheme!: DocumentBrandThemeResponseDto;
+
+  @ApiProperty({ type: DocumentBrandThemeResponseDto, nullable: true })
+  draftTheme!: DocumentBrandThemeResponseDto | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  confirmedAt!: Date | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  confirmedByUserId!: string | null;
+
+  @ApiProperty({
+    type: 'object',
+    properties: { extractionAvailable: { type: 'boolean', example: false } },
+  })
+  capabilities!: { extractionAvailable: boolean };
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  draftSourceAssetId!: string | null;
+
+  @ApiProperty({ type: () => DocumentBrandAssetResponseDto, nullable: true })
+  draftSourceAsset!: DocumentBrandAssetResponseDto | null;
 }
 
 export class DocumentBrandPreviewResponseDto {

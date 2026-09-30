@@ -226,6 +226,9 @@ export class DocumentBrandingUploadRecoveryService {
         quarantine_bucket: current.quarantine_bucket,
         quarantine_object_key: current.quarantine_object_key,
         quarantine_object_generation: current.quarantine_object_generation,
+        preview_bucket: current.preview_bucket,
+        preview_object_key: current.preview_object_key,
+        preview_object_generation: current.preview_object_generation,
       };
     });
     if (!target) return;
@@ -262,6 +265,9 @@ export class DocumentBrandingUploadRecoveryService {
         quarantine_bucket: current.quarantine_bucket,
         quarantine_object_key: current.quarantine_object_key,
         quarantine_object_generation: current.quarantine_object_generation,
+        preview_bucket: current.preview_bucket,
+        preview_object_key: current.preview_object_key,
+        preview_object_generation: current.preview_object_generation,
       };
     });
     if (!confirmedTarget) return;
@@ -279,6 +285,17 @@ export class DocumentBrandingUploadRecoveryService {
         );
       }
       if (
+        confirmedTarget.preview_object_key &&
+        confirmedTarget.preview_bucket &&
+        confirmedTarget.preview_object_generation
+      ) {
+        await this.storage.deleteGeneration(
+          confirmedTarget.preview_bucket,
+          confirmedTarget.preview_object_key,
+          confirmedTarget.preview_object_generation,
+        );
+      }
+      if (
         confirmedTarget.quarantine_bucket &&
         confirmedTarget.quarantine_object_key &&
         confirmedTarget.quarantine_object_generation
@@ -291,7 +308,13 @@ export class DocumentBrandingUploadRecoveryService {
       }
       await this.prisma.documentBrandAsset.updateMany({
         where: { id: asset.id, tenant_id: asset.tenant_id, state: 'DELETING' },
-        data: { state: 'DELETED', validation_lease_until: null },
+        data: {
+          state: 'DELETED',
+          validation_lease_until: null,
+          preview_bucket: null,
+          preview_object_key: null,
+          preview_object_generation: null,
+        },
       });
     } catch (error) {
       this.logger.error(
@@ -317,6 +340,7 @@ export class DocumentBrandingUploadRecoveryService {
           OR: [
             { active_logo_asset_id: asset.id },
             { draft_logo_asset_id: asset.id },
+            { draft_source_asset_id: asset.id },
           ],
         },
         select: { id: true },

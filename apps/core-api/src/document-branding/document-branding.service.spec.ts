@@ -33,6 +33,8 @@ describe('DocumentBrandingService', () => {
     draft_theme: null,
     active_logo_asset_id: null,
     draft_logo_asset_id: null,
+    draft_source_asset_id: null,
+    draft_extraction_id: null,
     confirmed_at: null,
     confirmed_by_user_id: null,
     last_confirmation_key: null,
@@ -310,6 +312,48 @@ describe('DocumentBrandingService', () => {
       response: expect.objectContaining({ code: 'BRAND_IDEMPOTENCY_CONFLICT' }),
     });
     expect(tx.documentBrandProfile.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('attaches a letterhead source asset to the draft profile', async () => {
+    tx.documentBrandProfile.findFirst.mockResolvedValue({
+      ...baseProfile,
+      revision: 2,
+    });
+    tx.documentBrandAsset.findFirst.mockResolvedValue({
+      id: 'source-1',
+      state: 'QUARANTINED',
+    });
+    tx.documentBrandProfile.findFirstOrThrow.mockResolvedValue({
+      ...baseProfile,
+      revision: 3,
+      draft_source_asset_id: 'source-1',
+      draftSourceAsset: {
+        id: 'source-1',
+        purpose: 'SOURCE',
+        state: 'QUARANTINED',
+        detected_mime_type: 'image/png',
+        byte_length: 128,
+        pixel_width: null,
+        pixel_height: null,
+        failure_code: null,
+        original_filename: 'letterhead.png',
+        createdAt: new Date('2026-09-30T00:00:00.000Z'),
+        expires_at: null,
+      },
+    });
+
+    const response = await service.setDraftSource(legalEntityId, {
+      expectedRevision: 2,
+      sourceAssetId: 'source-1',
+    });
+
+    expect(response).toMatchObject({
+      revision: 3,
+      draftSourceAssetId: 'source-1',
+      draftSourceAsset: expect.objectContaining({
+        originalFilename: 'letterhead.png',
+      }),
+    });
   });
 
   it.each([

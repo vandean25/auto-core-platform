@@ -24,6 +24,8 @@ export type DocumentBrandProfile = {
   confirmedAt: string | null;
   confirmedByUserId: string | null;
   capabilities: { extractionAvailable: boolean };
+  draftSourceAssetId: string | null;
+  draftSourceAsset: DocumentBrandAsset | null;
 };
 
 export type DocumentBrandAsset = {
@@ -35,6 +37,8 @@ export type DocumentBrandAsset = {
   pixelWidth: number | null;
   pixelHeight: number | null;
   failureCode: string | null;
+  originalFilename: string | null;
+  pagePreviewAvailable: boolean;
   createdAt: string;
   expiresAt: string | null;
 };
@@ -75,7 +79,22 @@ export const documentBrandingKeys = {
 };
 
 async function readError(response: Response, fallback: string) {
-  return getErrorMessage(response, fallback);
+  const payload = (await response.json().catch(() => undefined)) as
+    | {
+        message?: string | string[] | { message?: string };
+        code?: string;
+      }
+    | undefined;
+  const message = payload?.message;
+  if (typeof message === "string" && message.trim()) return message;
+  if (Array.isArray(message)) return message.join(", ");
+  if (message && typeof message === "object" && message.message) {
+    return message.message;
+  }
+  if (payload?.code) {
+    return getErrorMessage({ message: payload.code }, fallback);
+  }
+  return fallback;
 }
 
 export function useDocumentBrandProfile(legalEntityId: string | null) {
@@ -279,6 +298,68 @@ export function useDocumentBrandAsset(
     return () => clearTimeout(timeout);
   }, [assetId, query.data?.state]);
   return { ...query, pollTimedOut };
+}
+
+export function useAttachDocumentBrandDraftSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      legalEntityId: string;
+      expectedRevision: number;
+      sourceAssetId: string;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/draft/source`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            expectedRevision: payload.expectedRevision,
+            sourceAssetId: payload.sourceAssetId,
+          }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readError(response, "Failed to attach letterhead source"),
+        );
+      }
+      return response.json() as Promise<DocumentBrandProfile>;
+    },
+    onSuccess: (profile, payload) => {
+      queryClient.setQueryData(
+        documentBrandingKeys.profile(payload.legalEntityId),
+        profile,
+      );
+    },
+  });
+}
+
+export function useRemoveDocumentBrandDraftSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      legalEntityId: string;
+      expectedRevision: number;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/legal-entities/${payload.legalEntityId}/document-branding/draft/source?expectedRevision=${payload.expectedRevision}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        throw new Error(
+          await readError(response, "Failed to remove letterhead source"),
+        );
+      }
+      return response.json() as Promise<DocumentBrandProfile>;
+    },
+    onSuccess: (profile, payload) => {
+      queryClient.setQueryData(
+        documentBrandingKeys.profile(payload.legalEntityId),
+        profile,
+      );
+    },
+  });
 }
 
 export function useUploadDocumentBrandAsset() {
