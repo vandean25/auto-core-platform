@@ -584,7 +584,8 @@ export class DocumentBrandingService {
     if (!['QUARANTINED', 'READY', 'REJECTED'].includes(asset.state)) {
       throw new UnprocessableEntityException({
         code: 'BRAND_ASSET_NOT_ATTACHABLE',
-        message: 'This letterhead source can no longer be attached to the draft.',
+        message:
+          'This letterhead source can no longer be attached to the draft.',
       });
     }
   }

@@ -10458,6 +10458,79 @@
           "footerText"
         ]
       },
+      "DocumentBrandAssetResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "SOURCE",
+              "LOGO"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "QUARANTINED",
+              "READY",
+              "REJECTED",
+              "DELETING",
+              "DELETED"
+            ]
+          },
+          "detectedMimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "byteLength": {
+            "type": "number",
+            "minimum": 0
+          },
+          "pixelWidth": {
+            "type": "number",
+            "nullable": true
+          },
+          "pixelHeight": {
+            "type": "number",
+            "nullable": true
+          },
+          "failureCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "originalFilename": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "purpose",
+          "state",
+          "detectedMimeType",
+          "byteLength",
+          "pixelWidth",
+          "pixelHeight",
+          "failureCode",
+          "originalFilename",
+          "createdAt",
+          "expiresAt"
+        ]
+      },
       "DocumentBrandProfileResponseDto": {
         "type": "object",
         "properties": {
@@ -10618,79 +10691,6 @@
           "html",
           "warnings",
           "themeHash"
-        ]
-      },
-      "DocumentBrandAssetResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "purpose": {
-            "type": "string",
-            "enum": [
-              "SOURCE",
-              "LOGO"
-            ]
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "QUARANTINED",
-              "READY",
-              "REJECTED",
-              "DELETING",
-              "DELETED"
-            ]
-          },
-          "detectedMimeType": {
-            "type": "string",
-            "nullable": true
-          },
-          "byteLength": {
-            "type": "number",
-            "minimum": 0
-          },
-          "pixelWidth": {
-            "type": "number",
-            "nullable": true
-          },
-          "pixelHeight": {
-            "type": "number",
-            "nullable": true
-          },
-          "failureCode": {
-            "type": "string",
-            "nullable": true
-          },
-          "originalFilename": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 255
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "purpose",
-          "state",
-          "detectedMimeType",
-          "byteLength",
-          "pixelWidth",
-          "pixelHeight",
-          "failureCode",
-          "originalFilename",
-          "createdAt",
-          "expiresAt"
         ]
       },
       "CreateDocumentBrandExtractionDto": {

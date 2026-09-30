@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { DocumentBrandAsset } from "@/api/document-branding";
 import type { LegalEntityRecord } from "@/api/site-admin";
 import { DocumentBrandingSettings } from "./DocumentBrandingSettings";
 
@@ -26,7 +27,7 @@ const fixtures = vi.hoisted(() => ({
     confirmedByUserId: "user-1",
     capabilities: { extractionAvailable: false },
     draftSourceAssetId: null as string | null,
-    draftSourceAsset: null,
+    draftSourceAsset: null as DocumentBrandAsset | null,
   },
   previewHtml: "<!doctype html><p>SAMPLE — NOT AN INVOICE</p>",
   assetStatus: {
@@ -183,7 +184,16 @@ describe("DocumentBrandingSettings", () => {
     fixtures.profile.draftSourceAssetId = "source-1";
     fixtures.profile.draftSourceAsset = {
       id: "source-1",
+      purpose: "SOURCE",
       state: "READY",
+      detectedMimeType: "image/png",
+      byteLength: 0,
+      pixelWidth: null,
+      pixelHeight: null,
+      failureCode: null,
+      originalFilename: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      expiresAt: null,
     };
     fixtures.sourceAssetStatus.data = { id: "source-1", state: "READY" };
     const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
