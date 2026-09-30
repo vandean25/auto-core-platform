@@ -45,6 +45,7 @@ describe("letterhead source messages", () => {
         pixelHeight: null,
         failureCode: null,
         originalFilename: "Company letterhead.pdf",
+        pagePreviewAvailable: false,
         createdAt: "2026-09-30T00:00:00.000Z",
         expiresAt: null,
       }),
