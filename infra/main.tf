@@ -1,11 +1,11 @@
 locals {
   environment_variables = merge(
     {
-      NODE_ENV                 = "production"
-      FRONTEND_URL             = var.frontend_url
-      SENTRY_RELEASE           = var.sentry_release
-      FIREBASE_PROJECT_ID      = var.firebase_project_id
-      DATABASE_POOLER_REQUIRED          = tostring(var.database_pooler_required)
+      NODE_ENV                        = "production"
+      FRONTEND_URL                    = var.frontend_url
+      SENTRY_RELEASE                  = var.sentry_release
+      FIREBASE_PROJECT_ID             = var.firebase_project_id
+      DATABASE_POOLER_REQUIRED        = tostring(var.database_pooler_required)
       INVOICE_BRANDING_WRITER_ENABLED = var.invoice_branding_writer_enabled ? "true" : "false"
     },
     var.cloud_tasks_enabled ? {
