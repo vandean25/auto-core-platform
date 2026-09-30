@@ -147,11 +147,24 @@ export async function fetchAndValidateCatalogItems(
 export function toPurchaseOrderItemCreateData(
   tenantId: string,
   item: { catalogItemId: string; quantity: number; unitCost: number },
-  orderId?: string,
-): any {
+  orderId: string,
+): Prisma.PurchaseOrderItemUncheckedCreateInput {
   return {
     tenant_id: tenantId,
-    ...(orderId ? { purchase_order_id: orderId } : {}),
+    purchase_order_id: orderId,
+    catalog_item_id: item.catalogItemId,
+    quantity: item.quantity,
+    unit_cost: item.unitCost,
+    quantity_received: 0,
+  };
+}
+
+export function toPurchaseOrderItemNestedCreateData(
+  tenantId: string,
+  item: { catalogItemId: string; quantity: number; unitCost: number },
+): Prisma.PurchaseOrderItemUncheckedCreateWithoutPurchase_orderInput {
+  return {
+    tenant_id: tenantId,
     catalog_item_id: item.catalogItemId,
     quantity: item.quantity,
     unit_cost: item.unitCost,
@@ -452,7 +465,9 @@ export async function executeCreatePurchaseOrder(
         order_number: generatePurchaseOrderNumber(),
         status: PurchaseOrderStatus.DRAFT,
         items: {
-          create: items.map((i) => toPurchaseOrderItemCreateData(tenantId, i)),
+          create: items.map((i) =>
+            toPurchaseOrderItemNestedCreateData(tenantId, i),
+          ),
         },
       },
       include: { items: true },

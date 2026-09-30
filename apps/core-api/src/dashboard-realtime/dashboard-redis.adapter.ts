@@ -104,9 +104,7 @@ export async function setupRedisAdapter(
     await pubClient.quit().catch(() => {});
     await subClient.quit().catch(() => {});
     const message = err instanceof Error ? err.message : String(err);
-    logger.error(
-      `Failed to initialize Socket.IO Redis adapter: ${message}`,
-    );
+    logger.error(`Failed to initialize Socket.IO Redis adapter: ${message}`);
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
         `CRITICAL: Failed to connect to Redis at ${redisUrl} in production: ${message}`,
@@ -119,13 +117,18 @@ export async function setupRedisAdapter(
 
 export const SITE_ROOM_PREFIX = 'site_';
 
+export interface SocketRoomReassignable {
+  rooms: Set<string> | Iterable<string>;
+  leave(room: string): void | Promise<void>;
+  join(room: string): void | Promise<void>;
+  data: Record<string, unknown>;
+}
+
 export function reassignSocketSiteRoom(
-  socket: any,
+  socket: SocketRoomReassignable,
   newSiteId: string | null | undefined,
 ): void {
-  const targetRoom = newSiteId
-    ? `${SITE_ROOM_PREFIX}${newSiteId}`
-    : undefined;
+  const targetRoom = newSiteId ? `${SITE_ROOM_PREFIX}${newSiteId}` : undefined;
 
   for (const room of socket.rooms) {
     if (room.startsWith(SITE_ROOM_PREFIX) && room !== targetRoom) {
@@ -137,7 +140,7 @@ export function reassignSocketSiteRoom(
     void socket.join(targetRoom);
   }
 
-  const data = socket.data as Record<string, unknown>;
+  const data = socket.data;
   data.activeSiteId = newSiteId ?? null;
 }
 
@@ -152,19 +155,16 @@ export interface ReassignUserSocketsInput {
 export async function reassignUserSocketsSiteRoom(
   input: ReassignUserSocketsInput,
 ): Promise<void> {
-  let sockets: any[] = [];
   try {
-    sockets = await input.server.in(input.userRoom).fetchSockets();
+    const sockets = await input.server.in(input.userRoom).fetchSockets();
+    for (const s of sockets) {
+      reassignSocketSiteRoom(s, input.siteId);
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     input.logger.warn(
       `Failed to move sockets of ${input.firebaseUid} between site rooms: ${message}`,
     );
-    return;
-  }
-
-  for (const s of sockets) {
-    reassignSocketSiteRoom(s, input.siteId);
   }
 }
 
@@ -180,7 +180,9 @@ export function redactTransferForSockets(transfer: {
   };
 }
 
-export async function closeRedisClients(clients?: RedisAdapterClients): Promise<void> {
+export async function closeRedisClients(
+  clients?: RedisAdapterClients,
+): Promise<void> {
   if (!clients) {
     return;
   }
@@ -191,4 +193,3 @@ export async function closeRedisClients(clients?: RedisAdapterClients): Promise<
     await clients.subClient.quit().catch(() => {});
   }
 }
-

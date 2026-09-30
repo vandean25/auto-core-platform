@@ -133,7 +133,12 @@ export class InvoicePdfService {
     const filename = `invoice-${invoice.invoice_number ?? invoice.id}.pdf`;
 
     if (helpers.isBrandedSnapshot(invoice.snapshot)) {
-      return await helpers.fetchBrandedPdfStream(this.storage, invoice, tenantId, filename);
+      return await helpers.fetchBrandedPdfStream(
+        this.storage,
+        invoice,
+        tenantId,
+        filename,
+      );
     }
 
     const cachedPdf = readCachedPdfMetadata(invoice);
@@ -247,7 +252,8 @@ export class InvoicePdfService {
         storage: this.storage,
         renderer: this.renderer,
         prisma: this.prisma,
-        onRetry: (error, attempt) => this.logPdfRetry(invoiceId, attempt, error),
+        onRetry: (error, attempt) =>
+          this.logPdfRetry(invoiceId, attempt, error),
       });
     } catch (error) {
       await this.handleStandardPdfError({
@@ -261,7 +267,11 @@ export class InvoicePdfService {
     }
   }
 
-  private logPdfRetry(invoiceId: string, attempt: number, error: unknown): void {
+  private logPdfRetry(
+    invoiceId: string,
+    attempt: number,
+    error: unknown,
+  ): void {
     const message = helpers.toErrorMessage(error);
     this.logger.warn(
       `Invoice PDF generation attempt ${attempt} failed: ${message}`,
@@ -291,7 +301,11 @@ export class InvoicePdfService {
     tenantId: string;
   }) {
     const { invoice, renderSnapshot, frozenSnapshot, tenantId } = input;
-    const identity = helpers.buildArchiveIdentity(tenantId, invoice.id, frozenSnapshot);
+    const identity = helpers.buildArchiveIdentity(
+      tenantId,
+      invoice.id,
+      frozenSnapshot,
+    );
     const key = helpers.buildArchiveKey(identity);
     const logoPng = await helpers.loadFrozenLogo(
       this.prisma,

@@ -215,7 +215,10 @@ export class DashboardGateway
     await client.join(userRoom);
 
     // Ruling 37: join `site:{siteId}` for the validated active site (if any).
-    const activeSiteId = await resolveSocketActiveSiteId(client, this.siteContext);
+    const activeSiteId = await resolveSocketActiveSiteId(
+      client,
+      this.siteContext,
+    );
     if (activeSiteId) {
       await client.join(`${SITE_ROOM_PREFIX}${activeSiteId}`);
       data.activeSiteId = activeSiteId;
@@ -247,7 +250,10 @@ export class DashboardGateway
     );
   }
 
-  private ensureServer(event: string, extra?: Record<string, unknown>): boolean {
+  private ensureServer(
+    event: string,
+    extra?: Record<string, unknown>,
+  ): boolean {
     if (!this.authService || !this.isGatewayReady()) {
       this.logger.debug(
         JSON.stringify({

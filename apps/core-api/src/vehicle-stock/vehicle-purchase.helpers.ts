@@ -32,6 +32,8 @@ import {
   assertTenantStorageLocationExists,
   assertTenantVendorExists,
 } from './vehicle-stock-ref.validator.js';
+import type { PrismaService } from '../prisma/prisma.service.js';
+import type { TenantContextService } from '../common/services/tenant-context.service.js';
 
 export const ACTIVE_STOCK_STATUSES: VehicleStockStatus[] = [
   VehicleStockStatus.ON_ORDER,
@@ -67,13 +69,8 @@ export function assertSeller(dto: {
   vendor_id?: string | null;
   customer_id?: string | null;
 }): void {
-  if (
-    dto.seller_type === VehiclePurchaseSellerType.VENDOR &&
-    !dto.vendor_id
-  ) {
-    throw new BadRequestException(
-      'vendor_id is required for vendor purchases',
-    );
+  if (dto.seller_type === VehiclePurchaseSellerType.VENDOR && !dto.vendor_id) {
+    throw new BadRequestException('vendor_id is required for vendor purchases');
   }
   if (
     dto.seller_type === VehiclePurchaseSellerType.CUSTOMER &&
@@ -299,7 +296,9 @@ export interface ExecuteDraftUpdateParams {
 
 export async function executeDraftUpdateTx(
   params: ExecuteDraftUpdateParams,
-): Promise<Prisma.VehiclePurchaseGetPayload<{ include: { customer: true } }> | null> {
+): Promise<Prisma.VehiclePurchaseGetPayload<{
+  include: { customer: true };
+}> | null> {
   if (params.isRetargeting) {
     await lockSitesAndAssertActive(
       params.tx,
@@ -342,8 +341,8 @@ export async function executeDraftUpdateTx(
 }
 
 export async function validateRetargetingSiteAndLot(
-  prisma: any,
-  tenantContext: any,
+  prisma: PrismaService | Prisma.TransactionClient,
+  tenantContext: TenantContextService,
   tenantId: string,
   targetSiteId: string,
   locationId?: string | null,
@@ -627,7 +626,7 @@ export function formatPurchaseNumber(
 }
 
 export async function assertTenantPurchaseRefs(
-  prisma: any,
+  prisma: Pick<PrismaService, 'vendor' | 'customer' | 'storageLocation'>,
   tenantId: string,
   refs: {
     vendor_id?: string | null;
@@ -669,7 +668,11 @@ export async function executeReceivePurchaseTx(
   params: ExecuteReceivePurchaseParams,
 ): Promise<Prisma.VehiclePurchaseGetPayload<object>> {
   const draft = await params.tx.vehiclePurchase.findFirst({
-    where: { id: params.id, tenant_id: params.tenantId, site_id: params.siteId },
+    where: {
+      id: params.id,
+      tenant_id: params.tenantId,
+      site_id: params.siteId,
+    },
     select: { site_id: true },
   });
   if (!draft) {
@@ -708,7 +711,7 @@ export async function executeReceivePurchaseTx(
 }
 
 export async function executeCancelDraftPurchase(
-  prisma: any,
+  prisma: Pick<PrismaService, 'vehiclePurchase'>,
   tenantId: string,
   siteId: string,
   id: string,
@@ -728,7 +731,7 @@ export async function executeCancelDraftPurchase(
 }
 
 export async function executeDeleteDraftPurchase(
-  prisma: any,
+  prisma: Pick<PrismaService, 'vehiclePurchase'>,
   tenantId: string,
   id: string,
 ): Promise<void> {
@@ -741,32 +744,34 @@ export async function executeDeleteDraftPurchase(
 }
 
 export async function generateNextVehiclePurchaseNumber(
-  prisma: any,
+  prisma: Pick<PrismaService, '$transaction'>,
   tenantId: string,
   year = new Date().getFullYear(),
 ): Promise<string> {
   const prefix = `VP-${year}-`;
-  const settings = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    await tx.financeSettings.upsert({
-      where: { tenant_id: tenantId },
-      update: {},
-      create: {
-        tenant_id: tenantId,
-        workshop_order_prefix: `WO-${year}-`,
-        vehicle_purchase_prefix: prefix,
-      },
-    });
-    return tx.financeSettings.update({
-      where: { tenant_id: tenantId },
-      data: { next_vehicle_purchase_number: { increment: 1 } },
-      select: { next_vehicle_purchase_number: true },
-    });
-  });
+  const settings = await prisma.$transaction(
+    async (tx: Prisma.TransactionClient) => {
+      await tx.financeSettings.upsert({
+        where: { tenant_id: tenantId },
+        update: {},
+        create: {
+          tenant_id: tenantId,
+          workshop_order_prefix: `WO-${year}-`,
+          vehicle_purchase_prefix: prefix,
+        },
+      });
+      return tx.financeSettings.update({
+        where: { tenant_id: tenantId },
+        data: { next_vehicle_purchase_number: { increment: 1 } },
+        select: { next_vehicle_purchase_number: true },
+      });
+    },
+  );
   return formatPurchaseNumber(prefix, settings.next_vehicle_purchase_number);
 }
 
 export interface ExecuteCreatePurchaseFlowParams {
-  prisma: any;
+  prisma: PrismaService;
   tenantId: string;
   siteId: string;
   dto: CreateVehiclePurchaseDto;
@@ -798,10 +803,7 @@ export async function executeCreatePurchaseFlow(
 
   const purchaseNumber =
     params.purchaseNumber ??
-    (await generateNextVehiclePurchaseNumber(
-      params.prisma,
-      params.tenantId,
-    ));
+    (await generateNextVehiclePurchaseNumber(params.prisma, params.tenantId));
 
   return params.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await lockSitesAndAssertActive(tx, params.tenantId, [params.siteId]);
@@ -817,14 +819,17 @@ export async function executeCreatePurchaseFlow(
 }
 
 export async function executeFindAllPurchases(
-  prisma: any,
+  prisma: Pick<PrismaService, 'vehiclePurchase'>,
   tenantId: string,
   siteId: string,
   page = 1,
   limit = 25,
   search?: string,
 ) {
-  const where = buildVehiclePurchaseQuery(tenantId, siteId, search);
+  const where: Prisma.VehiclePurchaseWhereInput = {
+    ...buildVehiclePurchaseQuery(tenantId, siteId, search),
+    site_id: siteId,
+  };
   const [data, total] = await Promise.all([
     prisma.vehiclePurchase.findMany({
       where,
@@ -841,7 +846,7 @@ export async function executeFindAllPurchases(
 }
 
 export async function executeFindOnePurchase(
-  prisma: any,
+  prisma: Pick<PrismaService, 'vehiclePurchase'>,
   tenantId: string,
   authorizedSiteIds: string[],
   id: string,
@@ -857,12 +862,12 @@ export async function executeFindOnePurchase(
 }
 
 export interface ExecuteDraftUpdateFlowParams {
-  prisma: any;
-  tenantContext: any;
+  prisma: PrismaService;
+  tenantContext: TenantContextService;
   tenantId: string;
   siteId: string;
   id: string;
-  purchase: any;
+  purchase: Prisma.VehiclePurchaseGetPayload<{ include: { customer: true } }>;
   dto: PatchVehiclePurchaseDto;
 }
 
@@ -917,7 +922,7 @@ export async function executeDraftUpdateFlow(
 }
 
 export async function executeRemovePurchaseFlow(
-  prisma: any,
+  prisma: Pick<PrismaService, 'vehiclePurchase' | 'vehicleLedgerEntry'>,
   tenantId: string,
   siteId: string,
   id: string,
@@ -933,4 +938,3 @@ export async function executeRemovePurchaseFlow(
   await executeDeleteDraftPurchase(prisma, tenantId, id);
   return { id };
 }
-

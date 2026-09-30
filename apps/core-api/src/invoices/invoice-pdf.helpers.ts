@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
-import { NotFoundException, UnprocessableEntityException, type Logger } from '@nestjs/common';
+import {
+  NotFoundException,
+  UnprocessableEntityException,
+  type Logger,
+} from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import type {
   ImmutablePdfArchive,
@@ -19,9 +23,13 @@ import { readCachedPdfMetadata } from './invoice-pdf.generation.js';
 import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { Readable } from 'node:stream';
+import type { PrismaService } from '../prisma/prisma.service.js';
 
 export type InvoicePdfPrismaClient = {
-  client: any;
+  client: Pick<
+    PrismaService['client'],
+    'invoice' | 'invoiceBrandAssetReference'
+  >;
 };
 
 export type InvoicePdfRequestGenerationResponse = {
@@ -48,13 +56,13 @@ export type ArchiveMetadata = {
 };
 
 export type AssetMetadata = {
-  bucket: string;
-  object_key: string;
-  object_generation: string;
-  sha256: string;
-  detected_mime_type: string;
-  pixel_width: number;
-  pixel_height: number;
+  bucket: string | null;
+  object_key: string | null;
+  object_generation: string | null;
+  sha256: string | null;
+  detected_mime_type: string | null;
+  pixel_width: number | null;
+  pixel_height: number | null;
 };
 
 export type InvoiceBrandingLogo = {
@@ -95,8 +103,7 @@ export function isBrandedSnapshot(
     typeof snapshot === 'object' &&
     snapshot !== null &&
     'template_version' in snapshot &&
-    (snapshot as { template_version: unknown }).template_version ===
-      INVOICE_BRANDED_TEMPLATE_VERSION
+    snapshot.template_version === INVOICE_BRANDED_TEMPLATE_VERSION
   );
 }
 
@@ -169,7 +176,7 @@ export function getErrorCode(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null || !('code' in error)) {
     return undefined;
   }
-  const { code } = error as { code: unknown };
+  const { code } = error;
   if (typeof code === 'number') return code;
   if (typeof code === 'string') {
     const parsed = Number(code);
@@ -410,7 +417,11 @@ export function formatRequestGenerationOutcome(
     | { mode: 'enqueued'; taskId?: string }
     | {
         mode: 'generated';
-        result?: { bucket: string | null; key: string | null; generatedAt: Date | null };
+        result?: {
+          bucket: string | null;
+          key: string | null;
+          generatedAt: Date | null;
+        };
         bucket?: string | null;
         key?: string | null;
         generatedAt?: Date | null;
@@ -428,7 +439,8 @@ export function formatRequestGenerationOutcome(
       taskId: outcome.taskId,
     };
   }
-  const result = 'result' in outcome && outcome.result ? outcome.result : outcome;
+  const result =
+    'result' in outcome && outcome.result ? outcome.result : outcome;
   if (isBranded) {
     return {
       mode: 'generated' as const,
@@ -594,7 +606,13 @@ export async function handleInvoicePdfError(
       ...(workshopOrderId ? { workshopOrderId } : {}),
     },
   });
-  await safeStoreInvoiceGenerationError(prisma, logger, invoiceId, tenantId, message);
+  await safeStoreInvoiceGenerationError(
+    prisma,
+    logger,
+    invoiceId,
+    tenantId,
+    message,
+  );
 }
 
 export async function resolveInvoiceCachedRequest(
@@ -836,7 +854,15 @@ export async function persistBrandedArchiveMetadata(
 
 export async function loadFrozenLogo(
   prisma: InvoicePdfPrismaClient,
-  brandingStorage: { readGeneration: (bucket: string, key: string, gen: string) => Promise<Buffer> } | undefined,
+  brandingStorage:
+    | {
+        readGeneration: (
+          bucket: string,
+          key: string,
+          gen: string,
+        ) => Promise<Buffer>;
+      }
+    | undefined,
   invoice: {
     id: string;
     tenant_id: string;
@@ -850,28 +876,27 @@ export async function loadFrozenLogo(
     throw brandRenderInputUnavailable();
   }
 
-  const reference =
-    await prisma.client.invoiceBrandAssetReference.findFirst({
-      where: {
-        tenant_id: invoice.tenant_id,
-        legal_entity_id: invoice.legal_entity_id,
-        invoice_id: invoice.id,
-        asset_id: logo.asset_id,
-      },
-      select: {
-        asset: {
-          select: {
-            bucket: true,
-            object_key: true,
-            object_generation: true,
-            sha256: true,
-            detected_mime_type: true,
-            pixel_width: true,
-            pixel_height: true,
-          },
+  const reference = await prisma.client.invoiceBrandAssetReference.findFirst({
+    where: {
+      tenant_id: invoice.tenant_id,
+      legal_entity_id: invoice.legal_entity_id,
+      invoice_id: invoice.id,
+      asset_id: logo.asset_id,
+    },
+    select: {
+      asset: {
+        select: {
+          bucket: true,
+          object_key: true,
+          object_generation: true,
+          sha256: true,
+          detected_mime_type: true,
+          pixel_width: true,
+          pixel_height: true,
         },
       },
-    });
+    },
+  });
 
   if (!verifyFrozenAssetMetadata(reference?.asset, logo)) {
     throw brandRenderInputUnavailable();
@@ -887,10 +912,3 @@ export async function loadFrozenLogo(
   }
   return bytes;
 }
-
-
-
-
-
-
-
