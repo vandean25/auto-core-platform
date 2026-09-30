@@ -193,7 +193,8 @@ function createSnapshot(fixture: VisualFixture): InvoiceSnapshot {
 }
 
 async function readPdfText(pdfBytes: Buffer) {
-  const document = await getDocument({ data: new Uint8Array(pdfBytes) }).promise;
+  const loadingTask = getDocument({ data: new Uint8Array(pdfBytes) });
+  const document = await loadingTask.promise;
   const pageCount = document.numPages;
   const pages = await Promise.all(
     Array.from({ length: pageCount }, async (_, index) => {
@@ -204,7 +205,7 @@ async function readPdfText(pdfBytes: Buffer) {
         .join(' ');
     }),
   );
-  await document.destroy();
+  await loadingTask.destroy();
   return { pageCount, text: pages.join(' ') };
 }
 
