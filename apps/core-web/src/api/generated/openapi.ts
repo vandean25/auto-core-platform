@@ -567,6 +567,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{legalEntityId}/document-branding/draft/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Attach a letterhead source asset to the draft */
+        put: operations["DocumentBrandingController_setDraftSource"];
+        post?: never;
+        /** Remove the draft letterhead source asset */
+        delete: operations["DocumentBrandingController_removeDraftSource"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/legal-entities/{legalEntityId}/document-branding/confirm": {
         parameters: {
             query?: never;
@@ -712,6 +730,23 @@ export interface paths {
         };
         /** Download a ready document branding asset */
         get: operations["DocumentBrandingController_getAssetContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the first-page PNG preview of a source asset */
+        get: operations["DocumentBrandingController_getAssetPagePreview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3149,6 +3184,25 @@ export interface components {
             theme: components["schemas"]["DocumentBrandThemeCapabilitiesDto"];
             uploads: components["schemas"]["DocumentBrandUploadCapabilitiesDto"];
         };
+        DocumentBrandAssetResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            purpose: "SOURCE" | "LOGO";
+            /** @enum {string} */
+            state: "QUARANTINED" | "READY" | "REJECTED" | "DELETING" | "DELETED";
+            detectedMimeType: string | null;
+            byteLength: number;
+            pixelWidth: number | null;
+            pixelHeight: number | null;
+            failureCode: string | null;
+            originalFilename: string | null;
+            pagePreviewAvailable: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            expiresAt: string | null;
+        };
         DocumentBrandProfileResponseDto: {
             revision: number;
             activeRevision: number;
@@ -3159,6 +3213,9 @@ export interface components {
             /** Format: uuid */
             confirmedByUserId: string | null;
             capabilities: components["schemas"]["DocumentBrandProfileCapabilitiesDto"];
+            /** Format: uuid */
+            draftSourceAssetId: string | null;
+            draftSourceAsset: components["schemas"]["DocumentBrandAssetResponseDto"] | null;
         };
         SaveDocumentBrandDraftDto: {
             expectedRevision: number;
@@ -3167,6 +3224,11 @@ export interface components {
             };
             /** Format: uuid */
             extractionId?: string;
+        };
+        SaveDocumentBrandDraftSourceDto: {
+            expectedRevision: number;
+            /** Format: uuid */
+            sourceAssetId: string;
         };
         ExpectedDocumentBrandRevisionDto: {
             expectedRevision: number;
@@ -3182,23 +3244,6 @@ export interface components {
             html: string;
             warnings: string[];
             themeHash: string;
-        };
-        DocumentBrandAssetResponseDto: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            purpose: "SOURCE" | "LOGO";
-            /** @enum {string} */
-            state: "QUARANTINED" | "READY" | "REJECTED" | "DELETING" | "DELETED";
-            detectedMimeType: string | null;
-            byteLength: number;
-            pixelWidth: number | null;
-            pixelHeight: number | null;
-            failureCode: string | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            expiresAt: string | null;
         };
         CreateDocumentBrandExtractionDto: {
             /** Format: uuid */
@@ -7026,6 +7071,54 @@ export interface operations {
             };
         };
     };
+    DocumentBrandingController_setDraftSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDocumentBrandDraftSourceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_removeDraftSource: {
+        parameters: {
+            query: {
+                expectedRevision: number;
+            };
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
     DocumentBrandingController_confirm: {
         parameters: {
             query?: never;
@@ -7251,6 +7344,28 @@ export interface operations {
                 content: {
                     "image/png": string;
                     "application/pdf": string;
+                };
+            };
+        };
+    };
+    DocumentBrandingController_getAssetPagePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
                 };
             };
         };

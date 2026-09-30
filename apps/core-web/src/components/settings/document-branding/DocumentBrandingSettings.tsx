@@ -19,6 +19,7 @@ import {
 } from "@/api/document-branding-theme-validation";
 import { getErrorStatus } from "@/lib/error-utils";
 import { LetterheadImport } from "./LetterheadImport";
+import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,26 +34,6 @@ import {
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { generateId } from "@/lib/id";
 import type { LegalEntityRecord } from "@/api/site-admin";
-
-const READY_SOURCE_STORAGE_PREFIX = "acp.document-brand-source.";
-
-function readReadySourceId(legalEntityId: string): string | null {
-  try {
-    return sessionStorage.getItem(`${READY_SOURCE_STORAGE_PREFIX}${legalEntityId}`);
-  } catch {
-    return null;
-  }
-}
-
-function persistReadySourceId(legalEntityId: string, assetId: string | null) {
-  try {
-    const key = `${READY_SOURCE_STORAGE_PREFIX}${legalEntityId}`;
-    if (assetId) sessionStorage.setItem(key, assetId);
-    else sessionStorage.removeItem(key);
-  } catch {
-    // The validated source remains available for the current mount.
-  }
-}
 
 export function DocumentBrandingSettings({
   entity,
@@ -75,22 +56,17 @@ export function DocumentBrandingSettings({
   const preview = usePreviewDocumentBranding();
   const assetUpload = useUploadDocumentBrandAsset();
   const [pendingLogoId, setPendingLogoId] = React.useState<string | null>(null);
-  const [pendingSource, setPendingSource] = React.useState(() => ({
-    legalEntityId: entity.id,
-    assetId: null as string | null,
-  }));
-  const pendingSourceId = pendingSource.legalEntityId === entity.id
-    ? pendingSource.assetId
-    : null;
-  const [readySource, setReadySource] = React.useState(() => ({
-    legalEntityId: entity.id,
-    assetId: readReadySourceId(entity.id),
-  }));
-  const readySourceId = readySource.legalEntityId === entity.id
-    ? readySource.assetId
-    : readReadySourceId(entity.id);
   const logoAsset = useDocumentBrandAsset(entity.id, pendingLogoId);
-  const sourceAsset = useDocumentBrandAsset(entity.id, pendingSourceId);
+  const draftSourceAssetQuery = useDocumentBrandAsset(
+    entity.id,
+    profile?.draftSourceAssetId ?? null,
+  );
+  const extractionSourceId =
+    draftSourceAssetQuery.data?.state === "READY"
+      ? draftSourceAssetQuery.data.id
+      : profile?.draftSourceAsset?.state === "READY"
+        ? profile.draftSourceAssetId
+        : null;
   const revisionRef = React.useRef(0);
   const entityIdRef = React.useRef(entity.id);
   const recoveryRequestRef = React.useRef(0);
@@ -230,11 +206,6 @@ export function DocumentBrandingSettings({
     setTheme(null);
     setSavedTheme(null);
     setPendingLogoId(null);
-    setPendingSource({ legalEntityId: entity.id, assetId: null });
-    setReadySource({
-      legalEntityId: entity.id,
-      assetId: readReadySourceId(entity.id),
-    });
     activeEntityIdRef.current = "";
     revisionRef.current = 0;
     setDraftError(null);
@@ -375,26 +346,6 @@ export function DocumentBrandingSettings({
     }
     setPendingLogoId(null);
   }, [logoAsset.data, updateTheme]);
-
-  React.useEffect(() => {
-    if (
-      !sourceAsset.data ||
-      sourceAsset.data.id !== pendingSourceId ||
-      sourceAsset.data.state === "QUARANTINED"
-    ) return;
-    if (sourceAsset.data.state === "READY") {
-      persistReadySourceId(entity.id, sourceAsset.data.id);
-      setReadySource({ legalEntityId: entity.id, assetId: sourceAsset.data.id });
-      toast.success("Source file validated and stored");
-    } else if (sourceAsset.data.state === "REJECTED") {
-      toast.error("Source file was rejected", {
-        description: sourceAsset.data.failureCode ?? undefined,
-      });
-      persistReadySourceId(entity.id, null);
-      setReadySource({ legalEntityId: entity.id, assetId: null });
-    }
-    setPendingSource({ legalEntityId: entity.id, assetId: null });
-  }, [entity.id, pendingSourceId, sourceAsset.data]);
 
   const confirmDraft = async () => {
     if (!profile || !theme) return;
@@ -542,11 +493,6 @@ export function DocumentBrandingSettings({
         file,
       });
       if (purpose === "LOGO") setPendingLogoId(asset.id);
-      else {
-        persistReadySourceId(entity.id, null);
-        setReadySource({ legalEntityId: entity.id, assetId: null });
-        setPendingSource({ legalEntityId: entity.id, assetId: asset.id });
-      }
       toast.message(
         `${purpose === "LOGO" ? "Logo" : "Source file"} uploaded; validation is in progress`,
       );
@@ -668,53 +614,21 @@ export function DocumentBrandingSettings({
             </Button>
           ) : null}
         </div>
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="brand-source">Letterhead source</Label>
-          {uploadCapabilities?.source.requirementLabel ? (
-            <p className="text-xs text-slate-500">
-              {uploadCapabilities.source.requirementLabel}
-            </p>
-          ) : null}
-          <Input
-            id="brand-source"
-            type="file"
-            accept={
-              uploadCapabilities?.source.accept ??
-              "application/pdf,image/png,.pdf,.png"
-            }
-            disabled={
-              themeEditingDisabled ||
-              assetUpload.isPending ||
-              Boolean(pendingSourceId)
-            }
-            onChange={(event) =>
-              void uploadAsset("SOURCE", event.target.files?.[0])
-            }
-          />
-          {pendingSourceId ? (
-            <>
-              <p className="text-xs text-slate-500">
-                Source asset {pendingSourceId} ·{" "}
-                {sourceAsset.data?.state ?? "QUARANTINED"}
-              </p>
-              {sourceAsset.pollTimedOut ? (
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto justify-start px-0"
-                  disabled={sourceAsset.isFetching}
-                  onClick={() => void sourceAsset.refetch()}
-                >
-                  Refresh validation status
-                </Button>
-              ) : null}
-            </>
-          ) : null}
-        </div>
+        <LetterheadSourceAsset
+          legalEntityId={entity.id}
+          entityActive={entity.is_active}
+          getExpectedRevision={() => revisionRef.current}
+          draftSourceAssetId={profile?.draftSourceAssetId ?? null}
+          initialAsset={profile?.draftSourceAsset ?? null}
+          extractionAvailable={Boolean(profile?.capabilities.extractionAvailable)}
+          onProfileUpdated={(updated) => {
+            revisionRef.current = updated.revision;
+          }}
+        />
         <div className="sm:col-span-2">
           <LetterheadImport
             legalEntityId={entity.id}
-            sourceAssetId={readySourceId}
+            sourceAssetId={extractionSourceId}
             expectedRevision={profile?.revision ?? 0}
             enabled={
               Boolean(profile?.capabilities.extractionAvailable) &&

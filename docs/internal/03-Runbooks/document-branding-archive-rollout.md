@@ -162,3 +162,40 @@ deploy path.
 `--set-env-vars` line (or set `false`), redeploy `core-api` only, and verify
 finalize returns `503` / `INVOICE_BRANDING_WRITER_DISABLED`. Do not delete issued
 archive bytes or logo generations; readers and print paths must keep working.
+
+## Letterhead extraction provider (`DOCUMENT_BRAND_*`)
+
+Outbound letterhead extraction is **off by default** (`DOCUMENT_BRAND_EXTRACTION_PROVIDER=disabled`).
+Manual branding settings and preview stay available when extraction is disabled.
+
+| Name | Kind | Purpose |
+|---|---|---|
+| `DOCUMENT_BRAND_EXTRACTION_PROVIDER` | env | `disabled` (default), `openrouter`, or `vertex` (stub — always unavailable until Gemini-on-Vertex is implemented; does not call Vertex) |
+| `DOCUMENT_BRAND_EXTRACTION_MODEL` | env | Optional OpenRouter model; code default `google/gemma-4-31b-it:free` |
+| `OPENROUTER_API_KEY` | GSM secret | Required when provider is `openrouter`; mounted on **both** `core-api` and `core-api-pdf-worker` |
+
+Cloud Build sets `DOCUMENT_BRAND_EXTRACTION_PROVIDER=disabled` on `core-api` and
+`core-api-pdf-worker` and maps `OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest`.
+**Before the first release that includes this pipeline**, Infra must create GSM
+secret `OPENROUTER_API_KEY` and grant the Cloud Run runtime service account
+secret accessor on it. `gcloud run deploy --set-secrets` fails the release if the
+secret is missing, even while extraction stays disabled.
+
+**OpenRouter (demo/UAT only):** free vision models are rate-limited and may log or
+train on requests. Use synthetic or demo letterheads only until Vertex is approved
+for customer data.
+
+**Activation checklist (product/operations):**
+
+1. Create GSM secret `OPENROUTER_API_KEY` in the deployment project (Infra).
+2. Set `DOCUMENT_BRAND_EXTRACTION_PROVIDER=openrouter` on `core-api` and
+   `core-api-pdf-worker` (and optional `DOCUMENT_BRAND_EXTRACTION_MODEL`).
+3. Redeploy both services; confirm `capabilities.extractionAvailable` is true and
+   a test letterhead upload yields a reviewable proposal.
+4. Record provider, model, data-handling terms, and approver in
+   [Slice 1 release acceptance](document-branding-slice-1-release-acceptance.md).
+
+**Rollback:** set `DOCUMENT_BRAND_EXTRACTION_PROVIDER=disabled` on both services and
+redeploy. Existing profiles and confirmed logos are unchanged; in-flight extractions
+may fail safely.
+

@@ -1,8 +1,10 @@
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import { DocumentBrandingExtractionImageProcessor } from './document-branding-extraction-image-processor.js';
 import type { DocumentBrandingExtractionProvider } from './document-branding-extraction-provider.js';
+import { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 import { DocumentBrandingExtractionWorkerService } from './document-branding-extraction-worker.service.js';
 
 describe('DocumentBrandingExtractionWorkerService', () => {
@@ -45,6 +47,7 @@ describe('DocumentBrandingExtractionWorkerService', () => {
   let storage: Record<string, jest.Mock>;
   let processor: Record<string, jest.Mock>;
   let provider: Record<string, jest.Mock>;
+  let tasks: { enqueue: jest.Mock };
   let service: DocumentBrandingExtractionWorkerService;
 
   beforeEach(() => {
@@ -99,12 +102,14 @@ describe('DocumentBrandingExtractionWorkerService', () => {
       }),
       extract: jest.fn().mockResolvedValue(response),
     };
+    tasks = { enqueue: jest.fn().mockResolvedValue(undefined) };
     service = new DocumentBrandingExtractionWorkerService(
       prisma as unknown as PrismaService,
       storage as unknown as DocumentBrandingAssetStorage,
       {} as DocumentBrandingPdfParser,
       processor as unknown as DocumentBrandingExtractionImageProcessor,
       provider as unknown as DocumentBrandingExtractionProvider,
+      tasks as unknown as DocumentBrandingExtractionTaskService,
     );
   });
 
@@ -205,6 +210,63 @@ describe('DocumentBrandingExtractionWorkerService', () => {
 
     expect(storage.readGeneration).not.toHaveBeenCalled();
     expect(provider.extract).not.toHaveBeenCalled();
+  });
+
+  it('requeues provider rate limits when retry budget remains', async () => {
+    provider.extract.mockRejectedValue(
+      new HttpException(
+        {
+          code: 'BRAND_EXTRACTION_PROVIDER_RATE_LIMIT',
+          message: 'The letterhead extraction provider is rate limited.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      ),
+    );
+
+    await service.process('extraction-1', 'entity-1', 'tenant-1', 0);
+
+    expect(prisma.documentBrandExtraction.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          state: 'QUEUED',
+          failure_code: null,
+        }),
+      }),
+    );
+    expect(tasks.enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extractionId: 'extraction-1',
+        delaySeconds: 5,
+      }),
+    );
+  });
+
+  it('records provider rate limit failure after retry budget is exhausted', async () => {
+    prisma.documentBrandExtraction.findFirst
+      .mockReset()
+      .mockResolvedValueOnce({ attempt_count: 3 })
+      .mockResolvedValueOnce(extraction);
+    provider.extract.mockRejectedValue(
+      new HttpException(
+        {
+          code: 'BRAND_EXTRACTION_PROVIDER_RATE_LIMIT',
+          message: 'The letterhead extraction provider is rate limited.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      ),
+    );
+
+    await service.process('extraction-1', 'entity-1', 'tenant-1', 2);
+
+    expect(prisma.documentBrandExtraction.updateMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          state: 'FAILED',
+          failure_code: 'BRAND_EXTRACTION_PROVIDER_RATE_LIMIT',
+        }),
+      }),
+    );
+    expect(tasks.enqueue).not.toHaveBeenCalled();
   });
 
   it('does not claim a stale task generation after the extraction attempt advances', async () => {

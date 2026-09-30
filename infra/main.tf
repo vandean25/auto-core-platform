@@ -1,13 +1,17 @@
 locals {
   environment_variables = merge(
     {
-      NODE_ENV                        = "production"
-      FRONTEND_URL                    = var.frontend_url
-      SENTRY_RELEASE                  = var.sentry_release
-      FIREBASE_PROJECT_ID             = var.firebase_project_id
-      DATABASE_POOLER_REQUIRED        = tostring(var.database_pooler_required)
-      INVOICE_BRANDING_WRITER_ENABLED = var.invoice_branding_writer_enabled ? "true" : "false"
+      NODE_ENV                           = "production"
+      FRONTEND_URL                       = var.frontend_url
+      SENTRY_RELEASE                     = var.sentry_release
+      FIREBASE_PROJECT_ID                = var.firebase_project_id
+      DATABASE_POOLER_REQUIRED           = tostring(var.database_pooler_required)
+      INVOICE_BRANDING_WRITER_ENABLED    = var.invoice_branding_writer_enabled ? "true" : "false"
+      DOCUMENT_BRAND_EXTRACTION_PROVIDER = var.document_brand_extraction_provider
     },
+    var.document_brand_extraction_model != "" ? {
+      DOCUMENT_BRAND_EXTRACTION_MODEL = var.document_brand_extraction_model
+    } : {},
     var.cloud_tasks_enabled ? {
       CLOUD_TASKS_ENABLED         = "true"
       CLOUD_TASKS_LOCATION        = var.region
@@ -27,6 +31,9 @@ locals {
       WORKSHOP_MEDIA_BUCKET    = var.workshop_media_bucket_secret_name
       SECRET_ENCRYPTION_KEY    = var.secret_encryption_key_secret_name
     },
+    var.openrouter_api_key_secret_name != "" ? {
+      OPENROUTER_API_KEY = var.openrouter_api_key_secret_name
+    } : {},
     var.cloud_tasks_enabled ? {
       CLOUD_TASKS_WORKER_SECRET = var.cloud_tasks_worker_secret_name
     } : {},

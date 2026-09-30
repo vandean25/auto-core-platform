@@ -7,6 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { DocumentBrandAsset } from "@/api/document-branding";
 import type { LegalEntityRecord } from "@/api/site-admin";
 import { createHttpError } from "@/lib/error-utils";
 import { toast } from "sonner";
@@ -54,6 +55,8 @@ const fixtures = vi.hoisted(() => ({
         },
       },
     },
+    draftSourceAssetId: null as string | null,
+    draftSourceAsset: null as DocumentBrandAsset | null,
   },
   previewHtml: "<!doctype html><p>SAMPLE — NOT AN INVOICE</p>",
   assetStatus: {
@@ -141,6 +144,10 @@ vi.mock("@/api/document-branding", async (importOriginal) => {
     }),
   };
 });
+
+vi.mock("./LetterheadSourceAsset", () => ({
+  LetterheadSourceAsset: () => null,
+}));
 
 vi.mock("@/hooks/useDebouncedAutoSave", () => ({
   useDebouncedAutoSave: (options: UseDebouncedAutoSaveOptions<DocumentBrandTheme>) => {
@@ -236,12 +243,8 @@ describe("DocumentBrandingSettings", () => {
     expect(preview.getAttribute("srcdoc")).toContain("SAMPLE — NOT AN INVOICE");
   });
 
-  it("offers upload accept values from backend capabilities", () => {
+  it("keeps the bounded PNG logo upload control from backend capabilities", () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    expect(screen.getByLabelText("Letterhead source")).toHaveProperty(
-      "accept",
-      "application/pdf,image/png,.pdf,.png",
-    );
     expect(screen.getByLabelText("Logo")).toHaveProperty(
       "accept",
       "image/png,.png",
@@ -249,27 +252,26 @@ describe("DocumentBrandingSettings", () => {
     expect(screen.getByText("Logo must be PNG (max 2 MiB).")).toBeTruthy();
   });
 
-  it("enables extraction after the uploaded source is validated", async () => {
+  it("enables extraction when the draft letterhead source is validated", async () => {
     fixtures.profile.capabilities.extractionAvailable = true;
-    fixtures.upload.mockResolvedValue({ id: "source-1" });
+    fixtures.profile.draftSourceAssetId = "source-1";
+    fixtures.profile.draftSourceAsset = {
+      id: "source-1",
+      purpose: "SOURCE",
+      state: "READY",
+      detectedMimeType: "image/png",
+      byteLength: 0,
+      pixelWidth: null,
+      pixelHeight: null,
+      failureCode: null,
+      originalFilename: null,
+      pagePreviewAvailable: false,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      expiresAt: null,
+    };
     fixtures.sourceAssetStatus.data = { id: "source-1", state: "READY" };
     const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
 
-    fireEvent.change(
-      screen.getByLabelText("Letterhead source"),
-      {
-        target: {
-          files: [new File(["letterhead"], "letterhead.png", { type: "image/png" })],
-        },
-      },
-    );
-
-    await waitFor(() => expect(fixtures.upload).toHaveBeenCalledOnce());
-    await waitFor(() =>
-      expect(sessionStorage.getItem("acp.document-brand-source.entity-1")).toBe(
-        "source-1",
-      ),
-    );
     await waitFor(() =>
       expect(
         screen
@@ -281,6 +283,9 @@ describe("DocumentBrandingSettings", () => {
       screen.queryByText("Upload and validate a PDF or PNG letterhead first."),
     ).toBeNull();
 
+    fixtures.profile.draftSourceAssetId = null;
+    fixtures.profile.draftSourceAsset = null;
+    fixtures.sourceAssetStatus.data = null;
     rerender(
       <DocumentBrandingSettings entity={{ ...entity, id: "entity-2" }} />,
     );
@@ -291,48 +296,6 @@ describe("DocumentBrandingSettings", () => {
           .getByRole("button", { name: "Extract suggestions" })
           .hasAttribute("disabled"),
       ).toBe(true),
-    );
-  });
-
-  it("restores a READY letterhead source after remount for its legal entity", () => {
-    fixtures.profile.capabilities.extractionAvailable = true;
-    sessionStorage.setItem("acp.document-brand-source.entity-1", "source-1");
-    const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
-
-    expect(
-      screen.getByRole("button", { name: "Extract suggestions" }).hasAttribute("disabled"),
-    ).toBe(false);
-
-    rerender(<DocumentBrandingSettings entity={{ ...entity, id: "entity-2" }} />);
-
-    expect(
-      screen.getByRole("button", { name: "Extract suggestions" }).hasAttribute("disabled"),
-    ).toBe(true);
-  });
-
-  it("clears a persisted READY source when validation rejects the upload", async () => {
-    fixtures.profile.capabilities.extractionAvailable = true;
-    fixtures.upload.mockResolvedValue({ id: "source-1" });
-    fixtures.sourceAssetStatus.data = {
-      id: "source-1",
-      state: "REJECTED",
-      failureCode: "FILE_REJECTED",
-    };
-    sessionStorage.setItem("acp.document-brand-source.entity-1", "source-1");
-
-    render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(
-      screen.getByLabelText("Letterhead source"),
-      {
-        target: {
-          files: [new File(["letterhead"], "letterhead.png", { type: "image/png" })],
-        },
-      },
-    );
-
-    await waitFor(() => expect(fixtures.upload).toHaveBeenCalledOnce());
-    await waitFor(() =>
-      expect(sessionStorage.getItem("acp.document-brand-source.entity-1")).toBeNull(),
     );
   });
 

@@ -29,6 +29,17 @@ export class SaveDocumentBrandDraftDto {
   extractionId?: string;
 }
 
+export class SaveDocumentBrandDraftSourceDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  expectedRevision!: number;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  sourceAssetId!: string;
+}
+
 export class ExpectedDocumentBrandRevisionDto {
   @ApiProperty({ minimum: 0 })
   @IsInt()
@@ -198,6 +209,12 @@ export class DocumentBrandProfileResponseDto {
   @ValidateNested()
   @Type(() => DocumentBrandProfileCapabilitiesDto)
   capabilities!: DocumentBrandProfileCapabilitiesDto;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  draftSourceAssetId!: string | null;
+
+  @ApiProperty({ type: () => DocumentBrandAssetResponseDto, nullable: true })
+  draftSourceAsset!: DocumentBrandAssetResponseDto | null;
 }
 
 export class DocumentBrandAssetResponseDto {
@@ -226,6 +243,12 @@ export class DocumentBrandAssetResponseDto {
 
   @ApiProperty({ type: String, nullable: true })
   failureCode!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, maxLength: 255 })
+  originalFilename!: string | null;
+
+  @ApiProperty({ type: Boolean })
+  pagePreviewAvailable!: boolean;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
