@@ -9,10 +9,12 @@ export const DOCUMENT_BRAND_SOURCE_MIME_TYPES = [
   'application/pdf',
 ] as const;
 
-const LOGO_LABELS: Record<(typeof DOCUMENT_BRAND_LOGO_MIME_TYPES)[number], string> =
-  {
-    'image/png': 'PNG',
-  };
+const LOGO_LABELS: Record<
+  (typeof DOCUMENT_BRAND_LOGO_MIME_TYPES)[number],
+  string
+> = {
+  'image/png': 'PNG',
+};
 
 const SOURCE_LABELS: Record<
   (typeof DOCUMENT_BRAND_SOURCE_MIME_TYPES)[number],
@@ -42,18 +44,11 @@ export function logoFileInputAccept(): string {
 }
 
 export function sourceFileInputAccept(): string {
-  return [
-    ...DOCUMENT_BRAND_SOURCE_MIME_TYPES,
-    '.pdf',
-    '.png',
-  ].join(',');
+  return [...DOCUMENT_BRAND_SOURCE_MIME_TYPES, '.pdf', '.png'].join(',');
 }
 
 export function formatLogoUploadRequirement(): string {
-  const types = formatMimeTypeList(
-    DOCUMENT_BRAND_LOGO_MIME_TYPES,
-    LOGO_LABELS,
-  );
+  const types = formatMimeTypeList(DOCUMENT_BRAND_LOGO_MIME_TYPES, LOGO_LABELS);
   return `Logo must be ${types} (max ${formatMaxMegabytes(DOCUMENT_BRAND_LOGO_MAX_BYTES)} MiB).`;
 }
 
@@ -69,7 +64,8 @@ export function documentBrandProfileCapabilities(extractionAvailable: boolean) {
   return {
     extractionAvailable,
     theme: {
-      decorativeTextMaxCodePoints: DOCUMENT_BRAND_DECORATIVE_TEXT_MAX_CODE_POINTS,
+      decorativeTextMaxCodePoints:
+        DOCUMENT_BRAND_DECORATIVE_TEXT_MAX_CODE_POINTS,
     },
     uploads: {
       logo: {
