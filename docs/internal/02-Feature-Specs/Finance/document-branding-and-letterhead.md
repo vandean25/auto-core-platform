@@ -98,7 +98,7 @@ Index extraction state/lease for recovery and asset state/expiry for cleanup. Ad
 
 ### Deletion Policy Impact
 
-The approved rules are also recorded in [the deletion policy](../../../deletion-policy.md). Reset means a new confirmed default revision; it does not delete the profile or invoices. No public hard-delete profile endpoint exists. Assets referenced by an active/draft logo, active extraction or committed invoice are ineligible for cleanup. Used asset reference rows and invoice archives are retained without an application TTL.
+The approved rules are also recorded in [the deletion policy](../../../deletion-policy.md). Reset means a new confirmed default revision; it does not delete the profile or invoices. No public hard-delete profile endpoint exists. Assets referenced by an active/draft logo, a letterhead source attached to a draft, an active extraction or a committed invoice are ineligible for cleanup. Used asset reference rows and invoice archives are retained without an application TTL.
 
 Unreferenced original source files and extraction proposals expire 30 days after creation; source expiry is not extended by retaining a proposal's derived logo. Before source cleanup, make related jobs terminal and remove their source relation only as part of cleanup after the retention period. Derived/direct logos that have no protecting reference receive a 7-day grace period from when their last reference is removed. Quarantined/rejected uploads expire after 24 hours. Never apply these short bucket lifecycle rules to retained logo/archive objects.
 
@@ -134,18 +134,21 @@ All routes below start with `/api/legal-entities/:legalEntityId/document-brandin
 |---|---|---|---|
 | GET `/` | None | 200 ProfileResponse | Active tenant OWNER/ADMIN; entity may be inactive for read |
 | PUT `/draft` | `expectedRevision`, full `theme`, optional `extractionId` | 200 ProfileResponse | Active tenant OWNER/ADMIN and active entity |
+| PUT `/draft/source` | `expectedRevision`, `sourceAssetId` | 200 ProfileResponse | Same mutation permission; READY SOURCE required |
+| DELETE `/draft/source` | `expectedRevision` query | 200 ProfileResponse | Same mutation permission |
 | DELETE `/draft` | `expectedRevision` query | 200 ProfileResponse | Same mutation permission |
 | POST `/confirm` | `expectedRevision`; Idempotency-Key | 200 ProfileResponse | Same; non-null saved draft required |
 | POST `/reset` | `expectedRevision`; Idempotency-Key | 200 ProfileResponse | Same; explicit default confirmation |
 | POST `/assets` | Multipart `file`, purpose SOURCE or LOGO | 202 AssetResponse (QUARANTINED) | Same mutation permission |
 | GET `/assets/:assetId` | None | 200 AssetResponse | Tenant OWNER/ADMIN, matching entity |
 | GET `/assets/:assetId/content` | None | Authorized stream of READY normalized PNG/source download | Same; sources served as attachment, never inline PDF |
+| GET `/assets/:assetId/preview` | None | Authorized first-page PNG stream when a source preview was persisted | Same; source asset and entity authorization required |
 | POST `/extractions` | `sourceAssetId`, `expectedRevision`; Idempotency-Key | 202 ExtractionResponse | Mutation permission; READY SOURCE required |
 | GET `/extractions/:extractionId` | None | 200 ExtractionResponse | Tenant OWNER/ADMIN, matching entity |
 | POST `/extractions/:extractionId/discard` | None | 200 ExtractionResponse | Mutation permission; terminal discard idempotent |
 | POST `/preview` | Full `theme`, sample `AT_STANDARD`, `DE_STANDARD` or enabled `MARGIN_FULL`; no invoice ID | 200 `{ html, warnings, themeHash }` | Tenant OWNER/ADMIN, matching entity |
 
-`ProfileResponse` contains `revision`, `activeRevision`, `activeTheme` (resolved defaults when unset), nullable `draftTheme`, `confirmedAt`, `confirmedByUserId` and `capabilities.extractionAvailable`. `AssetResponse` exposes id, purpose, state, detected MIME, bytes, dimensions and safe failure code; never storage locators. `ExtractionResponse` exposes id, state, proposal (only after success), warnings, base revision, timestamps and safe failure code; never raw model messages. No list route is needed; any later list uses `{ data, meta }` and standard pagination.
+`ProfileResponse` contains `revision`, `activeRevision`, `activeTheme` (resolved defaults when unset), nullable `draftTheme`, `confirmedAt`, `confirmedByUserId`, `capabilities.extractionAvailable`, `draftSourceAssetId` and the nullable `draftSourceAsset`. `AssetResponse` exposes id, purpose, state, bounded original filename metadata, detected MIME, bytes, dimensions, `pagePreviewAvailable` and safe failure code; never storage locators. `ExtractionResponse` exposes id, state, proposal (only after success), warnings, base revision, timestamps and safe failure code; never raw model messages. No list route is needed; any later list uses `{ data, meta }` and standard pagination.
 
 Settings sample preview contains synthetic invoice/customer data and uses the selected legal entity only for ownership checks. It grants no access to that entity's operational invoices. Existing real invoice routes continue to apply active site or approved authorized-site scope, including download. OWNER/ADMIN settings access is not a bypass for invoice authorization.
 
@@ -158,6 +161,7 @@ Return 401 unauthenticated, 403 for insufficient role/active membership, and 404
 | SOURCE | PDF or PNG, detected bytes must match type, maximum 10 MiB |
 | LOGO | PNG only, maximum 2 MiB; server decodes and re-encodes to strip metadata |
 | Source PDF | Maximum five pages, unencrypted; extract first page only and warn when further pages are ignored |
+| Source page preview | For a validated PDF source, persist an immutable first-page PNG preview; expose availability in `AssetResponse` and serve it through the authorized preview route |
 | Input image | Maximum 16 megapixels and 8,192 pixels per side; reject before full allocation |
 | Raster supplied to extraction | First page at up to 150 DPI, downscale to max 2,048 pixels per side / 4 megapixels |
 | Derived logo | Server crops a normalized raster; max 1,024 pixels per side and 2 MiB PNG; no model-supplied image URL |
@@ -218,6 +222,7 @@ Inside Settings → Legal Entities → selected entity, add a Document branding 
 - [ ] Header uses `text-2xl font-semibold tracking-tight`; subtitle uses `text-slate-500`.
 - [ ] Multi-field draft edits auto-save after 750 ms with persistent Saving/Saved/Error indicator. Invalid local edits show field errors and do not replace a valid saved draft. Confirm is disabled while save is pending, invalid or conflicted.
 - [ ] Upload/extract shows progress and bounded errors. “Use proposal” copies suggestions to the draft; “Discard” keeps the current appearance. Confirm requires an explicit click and a preview of the latest saved draft.
+- [ ] The uploaded letterhead source is attached to the draft with revision checks, can be replaced or removed without changing the active appearance, and shows the persisted first-page preview when available.
 - [ ] Reset requires confirmation explaining that future invoices use ACP defaults. Previously issued documents are unaffected.
 - [ ] A 409 preserves local edits and offers reload/review; it never retries with a newer revision automatically.
 - [ ] Sample preview displays “Sample — not an invoice,” uses synthetic content and the shared server layout. Render in a sandboxed iframe with no scripts, forms, same-origin access or navigation permissions; CSP denies network except embedded data assets.
