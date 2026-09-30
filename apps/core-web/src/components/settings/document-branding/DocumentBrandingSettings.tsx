@@ -93,8 +93,11 @@ export function DocumentBrandingSettings({
   const sourceAsset = useDocumentBrandAsset(entity.id, pendingSourceId);
   const revisionRef = React.useRef(0);
   const entityIdRef = React.useRef(entity.id);
-  entityIdRef.current = entity.id;
   const recoveryRequestRef = React.useRef(0);
+
+  React.useEffect(() => {
+    entityIdRef.current = entity.id;
+  }, [entity.id]);
   const activeEntityIdRef = React.useRef("");
   const previousEntityIdRef = React.useRef(entity.id);
   const [theme, setTheme] = React.useState<DocumentBrandTheme | null>(null);
