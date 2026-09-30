@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingExtractionTaskService } from './document-branding-extraction-task.service.js';
 import { startDerivedLogoGraceIfUnreferenced } from './document-branding-extraction-retention.js';
 
@@ -17,6 +19,8 @@ export class DocumentBrandingExtractionRecoveryService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly systemPrisma: SystemPrismaService,
+    private readonly requestContext: RequestContextService,
     private readonly tasks: DocumentBrandingExtractionTaskService,
   ) {}
 
@@ -24,16 +28,24 @@ export class DocumentBrandingExtractionRecoveryService {
     name: 'document-branding-extraction-recovery',
   })
   async recover() {
-    const tenantRows = await this.prisma.tenant.findMany({
+    const tenants = await this.systemPrisma.tenant.findMany({
       select: { id: true },
     });
-    const tenantIds = tenantRows.map(({ id }) => id);
-    if (tenantIds.length === 0) return;
+    if (tenants.length === 0) return;
 
     const now = new Date();
+    for (const { id: tenantId } of tenants) {
+      await this.requestContext.runAsWorker(
+        tenantId,
+        () => this.recoverForTenant(now),
+        { workerId: 'document-branding-extraction-recovery' },
+      );
+    }
+  }
+
+  private async recoverForTenant(now: Date) {
     const queued = await this.prisma.documentBrandExtraction.findMany({
       where: {
-        tenant_id: { in: tenantIds },
         state: 'QUEUED',
         attempt_count: { lt: 3 },
         OR: [
@@ -63,7 +75,6 @@ export class DocumentBrandingExtractionRecoveryService {
 
     const expiredLeases = await this.prisma.documentBrandExtraction.findMany({
       where: {
-        tenant_id: { in: tenantIds },
         state: 'RUNNING',
         lease_until: { lt: now },
       },
@@ -108,7 +119,6 @@ export class DocumentBrandingExtractionRecoveryService {
     const expiredProposals = await this.prisma.documentBrandExtraction.findMany(
       {
         where: {
-          tenant_id: { in: tenantIds },
           state: 'SUCCEEDED',
           expires_at: { lte: now },
           OR: [
