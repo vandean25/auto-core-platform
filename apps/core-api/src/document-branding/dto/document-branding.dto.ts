@@ -1,11 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsObject,
   IsOptional,
+  IsString,
   IsUUID,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 export class SaveDocumentBrandDraftDto {
@@ -115,6 +120,61 @@ export class DocumentBrandExtractionResponseDto {
   failureCode!: string | null;
 }
 
+export class DocumentBrandUploadConstraintsDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  maxBytes!: number;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  mimeTypes!: string[];
+
+  @ApiProperty()
+  @IsString()
+  accept!: string;
+
+  @ApiProperty()
+  @IsString()
+  requirementLabel!: string;
+}
+
+export class DocumentBrandThemeCapabilitiesDto {
+  @ApiProperty({ minimum: 1 })
+  @IsInt()
+  @Min(1)
+  decorativeTextMaxCodePoints!: number;
+}
+
+export class DocumentBrandUploadCapabilitiesDto {
+  @ApiProperty({ type: DocumentBrandUploadConstraintsDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandUploadConstraintsDto)
+  logo!: DocumentBrandUploadConstraintsDto;
+
+  @ApiProperty({ type: DocumentBrandUploadConstraintsDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandUploadConstraintsDto)
+  source!: DocumentBrandUploadConstraintsDto;
+}
+
+export class DocumentBrandProfileCapabilitiesDto {
+  @ApiProperty()
+  @IsBoolean()
+  extractionAvailable!: boolean;
+
+  @ApiProperty({ type: DocumentBrandThemeCapabilitiesDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandThemeCapabilitiesDto)
+  theme!: DocumentBrandThemeCapabilitiesDto;
+
+  @ApiProperty({ type: DocumentBrandUploadCapabilitiesDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandUploadCapabilitiesDto)
+  uploads!: DocumentBrandUploadCapabilitiesDto;
+}
+
 export class DocumentBrandProfileResponseDto {
   @ApiProperty({ minimum: 0 })
   revision!: number;
@@ -134,59 +194,10 @@ export class DocumentBrandProfileResponseDto {
   @ApiProperty({ type: String, format: 'uuid', nullable: true })
   confirmedByUserId!: string | null;
 
-  @ApiProperty({
-    type: 'object',
-    properties: {
-      extractionAvailable: { type: 'boolean', example: false },
-      theme: {
-        type: 'object',
-        properties: {
-          decorativeTextMaxCodePoints: { type: 'integer', example: 120 },
-        },
-      },
-      uploads: {
-        type: 'object',
-        properties: {
-          logo: {
-            type: 'object',
-            properties: {
-              maxBytes: { type: 'integer', example: 2097152 },
-              mimeTypes: { type: 'array', items: { type: 'string' } },
-              accept: { type: 'string' },
-              requirementLabel: { type: 'string' },
-            },
-          },
-          source: {
-            type: 'object',
-            properties: {
-              maxBytes: { type: 'integer', example: 10485760 },
-              mimeTypes: { type: 'array', items: { type: 'string' } },
-              accept: { type: 'string' },
-              requirementLabel: { type: 'string' },
-            },
-          },
-        },
-      },
-    },
-  })
-  capabilities!: {
-    extractionAvailable: boolean;
-    theme: { decorativeTextMaxCodePoints: number };
-    uploads: {
-      logo: {
-        maxBytes: number;
-        mimeTypes: string[];
-        accept: string;
-        requirementLabel: string;
-      };
-      source: {
-        maxBytes: number;
-        mimeTypes: string[];
-        accept: string;
-        requirementLabel: string;
-      };
-    };
-  };
+  @ApiProperty({ type: DocumentBrandProfileCapabilitiesDto })
+  @ValidateNested()
+  @Type(() => DocumentBrandProfileCapabilitiesDto)
+  capabilities!: DocumentBrandProfileCapabilitiesDto;
 }
 
 export class DocumentBrandAssetResponseDto {

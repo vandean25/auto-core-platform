@@ -3131,6 +3131,24 @@ export interface components {
             headerText: string;
             footerText: string;
         };
+        DocumentBrandThemeCapabilitiesDto: {
+            decorativeTextMaxCodePoints: number;
+        };
+        DocumentBrandUploadConstraintsDto: {
+            maxBytes: number;
+            mimeTypes: string[];
+            accept: string;
+            requirementLabel: string;
+        };
+        DocumentBrandUploadCapabilitiesDto: {
+            logo: components["schemas"]["DocumentBrandUploadConstraintsDto"];
+            source: components["schemas"]["DocumentBrandUploadConstraintsDto"];
+        };
+        DocumentBrandProfileCapabilitiesDto: {
+            extractionAvailable: boolean;
+            theme: components["schemas"]["DocumentBrandThemeCapabilitiesDto"];
+            uploads: components["schemas"]["DocumentBrandUploadCapabilitiesDto"];
+        };
         DocumentBrandProfileResponseDto: {
             revision: number;
             activeRevision: number;
@@ -3140,30 +3158,7 @@ export interface components {
             confirmedAt: string | null;
             /** Format: uuid */
             confirmedByUserId: string | null;
-            capabilities: {
-                /** @example false */
-                extractionAvailable?: boolean;
-                theme?: {
-                    /** @example 120 */
-                    decorativeTextMaxCodePoints?: number;
-                };
-                uploads?: {
-                    logo?: {
-                        /** @example 2097152 */
-                        maxBytes?: number;
-                        mimeTypes?: string[];
-                        accept?: string;
-                        requirementLabel?: string;
-                    };
-                    source?: {
-                        /** @example 10485760 */
-                        maxBytes?: number;
-                        mimeTypes?: string[];
-                        accept?: string;
-                        requirementLabel?: string;
-                    };
-                };
-            };
+            capabilities: components["schemas"]["DocumentBrandProfileCapabilitiesDto"];
         };
         SaveDocumentBrandDraftDto: {
             expectedRevision: number;

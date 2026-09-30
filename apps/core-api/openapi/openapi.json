@@ -10378,6 +10378,79 @@
           "footerText"
         ]
       },
+      "DocumentBrandThemeCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "decorativeTextMaxCodePoints": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "decorativeTextMaxCodePoints"
+        ]
+      },
+      "DocumentBrandUploadConstraintsDto": {
+        "type": "object",
+        "properties": {
+          "maxBytes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "mimeTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "accept": {
+            "type": "string"
+          },
+          "requirementLabel": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "maxBytes",
+          "mimeTypes",
+          "accept",
+          "requirementLabel"
+        ]
+      },
+      "DocumentBrandUploadCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "logo": {
+            "$ref": "#/components/schemas/DocumentBrandUploadConstraintsDto"
+          },
+          "source": {
+            "$ref": "#/components/schemas/DocumentBrandUploadConstraintsDto"
+          }
+        },
+        "required": [
+          "logo",
+          "source"
+        ]
+      },
+      "DocumentBrandProfileCapabilitiesDto": {
+        "type": "object",
+        "properties": {
+          "extractionAvailable": {
+            "type": "boolean"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/DocumentBrandThemeCapabilitiesDto"
+          },
+          "uploads": {
+            "$ref": "#/components/schemas/DocumentBrandUploadCapabilitiesDto"
+          }
+        },
+        "required": [
+          "extractionAvailable",
+          "theme",
+          "uploads"
+        ]
+      },
       "DocumentBrandProfileResponseDto": {
         "type": "object",
         "properties": {
@@ -10412,69 +10485,7 @@
             "nullable": true
           },
           "capabilities": {
-            "type": "object",
-            "properties": {
-              "extractionAvailable": {
-                "type": "boolean",
-                "example": false
-              },
-              "theme": {
-                "type": "object",
-                "properties": {
-                  "decorativeTextMaxCodePoints": {
-                    "type": "integer",
-                    "example": 120
-                  }
-                }
-              },
-              "uploads": {
-                "type": "object",
-                "properties": {
-                  "logo": {
-                    "type": "object",
-                    "properties": {
-                      "maxBytes": {
-                        "type": "integer",
-                        "example": 2097152
-                      },
-                      "mimeTypes": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "accept": {
-                        "type": "string"
-                      },
-                      "requirementLabel": {
-                        "type": "string"
-                      }
-                    }
-                  },
-                  "source": {
-                    "type": "object",
-                    "properties": {
-                      "maxBytes": {
-                        "type": "integer",
-                        "example": 10485760
-                      },
-                      "mimeTypes": {
-                        "type": "array",
-                        "items": {
-                          "type": "string"
-                        }
-                      },
-                      "accept": {
-                        "type": "string"
-                      },
-                      "requirementLabel": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/schemas/DocumentBrandProfileCapabilitiesDto"
           }
         },
         "required": [
