@@ -24,7 +24,25 @@ const fixtures = vi.hoisted(() => ({
     draftTheme: null as null | Record<string, unknown>,
     confirmedAt: "2026-09-27T12:00:00.000Z",
     confirmedByUserId: "user-1",
-    capabilities: { extractionAvailable: false },
+    capabilities: {
+      extractionAvailable: false,
+      theme: { decorativeTextMaxCodePoints: 120 },
+      uploads: {
+        logo: {
+          maxBytes: 2 * 1024 * 1024,
+          mimeTypes: ["image/png"],
+          accept: "image/png,.png",
+          requirementLabel: "Logo must be PNG (max 2 MiB).",
+        },
+        source: {
+          maxBytes: 10 * 1024 * 1024,
+          mimeTypes: ["image/png", "application/pdf"],
+          accept: "application/pdf,image/png,.pdf,.png",
+          requirementLabel:
+            "Letterhead source must be PNG or PDF (max 10 MiB).",
+        },
+      },
+    },
   },
   previewHtml: "<!doctype html><p>SAMPLE — NOT AN INVOICE</p>",
   assetStatus: {
@@ -164,15 +182,17 @@ describe("DocumentBrandingSettings", () => {
     expect(preview.getAttribute("srcdoc")).toContain("SAMPLE — NOT AN INVOICE");
   });
 
-  it("offers a bounded PDF or PNG source upload alongside the PNG logo upload", () => {
+  it("offers upload accept values from backend capabilities", () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    expect(
-      screen.getByLabelText("Letterhead source (PDF or PNG, up to 10 MiB)"),
-    ).toHaveProperty("accept", "application/pdf,image/png,.pdf,.png");
-    expect(screen.getByLabelText("Logo (PNG, up to 2 MiB)")).toHaveProperty(
+    expect(screen.getByLabelText("Letterhead source")).toHaveProperty(
+      "accept",
+      "application/pdf,image/png,.pdf,.png",
+    );
+    expect(screen.getByLabelText("Logo")).toHaveProperty(
       "accept",
       "image/png,.png",
     );
+    expect(screen.getByText("Logo must be PNG (max 2 MiB).")).toBeTruthy();
   });
 
   it("enables extraction after the uploaded source is validated", async () => {
@@ -182,7 +202,7 @@ describe("DocumentBrandingSettings", () => {
     const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
 
     fireEvent.change(
-      screen.getByLabelText("Letterhead source (PDF or PNG, up to 10 MiB)"),
+      screen.getByLabelText("Letterhead source"),
       {
         target: {
           files: [new File(["letterhead"], "letterhead.png", { type: "image/png" })],
@@ -248,7 +268,7 @@ describe("DocumentBrandingSettings", () => {
 
     render(<DocumentBrandingSettings entity={entity} />);
     fireEvent.change(
-      screen.getByLabelText("Letterhead source (PDF or PNG, up to 10 MiB)"),
+      screen.getByLabelText("Letterhead source"),
       {
         target: {
           files: [new File(["letterhead"], "letterhead.png", { type: "image/png" })],
@@ -260,6 +280,19 @@ describe("DocumentBrandingSettings", () => {
     await waitFor(() =>
       expect(sessionStorage.getItem("acp.document-brand-source.entity-1")).toBeNull(),
     );
+  });
+
+  it("shows a character counter and inline validation for over-limit footer text", () => {
+    render(<DocumentBrandingSettings entity={entity} />);
+
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "x".repeat(121) },
+    });
+
+    expect(screen.getByText("121/120")).toBeTruthy();
+    expect(
+      document.getElementById("brand-footer-text-error")?.textContent,
+    ).toContain("120 characters");
   });
 
   it("offers a manual status refresh when logo validation polling times out", async () => {

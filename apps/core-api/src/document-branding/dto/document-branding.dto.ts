@@ -136,9 +136,57 @@ export class DocumentBrandProfileResponseDto {
 
   @ApiProperty({
     type: 'object',
-    properties: { extractionAvailable: { type: 'boolean', example: false } },
+    properties: {
+      extractionAvailable: { type: 'boolean', example: false },
+      theme: {
+        type: 'object',
+        properties: {
+          decorativeTextMaxCodePoints: { type: 'integer', example: 120 },
+        },
+      },
+      uploads: {
+        type: 'object',
+        properties: {
+          logo: {
+            type: 'object',
+            properties: {
+              maxBytes: { type: 'integer', example: 2097152 },
+              mimeTypes: { type: 'array', items: { type: 'string' } },
+              accept: { type: 'string' },
+              requirementLabel: { type: 'string' },
+            },
+          },
+          source: {
+            type: 'object',
+            properties: {
+              maxBytes: { type: 'integer', example: 10485760 },
+              mimeTypes: { type: 'array', items: { type: 'string' } },
+              accept: { type: 'string' },
+              requirementLabel: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
   })
-  capabilities!: { extractionAvailable: boolean };
+  capabilities!: {
+    extractionAvailable: boolean;
+    theme: { decorativeTextMaxCodePoints: number };
+    uploads: {
+      logo: {
+        maxBytes: number;
+        mimeTypes: string[];
+        accept: string;
+        requirementLabel: string;
+      };
+      source: {
+        maxBytes: number;
+        mimeTypes: string[];
+        accept: string;
+        requirementLabel: string;
+      };
+    };
+  };
 }
 
 export class DocumentBrandAssetResponseDto {

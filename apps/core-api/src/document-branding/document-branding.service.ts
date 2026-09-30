@@ -30,6 +30,7 @@ import {
   DisabledDocumentBrandingExtractionProvider,
   type DocumentBrandingExtractionProvider,
 } from './document-branding-extraction-provider.js';
+import { documentBrandProfileCapabilities } from './document-branding-limits.js';
 import {
   DEFAULT_DOCUMENT_BRAND_THEME,
   validateDocumentBrandTheme,
@@ -537,9 +538,9 @@ export class DocumentBrandingService {
         : null,
       confirmedAt: profile.confirmed_at,
       confirmedByUserId: profile.confirmed_by_user_id,
-      capabilities: {
-        extractionAvailable: this.extractionProvider.isAvailable(),
-      },
+      capabilities: documentBrandProfileCapabilities(
+        this.extractionProvider.isAvailable(),
+      ),
     };
   }
 

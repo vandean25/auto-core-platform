@@ -3143,6 +3143,26 @@ export interface components {
             capabilities: {
                 /** @example false */
                 extractionAvailable?: boolean;
+                theme?: {
+                    /** @example 120 */
+                    decorativeTextMaxCodePoints?: number;
+                };
+                uploads?: {
+                    logo?: {
+                        /** @example 2097152 */
+                        maxBytes?: number;
+                        mimeTypes?: string[];
+                        accept?: string;
+                        requirementLabel?: string;
+                    };
+                    source?: {
+                        /** @example 10485760 */
+                        maxBytes?: number;
+                        mimeTypes?: string[];
+                        accept?: string;
+                        requirementLabel?: string;
+                    };
+                };
             };
         };
         SaveDocumentBrandDraftDto: {

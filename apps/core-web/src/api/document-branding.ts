@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchWithAuth } from "./client";
-import { getErrorMessage } from "@/lib/error-utils";
+import { createHttpError } from "@/lib/error-utils";
 
 export type DocumentBrandTheme = {
   schemaVersion: 1;
@@ -16,6 +16,13 @@ export type DocumentBrandTheme = {
   footerText: string;
 };
 
+export type DocumentBrandUploadConstraints = {
+  maxBytes: number;
+  mimeTypes: string[];
+  accept: string;
+  requirementLabel: string;
+};
+
 export type DocumentBrandProfile = {
   revision: number;
   activeRevision: number;
@@ -23,7 +30,14 @@ export type DocumentBrandProfile = {
   draftTheme: DocumentBrandTheme | null;
   confirmedAt: string | null;
   confirmedByUserId: string | null;
-  capabilities: { extractionAvailable: boolean };
+  capabilities: {
+    extractionAvailable: boolean;
+    theme: { decorativeTextMaxCodePoints: number };
+    uploads: {
+      logo: DocumentBrandUploadConstraints;
+      source: DocumentBrandUploadConstraints;
+    };
+  };
 };
 
 export type DocumentBrandAsset = {
@@ -75,7 +89,37 @@ export const documentBrandingKeys = {
 };
 
 async function readError(response: Response, fallback: string) {
-  return getErrorMessage(response, fallback);
+  const payload = (await response.json().catch(() => undefined)) as
+    | { message?: string; code?: string }
+    | undefined;
+  return payload?.message ?? fallback;
+}
+
+async function throwHttpError(response: Response, fallback: string) {
+  throw createHttpError(await readError(response, fallback), response.status);
+}
+
+export function documentBrandAssetUploadErrorMessage(
+  purpose: "SOURCE" | "LOGO",
+  error: unknown,
+  constraints: DocumentBrandUploadConstraints | undefined,
+): string {
+  const status =
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    typeof (error as { status: unknown }).status === "number"
+      ? (error as { status: number }).status
+      : null;
+  if (status === 415 && constraints?.requirementLabel) {
+    return constraints.requirementLabel;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return purpose === "LOGO"
+    ? "Logo could not be uploaded."
+    : "Source file could not be uploaded.";
 }
 
 export function useDocumentBrandProfile(legalEntityId: string | null) {
@@ -87,9 +131,7 @@ export function useDocumentBrandProfile(legalEntityId: string | null) {
         `/api/legal-entities/${legalEntityId}/document-branding`,
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to load document branding"),
-        );
+        await throwHttpError(response, "Failed to load document branding");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -118,9 +160,7 @@ export function useSaveDocumentBrandDraft() {
         },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to save document branding"),
-        );
+        await throwHttpError(response, "Failed to save document branding");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -153,9 +193,7 @@ export function useConfirmDocumentBranding(action: "confirm" | "reset") {
         },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to confirm document branding"),
-        );
+        await throwHttpError(response, "Failed to confirm document branding");
       }
       return response.json() as Promise<DocumentBrandProfile>;
     },
@@ -180,11 +218,9 @@ export function useDiscardDocumentBrandDraft() {
         { method: "DELETE" },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(
-            response,
-            "Failed to discard document branding draft",
-          ),
+        await throwHttpError(
+          response,
+          "Failed to discard document branding draft",
         );
       }
       return response.json() as Promise<DocumentBrandProfile>;
@@ -217,7 +253,7 @@ export function usePreviewDocumentBranding() {
         },
       );
       if (!response.ok) {
-        throw new Error(await readError(response, "Failed to create preview"));
+        await throwHttpError(response, "Failed to create preview");
       }
       return response.json() as Promise<{
         html: string;
@@ -242,8 +278,9 @@ export function useDocumentBrandAsset(
         `/api/legal-entities/${legalEntityId}/document-branding/assets/${assetId}`,
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to read uploaded asset status"),
+        await throwHttpError(
+          response,
+          "Failed to read uploaded asset status",
         );
       }
       return response.json() as Promise<DocumentBrandAsset>;
@@ -296,8 +333,9 @@ export function useUploadDocumentBrandAsset() {
         { method: "POST", body },
       );
       if (!response.ok) {
-        throw new Error(
-          await readError(response, "Failed to upload document branding asset"),
+        await throwHttpError(
+          response,
+          "Failed to upload document branding asset",
         );
       }
       return response.json() as Promise<DocumentBrandAsset>;
@@ -328,7 +366,10 @@ export function useCreateDocumentBrandExtraction() {
         },
       );
       if (!response.ok) {
-        throw new Error(await readError(response, "Could not start letterhead extraction"));
+        await throwHttpError(
+          response,
+          "Could not start letterhead extraction",
+        );
       }
       return response.json() as Promise<DocumentBrandExtraction>;
     },
@@ -348,7 +389,7 @@ export function useDocumentBrandExtraction(
         `/api/legal-entities/${legalEntityId}/document-branding/extractions/${extractionId}`,
       );
       if (!response.ok) {
-        throw new Error(await readError(response, "Could not read extraction status"));
+        await throwHttpError(response, "Could not read extraction status");
       }
       return response.json() as Promise<DocumentBrandExtraction>;
     },
@@ -369,7 +410,7 @@ export function useDiscardDocumentBrandExtraction() {
         { method: "POST" },
       );
       if (!response.ok) {
-        throw new Error(await readError(response, "Could not discard extraction"));
+        await throwHttpError(response, "Could not discard extraction");
       }
       return response.json() as Promise<DocumentBrandExtraction>;
     },
