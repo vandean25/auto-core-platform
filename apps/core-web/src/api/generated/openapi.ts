@@ -738,6 +738,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{legalEntityId}/document-branding/assets/{assetId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download the first-page PNG preview of a source asset */
+        get: operations["DocumentBrandingController_getAssetPagePreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers": {
         parameters: {
             query?: never;
@@ -3162,6 +3179,7 @@ export interface components {
             pixelHeight: number | null;
             failureCode: string | null;
             originalFilename: string | null;
+            pagePreviewAvailable: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -7315,6 +7333,28 @@ export interface operations {
             };
         };
     };
+    DocumentBrandingController_getAssetPagePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+                assetId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+        };
+    };
     CustomerController_findAll: {
         parameters: {
             query?: {
@@ -11458,13 +11498,4 @@ export interface operations {
         responses: {
             /** @description Paginated list of audit log entries */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogListResponseDto"];
-                };
-            };
-        };
-    };
-}
+            

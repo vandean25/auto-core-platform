@@ -38,6 +38,7 @@ export type DocumentBrandAsset = {
   pixelHeight: number | null;
   failureCode: string | null;
   originalFilename: string | null;
+  pagePreviewAvailable: boolean;
   createdAt: string;
   expiresAt: string | null;
 };
@@ -78,7 +79,22 @@ export const documentBrandingKeys = {
 };
 
 async function readError(response: Response, fallback: string) {
-  return getErrorMessage(response, fallback);
+  const payload = (await response.json().catch(() => undefined)) as
+    | {
+        message?: string | string[] | { message?: string };
+        code?: string;
+      }
+    | undefined;
+  const message = payload?.message;
+  if (typeof message === "string" && message.trim()) return message;
+  if (Array.isArray(message)) return message.join(", ");
+  if (message && typeof message === "object" && message.message) {
+    return message.message;
+  }
+  if (payload?.code) {
+    return getErrorMessage({ message: payload.code }, fallback);
+  }
+  return fallback;
 }
 
 export function useDocumentBrandProfile(legalEntityId: string | null) {

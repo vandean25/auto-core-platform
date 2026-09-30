@@ -1,6 +1,8 @@
 import * as React from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  documentBrandingKeys,
   useAttachDocumentBrandDraftSource,
   useDocumentBrandAsset,
   useRemoveDocumentBrandDraftSource,
@@ -18,10 +20,19 @@ import {
   letterheadSourceDisplayName,
 } from "./letterhead-source-messages";
 
+function isRevisionConflict(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("revision conflict") ||
+    message.includes("brand_revision_conflict")
+  );
+}
+
 export function LetterheadSourceAsset({
   legalEntityId,
   entityActive,
-  expectedRevision,
+  getExpectedRevision,
   draftSourceAssetId,
   initialAsset,
   extractionAvailable,
@@ -29,12 +40,13 @@ export function LetterheadSourceAsset({
 }: {
   legalEntityId: string;
   entityActive: boolean;
-  expectedRevision: number;
+  getExpectedRevision: () => number;
   draftSourceAssetId: string | null;
   initialAsset: DocumentBrandAsset | null;
   extractionAvailable: boolean;
   onProfileUpdated: (profile: DocumentBrandProfile) => void;
 }) {
+  const queryClient = useQueryClient();
   const upload = useUploadDocumentBrandAsset();
   const attach = useAttachDocumentBrandDraftSource();
   const remove = useRemoveDocumentBrandDraftSource();
@@ -56,6 +68,38 @@ export function LetterheadSourceAsset({
     setPendingAssetId(null);
   }, [asset, pendingAssetId]);
 
+  const refreshProfile = React.useCallback(async () => {
+    const response = await fetchWithAuth(
+      `/api/legal-entities/${legalEntityId}/document-branding`,
+    );
+    if (!response.ok) {
+      throw new Error("Failed to refresh document branding profile");
+    }
+    const profile = (await response.json()) as DocumentBrandProfile;
+    queryClient.setQueryData(
+      documentBrandingKeys.profile(legalEntityId),
+      profile,
+    );
+    onProfileUpdated(profile);
+    return profile;
+  }, [legalEntityId, onProfileUpdated, queryClient]);
+
+  const attachSource = async (sourceAssetId: string) => {
+    const tryAttach = (expectedRevision: number) =>
+      attach.mutateAsync({
+        legalEntityId,
+        expectedRevision,
+        sourceAssetId,
+      });
+    try {
+      return await tryAttach(getExpectedRevision());
+    } catch (error) {
+      if (!isRevisionConflict(error)) throw error;
+      const profile = await refreshProfile();
+      return await tryAttach(profile.revision);
+    }
+  };
+
   const uploadSource = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -65,11 +109,7 @@ export function LetterheadSourceAsset({
         file,
       });
       setPendingAssetId(uploaded.id);
-      const profile = await attach.mutateAsync({
-        legalEntityId,
-        expectedRevision,
-        sourceAssetId: uploaded.id,
-      });
+      const profile = await attachSource(uploaded.id);
       onProfileUpdated(profile);
       toast.message("Letterhead uploaded; validation is in progress");
     } catch (error) {
@@ -87,12 +127,33 @@ export function LetterheadSourceAsset({
     try {
       const profile = await remove.mutateAsync({
         legalEntityId,
-        expectedRevision,
+        expectedRevision: getExpectedRevision(),
       });
       setPendingAssetId(null);
       onProfileUpdated(profile);
       toast.success("Letterhead source removed from the draft");
     } catch (error) {
+      if (isRevisionConflict(error)) {
+        try {
+          const refreshed = await refreshProfile();
+          const profile = await remove.mutateAsync({
+            legalEntityId,
+            expectedRevision: refreshed.revision,
+          });
+          setPendingAssetId(null);
+          onProfileUpdated(profile);
+          toast.success("Letterhead source removed from the draft");
+          return;
+        } catch (retryError) {
+          toast.error("Letterhead source could not be removed", {
+            description:
+              retryError instanceof Error
+                ? retryError.message
+                : "Try again in a moment.",
+          });
+          return;
+        }
+      }
       toast.error("Letterhead source could not be removed", {
         description:
           error instanceof Error ? error.message : "Try again in a moment.",
@@ -128,19 +189,20 @@ export function LetterheadSourceAsset({
       })
     : null;
   const canDownload = asset?.state === "READY";
-  const canPreview =
-    canDownload && asset.detectedMimeType === "image/png";
-  const previewUrl = useLetterheadPreviewUrl(
-    legalEntityId,
-    canPreview ? trackedAssetId : null,
-  );
+  const previewPath =
+    canDownload && trackedAssetId
+      ? asset.detectedMimeType === "application/pdf" ||
+        asset.pagePreviewAvailable
+        ? `/api/legal-entities/${legalEntityId}/document-branding/assets/${trackedAssetId}/preview`
+        : asset.detectedMimeType === "image/png"
+          ? `/api/legal-entities/${legalEntityId}/document-branding/assets/${trackedAssetId}/content`
+          : null
+      : null;
+  const previewUrl = useLetterheadPreviewUrl(previewPath);
 
   const busy =
-    !entityActive ||
-    upload.isPending ||
-    attach.isPending ||
-    remove.isPending ||
-    Boolean(pendingAssetId && asset?.state === "QUARANTINED");
+    !entityActive || upload.isPending || attach.isPending || remove.isPending;
+  const replaceBusy = upload.isPending || attach.isPending;
 
   return (
     <div className="grid gap-2 sm:col-span-2">
@@ -186,7 +248,7 @@ export function LetterheadSourceAsset({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={busy}
+                disabled={replaceBusy}
                 onClick={() =>
                   document.getElementById("brand-source-replace")?.click()
                 }
@@ -198,7 +260,7 @@ export function LetterheadSourceAsset({
                 type="file"
                 className="hidden"
                 accept="application/pdf,image/png,.pdf,.png"
-                disabled={busy}
+                disabled={replaceBusy}
                 onChange={(event) => {
                   void uploadSource(event.target.files?.[0]);
                   event.target.value = "";
@@ -208,7 +270,7 @@ export function LetterheadSourceAsset({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={busy}
+                disabled={remove.isPending}
                 onClick={() => void removeSource()}
               >
                 Remove
@@ -220,7 +282,7 @@ export function LetterheadSourceAsset({
               {statusMessage}
             </p>
           ) : null}
-          {canPreview && previewUrl ? (
+          {previewUrl ? (
             <img
               src={previewUrl}
               alt={`Preview of ${letterheadSourceDisplayName(asset)}`}
@@ -248,22 +310,17 @@ export function LetterheadSourceAsset({
   );
 }
 
-function useLetterheadPreviewUrl(
-  legalEntityId: string,
-  assetId: string | null,
-): string | null {
+function useLetterheadPreviewUrl(previewPath: string | null): string | null {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let active = true;
     let objectUrl: string | null = null;
     setPreviewUrl(null);
-    if (!assetId) return () => undefined;
+    if (!previewPath) return () => undefined;
 
     void (async () => {
-      const response = await fetchWithAuth(
-        `/api/legal-entities/${legalEntityId}/document-branding/assets/${assetId}/content`,
-      );
+      const response = await fetchWithAuth(previewPath);
       if (!active || !response.ok) return;
       const blob = await response.blob();
       objectUrl = URL.createObjectURL(blob);
@@ -274,7 +331,7 @@ function useLetterheadPreviewUrl(
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [assetId, legalEntityId]);
+  }, [previewPath]);
 
   return previewUrl;
 }
