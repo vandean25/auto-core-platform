@@ -10507,6 +10507,7 @@
           },
           "draftSourceAsset": {
             "nullable": true,
+            "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/DocumentBrandAssetResponseDto"
@@ -10524,23 +10525,6 @@
           "capabilities",
           "draftSourceAssetId",
           "draftSourceAsset"
-        ]
-      },
-      "SaveDocumentBrandDraftSourceDto": {
-        "type": "object",
-        "properties": {
-          "expectedRevision": {
-            "type": "number",
-            "minimum": 0
-          },
-          "sourceAssetId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "expectedRevision",
-          "sourceAssetId"
         ]
       },
       "SaveDocumentBrandDraftDto": {
@@ -10562,6 +10546,23 @@
         "required": [
           "expectedRevision",
           "theme"
+        ]
+      },
+      "SaveDocumentBrandDraftSourceDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sourceAssetId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "sourceAssetId"
         ]
       },
       "ExpectedDocumentBrandRevisionDto": {

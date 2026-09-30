@@ -165,6 +165,7 @@ VALUES
   ('document_brand_extractions', 'users', 'requested_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('document_brand_profiles', 'document_brand_assets', 'tenant_id,legal_entity_id,active_logo_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'document_brand_assets', 'tenant_id,legal_entity_id,draft_logo_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_profiles', 'document_brand_assets', 'tenant_id,legal_entity_id,draft_source_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'document_brand_extractions', 'tenant_id,legal_entity_id,draft_extraction_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),

@@ -403,7 +403,7 @@ export function DocumentBrandingSettings({
         <LetterheadSourceAsset
           legalEntityId={entity.id}
           entityActive={entity.is_active}
-          expectedRevision={profile?.revision ?? revisionRef.current}
+          expectedRevision={profile?.revision ?? 0}
           draftSourceAssetId={profile?.draftSourceAssetId ?? null}
           initialAsset={profile?.draftSourceAsset ?? null}
           extractionAvailable={Boolean(profile?.capabilities.extractionAvailable)}

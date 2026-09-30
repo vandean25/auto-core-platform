@@ -3166,11 +3166,6 @@ export interface components {
             draftSourceAssetId: string | null;
             draftSourceAsset: components["schemas"]["DocumentBrandAssetResponseDto"] | null;
         };
-        SaveDocumentBrandDraftSourceDto: {
-            expectedRevision: number;
-            /** Format: uuid */
-            sourceAssetId: string;
-        };
         SaveDocumentBrandDraftDto: {
             expectedRevision: number;
             theme: {
@@ -3178,6 +3173,11 @@ export interface components {
             };
             /** Format: uuid */
             extractionId?: string;
+        };
+        SaveDocumentBrandDraftSourceDto: {
+            expectedRevision: number;
+            /** Format: uuid */
+            sourceAssetId: string;
         };
         ExpectedDocumentBrandRevisionDto: {
             expectedRevision: number;

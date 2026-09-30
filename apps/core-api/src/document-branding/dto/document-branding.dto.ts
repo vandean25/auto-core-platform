@@ -8,17 +8,6 @@ import {
   Min,
 } from 'class-validator';
 
-export class SaveDocumentBrandDraftSourceDto {
-  @ApiProperty({ minimum: 0 })
-  @IsInt()
-  @Min(0)
-  expectedRevision!: number;
-
-  @ApiProperty({ format: 'uuid' })
-  @IsUUID()
-  sourceAssetId!: string;
-}
-
 export class SaveDocumentBrandDraftDto {
   @ApiProperty({ minimum: 0 })
   @IsInt()
@@ -33,6 +22,17 @@ export class SaveDocumentBrandDraftDto {
   @IsOptional()
   @IsUUID()
   extractionId?: string;
+}
+
+export class SaveDocumentBrandDraftSourceDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  expectedRevision!: number;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  sourceAssetId!: string;
 }
 
 export class ExpectedDocumentBrandRevisionDto {
