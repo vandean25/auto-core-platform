@@ -40,6 +40,7 @@ import {
   DocumentBrandProfileResponseDto,
   ExpectedDocumentBrandRevisionDto,
   SaveDocumentBrandDraftDto,
+  SaveDocumentBrandDraftSourceDto,
 } from './dto/document-branding.dto.js';
 import { DocumentBrandingService } from './document-branding.service.js';
 import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
@@ -76,6 +77,27 @@ export class DocumentBrandingController {
     @Body() dto: SaveDocumentBrandDraftDto,
   ) {
     return this.branding.saveDraft(legalEntityId, dto);
+  }
+
+  @Put('draft/source')
+  @ApiOperation({ summary: 'Attach a letterhead source asset to the draft' })
+  @ApiBody({ type: SaveDocumentBrandDraftSourceDto })
+  @ApiOkResponse({ type: DocumentBrandProfileResponseDto })
+  setDraftSource(
+    @Param('legalEntityId') legalEntityId: string,
+    @Body() dto: SaveDocumentBrandDraftSourceDto,
+  ) {
+    return this.branding.setDraftSource(legalEntityId, dto);
+  }
+
+  @Delete('draft/source')
+  @ApiOperation({ summary: 'Remove the draft letterhead source asset' })
+  @ApiOkResponse({ type: DocumentBrandProfileResponseDto })
+  removeDraftSource(
+    @Param('legalEntityId') legalEntityId: string,
+    @Query('expectedRevision', ParseIntPipe) expectedRevision: number,
+  ) {
+    return this.branding.removeDraftSource(legalEntityId, expectedRevision);
   }
 
   @Delete('draft')
@@ -237,10 +259,12 @@ export class DocumentBrandingController {
   ) {
     const content = await this.uploads.getAssetContent(legalEntityId, assetId);
     const disposition = content.purpose === 'SOURCE' ? 'attachment' : 'inline';
+    const metadata = await this.uploads.getAsset(legalEntityId, assetId);
     const filename =
-      content.contentType === 'application/pdf'
+      metadata.originalFilename ??
+      (content.contentType === 'application/pdf'
         ? 'document-branding-source.pdf'
-        : 'document-branding-asset.png';
+        : 'document-branding-asset.png');
     return new StreamableFile(content.bytes, {
       type: content.contentType,
       disposition: `${disposition}; filename="${filename}"`,

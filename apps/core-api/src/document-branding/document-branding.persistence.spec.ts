@@ -31,12 +31,14 @@ describe('document branding persistence contract', () => {
         'draft_theme',
         'active_logo_asset_id',
         'draft_logo_asset_id',
+        'draft_source_asset_id',
       ]),
     );
     expect(profile?.fields.map((field) => field.relationName)).toEqual(
       expect.arrayContaining([
         'DocumentBrandActiveLogo',
         'DocumentBrandDraftLogo',
+        'DocumentBrandDraftSource',
       ]),
     );
 

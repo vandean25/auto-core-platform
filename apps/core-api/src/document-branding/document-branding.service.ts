@@ -18,13 +18,20 @@ import {
   assertTenantAdmin,
   requireActiveCurrentUser,
 } from '../site/site.authorization.js';
-import type { SaveDocumentBrandDraftDto } from './dto/document-branding.dto.js';
+import type {
+  SaveDocumentBrandDraftDto,
+  SaveDocumentBrandDraftSourceDto,
+} from './dto/document-branding.dto.js';
 import {
   createDocumentBrandPreview,
   type DocumentBrandSample,
 } from './document-branding-preview.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
-import { startDerivedLogoGraceIfUnreferenced } from './document-branding-extraction-retention.js';
+import {
+  startDerivedLogoGraceIfUnreferenced,
+  startDraftSourceGraceIfUnreferenced,
+} from './document-branding-extraction-retention.js';
+import { mapDocumentBrandAssetResponse } from './document-branding-upload.service.js';
 import {
   DOCUMENT_BRAND_EXTRACTION_PROVIDER,
   DisabledDocumentBrandingExtractionProvider,
@@ -56,11 +63,96 @@ export class DocumentBrandingService {
     await this.findLegalEntity(tenantId, legalEntityId);
     const profile = await this.prisma.documentBrandProfile.findFirst({
       where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+      include: { draftSourceAsset: true },
     });
 
     return profile
       ? this.toResponse(profile)
       : this.toResponse(this.emptyProfile(tenantId, legalEntityId));
+  }
+
+  async setDraftSource(
+    legalEntityId: string,
+    dto: SaveDocumentBrandDraftSourceDto,
+  ) {
+    return this.withLockedProfile(
+      legalEntityId,
+      async (tx, profile, tenantId) => {
+        this.assertRevision(profile, dto.expectedRevision);
+        await this.requireDraftSourceAsset(
+          tx.documentBrandAsset,
+          tenantId,
+          legalEntityId,
+          dto.sourceAssetId,
+        );
+        const revision = profile.revision + 1;
+        const releasedSourceId = profile.draft_source_asset_id;
+        await tx.documentBrandProfile
+          .updateMany({
+            where: {
+              id: profile.id,
+              tenant_id: tenantId,
+              legal_entity_id: legalEntityId,
+              revision: dto.expectedRevision,
+            },
+            data: {
+              revision,
+              draft_source_asset_id: dto.sourceAssetId,
+            },
+          })
+          .then((result) => this.assertUpdated(result.count));
+        await this.startGraceForReleasedDraftSources(
+          tx,
+          tenantId,
+          legalEntityId,
+          [releasedSourceId],
+        );
+        const updated = await tx.documentBrandProfile.findFirstOrThrow({
+          where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+          include: { draftSourceAsset: true },
+        });
+        return this.toResponse(updated);
+      },
+    );
+  }
+
+  async removeDraftSource(legalEntityId: string, expectedRevision: number) {
+    return this.withLockedProfile(
+      legalEntityId,
+      async (tx, profile, tenantId) => {
+        this.assertRevision(profile, expectedRevision);
+        if (!profile.draft_source_asset_id) {
+          return this.toResponse({ ...profile, draftSourceAsset: null });
+        }
+        const revision = profile.revision + 1;
+        const releasedSourceId = profile.draft_source_asset_id;
+        await tx.documentBrandProfile
+          .updateMany({
+            where: {
+              id: profile.id,
+              tenant_id: tenantId,
+              legal_entity_id: legalEntityId,
+              revision: expectedRevision,
+            },
+            data: {
+              revision,
+              draft_source_asset_id: null,
+            },
+          })
+          .then((result) => this.assertUpdated(result.count));
+        await this.startGraceForReleasedDraftSources(
+          tx,
+          tenantId,
+          legalEntityId,
+          [releasedSourceId],
+        );
+        const updated = await tx.documentBrandProfile.findFirstOrThrow({
+          where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+          include: { draftSourceAsset: true },
+        });
+        return this.toResponse(updated);
+      },
+    );
   }
 
   async saveDraft(legalEntityId: string, dto: SaveDocumentBrandDraftDto) {
@@ -152,6 +244,7 @@ export class DocumentBrandingService {
             revision,
             draft_theme: Prisma.DbNull,
             draft_logo_asset_id: null,
+            draft_source_asset_id: null,
             draft_extraction_id: null,
             last_confirmation_key: null,
             last_confirmation_hash: null,
@@ -165,9 +258,17 @@ export class DocumentBrandingService {
           legalEntityId,
           [profile.draft_logo_asset_id],
         );
-        return this.toResponse(
-          await this.readProfile(tx, tenantId, legalEntityId),
+        await this.startGraceForReleasedDraftSources(
+          tx,
+          tenantId,
+          legalEntityId,
+          [profile.draft_source_asset_id],
         );
+        const updated = await tx.documentBrandProfile.findFirstOrThrow({
+          where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+          include: { draftSourceAsset: true },
+        });
+        return this.toResponse(updated);
       },
     );
   }
@@ -377,6 +478,7 @@ export class DocumentBrandingService {
               : (draftTheme?.logoAssetId ?? null),
             draft_theme: Prisma.DbNull,
             draft_logo_asset_id: null,
+            draft_source_asset_id: null,
             draft_extraction_id: null,
             confirmed_at: new Date(),
             confirmed_by_user_id: currentUser.id,
@@ -392,9 +494,17 @@ export class DocumentBrandingService {
           legalEntityId,
           [profile.active_logo_asset_id, profile.draft_logo_asset_id],
         );
-        return this.toResponse(
-          await this.readProfile(tx, tenantId, legalEntityId),
+        await this.startGraceForReleasedDraftSources(
+          tx,
+          tenantId,
+          legalEntityId,
+          [profile.draft_source_asset_id],
         );
+        const updated = await tx.documentBrandProfile.findFirstOrThrow({
+          where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+          include: { draftSourceAsset: true },
+        });
+        return this.toResponse(updated);
       },
     );
   }
@@ -453,6 +563,32 @@ export class DocumentBrandingService {
     return entity;
   }
 
+  private async requireDraftSourceAsset(
+    assetRepository: Prisma.TransactionClient['documentBrandAsset'],
+    tenantId: string,
+    legalEntityId: string,
+    assetId: string,
+  ) {
+    const asset = await assetRepository.findFirst({
+      where: {
+        id: assetId,
+        tenant_id: tenantId,
+        legal_entity_id: legalEntityId,
+        purpose: 'SOURCE',
+      },
+      select: { id: true, state: true },
+    });
+    if (!asset) {
+      throw new NotFoundException('Letterhead source asset not found');
+    }
+    if (!['QUARANTINED', 'READY', 'REJECTED'].includes(asset.state)) {
+      throw new UnprocessableEntityException({
+        code: 'BRAND_ASSET_NOT_ATTACHABLE',
+        message: 'This letterhead source can no longer be attached to the draft.',
+      });
+    }
+  }
+
   private async requireReadyLogo(
     assetRepository: Prisma.TransactionClient['documentBrandAsset'],
     tenantId: string,
@@ -485,7 +621,30 @@ export class DocumentBrandingService {
   ) {
     return tx.documentBrandProfile.findFirstOrThrow({
       where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+      include: { draftSourceAsset: true },
     });
+  }
+
+  private async startGraceForReleasedDraftSources(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    legalEntityId: string,
+    assetIds: Array<string | null>,
+  ) {
+    const releasedAssetIds = [
+      ...new Set(assetIds.filter((id): id is string => !!id)),
+    ];
+    const now = new Date();
+    await Promise.all(
+      releasedAssetIds.map((assetId) =>
+        startDraftSourceGraceIfUnreferenced(tx, {
+          tenantId,
+          legalEntityId,
+          assetId,
+          now,
+        }),
+      ),
+    );
   }
 
   private async startGraceForReleasedProfileLogos(
@@ -519,13 +678,33 @@ export class DocumentBrandingService {
       draft_theme: null,
       active_logo_asset_id: null,
       draft_logo_asset_id: null,
+      draft_source_asset_id: null,
       draft_extraction_id: null,
       confirmed_at: null,
       confirmed_by_user_id: null,
     } as DocumentBrandProfile;
   }
 
-  private toResponse(profile: DocumentBrandProfile) {
+  private toResponse(
+    profile: DocumentBrandProfile & {
+      draftSourceAsset?: {
+        id: string;
+        purpose: string;
+        state: string;
+        detected_mime_type: string | null;
+        byte_length: number;
+        pixel_width: number | null;
+        pixel_height: number | null;
+        failure_code: string | null;
+        original_filename: string | null;
+        createdAt: Date;
+        expires_at: Date | null;
+      } | null;
+    },
+  ) {
+    const draftSourceAsset = profile.draftSourceAsset
+      ? mapDocumentBrandAssetResponse(profile.draftSourceAsset)
+      : null;
     return {
       revision: profile.revision,
       activeRevision: profile.active_revision,
@@ -540,6 +719,8 @@ export class DocumentBrandingService {
       capabilities: {
         extractionAvailable: this.extractionProvider.isAvailable(),
       },
+      draftSourceAssetId: profile.draft_source_asset_id,
+      draftSourceAsset,
     };
   }
 

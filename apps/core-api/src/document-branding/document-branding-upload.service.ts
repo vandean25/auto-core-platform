@@ -323,7 +323,7 @@ function sanitizeFilename(filename: string): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
-function toAssetResponse(asset: {
+export function mapDocumentBrandAssetResponse(asset: {
   id: string;
   purpose: string;
   state: string;
@@ -332,6 +332,7 @@ function toAssetResponse(asset: {
   pixel_width: number | null;
   pixel_height: number | null;
   failure_code: string | null;
+  original_filename: string | null;
   createdAt: Date;
   expires_at: Date | null;
 }) {
@@ -344,7 +345,24 @@ function toAssetResponse(asset: {
     pixelWidth: asset.pixel_width,
     pixelHeight: asset.pixel_height,
     failureCode: asset.failure_code,
+    originalFilename: asset.original_filename,
     createdAt: asset.createdAt,
     expiresAt: asset.expires_at,
   };
+}
+
+function toAssetResponse(asset: {
+  id: string;
+  purpose: string;
+  state: string;
+  detected_mime_type: string | null;
+  byte_length: number;
+  pixel_width: number | null;
+  pixel_height: number | null;
+  failure_code: string | null;
+  original_filename: string | null;
+  createdAt: Date;
+  expires_at: Date | null;
+}) {
+  return mapDocumentBrandAssetResponse(asset);
 }

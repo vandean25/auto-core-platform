@@ -307,6 +307,7 @@ export class DocumentBrandingUploadRecoveryService {
           OR: [
             { active_logo_asset_id: asset.id },
             { draft_logo_asset_id: asset.id },
+            { draft_source_asset_id: asset.id },
           ],
         },
         select: { id: true },

@@ -1878,6 +1878,86 @@
         ]
       }
     },
+    "/api/legal-entities/{legalEntityId}/document-branding/draft/source": {
+      "put": {
+        "operationId": "DocumentBrandingController_setDraftSource",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDocumentBrandDraftSourceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Attach a letterhead source asset to the draft",
+        "tags": [
+          "Document branding"
+        ]
+      },
+      "delete": {
+        "operationId": "DocumentBrandingController_removeDraftSource",
+        "parameters": [
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "expectedRevision",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBrandProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Remove the draft letterhead source asset",
+        "tags": [
+          "Document branding"
+        ]
+      }
+    },
     "/api/legal-entities/{legalEntityId}/document-branding/confirm": {
       "post": {
         "operationId": "DocumentBrandingController_confirm",
@@ -10419,6 +10499,19 @@
                 "example": false
               }
             }
+          },
+          "draftSourceAssetId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "draftSourceAsset": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DocumentBrandAssetResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -10428,7 +10521,26 @@
           "draftTheme",
           "confirmedAt",
           "confirmedByUserId",
-          "capabilities"
+          "capabilities",
+          "draftSourceAssetId",
+          "draftSourceAsset"
+        ]
+      },
+      "SaveDocumentBrandDraftSourceDto": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "sourceAssetId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "sourceAssetId"
         ]
       },
       "SaveDocumentBrandDraftDto": {
@@ -10551,6 +10663,11 @@
             "type": "string",
             "nullable": true
           },
+          "originalFilename": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -10570,6 +10687,7 @@
           "pixelWidth",
           "pixelHeight",
           "failureCode",
+          "originalFilename",
           "createdAt",
           "expiresAt"
         ]

@@ -304,8 +304,9 @@ model DocumentBrandAsset {
   createdAt                    DateTime                  @default(now())
   updatedAt                    DateTime                  @updatedAt
 
-  draftForProfiles  DocumentBrandProfile[]       @relation("DocumentBrandDraftLogo")
-  activeForProfiles DocumentBrandProfile[]       @relation("DocumentBrandActiveLogo")
+  draftForProfiles       DocumentBrandProfile[] @relation("DocumentBrandDraftLogo")
+  draftSourceForProfiles DocumentBrandProfile[] @relation("DocumentBrandDraftSource")
+  activeForProfiles      DocumentBrandProfile[] @relation("DocumentBrandActiveLogo")
   invoiceReferences InvoiceBrandAssetReference[]
 
   @@unique([tenant_id, id])
@@ -371,6 +372,8 @@ model DocumentBrandProfile {
   activeLogoAsset                   DocumentBrandAsset? @relation("DocumentBrandActiveLogo", fields: [tenant_id, legal_entity_id, active_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   draft_logo_asset_id               String?
   draftLogoAsset                    DocumentBrandAsset? @relation("DocumentBrandDraftLogo", fields: [tenant_id, legal_entity_id, draft_logo_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
+  draft_source_asset_id             String?
+  draftSourceAsset                  DocumentBrandAsset? @relation("DocumentBrandDraftSource", fields: [tenant_id, legal_entity_id, draft_source_asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   draft_extraction_id               String?
   draftExtraction                   DocumentBrandExtraction? @relation("DocumentBrandDraftExtraction", fields: [tenant_id, legal_entity_id, draft_extraction_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict)
   confirmed_at                      DateTime?
