@@ -2,11 +2,16 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   parseCloudBuildDeployContracts,
+  parseCloudBuildDeployStep,
   REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
   REQUIRED_PDF_WORKER_BOOT_ENV_KEYS,
 } from './check-cloudrun-env-contract.js';
 
 const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
+const cloudBuildStagingPath = join(
+  import.meta.dirname,
+  '../../../cloudbuild.staging.yaml',
+);
 
 describe('Cloud Run environment contract', () => {
   it('includes every required production key on core-api', () => {
@@ -23,6 +28,7 @@ describe('Cloud Run environment contract', () => {
     expect(coreApi.get('CATALOG_HIT_HMAC_SECRET')).toBe(
       'CATALOG_HIT_HMAC_SECRET:latest',
     );
+    expect(coreApi.get('INVOICE_BRANDING_WRITER_ENABLED')).toBe('true');
   });
 
   it('includes boot-required secrets on the PDF worker', () => {
@@ -51,5 +57,16 @@ describe('Cloud Run environment contract', () => {
     expect(pdfWorker.has('CLOUD_TASKS_QUEUE')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_TARGET_BASE_URL')).toBe(false);
     expect(pdfWorker.has('CLOUD_TASKS_INVOKER_SA')).toBe(false);
+    expect(pdfWorker.has('INVOICE_BRANDING_WRITER_ENABLED')).toBe(false);
+  });
+
+  it('enables the branding writer on staging core-api only', () => {
+    const source = readFileSync(cloudBuildStagingPath, 'utf8');
+    const stagingCoreApi = parseCloudBuildDeployStep(
+      source,
+      'deploy-staging-cloud-run',
+    );
+
+    expect(stagingCoreApi.get('INVOICE_BRANDING_WRITER_ENABLED')).toBe('true');
   });
 });

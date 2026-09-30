@@ -11,9 +11,6 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
 export function isClientSafeOperationalHttpError(
   responseBody: Record<string, unknown>,
 ): boolean {
-  if (responseBody.operational === true) {
-    return true;
-  }
   const code = responseBody.code;
   return typeof code === 'string' && CLIENT_SAFE_HTTP_ERROR_CODES.has(code);
 }

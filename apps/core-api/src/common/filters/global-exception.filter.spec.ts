@@ -3,6 +3,7 @@ import {
   HttpException,
   HttpStatus,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalExceptionFilter } from './global-exception.filter.js';
@@ -170,6 +171,26 @@ describe('GlobalExceptionFilter', () => {
       expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
     });
 
+    it('masks production 5xx even when operational is true without an allowlisted code', () => {
+      process.env.NODE_ENV = 'production';
+      const exception = new HttpException(
+        {
+          operational: true,
+          message: 'database password leaked',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+      filter.catch(exception, mockHost);
+
+      expect(mockJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          statusCode: 500,
+          message: 'Internal server error',
+        }),
+      );
+      expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+    });
+
     it('preserves client-safe operational 503 codes and messages in production', () => {
       process.env.NODE_ENV = 'production';
       const exception = new ServiceUnavailableException({
@@ -191,5 +212,22 @@ describe('GlobalExceptionFilter', () => {
       expect(mockLoggerError).not.toHaveBeenCalled();
       expect(mockLoggerWarn).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('does not forward code for non-allowlisted HttpException responses', () => {
+    const exception = new UnprocessableEntityException({
+      code: 'SELLER_IDENTITY_INCOMPLETE',
+      message: 'Seller identity is incomplete.',
+    });
+    filter.catch(exception, mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 422,
+        message: 'Seller identity is incomplete.',
+      }),
+    );
+    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
   });
 });

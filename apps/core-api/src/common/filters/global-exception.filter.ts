@@ -97,18 +97,24 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let error: string | undefined;
     let code: string | undefined;
 
+    const responseCode =
+      isRecord(responseBody) && typeof responseBody.code === 'string'
+        ? responseBody.code
+        : undefined;
+
     if (isRecord(responseBody)) {
       message =
         (responseBody.message as string | string[]) || exception.message;
       error = responseBody.error as string | undefined;
-      if (typeof responseBody.code === 'string') {
-        code = responseBody.code;
-      }
     }
 
     const isProduction = process.env.NODE_ENV === 'production';
     const clientSafeOperational =
       isRecord(responseBody) && isClientSafeOperationalHttpError(responseBody);
+
+    if (clientSafeOperational && responseCode) {
+      code = responseCode;
+    }
 
     if (status >= 500 && isProduction) {
       const logPayload = {
@@ -117,8 +123,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         statusCode: status,
         errorName: exception.constructor.name,
         message: exception.message,
-        ...(code ? { code } : {}),
-        ...(clientSafeOperational ? { operational: true } : {}),
+        ...(responseCode ? { code: responseCode } : {}),
         ...(context.tenantId ? { tenantId: context.tenantId } : {}),
         ...(context.actorId ? { actorId: context.actorId } : {}),
       };
@@ -129,6 +134,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         message = 'Internal server error';
         code = undefined;
       }
+    }
+
+    if (!clientSafeOperational) {
+      code = undefined;
     }
 
     return { status, message, error, code };
