@@ -1,4 +1,11 @@
-import { HttpException, ServiceUnavailableException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { buildDocumentBrandingExtractionPrompt } from './document-branding-extraction-prompt.js';
+import { parseDocumentBrandingExtractionResponse } from './document-branding-extraction-response.js';
 import {
   createDocumentBrandingExtractionProvider,
   readDocumentBrandExtractionProviderId,
@@ -99,6 +106,22 @@ describe('OpenRouterDocumentBrandingExtractionProvider', () => {
     });
 
     expect(result).toEqual(validStructuredResponse);
+    expect(parseDocumentBrandingExtractionResponse(result)).toEqual({
+      theme: {
+        schemaVersion: 1,
+        presetId: 'standard-v1',
+        logoAssetId: null,
+        primaryColor: '#123456',
+        secondaryColor: '#E5E7EB',
+        fontId: 'acp-sans-v1',
+        headerBand: 'none',
+        footerBand: 'none',
+        headerText: 'Auto Core',
+        footerText: '',
+      },
+      warningCodes: [],
+      cropRect: null,
+    });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [, requestInit] = fetchImpl.mock.calls[0] as [
       string,
@@ -163,6 +186,45 @@ describe('OpenRouterDocumentBrandingExtractionProvider', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
+  it('documents parser-enforced contrast rules in the prompt', () => {
+    const prompt = buildDocumentBrandingExtractionPrompt('document-branding-v1');
+
+    expect(prompt).toContain('4.5:1');
+    expect(prompt).toContain('#3B82F6');
+    expect(() =>
+      parseDocumentBrandingExtractionResponse({
+        ...validStructuredResponse,
+        theme: {
+          ...validStructuredResponse.theme,
+          primaryColor: '#3B82F6',
+        },
+      }),
+    ).toThrow(UnprocessableEntityException);
+  });
+
+  it('rejects undefined structured content without throwing TypeError', async () => {
+    const provider = new OpenRouterDocumentBrandingExtractionProvider({
+      apiKey: 'secret-key',
+      modelId: OPENROUTER_DEFAULT_MODEL,
+      fetchImpl: jest.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: undefined } }],
+          }),
+          { status: 200 },
+        ),
+      ),
+    });
+
+    await expect(
+      provider.extract({
+        normalizedFirstPagePng: Buffer.from('png'),
+        promptVersion: 'document-branding-v1',
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
   it('maps provider rate limits to 429', async () => {
     const provider = new OpenRouterDocumentBrandingExtractionProvider({
       apiKey: 'secret-key',
@@ -184,7 +246,7 @@ describe('OpenRouterDocumentBrandingExtractionProvider', () => {
     });
   });
 
-  it('respects abort signals', async () => {
+  it('maps AbortError to a gateway timeout extraction failure', async () => {
     const controller = new AbortController();
     controller.abort();
     const provider = new OpenRouterDocumentBrandingExtractionProvider({
@@ -201,6 +263,32 @@ describe('OpenRouterDocumentBrandingExtractionProvider', () => {
         promptVersion: 'document-branding-v1',
         signal: controller.signal,
       }),
-    ).rejects.toBeInstanceOf(HttpException);
+    ).rejects.toMatchObject({
+      status: HttpStatus.GATEWAY_TIMEOUT,
+      response: { code: 'BRAND_EXTRACTION_ATTEMPT_TIMEOUT' },
+    });
+  });
+
+  it('maps TimeoutError to a gateway timeout extraction failure', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const provider = new OpenRouterDocumentBrandingExtractionProvider({
+      apiKey: 'secret-key',
+      modelId: OPENROUTER_DEFAULT_MODEL,
+      fetchImpl: jest.fn().mockRejectedValue(
+        Object.assign(new Error('Timeout'), { name: 'TimeoutError' }),
+      ),
+    });
+
+    await expect(
+      provider.extract({
+        normalizedFirstPagePng: Buffer.from('png'),
+        promptVersion: 'document-branding-v1',
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({
+      status: HttpStatus.GATEWAY_TIMEOUT,
+      response: { code: 'BRAND_EXTRACTION_ATTEMPT_TIMEOUT' },
+    });
   });
 });

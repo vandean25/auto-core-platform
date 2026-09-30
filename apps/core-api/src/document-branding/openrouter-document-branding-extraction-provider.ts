@@ -177,7 +177,10 @@ function assertStructuredResponseSize(value: unknown): void {
   } catch {
     throw providerOutputInvalid();
   }
-  if (Buffer.byteLength(serialized, 'utf8') > MAX_STRUCTURED_RESPONSE_BYTES) {
+  if (
+    typeof serialized !== 'string' ||
+    Buffer.byteLength(serialized, 'utf8') > MAX_STRUCTURED_RESPONSE_BYTES
+  ) {
     throw providerOutputInvalid();
   }
 }
