@@ -80,6 +80,36 @@ combined identity cannot satisfy the permission boundary below.
   issuance and leaves readers, fonts, logo generations, and archive bytes
   available.
 
+## Recovery, monitoring, and rollback
+
+See the [Slice 1 release acceptance record](document-branding-slice-1-release-acceptance.md)
+for automated checks, named-owner fields, and the current target-environment
+gate state. Do not enable the writer while its storage, IAM, monitoring, or
+rollback evidence is marked `PENDING` or `BLOCKED`.
+
+- **Upload cleanup:** the recovery worker operates on persisted asset states
+  and deletes only the recorded object generation with a generation-match
+  precondition. A failed delete remains retryable; keep the asset in its
+  recoverable state until that generation is deleted or its absence is
+  verified. Never manually delete an object by key alone.
+- **Extraction recovery:** expired leases are reclaimed by the recovery
+  service and retried up to the configured attempt limit. Exhausted jobs become
+  failed without publishing a proposal or changing the active profile. Keep
+  manual settings usable while extraction is unavailable.
+- **Archive publication recovery:** publication uses a deterministic immutable
+  object identity. When object upload succeeds but invoice metadata persistence
+  fails, the next render verifies the existing object and repairs the pointer.
+  Preserve that object generation during retry and rollback.
+- **Monitoring gate:** before writer activation, record the production
+  dashboard and alert links, observed PDF publication/upload-cleanup/extraction
+  recovery signals, thresholds, on-call owner, and an alert/recovery exercise.
+  These values are target-environment evidence; this repository change does
+  not assert that alerts or dashboards are configured.
+- **Rollback:** disable new branded issuance and any approved extraction gate.
+  Keep migrations, invoice/archive readers, historical renderer/font assets,
+  immutable invoice PDFs, and referenced logo generations available. Do not
+  delete issued evidence or run retention cleanup as a rollback action.
+
 ## Evidence record
 
 Complete one record per deployment environment before changing the writer
@@ -87,11 +117,11 @@ gate. An incomplete record means the gate stays disabled.
 
 | Field | Evidence |
 |---|---|
-| Environment and checked project | Not checked in this Task 1 change |
-| Invoice bucket and retained archive prefix | Not checked in this Task 1 change |
-| Logo bucket and retained logo prefix, if separate | Not checked in this Task 1 change |
-| Writer service principal | Not checked in this Task 1 change |
-| Cleanup service principal | Not checked in this Task 1 change |
-| Evidence date (UTC) and reviewer | Not checked in this Task 1 change |
-| Evidence artifact / change record | Not checked in this Task 1 change |
+| Environment and checked project | Not checked |
+| Invoice bucket and retained archive prefix | Not checked |
+| Logo bucket and retained logo prefix, if separate | Not checked |
+| Writer service principal | Not checked |
+| Cleanup service principal | Not checked |
+| Evidence date (UTC) and reviewer | Not checked |
+| Evidence artifact / change record | [Slice 1 release acceptance record](document-branding-slice-1-release-acceptance.md); target-environment evidence pending |
 | Gate outcome | BLOCKED until the environment checks above are recorded |
