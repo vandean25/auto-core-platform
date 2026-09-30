@@ -2,6 +2,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import {
   DEFAULT_DOCUMENT_BRAND_THEME,
+  documentBrandAssetUploadErrorMessage,
   useConfirmDocumentBranding,
   useDiscardDocumentBrandDraft,
   useDocumentBrandProfile,
@@ -11,6 +12,14 @@ import {
   useUploadDocumentBrandAsset,
   type DocumentBrandTheme,
 } from "@/api/document-branding";
+import {
+  countDecorativeTextCodePoints,
+  hasDocumentBrandThemeFieldErrors,
+  validateDocumentBrandThemeFields,
+} from "@/api/document-branding-theme-validation";
+import { getErrorStatus } from "@/lib/error-utils";
+import { LetterheadImport } from "./LetterheadImport";
+import { LetterheadSourceAsset } from "./LetterheadSourceAsset";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +44,11 @@ export function DocumentBrandingSettings({
     data: profile,
     isLoading,
     error,
+    refetch: refetchProfile,
   } = useDocumentBrandProfile(entity.id);
+  const decorativeTextMaxCodePoints =
+    profile?.capabilities.theme.decorativeTextMaxCodePoints ?? 120;
+  const uploadCapabilities = profile?.capabilities.uploads;
   const saveDraft = useSaveDocumentBrandDraft();
   const confirm = useConfirmDocumentBranding("confirm");
   const reset = useConfirmDocumentBranding("reset");
@@ -43,12 +56,24 @@ export function DocumentBrandingSettings({
   const preview = usePreviewDocumentBranding();
   const assetUpload = useUploadDocumentBrandAsset();
   const [pendingLogoId, setPendingLogoId] = React.useState<string | null>(null);
-  const [pendingSourceId, setPendingSourceId] = React.useState<string | null>(
-    null,
-  );
   const logoAsset = useDocumentBrandAsset(entity.id, pendingLogoId);
-  const sourceAsset = useDocumentBrandAsset(entity.id, pendingSourceId);
+  const draftSourceAssetQuery = useDocumentBrandAsset(
+    entity.id,
+    profile?.draftSourceAssetId ?? null,
+  );
+  const extractionSourceId =
+    draftSourceAssetQuery.data?.state === "READY"
+      ? draftSourceAssetQuery.data.id
+      : profile?.draftSourceAsset?.state === "READY"
+        ? profile.draftSourceAssetId
+        : null;
   const revisionRef = React.useRef(0);
+  const entityIdRef = React.useRef(entity.id);
+  const recoveryRequestRef = React.useRef(0);
+
+  React.useEffect(() => {
+    entityIdRef.current = entity.id;
+  }, [entity.id]);
   const activeEntityIdRef = React.useRef("");
   const previousEntityIdRef = React.useRef(entity.id);
   const [theme, setTheme] = React.useState<DocumentBrandTheme | null>(null);
@@ -56,6 +81,11 @@ export function DocumentBrandingSettings({
     null,
   );
   const [draftError, setDraftError] = React.useState<string | null>(null);
+  const [revisionConflict, setRevisionConflict] = React.useState(false);
+  const [reapplyingConflict, setReapplyingConflict] = React.useState(false);
+  const [needsPostConflictAutosave, setNeedsPostConflictAutosave] =
+    React.useState(false);
+  const themeRef = React.useRef<DocumentBrandTheme | null>(null);
 
   React.useEffect(() => {
     if (!profile) return;
@@ -68,6 +98,10 @@ export function DocumentBrandingSettings({
     }
   }, [entity.id, profile, theme]);
 
+  React.useEffect(() => {
+    themeRef.current = theme;
+  }, [theme]);
+
   const save = React.useCallback(
     async (snapshot: DocumentBrandTheme, signal: AbortSignal) => {
       const updated = await saveDraft.mutateAsync({
@@ -79,17 +113,49 @@ export function DocumentBrandingSettings({
       revisionRef.current = updated.revision;
       setSavedTheme(updated.draftTheme);
       setDraftError(null);
+      setRevisionConflict(false);
     },
     [entity.id, saveDraft],
   );
-  const { saveStatus, triggerAutoSave, clearPendingSave, abortInFlightSave } =
-    useDebouncedAutoSave({
-      enabled: Boolean(theme) && entity.is_active,
+  const themeFieldErrors = React.useMemo(
+    () =>
+      theme
+        ? validateDocumentBrandThemeFields(theme, decorativeTextMaxCodePoints)
+        : {},
+    [theme, decorativeTextMaxCodePoints],
+  );
+  const hasThemeValidationErrors = hasDocumentBrandThemeFieldErrors(
+    themeFieldErrors,
+  );
+  const {
+    saveStatus,
+    triggerAutoSave,
+    clearPendingSave,
+    abortInFlightSave,
+    markIdle,
+    markSaved,
+  } = useDebouncedAutoSave({
+      enabled: Boolean(theme) && entity.is_active && !revisionConflict,
       debounceMs: 750,
       save,
-      shouldSave: (snapshot) =>
-        JSON.stringify(snapshot) !== JSON.stringify(savedTheme),
+      shouldSave: (snapshot) => {
+        if (
+          hasDocumentBrandThemeFieldErrors(
+            validateDocumentBrandThemeFields(
+              snapshot,
+              decorativeTextMaxCodePoints,
+            ),
+          )
+        ) {
+          return false;
+        }
+        return JSON.stringify(snapshot) !== JSON.stringify(savedTheme);
+      },
       onError: (saveError) => {
+        const status = getErrorStatus(saveError);
+        if (status === 409) {
+          setRevisionConflict(true);
+        }
         const message =
           saveError instanceof Error
             ? saveError.message
@@ -102,17 +168,158 @@ export function DocumentBrandingSettings({
     });
 
   React.useEffect(() => {
+    if (
+      !needsPostConflictAutosave ||
+      revisionConflict ||
+      reapplyingConflict ||
+      !theme
+    ) {
+      return;
+    }
+    setNeedsPostConflictAutosave(false);
+    void triggerAutoSave(theme);
+  }, [
+    needsPostConflictAutosave,
+    revisionConflict,
+    reapplyingConflict,
+    theme,
+    triggerAutoSave,
+  ]);
+
+  const themeEditingDisabled = !entity.is_active || reapplyingConflict;
+
+  const recoveryStillCurrent = React.useCallback(
+    (requestId: number, entityId: string) =>
+      requestId === recoveryRequestRef.current &&
+      entityIdRef.current === entityId,
+    [],
+  );
+
+  React.useEffect(() => {
     if (previousEntityIdRef.current === entity.id) return;
     previousEntityIdRef.current = entity.id;
+    recoveryRequestRef.current += 1;
+    setReapplyingConflict(false);
+    setNeedsPostConflictAutosave(false);
     clearPendingSave();
     abortInFlightSave();
     setTheme(null);
     setSavedTheme(null);
     setPendingLogoId(null);
-    setPendingSourceId(null);
     activeEntityIdRef.current = "";
     revisionRef.current = 0;
+    setDraftError(null);
+    setRevisionConflict(false);
   }, [entity.id, clearPendingSave, abortInFlightSave]);
+
+  const applyProfileTheme = React.useCallback(
+    (nextProfile: NonNullable<typeof profile>) => {
+      revisionRef.current = nextProfile.revision;
+      const nextTheme = nextProfile.draftTheme ?? nextProfile.activeTheme;
+      setTheme(nextTheme);
+      setSavedTheme(nextTheme);
+      setDraftError(null);
+      setRevisionConflict(false);
+    },
+    [],
+  );
+
+  const reloadLatestBranding = React.useCallback(async () => {
+    const requestId = ++recoveryRequestRef.current;
+    const entityId = entity.id;
+    setReapplyingConflict(true);
+    clearPendingSave();
+    abortInFlightSave();
+    try {
+      const result = await refetchProfile();
+      if (!recoveryStillCurrent(requestId, entityId)) return;
+      if (!result.isSuccess || !result.data) {
+        const message =
+          result.error instanceof Error
+            ? result.error.message
+            : "Could not load the latest document branding.";
+        setDraftError(message);
+        toast.error("Could not reload document branding", {
+          description: message,
+        });
+        return;
+      }
+      applyProfileTheme(result.data);
+      markIdle();
+      toast.message("Loaded the latest document branding from the server.");
+    } finally {
+      if (recoveryStillCurrent(requestId, entityId)) {
+        setReapplyingConflict(false);
+      }
+    }
+  }, [
+    abortInFlightSave,
+    applyProfileTheme,
+    clearPendingSave,
+    entity.id,
+    markIdle,
+    recoveryStillCurrent,
+    refetchProfile,
+  ]);
+
+  const reapplyEditsOnLatestRevision = React.useCallback(async () => {
+    const themeToSave = themeRef.current;
+    if (!themeToSave) return;
+    const requestId = ++recoveryRequestRef.current;
+    const entityId = entity.id;
+    setReapplyingConflict(true);
+    clearPendingSave();
+    abortInFlightSave();
+    try {
+      const result = await refetchProfile();
+      if (!recoveryStillCurrent(requestId, entityId)) return;
+      if (!result.isSuccess || !result.data) {
+        throw new Error(
+          result.error instanceof Error
+            ? result.error.message
+            : "Could not load the latest document branding.",
+        );
+      }
+      if (!recoveryStillCurrent(requestId, entityId)) return;
+      revisionRef.current = result.data.revision;
+      const updated = await saveDraft.mutateAsync({
+        legalEntityId: entityId,
+        expectedRevision: revisionRef.current,
+        theme: themeRef.current ?? themeToSave,
+      });
+      if (!recoveryStillCurrent(requestId, entityId)) return;
+      revisionRef.current = updated.revision;
+      const persistedTheme = updated.draftTheme ?? themeRef.current ?? themeToSave;
+      setSavedTheme(persistedTheme);
+      setDraftError(null);
+      setRevisionConflict(false);
+      setNeedsPostConflictAutosave(true);
+      markSaved();
+      toast.success("Your edits were saved on top of the latest revision.");
+    } catch (reapplyError) {
+      if (!recoveryStillCurrent(requestId, entityId)) return;
+      const message =
+        reapplyError instanceof Error
+          ? reapplyError.message
+          : "Could not re-apply your edits.";
+      setDraftError(message);
+      toast.error("Document branding could not be saved", {
+        description: message,
+      });
+    } finally {
+      if (recoveryStillCurrent(requestId, entityId)) {
+        setReapplyingConflict(false);
+      }
+    }
+  }, [
+    abortInFlightSave,
+    clearPendingSave,
+    entity.id,
+    markSaved,
+    recoveryStillCurrent,
+    refetchProfile,
+    saveDraft,
+  ]);
 
   const updateTheme = React.useCallback(
     (field: keyof DocumentBrandTheme, value: string | null) => {
@@ -139,18 +346,6 @@ export function DocumentBrandingSettings({
     }
     setPendingLogoId(null);
   }, [logoAsset.data, updateTheme]);
-
-  React.useEffect(() => {
-    if (!sourceAsset.data || sourceAsset.data.state === "QUARANTINED") return;
-    if (sourceAsset.data.state === "READY") {
-      toast.success("Source file validated and stored");
-    } else if (sourceAsset.data.state === "REJECTED") {
-      toast.error("Source file was rejected", {
-        description: sourceAsset.data.failureCode ?? undefined,
-      });
-    }
-    setPendingSourceId(null);
-  }, [sourceAsset.data]);
 
   const confirmDraft = async () => {
     if (!profile || !theme) return;
@@ -184,11 +379,40 @@ export function DocumentBrandingSettings({
     }
   };
 
+  const applyProposal = async (
+    proposal: DocumentBrandTheme,
+    extractionId: string,
+  ) => {
+    try {
+      const updated = await saveDraft.mutateAsync({
+        legalEntityId: entity.id,
+        expectedRevision: revisionRef.current,
+        theme: proposal,
+        extractionId,
+      });
+      revisionRef.current = updated.revision;
+      setTheme(updated.draftTheme ?? proposal);
+      setSavedTheme(updated.draftTheme ?? proposal);
+      setDraftError(null);
+      preview.reset();
+      toast.success("Suggestions saved to the draft", {
+        description: "Review the draft and confirm it to use it on future invoices.",
+      });
+    } catch (applyError) {
+      toast.error("Proposal could not be applied", {
+        description:
+          applyError instanceof Error
+            ? applyError.message
+            : "The profile revision changed. Start a new extraction.",
+      });
+    }
+  };
+
   const resetToDefaults = async () => {
     if (
       !profile ||
       !window.confirm(
-        "Confirm ACP default invoice branding for this legal entity?",
+        "Confirm ACP default invoice branding for this legal entity? New invoices will use ACP defaults; previously issued invoices and PDFs will not change.",
       )
     )
       return;
@@ -269,18 +493,22 @@ export function DocumentBrandingSettings({
         file,
       });
       if (purpose === "LOGO") setPendingLogoId(asset.id);
-      else setPendingSourceId(asset.id);
       toast.message(
         `${purpose === "LOGO" ? "Logo" : "Source file"} uploaded; validation is in progress`,
       );
     } catch (uploadError) {
+      const constraints =
+        purpose === "LOGO"
+          ? uploadCapabilities?.logo
+          : uploadCapabilities?.source;
       toast.error(
         `${purpose === "LOGO" ? "Logo" : "Source file"} could not be uploaded`,
         {
-          description:
-            uploadError instanceof Error
-              ? uploadError.message
-              : "Choose a supported file and try again.",
+          description: documentBrandAssetUploadErrorMessage(
+            purpose,
+            uploadError,
+            constraints,
+          ),
         },
       );
     }
@@ -303,7 +531,9 @@ export function DocumentBrandingSettings({
     !saveDraft.isPending &&
     !confirm.isPending &&
     saveStatus !== "saving" &&
-    !draftError;
+    !draftError &&
+    !revisionConflict &&
+    !hasThemeValidationErrors;
 
   return (
     <section
@@ -319,7 +549,9 @@ export function DocumentBrandingSettings({
             These settings apply to future invoices after you confirm them.
           </p>
         </div>
-        <DocumentSaveIndicator status={saveStatus} />
+        <DocumentSaveIndicator
+          status={hasThemeValidationErrors ? "idle" : saveStatus}
+        />
       </div>
 
       {!entity.is_active ? (
@@ -330,13 +562,18 @@ export function DocumentBrandingSettings({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="brand-logo">Logo (PNG, up to 2 MiB)</Label>
+          <Label htmlFor="brand-logo">Logo</Label>
+          {uploadCapabilities?.logo.requirementLabel ? (
+            <p className="text-xs text-slate-500">
+              {uploadCapabilities.logo.requirementLabel}
+            </p>
+          ) : null}
           <Input
             id="brand-logo"
             type="file"
-            accept="image/png,.png"
+            accept={uploadCapabilities?.logo.accept ?? "image/png,.png"}
             disabled={
-              !entity.is_active ||
+              themeEditingDisabled ||
               assetUpload.isPending ||
               Boolean(pendingLogoId)
             }
@@ -354,7 +591,7 @@ export function DocumentBrandingSettings({
               type="button"
               variant="link"
               className="h-auto justify-start px-0"
-              disabled={!entity.is_active}
+              disabled={themeEditingDisabled}
               onClick={() => updateTheme("logoAssetId", null)}
             >
               Remove logo
@@ -377,42 +614,28 @@ export function DocumentBrandingSettings({
             </Button>
           ) : null}
         </div>
-        <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="brand-source">
-            Letterhead source (PDF or PNG, up to 10 MiB)
-          </Label>
-          <Input
-            id="brand-source"
-            type="file"
-            accept="application/pdf,image/png,.pdf,.png"
-            disabled={
-              !entity.is_active ||
-              assetUpload.isPending ||
-              Boolean(pendingSourceId)
+        <LetterheadSourceAsset
+          legalEntityId={entity.id}
+          entityActive={entity.is_active}
+          getExpectedRevision={() => revisionRef.current}
+          draftSourceAssetId={profile?.draftSourceAssetId ?? null}
+          initialAsset={profile?.draftSourceAsset ?? null}
+          extractionAvailable={Boolean(profile?.capabilities.extractionAvailable)}
+          onProfileUpdated={(updated) => {
+            revisionRef.current = updated.revision;
+          }}
+        />
+        <div className="sm:col-span-2">
+          <LetterheadImport
+            legalEntityId={entity.id}
+            sourceAssetId={extractionSourceId}
+            expectedRevision={profile?.revision ?? 0}
+            enabled={
+              Boolean(profile?.capabilities.extractionAvailable) &&
+              !themeEditingDisabled
             }
-            onChange={(event) =>
-              void uploadAsset("SOURCE", event.target.files?.[0])
-            }
+            onApply={applyProposal}
           />
-          {pendingSourceId ? (
-            <>
-              <p className="text-xs text-slate-500">
-                Source asset {pendingSourceId} ·{" "}
-                {sourceAsset.data?.state ?? "QUARANTINED"}
-              </p>
-              {sourceAsset.pollTimedOut ? (
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto justify-start px-0"
-                  disabled={sourceAsset.isFetching}
-                  onClick={() => void sourceAsset.refetch()}
-                >
-                  Refresh validation status
-                </Button>
-              ) : null}
-            </>
-          ) : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="brand-primary-color">Primary color</Label>
@@ -420,11 +643,26 @@ export function DocumentBrandingSettings({
             id="brand-primary-color"
             type="color"
             value={theme.primaryColor}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
+            aria-invalid={Boolean(themeFieldErrors.primaryColor)}
+            aria-describedby={
+              themeFieldErrors.primaryColor
+                ? "brand-primary-color-error"
+                : undefined
+            }
             onChange={(event) =>
               updateTheme("primaryColor", event.target.value.toUpperCase())
             }
           />
+          {themeFieldErrors.primaryColor ? (
+            <p
+              id="brand-primary-color-error"
+              role="alert"
+              className="text-xs text-red-700"
+            >
+              {themeFieldErrors.primaryColor}
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="brand-secondary-color">Secondary color</Label>
@@ -432,17 +670,32 @@ export function DocumentBrandingSettings({
             id="brand-secondary-color"
             type="color"
             value={theme.secondaryColor}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
+            aria-invalid={Boolean(themeFieldErrors.secondaryColor)}
+            aria-describedby={
+              themeFieldErrors.secondaryColor
+                ? "brand-secondary-color-error"
+                : undefined
+            }
             onChange={(event) =>
               updateTheme("secondaryColor", event.target.value.toUpperCase())
             }
           />
+          {themeFieldErrors.secondaryColor ? (
+            <p
+              id="brand-secondary-color-error"
+              role="alert"
+              className="text-xs text-red-700"
+            >
+              {themeFieldErrors.secondaryColor}
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="brand-header-band">Header band</Label>
           <Select
             value={theme.headerBand}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             onValueChange={(value) => updateTheme("headerBand", value)}
           >
             <SelectTrigger id="brand-header-band">
@@ -459,7 +712,7 @@ export function DocumentBrandingSettings({
           <Label htmlFor="brand-footer-band">Footer band</Label>
           <Select
             value={theme.footerBand}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
             onValueChange={(value) => updateTheme("footerBand", value)}
           >
             <SelectTrigger id="brand-footer-band">
@@ -473,39 +726,119 @@ export function DocumentBrandingSettings({
           </Select>
         </div>
         <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="brand-header-text">
-            Decorative header text (up to 120 characters, two lines)
-          </Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="brand-header-text">
+              Decorative header text (up to {decorativeTextMaxCodePoints}{" "}
+              characters, two lines)
+            </Label>
+            <span
+              className="text-xs text-slate-500"
+              aria-live="polite"
+              id="brand-header-text-counter"
+            >
+              {countDecorativeTextCodePoints(theme.headerText)}/
+              {decorativeTextMaxCodePoints}
+            </span>
+          </div>
           <textarea
             id="brand-header-text"
-            maxLength={120}
+            maxLength={decorativeTextMaxCodePoints}
             rows={2}
             className="w-full rounded-md border border-input px-3 py-2 text-sm"
             value={theme.headerText}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
+            aria-invalid={Boolean(themeFieldErrors.headerText)}
+            aria-describedby="brand-header-text-counter brand-header-text-error"
             onChange={(event) => updateTheme("headerText", event.target.value)}
           />
+          {themeFieldErrors.headerText ? (
+            <p
+              id="brand-header-text-error"
+              role="alert"
+              className="text-xs text-red-700"
+            >
+              {themeFieldErrors.headerText}
+            </p>
+          ) : null}
         </div>
         <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="brand-footer-text">
-            Decorative footer text (up to 120 characters)
-          </Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label htmlFor="brand-footer-text">
+              Decorative footer text (up to {decorativeTextMaxCodePoints}{" "}
+              characters)
+            </Label>
+            <span
+              className="text-xs text-slate-500"
+              aria-live="polite"
+              id="brand-footer-text-counter"
+            >
+              {countDecorativeTextCodePoints(theme.footerText)}/
+              {decorativeTextMaxCodePoints}
+            </span>
+          </div>
           <Input
             id="brand-footer-text"
-            maxLength={120}
+            maxLength={decorativeTextMaxCodePoints}
             value={theme.footerText}
-            disabled={!entity.is_active}
+            disabled={themeEditingDisabled}
+            aria-invalid={Boolean(themeFieldErrors.footerText)}
+            aria-describedby="brand-footer-text-counter brand-footer-text-error"
             onChange={(event) => updateTheme("footerText", event.target.value)}
           />
+          {themeFieldErrors.footerText ? (
+            <p
+              id="brand-footer-text-error"
+              role="alert"
+              className="text-xs text-red-700"
+            >
+              {themeFieldErrors.footerText}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      {draftError ? (
+      {revisionConflict ? (
+        <div
+          role="alert"
+          className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
+        >
+          <p>
+            Another session saved newer document branding while you were
+            editing. Your local edits are still shown here.
+            {draftError ? ` ${draftError}` : ""}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={reapplyingConflict}
+              onClick={() => void reloadLatestBranding()}
+            >
+              Reload latest
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={reapplyingConflict || hasThemeValidationErrors}
+              onClick={() => void reapplyEditsOnLatestRevision()}
+            >
+              {reapplyingConflict ? "Re-applying…" : "Keep my edits"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {draftError && !revisionConflict ? (
         <p role="alert" className="text-sm text-red-700">
-          Draft save failed. Your edits remain here; reload or try saving again
-          after resolving any revision conflict. {draftError}
+          Draft save failed. Fix validation issues or try again. {draftError}
         </p>
       ) : null}
+      <p role="status" className="text-sm text-slate-600">
+        {profile?.activeRevision
+          ? `Active appearance · revision ${profile.activeRevision}`
+          : "Active appearance · ACP defaults"}
+        {profile?.draftTheme ? " · Draft — not yet used on invoices" : " · No saved draft"}
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"

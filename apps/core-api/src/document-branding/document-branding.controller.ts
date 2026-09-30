@@ -22,6 +22,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiConsumes,
   ApiBody,
+  ApiAcceptedResponse,
   ApiHeader,
   ApiOperation,
   ApiOkResponse,
@@ -33,13 +34,20 @@ import {
 import {
   DocumentBrandPreviewDto,
   DocumentBrandAssetResponseDto,
+  CreateDocumentBrandExtractionDto,
+  DocumentBrandExtractionResponseDto,
   DocumentBrandPreviewResponseDto,
   DocumentBrandProfileResponseDto,
   ExpectedDocumentBrandRevisionDto,
   SaveDocumentBrandDraftDto,
+  SaveDocumentBrandDraftSourceDto,
 } from './dto/document-branding.dto.js';
 import { DocumentBrandingService } from './document-branding.service.js';
-import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
+import {
+  buildContentDisposition,
+  DocumentBrandingUploadService,
+} from './document-branding-upload.service.js';
+import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
 
 const MAX_SOURCE_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -50,6 +58,7 @@ export class DocumentBrandingController {
   constructor(
     private readonly branding: DocumentBrandingService,
     private readonly uploads: DocumentBrandingUploadService,
+    private readonly extractions: DocumentBrandingExtractionService,
   ) {}
 
   @Get()
@@ -71,6 +80,27 @@ export class DocumentBrandingController {
     @Body() dto: SaveDocumentBrandDraftDto,
   ) {
     return this.branding.saveDraft(legalEntityId, dto);
+  }
+
+  @Put('draft/source')
+  @ApiOperation({ summary: 'Attach a letterhead source asset to the draft' })
+  @ApiBody({ type: SaveDocumentBrandDraftSourceDto })
+  @ApiOkResponse({ type: DocumentBrandProfileResponseDto })
+  setDraftSource(
+    @Param('legalEntityId') legalEntityId: string,
+    @Body() dto: SaveDocumentBrandDraftSourceDto,
+  ) {
+    return this.branding.setDraftSource(legalEntityId, dto);
+  }
+
+  @Delete('draft/source')
+  @ApiOperation({ summary: 'Remove the draft letterhead source asset' })
+  @ApiOkResponse({ type: DocumentBrandProfileResponseDto })
+  removeDraftSource(
+    @Param('legalEntityId') legalEntityId: string,
+    @Query('expectedRevision', ParseIntPipe) expectedRevision: number,
+  ) {
+    return this.branding.removeDraftSource(legalEntityId, expectedRevision);
   }
 
   @Delete('draft')
@@ -171,6 +201,47 @@ export class DocumentBrandingController {
     );
   }
 
+  @Post('extractions')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Start document letterhead extraction' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiBody({ type: CreateDocumentBrandExtractionDto })
+  @ApiAcceptedResponse({ type: DocumentBrandExtractionResponseDto })
+  createExtraction(
+    @Param('legalEntityId') legalEntityId: string,
+    @Body() dto: CreateDocumentBrandExtractionDto,
+    @Headers('idempotency-key') idempotencyKey: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return withQuotaRetryAfter(
+      () => this.extractions.create(legalEntityId, dto, idempotencyKey),
+      response,
+      'BRAND_EXTRACTION_QUOTA_EXCEEDED',
+      60 * 60,
+    );
+  }
+
+  @Get('extractions/:extractionId')
+  @ApiOperation({ summary: 'Read a letterhead extraction proposal' })
+  @ApiOkResponse({ type: DocumentBrandExtractionResponseDto })
+  getExtraction(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('extractionId') extractionId: string,
+  ) {
+    return this.extractions.get(legalEntityId, extractionId);
+  }
+
+  @Post('extractions/:extractionId/discard')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Discard a letterhead extraction' })
+  @ApiOkResponse({ type: DocumentBrandExtractionResponseDto })
+  discardExtraction(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('extractionId') extractionId: string,
+  ) {
+    return this.extractions.discard(legalEntityId, extractionId);
+  }
+
   @Get('assets/:assetId')
   @ApiOperation({ summary: 'Read document branding asset metadata' })
   @ApiOkResponse({ type: DocumentBrandAssetResponseDto })
@@ -191,14 +262,40 @@ export class DocumentBrandingController {
   ) {
     const content = await this.uploads.getAssetContent(legalEntityId, assetId);
     const disposition = content.purpose === 'SOURCE' ? 'attachment' : 'inline';
+    const metadata = await this.uploads.getAsset(legalEntityId, assetId);
     const filename =
-      content.contentType === 'application/pdf'
+      metadata.originalFilename ??
+      (content.contentType === 'application/pdf'
         ? 'document-branding-source.pdf'
-        : 'document-branding-asset.png';
+        : 'document-branding-asset.png');
     return new StreamableFile(content.bytes, {
       type: content.contentType,
-      disposition: `${disposition}; filename="${filename}"`,
+      disposition: buildContentDisposition(disposition, filename),
       length: content.bytes.byteLength,
+    });
+  }
+
+  @Get('assets/:assetId/preview')
+  @ApiOperation({
+    summary: 'Download the first-page PNG preview of a source asset',
+  })
+  @ApiProduces('image/png')
+  @ApiResponse({ status: 200, schema: { type: 'string', format: 'binary' } })
+  async getAssetPagePreview(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('assetId') assetId: string,
+  ) {
+    const preview = await this.uploads.getAssetPagePreview(
+      legalEntityId,
+      assetId,
+    );
+    return new StreamableFile(preview.bytes, {
+      type: preview.contentType,
+      disposition: buildContentDisposition(
+        'inline',
+        'document-branding-preview.png',
+      ),
+      length: preview.bytes.byteLength,
     });
   }
 }

@@ -38,8 +38,10 @@ describe('createDocumentBrandPreview', () => {
       'HEADER_TEXT_MAY_BE_CLIPPED',
       'FOOTER_TEXT_MAY_BE_CLIPPED',
     ]);
-    expect(preview.html).toContain('text-overflow:ellipsis');
-    expect(preview.html).toContain('-webkit-line-clamp:2');
+    expect(preview.html.match(/…/g)).toHaveLength(2);
+    expect(preview.html).toContain('width:80mm');
+    expect(preview.html).toContain('width:100mm');
+    expect(preview.html).not.toContain('-webkit-line-clamp:2');
   });
 
   it('embeds the bundled regular and bold Noto Sans fonts without network sources', () => {

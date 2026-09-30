@@ -40,7 +40,10 @@ type ArchiveTestState = {
   synchronizeNextTwoRenders(): void;
 };
 
-export function installFakeInvoiceArchiveStorage(app: INestApplication) {
+export function installFakeInvoiceArchiveStorage(
+  app: INestApplication,
+  logoBytes = TEST_LOGO_BYTES,
+) {
   const invoicePdfService = app
     .select(InvoicesModule)
     .get(InvoicePdfService);
@@ -113,7 +116,7 @@ export function installFakeInvoiceArchiveStorage(app: INestApplication) {
     .spyOn(brandingStorage, 'readGeneration')
     .mockImplementation(async (bucket, key, generation) => {
       logoReadCalls.push({ bucket, key, generation });
-      return TEST_LOGO_BYTES;
+      return Buffer.from(logoBytes);
     });
   jest
     .spyOn(storage, 'publishImmutablePdf')

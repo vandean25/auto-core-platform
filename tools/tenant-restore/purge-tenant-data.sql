@@ -56,7 +56,7 @@ VALUES
   ('vehicle_make_aliases'),
   ('voice_note_rate_limits'),
   ('bays'),
-  ('document_brand_profiles'),
+  ('document_brand_extractions'),
   ('employee_work_schedule_days'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
@@ -66,6 +66,7 @@ VALUES
   ('storage_locations'),
   ('workshop_holidays'),
   ('workshop_opening_hours'),
+  ('document_brand_profiles'),
   ('inventory_stocks'),
   ('purchase_order_items'),
   ('stock_transfer_commands'),
@@ -157,8 +158,15 @@ VALUES
   ('document_brand_assets', 'document_brand_assets', 'tenant_id,legal_entity_id,source_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_assets', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_assets', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_extractions', 'document_brand_assets', 'tenant_id,legal_entity_id,proposal_logo_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_extractions', 'document_brand_assets', 'tenant_id,legal_entity_id,source_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_extractions', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_extractions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_extractions', 'users', 'requested_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('document_brand_profiles', 'document_brand_assets', 'tenant_id,legal_entity_id,active_logo_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'document_brand_assets', 'tenant_id,legal_entity_id,draft_logo_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_profiles', 'document_brand_assets', 'tenant_id,legal_entity_id,draft_source_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
+  ('document_brand_profiles', 'document_brand_extractions', 'tenant_id,legal_entity_id,draft_extraction_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('document_brand_profiles', 'users', 'confirmed_by_user_id', 'id', 'SET NULL', 'CASCADE'),
@@ -563,6 +571,8 @@ DELETE FROM public."purchase_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."document_brand_profiles"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_holidays"
@@ -581,7 +591,7 @@ DELETE FROM public."labor_fitments" AS child
 WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
 DELETE FROM public."employee_work_schedule_days"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."document_brand_profiles"
+DELETE FROM public."document_brand_extractions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."bays"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

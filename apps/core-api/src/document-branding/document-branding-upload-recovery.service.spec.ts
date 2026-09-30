@@ -1,12 +1,18 @@
+import { RequestContextService } from '../common/services/request-context.service.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
 import { DocumentBrandingUploadRecoveryService } from './document-branding-upload-recovery.service.js';
 
 describe('DocumentBrandingUploadRecoveryService', () => {
   const tenant = { id: 'tenant-1' };
-  const prisma = {
+  const systemPrisma = {
     tenant: { findMany: jest.fn().mockResolvedValue([tenant]) },
+  } as unknown as SystemPrismaService;
+  const requestContext = new RequestContextService();
+  const prisma = {
     documentBrandQuotaEvent: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
@@ -26,12 +32,64 @@ describe('DocumentBrandingUploadRecoveryService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (prisma.tenant.findMany as jest.Mock).mockResolvedValue([tenant]);
+    (systemPrisma.tenant.findMany as jest.Mock).mockResolvedValue([tenant]);
     (prisma.documentBrandAsset.findMany as jest.Mock)
       .mockResolvedValueOnce([{ id: 'asset-1', tenant_id: 'tenant-1' }])
       .mockResolvedValueOnce([])
       .mockResolvedValue([]);
-    service = new DocumentBrandingUploadRecoveryService(prisma, storage, tasks);
+    service = new DocumentBrandingUploadRecoveryService(
+      prisma,
+      systemPrisma,
+      requestContext,
+      storage,
+      tasks,
+    );
+  });
+
+  it('runs recoverAndClean without ambient tenant context', async () => {
+    expect(TenantContextStorage.getUser()).toBeUndefined();
+    (systemPrisma.tenant.findMany as jest.Mock).mockResolvedValue([
+      { id: 'tenant-1' },
+      { id: 'tenant-2' },
+    ]);
+    const tenantIdsAtQuotaDelete: Array<string | undefined> = [];
+    const tenantIdsAtAssetUpdate: Array<string | undefined> = [];
+    const tenantIdsAtAssetFind: Array<string | undefined> = [];
+    (prisma.documentBrandQuotaEvent.deleteMany as jest.Mock).mockReset();
+    (prisma.documentBrandAsset.updateMany as jest.Mock).mockReset();
+    (prisma.documentBrandAsset.findMany as jest.Mock).mockReset();
+    (prisma.documentBrandQuotaEvent.deleteMany as jest.Mock).mockImplementation(
+      () => {
+        tenantIdsAtQuotaDelete.push(TenantContextStorage.getUser()?.tenantId);
+        return Promise.resolve({ count: 0 });
+      },
+    );
+    (prisma.documentBrandAsset.updateMany as jest.Mock).mockImplementation(
+      () => {
+        tenantIdsAtAssetUpdate.push(TenantContextStorage.getUser()?.tenantId);
+        return Promise.resolve({ count: 0 });
+      },
+    );
+    (prisma.documentBrandAsset.findMany as jest.Mock).mockImplementation(() => {
+      tenantIdsAtAssetFind.push(TenantContextStorage.getUser()?.tenantId);
+      return Promise.resolve([]);
+    });
+
+    await expect(service.recoverAndClean()).resolves.toBeUndefined();
+
+    const perTenant = (ids: Array<string | undefined>) =>
+      expect(ids).toEqual(['tenant-1', 'tenant-2']);
+    perTenant(tenantIdsAtQuotaDelete);
+    perTenant(tenantIdsAtAssetUpdate);
+    expect(tenantIdsAtAssetFind).toEqual([
+      'tenant-1',
+      'tenant-1',
+      'tenant-1',
+      'tenant-2',
+      'tenant-2',
+      'tenant-2',
+    ]);
+    expect(TenantContextStorage.getUser()).toBeUndefined();
   });
 
   it('requeues only tenant-scoped quarantined assets and exhausts stale third attempts', async () => {
@@ -39,7 +97,6 @@ describe('DocumentBrandingUploadRecoveryService', () => {
     const query = (prisma.documentBrandAsset.findMany as jest.Mock).mock
       .calls[0][0];
     expect(query.where).toMatchObject({
-      tenant_id: { in: ['tenant-1'] },
       state: 'QUARANTINED',
       validation_attempt_count: { lt: 3 },
     });
@@ -74,12 +131,16 @@ describe('DocumentBrandingUploadRecoveryService', () => {
       legal_entity_id: 'entity-1',
       state: 'REJECTED',
       expires_at: new Date(Date.now() - 1_000),
-      bucket: null,
-      object_key: null,
-      object_generation: null,
+      bucket: 'private-branding',
+      object_key: 'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1.pdf',
+      object_generation: '456',
       quarantine_bucket: 'private-branding',
       quarantine_object_key: 'quarantine/asset-1',
       quarantine_object_generation: '123',
+      preview_bucket: 'private-branding',
+      preview_object_key:
+        'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1-page1.png',
+      preview_object_generation: '789',
     };
     const txAssetFindFirst = jest.fn(({ where }) => {
       if (where.source_asset_id) return Promise.resolve(null);
@@ -105,6 +166,10 @@ describe('DocumentBrandingUploadRecoveryService', () => {
         invoiceBrandAssetReference: {
           findFirst: jest.fn().mockResolvedValue(null),
         },
+      documentBrandExtraction: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       }),
     );
 
@@ -120,12 +185,25 @@ describe('DocumentBrandingUploadRecoveryService', () => {
     );
     expect(storage.deleteGeneration).toHaveBeenCalledWith(
       'private-branding',
+      'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1.pdf',
+      '456',
+    );
+    expect(storage.deleteGeneration).toHaveBeenCalledWith(
+      'private-branding',
+      'tenants/tenant-1/legal-entities/entity-1/document-branding/assets/asset-1-page1.png',
+      '789',
+    );
+    expect(storage.deleteGeneration).toHaveBeenCalledWith(
+      'private-branding',
       'quarantine/asset-1',
       '123',
     );
     expect(prisma.documentBrandAsset.updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ state: 'DELETED' }),
+        data: expect.objectContaining({
+          state: 'DELETED',
+          preview_object_key: null,
+        }),
       }),
     );
   });
@@ -160,10 +238,76 @@ describe('DocumentBrandingUploadRecoveryService', () => {
         invoiceBrandAssetReference: {
           findFirst: jest.fn().mockResolvedValue(null),
         },
+        documentBrandExtraction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
       }),
     );
     await service.recoverAndClean();
     expect(storage.deleteGeneration).not.toHaveBeenCalled();
+  });
+
+  it('terminalizes source-backed jobs and clears their source reference at source expiry', async () => {
+    (prisma.documentBrandAsset.findMany as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: 'source-1', tenant_id: 'tenant-1', legal_entity_id: 'entity-1' },
+      ])
+      .mockResolvedValue([]);
+    const extractionUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const assetUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
+    const asset = {
+      id: 'source-1',
+      tenant_id: 'tenant-1',
+      legal_entity_id: 'entity-1',
+      purpose: 'SOURCE',
+      state: 'READY',
+      expires_at: new Date(Date.now() - 1_000),
+      bucket: 'private-branding',
+      object_key: 'source/1.png',
+      object_generation: '10',
+      quarantine_bucket: null,
+      quarantine_object_key: null,
+      quarantine_object_generation: null,
+    };
+    const txAssetFindFirst = jest.fn(({ where }) =>
+      Promise.resolve(where.state === 'DELETING' ? { ...asset, state: 'DELETING' } : asset),
+    );
+    (prisma.$transaction as jest.Mock).mockImplementation(async (callback) =>
+      callback({
+        legalEntity: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'entity-1', is_active: true }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        documentBrandAsset: {
+          findFirst: txAssetFindFirst,
+          updateMany: assetUpdateMany,
+        },
+        documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
+        invoiceBrandAssetReference: { findFirst: jest.fn().mockResolvedValue(null) },
+        documentBrandExtraction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          updateMany: extractionUpdateMany,
+        },
+      }),
+    );
+
+    await service.recoverAndClean();
+
+    expect(extractionUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ state: { in: ['QUEUED', 'RUNNING'] } }),
+        data: expect.objectContaining({ state: 'FAILED', failure_code: 'BRAND_SOURCE_EXPIRED' }),
+      }),
+    );
+    expect(extractionUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { source_asset_id: null } }),
+    );
+    expect(assetUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { source_asset_id: null } }),
+    );
   });
 
   it.each([
@@ -221,6 +365,10 @@ describe('DocumentBrandingUploadRecoveryService', () => {
           documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
           invoiceBrandAssetReference: {
             findFirst: jest.fn().mockResolvedValue({ id: 'reference-1' }),
+          },
+          documentBrandExtraction: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
           },
         }),
       );
@@ -295,6 +443,10 @@ describe('DocumentBrandingUploadRecoveryService', () => {
             lockOrder.push('invoice-reference-check');
             return invoiceReferenceFindFirst(...args);
           }),
+        },
+        documentBrandExtraction: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         },
       }),
     );

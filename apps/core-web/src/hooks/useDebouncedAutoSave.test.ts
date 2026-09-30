@@ -198,4 +198,44 @@ describe('useDebouncedAutoSave', () => {
 
     expect(result.current.saveStatus).toBe('error')
   })
+
+  it('markIdle sets saveStatus to idle', async () => {
+    const save = vi.fn().mockRejectedValue(new Error('offline'))
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave<Snapshot>({ enabled: true, save }),
+    )
+
+    act(() => {
+      result.current.triggerAutoSave({ notes: 'notes' }, { immediate: true })
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.saveStatus).toBe('error')
+
+    act(() => {
+      result.current.markIdle()
+    })
+    expect(result.current.saveStatus).toBe('idle')
+  })
+
+  it('markSaved sets saveStatus to saved after an external save succeeds', async () => {
+    const save = vi.fn().mockRejectedValue(new Error('offline'))
+    const { result } = renderHook(() =>
+      useDebouncedAutoSave<Snapshot>({ enabled: true, save }),
+    )
+
+    act(() => {
+      result.current.triggerAutoSave({ notes: 'notes' }, { immediate: true })
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.saveStatus).toBe('error')
+
+    act(() => {
+      result.current.markSaved()
+    })
+    expect(result.current.saveStatus).toBe('saved')
+  })
 })

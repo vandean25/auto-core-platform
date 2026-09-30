@@ -27,7 +27,9 @@ describe('DocumentBrandingUploadService', () => {
       findFirst: jest.fn().mockResolvedValue({ id: 'member-1' }),
     },
     legalEntity: {
-      findFirst: jest.fn().mockResolvedValue({ id: legalEntityId }),
+      findFirst: jest
+        .fn()
+        .mockResolvedValue({ id: legalEntityId, is_active: true }),
     },
     $transaction: jest.fn(async (callback: (tx: unknown) => unknown) =>
       callback({
@@ -65,6 +67,7 @@ describe('DocumentBrandingUploadService', () => {
     jest.clearAllMocks();
     (prisma.legalEntity.findFirst as jest.Mock).mockResolvedValue({
       id: legalEntityId,
+      is_active: true,
     });
     createAsset.mockImplementation(async ({ data }) => ({
       ...data,
@@ -131,6 +134,29 @@ describe('DocumentBrandingUploadService', () => {
         originalname: 'logo.png',
       } as Express.Multer.File),
     ).rejects.toBeInstanceOf(UnsupportedMediaTypeException);
+    expect(storage.storeImmutable).not.toHaveBeenCalled();
+  });
+
+  it('returns a validation error when the legal entity is inactive', async () => {
+    (prisma.legalEntity.findFirst as jest.Mock).mockResolvedValue({
+      id: legalEntityId,
+      is_active: false,
+    });
+    const png = await sharp({
+      create: { width: 2, height: 2, channels: 4, background: '#ff0000' },
+    })
+      .png()
+      .toBuffer();
+
+    await expect(
+      service.upload(legalEntityId, 'SOURCE', {
+        buffer: png,
+        size: png.byteLength,
+        originalname: 'letterhead.png',
+      } as Express.Multer.File),
+    ).rejects.toMatchObject({
+      response: { code: 'LEGAL_ENTITY_INACTIVE' },
+    });
     expect(storage.storeImmutable).not.toHaveBeenCalled();
   });
 

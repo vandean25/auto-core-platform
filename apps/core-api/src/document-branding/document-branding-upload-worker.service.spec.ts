@@ -258,10 +258,18 @@ describe('DocumentBrandingUploadWorkerService', () => {
         objectKey: expect.stringMatching(/asset-1\.pdf$/),
       }),
     );
+    expect(storage.storeImmutable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bytes: Buffer.from('png'),
+        contentType: 'image/png',
+        objectKey: expect.stringMatching(/asset-1-page1\.png$/),
+      }),
+    );
     expect(updateMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           state: 'READY',
+          preview_object_key: expect.stringMatching(/asset-1-page1\.png$/),
           expires_at: expect.any(Date),
         }),
       }),

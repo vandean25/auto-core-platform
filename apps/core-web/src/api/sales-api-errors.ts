@@ -5,10 +5,21 @@ type NestErrorPayload = {
   error?: string
 }
 
+const FRIENDLY_NEST_ERROR_MESSAGES: Record<string, string> = {
+  INVOICE_BRANDING_WRITER_DISABLED:
+    'Branded invoice issuance is disabled in this environment. Finalize and print will work after operations enable the invoice branding writer.',
+}
+
 export function formatNestApiErrorMessage(
   payload: NestErrorPayload,
   fallbackMessage: string,
 ): string {
+  const friendlyByCode =
+    payload.code ? FRIENDLY_NEST_ERROR_MESSAGES[payload.code] : undefined
+  if (friendlyByCode) {
+    return friendlyByCode
+  }
+
   const rawMessage = payload.message
   const message =
     typeof rawMessage === 'undefined'

@@ -76,6 +76,32 @@ variable "database_pooler_required" {
   default     = false
 }
 
+variable "document_brand_extraction_provider" {
+  description = "Letterhead extraction backend: disabled, openrouter, or vertex."
+  type        = string
+  default     = "disabled"
+
+  validation {
+    condition = contains(
+      ["disabled", "openrouter", "vertex"],
+      var.document_brand_extraction_provider,
+    )
+    error_message = "document_brand_extraction_provider must be disabled, openrouter, or vertex."
+  }
+}
+
+variable "document_brand_extraction_model" {
+  description = "Optional OpenRouter model override when document_brand_extraction_provider is openrouter."
+  type        = string
+  default     = ""
+}
+
+variable "openrouter_api_key_secret_name" {
+  description = "Optional GSM secret name for OPENROUTER_API_KEY when OpenRouter extraction is enabled."
+  type        = string
+  default     = ""
+}
+
 variable "max_instance_request_concurrency" {
   description = "Maximum concurrent requests per Cloud Run instance."
   type        = number
@@ -120,6 +146,18 @@ variable "invoice_pdf_bucket_secret_name" {
   description = "GSM secret containing the invoice PDF bucket name."
   type        = string
   default     = "INVOICE_PDF_BUCKET"
+}
+
+variable "invoice_branding_writer_enabled" {
+  description = "When true, invoice finalize/issue commits branded archive metadata on core-api. Cloud Build sets this on live/staging; enable here only for Terraform-managed services."
+  type        = bool
+  default     = false
+}
+
+variable "document_branding_bucket_secret_name" {
+  description = "GSM secret containing the private document branding source and logo bucket name."
+  type        = string
+  default     = "DOCUMENT_BRANDING_BUCKET"
 }
 
 variable "workshop_media_bucket_secret_name" {

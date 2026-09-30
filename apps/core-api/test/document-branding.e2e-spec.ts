@@ -264,6 +264,14 @@ describe('Document branding persistence (e2e)', () => {
       activeRevision: 0,
       activeTheme: defaultTheme,
       draftTheme: null,
+      capabilities: {
+        theme: { decorativeTextMaxCodePoints: 120 },
+        uploads: {
+          logo: {
+            requirementLabel: 'Logo must be PNG (max 2 MiB).',
+          },
+        },
+      },
     });
 
     const draftTheme = { ...defaultTheme, headerText: 'Auto Core' };
@@ -358,6 +366,62 @@ describe('Document branding persistence (e2e)', () => {
       .expect(403);
   });
 
+  it('persists a draft letterhead source on the profile until it is removed', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+    const authToken = createTestAuthToken(authService, tenantA);
+    const baseUrl = `/api/legal-entities/${entity.id}/document-branding`;
+    const source = await tenantPrisma.documentBrandAsset.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        legal_entity_id: entity.id,
+        purpose: 'SOURCE',
+        state: 'READY',
+        byte_length: 2048,
+        detected_mime_type: 'image/png',
+        original_filename: 'Letterhead.png',
+        bucket: 'brand-bucket',
+        object_key: 'source.png',
+        object_generation: '1',
+        sha256: 'a'.repeat(64),
+      },
+    });
+
+    const attached = await request(app.getHttpServer())
+      .put(`${baseUrl}/draft/source`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedRevision: 0, sourceAssetId: source.id })
+      .expect(200);
+    expect(attached.body).toMatchObject({
+      revision: 1,
+      draftSourceAssetId: source.id,
+      draftSourceAsset: {
+        id: source.id,
+        originalFilename: 'Letterhead.png',
+        byteLength: 2048,
+        state: 'READY',
+      },
+    });
+
+    const profile = await request(app.getHttpServer())
+      .get(baseUrl)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(profile.body.draftSourceAssetId).toBe(source.id);
+
+    const removed = await request(app.getHttpServer())
+      .delete(`${baseUrl}/draft/source?expectedRevision=1`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(removed.body).toMatchObject({
+      revision: 2,
+      draftSourceAssetId: null,
+      draftSourceAsset: null,
+    });
+  });
+
   it('enforces transactional per-entity upload and per-user preview quotas', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
@@ -415,5 +479,68 @@ describe('Document branding persistence (e2e)', () => {
         sample: 'AT_STANDARD',
       })
       .expect(429);
+  });
+
+  it('rejects over-limit decorative text and unsupported logo uploads with explicit errors', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+    const authToken = createTestAuthToken(authService, tenantA);
+    const baseUrl = `/api/legal-entities/${entity.id}/document-branding`;
+    const defaultTheme = {
+      schemaVersion: 1,
+      presetId: 'standard-v1',
+      logoAssetId: null,
+      primaryColor: '#111827',
+      secondaryColor: '#E5E7EB',
+      fontId: 'acp-sans-v1',
+      headerBand: 'none',
+      footerBand: 'none',
+      headerText: '',
+      footerText: '',
+    };
+
+    const tooLong = await request(app.getHttpServer())
+      .put(`${baseUrl}/draft`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedRevision: 0,
+        theme: { ...defaultTheme, footerText: 'x'.repeat(121) },
+      })
+      .expect(400);
+    expect(tooLong.body).toMatchObject({
+      code: 'BRAND_THEME_TEXT_TOO_LONG',
+      message: 'Decorative footer text must be at most 120 characters.',
+    });
+
+    await request(app.getHttpServer())
+      .put(`${baseUrl}/draft`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedRevision: 0, theme: defaultTheme })
+      .expect(200);
+
+    const conflict = await request(app.getHttpServer())
+      .put(`${baseUrl}/draft`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedRevision: 0,
+        theme: { ...defaultTheme, headerText: 'Stale tab' },
+      })
+      .expect(409);
+    expect(conflict.body).toMatchObject({
+      code: 'BRAND_REVISION_CONFLICT',
+    });
+
+    const unsupportedLogo = await request(app.getHttpServer())
+      .post(`${baseUrl}/assets`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .field('purpose', 'LOGO')
+      .attach('file', Buffer.from('%PDF-1.7\n%fixture'), 'letterhead.pdf')
+      .expect(415);
+    expect(unsupportedLogo.body).toMatchObject({
+      code: 'BRAND_FILE_TYPE_UNSUPPORTED',
+      message: 'Logo must be PNG (max 2 MiB).',
+    });
   });
 });

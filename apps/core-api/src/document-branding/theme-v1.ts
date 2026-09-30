@@ -1,4 +1,8 @@
-import { UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { DOCUMENT_BRAND_DECORATIVE_TEXT_MAX_CODE_POINTS } from './document-branding-limits.js';
 
 export const DEFAULT_DOCUMENT_BRAND_THEME = {
   schemaVersion: 1,
@@ -53,23 +57,22 @@ export function validateDocumentBrandTheme(
     !isLogoId(value.logoAssetId) ||
     !isBand(value.headerBand) ||
     !isBand(value.footerBand) ||
-    typeof value.primaryColor !== 'string' ||
-    !/^#[0-9a-f]{6}$/i.test(value.primaryColor) ||
-    typeof value.secondaryColor !== 'string' ||
-    !/^#[0-9a-f]{6}$/i.test(value.secondaryColor) ||
     typeof value.headerText !== 'string' ||
     typeof value.footerText !== 'string'
   ) {
     return invalidTheme();
   }
 
-  const primaryColor = value.primaryColor.toUpperCase();
-  const secondaryColor = value.secondaryColor.toUpperCase();
+  const primaryColor = assertHexColor('primaryColor', value.primaryColor);
+  const secondaryColor = assertHexColor('secondaryColor', value.secondaryColor);
   if (contrastWithWhite(primaryColor) < 4.5) return invalidColorContrast();
 
-  const headerText = normalizeThemeText(value.headerText, true);
-  const footerText = normalizeThemeText(value.footerText, false);
-  if (headerText === null || footerText === null) return invalidTheme();
+  const headerText = assertDecorativeText('headerText', value.headerText, true);
+  const footerText = assertDecorativeText(
+    'footerText',
+    value.footerText,
+    false,
+  );
 
   return {
     schemaVersion: 1,
@@ -101,16 +104,37 @@ function isBand(value: unknown): value is DocumentBrandBand {
   return value === 'none' || value === 'primary' || value === 'secondary';
 }
 
-function normalizeThemeText(
+function assertHexColor(
+  field: 'primaryColor' | 'secondaryColor',
+  value: unknown,
+): string {
+  if (typeof value !== 'string' || !/^#[0-9a-f]{6}$/i.test(value)) {
+    throw new BadRequestException({
+      code: 'BRAND_THEME_COLOR_INVALID',
+      message: `${field === 'primaryColor' ? 'Primary' : 'Secondary'} color must be a six-digit hex value (for example #111827).`,
+    });
+  }
+  return value.toUpperCase();
+}
+
+function assertDecorativeText(
+  field: 'headerText' | 'footerText',
   value: string,
   allowOneNewline: boolean,
-): string | null {
+): string {
   const normalized = value.replace(/\r\n?/g, '\n').normalize('NFC');
   const codePoints = Array.from(normalized);
   const newlines = codePoints.filter((character) => character === '\n').length;
+  const label = field === 'headerText' ? 'header' : 'footer';
+
+  if (codePoints.length > DOCUMENT_BRAND_DECORATIVE_TEXT_MAX_CODE_POINTS) {
+    throw new BadRequestException({
+      code: 'BRAND_THEME_TEXT_TOO_LONG',
+      message: `Decorative ${label} text must be at most ${DOCUMENT_BRAND_DECORATIVE_TEXT_MAX_CODE_POINTS} characters.`,
+    });
+  }
 
   if (
-    codePoints.length > 120 ||
     newlines > (allowOneNewline ? 1 : 0) ||
     codePoints.some((character) =>
       character === '\n'
@@ -119,7 +143,7 @@ function normalizeThemeText(
     ) ||
     /[<>]|\$\{|\{\{|\}\}/u.test(normalized)
   ) {
-    return null;
+    return invalidTheme();
   }
 
   return normalized;

@@ -438,12 +438,15 @@ describe('Vehicle stock trading (e2e)', () => {
         where: { tenant_id: tenantId },
         select: { current: true },
       });
-    await withInvoiceBrandingWriterDisabled(() =>
-      request(app.getHttpServer())
+    await withInvoiceBrandingWriterDisabled(async () => {
+      const disabledFinalize = await request(app.getHttpServer())
         .post(`/api/vehicle-sales/${saleRes.body.id}/finalize`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(503),
-    );
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(disabledFinalize.status).toBe(503);
+      expect(disabledFinalize.body).toMatchObject({
+        code: 'INVOICE_BRANDING_WRITER_DISABLED',
+      });
+    });
     const rejectedSale = await prisma.vehicleSale.findFirstOrThrow({
       where: { id: saleRes.body.id },
       select: { status: true, invoice: { select: { id: true } } },
