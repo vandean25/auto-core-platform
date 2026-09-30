@@ -122,6 +122,12 @@ variable "invoice_pdf_bucket_secret_name" {
   default     = "INVOICE_PDF_BUCKET"
 }
 
+variable "invoice_branding_writer_enabled" {
+  description = "When true, invoice finalize/issue commits branded archive metadata on core-api. Cloud Build sets this on live/staging; enable here only for Terraform-managed services."
+  type        = bool
+  default     = false
+}
+
 variable "document_branding_bucket_secret_name" {
   description = "GSM secret containing the private document branding source and logo bucket name."
   type        = string

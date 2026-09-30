@@ -295,6 +295,32 @@ describe('InvoiceDraftEditPage autosave', () => {
     })
   })
 
+  it('surfaces the branding writer gate message when finalize is blocked', async () => {
+    const brandingGateMessage =
+      'Branded invoice issuance is disabled in this environment. Finalize and print will work after operations enable the invoice branding writer.'
+    const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
+    const finalizeMutation = vi.fn().mockRejectedValue(new Error(brandingGateMessage))
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: updateMutation,
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: finalizeMutation,
+      isPending: false,
+    })
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(brandingGateMessage)
+      expect(screen.getByText(brandingGateMessage)).toBeInTheDocument()
+      expect(mockNavigate).not.toHaveBeenCalled()
+    })
+  })
+
   it('surfaces Nest API errors when finalize fails and does not navigate', async () => {
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
     const finalizeMutation = vi

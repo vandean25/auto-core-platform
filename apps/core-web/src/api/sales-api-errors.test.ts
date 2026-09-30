@@ -38,4 +38,21 @@ describe('formatNestApiErrorMessage', () => {
       'Failed to create invoice',
     )
   })
+
+  it('uses a friendly message for the branding writer gate', () => {
+    expect(
+      formatNestApiErrorMessage(
+        {
+          code: 'INVOICE_BRANDING_WRITER_DISABLED',
+          message:
+            'Invoice commitment is temporarily unavailable while branded invoice issuance is disabled.',
+          statusCode: 503,
+          error: 'Service Unavailable',
+        },
+        'Failed to finalize invoice',
+      ),
+    ).toBe(
+      'Branded invoice issuance is disabled in this environment. Finalize and print will work after operations enable the invoice branding writer.',
+    )
+  })
 })

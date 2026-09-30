@@ -125,3 +125,40 @@ gate. An incomplete record means the gate stays disabled.
 | Evidence date (UTC) and reviewer | Not checked |
 | Evidence artifact / change record | [Slice 1 release acceptance record](document-branding-slice-1-release-acceptance.md); target-environment evidence pending |
 | Gate outcome | BLOCKED until the environment checks above are recorded |
+
+## `INVOICE_BRANDING_WRITER_ENABLED` on Cloud Run
+
+Live `core-api` was enabled manually on revision `00018` (approved gate). Tag
+deploys use `gcloud run deploy --set-env-vars`, which **replaces** the full env
+map, so the flag must stay in pipeline config or the next release drops it.
+
+**Committed deploy config (persistent):**
+
+- `cloudbuild.yaml` `deploy-cloud-run` (`core-api`): includes
+  `INVOICE_BRANDING_WRITER_ENABLED=true`.
+- `cloudbuild.staging.yaml` `deploy-staging-cloud-run`: includes
+  `INVOICE_BRANDING_WRITER_ENABLED=true`.
+- `core-api-pdf-worker` does **not** set this flag (finalize/issue runs on
+  `core-api` only).
+
+The API treats any value other than the literal string `true` as disabled and
+returns `503` with code `INVOICE_BRANDING_WRITER_DISABLED` on invoice
+finalize/issue paths (sales, workshop, vehicle sale). Clients should surface
+that code when the flag is off (for example after rollback).
+
+**Terraform (`infra/`):** optional parallel control via
+`invoice_branding_writer_enabled` (defaults to `false` until a workspace opts in).
+Prefer Cloud Build for the current live/staging services if that is the active
+deploy path.
+
+**Post-deploy smoke checks:**
+
+1. Finalize a test sales invoice and confirm finalized status (not `503` /
+   `INVOICE_BRANDING_WRITER_DISABLED`).
+2. Download the issued invoice PDF and confirm archive metadata on the invoice
+   record points at the expected immutable object generation.
+
+**Rollback:** remove `INVOICE_BRANDING_WRITER_ENABLED=true` from the relevant
+`--set-env-vars` line (or set `false`), redeploy `core-api` only, and verify
+finalize returns `503` / `INVOICE_BRANDING_WRITER_DISABLED`. Do not delete issued
+archive bytes or logo generations; readers and print paths must keep working.
