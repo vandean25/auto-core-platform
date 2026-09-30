@@ -567,6 +567,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal-entities/{legalEntityId}/document-branding/draft/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Attach a letterhead source asset to the draft */
+        put: operations["DocumentBrandingController_setDraftSource"];
+        post?: never;
+        /** Remove the draft letterhead source asset */
+        delete: operations["DocumentBrandingController_removeDraftSource"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/legal-entities/{legalEntityId}/document-branding/confirm": {
         parameters: {
             query?: never;
@@ -3144,6 +3162,14 @@ export interface components {
                 /** @example false */
                 extractionAvailable?: boolean;
             };
+            /** Format: uuid */
+            draftSourceAssetId: string | null;
+            draftSourceAsset: components["schemas"]["DocumentBrandAssetResponseDto"] | null;
+        };
+        SaveDocumentBrandDraftSourceDto: {
+            expectedRevision: number;
+            /** Format: uuid */
+            sourceAssetId: string;
         };
         SaveDocumentBrandDraftDto: {
             expectedRevision: number;
@@ -3180,6 +3206,7 @@ export interface components {
             pixelWidth: number | null;
             pixelHeight: number | null;
             failureCode: string | null;
+            originalFilename: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -6989,6 +7016,54 @@ export interface operations {
         };
     };
     DocumentBrandingController_discardDraft: {
+        parameters: {
+            query: {
+                expectedRevision: number;
+            };
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_setDraftSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                legalEntityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveDocumentBrandDraftSourceDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBrandProfileResponseDto"];
+                };
+            };
+        };
+    };
+    DocumentBrandingController_removeDraftSource: {
         parameters: {
             query: {
                 expectedRevision: number;

@@ -25,6 +25,8 @@ const fixtures = vi.hoisted(() => ({
     confirmedAt: "2026-09-27T12:00:00.000Z",
     confirmedByUserId: "user-1",
     capabilities: { extractionAvailable: false },
+    draftSourceAssetId: null as string | null,
+    draftSourceAsset: null,
   },
   previewHtml: "<!doctype html><p>SAMPLE — NOT AN INVOICE</p>",
   assetStatus: {
@@ -97,6 +99,10 @@ vi.mock("@/api/document-branding", async (importOriginal) => {
   };
 });
 
+vi.mock("./LetterheadSourceAsset", () => ({
+  LetterheadSourceAsset: () => null,
+}));
+
 vi.mock("@/hooks/useDebouncedAutoSave", () => ({
   useDebouncedAutoSave: () => ({
     saveStatus: "saved",
@@ -164,38 +170,24 @@ describe("DocumentBrandingSettings", () => {
     expect(preview.getAttribute("srcdoc")).toContain("SAMPLE — NOT AN INVOICE");
   });
 
-  it("offers a bounded PDF or PNG source upload alongside the PNG logo upload", () => {
+  it("keeps the bounded PNG logo upload control", () => {
     render(<DocumentBrandingSettings entity={entity} />);
-    expect(
-      screen.getByLabelText("Letterhead source (PDF or PNG, up to 10 MiB)"),
-    ).toHaveProperty("accept", "application/pdf,image/png,.pdf,.png");
     expect(screen.getByLabelText("Logo (PNG, up to 2 MiB)")).toHaveProperty(
       "accept",
       "image/png,.png",
     );
   });
 
-  it("enables extraction after the uploaded source is validated", async () => {
+  it("enables extraction when the draft letterhead source is validated", async () => {
     fixtures.profile.capabilities.extractionAvailable = true;
-    fixtures.upload.mockResolvedValue({ id: "source-1" });
+    fixtures.profile.draftSourceAssetId = "source-1";
+    fixtures.profile.draftSourceAsset = {
+      id: "source-1",
+      state: "READY",
+    };
     fixtures.sourceAssetStatus.data = { id: "source-1", state: "READY" };
     const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
 
-    fireEvent.change(
-      screen.getByLabelText("Letterhead source (PDF or PNG, up to 10 MiB)"),
-      {
-        target: {
-          files: [new File(["letterhead"], "letterhead.png", { type: "image/png" })],
-        },
-      },
-    );
-
-    await waitFor(() => expect(fixtures.upload).toHaveBeenCalledOnce());
-    await waitFor(() =>
-      expect(sessionStorage.getItem("acp.document-brand-source.entity-1")).toBe(
-        "source-1",
-      ),
-    );
     await waitFor(() =>
       expect(
         screen
@@ -217,48 +209,6 @@ describe("DocumentBrandingSettings", () => {
           .getByRole("button", { name: "Extract suggestions" })
           .hasAttribute("disabled"),
       ).toBe(true),
-    );
-  });
-
-  it("restores a READY letterhead source after remount for its legal entity", () => {
-    fixtures.profile.capabilities.extractionAvailable = true;
-    sessionStorage.setItem("acp.document-brand-source.entity-1", "source-1");
-    const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
-
-    expect(
-      screen.getByRole("button", { name: "Extract suggestions" }).hasAttribute("disabled"),
-    ).toBe(false);
-
-    rerender(<DocumentBrandingSettings entity={{ ...entity, id: "entity-2" }} />);
-
-    expect(
-      screen.getByRole("button", { name: "Extract suggestions" }).hasAttribute("disabled"),
-    ).toBe(true);
-  });
-
-  it("clears a persisted READY source when validation rejects the upload", async () => {
-    fixtures.profile.capabilities.extractionAvailable = true;
-    fixtures.upload.mockResolvedValue({ id: "source-1" });
-    fixtures.sourceAssetStatus.data = {
-      id: "source-1",
-      state: "REJECTED",
-      failureCode: "FILE_REJECTED",
-    };
-    sessionStorage.setItem("acp.document-brand-source.entity-1", "source-1");
-
-    render(<DocumentBrandingSettings entity={entity} />);
-    fireEvent.change(
-      screen.getByLabelText("Letterhead source (PDF or PNG, up to 10 MiB)"),
-      {
-        target: {
-          files: [new File(["letterhead"], "letterhead.png", { type: "image/png" })],
-        },
-      },
-    );
-
-    await waitFor(() => expect(fixtures.upload).toHaveBeenCalledOnce());
-    await waitFor(() =>
-      expect(sessionStorage.getItem("acp.document-brand-source.entity-1")).toBeNull(),
     );
   });
 
