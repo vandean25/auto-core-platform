@@ -351,9 +351,7 @@ export function buildContentDisposition(
   disposition: 'attachment' | 'inline',
   filename: string,
 ): string {
-  const ascii = filename
-    .replace(/[^\x20-\x7E]/g, '_')
-    .replace(/["\\]/g, '_');
+  const ascii = filename.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_');
   const encoded = encodeURIComponent(filename);
   return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 }

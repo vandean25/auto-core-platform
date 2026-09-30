@@ -252,25 +252,6 @@ export class DocumentBrandingController {
     return this.uploads.getAsset(legalEntityId, assetId);
   }
 
-  @Get('assets/:assetId/preview')
-  @ApiOperation({ summary: 'Download the first-page PNG preview of a source asset' })
-  @ApiProduces('image/png')
-  @ApiResponse({ status: 200, schema: { type: 'string', format: 'binary' } })
-  async getAssetPagePreview(
-    @Param('legalEntityId') legalEntityId: string,
-    @Param('assetId') assetId: string,
-  ) {
-    const preview = await this.uploads.getAssetPagePreview(
-      legalEntityId,
-      assetId,
-    );
-    return new StreamableFile(preview.bytes, {
-      type: preview.contentType,
-      disposition: buildContentDisposition('inline', 'document-branding-preview.png'),
-      length: preview.bytes.byteLength,
-    });
-  }
-
   @Get('assets/:assetId/content')
   @ApiOperation({ summary: 'Download a ready document branding asset' })
   @ApiProduces('image/png', 'application/pdf')
@@ -291,6 +272,30 @@ export class DocumentBrandingController {
       type: content.contentType,
       disposition: buildContentDisposition(disposition, filename),
       length: content.bytes.byteLength,
+    });
+  }
+
+  @Get('assets/:assetId/preview')
+  @ApiOperation({
+    summary: 'Download the first-page PNG preview of a source asset',
+  })
+  @ApiProduces('image/png')
+  @ApiResponse({ status: 200, schema: { type: 'string', format: 'binary' } })
+  async getAssetPagePreview(
+    @Param('legalEntityId') legalEntityId: string,
+    @Param('assetId') assetId: string,
+  ) {
+    const preview = await this.uploads.getAssetPagePreview(
+      legalEntityId,
+      assetId,
+    );
+    return new StreamableFile(preview.bytes, {
+      type: preview.contentType,
+      disposition: buildContentDisposition(
+        'inline',
+        'document-branding-preview.png',
+      ),
+      length: preview.bytes.byteLength,
     });
   }
 }

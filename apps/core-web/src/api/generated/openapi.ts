@@ -11498,4 +11498,13 @@ export interface operations {
         responses: {
             /** @description Paginated list of audit log entries */
             200: {
-            
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponseDto"];
+                };
+            };
+        };
+    };
+}
