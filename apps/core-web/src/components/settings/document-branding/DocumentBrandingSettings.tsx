@@ -92,6 +92,9 @@ export function DocumentBrandingSettings({
   const logoAsset = useDocumentBrandAsset(entity.id, pendingLogoId);
   const sourceAsset = useDocumentBrandAsset(entity.id, pendingSourceId);
   const revisionRef = React.useRef(0);
+  const entityIdRef = React.useRef(entity.id);
+  entityIdRef.current = entity.id;
+  const recoveryRequestRef = React.useRef(0);
   const activeEntityIdRef = React.useRef("");
   const previousEntityIdRef = React.useRef(entity.id);
   const [theme, setTheme] = React.useState<DocumentBrandTheme | null>(null);
@@ -206,9 +209,19 @@ export function DocumentBrandingSettings({
 
   const themeEditingDisabled = !entity.is_active || reapplyingConflict;
 
+  const recoveryStillCurrent = React.useCallback(
+    (requestId: number, entityId: string) =>
+      requestId === recoveryRequestRef.current &&
+      entityIdRef.current === entityId,
+    [],
+  );
+
   React.useEffect(() => {
     if (previousEntityIdRef.current === entity.id) return;
     previousEntityIdRef.current = entity.id;
+    recoveryRequestRef.current += 1;
+    setReapplyingConflict(false);
+    setNeedsPostConflictAutosave(false);
     clearPendingSave();
     abortInFlightSave();
     setTheme(null);
@@ -238,39 +251,54 @@ export function DocumentBrandingSettings({
   );
 
   const reloadLatestBranding = React.useCallback(async () => {
+    const requestId = ++recoveryRequestRef.current;
+    const entityId = entity.id;
+    setReapplyingConflict(true);
     clearPendingSave();
     abortInFlightSave();
-    const result = await refetchProfile();
-    if (!result.isSuccess || !result.data) {
-      const message =
-        result.error instanceof Error
-          ? result.error.message
-          : "Could not load the latest document branding.";
-      setDraftError(message);
-      toast.error("Could not reload document branding", {
-        description: message,
-      });
-      return;
+    try {
+      const result = await refetchProfile();
+      if (!recoveryStillCurrent(requestId, entityId)) return;
+      if (!result.isSuccess || !result.data) {
+        const message =
+          result.error instanceof Error
+            ? result.error.message
+            : "Could not load the latest document branding.";
+        setDraftError(message);
+        toast.error("Could not reload document branding", {
+          description: message,
+        });
+        return;
+      }
+      applyProfileTheme(result.data);
+      markIdle();
+      toast.message("Loaded the latest document branding from the server.");
+    } finally {
+      if (recoveryStillCurrent(requestId, entityId)) {
+        setReapplyingConflict(false);
+      }
     }
-    applyProfileTheme(result.data);
-    markIdle();
-    toast.message("Loaded the latest document branding from the server.");
   }, [
     abortInFlightSave,
     applyProfileTheme,
     clearPendingSave,
+    entity.id,
     markIdle,
+    recoveryStillCurrent,
     refetchProfile,
   ]);
 
   const reapplyEditsOnLatestRevision = React.useCallback(async () => {
     const themeToSave = themeRef.current;
     if (!themeToSave) return;
+    const requestId = ++recoveryRequestRef.current;
+    const entityId = entity.id;
     setReapplyingConflict(true);
     clearPendingSave();
     abortInFlightSave();
     try {
       const result = await refetchProfile();
+      if (!recoveryStillCurrent(requestId, entityId)) return;
       if (!result.isSuccess || !result.data) {
         throw new Error(
           result.error instanceof Error
@@ -278,12 +306,14 @@ export function DocumentBrandingSettings({
             : "Could not load the latest document branding.",
         );
       }
+      if (!recoveryStillCurrent(requestId, entityId)) return;
       revisionRef.current = result.data.revision;
       const updated = await saveDraft.mutateAsync({
-        legalEntityId: entity.id,
+        legalEntityId: entityId,
         expectedRevision: revisionRef.current,
         theme: themeRef.current ?? themeToSave,
       });
+      if (!recoveryStillCurrent(requestId, entityId)) return;
       revisionRef.current = updated.revision;
       const persistedTheme = updated.draftTheme ?? themeRef.current ?? themeToSave;
       setSavedTheme(persistedTheme);
@@ -293,6 +323,7 @@ export function DocumentBrandingSettings({
       markSaved();
       toast.success("Your edits were saved on top of the latest revision.");
     } catch (reapplyError) {
+      if (!recoveryStillCurrent(requestId, entityId)) return;
       const message =
         reapplyError instanceof Error
           ? reapplyError.message
@@ -302,13 +333,16 @@ export function DocumentBrandingSettings({
         description: message,
       });
     } finally {
-      setReapplyingConflict(false);
+      if (recoveryStillCurrent(requestId, entityId)) {
+        setReapplyingConflict(false);
+      }
     }
   }, [
     abortInFlightSave,
     clearPendingSave,
     entity.id,
     markSaved,
+    recoveryStillCurrent,
     refetchProfile,
     saveDraft,
   ]);
@@ -861,6 +895,7 @@ export function DocumentBrandingSettings({
               type="button"
               variant="outline"
               size="sm"
+              disabled={reapplyingConflict}
               onClick={() => void reloadLatestBranding()}
             >
               Reload latest

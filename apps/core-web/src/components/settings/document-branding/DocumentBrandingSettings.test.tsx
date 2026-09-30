@@ -160,6 +160,18 @@ afterEach(() => {
   cleanup();
   sessionStorage.clear();
   fixtures.profile.draftTheme = null;
+  fixtures.profile.activeTheme = {
+    schemaVersion: 1 as const,
+    presetId: "standard-v1" as const,
+    logoAssetId: null,
+    primaryColor: "#111827",
+    secondaryColor: "#E5E7EB",
+    fontId: "acp-sans-v1" as const,
+    headerBand: "none" as const,
+    footerBand: "none" as const,
+    headerText: "",
+    footerText: "",
+  };
   fixtures.profile.capabilities.extractionAvailable = false;
   fixtures.assetStatus.data = null;
   fixtures.sourceAssetStatus.data = null;
@@ -577,6 +589,66 @@ describe("DocumentBrandingSettings", () => {
         expect.objectContaining({ footerText: "typed-during-put" }),
       ),
     );
+  });
+
+  it("ignores a stale reload when the legal entity changes before refetch completes", async () => {
+    let resolveRefetch:
+      | ((value: {
+          isSuccess: boolean;
+          data: typeof fixtures.profile;
+        }) => void)
+      | undefined;
+    fixtures.refetchProfile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve;
+        }),
+    );
+
+    const { rerender } = render(<DocumentBrandingSettings entity={entity} />);
+    fireEvent.change(screen.getByLabelText(/Decorative footer text/), {
+      target: { value: "entity-a-local" },
+    });
+    triggerRevisionConflict();
+    fireEvent.click(screen.getByRole("button", { name: "Reload latest" }));
+
+    fixtures.profile.activeTheme = {
+      ...fixtures.profile.activeTheme,
+      footerText: "entity-b-profile",
+    };
+    rerender(
+      <DocumentBrandingSettings entity={{ ...entity, id: "entity-2" }} />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+        "value",
+        "entity-b-profile",
+      ),
+    );
+
+    await act(async () => {
+      resolveRefetch?.({
+        isSuccess: true,
+        data: {
+          ...fixtures.profile,
+          revision: 99,
+          activeTheme: {
+            ...fixtures.profile.activeTheme,
+            footerText: "entity-a-stale-server",
+          },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Decorative footer text/)).toHaveProperty(
+        "value",
+        "entity-b-profile",
+      ),
+    );
+    expect(fixtures.saveDraft).not.toHaveBeenCalled();
+    expect(toast.message).not.toHaveBeenCalled();
   });
 
   it("does not save when keep my edits cannot refetch the latest profile", async () => {
