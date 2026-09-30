@@ -55,7 +55,6 @@ async function parseDocument(bytes: Buffer): Promise<WorkerResult> {
   const loadingTask = getDocument({
     data: Uint8Array.from(bytes),
     disableFontFace: true,
-    isEvalSupported: false,
     stopAtErrors: true,
     useSystemFonts: false,
     verbosity: 0,
@@ -113,6 +112,7 @@ async function parseDocument(bytes: Buffer): Promise<WorkerResult> {
     const canvas = createCanvas(viewport.width, viewport.height);
     const context = canvas.getContext('2d');
     await page.render({
+      canvas: null,
       canvasContext: context as unknown as CanvasRenderingContext2D,
       viewport: page.getViewport({ scale: viewport.scale }),
       background: '#ffffff',
@@ -139,7 +139,7 @@ async function parseDocument(bytes: Buffer): Promise<WorkerResult> {
       raster,
     };
   } finally {
-    await document.destroy();
+    await loadingTask.destroy();
   }
 }
 
