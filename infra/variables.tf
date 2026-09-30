@@ -123,7 +123,7 @@ variable "invoice_pdf_bucket_secret_name" {
 }
 
 variable "invoice_branding_writer_enabled" {
-  description = "When true, invoice finalize/issue commits branded archive metadata. Keep false until the document-branding archive rollout runbook prerequisites (bucket IAM, lifecycle evidence) are recorded."
+  description = "When true, invoice finalize/issue commits branded archive metadata on core-api. Cloud Build sets this on live/staging; enable here only for Terraform-managed services."
   type        = bool
   default     = false
 }

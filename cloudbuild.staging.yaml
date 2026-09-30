@@ -14,9 +14,6 @@ substitutions:
   _RUN_SERVICE: core-api-staging
   _AR_REPO: core-services
   _FRONTEND_URL: https://auto-core-platform-vande.web.app
-  # Keep false until docs/internal/03-Runbooks/document-branding-archive-rollout.md gate passes.
-  _INVOICE_BRANDING_WRITER_ENABLED: "false"
-
 options:
   logging: CLOUD_LOGGING_ONLY
 
@@ -69,7 +66,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${SHORT_SHA},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED},INVOICE_BRANDING_WRITER_ENABLED=${_INVOICE_BRANDING_WRITER_ENABLED}" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${SHORT_SHA},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED},INVOICE_BRANDING_WRITER_ENABLED=true" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,DOCUMENT_BRANDING_BUCKET=DOCUMENT_BRANDING_BUCKET:latest,WORKSHOP_MEDIA_BUCKET=WORKSHOP_MEDIA_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest" \
           --cpu 1 \
           --memory 512Mi \
