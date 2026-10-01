@@ -285,6 +285,43 @@ function resolveEntityId(
   );
 }
 
+function normalizeWhereForFindFirst(
+  where: Record<string, unknown>,
+): Record<string, unknown> {
+  const normalized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(where)) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      !(value instanceof Date) &&
+      Object.keys(value).every(
+        (k) =>
+          !k.startsWith('$') &&
+          ![
+            'equals',
+            'in',
+            'notIn',
+            'lt',
+            'lte',
+            'gt',
+            'gte',
+            'contains',
+            'startsWith',
+            'endsWith',
+            'mode',
+            'not',
+          ].includes(k),
+      )
+    ) {
+      Object.assign(normalized, value);
+    } else {
+      normalized[key] = value;
+    }
+  }
+  return normalized;
+}
+
 async function fetchBeforeSnapshot(
   modelDelegate: PrismaModelDelegate,
   model: string,
@@ -294,7 +331,8 @@ async function fetchBeforeSnapshot(
     return undefined;
   }
   try {
-    return await modelDelegate.findFirst({ where });
+    const normalizedWhere = normalizeWhereForFindFirst(where);
+    return await modelDelegate.findFirst({ where: normalizedWhere });
   } catch (error) {
     // Composite unique keys (e.g. tenant_id_code) are valid for update/delete
     // but rejected by findFirst — proceed without a before snapshot.
