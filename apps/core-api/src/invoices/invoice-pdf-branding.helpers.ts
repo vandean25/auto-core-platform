@@ -76,7 +76,6 @@ export function verifyFrozenLogoHash(
   return createHash('sha256').update(bytes).digest('hex') === expectedSha256;
 }
 
-
 async function findFrozenAsset(
   prisma: InvoicePdfPrismaClient,
   invoice: { id: string; tenant_id: string; legal_entity_id: string },
