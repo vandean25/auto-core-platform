@@ -1686,7 +1686,7 @@ export async function executeCreateRequisitionSheet(
 }
 
 export async function fetchShortages(
-  prisma: PrismaService,
+  prisma: PrismaService | Prisma.TransactionClient,
   tenantId: string,
   siteId: string,
   query: PartsShortagesQueryDto,

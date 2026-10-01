@@ -624,6 +624,32 @@ export async function executeApplyDerivedOrderStatus(params: {
   return true;
 }
 
+export type ApplyDerivedOrderStatusParams = {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  siteId: string;
+  orderId: string;
+  nextOrderStatus: WorkshopOrderStatus;
+};
+
+export function applyDerivedOrderStatusWithStockPrep(
+  vehicleLedger: {
+    completeStockPrep: (
+      tx: Prisma.TransactionClient,
+      tenantId: string,
+      orderId: string,
+      siteId: string,
+    ) => Promise<void>;
+  },
+  params: ApplyDerivedOrderStatusParams,
+) {
+  return executeApplyDerivedOrderStatus({
+    ...params,
+    onStockPrepCompleted: (tx, tenantId, orderId, siteId) =>
+      vehicleLedger.completeStockPrep(tx, tenantId, orderId, siteId),
+  });
+}
+
 export async function executeTaskUpdateTransaction(params: {
   tx: Prisma.TransactionClient;
   tenantId: string;

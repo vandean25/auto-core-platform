@@ -1,5 +1,10 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import type { LocationScope } from './location-hierarchy.helpers.js';
 
 export type BasicLocationForDeletion = {
   is_system: boolean;
@@ -105,4 +110,54 @@ export async function assertNoOutstandingStockTransfers(
       'Cannot delete or disable a location referenced by a stock transfer with outstanding quantity.',
     );
   }
+}
+
+export async function lockActiveSiteForLocationWrites(
+  tx: Prisma.TransactionClient,
+  scope: LocationScope,
+): Promise<void> {
+  // eslint-disable-next-line no-restricted-syntax -- ADR-0021/0022 site-row lock serializes location deactivation with transfer writes.
+  await tx.$queryRaw`
+    SELECT id
+    FROM "sites"
+    WHERE tenant_id = ${scope.tenantId}
+      AND id = ${scope.siteId}
+    ORDER BY id
+    FOR UPDATE
+  `;
+}
+
+export async function softDeleteStorageLocation<
+  TInclude extends Prisma.StorageLocationInclude,
+>(
+  tx: Prisma.TransactionClient,
+  id: string,
+  scope: LocationScope,
+  include: TInclude,
+): Promise<Prisma.StorageLocationGetPayload<{ include: TInclude }>> {
+  const location = await tx.storageLocation.findFirst({
+    where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
+    include: { _count: { select: { children: true, stocks: true } } },
+  });
+  if (!location) {
+    throw new NotFoundException('Location not found');
+  }
+
+  assertCanDeleteLocationBasic(location);
+  await assertNoParkedDealerVehicles(tx, scope.tenantId, id);
+  await assertNoOutstandingStockTransfers(tx, scope.tenantId, scope.siteId, id);
+
+  await tx.storageLocation.updateMany({
+    where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
+    data: { deletedAt: new Date() },
+  });
+
+  const updated = await tx.storageLocation.findFirst({
+    where: { id, tenant_id: scope.tenantId, site_id: scope.siteId },
+    include,
+  });
+  if (!updated) {
+    throw new NotFoundException('Location not found');
+  }
+  return updated;
 }
