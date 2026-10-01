@@ -1,18 +1,18 @@
-import './pre-generate-openapi.js'; // MUST BE FIRST
+process.env.SKIP_PRISMA_CONNECT = 'true';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from '../src/app.module.js';
-import { standardSchemaConverter } from '../src/common/index.js';
+import { AppModule } from '../dist/app.module.js';
+import { standardSchemaConverter } from '../dist/common/index.js';
 
 /**
- * Boots the Nest app in-process and writes the current OpenAPI document
+ * Boots the compiled Nest app in-process and writes the current OpenAPI document
  * to `apps/core-api/openapi/openapi.json` for CI contract checks.
  */
 async function generateOpenApiSpec() {
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    logger: ['error', 'warn'],
   });
   app.setGlobalPrefix('api');
 

@@ -27,7 +27,7 @@
     "test:e2e:ci": "node scripts/run-e2e-batches.mjs",
     "check:cloudrun-env": "tsx scripts/check-cloudrun-env-contract.ts",
     "lint:prisma-tenant": "tsx scripts/lint-prisma-tenant.ts prisma/schema.prisma",
-    "openapi:generate": "node --loader ts-node/esm scripts/generate-openapi.ts",
+    "openapi:generate": "npm run build && node scripts/generate-openapi.mjs",
     "openapi:check": "npm run openapi:generate && git diff --exit-code -- openapi/openapi.json",
     "check:esm": "tsx scripts/check-esm-contract.ts",
     "verify:esm-artifact": "node scripts/verify-esm-artifact.mjs",

@@ -2,7 +2,7 @@ import './instrument.js';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import {
-  createGlobalValidationPipe,
+  createGlobalValidationPipes,
   GlobalExceptionFilter,
   HttpLoggingInterceptor,
   LogLevelService,
@@ -26,7 +26,7 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
-  app.useGlobalPipes(createGlobalValidationPipe());
+  app.useGlobalPipes(...createGlobalValidationPipes());
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new HttpLoggingInterceptor());
   configureHttpSecurity(app, {
