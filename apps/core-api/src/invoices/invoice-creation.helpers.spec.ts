@@ -12,11 +12,15 @@ import {
 } from '@prisma/client';
 import {
   assertDiscountPair,
+  assertOrderInvoiceable,
   buildDraftInvoiceLineItem,
+  buildDraftInvoiceLinesFromOrder,
   buildInvoiceCustomerAddressSnapshot,
   buildInvoiceDueDate,
   calculateInvoiceTotals,
   executeCreateDraftInvoice,
+  loadAndLockWorkshopOrderForInvoice,
+  persistDraftInvoice,
   validateCustomerAddress,
   DEFAULT_VAT_RATE,
 } from './invoice-creation.helpers.js';
@@ -290,6 +294,170 @@ describe('invoice-creation.helpers', () => {
     });
   });
 
+  describe('assertOrderInvoiceable', () => {
+    it('throws BadRequestException when workshop order is already invoiced', () => {
+      expect(() =>
+        assertOrderInvoiceable({
+          status: WorkshopOrderStatus.COMPLETED,
+          invoice: { id: 'inv-1', invoice_number: 'RE-2026-0001' },
+          customer_id: 'cust-1',
+          site_id: 'site-1',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when order status is not COMPLETED', () => {
+      expect(() =>
+        assertOrderInvoiceable({
+          status: WorkshopOrderStatus.IN_PROGRESS,
+          invoice: null,
+          customer_id: 'cust-1',
+          site_id: 'site-1',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws ConflictException when tasks are blocked by parts reservations', () => {
+      expect(() =>
+        assertOrderInvoiceable({
+          status: WorkshopOrderStatus.COMPLETED,
+          invoice: null,
+          customer_id: 'cust-1',
+          site_id: 'site-1',
+          tasks: [
+            {
+              line_items: [
+                {
+                  part_execution_status:
+                    WorkshopPartLineExecutionStatus.PENDING_PICK,
+                  parts_reservations: [
+                    {
+                      status: 'OPEN',
+                      quantity: 1,
+                      quantity_consumed: 0,
+                      quantity_returned: 0,
+                      quantity_staged: 0,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      ).toThrow(ConflictException);
+    });
+
+    it('throws BadRequestException when order has no customer', () => {
+      expect(() =>
+        assertOrderInvoiceable({
+          status: WorkshopOrderStatus.COMPLETED,
+          invoice: null,
+          customer_id: null,
+          site_id: 'site-1',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws when order site_id is missing or unpersisted', () => {
+      expect(() =>
+        assertOrderInvoiceable({
+          status: WorkshopOrderStatus.COMPLETED,
+          invoice: null,
+          customer_id: 'cust-1',
+          site_id: null,
+        }),
+      ).toThrow();
+    });
+
+    it('returns orderSiteId when order is valid and invoiceable', () => {
+      const siteId = assertOrderInvoiceable({
+        status: WorkshopOrderStatus.COMPLETED,
+        invoice: null,
+        customer_id: 'cust-1',
+        site_id: 'site-1',
+        tasks: [],
+      });
+      expect(siteId).toBe('site-1');
+    });
+  });
+
+  describe('buildDraftInvoiceLinesFromOrder', () => {
+    it('throws BadRequestException when order has no line items', () => {
+      expect(() =>
+        buildDraftInvoiceLinesFromOrder({ tasks: [] }, 'tenant-1'),
+      ).toThrow(BadRequestException);
+
+      expect(() =>
+        buildDraftInvoiceLinesFromOrder(
+          { tasks: [{ line_items: [] }] },
+          'tenant-1',
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when all line items are CANCELLED', () => {
+      expect(() =>
+        buildDraftInvoiceLinesFromOrder(
+          {
+            tasks: [
+              {
+                line_items: [
+                  {
+                    description: 'Cancelled part',
+                    quantity: 1,
+                    unit_price: 50,
+                    part_execution_status:
+                      WorkshopPartLineExecutionStatus.CANCELLED,
+                  },
+                ],
+              },
+            ],
+          },
+          'tenant-1',
+        ),
+      ).toThrow(BadRequestException);
+    });
+
+    it('filters out CANCELLED lines and correctly builds invoice items and totals', () => {
+      const result = buildDraftInvoiceLinesFromOrder(
+        {
+          tasks: [
+            {
+              line_items: [
+                {
+                  description: 'Active Labor',
+                  quantity: 2,
+                  unit_price: 50,
+                  type: 'LABOR',
+                  part_execution_status:
+                    WorkshopPartLineExecutionStatus.COMPLETED,
+                },
+                {
+                  description: 'Cancelled Part',
+                  quantity: 1,
+                  unit_price: 100,
+                  part_execution_status:
+                    WorkshopPartLineExecutionStatus.CANCELLED,
+                },
+              ],
+            },
+          ],
+        },
+        'tenant-1',
+      );
+
+      expect(result.lineItems).toHaveLength(1);
+      expect(result.itemsData).toHaveLength(1);
+      expect(result.itemsData[0].description).toBe('Active Labor');
+      expect(result.itemsData[0].revenue_group_name).toBe(
+        'Labor / workshop services',
+      );
+      expect(result.totals.subtotal).toEqual(new Prisma.Decimal(100));
+      expect(result.totals.totalTax).toEqual(new Prisma.Decimal(20));
+      expect(result.totals.totalGross).toEqual(new Prisma.Decimal(120));
+    });
+  });
+
   describe('executeCreateDraftInvoice', () => {
     const mockTx = {
       workshopOrder: {
@@ -481,4 +649,137 @@ describe('invoice-creation.helpers', () => {
       expect(result.id).toBe('inv-created');
     });
   });
+
+  describe('loadAndLockWorkshopOrderForInvoice', () => {
+    const mockTx = {
+      workshopOrder: {
+        findFirst: jest.fn(),
+      },
+      $queryRaw: jest.fn().mockResolvedValue([]),
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('throws NotFoundException when order does not exist', async () => {
+      mockTx.workshopOrder.findFirst.mockResolvedValue(null);
+
+      await expect(
+        loadAndLockWorkshopOrderForInvoice(
+          mockTx as any,
+          'tenant-1',
+          'site-1',
+          'wo-missing',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns unlocked order when order has no tasks', async () => {
+      const order = { id: 'wo-1', tasks: [] };
+      mockTx.workshopOrder.findFirst.mockResolvedValue(order);
+
+      const result = await loadAndLockWorkshopOrderForInvoice(
+        mockTx as any,
+        'tenant-1',
+        'site-1',
+        'wo-1',
+      );
+
+      expect(mockTx.$queryRaw).not.toHaveBeenCalled();
+      expect(result).toBe(order);
+    });
+
+    it('locks tasks with FOR UPDATE and returns reloaded order when tasks exist', async () => {
+      const initialOrder = {
+        id: 'wo-1',
+        tasks: [{ id: 'task-b' }, { id: 'task-a' }],
+      };
+      const lockedOrder = {
+        id: 'wo-1',
+        tasks: [{ id: 'task-b' }, { id: 'task-a' }],
+        reloaded: true,
+      };
+
+      mockTx.workshopOrder.findFirst
+        .mockResolvedValueOnce(initialOrder)
+        .mockResolvedValueOnce(lockedOrder);
+
+      const result = await loadAndLockWorkshopOrderForInvoice(
+        mockTx as any,
+        'tenant-1',
+        'site-1',
+        'wo-1',
+      );
+
+      expect(mockTx.$queryRaw).toHaveBeenCalled();
+      expect(result).toBe(lockedOrder);
+    });
+  });
+
+  describe('persistDraftInvoice', () => {
+    const mockTx = {
+      site: {
+        findFirst: jest.fn(),
+      },
+      invoice: {
+        create: jest.fn(),
+      },
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('throws NotFoundException when site is not found', async () => {
+      mockTx.site.findFirst.mockResolvedValue(null);
+
+      await expect(
+        persistDraftInvoice(mockTx as any, {
+          order: { id: 'wo-1', customer_id: 'cust-1' },
+          itemsData: [],
+          totals: {
+            subtotal: new Prisma.Decimal(0),
+            taxTotal: new Prisma.Decimal(0),
+            total: new Prisma.Decimal(0),
+            totalNet: new Prisma.Decimal(0),
+            totalTax: new Prisma.Decimal(0),
+            totalGross: new Prisma.Decimal(0),
+          },
+          tenantId: 'tenant-1',
+          orderSiteId: 'site-missing',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('maps Prisma P2002 to BadRequestException workshop order is already invoiced', async () => {
+      mockTx.site.findFirst.mockResolvedValue({
+        id: 'site-1',
+        legal_entity_id: 'le-1',
+      });
+      const p2002Error = new Prisma.PrismaClientKnownRequestError(
+        'Unique constraint failed',
+        { code: 'P2002', clientVersion: '7.0.0' },
+      );
+      mockTx.invoice.create.mockRejectedValue(p2002Error);
+
+      await expect(
+        persistDraftInvoice(mockTx as any, {
+          order: { id: 'wo-1', customer_id: 'cust-1' },
+          itemsData: [],
+          totals: {
+            subtotal: new Prisma.Decimal(0),
+            taxTotal: new Prisma.Decimal(0),
+            total: new Prisma.Decimal(0),
+            totalNet: new Prisma.Decimal(0),
+            totalTax: new Prisma.Decimal(0),
+            totalGross: new Prisma.Decimal(0),
+          },
+          tenantId: 'tenant-1',
+          orderSiteId: 'site-1',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
 });
+
