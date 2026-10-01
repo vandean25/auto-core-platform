@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
@@ -10,12 +11,20 @@ import {
   PartsRequisitionStatus,
   Prisma,
   TransactionType,
+  WorkshopPartLineExecutionStatus,
 } from '@prisma/client';
 import {
   assertLineAllocationFits,
   assertUniqueSelections,
+  cancelReservationRecord,
+  executeReleaseReservation,
   groupReservationsByLine,
   handleToteReturnStock,
+  loadAndLockReservationForRelease,
+  releaseOnHandReservationCommitment,
+  releaseStagedReservationStock,
+  syncLineItemStatusAfterRelease,
+  syncRequisitionAfterRelease,
   toRequisitionResponse,
   toReservationResponse,
   toShortageResponse,
@@ -516,6 +525,443 @@ describe('parts-requisition-lifecycle.helpers', () => {
         ],
         tx,
       );
+    });
+  });
+
+  describe('loadAndLockReservationForRelease', () => {
+    it('loads reservation and acquires locks on task, line, and reservation', async () => {
+      const mockReservation = {
+        id: 'res-1',
+        workshop_task_line_item: {
+          id: 'line-1',
+          workshop_task_id: 'task-1',
+        },
+      };
+      const tx = {
+        partsReservation: {
+          findFirst: jest.fn().mockResolvedValue(mockReservation),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([]),
+      } as any;
+
+      const result = await loadAndLockReservationForRelease(
+        tx,
+        tenantId,
+        siteId,
+        'res-1',
+      );
+
+      expect(result).toBe(mockReservation);
+      expect(tx.$queryRaw).toHaveBeenCalledTimes(3);
+    });
+
+    it('throws UnprocessableEntityException when reservation is fulfilled', async () => {
+      const tx = {
+        partsReservation: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce({ status: PartsReservationStatus.FULFILLED }),
+        },
+      } as any;
+
+      await expect(
+        loadAndLockReservationForRelease(tx, tenantId, siteId, 'res-1'),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+
+    it('throws NotFoundException when reservation does not exist', async () => {
+      const tx = {
+        partsReservation: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as any;
+
+      await expect(
+        loadAndLockReservationForRelease(tx, tenantId, siteId, 'res-nonexistent'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('releaseStagedReservationStock', () => {
+    it('delegates to handleToteReturnStock when staged quantity is positive', async () => {
+      const tx = {
+        storageLocation: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'loc-return' }),
+        },
+      } as any;
+      const ledgerService = {
+        recordTransactions: jest.fn().mockResolvedValue([]),
+      } as any;
+      const line = {
+        catalog_item_id: 'cat-1',
+        workshop_task: {
+          workshop_order: { staging_location_id: 'tote-1' },
+        },
+      };
+      const reservation = {
+        id: 'res-1',
+        tote_cost_basis: new Prisma.Decimal('10.00'),
+      };
+
+      await releaseStagedReservationStock(tx, {
+        tenantId,
+        siteId,
+        line,
+        reservation,
+        staged: new Prisma.Decimal(3),
+        returnLocationId: 'loc-return',
+        ledgerService,
+      });
+
+      expect(ledgerService.recordTransactions).toHaveBeenCalled();
+    });
+
+    it('no-ops when staged quantity is zero', async () => {
+      const tx = {
+        storageLocation: { findFirst: jest.fn() },
+      } as any;
+      const ledgerService = { recordTransactions: jest.fn() } as any;
+
+      await releaseStagedReservationStock(tx, {
+        tenantId,
+        siteId,
+        line: {} as any,
+        reservation: { id: 'res-1' },
+        staged: ZERO,
+        returnLocationId: 'loc-return',
+        ledgerService,
+      });
+
+      expect(tx.storageLocation.findFirst).not.toHaveBeenCalled();
+      expect(ledgerService.recordTransactions).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('releaseOnHandReservationCommitment', () => {
+    it('releases on-hand commitment when reservation is OPEN and ON_HAND', async () => {
+      const tx = {
+        inventoryStock: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'stock-1' }),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([]),
+      } as any;
+      const atpService = {
+        releaseOnHand: jest.fn().mockResolvedValue(undefined),
+      } as any;
+
+      const line = { catalog_item_id: 'cat-1' };
+      const reservation = {
+        kind: PartsReservationKind.ON_HAND,
+        status: PartsReservationStatus.OPEN,
+        location_id: 'loc-1',
+        quantity: new Prisma.Decimal(5),
+        quantity_consumed: ZERO,
+        quantity_returned: ZERO,
+      };
+
+      await releaseOnHandReservationCommitment(tx, {
+        tenantId,
+        siteId,
+        line,
+        reservation,
+        staged: new Prisma.Decimal(2),
+        atpService,
+      });
+
+      expect(tx.inventoryStock.findFirst).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          catalog_item_id: 'cat-1',
+          location_id: 'loc-1',
+          site_id: siteId,
+        },
+        select: { id: true },
+      });
+      expect(tx.$queryRaw).toHaveBeenCalled();
+      expect(atpService.releaseOnHand).toHaveBeenCalledWith(
+        { stockId: 'stock-1', quantity: new Prisma.Decimal(3) },
+        tx,
+      );
+    });
+
+    it('does nothing when reservation is not ON_HAND', async () => {
+      const tx = { inventoryStock: { findFirst: jest.fn() } } as any;
+      const atpService = { releaseOnHand: jest.fn() } as any;
+
+      await releaseOnHandReservationCommitment(tx, {
+        tenantId,
+        siteId,
+        line: { catalog_item_id: 'cat-1' },
+        reservation: {
+          kind: PartsReservationKind.REQUISITION,
+          status: PartsReservationStatus.OPEN,
+          location_id: 'loc-1',
+          quantity: new Prisma.Decimal(5),
+          quantity_consumed: ZERO,
+          quantity_returned: ZERO,
+        },
+        staged: ZERO,
+        atpService,
+      });
+
+      expect(tx.inventoryStock.findFirst).not.toHaveBeenCalled();
+      expect(atpService.releaseOnHand).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cancelReservationRecord', () => {
+    it('updates reservation status to CANCELLED and increments returned qty', async () => {
+      const tx = {
+        partsReservation: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      } as any;
+
+      const reservation = {
+        id: 'res-1',
+        status: PartsReservationStatus.OPEN,
+        quantity_staged: new Prisma.Decimal(2),
+        purchase_order_item_id: 'poi-1',
+        detached_at: null,
+      };
+
+      await cancelReservationRecord(
+        tx,
+        tenantId,
+        reservation,
+        new Prisma.Decimal(2),
+      );
+
+      expect(tx.partsReservation.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          id: 'res-1',
+          status: PartsReservationStatus.OPEN,
+          quantity_staged: new Prisma.Decimal(2),
+        },
+        data: expect.objectContaining({
+          status: PartsReservationStatus.CANCELLED,
+          quantity_staged: 0,
+          quantity_returned: { increment: new Prisma.Decimal(2) },
+          detached_at: expect.any(Date),
+        }),
+      });
+    });
+
+    it('throws ConflictException when concurrent update occurs', async () => {
+      const tx = {
+        partsReservation: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+      } as any;
+
+      const reservation = {
+        id: 'res-1',
+        status: PartsReservationStatus.OPEN,
+        quantity_staged: ZERO,
+      };
+
+      await expect(
+        cancelReservationRecord(tx, tenantId, reservation, ZERO),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('syncLineItemStatusAfterRelease', () => {
+    it('sets line status to CONSUMED when no active slices remain and consumed > 0', async () => {
+      const tx = {
+        partsReservation: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              status: PartsReservationStatus.CANCELLED,
+              quantity: new Prisma.Decimal(2),
+              quantity_consumed: new Prisma.Decimal(2),
+              quantity_returned: ZERO,
+              quantity_staged: ZERO,
+            },
+          ]),
+        },
+        workshopTaskLineItem: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        workshopTask: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      } as any;
+
+      await syncLineItemStatusAfterRelease(tx, tenantId, 'line-1', 'task-1');
+
+      expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: 'line-1' },
+        data: {
+          quantity: new Prisma.Decimal(2),
+          part_execution_status: WorkshopPartLineExecutionStatus.CONSUMED,
+        },
+      });
+      expect(tx.workshopTask.updateMany).toHaveBeenCalledWith({
+        where: { id: 'task-1', tenant_id: tenantId },
+        data: { line_items_version: { increment: 1 } },
+      });
+    });
+
+    it('sets line status to CANCELLED when no active slices remain and consumed is 0', async () => {
+      const tx = {
+        partsReservation: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              status: PartsReservationStatus.CANCELLED,
+              quantity: new Prisma.Decimal(2),
+              quantity_consumed: ZERO,
+              quantity_returned: new Prisma.Decimal(2),
+              quantity_staged: ZERO,
+            },
+          ]),
+        },
+        workshopTaskLineItem: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        workshopTask: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      } as any;
+
+      await syncLineItemStatusAfterRelease(tx, tenantId, 'line-1', 'task-1');
+
+      expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: 'line-1' },
+        data: {
+          quantity: ZERO,
+          part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
+      });
+    });
+
+    it('sets line status to STAGED when active staged slices remain', async () => {
+      const tx = {
+        partsReservation: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              status: PartsReservationStatus.STAGED,
+              quantity: new Prisma.Decimal(2),
+              quantity_consumed: ZERO,
+              quantity_returned: ZERO,
+              quantity_staged: new Prisma.Decimal(2),
+            },
+          ]),
+        },
+        workshopTaskLineItem: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        workshopTask: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      } as any;
+
+      await syncLineItemStatusAfterRelease(tx, tenantId, 'line-1', 'task-1');
+
+      expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: { tenant_id: tenantId, id: 'line-1' },
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.STAGED,
+        },
+      });
+    });
+  });
+
+  describe('syncRequisitionAfterRelease', () => {
+    it('triggers status recompute when requisitionId is provided', async () => {
+      const tx = {
+        partsRequisition: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as any;
+
+      await syncRequisitionAfterRelease(tx, tenantId, 'req-1');
+      expect(tx.partsRequisition.findFirst).toHaveBeenCalledWith({
+        where: { id: 'req-1', tenant_id: tenantId },
+        select: { status: true },
+      });
+    });
+
+    it('does nothing when requisitionId is not provided', async () => {
+      const tx = { partsRequisition: { findFirst: jest.fn() } } as any;
+      await syncRequisitionAfterRelease(tx, tenantId, null);
+      expect(tx.partsRequisition.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('executeReleaseReservation', () => {
+    it('orchestrates full release flow successfully', async () => {
+      const now = new Date();
+      const mockReservation = {
+        id: 'res-1',
+        tenant_id: tenantId,
+        workshop_task_line_item_id: 'line-1',
+        quantity: new Prisma.Decimal('2'),
+        quantity_consumed: ZERO,
+        quantity_returned: ZERO,
+        quantity_staged: ZERO,
+        kind: PartsReservationKind.REQUISITION,
+        status: PartsReservationStatus.OPEN,
+        location_id: null,
+        workshop_task_line_item: {
+          id: 'line-1',
+          workshop_task_id: 'task-1',
+          catalog_item_id: 'cat-1',
+          workshop_task: {
+            workshop_order: { staging_location_id: 'tote-1' },
+          },
+        },
+        requisition_line: { requisition_id: 'req-1' },
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      const finalReservation = {
+        ...mockReservation,
+        status: PartsReservationStatus.CANCELLED,
+        quantity_returned: new Prisma.Decimal('2'),
+      };
+
+      const tx = {
+        partsReservation: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValueOnce(mockReservation)
+            .mockResolvedValueOnce(finalReservation),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findMany: jest.fn().mockResolvedValue([finalReservation]),
+        },
+        workshopTaskLineItem: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        workshopTask: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        partsRequisition: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+        $queryRaw: jest.fn().mockResolvedValue([]),
+      } as any;
+
+      const atpService = { releaseOnHand: jest.fn() } as any;
+      const ledgerService = { recordTransactions: jest.fn() } as any;
+
+      const result = await executeReleaseReservation(
+        tx,
+        tenantId,
+        siteId,
+        'res-1',
+        {},
+        atpService,
+        ledgerService,
+      );
+
+      expect(result.id).toBe('res-1');
+      expect(result.status).toBe(PartsReservationStatus.CANCELLED);
+      expect(tx.partsReservation.updateMany).toHaveBeenCalled();
+      expect(tx.workshopTaskLineItem.updateMany).toHaveBeenCalled();
     });
   });
 });

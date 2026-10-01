@@ -956,15 +956,12 @@ export async function handleToteReturnStock(
   );
 }
 
-export async function executeReleaseReservation(
+export async function loadAndLockReservationForRelease(
   tx: Prisma.TransactionClient,
   tenantId: string,
   siteId: string,
   reservationId: string,
-  dto: ReleasePartsReservationDto,
-  atpService: AtpService,
-  ledgerService: LedgerService,
-): Promise<PartsReservationResponseDto> {
+) {
   const reservation = await tx.partsReservation.findFirst({
     where: {
       tenant_id: tenantId,
@@ -1014,49 +1011,109 @@ export async function executeReleaseReservation(
   await lockRequisitionLine(tx, tenantId, line.id);
   await lockRequisitionReservations(tx, tenantId, [reservation.id]);
 
-  const staged = new Prisma.Decimal(reservation.quantity_staged);
-  if (staged.gt(0)) {
+  return reservation;
+}
+
+export async function releaseStagedReservationStock(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    siteId: string;
+    line: {
+      catalog_item_id: string | null;
+      workshop_task: {
+        workshop_order: { staging_location_id: string | null };
+      };
+    };
+    reservation: {
+      id: string;
+      tote_cost_basis?: Prisma.Decimal | null;
+    };
+    staged: Prisma.Decimal;
+    returnLocationId?: string | null;
+    ledgerService: LedgerService;
+  },
+): Promise<void> {
+  if (params.staged.gt(0)) {
     await handleToteReturnStock(
       tx,
-      tenantId,
-      siteId,
-      line,
-      reservation,
-      staged,
-      dto.returnLocationId,
-      ledgerService,
+      params.tenantId,
+      params.siteId,
+      params.line,
+      params.reservation,
+      params.staged,
+      params.returnLocationId ?? undefined,
+      params.ledgerService,
     );
   }
+}
+
+export async function releaseOnHandReservationCommitment(
+  tx: Prisma.TransactionClient,
+  params: {
+    tenantId: string;
+    siteId: string;
+    line: { catalog_item_id: string | null };
+    reservation: {
+      kind: PartsReservationKind;
+      status: PartsReservationStatus;
+      location_id?: string | null;
+      quantity: Prisma.Decimal | number | string;
+      quantity_consumed: Prisma.Decimal | number | string;
+      quantity_returned: Prisma.Decimal | number | string;
+    };
+    staged: Prisma.Decimal;
+    atpService: AtpService;
+  },
+): Promise<void> {
+  const { tenantId, siteId, line, reservation, staged, atpService } = params;
   if (
-    reservation.kind === PartsReservationKind.ON_HAND &&
-    reservation.status === PartsReservationStatus.OPEN
+    reservation.kind !== PartsReservationKind.ON_HAND ||
+    reservation.status !== PartsReservationStatus.OPEN
   ) {
-    const remainingOnHand = getRemainingCommitment(reservation).sub(staged);
-    const quantityToRelease = remainingOnHand.gt(0) ? remainingOnHand : ZERO;
-    if (
-      quantityToRelease.gt(0) &&
-      reservation.location_id &&
-      line.catalog_item_id
-    ) {
-      const stock = await tx.inventoryStock.findFirst({
-        where: {
-          tenant_id: tenantId,
-          catalog_item_id: line.catalog_item_id,
-          location_id: reservation.location_id,
-          site_id: siteId,
-        },
-        select: { id: true },
-      });
-      if (stock) {
-        await lockRequisitionStock(tx, tenantId, stock.id);
-        await atpService.releaseOnHand(
-          { stockId: stock.id, quantity: quantityToRelease },
-          tx,
-        );
-      }
-    }
+    return;
   }
 
+  const remainingOnHand = getRemainingCommitment(reservation).sub(staged);
+  const quantityToRelease = remainingOnHand.gt(0) ? remainingOnHand : ZERO;
+  if (
+    !quantityToRelease.gt(0) ||
+    !reservation.location_id ||
+    !line.catalog_item_id
+  ) {
+    return;
+  }
+
+  const stock = await tx.inventoryStock.findFirst({
+    where: {
+      tenant_id: tenantId,
+      catalog_item_id: line.catalog_item_id,
+      location_id: reservation.location_id,
+      site_id: siteId,
+    },
+    select: { id: true },
+  });
+  if (stock) {
+    await lockRequisitionStock(tx, tenantId, stock.id);
+    await atpService.releaseOnHand(
+      { stockId: stock.id, quantity: quantityToRelease },
+      tx,
+    );
+  }
+}
+
+export async function cancelReservationRecord(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  reservation: {
+    id: string;
+    status: PartsReservationStatus;
+    quantity_staged: Prisma.Decimal | number | string;
+    purchase_order_item_id?: string | null;
+    detached_at?: Date | null;
+  },
+  staged: Prisma.Decimal,
+): Promise<void> {
   const updated = await tx.partsReservation.updateMany({
     where: {
       tenant_id: tenantId,
@@ -1076,9 +1133,16 @@ export async function executeReleaseReservation(
   if (updated.count !== 1) {
     throw new ConflictException('Reservation changed during release.');
   }
+}
 
+export async function syncLineItemStatusAfterRelease(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  lineId: string,
+  workshopTaskId?: string,
+): Promise<void> {
   const allReservations = await tx.partsReservation.findMany({
-    where: { tenant_id: tenantId, workshop_task_line_item_id: line.id },
+    where: { tenant_id: tenantId, workshop_task_line_item_id: lineId },
     select: {
       status: true,
       quantity: true,
@@ -1094,7 +1158,7 @@ export async function executeReleaseReservation(
   const hasActiveSlices = allReservations.some(isActiveSlice);
   if (!hasActiveSlices) {
     await tx.workshopTaskLineItem.updateMany({
-      where: { tenant_id: tenantId, id: line.id },
+      where: { tenant_id: tenantId, id: lineId },
       data: {
         quantity: consumed,
         part_execution_status: consumed.gt(0)
@@ -1104,7 +1168,7 @@ export async function executeReleaseReservation(
     });
   } else {
     await tx.workshopTaskLineItem.updateMany({
-      where: { tenant_id: tenantId, id: line.id },
+      where: { tenant_id: tenantId, id: lineId },
       data: {
         part_execution_status: allReservations.some((slice) =>
           new Prisma.Decimal(slice.quantity_staged).gt(0),
@@ -1114,19 +1178,86 @@ export async function executeReleaseReservation(
       },
     });
   }
-  const requisitionId = reservation.requisition_line?.requisition_id;
+
+  const taskId =
+    workshopTaskId ??
+    (
+      await tx.workshopTaskLineItem.findFirst({
+        where: { id: lineId, tenant_id: tenantId },
+        select: { workshop_task_id: true },
+      })
+    )?.workshop_task_id;
+
+  if (taskId) {
+    const versionUpdate = await tx.workshopTask.updateMany({
+      where: { id: taskId, tenant_id: tenantId },
+      data: { line_items_version: { increment: 1 } },
+    });
+    if (versionUpdate.count !== 1) {
+      throw new ConflictException(
+        'Workshop task changed during release. Refresh and retry.',
+      );
+    }
+  }
+}
+
+export async function syncRequisitionAfterRelease(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  requisitionId?: string | null,
+): Promise<void> {
   if (requisitionId) {
     await recomputeRequisitionStatus(tx, tenantId, requisitionId);
   }
-  const versionUpdate = await tx.workshopTask.updateMany({
-    where: { id: line.workshop_task_id, tenant_id: tenantId },
-    data: { line_items_version: { increment: 1 } },
+}
+
+export async function executeReleaseReservation(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  siteId: string,
+  reservationId: string,
+  dto: ReleasePartsReservationDto,
+  atpService: AtpService,
+  ledgerService: LedgerService,
+): Promise<PartsReservationResponseDto> {
+  const reservation = await loadAndLockReservationForRelease(
+    tx,
+    tenantId,
+    siteId,
+    reservationId,
+  );
+  const line = reservation.workshop_task_line_item;
+  const staged = new Prisma.Decimal(reservation.quantity_staged);
+
+  await releaseStagedReservationStock(tx, {
+    tenantId,
+    siteId,
+    line,
+    reservation,
+    staged,
+    returnLocationId: dto.returnLocationId,
+    ledgerService,
   });
-  if (versionUpdate.count !== 1) {
-    throw new ConflictException(
-      'Workshop task changed during release. Refresh and retry.',
-    );
-  }
+  await releaseOnHandReservationCommitment(tx, {
+    tenantId,
+    siteId,
+    line,
+    reservation,
+    staged,
+    atpService,
+  });
+  await cancelReservationRecord(tx, tenantId, reservation, staged);
+  await syncLineItemStatusAfterRelease(
+    tx,
+    tenantId,
+    line.id,
+    line.workshop_task_id,
+  );
+  await syncRequisitionAfterRelease(
+    tx,
+    tenantId,
+    reservation.requisition_line?.requisition_id,
+  );
 
   const result = await tx.partsReservation.findFirst({
     where: { id: reservation.id, tenant_id: tenantId },
