@@ -20,15 +20,22 @@ import {
   buildWorkshopOrderRetargetData,
   buildWorkshopOrderScheduleUpdateData,
   computeCustomerId,
+  createNewIntakeVehicle,
   DEFAULT_PAGE_SIZE,
   executeBasicOrderUpdate,
   executeCreateOrder,
+  executeFindAllWorkshopOrders,
+  executeFindOneWorkshopOrder,
+  executeRegisterIntake,
+  executeSearchWorkshop,
   insertWorkshopOrder,
   MAX_PAGE_SIZE,
   pickClosestScheduledOrder,
   reserveStockPrepVehicle,
   resolveFindAllPagination,
+  resolveIntakeVehicle,
   tryPromoteScheduledOrder,
+  updateExistingIntakeVehicle,
   validateCreateOrderInput,
   validateCreatePrerequisites,
   validateStockPrepVehicle,
@@ -784,13 +791,13 @@ describe('workshop-intake.helpers', () => {
         },
       } as any;
 
-      const result = await executeBasicOrderUpdate(
+      const result = await executeBasicOrderUpdate({
         prisma,
-        'tenant-1',
-        'site-1',
-        'wo-1',
-        { reportedIssue: 'Fixed', notes: 'Done' },
-      );
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        id: 'wo-1',
+        dto: { reportedIssue: 'Fixed', notes: 'Done' },
+      });
       expect(result.id).toBe('wo-1');
     });
 
@@ -802,8 +809,217 @@ describe('workshop-intake.helpers', () => {
       } as any;
 
       await expect(
-        executeBasicOrderUpdate(prisma, 'tenant-1', 'site-1', 'wo-missing', {}),
+        executeBasicOrderUpdate({
+          prisma,
+          tenantId: 'tenant-1',
+          siteId: 'site-1',
+          id: 'wo-missing',
+          dto: {},
+        }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateExistingIntakeVehicle and createNewIntakeVehicle', () => {
+    it('updates vehicle plate and customer_id', async () => {
+      const tx = {
+        vehicle: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'v-1',
+            plate: 'NEW-PLATE',
+            customer_id: 'c-1',
+            customer: { id: 'c-1' },
+          }),
+        },
+      } as any;
+
+      const result = await updateExistingIntakeVehicle({
+        tx,
+        tenantId: 'tenant-1',
+        existingVehicle: {
+          id: 'v-1',
+          plate: 'OLD-PLATE',
+          identity_resolution_generation: null,
+          identity_resolution_token: null,
+        },
+        dto: { plate: 'NEW-PLATE' },
+        customerId: 'c-1',
+        vin: 'VIN123',
+      });
+
+      expect(tx.vehicle.updateMany).toHaveBeenCalled();
+      expect(result.id).toBe('v-1');
+    });
+
+    it('throws ConflictException if concurrent update happened', async () => {
+      const tx = {
+        vehicle: {
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+      } as any;
+
+      await expect(
+        updateExistingIntakeVehicle({
+          tx,
+          tenantId: 'tenant-1',
+          existingVehicle: {
+            id: 'v-1',
+            plate: 'OLD-PLATE',
+            identity_resolution_generation: null,
+            identity_resolution_token: null,
+          },
+          dto: { plate: 'NEW-PLATE' },
+          customerId: 'c-1',
+          vin: 'VIN123',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('creates new vehicle with stripped identity state', async () => {
+      const tx = {
+        vehicle: {
+          create: jest.fn().mockResolvedValue({
+            id: 'v-new',
+            plate: 'ABC-123',
+            customer: { id: 'c-1' },
+          }),
+        },
+      } as any;
+
+      const result = await createNewIntakeVehicle({
+        tx,
+        tenantId: 'tenant-1',
+        dto: { plate: 'ABC-123', make: 'Audi', model: 'A4', year: 2020 },
+        customerId: 'c-1',
+        vin: 'VIN999',
+      });
+
+      expect(result.id).toBe('v-new');
+    });
+
+    it('resolves existing vehicle when found', async () => {
+      const tx = {
+        vehicle: {
+          findFirst: jest.fn().mockResolvedValueOnce({
+            id: 'v-exist',
+            plate: 'OLD',
+            identity_resolution_generation: null,
+            identity_resolution_token: null,
+          }).mockResolvedValueOnce({
+            id: 'v-exist',
+            plate: 'NEW',
+            customer: { id: 'c-1' },
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+      } as any;
+
+      const result = await resolveIntakeVehicle(
+        tx,
+        'tenant-1',
+        { plate: 'NEW', vin: 'VIN123' },
+        'c-1',
+      );
+      expect(result.id).toBe('v-exist');
+    });
+
+    it('executes register intake workflow', async () => {
+      const prisma = {
+        customer: {
+          findFirst: jest.fn().mockResolvedValue({ id: 'c-1' }),
+        },
+        $transaction: jest.fn().mockImplementation((cb) =>
+          cb({
+            vehicle: {
+              findFirst: jest.fn().mockResolvedValue(null),
+              create: jest.fn().mockResolvedValue({ id: 'v-registered' }),
+            },
+          }),
+        ),
+      } as any;
+
+      const result = await executeRegisterIntake(prisma, 'tenant-1', {
+        customerId: 'c-1',
+        plate: 'NEW-123',
+      });
+      expect(result.id).toBe('v-registered');
+    });
+  });
+
+  describe('executeFindAllWorkshopOrders and executeFindOneWorkshopOrder', () => {
+    it('executes findAll with pagination and normalization', async () => {
+      const prisma = {
+        workshopOrder: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: 'wo-1', order_number: 'WO-1', tasks: [] },
+          ]),
+          count: jest.fn().mockResolvedValue(1),
+        },
+      } as any;
+
+      const result = await executeFindAllWorkshopOrders(
+        prisma,
+        'tenant-1',
+        'site-1',
+        { page: 1, pageSize: 10 },
+      );
+
+      expect(result.data).toHaveLength(1);
+      expect(result.meta.total).toBe(1);
+    });
+
+    it('executes findOne returning normalized order', async () => {
+      const prisma = {
+        workshopOrder: {
+          findFirst: jest.fn().mockResolvedValue({
+            id: 'wo-1',
+            order_number: 'WO-1',
+            tasks: [],
+          }),
+        },
+      } as any;
+
+      const result = await executeFindOneWorkshopOrder(
+        prisma,
+        'tenant-1',
+        'site-1',
+        'wo-1',
+      );
+
+      expect(result.id).toBe('wo-1');
+    });
+
+    it('throws NotFoundException when order not found in findOne', async () => {
+      const prisma = {
+        workshopOrder: {
+          findFirst: jest.fn().mockResolvedValue(null),
+        },
+      } as any;
+
+      await expect(
+        executeFindOneWorkshopOrder(prisma, 'tenant-1', 'site-1', 'wo-missing'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('executeSearchWorkshop', () => {
+    it('searches vehicles and customers and returns paginated result', async () => {
+      const prisma = {
+        vehicle: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'v-1' }]),
+          count: jest.fn().mockResolvedValue(1),
+        },
+        customer: {
+          findMany: jest.fn().mockResolvedValue([{ id: 'c-1', vehicles: [] }]),
+          count: jest.fn().mockResolvedValue(1),
+        },
+      } as any;
+
+      const result = await executeSearchWorkshop(prisma, 'tenant-1', 'test');
+      expect(result.data.vehicles).toHaveLength(1);
+      expect(result.data.customers).toHaveLength(1);
+      expect(result.meta.total).toBe(2);
     });
   });
 });

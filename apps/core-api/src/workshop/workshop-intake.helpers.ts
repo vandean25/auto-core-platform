@@ -7,7 +7,6 @@ import {
 import {
   PartsReservationStatus,
   Prisma,
-  VehicleInventoryRole,
   VehicleStockStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
@@ -18,11 +17,9 @@ import type { SiteContextService } from '../site/site-context.service.js';
 import type { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import type { WorkshopScheduleService } from './workshop-schedule.service.js';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
-import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
 import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
 import {
   assertOrderEditable,
-  normalizeWorkshopOrder,
   type WorkshopOrderWithRelations,
 } from './workshop-order.helpers.js';
 import {
@@ -31,43 +28,15 @@ import {
   lockSitesAndAssertActive,
 } from '../site/document-retarget.helpers.js';
 import {
-  VEHICLE_IDENTITY_RESET,
-  normalizeVehicleIdentityValue,
-  normalizeVehicleIdentityValueOrNull,
-  stripVehicleIdentityResolutionState,
-} from '../vehicle/vehicle-identity.util.js';
+  findLiveOrderForVehicle,
+  ORDER_WITH_INVOICE_RELATIONS,
+  ORDER_WITH_RELATIONS,
+  pickClosestScheduledOrder,
+} from './workshop-intake-query.helpers.js';
+import { validateStockPrepVehicle } from './workshop-intake-vehicle.helpers.js';
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const MAX_PAGE_SIZE = 100;
-export const SEARCH_LIMIT = 100;
-
-export const LIVE_ORDER_STATUSES: WorkshopOrderStatus[] = [
-  WorkshopOrderStatus.SCHEDULED,
-  WorkshopOrderStatus.INTAKE,
-  WorkshopOrderStatus.IN_PROGRESS,
-];
-
-export const ORDER_WITH_RELATIONS = {
-  customer: true,
-  vehicle: true,
-  tasks: {
-    include: {
-      line_items: true,
-    },
-  },
-} as const;
-
-export const ORDER_WITH_INVOICE_RELATIONS = {
-  customer: true,
-  vehicle: true,
-  invoice: { select: { id: true, invoice_number: true } },
-  tasks: {
-    orderBy: { createdAt: 'asc' },
-    include: {
-      line_items: true,
-    },
-  },
-} as const;
+export * from './workshop-intake-query.helpers.js';
+export * from './workshop-intake-vehicle.helpers.js';
 
 export interface ExecuteCreateOrderParams {
   tx: Prisma.TransactionClient;
@@ -89,28 +58,6 @@ export interface InsertWorkshopOrderParams {
   purpose: WorkshopOrderPurpose;
   booked: Awaited<ReturnType<WorkshopScheduleService['assertCanBook']>> | null;
   orderNumber: string;
-}
-
-export interface UpdateExistingIntakeVehicleParams {
-  tx: Prisma.TransactionClient;
-  tenantId: string;
-  existingVehicle: {
-    id: string;
-    plate: string | null;
-    identity_resolution_generation: string | null;
-    identity_resolution_token: string | null;
-  };
-  dto: RegisterIntakeDto;
-  customerId: string;
-  vin: string | null;
-}
-
-export interface CreateNewIntakeVehicleParams {
-  tx: Prisma.TransactionClient;
-  tenantId: string;
-  dto: RegisterIntakeDto;
-  customerId: string;
-  vin: string | null;
 }
 
 export interface AssertOrderRetargetingPrerequisitesParams {
@@ -168,150 +115,20 @@ export interface WorkshopIntakeServices {
   partsRequisitionService: Pick<PartsRequisitionService, 'releaseReservation'>;
 }
 
-export function resolveFindAllPagination(
-  page?: number,
-  pageSize?: number,
-): { page: number; pageSize: number; skip: number } {
-  const resolvedPage = page && page > 0 ? page : 1;
-  const rawSize = pageSize && pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
-  const resolvedPageSize = Math.min(rawSize, MAX_PAGE_SIZE);
-  const skip = (resolvedPage - 1) * resolvedPageSize;
-
-  return {
-    page: resolvedPage,
-    pageSize: resolvedPageSize,
-    skip,
-  };
+export interface ExecuteBasicOrderUpdateParams {
+  prisma: PrismaService;
+  tenantId: string;
+  siteId: string;
+  id: string;
+  dto: UpdateWorkshopOrderDto;
 }
 
-export function buildWorkshopOrderFindAllWhere(
-  tenantId: string,
-  siteId: string,
-  search?: string,
-): Prisma.WorkshopOrderWhereInput {
-  if (!search) {
-    return { tenant_id: tenantId, site_id: siteId };
-  }
-
-  return {
-    tenant_id: tenantId,
-    site_id: siteId,
-    OR: [
-      {
-        order_number: { contains: search, mode: 'insensitive' },
-      },
-      { id: { contains: search, mode: 'insensitive' } },
-      {
-        customer: {
-          OR: [
-            {
-              first_name: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-            {
-              last_name: { contains: search, mode: 'insensitive' },
-            },
-            {
-              company_name: {
-                contains: search,
-                mode: 'insensitive',
-              },
-            },
-          ],
-        },
-      },
-      {
-        vehicle: {
-          OR: [
-            { make: { contains: search, mode: 'insensitive' } },
-            { model: { contains: search, mode: 'insensitive' } },
-            { plate: { contains: search, mode: 'insensitive' } },
-            { vin: { contains: search, mode: 'insensitive' } },
-          ],
-        },
-      },
-    ],
-  };
-}
-
-export function buildWorkshopOrderOrderBy(
-  sortField?: string,
-  sortDirection: 'asc' | 'desc' = 'desc',
-): Prisma.WorkshopOrderOrderByWithRelationInput {
-  const resolvedField = sortField ?? 'createdAt';
-
-  if (resolvedField === 'status') {
-    return { status: sortDirection };
-  }
-  if (resolvedField === 'orderNo' || resolvedField === 'order_number') {
-    return { order_number: sortDirection };
-  }
-  if (resolvedField === 'id') {
-    return { id: sortDirection };
-  }
-  if (resolvedField === 'customer') {
-    return { customer: { last_name: sortDirection } };
-  }
-  if (resolvedField === 'vehicle') {
-    return { vehicle: { make: sortDirection } };
-  }
-
-  return { createdAt: sortDirection };
-}
-
-export function buildVehicleSearchWhere(
-  tenantId: string,
-  query: string,
-): Prisma.VehicleWhereInput {
-  return {
-    tenant_id: tenantId,
-    OR: [
-      { vin: { contains: query, mode: 'insensitive' } },
-      { plate: { contains: query, mode: 'insensitive' } },
-      { make: { contains: query, mode: 'insensitive' } },
-      { model: { contains: query, mode: 'insensitive' } },
-    ],
-  };
-}
-
-export function buildCustomerSearchWhere(
-  tenantId: string,
-  query: string,
-): Prisma.CustomerWhereInput {
-  const isUuid =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      query,
-    );
-
-  return {
-    tenant_id: tenantId,
-    OR: [
-      ...(isUuid ? [{ id: { equals: query } }] : []),
-      { first_name: { contains: query, mode: 'insensitive' } },
-      { last_name: { contains: query, mode: 'insensitive' } },
-      { company_name: { contains: query, mode: 'insensitive' } },
-      { phone: { contains: query, mode: 'insensitive' } },
-    ],
-  };
-}
-
-export function pickClosestScheduledOrder<
-  T extends { id: string; scheduled_start_at: Date | null },
->(orders: T[]): T {
-  const now = Date.now();
-  return [...orders].sort((left, right) => {
-    const leftStart = left.scheduled_start_at?.getTime();
-    const rightStart = right.scheduled_start_at?.getTime();
-    if (leftStart == null && rightStart == null) return 0;
-    if (leftStart == null) return 1;
-    if (rightStart == null) return -1;
-    return (
-      Math.abs(leftStart - now) - Math.abs(rightStart - now) ||
-      leftStart - rightStart
-    );
-  })[0];
+export interface ReleaseOrderReservationsForRetargetParams {
+  tx: Prisma.TransactionClient;
+  tenantId: string;
+  orderId: string;
+  returnLocationId: string | null;
+  partsRequisitionService: Pick<PartsRequisitionService, 'releaseReservation'>;
 }
 
 export function validateCreateOrderInput(
@@ -324,42 +141,6 @@ export function validateCreateOrderInput(
   ) {
     throw new BadRequestException('odometer and fuelLevel are required');
   }
-}
-
-export function validateStockPrepVehicle(vehicle: {
-  inventory_role?: VehicleInventoryRole | null;
-  stock_status?: VehicleStockStatus | null;
-}): void {
-  if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
-    throw new BadRequestException(
-      'Stock prep requires a used dealer-stock vehicle',
-    );
-  }
-  if (
-    vehicle.stock_status !== VehicleStockStatus.IN_STOCK &&
-    vehicle.stock_status !== VehicleStockStatus.RESERVED
-  ) {
-    throw new BadRequestException(
-      'Stock prep requires the vehicle to be in stock',
-    );
-  }
-}
-
-export async function findLiveOrderForVehicle(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  siteId: string,
-  vehicleId: string,
-) {
-  return tx.workshopOrder.findFirst({
-    where: {
-      tenant_id: tenantId,
-      site_id: siteId,
-      vehicle_id: vehicleId,
-      status: { in: LIVE_ORDER_STATUSES },
-    },
-    select: { id: true, order_number: true },
-  });
 }
 
 export async function assertNoLiveOrderForVehicle(
@@ -540,6 +321,22 @@ export async function executeCreateOrder(
   });
 }
 
+async function validateCustomerPrerequisite(
+  prisma: PrismaService | Prisma.TransactionClient,
+  tenantId: string,
+  customerId?: string,
+): Promise<void> {
+  if (!customerId) {
+    throw new BadRequestException('customerId is required');
+  }
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, tenant_id: tenantId },
+  });
+  if (!customer) {
+    throw new NotFoundException(`Customer ${customerId} not found`);
+  }
+}
+
 export async function validateCreatePrerequisites(
   prisma: PrismaService | Prisma.TransactionClient,
   tenantId: string,
@@ -554,15 +351,7 @@ export async function validateCreatePrerequisites(
   }
 
   if (purpose === WorkshopOrderPurpose.CUSTOMER_REPAIR) {
-    if (!dto.customerId) {
-      throw new BadRequestException('customerId is required');
-    }
-    const customer = await prisma.customer.findFirst({
-      where: { id: dto.customerId, tenant_id: tenantId },
-    });
-    if (!customer) {
-      throw new NotFoundException(`Customer ${dto.customerId} not found`);
-    }
+    await validateCustomerPrerequisite(prisma, tenantId, dto.customerId);
   } else {
     validateStockPrepVehicle(vehicle);
   }
@@ -608,171 +397,6 @@ export async function executeCreateWorkshopOrder(
   );
 }
 
-export async function computeCustomerId(
-  prisma: PrismaService | Prisma.TransactionClient,
-  tenantId: string,
-  dto: RegisterIntakeDto,
-): Promise<string> {
-  if (dto.customerId) {
-    const exists = await prisma.customer.findFirst({
-      where: { id: dto.customerId, tenant_id: tenantId },
-    });
-    if (!exists) {
-      throw new NotFoundException(`Customer ${dto.customerId} not found`);
-    }
-    return dto.customerId;
-  }
-
-  if (dto.email) {
-    const existingCustomer = await prisma.customer.findFirst({
-      where: { tenant_id: tenantId, email: dto.email },
-    });
-    if (existingCustomer) {
-      return existingCustomer.id;
-    }
-  }
-
-  const customer = await prisma.customer.create({
-    data: {
-      tenant_id: tenantId,
-      first_name: dto.firstName || '',
-      last_name: dto.lastName || '',
-      email: dto.email,
-      phone: dto.phone,
-      type: 'PRIVATE',
-    },
-  });
-  return customer.id;
-}
-
-export async function updateExistingIntakeVehicle(
-  params: UpdateExistingIntakeVehicleParams,
-) {
-  const { tx, tenantId, existingVehicle, dto, customerId, vin } = params;
-  const identityChanged =
-    normalizeVehicleIdentityValue(existingVehicle.plate) !==
-    normalizeVehicleIdentityValue(dto.plate);
-  const updated = await tx.vehicle.updateMany({
-    where: {
-      id: existingVehicle.id,
-      tenant_id: tenantId,
-      vin,
-      plate: existingVehicle.plate,
-      identity_resolution_generation:
-        existingVehicle.identity_resolution_generation ?? null,
-      identity_resolution_token:
-        existingVehicle.identity_resolution_token ?? null,
-    },
-    data: {
-      plate: dto.plate,
-      customer_id: customerId,
-      ...(identityChanged
-        ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }
-        : {}),
-    },
-  });
-
-  if (updated.count === 0) {
-    throw new ConflictException(
-      'Vehicle VIN or plate changed while registering intake; please retry',
-    );
-  }
-
-  const vehicle = await tx.vehicle.findFirst({
-    where: { id: existingVehicle.id, tenant_id: tenantId },
-    include: { customer: true },
-  });
-  if (!vehicle) {
-    throw new NotFoundException(`Vehicle ${existingVehicle.id} not found`);
-  }
-  return stripVehicleIdentityResolutionState(vehicle);
-}
-
-export async function createNewIntakeVehicle(
-  params: CreateNewIntakeVehicleParams,
-) {
-  const { tx, tenantId, dto, customerId, vin } = params;
-  try {
-    const vehicle = await tx.vehicle.create({
-      data: {
-        tenant_id: tenantId,
-        vin,
-        plate: dto.plate,
-        make: dto.make,
-        model: dto.model,
-        year: dto.year,
-        customer_id: customerId,
-      },
-      include: {
-        customer: true,
-      },
-    });
-    return stripVehicleIdentityResolutionState(vehicle);
-  } catch (error: unknown) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      throw new ConflictException(
-        'Vehicle was created by another intake; please retry',
-      );
-    }
-    throw error;
-  }
-}
-
-export async function resolveIntakeVehicle(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  dto: RegisterIntakeDto,
-  customerId: string,
-) {
-  const vin = normalizeVehicleIdentityValueOrNull(dto.vin);
-  const existingVehicle =
-    vin === null
-      ? null
-      : await tx.vehicle.findFirst({
-          where: { tenant_id: tenantId, vin },
-          select: {
-            id: true,
-            plate: true,
-            identity_resolution_generation: true,
-            identity_resolution_token: true,
-          },
-        });
-
-  if (existingVehicle) {
-    return updateExistingIntakeVehicle({
-      tx,
-      tenantId,
-      existingVehicle,
-      dto,
-      customerId,
-      vin,
-    });
-  }
-
-  return createNewIntakeVehicle({
-    tx,
-    tenantId,
-    dto,
-    customerId,
-    vin,
-  });
-}
-
-export async function executeRegisterIntake(
-  prisma: PrismaService,
-  tenantId: string,
-  dto: RegisterIntakeDto,
-) {
-  const customerId = await computeCustomerId(prisma, tenantId, dto);
-
-  return prisma.$transaction(async (tx) => {
-    return resolveIntakeVehicle(tx, tenantId, dto, customerId);
-  });
-}
-
 export async function generateNextWorkshopOrderNumber(
   db: PrismaService | Prisma.TransactionClient,
   tenantId: string,
@@ -814,12 +438,10 @@ export async function generateNextWorkshopOrderNumber(
 }
 
 export async function releaseOrderReservationsForRetarget(
-  tx: Prisma.TransactionClient,
-  tenantId: string,
-  orderId: string,
-  returnLocationId: string | null,
-  partsRequisitionService: Pick<PartsRequisitionService, 'releaseReservation'>,
+  params: ReleaseOrderReservationsForRetargetParams,
 ): Promise<void> {
+  const { tx, tenantId, orderId, returnLocationId, partsRequisitionService } =
+    params;
   const reservations = await tx.partsReservation.findMany({
     where: {
       tenant_id: tenantId,
@@ -846,6 +468,13 @@ export async function releaseOrderReservationsForRetarget(
   }
 }
 
+function resolveNullableDate(
+  value: string | undefined,
+  fallback: Date | null,
+): Date | null {
+  return value ? new Date(value) : fallback;
+}
+
 export function buildWorkshopOrderRetargetData(
   existing: {
     reported_issue: string | null;
@@ -867,12 +496,14 @@ export function buildWorkshopOrderRetargetData(
     notes: dto.notes !== undefined ? dto.notes : existing.notes,
     mechanic_id:
       dto.mechanicId !== undefined ? dto.mechanicId : existing.mechanic_id,
-    scheduled_start_at: dto.scheduledStartAt
-      ? new Date(dto.scheduledStartAt)
-      : existing.scheduled_start_at,
-    scheduled_end_at: dto.scheduledEndAt
-      ? new Date(dto.scheduledEndAt)
-      : existing.scheduled_end_at,
+    scheduled_start_at: resolveNullableDate(
+      dto.scheduledStartAt,
+      existing.scheduled_start_at,
+    ),
+    scheduled_end_at: resolveNullableDate(
+      dto.scheduledEndAt,
+      existing.scheduled_end_at,
+    ),
   };
 }
 
@@ -957,13 +588,13 @@ export async function executeUpdateOrderRetargeting(
       dto.siteId!,
     ]);
 
-    await releaseOrderReservationsForRetarget(
+    await releaseOrderReservationsForRetarget({
       tx,
       tenantId,
-      id,
-      existing.staging_location_id,
+      orderId: id,
+      returnLocationId: existing.staging_location_id,
       partsRequisitionService,
-    );
+    });
 
     const data = buildWorkshopOrderRetargetData(existing, dto);
 
@@ -1027,12 +658,9 @@ export async function executeRescheduleOrder(
 }
 
 export async function executeBasicOrderUpdate(
-  prisma: PrismaService,
-  tenantId: string,
-  siteId: string,
-  id: string,
-  dto: UpdateWorkshopOrderDto,
+  params: ExecuteBasicOrderUpdateParams,
 ) {
+  const { prisma, tenantId, siteId, id, dto } = params;
   const updateResult = await prisma.workshopOrder.updateMany({
     where: { id, tenant_id: tenantId, site_id: siteId },
     data: {
@@ -1048,6 +676,44 @@ export async function executeBasicOrderUpdate(
     where: { id, tenant_id: tenantId, site_id: siteId },
     include: ORDER_WITH_INVOICE_RELATIONS,
   });
+}
+
+function isOrderRetargeting(
+  dto: UpdateWorkshopOrderDto,
+  persistedSiteId: string,
+): boolean {
+  return dto.siteId !== undefined && dto.siteId !== persistedSiteId;
+}
+
+function assertActiveSiteMatch(
+  isRetargeting: boolean,
+  persistedSiteId: string,
+  activeSiteId: string,
+  id: string,
+): void {
+  if (!isRetargeting && persistedSiteId !== activeSiteId) {
+    throw new NotFoundException(`Workshop order ${id} not found`);
+  }
+}
+
+function assertExpectedSiteMatch(
+  expectedSiteId: string | undefined,
+  persistedSiteId: string,
+): void {
+  if (expectedSiteId !== undefined && expectedSiteId !== persistedSiteId) {
+    throw new ConflictException(
+      'Workshop order site changed concurrently. Please refresh.',
+    );
+  }
+}
+
+function hasScheduleUpdateFields(dto: UpdateWorkshopOrderDto): boolean {
+  return (
+    dto.bayId !== undefined ||
+    dto.scheduledStartAt !== undefined ||
+    dto.scheduledEndAt !== undefined ||
+    dto.mechanicId !== undefined
+  );
 }
 
 export async function executeUpdateOrder(
@@ -1072,21 +738,9 @@ export async function executeUpdateOrder(
     'Workshop order site ownership is required',
   );
 
-  const isRetargeting =
-    dto.siteId !== undefined && dto.siteId !== persistedSiteId;
-
-  if (!isRetargeting && persistedSiteId !== activeSiteId) {
-    throw new NotFoundException(`Workshop order ${id} not found`);
-  }
-
-  if (
-    dto.expectedSiteId !== undefined &&
-    dto.expectedSiteId !== persistedSiteId
-  ) {
-    throw new ConflictException(
-      'Workshop order site changed concurrently. Please refresh.',
-    );
-  }
+  const isRetargeting = isOrderRetargeting(dto, persistedSiteId);
+  assertActiveSiteMatch(isRetargeting, persistedSiteId, activeSiteId, id);
+  assertExpectedSiteMatch(dto.expectedSiteId, persistedSiteId);
 
   if (isRetargeting) {
     return executeUpdateOrderRetargeting({
@@ -1101,147 +755,23 @@ export async function executeUpdateOrder(
     });
   }
 
-  const hasScheduleUpdate =
-    dto.bayId !== undefined ||
-    dto.scheduledStartAt !== undefined ||
-    dto.scheduledEndAt !== undefined ||
-    dto.mechanicId !== undefined;
-
-  const currentSiteId = persistedSiteId;
-
-  if (hasScheduleUpdate) {
+  if (hasScheduleUpdateFields(dto)) {
     return executeRescheduleOrder({
       prisma: services.prisma,
       scheduleService: services.scheduleService,
       tenantId,
-      siteId: currentSiteId,
+      siteId: persistedSiteId,
       id,
       existing,
       dto,
     });
   }
 
-  return executeBasicOrderUpdate(
-    services.prisma,
+  return executeBasicOrderUpdate({
+    prisma: services.prisma,
     tenantId,
-    currentSiteId,
+    siteId: persistedSiteId,
     id,
     dto,
-  );
-}
-
-export async function executeFindAllWorkshopOrders(
-  prisma: PrismaService,
-  tenantId: string,
-  siteId: string,
-  params: {
-    search?: string;
-    page?: number;
-    pageSize?: number;
-    sortField?: string;
-    sortDirection?: 'asc' | 'desc';
-  },
-) {
-  const { page, pageSize, skip } = resolveFindAllPagination(
-    params.page,
-    params.pageSize,
-  );
-  const where = buildWorkshopOrderFindAllWhere(tenantId, siteId, params.search);
-  const orderBy = buildWorkshopOrderOrderBy(
-    params.sortField,
-    params.sortDirection,
-  );
-
-  const [data, total] = await Promise.all([
-    prisma.workshopOrder.findMany({
-      where: { ...where, site_id: siteId },
-      include: ORDER_WITH_RELATIONS,
-      skip,
-      take: pageSize,
-      orderBy,
-    }),
-    prisma.workshopOrder.count({ where: { ...where, site_id: siteId } }),
-  ]);
-
-  return {
-    data: data.map((order) =>
-      normalizeWorkshopOrder(order as WorkshopOrderWithRelations),
-    ),
-    meta: {
-      total,
-      page,
-      pageSize,
-      pageCount: Math.ceil(total / pageSize),
-    },
-  };
-}
-
-export async function executeFindOneWorkshopOrder(
-  prisma: PrismaService,
-  tenantId: string,
-  siteId: string,
-  id: string,
-) {
-  const order = await prisma.workshopOrder.findFirst({
-    where: { id, tenant_id: tenantId, site_id: siteId },
-    include: ORDER_WITH_INVOICE_RELATIONS,
   });
-
-  if (!order) {
-    throw new NotFoundException(`Workshop order ${id} not found`);
-  }
-
-  return normalizeWorkshopOrder(order);
-}
-
-export async function executeSearchWorkshop(
-  prisma: PrismaService,
-  tenantId: string,
-  query: string,
-) {
-  const page = 1;
-  const limit = SEARCH_LIMIT;
-  const skip = (page - 1) * limit;
-
-  const vehicleWhere = buildVehicleSearchWhere(tenantId, query);
-  const customerWhere = buildCustomerSearchWhere(tenantId, query);
-
-  const [vehicles, customers, vehicleTotal, customerTotal] = await Promise.all([
-    prisma.vehicle.findMany({
-      where: vehicleWhere,
-      include: {
-        customer: true,
-      },
-      skip,
-      take: limit,
-    }),
-    prisma.customer.findMany({
-      where: customerWhere,
-      include: {
-        vehicles: true,
-      },
-      skip,
-      take: limit,
-    }),
-    prisma.vehicle.count({ where: vehicleWhere }),
-    prisma.customer.count({ where: customerWhere }),
-  ]);
-
-  const total = vehicleTotal + customerTotal;
-
-  return {
-    data: {
-      vehicles: vehicles.map(stripVehicleIdentityResolutionState),
-      customers: customers.map((customer) => ({
-        ...customer,
-        vehicles: customer.vehicles?.map(stripVehicleIdentityResolutionState),
-      })),
-    },
-    meta: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
 }
