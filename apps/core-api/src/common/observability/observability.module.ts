@@ -7,12 +7,31 @@ const { ObserveModule, ObserveInstrument } = createObserveModule({
 
 export { ObserveInstrument };
 
+export interface AppObservabilityOptions {
+  appKey?: string;
+  appSecret?: string;
+  serviceId?: string;
+}
+
 @Module({})
 export class AppObservabilityModule {
-  static register(): DynamicModule {
+  static register(options?: AppObservabilityOptions): DynamicModule {
+    const appKey =
+      options?.appKey || process.env.OBSERVE_APP_KEY || 'dev-app-key';
+    const appSecret =
+      options?.appSecret || process.env.OBSERVE_APP_SECRET || 'dev-app-secret';
+    const serviceId =
+      options?.serviceId || process.env.OBSERVE_SERVICE_ID || 'core-api';
+
     return {
       module: AppObservabilityModule,
-      imports: [ObserveModule.forRoot()],
+      imports: [
+        ObserveModule.forRoot({
+          appKey,
+          appSecret,
+          serviceId,
+        }),
+      ],
       exports: [ObserveModule],
     };
   }

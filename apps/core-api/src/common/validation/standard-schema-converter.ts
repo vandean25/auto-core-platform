@@ -9,10 +9,17 @@ export const standardSchemaConverter: StandardSchemaConverter = (
   options: { schemaType: 'input' | 'output' },
 ) => {
   if (schema && typeof schema === 'object' && '~standard' in schema) {
-    const std = (schema as { '~standard'?: { jsonSchema?: { input?: () => unknown; output?: () => unknown } } })['~standard'];
+    const std = (
+      schema as {
+        '~standard'?: {
+          jsonSchema?: { input?: () => unknown; output?: () => unknown };
+        };
+      }
+    )['~standard'];
     if (std?.jsonSchema) {
       const generated =
-        options.schemaType === 'input' && typeof std.jsonSchema.input === 'function'
+        options.schemaType === 'input' &&
+        typeof std.jsonSchema.input === 'function'
           ? std.jsonSchema.input()
           : typeof std.jsonSchema.output === 'function'
             ? std.jsonSchema.output()

@@ -144,6 +144,7 @@
       "<rootDir>/test/jest-esm-setup.ts"
     ],
     "moduleNameMapper": {
+      "^@nestjs/throttler$": "<rootDir>/test/support/throttler.shim.ts",
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "transformIgnorePatterns": [

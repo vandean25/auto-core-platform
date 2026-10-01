@@ -15,4 +15,3 @@ export function createGlobalValidationPipe(): ValidationPipe {
 export function createGlobalValidationPipes(): PipeTransform[] {
   return [new StandardSchemaValidationPipe(), createGlobalValidationPipe()];
 }
-
