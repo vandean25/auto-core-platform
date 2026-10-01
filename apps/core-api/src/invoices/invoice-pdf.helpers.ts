@@ -1,15 +1,6 @@
-import { createHash } from 'node:crypto';
-import {
-  NotFoundException,
-  UnprocessableEntityException,
-  type Logger,
-} from '@nestjs/common';
+import { NotFoundException, type Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
-import type {
-  ImmutablePdfArchive,
-  PdfArchiveIdentityMetadata,
-  PdfStorage,
-} from '../common/pdf/pdf-storage.js';
+import type { PdfStorage } from '../common/pdf/pdf-storage.js';
 import type { CloudTasksService } from '../common/index.js';
 import { enqueueOrGeneratePdf } from '../common/pdf/pdf-generation-dispatch.js';
 import {
@@ -17,239 +8,66 @@ import {
   type PdfUploadResult,
 } from '../common/pdf/pdf-render-upload.js';
 import type { InvoicePdfRenderer } from './invoice-pdf.renderer.js';
-import { INVOICE_BRANDED_TEMPLATE_VERSION } from './invoice-snapshot-v2.js';
-import { hashInvoiceSnapshot } from './invoice-snapshot-hash.js';
 import { readCachedPdfMetadata } from './invoice-pdf.generation.js';
-import { resolvePdfStorageBucket } from '../common/pdf/pdf-bucket.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
-import type { Readable } from 'node:stream';
-import type { PrismaService } from '../prisma/prisma.service.js';
+import {
+  isBrandedSnapshot,
+  type InvoicePdfPrismaClient,
+} from './invoice-pdf-branding.helpers.js';
+import {
+  buildArchiveIdentity,
+  readArchiveFromMetadata,
+  readArchiveMetadata,
+  rethrowStorageNotFound,
+  toErrorMessage,
+  toPdfStreamResult,
+  type PdfStreamResult,
+} from './invoice-pdf-archive.helpers.js';
 
-export type InvoicePdfPrismaClient = {
-  client: Pick<
-    PrismaService['client'],
-    'invoice' | 'invoiceBrandAssetReference'
-  >;
-};
+export * from './invoice-pdf-branding.helpers.js';
+export * from './invoice-pdf-archive.helpers.js';
 
-export type InvoicePdfRequestGenerationResponse = {
-  mode: 'cached' | 'enqueued' | 'generated';
+export type SafeStoreInvoiceGenerationErrorParams = {
+  prisma: InvoicePdfPrismaClient;
+  logger: { error: (msg: string, stack?: string) => void };
   invoiceId: string;
-  bucket: string | null;
-  key: string | null;
-  generatedAt: Date | null;
-  taskId?: string;
+  tenantId: string;
+  message: string;
 };
 
-export type PdfStreamResult = {
-  filename: string;
-  contentType: string;
-  contentLength: number | null;
-  stream: Readable;
+export type PersistInvoiceGeneratedPdfParams = {
+  prisma: InvoicePdfPrismaClient;
+  invoiceId: string;
+  tenantId: string;
+  upload: { bucket: string; key: string };
+  generatedAt: Date;
 };
 
-export type ArchiveMetadata = {
+export type BackfillInvoicePdfMetadataParams = {
+  prisma: InvoicePdfPrismaClient;
+  logger: { warn: (msg: string) => void };
+  invoiceId: string;
+  tenantId: string;
   bucket: string;
   key: string;
-  generation: string;
-  sha256: string;
 };
 
-export type AssetMetadata = {
-  bucket: string | null;
-  object_key: string | null;
-  object_generation: string | null;
-  sha256: string | null;
-  detected_mime_type: string | null;
-  pixel_width: number | null;
-  pixel_height: number | null;
-};
-
-export type InvoiceBrandingLogo = {
-  asset_id: string;
-  bucket: string;
+export type UploadInvoicePdfParams = {
+  storage: PdfStorage;
+  renderer: InvoicePdfRenderer;
+  snapshot: InvoiceSnapshot;
   key: string;
-  generation: string;
-  sha256: string;
-  mime_type: string;
-  width: number;
-  height: number;
+  onRetry: (error: unknown, attempt: number) => void;
 };
 
-export function brandRenderInputUnavailable(
-  message = 'Frozen branding or archive evidence is unavailable.',
-): UnprocessableEntityException {
-  return new UnprocessableEntityException({
-    code: 'BRAND_RENDER_INPUT_UNAVAILABLE',
-    message,
-  });
-}
-
-export function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export function rethrowStorageNotFound(error: unknown): never {
-  if (error instanceof NotFoundException) {
-    throw new NotFoundException('Invoice PDF is not generated yet');
-  }
-  throw error;
-}
-
-export function isBrandedSnapshot(
-  snapshot: unknown,
-): snapshot is InvoiceSnapshot {
-  return (
-    typeof snapshot === 'object' &&
-    snapshot !== null &&
-    'template_version' in snapshot &&
-    snapshot.template_version === INVOICE_BRANDED_TEMPLATE_VERSION
-  );
-}
-
-export function readArchiveMetadata(invoice: {
-  pdf_archive_bucket: string | null;
-  pdf_archive_key: string | null;
-  pdf_archive_generation: string | null;
-  pdf_archive_sha256: string | null;
-}): ArchiveMetadata | null {
-  const values = [
-    invoice.pdf_archive_bucket,
-    invoice.pdf_archive_key,
-    invoice.pdf_archive_generation,
-    invoice.pdf_archive_sha256,
-  ];
-  if (values.every((value) => value === null || value === undefined)) {
-    return null;
-  }
-  if (
-    values.some((value) => typeof value !== 'string' || value.length === 0) ||
-    !/^[a-f0-9]{64}$/.test(invoice.pdf_archive_sha256 ?? '')
-  ) {
-    throw brandRenderInputUnavailable(
-      'Immutable invoice archive metadata is incomplete.',
-    );
-  }
-  return {
-    bucket: invoice.pdf_archive_bucket!,
-    key: invoice.pdf_archive_key!,
-    generation: invoice.pdf_archive_generation!,
-    sha256: invoice.pdf_archive_sha256!,
-  };
-}
-
-export function buildArchiveIdentity(
-  tenantId: string,
-  invoiceId: string,
-  snapshot: unknown,
-): PdfArchiveIdentityMetadata {
-  if (!isBrandedSnapshot(snapshot)) {
-    throw brandRenderInputUnavailable(
-      'Branded archive requires an invoice-brand-v1 snapshot.',
-    );
-  }
-  return {
-    tenant_id: tenantId,
-    invoice_id: invoiceId,
-    snapshot_sha256: hashInvoiceSnapshot(snapshot),
-    template_version: INVOICE_BRANDED_TEMPLATE_VERSION,
-  };
-}
-
-export function buildArchiveKey(identity: PdfArchiveIdentityMetadata): string {
-  return `invoice-archives/${identity.tenant_id}/${identity.invoice_id}/${identity.snapshot_sha256}/${identity.template_version}.pdf`;
-}
-
-export function sameArchiveIdentity(
-  actual: PdfArchiveIdentityMetadata,
-  expected: PdfArchiveIdentityMetadata,
-): boolean {
-  return (
-    actual.tenant_id === expected.tenant_id &&
-    actual.invoice_id === expected.invoice_id &&
-    actual.snapshot_sha256 === expected.snapshot_sha256 &&
-    actual.template_version === expected.template_version
-  );
-}
-
-export function getErrorCode(error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null || !('code' in error)) {
-    return undefined;
-  }
-  const { code } = error;
-  if (typeof code === 'number') return code;
-  if (typeof code === 'string') {
-    const parsed = Number(code);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
-}
-
-export function verifyFrozenAssetMetadata(
-  asset: AssetMetadata | null | undefined,
-  logo: InvoiceBrandingLogo,
-): boolean {
-  if (!asset) return false;
-  return (
-    asset.bucket === logo.bucket &&
-    asset.object_key === logo.key &&
-    asset.object_generation === logo.generation &&
-    asset.sha256 === logo.sha256 &&
-    asset.detected_mime_type === logo.mime_type &&
-    asset.pixel_width === logo.width &&
-    asset.pixel_height === logo.height
-  );
-}
-
-export function verifyFrozenLogoHash(
-  bytes: Buffer,
-  expectedSha256: string,
-): boolean {
-  return createHash('sha256').update(bytes).digest('hex') === expectedSha256;
-}
-
-export async function readArchiveFromMetadata(
-  storage: PdfStorage,
-  metadata: ArchiveMetadata,
-  expectedIdentity: PdfArchiveIdentityMetadata,
-): Promise<ImmutablePdfArchive & { body: Buffer }> {
-  const expectedKey = buildArchiveKey(expectedIdentity);
-  if (metadata.key !== expectedKey) {
-    throw brandRenderInputUnavailable();
-  }
-  const archive = await storage.readImmutablePdfGeneration({
-    bucket: metadata.bucket,
-    key: metadata.key,
-    generation: metadata.generation,
-    expectedSha256: metadata.sha256,
-  });
-  if (!sameArchiveIdentity(archive.customMetadata, expectedIdentity)) {
-    throw brandRenderInputUnavailable();
-  }
-  return archive;
-}
-
-export async function streamStoredPdf(
-  storage: PdfStorage,
-  location: { bucket?: string | null; key: string },
-  filename: string,
-): Promise<{
+export type FetchFallbackPdfStreamParams = {
+  storage: PdfStorage;
+  prisma: InvoicePdfPrismaClient;
+  logger: { warn: (msg: string) => void };
+  invoiceId: string;
+  tenantId: string;
   filename: string;
-  contentType: string;
-  contentLength: number | null;
-  stream: import('node:stream').Readable;
-}> {
-  const result = await storage.getPdfStream({
-    bucket: location.bucket ?? undefined,
-    key: location.key,
-  });
-  return {
-    filename,
-    contentType: result.contentType ?? 'application/pdf',
-    contentLength: result.contentLength,
-    stream: result.stream,
-  };
-}
+};
 
 export async function clearInvoiceGenerationError(
   prisma: InvoicePdfPrismaClient,
@@ -263,92 +81,153 @@ export async function clearInvoiceGenerationError(
 }
 
 export async function safeStoreInvoiceGenerationError(
-  prisma: InvoicePdfPrismaClient,
-  logger: { error: (msg: string, stack?: string) => void },
-  invoiceId: string,
-  tenantId: string,
-  message: string,
+  ...args:
+    | [params: SafeStoreInvoiceGenerationErrorParams]
+    | [
+        prisma: InvoicePdfPrismaClient,
+        logger: { error: (msg: string, stack?: string) => void },
+        invoiceId: string,
+        tenantId: string,
+        message: string,
+      ]
 ): Promise<void> {
+  const params: SafeStoreInvoiceGenerationErrorParams =
+    args.length === 1
+      ? args[0]
+      : {
+          prisma: args[0],
+          logger: args[1],
+          invoiceId: args[2],
+          tenantId: args[3],
+          message: args[4],
+        };
+
   try {
-    const trimmedError = message.slice(0, 2000);
-    await prisma.client.invoice.updateMany({
-      where: { id: invoiceId, tenant_id: tenantId },
+    const trimmedError = params.message.slice(0, 2000);
+    await params.prisma.client.invoice.updateMany({
+      where: { id: params.invoiceId, tenant_id: params.tenantId },
       data: { pdf_generation_error: trimmedError },
     });
   } catch (error) {
     const errMessage = toErrorMessage(error);
-    logger.error(
-      `Failed to store invoice PDF generation error (invoiceId=${invoiceId}): ${errMessage}`,
+    params.logger.error(
+      `Failed to store invoice PDF generation error (invoiceId=${params.invoiceId}): ${errMessage}`,
       error instanceof Error ? error.stack : undefined,
     );
   }
 }
 
 export async function persistInvoiceGeneratedPdf(
-  prisma: InvoicePdfPrismaClient,
-  invoiceId: string,
-  tenantId: string,
-  upload: { bucket: string; key: string },
-  generatedAt: Date,
+  ...args:
+    | [params: PersistInvoiceGeneratedPdfParams]
+    | [
+        prisma: InvoicePdfPrismaClient,
+        invoiceId: string,
+        tenantId: string,
+        upload: { bucket: string; key: string },
+        generatedAt: Date,
+      ]
 ): Promise<void> {
-  const updated = await prisma.client.invoice.updateMany({
-    where: { id: invoiceId, tenant_id: tenantId },
+  const params: PersistInvoiceGeneratedPdfParams =
+    args.length === 1
+      ? args[0]
+      : {
+          prisma: args[0],
+          invoiceId: args[1],
+          tenantId: args[2],
+          upload: args[3],
+          generatedAt: args[4],
+        };
+
+  const updated = await params.prisma.client.invoice.updateMany({
+    where: { id: params.invoiceId, tenant_id: params.tenantId },
     data: {
-      pdf_storage_key: upload.key,
-      pdf_storage_bucket: upload.bucket,
+      pdf_storage_key: params.upload.key,
+      pdf_storage_bucket: params.upload.bucket,
       pdf_generation_error: null,
-      pdf_generated_at: generatedAt,
+      pdf_generated_at: params.generatedAt,
     },
   });
 
   if (updated.count === 0) {
     throw new NotFoundException(
-      `Invoice ${invoiceId} was not found for PDF metadata persistence`,
+      `Invoice ${params.invoiceId} was not found for PDF metadata persistence`,
     );
   }
 }
 
 export async function backfillInvoicePdfMetadata(
-  prisma: InvoicePdfPrismaClient,
-  logger: { warn: (msg: string) => void },
-  invoiceId: string,
-  tenantId: string,
-  bucket: string,
-  key: string,
+  ...args:
+    | [params: BackfillInvoicePdfMetadataParams]
+    | [
+        prisma: InvoicePdfPrismaClient,
+        logger: { warn: (msg: string) => void },
+        invoiceId: string,
+        tenantId: string,
+        bucket: string,
+        key: string,
+      ]
 ): Promise<void> {
+  const params: BackfillInvoicePdfMetadataParams =
+    args.length === 1
+      ? args[0]
+      : {
+          prisma: args[0],
+          logger: args[1],
+          invoiceId: args[2],
+          tenantId: args[3],
+          bucket: args[4],
+          key: args[5],
+        };
+
   try {
     const generatedAt = new Date();
-    await persistInvoiceGeneratedPdf(
-      prisma,
-      invoiceId,
-      tenantId,
-      { bucket, key },
+    await persistInvoiceGeneratedPdf({
+      prisma: params.prisma,
+      invoiceId: params.invoiceId,
+      tenantId: params.tenantId,
+      upload: { bucket: params.bucket, key: params.key },
       generatedAt,
-    );
+    });
   } catch (error) {
     const message = toErrorMessage(error);
-    logger.warn(
-      `Failed to backfill invoice PDF metadata (invoiceId=${invoiceId}): ${message}`,
+    params.logger.warn(
+      `Failed to backfill invoice PDF metadata (invoiceId=${params.invoiceId}): ${message}`,
     );
   }
 }
 
 export async function uploadInvoicePdf(
-  storage: PdfStorage,
-  renderer: InvoicePdfRenderer,
-  snapshot: InvoiceSnapshot,
-  key: string,
-  onRetry: (error: unknown, attempt: number) => void,
+  ...args:
+    | [params: UploadInvoicePdfParams]
+    | [
+        storage: PdfStorage,
+        renderer: InvoicePdfRenderer,
+        snapshot: InvoiceSnapshot,
+        key: string,
+        onRetry: (error: unknown, attempt: number) => void,
+      ]
 ): Promise<PdfUploadResult> {
+  const params: UploadInvoicePdfParams =
+    args.length === 1
+      ? args[0]
+      : {
+          storage: args[0],
+          renderer: args[1],
+          snapshot: args[2],
+          key: args[3],
+          onRetry: args[4],
+        };
+
   return renderAndUploadPdf({
-    render: async () => renderer.render(snapshot),
+    render: async () => params.renderer.render(params.snapshot),
     upload: async (buffer) =>
-      storage.uploadPdf({
-        key,
+      params.storage.uploadPdf({
+        key: params.key,
         body: buffer,
         contentType: 'application/pdf',
       }),
-    onRetry,
+    onRetry: params.onRetry,
   });
 }
 
@@ -412,6 +291,19 @@ export async function fetchInvoiceForGeneration(
   return invoice;
 }
 
+function extractGeneratedResult(outcome: {
+  result?: {
+    bucket: string | null;
+    key: string | null;
+    generatedAt: Date | null;
+  };
+  bucket?: string | null;
+  key?: string | null;
+  generatedAt?: Date | null;
+}) {
+  return 'result' in outcome && outcome.result ? outcome.result : outcome;
+}
+
 export function formatRequestGenerationOutcome(
   outcome:
     | { mode: 'enqueued'; taskId?: string }
@@ -439,23 +331,16 @@ export function formatRequestGenerationOutcome(
       taskId: outcome.taskId,
     };
   }
-  const result =
-    'result' in outcome && outcome.result ? outcome.result : outcome;
-  if (isBranded) {
-    return {
-      mode: 'generated' as const,
-      invoiceId,
-      bucket: null,
-      key: null,
-      generatedAt: result.generatedAt ?? null,
-    };
-  }
+  const result = extractGeneratedResult(outcome);
+  const bucket = isBranded ? null : (result.bucket ?? null);
+  const key = isBranded ? null : (result.key ?? null);
+  const generatedAt = result.generatedAt ?? null;
   return {
     mode: 'generated' as const,
     invoiceId,
-    bucket: result.bucket ?? null,
-    key: result.key ?? null,
-    generatedAt: result.generatedAt ?? null,
+    bucket,
+    key,
+    generatedAt,
   };
 }
 
@@ -474,21 +359,21 @@ export async function executeStandardPdfGeneration(params: {
   generatedAt: Date;
 }> {
   const destinationKey = `invoices/${params.invoiceId}.pdf`;
-  const uploadResult = await uploadInvoicePdf(
-    params.storage,
-    params.renderer,
-    params.snapshot,
-    destinationKey,
-    params.onRetry,
-  );
+  const uploadResult = await uploadInvoicePdf({
+    storage: params.storage,
+    renderer: params.renderer,
+    snapshot: params.snapshot,
+    key: destinationKey,
+    onRetry: params.onRetry,
+  });
   const timestamp = new Date();
-  await persistInvoiceGeneratedPdf(
-    params.prisma,
-    params.invoiceId,
-    params.tenantId,
-    uploadResult,
-    timestamp,
-  );
+  await persistInvoiceGeneratedPdf({
+    prisma: params.prisma,
+    invoiceId: params.invoiceId,
+    tenantId: params.tenantId,
+    upload: uploadResult,
+    generatedAt: timestamp,
+  });
   return {
     invoiceId: params.invoiceId,
     bucket: uploadResult.bucket,
@@ -497,22 +382,41 @@ export async function executeStandardPdfGeneration(params: {
   };
 }
 
-export function toPdfStreamResult(
-  pdf: {
-    bucket?: string | null;
-    key?: string | null;
-    contentType?: string | null;
-    contentLength: number | null;
-    stream: import('node:stream').Readable;
+async function queryInvoiceWithSiteScope(
+  prisma: InvoicePdfPrismaClient,
+  params: {
+    invoiceId: string;
+    tenantId: string;
+    authorizedSiteIds: string[];
+    includeInvoiceNumber?: boolean;
   },
-  filename: string,
 ) {
-  return {
-    filename,
-    contentType: pdf.contentType ?? 'application/pdf',
-    contentLength: pdf.contentLength,
-    stream: pdf.stream,
-  };
+  const invoice = await prisma.client.invoice.findFirst({
+    where: {
+      id: params.invoiceId,
+      tenant_id: params.tenantId,
+      site_id: { in: params.authorizedSiteIds },
+    },
+    select: {
+      id: true,
+      status: true,
+      invoice_number: params.includeInvoiceNumber ? true : false,
+      pdf_storage_bucket: true,
+      pdf_storage_key: true,
+      pdf_generated_at: true,
+      snapshot: true,
+      pdf_archive_bucket: true,
+      pdf_archive_key: true,
+      pdf_archive_generation: true,
+      pdf_archive_sha256: true,
+    },
+  });
+
+  if (!invoice) {
+    throw new NotFoundException('Invoice not found');
+  }
+
+  return invoice;
 }
 
 export async function fetchInvoiceForRequest(
@@ -521,31 +425,12 @@ export async function fetchInvoiceForRequest(
   tenantId: string,
   authorizedSiteIds: string[],
 ) {
-  const invoice = await prisma.client.invoice.findFirst({
-    where: {
-      id: invoiceId,
-      tenant_id: tenantId,
-      site_id: { in: authorizedSiteIds },
-    },
-    select: {
-      id: true,
-      status: true,
-      pdf_storage_bucket: true,
-      pdf_storage_key: true,
-      pdf_generated_at: true,
-      snapshot: true,
-      pdf_archive_bucket: true,
-      pdf_archive_key: true,
-      pdf_archive_generation: true,
-      pdf_archive_sha256: true,
-    },
+  return queryInvoiceWithSiteScope(prisma, {
+    invoiceId,
+    tenantId,
+    authorizedSiteIds,
+    includeInvoiceNumber: false,
   });
-
-  if (!invoice) {
-    throw new NotFoundException('Invoice not found');
-  }
-
-  return invoice;
 }
 
 export async function fetchInvoiceForPdfGet(
@@ -554,31 +439,12 @@ export async function fetchInvoiceForPdfGet(
   tenantId: string,
   authorizedSiteIds: string[],
 ) {
-  const invoice = await prisma.client.invoice.findFirst({
-    where: {
-      id: invoiceId,
-      tenant_id: tenantId,
-      site_id: { in: authorizedSiteIds },
-    },
-    select: {
-      id: true,
-      invoice_number: true,
-      pdf_storage_bucket: true,
-      pdf_storage_key: true,
-      pdf_generated_at: true,
-      snapshot: true,
-      pdf_archive_bucket: true,
-      pdf_archive_key: true,
-      pdf_archive_generation: true,
-      pdf_archive_sha256: true,
-    },
+  return queryInvoiceWithSiteScope(prisma, {
+    invoiceId,
+    tenantId,
+    authorizedSiteIds,
+    includeInvoiceNumber: true,
   });
-
-  if (!invoice) {
-    throw new NotFoundException('Invoice not found');
-  }
-
-  return invoice;
 }
 
 export async function handleInvoicePdfError(
@@ -606,13 +472,13 @@ export async function handleInvoicePdfError(
       ...(workshopOrderId ? { workshopOrderId } : {}),
     },
   });
-  await safeStoreInvoiceGenerationError(
+  await safeStoreInvoiceGenerationError({
     prisma,
     logger,
     invoiceId,
     tenantId,
     message,
-  );
+  });
 }
 
 export async function resolveInvoiceCachedRequest(
@@ -653,7 +519,11 @@ export async function resolveInvoiceCachedRequest(
     };
   }
 
-  const cachedPdf = branded ? null : readCachedPdfMetadata(invoice);
+  if (branded) {
+    return null;
+  }
+
+  const cachedPdf = readCachedPdfMetadata(invoice);
   if (cachedPdf) {
     return {
       mode: 'cached',
@@ -704,7 +574,11 @@ export async function resolveInvoiceCachedGenerateNow(
     };
   }
 
-  const cachedPdf = branded ? null : readCachedPdfMetadata(invoice);
+  if (branded) {
+    return null;
+  }
+
+  const cachedPdf = readCachedPdfMetadata(invoice);
   if (cachedPdf) {
     onCacheHit?.(cachedPdf);
     return {
@@ -730,7 +604,7 @@ export async function fetchBrandedPdfStream(
   },
   tenantId: string,
   filename: string,
-) {
+): Promise<PdfStreamResult> {
   const archiveMetadata = readArchiveMetadata(invoice);
   if (!archiveMetadata) {
     throw new NotFoundException('Invoice PDF archive is not generated yet');
@@ -749,166 +623,45 @@ export async function fetchBrandedPdfStream(
 }
 
 export async function fetchFallbackPdfStream(
-  storage: PdfStorage,
-  prisma: InvoicePdfPrismaClient,
-  logger: { warn: (msg: string) => void },
-  invoiceId: string,
-  tenantId: string,
-  filename: string,
-) {
-  const fallbackKey = `invoices/${invoiceId}.pdf`;
+  ...args:
+    | [params: FetchFallbackPdfStreamParams]
+    | [
+        storage: PdfStorage,
+        prisma: InvoicePdfPrismaClient,
+        logger: { warn: (msg: string) => void },
+        invoiceId: string,
+        tenantId: string,
+        filename: string,
+      ]
+): Promise<PdfStreamResult> {
+  const params: FetchFallbackPdfStreamParams =
+    args.length === 1
+      ? args[0]
+      : {
+          storage: args[0],
+          prisma: args[1],
+          logger: args[2],
+          invoiceId: args[3],
+          tenantId: args[4],
+          filename: args[5],
+        };
+
+  const fallbackKey = `invoices/${params.invoiceId}.pdf`;
   let pdf: Awaited<ReturnType<PdfStorage['getPdfStream']>>;
   try {
-    pdf = await storage.getPdfStream({ key: fallbackKey });
+    pdf = await params.storage.getPdfStream({ key: fallbackKey });
   } catch (error) {
     rethrowStorageNotFound(error);
   }
 
-  await backfillInvoicePdfMetadata(
-    prisma,
-    logger,
-    invoiceId,
-    tenantId,
-    pdf.bucket,
-    pdf.key,
-  );
-
-  return toPdfStreamResult(pdf, filename);
-}
-
-export async function adoptOrPublishImmutablePdf(
-  storage: PdfStorage,
-  key: string,
-  pdf: Buffer,
-  identity: PdfArchiveIdentityMetadata,
-): Promise<ImmutablePdfArchive> {
-  try {
-    return await storage.publishImmutablePdf({
-      key,
-      body: pdf,
-      contentType: 'application/pdf',
-      customMetadata: identity,
-    });
-  } catch (error) {
-    if (getErrorCode(error) === 412) {
-      return await storage.readImmutablePdfByKey({
-        bucket: resolvePdfStorageBucket(),
-        key,
-        expectedIdentity: identity,
-      });
-    }
-    throw error;
-  }
-}
-
-export async function persistBrandedArchiveMetadata(
-  prisma: InvoicePdfPrismaClient,
-  invoiceId: string,
-  tenantId: string,
-  archive: ImmutablePdfArchive,
-  generatedAt: Date,
-): Promise<void> {
-  const persisted = await prisma.client.invoice.updateMany({
-    where: {
-      id: invoiceId,
-      tenant_id: tenantId,
-      pdf_archive_bucket: null,
-      pdf_archive_key: null,
-      pdf_archive_generation: null,
-      pdf_archive_sha256: null,
-    },
-    data: {
-      pdf_archive_bucket: archive.bucket,
-      pdf_archive_key: archive.key,
-      pdf_archive_generation: archive.generation,
-      pdf_archive_sha256: archive.sha256,
-      pdf_generated_at: generatedAt,
-      pdf_generation_error: null,
-    },
+  await backfillInvoicePdfMetadata({
+    prisma: params.prisma,
+    logger: params.logger,
+    invoiceId: params.invoiceId,
+    tenantId: params.tenantId,
+    bucket: pdf.bucket,
+    key: pdf.key,
   });
 
-  if (persisted.count === 1) return;
-
-  const existing = await prisma.client.invoice.findFirst({
-    where: { id: invoiceId, tenant_id: tenantId },
-    select: {
-      pdf_archive_bucket: true,
-      pdf_archive_key: true,
-      pdf_archive_generation: true,
-      pdf_archive_sha256: true,
-    },
-  });
-
-  const isMatch =
-    existing?.pdf_archive_bucket === archive.bucket &&
-    existing?.pdf_archive_key === archive.key &&
-    existing?.pdf_archive_generation === archive.generation &&
-    existing?.pdf_archive_sha256 === archive.sha256;
-
-  if (!isMatch) {
-    throw brandRenderInputUnavailable(
-      'Immutable invoice archive metadata could not be persisted.',
-    );
-  }
-}
-
-export async function loadFrozenLogo(
-  prisma: InvoicePdfPrismaClient,
-  brandingStorage:
-    | {
-        readGeneration: (
-          bucket: string,
-          key: string,
-          gen: string,
-        ) => Promise<Buffer>;
-      }
-    | undefined,
-  invoice: {
-    id: string;
-    tenant_id: string;
-    legal_entity_id: string | null;
-  },
-  snapshot: InvoiceSnapshot,
-): Promise<Buffer | undefined> {
-  const logo = snapshot.branding?.logo;
-  if (!logo) return undefined;
-  if (!invoice.legal_entity_id || !brandingStorage) {
-    throw brandRenderInputUnavailable();
-  }
-
-  const reference = await prisma.client.invoiceBrandAssetReference.findFirst({
-    where: {
-      tenant_id: invoice.tenant_id,
-      legal_entity_id: invoice.legal_entity_id,
-      invoice_id: invoice.id,
-      asset_id: logo.asset_id,
-    },
-    select: {
-      asset: {
-        select: {
-          bucket: true,
-          object_key: true,
-          object_generation: true,
-          sha256: true,
-          detected_mime_type: true,
-          pixel_width: true,
-          pixel_height: true,
-        },
-      },
-    },
-  });
-
-  if (!verifyFrozenAssetMetadata(reference?.asset, logo)) {
-    throw brandRenderInputUnavailable();
-  }
-
-  const bytes = await brandingStorage.readGeneration(
-    logo.bucket,
-    logo.key,
-    logo.generation,
-  );
-  if (!verifyFrozenLogoHash(bytes, logo.sha256)) {
-    throw brandRenderInputUnavailable();
-  }
-  return bytes;
+  return toPdfStreamResult(pdf, params.filename);
 }

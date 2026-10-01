@@ -7,8 +7,11 @@ import {
   buildArchiveKey,
   clearInvoiceGenerationError,
   dispatchInvoiceGeneration,
+  formatRequestGenerationOutcome,
   getErrorCode,
   isBrandedSnapshot,
+  loadFrozenLogo,
+  persistBrandedArchiveMetadata,
   persistInvoiceGeneratedPdf,
   readArchiveFromMetadata,
   readArchiveMetadata,
@@ -16,6 +19,7 @@ import {
   safeStoreInvoiceGenerationError,
   sameArchiveIdentity,
   toErrorMessage,
+  toPdfStreamResult,
   uploadInvoicePdf,
   verifyFrozenAssetMetadata,
   verifyFrozenLogoHash,
@@ -590,6 +594,180 @@ describe('invoice-pdf.helpers', () => {
       expect(clearError).toHaveBeenCalled();
     });
   });
+
+  describe('toPdfStreamResult', () => {
+    it('creates stream result with defaults', async () => {
+      const stream = (await import('node:stream')).Readable.from(['data']);
+      const result = toPdfStreamResult(
+        { contentLength: 4, stream },
+        'invoice.pdf',
+      );
+      expect(result).toEqual({
+        filename: 'invoice.pdf',
+        contentType: 'application/pdf',
+        contentLength: 4,
+        stream,
+      });
+    });
+  });
+
+  describe('formatRequestGenerationOutcome', () => {
+    it('formats enqueued outcome', () => {
+      const outcome = formatRequestGenerationOutcome(
+        { mode: 'enqueued', taskId: 't-1' },
+        'inv-1',
+      );
+      expect(outcome).toEqual({
+        mode: 'enqueued',
+        invoiceId: 'inv-1',
+        bucket: null,
+        key: null,
+        generatedAt: null,
+        taskId: 't-1',
+      });
+    });
+
+    it('formats generated outcome with bucket and key for standard invoices', () => {
+      const date = new Date();
+      const outcome = formatRequestGenerationOutcome(
+        {
+          mode: 'generated',
+          result: { bucket: 'b', key: 'k', generatedAt: date },
+        },
+        'inv-1',
+        false,
+      );
+      expect(outcome).toEqual({
+        mode: 'generated',
+        invoiceId: 'inv-1',
+        bucket: 'b',
+        key: 'k',
+        generatedAt: date,
+      });
+    });
+
+    it('redacts bucket and key for branded invoices', () => {
+      const date = new Date();
+      const outcome = formatRequestGenerationOutcome(
+        {
+          mode: 'generated',
+          bucket: 'b',
+          key: 'k',
+          generatedAt: date,
+        },
+        'inv-1',
+        true,
+      );
+      expect(outcome).toEqual({
+        mode: 'generated',
+        invoiceId: 'inv-1',
+        bucket: null,
+        key: null,
+        generatedAt: date,
+      });
+    });
+  });
+
+  describe('loadFrozenLogo', () => {
+    it('returns undefined if snapshot has no logo', async () => {
+      const prisma = { client: { invoiceBrandAssetReference: { findFirst: jest.fn() } } };
+      const result = await loadFrozenLogo(
+        prisma as any,
+        undefined,
+        { id: 'inv-1', tenant_id: 't-1', legal_entity_id: 'le-1' },
+        {} as any,
+      );
+      expect(result).toBeUndefined();
+    });
+
+    it('throws when branding storage or legal entity is missing', async () => {
+      const prisma = { client: { invoiceBrandAssetReference: { findFirst: jest.fn() } } };
+      await expect(
+        loadFrozenLogo(
+          prisma as any,
+          undefined,
+          { id: 'inv-1', tenant_id: 't-1', legal_entity_id: null },
+          { branding: { logo: { asset_id: 'a1' } } } as any,
+        ),
+      ).rejects.toThrow(UnprocessableEntityException);
+    });
+  });
+
+  describe('persistBrandedArchiveMetadata', () => {
+    it('persists archive metadata successfully', async () => {
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const prisma = { client: { invoice: { updateMany } } };
+      const date = new Date();
+      const archive = {
+        bucket: 'b',
+        key: 'k',
+        generation: 'g',
+        sha256: 's',
+      };
+
+      await persistBrandedArchiveMetadata(
+        prisma as any,
+        'inv-1',
+        't-1',
+        archive as any,
+        date,
+      );
+
+      expect(updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'inv-1',
+          tenant_id: 't-1',
+          pdf_archive_bucket: null,
+          pdf_archive_key: null,
+          pdf_archive_generation: null,
+          pdf_archive_sha256: null,
+        },
+        data: {
+          pdf_archive_bucket: 'b',
+          pdf_archive_key: 'k',
+          pdf_archive_generation: 'g',
+          pdf_archive_sha256: 's',
+          pdf_generated_at: date,
+          pdf_generation_error: null,
+        },
+      });
+    });
+  });
+
+  describe('object parameter compatibility', () => {
+    it('supports object parameters for persistInvoiceGeneratedPdf', async () => {
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const prisma = { client: { invoice: { updateMany } } };
+      const date = new Date();
+
+      await persistInvoiceGeneratedPdf({
+        prisma: prisma as any,
+        invoiceId: 'inv-1',
+        tenantId: 'tenant-1',
+        upload: { bucket: 'b', key: 'k' },
+        generatedAt: date,
+      });
+
+      expect(updateMany).toHaveBeenCalled();
+    });
+
+    it('supports object parameters for safeStoreInvoiceGenerationError', async () => {
+      const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const prisma = { client: { invoice: { updateMany } } };
+      const logger = { error: jest.fn() };
+
+      await safeStoreInvoiceGenerationError({
+        prisma: prisma as any,
+        logger,
+        invoiceId: 'inv-1',
+        tenantId: 'tenant-1',
+        message: 'err',
+      });
+
+      expect(updateMany).toHaveBeenCalled();
+    });
+  });
 });
+
 
 
