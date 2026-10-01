@@ -37,9 +37,7 @@ export class WorkshopTaskService {
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly orders: WorkshopIntakeService,
     private readonly partsReservations: PartsRequisitionService,
-  ) {
-    void this.prisma;
-  }
+  ) {}
 
   private async getScopedContext(): Promise<{
     tenantId: string;

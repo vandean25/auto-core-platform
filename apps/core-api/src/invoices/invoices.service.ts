@@ -1,52 +1,37 @@
-import {
-  BadRequestException as InvoicingBadRequestException,
-  Injectable as InvoicingServiceDecorator,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { executeCreateDraftInvoice } from './invoice-creation.helpers.js';
 import { executeIssueInvoice } from './invoice-issue.helpers.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
-import { TenantContextService as TenantIdentityContext } from '../common/services/tenant-context.service.js';
-import { FinanceService as WorkshopFinanceService } from '../finance/finance.service.js';
-import { PrismaService as WorkshopDatabaseClient } from '../prisma/prisma.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { FinanceService } from '../finance/finance.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 
-@InvoicingServiceDecorator()
+@Injectable()
 export class InvoicesService {
-  private readonly tenantContextHolder: TenantIdentityContext;
-  private readonly snapshotCommitHolder: InvoiceSnapshotCommitService;
-  private readonly siteContextHolder: SiteContextService;
-  private readonly financeHolder: WorkshopFinanceService;
-  private readonly prismaHolder: WorkshopDatabaseClient;
-
   constructor(
-    tenantCtx: TenantIdentityContext,
-    commitService: InvoiceSnapshotCommitService,
-    siteCtx: SiteContextService,
-    finance: WorkshopFinanceService,
-    prismaClient: WorkshopDatabaseClient,
-  ) {
-    this.tenantContextHolder = tenantCtx;
-    this.snapshotCommitHolder = commitService;
-    this.siteContextHolder = siteCtx;
-    this.financeHolder = finance;
-    this.prismaHolder = prismaClient;
-  }
+    private readonly tenantContext: TenantContextService,
+    private readonly snapshotCommitService: InvoiceSnapshotCommitService,
+    private readonly siteContext: SiteContextService,
+    private readonly financeService: FinanceService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async createDraftInvoice(orderId: string) {
     if (!orderId) {
-      throw new InvoicingBadRequestException('Workshop order ID is required');
+      throw new BadRequestException('Workshop order ID is required');
     }
 
-    const currentTenant = await this.tenantContextHolder.getTenantId();
-    const currentSite = await this.siteContextHolder.getSiteId();
+    const currentTenant = await this.tenantContext.getTenantId();
+    const currentSite = await this.siteContext.getSiteId();
     const executionTimestamp = new Date();
-    await this.financeHolder.validateTransactionDate(executionTimestamp);
+    await this.financeService.validateTransactionDate(executionTimestamp);
 
     const invoicePayload = {
       workshopOrderId: orderId,
     };
     const draftInvoice = await executeCreateDraftInvoice(
-      this.prismaHolder,
+      this.prisma,
       currentTenant,
       currentSite,
       invoicePayload,
@@ -57,18 +42,18 @@ export class InvoicesService {
 
   async issueInvoice(targetInvoiceId: string) {
     if (!targetInvoiceId) {
-      throw new InvoicingBadRequestException('Invoice ID is required');
+      throw new BadRequestException('Invoice ID is required');
     }
 
-    const scopedTenantId = await this.tenantContextHolder.getTenantId();
-    const activeCommitService = this.snapshotCommitHolder;
+    const scopedTenantId = await this.tenantContext.getTenantId();
+    const activeCommitService = this.snapshotCommitService;
     const issuanceOptions = {
       tenantId: scopedTenantId,
       invoiceId: targetInvoiceId,
       snapshotCommit: activeCommitService,
     };
 
-    const issuedInvoice = await this.prismaHolder.$transaction(
+    const issuedInvoice = await this.prisma.$transaction(
       async (transactionClient) => {
         return executeIssueInvoice(transactionClient, issuanceOptions);
       },

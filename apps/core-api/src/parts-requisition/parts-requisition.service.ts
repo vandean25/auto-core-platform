@@ -40,14 +40,7 @@ export class PartsRequisitionService {
     private readonly siteContext: SiteContextService,
     private readonly atpService: AtpService,
     private readonly ledgerService: LedgerService,
-  ) {
-    void this.prisma;
-    void this.tenantContext;
-    void this.siteContext;
-    void this.atpService;
-    void this.ledgerService;
-    void this.logger;
-  }
+  ) {}
 
   private async runAuthorized<T>(
     handler: (

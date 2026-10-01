@@ -61,10 +61,6 @@ export class PurchaseService {
   }
 
   async receiveItems(orderId: string, receivedItems: ReceivedItemInput[]) {
-    const [tenantId, siteId] = await this.getScope();
-    await this.prisma.purchaseOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
-    });
     return this.receiptService.receiveItems(orderId, receivedItems);
   }
 
