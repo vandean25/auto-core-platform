@@ -53,18 +53,6 @@ export interface FindAllWorkshopOrdersParams {
   sortDirection?: 'asc' | 'desc';
 }
 
-const ORDER_BY_FIELD_MAP: Record<
-  string,
-  (direction: 'asc' | 'desc') => Prisma.WorkshopOrderOrderByWithRelationInput
-> = {
-  status: (dir) => ({ status: dir }),
-  orderNo: (dir) => ({ order_number: dir }),
-  order_number: (dir) => ({ order_number: dir }),
-  id: (dir) => ({ id: dir }),
-  customer: (dir) => ({ customer: { last_name: dir } }),
-  vehicle: (dir) => ({ vehicle: { make: dir } }),
-};
-
 export function resolveFindAllPagination(
   page?: number,
   pageSize?: number,
@@ -137,11 +125,21 @@ export function buildWorkshopOrderOrderBy(
   sortField?: string,
   sortDirection: 'asc' | 'desc' = 'desc',
 ): Prisma.WorkshopOrderOrderByWithRelationInput {
-  const builder = sortField ? ORDER_BY_FIELD_MAP[sortField] : undefined;
-  if (builder) {
-    return builder(sortDirection);
+  switch (sortField) {
+    case 'status':
+      return { status: sortDirection };
+    case 'orderNo':
+    case 'order_number':
+      return { order_number: sortDirection };
+    case 'id':
+      return { id: sortDirection };
+    case 'customer':
+      return { customer: { last_name: sortDirection } };
+    case 'vehicle':
+      return { vehicle: { make: sortDirection } };
+    default:
+      return { createdAt: sortDirection };
   }
-  return { createdAt: sortDirection };
 }
 
 export function buildVehicleSearchWhere(
