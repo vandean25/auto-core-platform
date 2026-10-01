@@ -23,8 +23,14 @@ import {
   syncPurchaseOrderStatusAndFetch,
   executeMarkAsSent,
   executeRemovePurchaseOrder,
+  toPurchaseOrderItemCreateData,
+  toPurchaseOrderItemNestedCreateData,
   buildLegacyPurchaseOrderWhere,
   isPurchaseOrderFindManyArgs,
+  executeGetPurchaseOrderItems,
+  executeGetPurchaseOrderItem,
+  executeFindOnePurchaseOrder,
+  executeFindAllPurchaseOrders,
 } from './purchase-order.helpers.js';
 
 import Decimal = Prisma.Decimal;
@@ -650,6 +656,143 @@ describe('purchase-order.helpers', () => {
       expect(isPurchaseOrderFindManyArgs(undefined)).toBe(false);
       expect(isPurchaseOrderFindManyArgs(null as any)).toBe(false);
       expect(isPurchaseOrderFindManyArgs({ foo: 'bar' } as any)).toBe(false);
+    });
+  });
+
+  describe('item create data transformers', () => {
+    it('toPurchaseOrderItemCreateData should map fields with orderId', () => {
+      const data = toPurchaseOrderItemCreateData(
+        'tenant-1',
+        { catalogItemId: 'cat-1', quantity: 5, unitCost: 20 },
+        'po-1',
+      );
+      expect(data).toEqual({
+        tenant_id: 'tenant-1',
+        purchase_order_id: 'po-1',
+        catalog_item_id: 'cat-1',
+        quantity: 5,
+        unit_cost: 20,
+        quantity_received: 0,
+      });
+    });
+
+    it('toPurchaseOrderItemNestedCreateData should map fields without orderId', () => {
+      const data = toPurchaseOrderItemNestedCreateData('tenant-1', {
+        catalogItemId: 'cat-1',
+        quantity: 5,
+        unitCost: 20,
+      });
+      expect(data).toEqual({
+        tenant_id: 'tenant-1',
+        catalog_item_id: 'cat-1',
+        quantity: 5,
+        unit_cost: 20,
+        quantity_received: 0,
+      });
+    });
+  });
+
+  describe('query execution helpers', () => {
+    const mockPrisma: any = {
+      purchaseOrder: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
+      purchaseOrderItem: {
+        findFirst: jest.fn(),
+      },
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('executeGetPurchaseOrderItems returns items when found', async () => {
+      mockPrisma.purchaseOrder.findFirst.mockResolvedValue({
+        id: 'po-1',
+        items: [{ id: 'item-1' }],
+      });
+      const items = await executeGetPurchaseOrderItems(
+        mockPrisma,
+        'tenant-1',
+        'site-1',
+        'po-1',
+      );
+      expect(items).toEqual([{ id: 'item-1' }]);
+    });
+
+    it('executeGetPurchaseOrderItems throws NotFoundException when PO not found', async () => {
+      mockPrisma.purchaseOrder.findFirst.mockResolvedValue(null);
+      await expect(
+        executeGetPurchaseOrderItems(mockPrisma, 'tenant-1', 'site-1', 'po-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('executeGetPurchaseOrderItem returns item when found', async () => {
+      mockPrisma.purchaseOrderItem.findFirst.mockResolvedValue({
+        id: 'item-1',
+        purchase_order_id: 'po-1',
+      });
+      const item = await executeGetPurchaseOrderItem(
+        mockPrisma,
+        'tenant-1',
+        'po-1',
+        'item-1',
+      );
+      expect(item.id).toBe('item-1');
+    });
+
+    it('executeGetPurchaseOrderItem throws NotFoundException when item not found', async () => {
+      mockPrisma.purchaseOrderItem.findFirst.mockResolvedValue(null);
+      await expect(
+        executeGetPurchaseOrderItem(mockPrisma, 'tenant-1', 'po-1', 'item-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('executeFindOnePurchaseOrder queries with authorized site IDs', async () => {
+      mockPrisma.purchaseOrder.findFirst.mockResolvedValue({ id: 'po-1' });
+      const result = await executeFindOnePurchaseOrder(
+        mockPrisma,
+        'tenant-1',
+        ['site-1'],
+        'po-1',
+      );
+      expect(result?.id).toBe('po-1');
+      expect(mockPrisma.purchaseOrder.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'po-1',
+            tenant_id: 'tenant-1',
+            site_id: { in: ['site-1'] },
+          },
+        }),
+      );
+    });
+
+    it('executeFindAllPurchaseOrders supports paginated args', async () => {
+      mockPrisma.purchaseOrder.findMany.mockResolvedValue([{ id: 'po-1' }]);
+      mockPrisma.purchaseOrder.count.mockResolvedValue(1);
+
+      const result = await executeFindAllPurchaseOrders(
+        mockPrisma,
+        'tenant-1',
+        'site-1',
+        { skip: 0, take: 10 },
+      );
+      expect(result).toEqual({ data: [{ id: 'po-1' }], total: 1 });
+    });
+
+    it('executeFindAllPurchaseOrders supports legacy string status', async () => {
+      mockPrisma.purchaseOrder.findMany.mockResolvedValue([{ id: 'po-1' }]);
+
+      const result = await executeFindAllPurchaseOrders(
+        mockPrisma,
+        'tenant-1',
+        'site-1',
+        'open',
+      );
+      expect(result).toEqual({ data: [{ id: 'po-1' }], total: 1 });
     });
   });
 });
