@@ -16,10 +16,17 @@ import {
   buildTaskUpdateFieldData,
   classifyDeletedLineItems,
   computeFieldNameText,
+  computePartItemExecutionStatus,
+  derivePartExecutionStatusMap,
+  executeExistingLineItemUpdates,
+  executeLineDeletionsAndCancellations,
+  fetchPartLineReservations,
   findLineReservationHistory,
+  groupReservationsByLine,
   handleDeletedLineItems,
   handleTaskLineItemsError,
   lockWorkshopRows,
+  releaseDeletedLineReservations,
   resolveDefaultTaskScheduledDate,
   resolveOrderStatusConflict,
   updateExistingTaskLineItems,
@@ -218,14 +225,14 @@ describe('workshop-task.helpers', () => {
     it('rethrows non-ConflictException errors', async () => {
       const tx = {} as any;
       await expect(
-        resolveOrderStatusConflict(
+        resolveOrderStatusConflict({
           tx,
-          'ten-1',
-          'wo-1',
-          WorkshopOrderStatus.COMPLETED,
-          new Error('DB error'),
-          'site-1',
-        ),
+          tenantId: 'ten-1',
+          orderId: 'wo-1',
+          nextOrderStatus: WorkshopOrderStatus.COMPLETED,
+          error: new Error('DB error'),
+          siteId: 'site-1',
+        }),
       ).rejects.toThrow('DB error');
     });
 
@@ -237,14 +244,14 @@ describe('workshop-task.helpers', () => {
       } as any;
 
       await expect(
-        resolveOrderStatusConflict(
+        resolveOrderStatusConflict({
           tx,
-          'ten-1',
-          'wo-1',
-          WorkshopOrderStatus.COMPLETED,
-          new ConflictException('race'),
-          'site-1',
-        ),
+          tenantId: 'ten-1',
+          orderId: 'wo-1',
+          nextOrderStatus: WorkshopOrderStatus.COMPLETED,
+          error: new ConflictException('race'),
+          siteId: 'site-1',
+        }),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -257,14 +264,14 @@ describe('workshop-task.helpers', () => {
         },
       } as any;
 
-      const result = await resolveOrderStatusConflict(
+      const result = await resolveOrderStatusConflict({
         tx,
-        'ten-1',
-        'wo-1',
-        WorkshopOrderStatus.COMPLETED,
-        new ConflictException('race'),
-        'site-1',
-      );
+        tenantId: 'ten-1',
+        orderId: 'wo-1',
+        nextOrderStatus: WorkshopOrderStatus.COMPLETED,
+        error: new ConflictException('race'),
+        siteId: 'site-1',
+      });
       expect(result).toBe(false);
     });
 
@@ -277,14 +284,14 @@ describe('workshop-task.helpers', () => {
         },
       } as any;
 
-      const result = await resolveOrderStatusConflict(
+      const result = await resolveOrderStatusConflict({
         tx,
-        'ten-1',
-        'wo-1',
-        WorkshopOrderStatus.COMPLETED,
-        new ConflictException('race'),
-        'site-1',
-      );
+        tenantId: 'ten-1',
+        orderId: 'wo-1',
+        nextOrderStatus: WorkshopOrderStatus.COMPLETED,
+        error: new ConflictException('race'),
+        siteId: 'site-1',
+      });
       expect(result).toBe(true);
     });
 
@@ -299,14 +306,14 @@ describe('workshop-task.helpers', () => {
 
       const conflict = new ConflictException('race');
       await expect(
-        resolveOrderStatusConflict(
+        resolveOrderStatusConflict({
           tx,
-          'ten-1',
-          'wo-1',
-          WorkshopOrderStatus.COMPLETED,
-          conflict,
-          'site-1',
-        ),
+          tenantId: 'ten-1',
+          orderId: 'wo-1',
+          nextOrderStatus: WorkshopOrderStatus.COMPLETED,
+          error: conflict,
+          siteId: 'site-1',
+        }),
       ).rejects.toBe(conflict);
     });
   });
@@ -819,25 +826,35 @@ describe('workshop-task.helpers', () => {
   describe('lockWorkshopRows', () => {
     it('returns early when ids array is empty', async () => {
       const tx = { $queryRaw: jest.fn() } as any;
-      await lockWorkshopRows(tx, 'workshop_tasks', 'ten-1', []);
+      await lockWorkshopRows({
+        tx,
+        tableName: 'workshop_tasks',
+        tenantId: 'ten-1',
+        ids: [],
+      });
       expect(tx.$queryRaw).not.toHaveBeenCalled();
     });
 
     it('locks workshop_tasks with siteId via joined workshop_orders query', async () => {
       const tx = { $queryRaw: jest.fn().mockResolvedValue([]) } as any;
-      await lockWorkshopRows(
+      await lockWorkshopRows({
         tx,
-        'workshop_tasks',
-        'ten-1',
-        ['task-2', 'task-1'],
-        'site-1',
-      );
+        tableName: 'workshop_tasks',
+        tenantId: 'ten-1',
+        ids: ['task-2', 'task-1'],
+        siteId: 'site-1',
+      });
       expect(tx.$queryRaw).toHaveBeenCalled();
     });
 
     it('locks generic table rows for parts_reservations', async () => {
       const tx = { $queryRaw: jest.fn().mockResolvedValue([]) } as any;
-      await lockWorkshopRows(tx, 'parts_reservations', 'ten-1', ['res-1']);
+      await lockWorkshopRows({
+        tx,
+        tableName: 'parts_reservations',
+        tenantId: 'ten-1',
+        ids: ['res-1'],
+      });
       expect(tx.$queryRaw).toHaveBeenCalled();
     });
   });
@@ -888,6 +905,249 @@ describe('workshop-task.helpers', () => {
           quantity_staged: true,
           status: true,
         },
+      });
+    });
+  });
+
+  describe('releaseDeletedLineReservations', () => {
+    it('filters active reservations for deleted items and invokes releaseReservation', async () => {
+      const releaseMock = jest.fn().mockResolvedValue(undefined);
+      const ctx = {
+        tx: {} as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+        returnLocationId: 'loc-1',
+        releaseReservation: releaseMock,
+      };
+      const reservations = [
+        {
+          id: 'res-1',
+          workshop_task_line_item_id: 'line-1',
+          quantity: 2,
+          quantity_consumed: 0,
+          quantity_returned: 0,
+          quantity_staged: 2,
+          status: PartsReservationStatus.STAGED,
+        },
+        {
+          id: 'res-2',
+          workshop_task_line_item_id: 'line-2', // not in deletedIds
+          quantity: 2,
+          quantity_consumed: 0,
+          quantity_returned: 0,
+          quantity_staged: 2,
+          status: PartsReservationStatus.STAGED,
+        },
+        {
+          id: 'res-3',
+          workshop_task_line_item_id: 'line-1',
+          quantity: 2,
+          quantity_consumed: 0,
+          quantity_returned: 2,
+          quantity_staged: 0,
+          status: PartsReservationStatus.CANCELLED, // inactive slice
+        },
+      ];
+
+      const result = await releaseDeletedLineReservations(
+        ctx,
+        ['line-1'],
+        reservations,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('res-1');
+      expect(releaseMock).toHaveBeenCalledWith(
+        'res-1',
+        { returnLocationId: 'loc-1' },
+        ctx.tx,
+      );
+    });
+  });
+
+  describe('executeLineDeletionsAndCancellations', () => {
+    it('executes deleteMany and updateMany scoped to tenant and site', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await executeLineDeletionsAndCancellations(ctx, ['hard-1'], ['cancel-1']);
+
+      expect(ctx.tx.workshopTaskLineItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'ten-1',
+          workshop_task_id: 'task-1',
+          id: { in: ['hard-1'] },
+          workshop_task: { workshop_order: { site_id: 'site-1' } },
+        },
+      });
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'ten-1',
+          workshop_task_id: 'task-1',
+          id: { in: ['cancel-1'] },
+          workshop_task: { workshop_order: { site_id: 'site-1' } },
+        },
+        data: {
+          part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+        },
+      });
+    });
+  });
+
+  describe('computePartItemExecutionStatus', () => {
+    it('returns CONSUMED when consumed >= requested qty', () => {
+      const status = computePartItemExecutionStatus(2, [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity_consumed: 2,
+          quantity_staged: 0,
+        },
+      ]);
+      expect(status).toBe(WorkshopPartLineExecutionStatus.CONSUMED);
+    });
+
+    it('returns STAGED when staged > 0 and consumed < requested qty', () => {
+      const status = computePartItemExecutionStatus(2, [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity_consumed: 0,
+          quantity_staged: 1,
+        },
+      ]);
+      expect(status).toBe(WorkshopPartLineExecutionStatus.STAGED);
+    });
+
+    it('returns PENDING_PICK when no quantity is staged or consumed', () => {
+      const status = computePartItemExecutionStatus(2, [
+        {
+          workshop_task_line_item_id: 'line-1',
+          quantity_consumed: 0,
+          quantity_staged: 0,
+        },
+      ]);
+      expect(status).toBe(WorkshopPartLineExecutionStatus.PENDING_PICK);
+    });
+  });
+
+  describe('derivePartExecutionStatusMap', () => {
+    it('derives execution status map for parts and ignores labor items', () => {
+      const items = [
+        {
+          id: 'part-1',
+          type: WorkshopLineItemType.PART,
+          qty: 2,
+          unitPrice: 10,
+          itemNo: 'P-1',
+          description: 'Part',
+        },
+        {
+          id: 'labor-1',
+          type: WorkshopLineItemType.LABOR,
+          qty: 1,
+          unitPrice: 50,
+          itemNo: 'L-1',
+          description: 'Labor',
+        },
+      ];
+      const reservationsByLine = new Map([
+        [
+          'part-1',
+          [
+            {
+              workshop_task_line_item_id: 'part-1',
+              quantity_consumed: 2,
+              quantity_staged: 0,
+            },
+          ],
+        ],
+      ]);
+
+      const map = derivePartExecutionStatusMap(items, reservationsByLine);
+      expect(map.get('part-1')).toBe(WorkshopPartLineExecutionStatus.CONSUMED);
+      expect(map.has('labor-1')).toBe(false);
+    });
+  });
+
+  describe('groupReservationsByLine and fetchPartLineReservations', () => {
+    it('groups reservations by line item id', () => {
+      const res1 = {
+        workshop_task_line_item_id: 'line-1',
+        quantity_consumed: 1,
+        quantity_staged: 0,
+      };
+      const res2 = {
+        workshop_task_line_item_id: 'line-1',
+        quantity_consumed: 0,
+        quantity_staged: 1,
+      };
+      const res3 = {
+        workshop_task_line_item_id: 'line-2',
+        quantity_consumed: 0,
+        quantity_staged: 0,
+      };
+
+      const grouped = groupReservationsByLine([res1, res2, res3]);
+      expect(grouped.get('line-1')).toEqual([res1, res2]);
+      expect(grouped.get('line-2')).toEqual([res3]);
+    });
+
+    it('returns empty array when partLineIds is empty', async () => {
+      const tx = { partsReservation: { findMany: jest.fn() } } as any;
+      const res = await fetchPartLineReservations(tx, 'ten-1', []);
+      expect(res).toEqual([]);
+      expect(tx.partsReservation.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('executeExistingLineItemUpdates', () => {
+    it('updates items with status from status map', async () => {
+      const ctx = {
+        tx: {
+          workshopTaskLineItem: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+      const items = [
+        {
+          id: 'part-1',
+          type: WorkshopLineItemType.PART,
+          qty: 2,
+          unitPrice: 10,
+          itemNo: 'P-1',
+          description: 'Part',
+        },
+      ];
+      const statusMap = new Map([
+        ['part-1', WorkshopPartLineExecutionStatus.CONSUMED],
+      ]);
+
+      await executeExistingLineItemUpdates(ctx, items, statusMap);
+
+      expect(ctx.tx.workshopTaskLineItem.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'part-1',
+          tenant_id: 'ten-1',
+          workshop_task_id: 'task-1',
+          workshop_task: { workshop_order: { site_id: 'site-1' } },
+        },
+        data: expect.objectContaining({
+          part_execution_status: WorkshopPartLineExecutionStatus.CONSUMED,
+        }),
       });
     });
   });

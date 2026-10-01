@@ -67,13 +67,13 @@ export class WorkshopTaskService {
   async createTask(orderId: string, dto: CreateWorkshopTaskDto) {
     const { tenantId, siteId } = await this.getScopedContext();
     return this.prisma.$transaction(async (tx) => {
-      const { order, task, nextOrderStatus } = await executeTaskCreation(
+      const { order, task, nextOrderStatus } = await executeTaskCreation({
         tx,
         tenantId,
         siteId,
         orderId,
         dto,
-      );
+      });
 
       if (nextOrderStatus !== order.status) {
         await this.applyDerivedOrderStatus({
@@ -124,12 +124,12 @@ export class WorkshopTaskService {
   async deleteTask(orderId: string, taskId: string) {
     const { tenantId, siteId } = await this.getScopedContext();
     await this.prisma.$transaction(async (tx) => {
-      await executeTaskDeletion(tx, tenantId, siteId, orderId, taskId);
-      await recalculateAndApplyOrderStatus(
+      await executeTaskDeletion({ tx, tenantId, siteId, orderId, taskId });
+      await recalculateAndApplyOrderStatus({
         tx,
         tenantId,
         orderId,
-        (t, ten, ord, next) =>
+        applyDerivedStatus: (t, ten, ord, next) =>
           this.applyDerivedOrderStatus({
             tx: t,
             tenantId: ten,
@@ -138,7 +138,7 @@ export class WorkshopTaskService {
             nextOrderStatus: next,
           }),
         siteId,
-      );
+      });
     });
 
     return this.orders.findOne(orderId);
@@ -150,30 +150,30 @@ export class WorkshopTaskService {
     dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
     const { tenantId, siteId } = await this.getScopedContext();
-    await validateTaskForLineItemReplacement(
-      this.prisma,
+    await validateTaskForLineItemReplacement({
+      prisma: this.prisma,
       tenantId,
       siteId,
       orderId,
       taskId,
-    );
+    });
     await validateLaborOperationIds(this.prisma, tenantId, dto.items);
 
     try {
       await this.prisma.$transaction(async (tx) => {
-        await executeLineItemReplacement(
+        await executeLineItemReplacement({
           tx,
           tenantId,
           siteId,
           taskId,
           dto,
-          (reservationId, options, client) =>
+          releaseReservation: (reservationId, options, client) =>
             this.partsReservations.releaseReservation(
               reservationId,
               options,
               client,
             ),
-        );
+        });
       });
     } catch (error) {
       handleTaskLineItemsError(error);
