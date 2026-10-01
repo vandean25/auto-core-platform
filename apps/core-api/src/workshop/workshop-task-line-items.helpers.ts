@@ -548,7 +548,7 @@ export function derivePartExecutionStatusMap(
 }
 
 function assignLaborLineFields(
-  data: Prisma.WorkshopTaskLineItemUpdateManyMutationInput,
+  data: Prisma.WorkshopTaskLineItemUncheckedUpdateManyInput,
   item: ExistingLineItemToUpdate,
 ): void {
   if (item.actualHours != null) {
@@ -568,8 +568,8 @@ function assignLaborLineFields(
 export function buildExistingLineItemUpdateData(
   item: ExistingLineItemToUpdate,
   partStatus?: WorkshopPartLineExecutionStatus,
-): Prisma.WorkshopTaskLineItemUpdateManyMutationInput {
-  const data: Prisma.WorkshopTaskLineItemUpdateManyMutationInput = {
+): Prisma.WorkshopTaskLineItemUncheckedUpdateManyInput {
+  const data: Prisma.WorkshopTaskLineItemUncheckedUpdateManyInput = {
     description: item.description,
     quantity: new Prisma.Decimal(item.qty),
     unit_price: new Prisma.Decimal(item.unitPrice),

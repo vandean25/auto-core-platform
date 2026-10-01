@@ -76,17 +76,6 @@ export function verifyFrozenLogoHash(
   return createHash('sha256').update(bytes).digest('hex') === expectedSha256;
 }
 
-function assertBrandingAvailable(
-  legalEntityId: string | null,
-  brandingStorage: unknown,
-): asserts legalEntityId is string {
-  if (!legalEntityId) {
-    throw brandRenderInputUnavailable();
-  }
-  if (!brandingStorage) {
-    throw brandRenderInputUnavailable();
-  }
-}
 
 async function findFrozenAsset(
   prisma: InvoicePdfPrismaClient,
@@ -138,7 +127,9 @@ export async function loadFrozenLogo(
   const logo = snapshot.branding ? snapshot.branding.logo : undefined;
   if (!logo) return undefined;
 
-  assertBrandingAvailable(invoice.legal_entity_id, brandingStorage);
+  if (!invoice.legal_entity_id || !brandingStorage) {
+    throw brandRenderInputUnavailable();
+  }
 
   const asset = await findFrozenAsset(
     prisma,
