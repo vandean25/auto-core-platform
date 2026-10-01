@@ -54,3 +54,8 @@ export {
   type StatusUpdateMany,
   type GuardedStatusUpdateInput,
 } from './utils/status-transition.js';
+export {
+  AppObservabilityModule,
+  ObserveInstrument,
+} from './observability/observability.module.js';
+
