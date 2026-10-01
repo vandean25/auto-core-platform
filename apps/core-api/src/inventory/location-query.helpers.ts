@@ -9,15 +9,19 @@ const listWhere = (scope: LocationScope): Prisma.StorageLocationWhereInput => ({
   deletedAt: null,
 });
 
-export type LocationTreeNode = Prisma.StorageLocationGetPayload<{
+export type LocationListItem = Prisma.StorageLocationGetPayload<{
   include: {
     parent: true;
     _count: { select: { children: true; stocks: true } };
   };
-}> & { children: LocationTreeNode[] };
+}>;
+
+export type LocationTreeNode = LocationListItem & {
+  children: LocationTreeNode[];
+};
 
 export function toLocationTree(
-  locations: LocationTreeNode[],
+  locations: LocationListItem[],
   parentId: string | null = null,
 ): LocationTreeNode[] {
   return locations

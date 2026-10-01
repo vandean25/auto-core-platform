@@ -20,6 +20,8 @@ import {
   toLocationTree,
 } from './location-query.helpers.js';
 
+export type { LocationTreeNode } from './location-query.helpers.js';
+
 const locationInclude = {
   parent: true,
   _count: {
