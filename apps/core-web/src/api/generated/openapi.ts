@@ -6481,11 +6481,11 @@ export interface operations {
         parameters: {
             query: {
                 vendorId: string;
+                status: string;
                 page: string;
                 pageSize: string;
                 sortBy: string;
                 order: string;
-                status: string;
             };
             header?: never;
             path?: never;
@@ -7817,13 +7817,13 @@ export interface operations {
     SalesOrderController_findAll: {
         parameters: {
             query?: {
+                status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
                 params?: string;
                 page?: number;
                 pageSize?: number;
                 search?: string;
                 sortField?: string;
                 sortDirection?: "asc" | "desc";
-                status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
             };
             header?: never;
             path?: never;
