@@ -13,9 +13,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
-import { createAdapter } from '@socket.io/redis-adapter';
-import { Redis } from 'ioredis';
+import type { Server, Socket } from 'socket.io';
 import type { AuthService } from '../auth/auth.service.js';
 import { AUTH_SERVICE_TOKEN } from '../auth/auth.tokens.js';
 import { Public } from '../common/decorators/public.decorator.js';
@@ -35,55 +33,106 @@ import {
   STOCK_TRANSFER_UPDATED_EVENT,
   type StockTransferUpdatedPayload,
 } from './dashboard-events.types.js';
+import {
+  resolveRedisUrl,
+  setupRedisAdapter,
+  closeRedisClients,
+  SITE_ROOM_PREFIX,
+  reassignUserSocketsSiteRoom,
+  redactTransferForSockets,
+  type RedisAdapterClients,
+} from './dashboard-redis.adapter.js';
 
-export { resolveCorsOrigins } from '../common/http/cors-origins.js';
+export const TENANT_ROOM_PREFIX = 'tenant_';
+export const USER_ROOM_PREFIX = 'user_';
 
-export function resolveRedisUrl(
-  redisUrl: string | undefined = process.env.REDIS_URL,
-): string | undefined {
-  const trimmed = redisUrl?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+export function extractBearerToken(token?: unknown): string | null {
+  if (typeof token !== 'string') {
+    return null;
+  }
+  const trimmed = token.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
-export const REDIS_CONNECT_TIMEOUT_MS = 10_000;
-
-export async function connectRedisClients(
-  connect: () => Promise<unknown>,
-  timeoutMs = REDIS_CONNECT_TIMEOUT_MS,
-): Promise<void> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      connect(),
-      new Promise<never>((_, reject) => {
-        timeoutHandle = setTimeout(() => {
-          reject(new Error(`Redis connect timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutHandle !== undefined) {
-      clearTimeout(timeoutHandle);
-    }
-  }
+export function formatAuthHeader(token: string): string {
+  return token.startsWith('Bearer ') ? token : `Bearer ${token}`;
 }
 
-export function getRootSocketServer(server: unknown): Server | undefined {
-  if (!server || typeof server !== 'object') {
-    return undefined;
+export async function authenticateSocketConnection(
+  socket: Socket,
+  authService: AuthService,
+): Promise<{ tenantId?: string; userId?: string }> {
+  const auth = socket.handshake.auth as Record<string, unknown> | undefined;
+  const token = extractBearerToken(auth?.token);
+  if (!token) {
+    throw new Error('No token provided');
   }
-  const candidate = server as Record<string, unknown>;
-  if (typeof candidate.adapter === 'function') {
-    return candidate as unknown as Server;
+  const authHeader = formatAuthHeader(token);
+  const user = await authService.authenticateBearerToken(authHeader);
+  return { tenantId: user.tenantId, userId: user.userId };
+}
+
+export function createSocketAuthMiddleware(
+  authService: AuthService,
+  logger: Logger,
+) {
+  return (socket: Socket, next: (err?: Error) => void) => {
+    authenticateSocketConnection(socket, authService)
+      .then((user) => {
+        const data = socket.data as { tenantId?: string; userId?: string };
+        data.tenantId = user.tenantId;
+        data.userId = user.userId;
+        next();
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.debug(
+          JSON.stringify({
+            type: 'ws_auth_failed',
+            socketId: socket.id,
+            reason: message,
+          }),
+        );
+        next(new Error('Unauthorized'));
+      });
+  };
+}
+
+export function buildStockTransferPayload(
+  input: EmitStockTransferUpdatedInput,
+  includeSourceBin: boolean,
+  redactedTransfer?: Record<string, unknown>,
+  timestamp = new Date().toISOString(),
+): StockTransferUpdatedPayload {
+  return {
+    action: input.action,
+    transfer: includeSourceBin
+      ? input.transfer
+      : (redactedTransfer ?? redactTransferForSockets(input.transfer)),
+    timestamp,
+  };
+}
+
+export async function resolveSocketActiveSiteId(
+  client: Socket,
+  siteContext?: SiteContextService,
+): Promise<string | null> {
+  const data = client.data as Record<string, string | undefined>;
+  const tenantId = data.tenantId;
+  const userId = data.userId;
+  if (!tenantId || !userId || !siteContext) {
+    return null;
   }
-  if (
-    candidate.server &&
-    typeof candidate.server === 'object' &&
-    typeof (candidate.server as Record<string, unknown>).adapter === 'function'
-  ) {
-    return candidate.server as Server;
-  }
-  return undefined;
+
+  return TenantContextStorage.run(() => {
+    TenantContextStorage.setUser({
+      userId,
+      email: '',
+      tenantId,
+      role: 'member',
+    });
+    return siteContext.resolveSiteId();
+  });
 }
 
 const allowedOrigins = resolveCorsOrigins();
@@ -106,154 +155,72 @@ export class DashboardGateway
     OnModuleDestroy
 {
   private readonly logger = new Logger(DashboardGateway.name);
-  private static readonly TENANT_ROOM_PREFIX = 'tenant_';
-  private static readonly USER_ROOM_PREFIX = 'user_';
-  private static readonly SITE_ROOM_PREFIX = 'site_';
-
-  private pubClient?: Redis;
-  private subClient?: Redis;
+  private readonly authService: AuthService;
+  private readonly siteContext?: SiteContextService;
+  private redisClients?: RedisAdapterClients;
   private redisAdapterReady: Promise<void> = Promise.resolve();
-
-  constructor(
-    @Inject(AUTH_SERVICE_TOKEN)
-    private readonly authService: AuthService,
-    @Optional()
-    @Inject(forwardRef(() => SiteContextService))
-    private readonly siteContext?: SiteContextService,
-  ) {}
 
   @WebSocketServer()
   server!: Server;
 
+  constructor(
+    @Inject(AUTH_SERVICE_TOKEN)
+    authService: AuthService,
+    @Optional()
+    @Inject(forwardRef(() => SiteContextService))
+    siteContext?: SiteContextService,
+  ) {
+    this.authService = authService;
+    this.siteContext = siteContext;
+  }
+
+  private isGatewayReady(): boolean {
+    return Boolean(this.server && this.authService && this.redisAdapterReady);
+  }
+
   afterInit(server: Server, redisUrl = resolveRedisUrl()) {
-    this.installAuthMiddleware(server);
+    this.server = server;
+    server.use(createSocketAuthMiddleware(this.authService, this.logger));
+    if (this.siteContext) {
+      this.logger.debug('SiteContextService initialized in DashboardGateway');
+    }
     if (redisUrl) {
-      this.redisAdapterReady = this.attachRedisAdapter(server, redisUrl);
+      this.redisAdapterReady = this.attachRedisAdapter(redisUrl);
     }
   }
 
   async onApplicationBootstrap() {
     await this.redisAdapterReady;
-  }
-
-  private installAuthMiddleware(server: Server) {
-    server.use((socket, next) => {
-      void (async () => {
-        try {
-          const auth = socket.handshake.auth as
-            Record<string, unknown> | undefined;
-          const token = auth?.token;
-          if (typeof token !== 'string' || token.trim().length === 0) {
-            this.logger.debug(
-              JSON.stringify({
-                type: 'ws_auth_failed',
-                socketId: socket.id,
-                reason: 'No token provided',
-              }),
-            );
-            return next(new Error('Unauthorized'));
-          }
-
-          const normalizedToken = token.trim();
-
-          const authHeader = normalizedToken.startsWith('Bearer ')
-            ? normalizedToken
-            : `Bearer ${normalizedToken}`;
-          const user =
-            await this.authService.authenticateBearerToken(authHeader);
-
-          (
-            socket as { data: { tenantId?: string; userId?: string } }
-          ).data.tenantId = user.tenantId;
-          (
-            socket as { data: { tenantId?: string; userId?: string } }
-          ).data.userId = user.userId;
-          next();
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          this.logger.debug(
-            JSON.stringify({
-              type: 'ws_auth_failed',
-              socketId: socket.id,
-              reason: message,
-            }),
-          );
-          next(new Error('Unauthorized'));
-        }
-      })();
-    });
-  }
-
-  private async attachRedisAdapter(server: Server, redisUrl: string) {
-    const pubClient = new Redis(redisUrl, {
-      lazyConnect: true,
-      connectTimeout: REDIS_CONNECT_TIMEOUT_MS,
-    });
-    const subClient = pubClient.duplicate();
-
-    pubClient.on('error', (err) => {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        `Redis pub client error: ${message}`,
-        err instanceof Error ? err.stack : undefined,
-      );
-    });
-
-    subClient.on('error', (err) => {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        `Redis sub client error: ${message}`,
-        err instanceof Error ? err.stack : undefined,
-      );
-    });
-
-    try {
-      await connectRedisClients(() =>
-        Promise.all([pubClient.connect(), subClient.connect()]),
-      );
-
-      const rootServer = getRootSocketServer(server);
-      if (!rootServer) {
-        throw new Error(
-          'Socket.IO root Server instance could not be resolved from gateway',
-        );
-      }
-
-      rootServer.adapter(createAdapter(pubClient, subClient));
-      this.pubClient = pubClient;
-      this.subClient = subClient;
-      this.logger.log(
-        'Attached Redis adapter to Socket.IO for cross-instance fan-out.',
-      );
-    } catch (err) {
-      await pubClient.quit().catch(() => {});
-      await subClient.quit().catch(() => {});
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(
-        `Failed to initialize Socket.IO Redis adapter: ${message}`,
-      );
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          `CRITICAL: Failed to connect to Redis at ${redisUrl} in production: ${message}`,
-          { cause: err },
-        );
-      }
+    if (this.authService && this.isGatewayReady()) {
+      this.logger.debug('DashboardGateway ready after bootstrap');
     }
   }
 
+  private async attachRedisAdapter(redisUrl: string): Promise<void> {
+    this.redisClients = await setupRedisAdapter(
+      this.server,
+      redisUrl,
+      this.logger,
+    );
+  }
+
   async handleConnection(client: Socket) {
+    if (!this.authService || !this.isGatewayReady()) {
+      return;
+    }
     const data = client.data as Record<string, string | undefined>;
-    const tenantRoom = `${DashboardGateway.TENANT_ROOM_PREFIX}${data.tenantId}`;
-    const userRoom = `${DashboardGateway.USER_ROOM_PREFIX}${data.userId}`;
+    const tenantRoom = `${TENANT_ROOM_PREFIX}${data.tenantId}`;
+    const userRoom = `${USER_ROOM_PREFIX}${data.userId}`;
     await client.join(tenantRoom);
     await client.join(userRoom);
 
     // Ruling 37: join `site:{siteId}` for the validated active site (if any).
-    // The tenant and private user rooms are unchanged.
-    const activeSiteId = await this.resolveSocketActiveSiteId(client);
+    const activeSiteId = await resolveSocketActiveSiteId(
+      client,
+      this.siteContext,
+    );
     if (activeSiteId) {
-      await client.join(`${DashboardGateway.SITE_ROOM_PREFIX}${activeSiteId}`);
+      await client.join(`${SITE_ROOM_PREFIX}${activeSiteId}`);
       data.activeSiteId = activeSiteId;
     }
 
@@ -268,34 +235,10 @@ export class DashboardGateway
     );
   }
 
-  /**
-   * Resolves the socket's validated active site id inside a tenant context so
-   * SiteContextService can query tenant-scoped rows. Returns `null` when the
-   * user has no valid active site (recovery flow); the connection stays in the
-   * tenant + user rooms only.
-   */
-  private async resolveSocketActiveSiteId(
-    client: Socket,
-  ): Promise<string | null> {
-    const data = client.data as Record<string, string | undefined>;
-    const tenantId = data.tenantId;
-    const userId = data.userId;
-    if (!tenantId || !userId || !this.siteContext) {
-      return null;
-    }
-
-    return TenantContextStorage.run(() => {
-      TenantContextStorage.setUser({
-        userId,
-        email: '',
-        tenantId,
-        role: 'member',
-      });
-      return this.siteContext!.resolveSiteId();
-    });
-  }
-
   handleDisconnect(client: Socket) {
+    if (!this.authService || !this.isGatewayReady()) {
+      return;
+    }
     const data = (client.data ?? {}) as Record<string, string | undefined>;
     this.logger.debug(
       JSON.stringify({
@@ -307,24 +250,59 @@ export class DashboardGateway
     );
   }
 
+  private ensureServer(
+    event: string,
+    extra?: Record<string, unknown>,
+  ): boolean {
+    if (!this.authService || !this.isGatewayReady()) {
+      this.logger.debug(
+        JSON.stringify({
+          type: 'ws_emit_skipped',
+          event,
+          reason: 'No server connected',
+          ...extra,
+        }),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  private emitToUser(
+    firebaseUid: string,
+    event: string,
+    payload: unknown,
+    extraLog?: Record<string, unknown>,
+  ): boolean {
+    if (!this.ensureServer(event)) {
+      return false;
+    }
+    const room = `${USER_ROOM_PREFIX}${firebaseUid}`;
+    this.server.to(room).emit(event, payload);
+    this.logger.debug(
+      JSON.stringify({
+        type: 'ws_emit',
+        event,
+        room,
+        ...extraLog,
+      }),
+    );
+    return true;
+  }
+
   emitEntityUpdated(
     tenantId: string,
     payload: DashboardEntityUpdatedPayload,
   ): void {
-    if (!this.server) {
-      this.logger.debug(
-        JSON.stringify({
-          type: 'ws_emit_skipped',
-          event: DASHBOARD_ENTITY_UPDATED_EVENT,
-          entityType: payload.type,
-          action: payload.action,
-          reason: 'No server connected',
-        }),
-      );
+    if (
+      !this.ensureServer(DASHBOARD_ENTITY_UPDATED_EVENT, {
+        entityType: payload.type,
+        action: payload.action,
+      })
+    ) {
       return;
     }
-    const room = `${DashboardGateway.TENANT_ROOM_PREFIX}${tenantId}`;
-    // Emit only to the specific tenant's room
+    const room = `${TENANT_ROOM_PREFIX}${tenantId}`;
     this.server.to(room).emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
     this.logger.debug(
       JSON.stringify({
@@ -342,173 +320,81 @@ export class DashboardGateway
     firebaseUid: string,
     payload: AuthClaimsUpdatedPayload,
   ): void {
-    if (!this.server) {
-      this.logger.debug(
-        JSON.stringify({
-          type: 'ws_emit_skipped',
-          event: AUTH_CLAIMS_UPDATED_EVENT,
-          reason: 'No server connected',
-        }),
-      );
+    if (!this.authService) {
       return;
     }
-
-    const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
-    this.server.to(room).emit(AUTH_CLAIMS_UPDATED_EVENT, payload);
-    this.logger.debug(
-      JSON.stringify({
-        type: 'ws_emit',
-        event: AUTH_CLAIMS_UPDATED_EVENT,
-        room,
-        claimReason: payload.reason,
-      }),
-    );
+    this.emitToUser(firebaseUid, AUTH_CLAIMS_UPDATED_EVENT, payload, {
+      claimReason: payload.reason,
+    });
   }
 
-  /**
-   * Ruling 9/11/37: every socket of `user_{firebaseUid}` leaves the previous
-   * site room and joins the new one (or no site room), then the event is
-   * delivered on the private user room. The initiating tab is not special —
-   * all tabs move so the site room stays an isolation boundary.
-   */
   async emitSiteContextUpdated(
     firebaseUid: string,
     payload: SiteContextUpdatedPayload,
   ): Promise<void> {
-    if (!this.server) {
-      this.logger.debug(
-        JSON.stringify({
-          type: 'ws_emit_skipped',
-          event: SITE_CONTEXT_UPDATED_EVENT,
-          reason: 'No server connected',
-        }),
-      );
+    if (!this.ensureServer(SITE_CONTEXT_UPDATED_EVENT)) {
       return;
     }
 
-    const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
-    try {
-      const sockets = await this.server.in(room).fetchSockets();
-      for (const socket of sockets) {
-        const data = socket.data as Record<string, unknown>;
-        for (const room of socket.rooms) {
-          if (
-            room.startsWith(DashboardGateway.SITE_ROOM_PREFIX) &&
-            room !==
-              (payload.siteId
-                ? `${DashboardGateway.SITE_ROOM_PREFIX}${payload.siteId}`
-                : undefined)
-          ) {
-            socket.leave(room);
-          }
-        }
-        if (payload.siteId) {
-          socket.join(`${DashboardGateway.SITE_ROOM_PREFIX}${payload.siteId}`);
-        }
-        data.activeSiteId = payload.siteId ?? null;
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Failed to move sockets of ${firebaseUid} between site rooms: ${message}`,
-      );
-    }
+    const room = `${USER_ROOM_PREFIX}${firebaseUid}`;
+    await reassignUserSocketsSiteRoom({
+      server: this.server,
+      userRoom: room,
+      siteId: payload.siteId,
+      logger: this.logger,
+      firebaseUid,
+    });
 
-    this.server.to(room).emit(SITE_CONTEXT_UPDATED_EVENT, payload);
-    this.logger.debug(
-      JSON.stringify({
-        type: 'ws_emit',
-        event: SITE_CONTEXT_UPDATED_EVENT,
-        room,
-        siteId: payload.siteId,
-      }),
-    );
+    this.emitToUser(firebaseUid, SITE_CONTEXT_UPDATED_EVENT, payload, {
+      siteId: payload.siteId,
+    });
   }
 
-  /**
-   * Ruling 10/37: delivered on `user_{firebaseUid}` so cached transfer lists,
-   * the site directory, and `GET /me/sites` results are dropped after any
-   * membership grant/revoke/deactivate, including a site that was not the
-   * active site.
-   */
   emitSiteAccessScopeUpdated(
     firebaseUid: string,
     payload: SiteAccessScopeUpdatedPayload,
   ): void {
-    if (!this.server) {
-      this.logger.debug(
-        JSON.stringify({
-          type: 'ws_emit_skipped',
-          event: SITE_ACCESS_SCOPE_UPDATED_EVENT,
-          reason: 'No server connected',
-        }),
-      );
+    if (!this.authService) {
       return;
     }
-
-    const room = `${DashboardGateway.USER_ROOM_PREFIX}${firebaseUid}`;
-    this.server.to(room).emit(SITE_ACCESS_SCOPE_UPDATED_EVENT, payload);
-    this.logger.debug(
-      JSON.stringify({
-        type: 'ws_emit',
-        event: SITE_ACCESS_SCOPE_UPDATED_EVENT,
-        room,
-      }),
-    );
+    this.emitToUser(firebaseUid, SITE_ACCESS_SCOPE_UPDATED_EVENT, payload);
   }
 
-  /**
-   * Ruling 36/43: per-recipient source-bin redaction. The from-site room sees
-   * the unredacted payload, the to-site room the redacted variant, and every
-   * member's private user room their own variant. One unredacted payload is
-   * never broadcast to mixed from/to rooms.
-   */
   emitStockTransferUpdated(
     tenantId: string,
     input: EmitStockTransferUpdatedInput,
   ): void {
-    if (!this.server) {
-      this.logger.debug(
-        JSON.stringify({
-          type: 'ws_emit_skipped',
-          event: STOCK_TRANSFER_UPDATED_EVENT,
-          reason: 'No server connected',
-        }),
-      );
+    if (!this.ensureServer(STOCK_TRANSFER_UPDATED_EVENT)) {
       return;
     }
 
-    const redactedTransfer = this.redactTransferForSockets(input.transfer);
-
-    const payloadFor = (
-      includeSourceBin: boolean,
-    ): StockTransferUpdatedPayload =>
-      includeSourceBin
-        ? {
-            action: input.action,
-            transfer: input.transfer,
-            timestamp: new Date().toISOString(),
-          }
-        : {
-            action: input.action,
-            transfer: redactedTransfer,
-            timestamp: new Date().toISOString(),
-          };
+    const redactedTransfer = redactTransferForSockets(input.transfer);
+    const timestamp = new Date().toISOString();
 
     this.server
-      .to(`${DashboardGateway.SITE_ROOM_PREFIX}${input.fromSiteId}`)
-      .emit(STOCK_TRANSFER_UPDATED_EVENT, payloadFor(true));
+      .to(`${SITE_ROOM_PREFIX}${input.fromSiteId}`)
+      .emit(
+        STOCK_TRANSFER_UPDATED_EVENT,
+        buildStockTransferPayload(input, true, redactedTransfer, timestamp),
+      );
     this.server
-      .to(`${DashboardGateway.SITE_ROOM_PREFIX}${input.toSiteId}`)
-      .emit(STOCK_TRANSFER_UPDATED_EVENT, payloadFor(false));
+      .to(`${SITE_ROOM_PREFIX}${input.toSiteId}`)
+      .emit(
+        STOCK_TRANSFER_UPDATED_EVENT,
+        buildStockTransferPayload(input, false, redactedTransfer, timestamp),
+      );
 
     for (const recipient of input.recipients) {
-      const room = `${DashboardGateway.USER_ROOM_PREFIX}${recipient.firebaseUid}`;
       this.server
-        .to(room)
+        .to(`${USER_ROOM_PREFIX}${recipient.firebaseUid}`)
         .emit(
           STOCK_TRANSFER_UPDATED_EVENT,
-          payloadFor(recipient.includeSourceBin),
+          buildStockTransferPayload(
+            input,
+            recipient.includeSourceBin,
+            redactedTransfer,
+            timestamp,
+          ),
         );
     }
 
@@ -523,24 +409,11 @@ export class DashboardGateway
     );
   }
 
-  private redactTransferForSockets(transfer: {
-    lines?: Array<Record<string, unknown>>;
-  }): Record<string, unknown> {
-    return {
-      ...transfer,
-      lines: (transfer.lines ?? []).map((line) => ({
-        ...line,
-        sourceLocationId: null,
-      })),
-    };
-  }
-
   async onModuleDestroy() {
-    if (this.pubClient) {
-      await this.pubClient.quit().catch(() => {});
+    if (this.authService && this.isGatewayReady()) {
+      this.logger.debug('Destroying realtime gateway');
     }
-    if (this.subClient) {
-      await this.subClient.quit().catch(() => {});
-    }
+    await this.redisAdapterReady.catch(() => {});
+    await closeRedisClients(this.redisClients);
   }
 }

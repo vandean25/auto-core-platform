@@ -42,11 +42,18 @@ const { createAdapter } = await import('@socket.io/redis-adapter');
 const { Redis } = await import('ioredis');
 const {
   DashboardGateway,
+  buildStockTransferPayload,
+  extractBearerToken,
+  formatAuthHeader,
+} = await import('./dashboard.gateway.js');
+const {
   REDIS_CONNECT_TIMEOUT_MS,
   connectRedisClients,
-  resolveCorsOrigins,
   resolveRedisUrl,
-} = await import('./dashboard.gateway.js');
+  reassignSocketSiteRoom,
+  redactTransferForSockets,
+} = await import('./dashboard-redis.adapter.js');
+const { resolveCorsOrigins } = await import('../common/http/cors-origins.js');
 
 describe('resolveRedisUrl', () => {
   it('returns undefined when REDIS_URL is undefined or empty', () => {
@@ -77,6 +84,85 @@ describe('resolveCorsOrigins', () => {
         'development',
       ),
     ).toEqual(['http://localhost:5173', 'https://app.example.com']);
+  });
+});
+
+describe('extractBearerToken and formatAuthHeader', () => {
+  it('extracts token and trims whitespace', () => {
+    expect(extractBearerToken('  abc  ')).toBe('abc');
+    expect(extractBearerToken(undefined)).toBeNull();
+    expect(extractBearerToken('')).toBeNull();
+    expect(extractBearerToken('   ')).toBeNull();
+    expect(extractBearerToken(123)).toBeNull();
+  });
+
+  it('formats bearer authorization header properly', () => {
+    expect(formatAuthHeader('abc')).toBe('Bearer abc');
+    expect(formatAuthHeader('Bearer xyz')).toBe('Bearer xyz');
+  });
+});
+
+describe('reassignSocketSiteRoom', () => {
+  it('leaves existing site rooms and joins the new site room', () => {
+    const mockSocket = {
+      rooms: new Set(['tenant_t1', 'user_u1', 'site_old']),
+      leave: jest.fn(),
+      join: jest.fn(),
+      data: {} as Record<string, unknown>,
+    };
+
+    reassignSocketSiteRoom(mockSocket as any, 'new_site');
+
+    expect(mockSocket.leave).toHaveBeenCalledWith('site_old');
+    expect(mockSocket.join).toHaveBeenCalledWith('site_new_site');
+    expect(mockSocket.data.activeSiteId).toBe('new_site');
+  });
+
+  it('leaves existing site room without joining when new site is null', () => {
+    const mockSocket = {
+      rooms: new Set(['site_old']),
+      leave: jest.fn(),
+      join: jest.fn(),
+      data: {} as Record<string, unknown>,
+    };
+
+    reassignSocketSiteRoom(mockSocket as any, null);
+
+    expect(mockSocket.leave).toHaveBeenCalledWith('site_old');
+    expect(mockSocket.join).not.toHaveBeenCalled();
+    expect(mockSocket.data.activeSiteId).toBeNull();
+  });
+});
+
+describe('redactTransferForSockets and buildStockTransferPayload', () => {
+  it('nullifies sourceLocationId on lines when redacting transfer', () => {
+    const transfer = {
+      id: 'tx-1',
+      lines: [
+        { id: 'l-1', sourceLocationId: 'loc-1', qty: 5 },
+        { id: 'l-2', sourceLocationId: 'loc-2', qty: 10 },
+      ],
+    };
+    const redacted = redactTransferForSockets(transfer);
+    expect(redacted.lines).toEqual([
+      { id: 'l-1', sourceLocationId: null, qty: 5 },
+      { id: 'l-2', sourceLocationId: null, qty: 10 },
+    ]);
+  });
+
+  it('builds stock transfer payload with or without source bin', () => {
+    const input = {
+      fromSiteId: 'site-a',
+      toSiteId: 'site-b',
+      action: 'TRANSFERRED' as const,
+      transfer: { id: 'tx-1', lines: [{ sourceLocationId: 'loc-1' }] },
+      recipients: [],
+    };
+    const full = buildStockTransferPayload(input, true);
+    expect((full.transfer as any).lines[0].sourceLocationId).toBe('loc-1');
+
+    const redacted = buildStockTransferPayload(input, false);
+    expect((redacted.transfer as any).lines[0].sourceLocationId).toBeNull();
   });
 });
 

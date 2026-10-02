@@ -618,7 +618,7 @@ describe('PartsRequisitionService', () => {
   });
 
   it('calculates shortages without resurrecting consumed demand', async () => {
-    prisma.workshopTaskLineItem.findMany.mockResolvedValue([
+    tx.workshopTaskLineItem.findMany.mockResolvedValue([
       {
         ...buildLine(),
         quantity: new Prisma.Decimal('5.000'),
@@ -651,7 +651,7 @@ describe('PartsRequisitionService', () => {
   });
 
   it('returns only positive shortages and scopes shortage reads to the active site', async () => {
-    prisma.workshopTaskLineItem.findMany.mockResolvedValue([
+    tx.workshopTaskLineItem.findMany.mockResolvedValue([
       {
         ...buildLine({
           quantity: new Prisma.Decimal('2.000'),
@@ -680,7 +680,7 @@ describe('PartsRequisitionService', () => {
     const result = await service.getShortages({});
 
     expect(result.data).toEqual([]);
-    expect(prisma.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
+    expect(tx.workshopTaskLineItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           tenant_id: tenantId,
