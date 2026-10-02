@@ -389,6 +389,7 @@ Cloud Build service account used by trigger (currently `cbuild-deployer@auto-cor
 | `npm test` | Run unit tests for both apps |
 | `npm run build` | Build both apps |
 | `npm run ci` | Lint, test, then build both apps |
+| `npm run test:e2e:fullstack` | Full-stack Playwright (from repo root; see Frontend table) |
 
 Workspace-specific scripts still work from the root with `--workspace=<name>` (for example `npm run start:dev --workspace=core-api`).
 
@@ -421,10 +422,23 @@ Workspace-specific scripts still work from the root with `--workspace=<name>` (f
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
 | `npm run test` | Run Vitest unit tests |
-| `npm run test:e2e` | Run Playwright end-to-end tests |
+| `npm run test:e2e` | Run mocked UI Playwright tests (`VITE_E2E_SKIP_AUTH`, no API) |
+| `npm run test:e2e:fullstack` | Run full-stack Playwright harness (API + Postgres + web, test JWT) |
 | `npm run lint` | Lint code |
 | `npm run api:types:generate` | Generate API types from backend OpenAPI |
 | `npm run api:types:check` | Regenerate API types and fail if drift is uncommitted |
+
+#### Full-stack Playwright (`npm run test:e2e:fullstack`)
+
+Runs the `e2e-fullstack` Playwright project: migrates `auto_core_test`, seeds a deterministic tenant, boots the API (`NODE_ENV=test`, shared `TEST_JWT_SECRET`, in-memory PDF archive storage — no GCS), and serves the web app with the **test-token auth seam** (`VITE_E2E_TEST_TOKEN`, real `/api/auth/me`). Production builds cannot enable this seam (see `apps/core-web/src/lib/runtime-flags.production-build.test.ts`).
+
+```bash
+# From repository root (Postgres 15+ on localhost:5432, database auto_core_test)
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_core_test" \
+  npm run test:e2e:fullstack
+```
+
+CI runs this job **nightly** and on **workflow_dispatch** only (10-minute cap). After two weeks of green nightly runs, promote it to the PR gate for `apps/**` changes (documented in `.github/workflows/build.yaml`).
 
 ---
 

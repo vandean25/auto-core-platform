@@ -9,6 +9,7 @@
     "build": "node ../../node_modules/@typescript/native/bin/tsc -b && vite build",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:fullstack": "node ./e2e-fullstack/run-harness.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-web",

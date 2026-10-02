@@ -33,6 +33,13 @@ async function bootstrap() {
     ...(observeTelemetry ? { instrument: ObserveInstrument } : {}),
   });
 
+  if (process.env.E2E_FULLSTACK_IN_MEMORY_PDF === 'true') {
+    const { installInMemoryInvoicePdfStorage } = await import(
+      './e2e-fullstack/in-memory-invoice-pdf-storage.js'
+    );
+    installInMemoryInvoicePdfStorage(app, { mockRenderer: false });
+  }
+
   app.setGlobalPrefix('api');
   app.useGlobalPipes(...createGlobalValidationPipes());
   app.useGlobalFilters(new GlobalExceptionFilter());
