@@ -695,6 +695,9 @@ export class LoanerVehiclesService {
   /** @internal exposed for unit tests */
   isLoanerOverlapError(error: unknown): boolean {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2034') {
+        return true;
+      }
       const databaseCode =
         error.meta &&
         typeof error.meta === 'object' &&
@@ -718,7 +721,10 @@ export class LoanerVehiclesService {
 
     return (
       message.includes('23P01') ||
-      message.includes('loaner_bookings_no_active_overlap')
+      message.includes('loaner_bookings_no_active_overlap') ||
+      message.includes('P2034') ||
+      message.includes('write conflict') ||
+      message.includes('deadlock')
     );
   }
 
