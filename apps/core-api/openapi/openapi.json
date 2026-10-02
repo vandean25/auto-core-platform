@@ -9015,14 +9015,6 @@
             }
           },
           {
-            "name": "hasErrors",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
             "name": "action",
             "required": false,
             "in": "query",
@@ -9034,6 +9026,14 @@
                 "ERROR"
               ],
               "type": "string"
+            }
+          },
+          {
+            "name": "hasErrors",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
