@@ -1,3 +1,4 @@
+import type { components } from '@/api/generated/openapi'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -44,11 +45,12 @@ export default function PickerlDueList() {
   const rows = useMemo<PickerlDueRow[]>(() => {
     const source = responseData?.data ?? []
     return source.map((vehicle) => {
-      const v = vehicle as any;
-      const customerName = v.customer ? `${v.customer.first_name} ${v.customer.last_name}`.trim() : ''
-      const pickerlDue = v.pickerl_due || {}
-      const lastInspectionDate = v.inspection_records?.[0]?.inspected_on
-        ? format(new Date(v.inspection_records[0].inspected_on), 'PP')
+      const v = vehicle as components['schemas']['VehicleResponseDto'];
+      const customerName = v.customer ? `${(v.customer as Record<string, unknown>).first_name} ${(v.customer as Record<string, unknown>).last_name}`.trim() : ''
+      const pickerlDue = (v.pickerl_due || {}) as Record<string, unknown>
+      const inspectionRecords = (v as unknown as Record<string, unknown>).inspection_records as Record<string, unknown>[] | undefined
+      const lastInspectionDate = inspectionRecords?.[0]?.inspected_on
+        ? format(new Date(inspectionRecords![0].inspected_on as string), 'PP')
         : null
 
       return {
@@ -56,11 +58,11 @@ export default function PickerlDueList() {
         plate: v.plate || '',
         vehicle: `${v.make} ${v.model}`,
         customer: customerName,
-        dueMonth: pickerlDue.due_month || '—',
-        status: pickerlDue.status || 'UNKNOWN',
-        lastInspection: lastInspectionDate,
-        phone: v.customer?.phone || '',
-        email: v.customer?.email || '',
+        dueMonth: (pickerlDue.due_month as string) || '—',
+        status: (pickerlDue.status as string) || 'UNKNOWN',
+        lastInspection: lastInspectionDate as string | null,
+        phone: (v.customer as Record<string, unknown>)?.phone as string || '',
+        email: (v.customer as Record<string, unknown>)?.email as string || '',
       }
     })
   }, [responseData?.data])
