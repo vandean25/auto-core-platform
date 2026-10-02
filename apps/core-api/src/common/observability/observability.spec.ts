@@ -6,6 +6,14 @@ import {
   isObserveTelemetryConfigured,
 } from './observability.module.js';
 
+function restoreEnv(name: string, previous: string | undefined): void {
+  if (previous === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = previous;
+}
+
 describe('AppObservabilityModule', () => {
   let moduleRef: TestingModule;
 
@@ -21,14 +29,16 @@ describe('AppObservabilityModule', () => {
     delete process.env.OBSERVE_APP_KEY;
     delete process.env.OBSERVE_APP_SECRET;
 
-    expect(isObserveTelemetryConfigured()).toBe(false);
-    moduleRef = await Test.createTestingModule({
-      imports: [AppObservabilityModule.register()],
-    }).compile();
-    expect(moduleRef).toBeDefined();
-
-    process.env.OBSERVE_APP_KEY = previousKey;
-    process.env.OBSERVE_APP_SECRET = previousSecret;
+    try {
+      expect(isObserveTelemetryConfigured()).toBe(false);
+      moduleRef = await Test.createTestingModule({
+        imports: [AppObservabilityModule.register()],
+      }).compile();
+      expect(moduleRef).toBeDefined();
+    } finally {
+      restoreEnv('OBSERVE_APP_KEY', previousKey);
+      restoreEnv('OBSERVE_APP_SECRET', previousSecret);
+    }
   });
 
   it('compiles and initializes ObserveModule when credentials are provided', async () => {
