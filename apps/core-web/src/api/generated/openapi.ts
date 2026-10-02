@@ -12154,8 +12154,8 @@ export interface operations {
             query?: {
                 page?: string;
                 limit?: string;
-                hasErrors?: boolean;
                 action?: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
+                hasErrors?: boolean;
             };
             header?: never;
             path: {
