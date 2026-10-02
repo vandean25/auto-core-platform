@@ -12,6 +12,8 @@ describe('CustomerService', () => {
     customer: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -249,5 +251,40 @@ describe('CustomerService', () => {
   it('throws not found when customer does not exist', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue(null);
     await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
+  });
+
+  it('rejects invalid customer vat_id on create with stable code', async () => {
+    await expect(
+      service.create({
+        first_name: 'Max',
+        last_name: 'Mustermann',
+        address_country: 'AT',
+        vat_id: 'invalid',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'CUSTOMER_VAT_ID_INVALID',
+        field: 'vat_id',
+      },
+    });
+    expect(mockPrisma.customer.create).not.toHaveBeenCalled();
+  });
+
+  it('normalizes valid AT vat_id on create', async () => {
+    mockPrisma.customer.create.mockResolvedValue({ id: 'c-1' });
+
+    await service.create({
+      first_name: 'Max',
+      last_name: 'Mustermann',
+      address_country: 'AT',
+      vat_id: ' atu12345678 ',
+    });
+
+    expect(mockPrisma.customer.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        vat_id: 'ATU12345678',
+        tenant_id: 'tenant-1',
+      }),
+    });
   });
 });

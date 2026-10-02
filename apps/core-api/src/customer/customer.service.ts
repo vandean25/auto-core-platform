@@ -12,6 +12,10 @@ import { projectCustomerDetail } from './customer-detail.projection.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import {
+  assertCustomerVatIdFormat,
+  normalizeCustomerVatId,
+} from './customer-vat-id.validation.js';
 
 function isPrismaCustomerQuery(
   params: unknown,
@@ -110,9 +114,17 @@ export class CustomerService {
 
   async create(createCustomerDto: CreateCustomerDto) {
     const tenantId = await this.tenantContext.getTenantId();
+    assertCustomerVatIdFormat(
+      createCustomerDto.address_country,
+      createCustomerDto.vat_id,
+    );
+    const normalizedVatId = normalizeCustomerVatId(createCustomerDto.vat_id);
     return this.prisma.customer.create({
       data: {
         ...createCustomerDto,
+        ...(createCustomerDto.vat_id !== undefined
+          ? { vat_id: normalizedVatId }
+          : {}),
         tenant_id: tenantId,
       },
     });
@@ -179,10 +191,30 @@ export class CustomerService {
   }
 
   async update(id: string, updateCustomerDto: UpdateCustomerDto) {
-    await this.ensureCustomerExists(id);
+    const tenantId = await this.tenantContext.getTenantId();
+    const existing = await this.prisma.customer.findFirst({
+      where: { id, tenant_id: tenantId },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Customer with ID ${id} not found`);
+    }
+
+    const mergedCountry =
+      updateCustomerDto.address_country ?? existing.address_country;
+    const mergedVatId =
+      updateCustomerDto.vat_id !== undefined
+        ? updateCustomerDto.vat_id
+        : existing.vat_id;
+    assertCustomerVatIdFormat(mergedCountry, mergedVatId);
+
+    const data: UpdateCustomerDto = { ...updateCustomerDto };
+    if (updateCustomerDto.vat_id !== undefined) {
+      data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id) ?? undefined;
+    }
+
     return this.prisma.customer.update({
       where: { id },
-      data: updateCustomerDto,
+      data,
     });
   }
 
