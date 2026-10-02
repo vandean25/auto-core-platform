@@ -585,7 +585,7 @@ describe('Legacy CSV import (e2e)', () => {
       .send({
         entity_type: 'CUSTOMER',
         source_system: 'incadea',
-        name: 'Pilot profile',
+        name: 'Default customer mapping',
         mapping,
       })
       .expect(201);
