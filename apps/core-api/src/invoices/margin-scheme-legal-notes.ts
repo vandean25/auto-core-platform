@@ -5,13 +5,13 @@ export const MARGIN_SCHEME_SELLER_COUNTRY_UNSUPPORTED_CODE =
 
 export type MarginSchemeSellerCountry = 'AT' | 'DE';
 
-export const MARGIN_SCHEME_LEGAL_NOTES: Record<MarginSchemeSellerCountry, string> =
-  {
-    DE:
-      'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.',
-    AT:
-      'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 24 UStG 1994.',
-  };
+export const MARGIN_SCHEME_LEGAL_NOTES: Record<
+  MarginSchemeSellerCountry,
+  string
+> = {
+  DE: 'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.',
+  AT: 'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 24 UStG 1994.',
+};
 
 export function isMarginSchemeSellerCountry(
   countryIso: string | undefined | null,
