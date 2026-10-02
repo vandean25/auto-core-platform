@@ -1,29 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const sentryMocks = vi.hoisted(() => {
-  const captureException = vi.fn(() => 'event-id')
-  const captureMessage = vi.fn(() => 'event-id')
-  const setTag = vi.fn()
-  const setFingerprint = vi.fn()
-  const setContext = vi.fn()
-  const addBreadcrumb = vi.fn()
-  const withScope = vi.fn(
-    (callback: (scope: {
-      setTag: typeof setTag
-      setFingerprint: typeof setFingerprint
-      setContext: typeof setContext
-    }) => void) => {
-      callback({ setTag, setFingerprint, setContext })
-    },
-  )
-
-  return { captureException, captureMessage, setTag, setFingerprint, setContext, addBreadcrumb, withScope }
-})
+const sentryMocks = vi.hoisted(() => ({
+  addBreadcrumb: vi.fn(),
+}))
 
 vi.mock('@sentry/react', () => ({
-  captureException: sentryMocks.captureException,
-  captureMessage: sentryMocks.captureMessage,
-  withScope: sentryMocks.withScope,
   addBreadcrumb: sentryMocks.addBreadcrumb,
 }))
 
@@ -33,12 +14,6 @@ describe('chunk-load-recovery', () => {
   beforeEach(() => {
     sessionStorage.clear()
     chunkLoadRecovery.chunkReloadState.reloadScheduled = false
-    sentryMocks.captureException.mockClear()
-    sentryMocks.captureMessage.mockClear()
-    sentryMocks.withScope.mockClear()
-    sentryMocks.setTag.mockClear()
-    sentryMocks.setFingerprint.mockClear()
-    sentryMocks.setContext.mockClear()
     sentryMocks.addBreadcrumb.mockClear()
   })
 
@@ -72,13 +47,11 @@ describe('chunk-load-recovery', () => {
     expect(chunkLoadRecovery.canReloadForStaleChunk(now)).toBe(false)
     expect(chunkLoadRecovery.tryReloadForStaleChunk('lazy_import')).toBe(false)
     expect(reload).not.toHaveBeenCalled()
-    expect(sentryMocks.captureException).not.toHaveBeenCalled()
   })
 
-  it('allows reload after the cooldown window elapses and captures once', () => {
+  it('allows reload after the cooldown window elapses', () => {
     const reload = vi.spyOn(chunkLoadRecovery.chunkLoadRecoveryActions, 'reloadPage').mockImplementation(() => {})
     const now = Date.now()
-    const error = new TypeError('Failed to fetch dynamically imported module: /assets/a.js')
     sessionStorage.setItem(
       chunkLoadRecovery.CHUNK_RELOAD_STORAGE_KEY,
       String(now - chunkLoadRecovery.CHUNK_RELOAD_COOLDOWN_MS - 1),
@@ -86,40 +59,11 @@ describe('chunk-load-recovery', () => {
 
     vi.spyOn(Date, 'now').mockReturnValue(now)
 
-    expect(chunkLoadRecovery.tryReloadForStaleChunk('vite_preload', error)).toBe(true)
+    expect(chunkLoadRecovery.tryReloadForStaleChunk('vite_preload')).toBe(true)
     expect(reload).toHaveBeenCalledTimes(1)
     expect(sessionStorage.getItem(chunkLoadRecovery.CHUNK_RELOAD_STORAGE_KEY)).toBe(String(now))
-    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1)
-    expect(sentryMocks.captureException).toHaveBeenCalledWith(error)
-    expect(sentryMocks.setFingerprint).toHaveBeenCalledWith(['chunk-load-recovered', 'vite_preload'])
+    expect(sentryMocks.addBreadcrumb).toHaveBeenCalled()
     expect(chunkLoadRecovery.isChunkReloadScheduled()).toBe(true)
-  })
-
-  it('tags Sentry recovery events with chunk_load_recovered', () => {
-    const preloadError = new TypeError('Failed to fetch dynamically imported module: /assets/a.js')
-    const lazyError = new TypeError('Importing a module script failed')
-
-    chunkLoadRecovery.captureChunkLoadRecovered(preloadError, 'vite_preload')
-    chunkLoadRecovery.captureChunkLoadRecovered(lazyError, 'lazy_import')
-
-    expect(sentryMocks.withScope).toHaveBeenCalledTimes(2)
-    expect(sentryMocks.setTag).toHaveBeenCalledWith('chunk_load_recovered', 'true')
-    expect(sentryMocks.setFingerprint).toHaveBeenCalledWith(['chunk-load-recovered', 'vite_preload'])
-    expect(sentryMocks.setFingerprint).toHaveBeenCalledWith(['chunk-load-recovered', 'lazy_import'])
-    expect(sentryMocks.captureException).toHaveBeenCalledWith(preloadError)
-    expect(sentryMocks.captureException).toHaveBeenCalledWith(lazyError)
-  })
-
-  it('reports a cooldown-blocked chunk failure exactly once', () => {
-    sessionStorage.setItem(chunkLoadRecovery.CHUNK_RELOAD_STORAGE_KEY, String(Date.now()))
-    const error = new TypeError('Failed to fetch dynamically imported module: /assets/b.js')
-
-    expect(chunkLoadRecovery.tryReloadForStaleChunk('lazy_import', error)).toBe(false)
-    expect(sentryMocks.captureException).not.toHaveBeenCalled()
-
-    chunkLoadRecovery.captureChunkLoadRecovered(error, 'error_boundary')
-    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1)
-    expect(sentryMocks.setFingerprint).toHaveBeenCalledWith(['chunk-load-recovered', 'error_boundary'])
   })
 
   it('registers a vite preload handler that reloads once when allowed', () => {
@@ -135,10 +79,9 @@ describe('chunk-load-recovery', () => {
 
     expect(reload).toHaveBeenCalledTimes(1)
     expect(preventDefault).toHaveBeenCalled()
-    expect(sentryMocks.captureException).toHaveBeenCalledTimes(1)
   })
 
-  it('does not capture or reload from preload when cooldown is active', () => {
+  it('does not reload from preload when cooldown is active', () => {
     const reload = vi.spyOn(chunkLoadRecovery.chunkLoadRecoveryActions, 'reloadPage').mockImplementation(() => {})
     chunkLoadRecovery.registerVitePreloadErrorHandler()
     sessionStorage.setItem(chunkLoadRecovery.CHUNK_RELOAD_STORAGE_KEY, String(Date.now()))
@@ -152,7 +95,6 @@ describe('chunk-load-recovery', () => {
 
     expect(reload).not.toHaveBeenCalled()
     expect(preventDefault).not.toHaveBeenCalled()
-    expect(sentryMocks.captureException).not.toHaveBeenCalled()
   })
 
   it('treats blocked sessionStorage writes as an active cooldown', () => {

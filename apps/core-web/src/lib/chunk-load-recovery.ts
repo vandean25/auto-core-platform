@@ -77,10 +77,7 @@ export function markChunkReloadAttempt(now = Date.now()): boolean {
  * Performs at most one hard reload per cooldown window to recover stale Vite chunks.
  * Returns true when a reload was scheduled.
  */
-export function tryReloadForStaleChunk(
-  reason: ChunkLoadRecoveryMechanism,
-  error?: unknown,
-): boolean {
+export function tryReloadForStaleChunk(reason: ChunkLoadRecoveryMechanism): boolean {
   if (typeof window === 'undefined') {
     return false
   }
@@ -100,10 +97,6 @@ export function tryReloadForStaleChunk(
     data: { reason },
   })
 
-  if (error !== undefined) {
-    captureChunkLoadRecovered(error, reason)
-  }
-
   chunkLoadRecoveryActions.reloadPage()
   return true
 }
@@ -112,25 +105,6 @@ export const chunkLoadRecoveryActions = {
   reloadPage(): void {
     window.location.reload()
   },
-}
-
-export function captureChunkLoadRecovered(
-  error: unknown,
-  mechanism: ChunkLoadRecoveryMechanism,
-): void {
-  Sentry.withScope((scope) => {
-    scope.setTag('chunk_load_recovered', 'true')
-    scope.setFingerprint(['chunk-load-recovered', mechanism])
-    scope.setContext('chunk_load_recovery', { mechanism })
-    if (error instanceof Error) {
-      Sentry.captureException(error)
-      return
-    }
-    Sentry.captureMessage('Chunk load recovery', {
-      level: 'warning',
-      extra: { error, mechanism },
-    })
-  })
 }
 
 let vitePreloadHandlerRegistered = false
@@ -154,7 +128,7 @@ export function registerVitePreloadErrorHandler(): void {
         return
       }
 
-      if (tryReloadForStaleChunk('vite_preload', error)) {
+      if (tryReloadForStaleChunk('vite_preload')) {
         event.preventDefault()
       }
     } catch {

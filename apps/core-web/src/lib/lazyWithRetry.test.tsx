@@ -72,6 +72,51 @@ describe('lazyWithRetry', () => {
     expect(reload).not.toHaveBeenCalled()
   })
 
+  it('waits when the factory resolves undefined after a reload was scheduled', async () => {
+    chunkLoadRecovery.chunkReloadState.reloadScheduled = true
+
+    const factory = vi
+      .fn<() => Promise<{ default: React.ComponentType }>>()
+      .mockResolvedValue(undefined as unknown as { default: React.ComponentType })
+
+    const LazyComponent = lazyWithRetry(factory)
+
+    render(
+      <React.Suspense fallback={<div>loading</div>}>
+        <LazyComponent />
+      </React.Suspense>,
+    )
+
+    await waitFor(() => {
+      expect(factory).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByText('loading')).toBeInTheDocument()
+  })
+
+  it('waits when a named-export transform throws while a reload is scheduled', async () => {
+    chunkLoadRecovery.chunkReloadState.reloadScheduled = true
+
+    const factory = vi.fn<() => Promise<{ default: React.ComponentType }>>().mockImplementation(async () => {
+      const module = undefined as { IntakeDashboard: React.ComponentType } | undefined
+      return { default: module!.IntakeDashboard }
+    })
+
+    const LazyComponent = lazyWithRetry(factory)
+
+    render(
+      <React.Suspense fallback={<div>loading</div>}>
+        <LazyComponent />
+      </React.Suspense>,
+    )
+
+    await waitFor(() => {
+      expect(factory).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByText('loading')).toBeInTheDocument()
+  })
+
   it('waits instead of rendering when a reload is scheduled but the module is missing', async () => {
     chunkLoadRecovery.chunkReloadState.reloadScheduled = true
 

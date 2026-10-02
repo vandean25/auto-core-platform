@@ -4,11 +4,7 @@ import type { FallbackProps } from 'react-error-boundary'
 import { AlertCircle, RefreshCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  captureChunkLoadRecovered,
-  isChunkLoadError,
-  isChunkReloadScheduled,
-} from '@/lib/chunk-load-recovery'
+import { isChunkLoadError } from '@/lib/chunk-load-recovery'
 
 function ErrorFallback({ error }: FallbackProps) {
   const err = error as { name?: string; message?: string }
@@ -60,11 +56,6 @@ export function GlobalErrorBoundary({ children }: GlobalErrorBoundaryProps) {
   return (
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
-      onError={(error) => {
-        if (isChunkLoadError(error) && !isChunkReloadScheduled()) {
-          captureChunkLoadRecovered(error, 'error_boundary')
-        }
-      }}
       onReset={() => {
         // This is called when resetErrorBoundary is invoked
         window.location.reload()

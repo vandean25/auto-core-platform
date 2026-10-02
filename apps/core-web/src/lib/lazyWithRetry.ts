@@ -11,10 +11,14 @@ function waitForChunkReload<T extends React.ComponentType>(): Promise<{ default:
   return new Promise(() => {})
 }
 
-function isMissingLazyModule<T extends React.ComponentType>(
+function shouldWaitForReloadInFlight<T extends React.ComponentType>(
   module: { default: T } | null | undefined,
 ): boolean {
-  return !module?.default
+  if (!isChunkReloadScheduled()) {
+    return false
+  }
+
+  return module == null || module.default === undefined
 }
 
 /**
@@ -26,11 +30,15 @@ export function lazyWithRetry<T extends React.ComponentType>(factory: LazyModule
     const load = async (attempt: 'initial' | 'retry'): Promise<{ default: T }> => {
       try {
         const module = await factory()
-        if (isMissingLazyModule(module) && isChunkReloadScheduled()) {
+        if (shouldWaitForReloadInFlight(module)) {
           return waitForChunkReload()
         }
         return module
       } catch (error) {
+        if (isChunkReloadScheduled()) {
+          return waitForChunkReload()
+        }
+
         if (!isChunkLoadError(error)) {
           throw error
         }
@@ -39,7 +47,7 @@ export function lazyWithRetry<T extends React.ComponentType>(factory: LazyModule
           return load('retry')
         }
 
-        if (tryReloadForStaleChunk('lazy_import', error)) {
+        if (tryReloadForStaleChunk('lazy_import')) {
           return waitForChunkReload()
         }
 

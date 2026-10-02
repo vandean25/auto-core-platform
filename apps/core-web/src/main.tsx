@@ -6,17 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
-import { isChunkLoadError, registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
+import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
 
 registerVitePreloadErrorHandler()
-
-const sentryUncaughtErrorHandler = reactErrorHandler()
-const sentryCaughtErrorHandler = reactErrorHandler()
-const sentryRecoverableErrorHandler = reactErrorHandler()
-
-function shouldSkipSentryChunkNoise(error: unknown): boolean {
-  return isChunkLoadError(error)
-}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,24 +20,9 @@ const queryClient = new QueryClient({
 })
 
 createRoot(document.getElementById('root')!, {
-  onUncaughtError: (error, errorInfo) => {
-    if (shouldSkipSentryChunkNoise(error)) {
-      return
-    }
-    sentryUncaughtErrorHandler(error, errorInfo)
-  },
-  onCaughtError: (error, errorInfo) => {
-    if (shouldSkipSentryChunkNoise(error)) {
-      return
-    }
-    sentryCaughtErrorHandler(error, errorInfo)
-  },
-  onRecoverableError: (error, errorInfo) => {
-    if (shouldSkipSentryChunkNoise(error)) {
-      return
-    }
-    sentryRecoverableErrorHandler(error, errorInfo)
-  },
+  onUncaughtError: reactErrorHandler(),
+  onCaughtError: reactErrorHandler(),
+  onRecoverableError: reactErrorHandler(),
 }).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
