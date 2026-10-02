@@ -29,12 +29,14 @@ VALUES
   ('document_brand_quota_locks'),
   ('employees'),
   ('finance_settings'),
+  ('import_jobs'),
   ('inspection_templates'),
   ('invoice_sequences'),
   ('labor_categories'),
   ('legal_entities'),
   ('revenue_groups'),
   ('tenant_members'),
+  ('tyre_storage_settings'),
   ('vendors'),
   ('voice_translation_settings'),
   ('_VendorBrands'),
@@ -46,6 +48,8 @@ VALUES
   ('document_brand_assets'),
   ('employee_leave_balances'),
   ('employee_work_schedules'),
+  ('external_id_mappings'),
+  ('import_job_rows'),
   ('inspection_template_items'),
   ('labor_operations'),
   ('leave_requests'),
@@ -74,12 +78,14 @@ VALUES
   ('vehicles'),
   ('purchase_invoice_lines'),
   ('sales_orders'),
+  ('tyre_sets'),
   ('vehicle_inspection_records'),
   ('vehicle_purchases'),
   ('vehicle_sales'),
   ('workshop_orders'),
   ('invoices'),
   ('sales_order_items'),
+  ('tyre_set_events'),
   ('vehicle_ledger_entries'),
   ('workshop_tasks'),
   ('credit_notes'),
@@ -181,7 +187,12 @@ VALUES
   ('employee_work_schedules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'users', 'user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('external_id_mappings', 'import_jobs', 'tenant_id,first_seen_import_job_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('external_id_mappings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('finance_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('import_job_rows', 'import_jobs', 'tenant_id,import_job_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('import_job_rows', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('import_jobs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_template_items', 'inspection_templates', 'tenant_id,inspection_template_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inspection_template_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_templates', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -278,6 +289,18 @@ VALUES
   ('storage_locations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tenant_members', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tenant_members', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_set_events', 'employees', 'employee_id', 'id', 'SET NULL', 'CASCADE'),
+  ('tyre_set_events', 'storage_locations', 'from_location_id', 'id', 'SET NULL', 'CASCADE'),
+  ('tyre_set_events', 'storage_locations', 'to_location_id', 'id', 'SET NULL', 'CASCADE'),
+  ('tyre_set_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_set_events', 'tyre_sets', 'tenant_id,tyre_set_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('tyre_set_events', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('tyre_sets', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_sets', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('tyre_sets', 'storage_locations', 'tenant_id,site_id,location_id', 'tenant_id,site_id,id', 'SET NULL', 'CASCADE'),
+  ('tyre_sets', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tyre_sets', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
+  ('tyre_storage_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('users', 'tenants', 'active_tenant_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_inspection_records', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_inspection_records', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -550,6 +573,8 @@ DELETE FROM public."workshop_tasks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_ledger_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."tyre_set_events"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoices"
@@ -561,6 +586,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_purchases"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_inspection_records"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."tyre_sets"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -618,6 +645,10 @@ DELETE FROM public."labor_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_template_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_job_rows"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."external_id_mappings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
@@ -641,6 +672,8 @@ DELETE FROM public."voice_translation_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vendors"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."tyre_storage_settings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_members"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."revenue_groups"
@@ -652,6 +685,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoice_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_templates"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_jobs"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."finance_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

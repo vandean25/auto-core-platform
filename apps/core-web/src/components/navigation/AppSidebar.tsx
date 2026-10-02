@@ -22,6 +22,7 @@ import {
   UserRound,
   Users,
   Wrench,
+  Warehouse,
   LayoutGrid,
   Calendar,
   ArrowLeftRight,
@@ -120,6 +121,14 @@ const coreModules: SidebarModule[] = [
     icon: Calendar,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/planner'),
+  },
+  {
+    id: 'tyre-storage',
+    label: 'Reifenlager',
+    to: '/workshop/tyre-storage',
+    icon: Warehouse,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/workshop/tyre-storage'),
   },
   {
     id: 'hr',

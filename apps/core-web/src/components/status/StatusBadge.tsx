@@ -59,6 +59,17 @@ const statusClassMap: Record<string, string> = {
   DUE_SOON: 'border-amber-200 bg-amber-100 text-amber-700',
   OVERDUE: 'border-rose-200 bg-rose-100 text-rose-700',
   UNKNOWN: 'border-slate-200 bg-slate-100 text-slate-600',
+  IN_STORAGE: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  ON_VEHICLE: 'border-sky-200 bg-sky-100 text-sky-700',
+  RETURNED: 'border-amber-200 bg-amber-100 text-amber-700',
+  DISPOSED: 'border-slate-200 bg-slate-100 text-slate-500',
+  SUMMER: 'border-amber-200 bg-amber-100 text-amber-800',
+  WINTER: 'border-sky-200 bg-sky-100 text-sky-800',
+  ALL_SEASON: 'border-violet-200 bg-violet-100 text-violet-700',
+  CHECK_IN: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  CHECK_OUT: 'border-sky-200 bg-sky-100 text-sky-700',
+  MOVED: 'border-indigo-200 bg-indigo-100 text-indigo-700',
+  INSPECTED: 'border-slate-200 bg-slate-100 text-slate-700',
 }
 
 export function formatStatusLabel(status: string) {
