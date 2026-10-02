@@ -41,6 +41,7 @@ import {
 } from './accounting-export-scope.js';
 import type { AccountingExportProfileSnapshot } from './accounting-export.types.js';
 import {
+  buildAccountingExportFilenameForRun,
   exportProfileCanGenerate,
   resolveAccountingExportSerializer,
 } from './accounting-export-serializer.registry.js';
@@ -532,10 +533,7 @@ export class AccountingExportService {
 
     const snapshot =
       exportRun.profile_snapshot as AccountingExportProfileSnapshot;
-    const downloadSerializer = resolveAccountingExportSerializer(
-      snapshot.profileCode,
-    );
-    const filename = downloadSerializer.buildFilename({
+    const filename = buildAccountingExportFilenameForRun(snapshot.profileCode, {
       legalEntityId: exportRun.legal_entity_id,
       dateFrom: exportRun.date_from.toISOString().slice(0, 10),
       dateTo: exportRun.date_to.toISOString().slice(0, 10),
@@ -745,15 +743,16 @@ export class AccountingExportService {
   ) {
     const resolvedFilename =
       filename ??
-      resolveAccountingExportSerializer(
+      buildAccountingExportFilenameForRun(
         (exportRun.profile_snapshot as AccountingExportProfileSnapshot)
           .profileCode,
-      ).buildFilename({
-        legalEntityId: exportRun.legal_entity_id,
-        dateFrom: exportRun.date_from.toISOString().slice(0, 10),
-        dateTo: exportRun.date_to.toISOString().slice(0, 10),
-        runId: exportRun.id,
-      });
+        {
+          legalEntityId: exportRun.legal_entity_id,
+          dateFrom: exportRun.date_from.toISOString().slice(0, 10),
+          dateTo: exportRun.date_to.toISOString().slice(0, 10),
+          runId: exportRun.id,
+        },
+      );
 
     return {
       id: exportRun.id,
@@ -783,15 +782,16 @@ export class AccountingExportService {
       legalEntityId: exportRun.legal_entity_id,
       dateFrom: exportRun.date_from.toISOString().slice(0, 10),
       dateTo: exportRun.date_to.toISOString().slice(0, 10),
-      filename: resolveAccountingExportSerializer(
+      filename: buildAccountingExportFilenameForRun(
         (exportRun.profile_snapshot as AccountingExportProfileSnapshot)
           .profileCode,
-      ).buildFilename({
-        legalEntityId: exportRun.legal_entity_id,
-        dateFrom: exportRun.date_from.toISOString().slice(0, 10),
-        dateTo: exportRun.date_to.toISOString().slice(0, 10),
-        runId: exportRun.id,
-      }),
+        {
+          legalEntityId: exportRun.legal_entity_id,
+          dateFrom: exportRun.date_from.toISOString().slice(0, 10),
+          dateTo: exportRun.date_to.toISOString().slice(0, 10),
+          runId: exportRun.id,
+        },
+      ),
       sha256: exportRun.file_sha256,
       documentCount: exportRun.document_count,
       rowCount: exportRun.row_count,

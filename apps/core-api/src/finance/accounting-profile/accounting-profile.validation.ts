@@ -214,8 +214,19 @@ export function validateAccountingProfilePatch(
       ? (normalized.chart ?? null)
       : context.currentChart;
 
-  if (patch.chart !== undefined || patch.profileCode !== undefined) {
+  const chartChanged = effectiveChart !== context.currentChart;
+  const profileCodeChanged =
+    effectiveProfileCode !== context.currentProfileCode;
+  if (chartChanged || profileCodeChanged) {
     assertChartAllowedForProfile(effectiveProfileCode, effectiveChart);
+  }
+
+  if (
+    profileCodeChanged &&
+    !isExportSerializerImplemented(effectiveProfileCode) &&
+    patch.isEnabled === undefined
+  ) {
+    normalized.isEnabled = false;
   }
 
   if (patch.isEnabled !== undefined) {
@@ -247,5 +258,3 @@ export function validateAccountingProfilePatch(
 
   return normalized;
 }
-
-export { serializeAccountingProfileSerializerParams };

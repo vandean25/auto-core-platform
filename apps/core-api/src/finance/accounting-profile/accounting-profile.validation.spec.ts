@@ -83,4 +83,28 @@ describe('accounting-profile.validation', () => {
       validateAccountingProfilePatch({ chart: 'SKR03' }, atContext),
     ).toThrow(BadRequestException);
   });
+
+  it('allows saving unrelated fields when legacy chart is unchanged', () => {
+    const patch = validateAccountingProfilePatch(
+      { chart: 'skr03', advisorNumber: '99999' },
+      {
+        countryIso: 'DE',
+        currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+        currentChart: 'skr03',
+      },
+    );
+    expect(patch.advisorNumber).toBe('99999');
+  });
+
+  it('disables export when profile code changes to a non-implemented serializer', () => {
+    const patch = validateAccountingProfilePatch(
+      { profileCode: DEFAULT_AT_PROFILE_CODE, chart: 'UGB' },
+      {
+        countryIso: 'DE',
+        currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+        currentChart: 'SKR03',
+      },
+    );
+    expect(patch.isEnabled).toBe(false);
+  });
 });

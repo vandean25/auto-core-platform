@@ -1,5 +1,6 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import {
+  buildAccountingExportFilenameForRun,
   exportProfileCanGenerate,
   resolveAccountingExportSerializer,
 } from './accounting-export-serializer.registry.js';
@@ -35,6 +36,16 @@ describe('accounting-export-serializer.registry', () => {
         rows: [],
       }),
     ).toThrow(UnprocessableEntityException);
+  });
+
+  it('falls back to legacy DATEV filenames for unknown snapshot profile codes', () => {
+    const filename = buildAccountingExportFilenameForRun(null, {
+      legalEntityId: 'entity-1',
+      dateFrom: '2026-01-01',
+      dateTo: '2026-01-31',
+      runId: 'run-1',
+    });
+    expect(filename).toBe('EXTF_entity-1_2026-01-01_2026-01-31_run-1.csv');
   });
 
   it('treats enabled RZL profiles as not generatable', () => {

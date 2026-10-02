@@ -77,12 +77,33 @@ describe('datev-serializer golden bytes', () => {
   });
 
   it.each([
-    { taxRate: '20.00', net: '100.00', tax: '20.00', gross: '120.00' },
-    { taxRate: '13.00', net: '100.00', tax: '13.00', gross: '113.00' },
-    { taxRate: '10.00', net: '100.00', tax: '10.00', gross: '110.00' },
+    {
+      taxRate: '20.00',
+      net: '100.00',
+      tax: '20.00',
+      gross: '120.00',
+      expectedSha256:
+        '9e6bc8a36b5dd4e16796daaff6243e25ae1f0b03ec182976cdff353b10bfba2a',
+    },
+    {
+      taxRate: '13.00',
+      net: '100.00',
+      tax: '13.00',
+      gross: '113.00',
+      expectedSha256:
+        '9e51b77a24a745f57e71209b1d3bcf10d25e0723e31dd28d2e02abe3dd24d44c',
+    },
+    {
+      taxRate: '10.00',
+      net: '100.00',
+      tax: '10.00',
+      gross: '110.00',
+      expectedSha256:
+        '921c4fab051cacf1aeba205a191b8c1ee83ccd30d2cc62229ffc1ec0cb3ec458',
+    },
   ])(
-    'serializes Austrian VAT %s invoices and mirrored credit notes',
-    ({ taxRate, net, tax, gross }) => {
+    'pins golden bytes for Austrian VAT $taxRate invoices and mirrored credit notes',
+    ({ taxRate, net, tax, gross, expectedSha256 }) => {
       const rows: AccountingExportBookingRow[] = [
         bookingRow({ taxRate, net, tax, gross }),
         bookingRow({
@@ -109,6 +130,7 @@ describe('datev-serializer golden bytes', () => {
       });
 
       expect(result.rowCount).toBe(2);
+      expect(result.sha256).toBe(expectedSha256);
       expect(result.csvText).toContain(gross.replace('.', ','));
       expect(result.csvText).toContain('"S"');
       expect(result.csvText).toContain('"H"');

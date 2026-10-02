@@ -1,7 +1,4 @@
-import {
-  DEFAULT_DE_PROFILE_CODE,
-  isDatevProfileCode,
-} from '../accounting-profile/accounting-profile.codes.js';
+import { DEFAULT_DE_PROFILE_CODE } from '../accounting-profile/accounting-profile.codes.js';
 import {
   DATEV_MAX_CSV_BYTES,
   DATEV_MAX_DOCUMENTS_PER_RUN,
@@ -38,11 +35,3 @@ export const datevAccountingExportSerializer: AccountingExportSerializerPort = {
   serialize: serializeDatev,
   buildFilename: buildAccountingExportFilename,
 };
-
-export function assertDatevProfileCode(profileCode: string | null): void {
-  if (!isDatevProfileCode(profileCode)) {
-    throw new Error(
-      `Expected DATEV profile ${DEFAULT_DE_PROFILE_CODE}, received ${profileCode ?? 'null'}`,
-    );
-  }
-}

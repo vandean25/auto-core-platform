@@ -4,7 +4,10 @@ import {
   DEFAULT_DE_PROFILE_CODE,
   isExportSerializerImplemented,
 } from '../accounting-profile/accounting-profile.codes.js';
-import type { AccountingExportSerializerPort } from './accounting-export-serializer.types.js';
+import type {
+  AccountingExportFilenameInput,
+  AccountingExportSerializerPort,
+} from './accounting-export-serializer.types.js';
 import { datevAccountingExportSerializer } from './datev-accounting-export.serializer.js';
 import { buildAccountingExportFilename } from './datev-serializer.js';
 import {
@@ -63,4 +66,16 @@ export function exportProfileCanGenerate(
   isEnabled: boolean,
 ): boolean {
   return isEnabled && isExportSerializerImplemented(profileCode);
+}
+
+/** Read paths: legacy runs may have null or unknown profile codes in frozen snapshots. */
+export function buildAccountingExportFilenameForRun(
+  profileCode: unknown,
+  input: AccountingExportFilenameInput,
+): string {
+  const serializer =
+    typeof profileCode === 'string'
+      ? serializersByProfileCode.get(profileCode)
+      : undefined;
+  return (serializer?.buildFilename ?? buildAccountingExportFilename)(input);
 }
