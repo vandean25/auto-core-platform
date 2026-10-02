@@ -94,7 +94,7 @@ export class ImportController {
   @Get('templates/:entityType/csv')
   @ApiOperation({ summary: 'Download CSV import template (German headers)' })
   @Header('Content-Type', 'text/csv; charset=utf-8')
-  async downloadTemplateCsv(
+  downloadTemplateCsv(
     @Param('entityType') entityType: string,
     @Res() res: Response,
   ) {

@@ -14,7 +14,10 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { assertTenantAdmin, requireActiveCurrentUser } from '../site/site.authorization.js';
+import {
+  assertTenantAdmin,
+  requireActiveCurrentUser,
+} from '../site/site.authorization.js';
 import {
   IMPORT_ERROR_CODES,
   IMPORT_MAX_FILE_BYTES,
@@ -36,7 +39,24 @@ import {
   planVehicleDryRunRow,
 } from './vehicle-import.logic.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
-import { buildImportAuditDiff, pickCustomerAuditSnapshot } from './import-audit.util.js';
+import {
+  buildImportAuditDiff,
+  pickCustomerAuditSnapshot,
+} from './import-audit.util.js';
+
+function resolveImportExternalId(
+  payload: Record<string, unknown>,
+  rowExternalId: string | null,
+): string {
+  const raw = payload.external_id ?? rowExternalId ?? '';
+  if (typeof raw === 'string') {
+    return raw;
+  }
+  if (typeof raw === 'number' || typeof raw === 'boolean') {
+    return String(raw);
+  }
+  return '';
+}
 
 @Injectable()
 export class ImportService {
@@ -279,8 +299,7 @@ export class ImportService {
       orderBy: { row_no: 'asc' },
     });
 
-    const options = job.options_json as ImportJobOptions;
-    let totals: ImportJobTotals = {
+    const totals: ImportJobTotals = {
       rows: rows.length,
       create: 0,
       update: 0,
@@ -302,9 +321,21 @@ export class ImportService {
         try {
           await this.prisma.$transaction(async (tx) => {
             if (job.entity_type === ImportEntityType.CUSTOMER) {
-              await this.applyCustomerRow(tx, tenantId, job, row, currentUser.id);
+              await this.applyCustomerRow(
+                tx,
+                tenantId,
+                job,
+                row,
+                currentUser.id,
+              );
             } else {
-              await this.applyVehicleRow(tx, tenantId, job, row, currentUser.id);
+              await this.applyVehicleRow(
+                tx,
+                tenantId,
+                job,
+                row,
+                currentUser.id,
+              );
             }
           });
           if (row.action === ImportRowAction.CREATE) {
@@ -533,7 +564,10 @@ export class ImportService {
         vehicleByVin.set(vehicle.vin.toUpperCase(), vehicle.id);
       }
       if (vehicle.plate) {
-        vehicleByPlate.set(vehicle.plate.toUpperCase().replace(/\s+/g, ''), vehicle.id);
+        vehicleByPlate.set(
+          vehicle.plate.toUpperCase().replace(/\s+/g, ''),
+          vehicle.id,
+        );
       }
     }
 
@@ -593,7 +627,7 @@ export class ImportService {
     actorUserId: string,
   ) {
     const payload = row.normalized_json as Record<string, unknown>;
-    const externalId = String(payload.external_id ?? row.external_id ?? '');
+    const externalId = resolveImportExternalId(payload, row.external_id);
     delete payload.external_id;
 
     if (row.action === ImportRowAction.CREATE) {
@@ -696,7 +730,11 @@ export class ImportService {
     const assign = (key: keyof typeof existing, value: unknown) => {
       if (options.fill_empty_only) {
         const current = existing[key];
-        if (current !== null && current !== undefined && String(current).trim() !== '') {
+        if (
+          current !== null &&
+          current !== undefined &&
+          String(current).trim() !== ''
+        ) {
           return;
         }
       }
@@ -730,7 +768,7 @@ export class ImportService {
     actorUserId: string,
   ) {
     const payload = row.normalized_json as Record<string, unknown>;
-    const externalId = String(payload.external_id ?? row.external_id ?? '');
+    const externalId = resolveImportExternalId(payload, row.external_id);
     delete payload.external_id;
 
     if (row.action === ImportRowAction.CREATE) {
@@ -875,7 +913,7 @@ export class ImportService {
             ? (after as Record<string, unknown>)
             : {}),
           importJobId,
-        } as Prisma.InputJsonValue,
+        },
         diff: (diff as Prisma.InputJsonValue) ?? Prisma.JsonNull,
       },
     });

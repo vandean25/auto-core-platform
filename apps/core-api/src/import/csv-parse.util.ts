@@ -54,7 +54,9 @@ function parseCsvLine(line: string, delimiter: string): string[] {
 }
 
 export function parseCsvFile(buffer: Buffer): ParsedCsv {
-  const text = decodeCsvBuffer(buffer).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const text = decodeCsvBuffer(buffer)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
   const lines = text.split('\n').filter((line) => line.trim().length > 0);
   if (lines.length === 0) {
     return {
@@ -94,7 +96,11 @@ export function serializeCsv(
   delimiter: ';' | ',' = ';',
 ): string {
   const escape = (value: string) => {
-    if (value.includes(delimiter) || value.includes('"') || value.includes('\n')) {
+    if (
+      value.includes(delimiter) ||
+      value.includes('"') ||
+      value.includes('\n')
+    ) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;

@@ -57,7 +57,11 @@ export function normalizeVehicleRow(
   record: Record<string, string>,
   mapping: Record<string, string>,
   options: ImportJobOptions,
-): { row: NormalizedVehicleRow | null; issues: ImportRowIssue[]; warnings: ImportRowIssue[] } {
+): {
+  row: NormalizedVehicleRow | null;
+  issues: ImportRowIssue[];
+  warnings: ImportRowIssue[];
+} {
   const issues: ImportRowIssue[] = [];
   const warnings: ImportRowIssue[] = [];
 
@@ -101,10 +105,18 @@ export function normalizeVehicleRow(
   const year = parseYear(cellValue(record, mapping, 'year'));
 
   if (!make) {
-    issues.push({ code: 'IMPORT_MAKE_REQUIRED', message: 'make is required', field: 'make' });
+    issues.push({
+      code: 'IMPORT_MAKE_REQUIRED',
+      message: 'make is required',
+      field: 'make',
+    });
   }
   if (!model) {
-    issues.push({ code: 'IMPORT_MODEL_REQUIRED', message: 'model is required', field: 'model' });
+    issues.push({
+      code: 'IMPORT_MODEL_REQUIRED',
+      message: 'model is required',
+      field: 'model',
+    });
   }
   if (year === null) {
     issues.push({
@@ -139,7 +151,10 @@ export function normalizeVehicleRow(
   };
 }
 
-function buildVehiclePayload(row: NormalizedVehicleRow, customerId: string | null) {
+function buildVehiclePayload(
+  row: NormalizedVehicleRow,
+  customerId: string | null,
+) {
   return {
     make: row.make,
     model: row.model,
@@ -198,7 +213,8 @@ export function planVehicleDryRunRow(
         errors: [
           {
             code: 'IMPORT_UNKNOWN_OWNER',
-            message: 'owner customer external_id does not resolve in this tenant',
+            message:
+              'owner customer external_id does not resolve in this tenant',
             field: 'owner_customer_external_id',
           },
         ],

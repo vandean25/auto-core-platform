@@ -33,7 +33,11 @@ const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
     { key: 'year', label_de: 'Baujahr', required: true },
     { key: 'mileage', label_de: 'Kilometerstand', required: false },
     { key: 'color', label_de: 'Farbe', required: false },
-    { key: 'owner_customer_external_id', label_de: 'Kunden-Nr', required: false },
+    {
+      key: 'owner_customer_external_id',
+      label_de: 'Kunden-Nr',
+      required: false,
+    },
     { key: 'key_number', label_de: 'Schlüsselnummer', required: false },
   ],
   csv_header:
@@ -49,7 +53,7 @@ export function getImportTemplate(
   if (entityType === ImportEntityType.VEHICLE) {
     return VEHICLE_TEMPLATE;
   }
-  throw new Error(`Unsupported entity type: ${entityType}`);
+  throw new Error('Unsupported import entity type');
 }
 
 export function buildTemplateCsv(entityType: ImportEntityType): string {

@@ -1,4 +1,3 @@
-import { CustomerType } from '@prisma/client';
 import {
   isValidAtUid,
   isValidDeVatId,
@@ -43,7 +42,11 @@ function cellValue(
 
 function parseCustomerType(raw: string): 'PRIVATE' | 'COMPANY' {
   const normalized = raw.trim().toUpperCase();
-  if (normalized === 'BUSINESS' || normalized === 'COMPANY' || normalized === 'FIRMA') {
+  if (
+    normalized === 'BUSINESS' ||
+    normalized === 'COMPANY' ||
+    normalized === 'FIRMA'
+  ) {
     return 'COMPANY';
   }
   return 'PRIVATE';
@@ -51,6 +54,19 @@ function parseCustomerType(raw: string): 'PRIVATE' | 'COMPANY' {
 
 function isEmpty(value: string | null | undefined): boolean {
   return value === null || value === undefined || value.trim() === '';
+}
+
+function formatComparable(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return JSON.stringify(value);
 }
 
 function customerNameKey(row: NormalizedCustomerRow): string {
@@ -64,7 +80,11 @@ function validateVatId(
   country: string | null,
   vatId: string | null,
   options: ImportJobOptions,
-): { vatId: string | null; issues: ImportRowIssue[]; warnings: ImportRowIssue[] } {
+): {
+  vatId: string | null;
+  issues: ImportRowIssue[];
+  warnings: ImportRowIssue[];
+} {
   const issues: ImportRowIssue[] = [];
   if (!vatId) {
     return { vatId: null, issues, warnings: [] };
@@ -79,7 +99,10 @@ function validateVatId(
         ? validDe
         : validAt || validDe;
 
-  if (!valid && (countryIso === 'AT' || countryIso === 'DE' || countryIso === '')) {
+  if (
+    !valid &&
+    (countryIso === 'AT' || countryIso === 'DE' || countryIso === '')
+  ) {
     const issue: ImportRowIssue = {
       code: 'CUSTOMER_VAT_ID_INVALID',
       message: 'vat_id is not a valid AT/DE VAT identifier format',
@@ -107,7 +130,11 @@ export function normalizeCustomerRow(
   record: Record<string, string>,
   mapping: Record<string, string>,
   options: ImportJobOptions,
-): { row: NormalizedCustomerRow | null; issues: ImportRowIssue[]; warnings: ImportRowIssue[] } {
+): {
+  row: NormalizedCustomerRow | null;
+  issues: ImportRowIssue[];
+  warnings: ImportRowIssue[];
+} {
   const issues: ImportRowIssue[] = [];
   const warnings: ImportRowIssue[] = [];
 
@@ -150,8 +177,7 @@ export function normalizeCustomerRow(
   const emailRaw = cellValue(record, mapping, 'email');
   const email = emailRaw ? emailRaw.toLowerCase() : null;
   const vatRaw = normalizeCustomerVatId(cellValue(record, mapping, 'vat_id'));
-  const country =
-    cellValue(record, mapping, 'address_country') || 'AT';
+  const country = cellValue(record, mapping, 'address_country') || 'AT';
 
   const vatResult = validateVatId(country, vatRaw, options);
   issues.push(...vatResult.issues);
@@ -181,7 +207,7 @@ export function normalizeCustomerRow(
 
 function buildCustomerPayload(row: NormalizedCustomerRow) {
   return {
-    type: row.type as CustomerType,
+    type: row.type,
     company_name: row.company_name,
     first_name: row.first_name,
     last_name: row.last_name,
@@ -203,15 +229,16 @@ function recordsEqual(
   for (const [key, value] of Object.entries(desired)) {
     const current = existing[key];
     if (fillEmptyOnly) {
-      if (isEmpty(String(current ?? '')) && !isEmpty(String(value ?? ''))) {
+      if (
+        isEmpty(formatComparable(current)) &&
+        !isEmpty(formatComparable(value))
+      ) {
         return false;
       }
       continue;
     }
-    const normalizedCurrent =
-      current === null || current === undefined ? '' : String(current);
-    const normalizedDesired =
-      value === null || value === undefined ? '' : String(value);
+    const normalizedCurrent = formatComparable(current);
+    const normalizedDesired = formatComparable(value);
     if (normalizedCurrent !== normalizedDesired) {
       return false;
     }
