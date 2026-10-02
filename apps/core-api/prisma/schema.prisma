@@ -1340,7 +1340,8 @@ model VehicleInspectionRecord {
 
   @@unique([tenant_id, id])
   @@index([tenant_id, vehicle_id, inspected_on], map: "idx_vehicle_inspection_records_vehicle_inspected")
-  @@map("vehicle_inspection_records")
+    @@index([tenant_id, plaketten_valid_until_year, plaketten_valid_until_month], map: "idx_vehicle_inspection_records_tenant_valid_until")
+@@map("vehicle_inspection_records")
 }
 
 enum SalesOrderStatus {

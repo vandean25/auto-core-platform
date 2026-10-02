@@ -1,4 +1,9 @@
 import {
+  PickerlDueListQueryDto,
+  PickerlDueListExportQueryDto,
+  PickerlDuePaginatedResponseDto,
+} from './dto/pickerl-due-list.dto.js';
+import {
   BadRequestException,
   Body,
   Controller,
@@ -9,6 +14,7 @@ import {
   Patch,
   Post,
   Query,
+  Header,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service.js';
@@ -26,6 +32,18 @@ export class VehicleController {
     private readonly vehicleService: VehicleService,
     private readonly vehicleIdentityService: VehicleIdentityService,
   ) {}
+
+  @Get('pickerl-due')
+  @ApiOkResponse({ type: PickerlDuePaginatedResponseDto })
+  findPickerlDue(@Query() query: PickerlDueListQueryDto) {
+    return this.vehicleService.findPickerlDue(query);
+  }
+
+  @Get('pickerl-due/export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  exportPickerlDue(@Query() query: PickerlDueListExportQueryDto) {
+    return this.vehicleService.exportPickerlDueCsv(query);
+  }
 
   @Get()
   @ApiQuery({ name: 'search', required: false, schema: { type: 'string' } })

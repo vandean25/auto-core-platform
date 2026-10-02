@@ -11,6 +11,7 @@ export const APP_ROUTE_PATHS = {
   customerDetail: '/customers/:id',
   vehicles: '/vehicles',
   vehicleDetail: '/vehicles/:id',
+  vehiclePickerlDue: '/vehicles/pickerl-due',
   vehicleStockAlias: '/vehicles/stock',
   vehicleStock: '/vehicle-stock',
   vehicleStockPurchaseNew: '/vehicle-stock/purchases/new',

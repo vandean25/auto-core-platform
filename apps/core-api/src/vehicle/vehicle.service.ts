@@ -32,6 +32,11 @@ import {
   normalizeVehicleRegulatoryFields,
 } from './vehicle-regulatory.validation.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
+import {
+  PickerlDueListQueryDto,
+  PickerlDueListExportQueryDto,
+} from './dto/pickerl-due-list.dto.js';
+import { csvEscape } from '../common/utils/csv-export.util.js';
 
 interface ExistingVehicleIdentity {
   id: string;
@@ -49,6 +54,140 @@ export class VehicleService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
   ) {}
+
+  async getPickerlDueData(
+    query: PickerlDueListQueryDto | PickerlDueListExportQueryDto,
+  ) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+
+    // We fetch all customer vehicles and their latest inspection record
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: {
+        tenant_id: tenantId,
+        inventory_role: 'CUSTOMER',
+        // Approximate pre-filter using the index to skip vehicles definitely not due
+        // We look for ones where the valid_until_year is <= next year, or no records exist.
+        OR: [
+          {
+            inspection_records: {
+              some: {
+                plaketten_valid_until_year: {
+                  lte: new Date().getFullYear() + 1,
+                },
+              },
+            },
+          },
+          {
+            inspection_records: { none: {} },
+          },
+        ],
+      },
+      include: {
+        customer: true,
+        inspection_records: {
+          orderBy: { inspected_on: 'desc' },
+          select: {
+            inspected_on: true,
+            plaketten_valid_until_year: true,
+            plaketten_valid_until_month: true,
+          },
+        },
+      },
+    });
+
+    const projected = projectVehicleListOperationalFields(
+      vehicles.map(stripVehicleIdentityResolutionState),
+      authorizedSiteIds,
+    );
+
+    const today = new Date();
+    const maxWindowDays = query.window || 90;
+    const maxWindowMs = maxWindowDays * 24 * 60 * 60 * 1000;
+    const futureDate = new Date(today.getTime() + maxWindowMs);
+    const futureYear = futureDate.getFullYear();
+    const futureMonth = futureDate.getMonth() + 1; // 1-12
+    const futureThreshold = `${futureYear}-${futureMonth.toString().padStart(2, '0')}`;
+
+    const results = (projected || [])
+      .map((v) => attachPickerlDue(v, today))
+      .filter((v) => {
+        // Filter by status if provided
+        if (query.status && v.pickerl_due.status !== query.status) {
+          return false;
+        }
+
+        // Filter by window if provided (for DUE_SOON and OK, check if due_month is within window)
+        // If due_month is null, we can't filter by window. If it's OVERDUE, it's always included.
+        if (query.window) {
+          if (v.pickerl_due.status === 'OVERDUE') return true;
+          if (!v.pickerl_due.due_month) {
+            // For UNKNOWN, we might want to exclude them if a strict window is set,
+            return query.status === 'UNKNOWN';
+          }
+          if (v.pickerl_due.due_month > futureThreshold) return false;
+        }
+
+        return true;
+      });
+
+    // Sort: OVERDUE first, then by due_month ascending, then UNKNOWN
+    results.sort((a, b) => {
+      const rank = (s: string) =>
+        s === 'OVERDUE' ? 1 : s === 'DUE_SOON' ? 2 : s === 'OK' ? 3 : 4;
+      const rankDiff = rank(a.pickerl_due.status) - rank(b.pickerl_due.status);
+      if (rankDiff !== 0) return rankDiff;
+
+      const m1 = a.pickerl_due.due_month || '9999-99';
+      const m2 = b.pickerl_due.due_month || '9999-99';
+      return m1.localeCompare(m2);
+    });
+
+    return results;
+  }
+
+  async findPickerlDue(query: PickerlDueListQueryDto) {
+    const allData = await this.getPickerlDueData(query);
+
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : 25;
+    const skip = (page - 1) * pageSize;
+
+    const paginatedData = allData.slice(skip, skip + pageSize);
+
+    return {
+      data: paginatedData,
+      meta: {
+        total: allData.length,
+        page,
+        pageSize,
+        totalPages: Math.ceil(allData.length / pageSize),
+      },
+    };
+  }
+
+  async exportPickerlDueCsv(query: PickerlDueListExportQueryDto) {
+    const allData = await this.getPickerlDueData(query);
+
+    const header = 'plate,vehicle,customer,due_month,status,phone,email';
+    const lines = allData.map((row) => {
+      const vehicleName = `${row.make} ${row.model}`;
+      const customerName = row.customer
+        ? `${row.customer.first_name} ${row.customer.last_name}`.trim()
+        : '';
+      return [
+        csvEscape(row.plate),
+        csvEscape(vehicleName),
+        csvEscape(customerName),
+        csvEscape(row.pickerl_due.due_month),
+        csvEscape(row.pickerl_due.status),
+        csvEscape(row.customer?.phone),
+        csvEscape(row.customer?.email),
+      ].join(',');
+    });
+
+    return [header, ...lines].join('\n');
+  }
 
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();
