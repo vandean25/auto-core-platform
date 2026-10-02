@@ -14,7 +14,7 @@ Customer-owned wheel/tyre sets tracked per site with storage location, season, c
 - `POST /api/tyre-sets/:id/check-in|check-out|move`
 - `GET /api/tyre-sets/due-for-swap` and `GET /api/tyre-sets/due-for-swap/export` (CSV, no messaging)
 - `GET/PUT /api/tyre-sets/settings`
-- RBAC: `OWNER` / `ADMIN` / `SALES` write; `TECH` read.
+- RBAC: `OWNER` / `ADMIN` / `SALES` write (Linear's SERVICE_ADVISOR maps to tenant `SALES`; no separate tenant role exists); `TECH` read.
 
 ## UX
 

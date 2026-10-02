@@ -26,7 +26,10 @@ describe('Tyre storage (e2e)', () => {
   let customerId: string;
   let vehicleId: string;
   let storageLocationId: string;
+  let storageLocation2Id: string;
+  let storageLocation3Id: string;
   let otherSiteLocationId: string;
+  let branchSiteId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -89,6 +92,30 @@ describe('Tyre storage (e2e)', () => {
     });
     storageLocationId = location.id;
 
+    storageLocation2Id = (
+      await tenantPrisma.storageLocation.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          code: 'TYRE-RACK-2',
+          name: 'Tyre rack 2',
+          type: 'customer_storage',
+        },
+      })
+    ).id;
+
+    storageLocation3Id = (
+      await tenantPrisma.storageLocation.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          code: 'TYRE-RACK-3',
+          name: 'Tyre rack 3',
+          type: 'customer_storage',
+        },
+      })
+    ).id;
+
     const secondSite = await tenantPrisma.site.create({
       data: {
         tenant_id: tenantId,
@@ -102,6 +129,7 @@ describe('Tyre storage (e2e)', () => {
         is_active: true,
       },
     });
+    branchSiteId = secondSite.id;
     otherSiteLocationId = (
       await tenantPrisma.storageLocation.create({
         data: {
@@ -211,39 +239,40 @@ describe('Tyre storage (e2e)', () => {
     });
   }
 
-  async function dueIds(asOf: string): Promise<string[]> {
+  async function dueIds(): Promise<string[]> {
     const res = await request(app.getHttpServer())
       .get('/api/tyre-sets/due-for-swap')
-      .query({ asOf })
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     return res.body.data.map((row: { id: string }) => row.id);
   }
 
-  it('lists due-for-swap with injected asOf around season boundaries', async () => {
+  it('lists due-for-swap with clock override around season boundaries', async () => {
+    const clock = app.get(TyreStorageClock);
     const dueSet = await seedDueSet('Due winter', '2026-03-01T00:00:00.000Z');
     await seedDueSet('Not yet due', '2026-10-01T00:00:00.000Z');
 
-    const dayBeforeWindow = await dueIds('2026-01-29T12:00:00.000Z');
-    expect(dayBeforeWindow).not.toContain(dueSet.id);
+    clock.setOverride(new Date('2026-01-29T12:00:00.000Z'));
+    expect(await dueIds()).not.toContain(dueSet.id);
 
-    const firstDayInside = await dueIds('2026-01-30T12:00:00.000Z');
-    expect(firstDayInside).toContain(dueSet.id);
+    clock.setOverride(new Date('2026-01-30T12:00:00.000Z'));
+    expect(await dueIds()).toContain(dueSet.id);
 
-    const onSwapDay = await dueIds('2026-03-01T12:00:00.000Z');
+    clock.setOverride(new Date('2026-03-01T12:00:00.000Z'));
+    const onSwapDay = await dueIds();
     expect(onSwapDay).toContain(dueSet.id);
+    expect(onSwapDay[0]).toBe(dueSet.id);
 
-    const overdue = await dueIds('2026-06-01T12:00:00.000Z');
-    expect(overdue).toContain(dueSet.id);
-    expect(overdue[0]).toBe(dueSet.id);
+    clock.setOverride(new Date('2026-06-01T12:00:00.000Z'));
+    expect(await dueIds()).toContain(dueSet.id);
 
     const res = await request(app.getHttpServer())
       .get('/api/tyre-sets/due-for-swap')
-      .query({ asOf: '2026-03-01T12:00:00.000Z' })
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
-
     expect(res.body.data[0].customerPhone).toBeTruthy();
+
+    clock.setOverride(null);
   });
 
   it('derives planned swap across year rollover when creating with clock override', async () => {
@@ -264,5 +293,101 @@ describe('Tyre storage (e2e)', () => {
     clock.setOverride(null);
 
     expect(createRes.body.plannedSwapOn).toBe('2027-10-01');
+  });
+
+  it('isolates sets by active site', async () => {
+    const branchSet = await tenantPrisma.tyreSet.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customerId,
+        vehicle_id: vehicleId,
+        site_id: branchSiteId,
+        location_id: otherSiteLocationId,
+        label: 'Branch only',
+        season: 'WINTER',
+        status: 'IN_STORAGE',
+        planned_swap_on: new Date('2026-03-01'),
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get(`/api/tyre-sets/${branchSet.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .patch(`/api/tyre-sets/${branchSet.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ label: 'Nope' })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .delete(`/api/tyre-sets/${branchSet.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
+
+    for (const path of ['check-out', 'check-in', 'move', 'dispose']) {
+      await request(app.getHttpServer())
+        .post(`/api/tyre-sets/${branchSet.id}/${path}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(
+          path === 'check-in' || path === 'move'
+            ? { locationId: storageLocationId }
+            : {},
+        )
+        .expect(404);
+    }
+
+    const list = await request(app.getHttpServer())
+      .get('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(list.body.data.some((row: { id: string }) => row.id === branchSet.id)).toBe(
+      false,
+    );
+
+    const due = await request(app.getHttpServer())
+      .get('/api/tyre-sets/due-for-swap')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(due.body.data.some((row: { id: string }) => row.id === branchSet.id)).toBe(
+      false,
+    );
+
+    const byVehicle = await request(app.getHttpServer())
+      .get(`/api/tyre-sets/by-vehicle/${vehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(
+      byVehicle.body.data.some((row: { id: string }) => row.id === branchSet.id),
+    ).toBe(false);
+  });
+
+  it('rejects concurrent moves with 409', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        locationId: storageLocationId,
+        label: 'Move race',
+        season: 'ALL_SEASON',
+      })
+      .expect(201);
+
+    const setId = createRes.body.id;
+    const [first, second] = await Promise.all([
+      request(app.getHttpServer())
+        .post(`/api/tyre-sets/${setId}/move`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ locationId: storageLocation2Id }),
+      request(app.getHttpServer())
+        .post(`/api/tyre-sets/${setId}/move`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ locationId: storageLocation3Id }),
+    ]);
+
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 409]);
   });
 });

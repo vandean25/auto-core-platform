@@ -370,7 +370,7 @@ export function LegalEntityAccountingProfileForm({
         <div>
           <h4 className="font-medium">Accounting profile</h4>
           <p className="text-sm text-slate-500">
-            Configure DATEV-oriented mappings for {entity.name}. Incomplete profiles can be saved;
+            Configure accounting export mappings for {entity.name}. Incomplete profiles can be saved;
             issuance readiness is surfaced separately.
           </p>
         </div>
@@ -491,7 +491,7 @@ export function LegalEntityAccountingProfileForm({
         </div>
       </div>
 
-      {entity.country_iso === 'DE' ? (
+      {form.profileCode === 'ACP-DATEV-DE-EUR-1' && entity.country_iso === 'DE' ? (
         <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
           <div>
             <p className="text-sm font-medium text-slate-700">DATEV export enabled</p>
@@ -508,7 +508,9 @@ export function LegalEntityAccountingProfileForm({
         </div>
       ) : (
         <p className="text-sm text-slate-500">
-          DATEV export profile activation is available for DE legal entities only in slice 1.
+          {form.profileCode === 'ACP-RZL-AT-EUR-1'
+            ? 'RZL export activation stays disabled until AUT-361/AUT-368 gates pass. Mapping can still be prepared.'
+            : 'Export profile activation is available only for supported serializer profiles.'}
         </p>
       )}
 

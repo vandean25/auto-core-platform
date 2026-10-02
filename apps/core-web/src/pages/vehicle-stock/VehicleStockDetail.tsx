@@ -13,6 +13,16 @@ import { useCreateWorkshopOrder } from '@/api/workshop'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
 import type { Customer } from '@/api/types'
+import {
+  VehicleRegulatorySection,
+  type VehicleNovaClass,
+  type VehicleRegulatoryValues,
+} from '@/components/vehicles/VehicleRegulatorySection'
+import {
+  bilingualLabel,
+  REGISTRATION_CERTIFICATE_HELP,
+  VEHICLE_REGULATORY_FIELDS,
+} from '@/components/vehicles/vehicle-regulatory-copy'
 
 export default function VehicleStockDetail() {
   const { vehicleId = '' } = useParams()
@@ -47,6 +57,10 @@ export default function VehicleStockDetail() {
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to save'))
     }
+  }
+
+  const saveRegulatory = async (patch: Partial<VehicleRegulatoryValues>) => {
+    await saveField(patch as Parameters<typeof patchStock.mutateAsync>[0])
   }
 
   const startPrep = async () => {
@@ -123,13 +137,39 @@ export default function VehicleStockDetail() {
             />
           </div>
           <div>
-            <div className="text-xs text-slate-500">Registration papers</div>
+            <div className="text-xs text-slate-500">
+              {bilingualLabel(VEHICLE_REGULATORY_FIELDS.registrationCertificate)}
+            </div>
+            <p className="text-xs text-slate-400 mb-1">
+              {bilingualLabel(REGISTRATION_CERTIFICATE_HELP)}
+            </p>
             <InlineEdit
               value={vehicle.registration_certificate_no}
               placeholder="Certificate no."
               onSave={(next) => saveField({ registration_certificate_no: next })}
             />
           </div>
+          <VehicleRegulatorySection
+            mode="inline"
+            values={{
+              first_registration_date:
+                typeof vehicle.first_registration_date === 'string'
+                  ? vehicle.first_registration_date.slice(0, 10)
+                  : vehicle.first_registration_date ?? null,
+              co2_wltp_g_km: vehicle.co2_wltp_g_km ?? null,
+              co2_nedc_g_km: vehicle.co2_nedc_g_km ?? null,
+              typenschein_no: vehicle.typenschein_no ?? null,
+              nova_class: (vehicle.nova_class as VehicleNovaClass | null) ?? null,
+              emission_class: vehicle.emission_class ?? null,
+            }}
+            onChange={(patch) => void saveRegulatory(patch)}
+            renderInlineField={(field, label, value, onSave) => (
+              <div key={field}>
+                <div className="text-xs text-slate-500">{label}</div>
+                <InlineEdit value={value} onSave={onSave} ariaLabel={label} />
+              </div>
+            )}
+          />
           <div>
             <div className="text-xs text-slate-500 mb-1">Reserved for</div>
             <CustomerSearch

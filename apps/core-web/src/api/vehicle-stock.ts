@@ -65,6 +65,12 @@ export type VehicleStockDetail = VehicleStockRow & {
   cost_basis: string | number
   key_number: string | null
   registration_certificate_no: string | null
+  first_registration_date?: string | null
+  co2_wltp_g_km?: number | null
+  co2_nedc_g_km?: number | null
+  typenschein_no?: string | null
+  nova_class?: string | null
+  emission_class?: string | null
   reserved_for_customer_id: string | null
   location_id: string | null
   ledger_entries: VehicleLedgerEntry[]
@@ -150,6 +156,12 @@ export type PatchVehicleStockInput = {
   color?: string
   key_number?: string
   registration_certificate_no?: string
+  first_registration_date?: string | null
+  co2_wltp_g_km?: number | null
+  co2_nedc_g_km?: number | null
+  typenschein_no?: string | null
+  nova_class?: string | null
+  emission_class?: string | null
 }
 
 export function useVehicleStock(queryParams?: DataTableQueryParams) {

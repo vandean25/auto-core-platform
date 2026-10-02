@@ -152,12 +152,12 @@ export class TyreStorageService {
     };
   }
 
-  async listDueForSwap(asOfParam?: string) {
+  async listDueForSwap() {
     assertTyreStorageRead(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const settings = await this.ensureSettings(tenantId);
-    const asOf = this.resolveAsOf(asOfParam);
+    const asOf = this.clock.now();
     const windowEnd = new Date(asOf);
     windowEnd.setUTCDate(windowEnd.getUTCDate() + settings.due_for_swap_days);
 
@@ -399,15 +399,29 @@ export class TyreStorageService {
     if (!existing) {
       throw new NotFoundException(`Tyre set ${id} not found`);
     }
-    const eventCount = await this.prisma.tyreSetEvent.count({
-      where: { tenant_id: tenantId, tyre_set_id: id },
-    });
-    if (eventCount > 0) {
-      throw new ConflictException(
-        'Tyre sets with event history cannot be deleted; record a dispose event instead.',
-      );
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const eventCount = await tx.tyreSetEvent.count({
+          where: { tenant_id: tenantId, tyre_set_id: id },
+        });
+        if (eventCount > 0) {
+          throw new ConflictException(
+            'Tyre sets with event history cannot be deleted; record a dispose event instead.',
+          );
+        }
+        await tx.tyreSet.delete({ where: { id } });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException(
+          'Tyre sets with event history cannot be deleted; record a dispose event instead.',
+        );
+      }
+      throw error;
     }
-    await this.prisma.tyreSet.delete({ where: { id } });
     return { ok: true };
   }
 
@@ -491,6 +505,7 @@ export class TyreStorageService {
           tenant_id: tenantId,
           site_id: siteId,
           status: expectedStatus,
+          location_id: set.location_id,
         },
         data: {
           status: patch.status,
@@ -526,13 +541,6 @@ export class TyreStorageService {
     });
 
     return this.findOne(id);
-  }
-
-  private resolveAsOf(asOfParam?: string): Date {
-    if (asOfParam && process.env.NODE_ENV === 'test') {
-      return new Date(asOfParam);
-    }
-    return this.clock.now();
   }
 
   private assertValidSwapCalendar(dto: UpdateTyreStorageSettingsDto): void {

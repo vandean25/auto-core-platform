@@ -733,6 +733,12 @@ type MockAccountingProfile = {
   client_number: string | null;
   fiscal_year_start_month: number | null;
   default_debtor_account: string | null;
+  serializer_params: {
+    rzl?: {
+      firmNumber?: string | null;
+      costCenterLength?: number | null;
+    };
+  };
   mapping_rules: Array<{
     sourceCategoryKey: string;
     sourceCategoryLabel: string;
@@ -772,6 +778,7 @@ export const createMockAccountingProfile = (
   client_number: null,
   fiscal_year_start_month: null,
   default_debtor_account: null,
+  serializer_params: {},
   mapping_rules: [],
   required_source_categories: [
     {

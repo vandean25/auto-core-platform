@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 import { firebaseAuth } from '@/lib/firebase'
-import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
+import { isE2EAuthBypassEnabled, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath } from '@/lib/shell-paths'
 
 export type AuthSession = components['schemas']['AuthSessionResponseDto']
@@ -54,6 +54,10 @@ function getCurrentUserKey(explicitUserKey?: string | null) {
     return explicitUserKey
   }
 
+  if (isE2ETestTokenAuthEnabled()) {
+    return 'e2e-fullstack-user'
+  }
+
   if (isE2EAuthBypassEnabled()) {
     return 'e2e-test-user'
   }
@@ -73,7 +77,7 @@ export function useAuthSession(userKey?: string | null, enabled = true) {
     queryKey: authSessionKeys.user(resolvedUserKey),
     enabled: enabled && Boolean(resolvedUserKey),
     queryFn: async () => {
-      if (isE2EAuthBypassEnabled()) {
+      if (isE2EAuthBypassEnabled() && !isE2ETestTokenAuthEnabled()) {
         return getE2EAuthSession()
       }
 

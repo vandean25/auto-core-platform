@@ -5,6 +5,18 @@ description: "Register the car, plate, and VIN against a customer before intake.
 
 **Vehicles** lists every car in the tenant. Columns: vehicle, year, VIN, plate, customer. Top-right: **+ Vehicle**. Click the row for full vehicle context.
 
+### Registration & emissions (Zulassung & Emissionen)
+
+On **+ Vehicle**, **Edit Vehicle**, and the vehicle detail card you can capture Austrian regulatory data (all optional):
+
+- First registration date / Erstzulassung
+- CO₂ WLTP and optional NEDC (g/km)
+- Typenschein number (type approval)
+- NoVA class (placeholder values until NoVA calculation ships)
+- Emission class / Schadstoffklasse
+
+**ZB I vs Typenschein:** The existing **registration certificate** field on dealer stock vehicles is the ZB I (Fahrzeugschein). The **Typenschein** is the separate type-approval document — use the Typenschein field for that number.
+
 <Steps>
   <Step title="Create from the list">
     **+ Vehicle** opens **Vehicle** dialog. Tie it to a customer. Unassigned shows as **Unassigned** on the list.

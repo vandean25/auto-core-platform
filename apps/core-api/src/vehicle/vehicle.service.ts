@@ -27,6 +27,10 @@ import {
   projectVehicleOperationalFields,
   projectVehicleListOperationalFields,
 } from '../common/projections/vehicle-entity.projection.js';
+import {
+  assertVehicleRegulatoryFields,
+  normalizeVehicleRegulatoryFields,
+} from './vehicle-regulatory.validation.js';
 
 interface ExistingVehicleIdentity {
   id: string;
@@ -52,7 +56,10 @@ export class VehicleService {
       await this.validateCustomerExists(createVehicleDto.customer_id, tenantId);
     }
 
-    const data = this.buildCreatePayload(createVehicleDto, tenantId);
+    const normalizedDto = normalizeVehicleRegulatoryFields(createVehicleDto);
+    assertVehicleRegulatoryFields(normalizedDto);
+
+    const data = this.buildCreatePayload(normalizedDto, tenantId);
 
     try {
       const createdVehicle = await this.prisma.vehicle.create({
@@ -175,7 +182,10 @@ export class VehicleService {
       await this.validateCustomerExists(updateVehicleDto.customer_id, tenantId);
     }
 
-    const data = this.prepareUpdatePayload(existingVehicle, updateVehicleDto);
+    const normalizedDto = normalizeVehicleRegulatoryFields(updateVehicleDto);
+    assertVehicleRegulatoryFields(normalizedDto);
+
+    const data = this.prepareUpdatePayload(existingVehicle, normalizedDto);
 
     try {
       const updated = await this.prisma.vehicle.updateMany({
@@ -235,7 +245,7 @@ export class VehicleService {
   private buildCreatePayload(
     dto: CreateVehicleDto,
     tenantId: string,
-  ): Prisma.VehicleCreateInput {
+  ): Prisma.VehicleUncheckedCreateInput {
     const { customer_id, vin, ...scalarData } = dto;
 
     return {
@@ -243,8 +253,8 @@ export class VehicleService {
       ...(vin !== undefined
         ? { vin: normalizeVehicleIdentityValueOrNull(vin) }
         : {}),
-      tenant: { connect: { id: tenantId } },
-      ...(customer_id ? { customer: { connect: { id: customer_id } } } : {}),
+      tenant_id: tenantId,
+      customer_id: customer_id ?? null,
     };
   }
 

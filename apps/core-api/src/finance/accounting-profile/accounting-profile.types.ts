@@ -1,5 +1,9 @@
-export const DEFAULT_DE_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1';
-export const DEFAULT_FORMAT_VERSION = 'EXTF-700-Buchungsstapel-13';
+export {
+  DEFAULT_AT_PROFILE_CODE,
+  DEFAULT_DE_PROFILE_CODE,
+  DEFAULT_FORMAT_VERSION,
+  DEFAULT_RZL_FORMAT_VERSION,
+} from './accounting-profile.codes.js';
 
 export const FIXED_SOURCE_CATEGORY_KEYS = {
   LABOR: 'labor',

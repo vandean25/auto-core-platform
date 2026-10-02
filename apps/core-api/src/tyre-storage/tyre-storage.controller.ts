@@ -18,10 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
-import {
-  TyreSetDueListQueryDto,
-  TyreSetListQueryDto,
-} from './dto/tyre-set-list-query.dto.js';
+import { TyreSetListQueryDto } from './dto/tyre-set-list-query.dto.js';
 import { TyreSetListEnvelopeDto } from './dto/tyre-set-list-response.dto.js';
 import {
   CreateTyreSetDto,
@@ -57,8 +54,8 @@ export class TyreStorageController {
     summary: 'List stored sets approaching planned swap (manual calling only)',
   })
   @ApiOkResponse({ type: TyreSetListEnvelopeDto })
-  dueForSwap(@Query() query: TyreSetDueListQueryDto) {
-    return this.tyreStorageService.listDueForSwap(query.asOf);
+  dueForSwap() {
+    return this.tyreStorageService.listDueForSwap();
   }
 
   @Get('due-for-swap/export')

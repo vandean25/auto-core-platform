@@ -2706,6 +2706,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload CSV and run a synchronous import dry-run */
+        post: operations["ImportController_createDryRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/templates/{entityType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CSV template metadata and inline CSV content */
+        get: operations["ImportController_getTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/templates/{entityType}/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download CSV import template (German headers) */
+        get: operations["ImportController_downloadTemplateCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List dry-run rows for an import job */
+        get: operations["ImportController_listRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/errors.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download CSV of rows that failed validation */
+        get: operations["ImportController_downloadErrors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get import job summary */
+        get: operations["ImportController_getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a completed dry-run import job */
+        post: operations["ImportController_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tyre-sets/settings": {
         parameters: {
             query?: never;
@@ -3273,6 +3392,13 @@ export interface components {
             fuel_type?: string | null;
             power_kw?: number | null;
             customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
         };
         /** @enum {string} */
@@ -3931,6 +4057,13 @@ export interface components {
             fuel_type?: string | null;
             power_kw?: number | null;
             customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
         };
         /** @enum {string} */
@@ -4169,6 +4302,13 @@ export interface components {
             fuel_type?: string | null;
             power_kw?: number | null;
             customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
             customer: components["schemas"]["CustomerResponseDto"] | null;
         };
         WorkshopSearchCustomerDto: {
@@ -4349,6 +4489,24 @@ export interface components {
             expectedSiteId?: string;
         };
         PatchVehicleStockDto: {
+            /**
+             * Format: date
+             * @description Date of first registration (Erstzulassung)
+             */
+            first_registration_date?: string | null;
+            /** @description CO₂ emissions WLTP (g/km) */
+            co2_wltp_g_km?: number | null;
+            /** @description CO₂ emissions NEDC (g/km), optional legacy value */
+            co2_nedc_g_km?: number | null;
+            /** @description Type approval certificate number (Typenschein) */
+            typenschein_no?: string | null;
+            /**
+             * @description NoVA classification (values may expand in future releases)
+             * @enum {string|null}
+             */
+            nova_class?: "NOT_SET" | "STANDARD" | "ELECTRIC_EXEMPT" | "OTHER" | null;
+            /** @description Emission class (e.g. Euro 6d) */
+            emission_class?: string | null;
             location_id?: Record<string, never> | null;
             expectedLocationId?: string;
             reserved_for_customer_id?: Record<string, never> | null;
@@ -5103,6 +5261,24 @@ export interface components {
             meta: components["schemas"]["PaginationMetaDto"];
         };
         CreateVehicleDto: {
+            /**
+             * Format: date
+             * @description Date of first registration (Erstzulassung)
+             */
+            first_registration_date?: string | null;
+            /** @description CO₂ emissions WLTP (g/km) */
+            co2_wltp_g_km?: number | null;
+            /** @description CO₂ emissions NEDC (g/km), optional legacy value */
+            co2_nedc_g_km?: number | null;
+            /** @description Type approval certificate number (Typenschein) */
+            typenschein_no?: string | null;
+            /**
+             * @description NoVA classification (values may expand in future releases)
+             * @enum {string|null}
+             */
+            nova_class?: "NOT_SET" | "STANDARD" | "ELECTRIC_EXEMPT" | "OTHER" | null;
+            /** @description Emission class (e.g. Euro 6d) */
+            emission_class?: string | null;
             make: string;
             model: string;
             year: number;
@@ -5113,6 +5289,24 @@ export interface components {
             customer_id?: string | null;
         };
         UpdateVehicleDto: {
+            /**
+             * Format: date
+             * @description Date of first registration (Erstzulassung)
+             */
+            first_registration_date?: string | null;
+            /** @description CO₂ emissions WLTP (g/km) */
+            co2_wltp_g_km?: number | null;
+            /** @description CO₂ emissions NEDC (g/km), optional legacy value */
+            co2_nedc_g_km?: number | null;
+            /** @description Type approval certificate number (Typenschein) */
+            typenschein_no?: string | null;
+            /**
+             * @description NoVA classification (values may expand in future releases)
+             * @enum {string|null}
+             */
+            nova_class?: "NOT_SET" | "STANDARD" | "ELECTRIC_EXEMPT" | "OTHER" | null;
+            /** @description Emission class (e.g. Euro 6d) */
+            emission_class?: string | null;
             make?: string;
             model?: string;
             year?: number;
@@ -5511,6 +5705,13 @@ export interface components {
             payment_terms_text?: string | null;
             seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
         };
+        RzlSerializerParamsDto: {
+            firmNumber?: string | null;
+            costCenterLength?: number | null;
+        };
+        AccountingProfileSerializerParamsDto: {
+            rzl?: components["schemas"]["RzlSerializerParamsDto"];
+        };
         AccountingMappingRuleDto: {
             sourceCategoryKey: string;
             sourceCategoryLabel: string;
@@ -5549,6 +5750,7 @@ export interface components {
             client_number?: string | null;
             fiscal_year_start_month?: number | null;
             default_debtor_account?: string | null;
+            serializer_params: components["schemas"]["AccountingProfileSerializerParamsDto"];
             mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
             required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
             mapping_readiness: components["schemas"]["AccountingProfileReadinessDto"];
@@ -5565,7 +5767,9 @@ export interface components {
             fiscalYearStartMonth?: number | null;
             defaultDebtorAccount?: string | null;
             mappingRules?: components["schemas"]["AccountingMappingRuleDto"][];
-            /** @description Gates DATEV CSV export only; does not affect invoice issuance readiness */
+            /** @description Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage. */
+            serializerParams?: components["schemas"]["AccountingProfileSerializerParamsDto"];
+            /** @description Gates accounting CSV export only; does not affect invoice issuance readiness */
             isEnabled?: boolean;
         };
         CreateLegalEntityDto: {
@@ -6031,6 +6235,61 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
+        };
+        /** @enum {string} */
+        ImportEntityType: "CUSTOMER" | "VEHICLE";
+        /** @enum {string} */
+        ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+        ImportJobTotalsDto: {
+            rows: number;
+            create: number;
+            update: number;
+            skip: number;
+            error: number;
+        };
+        ImportJobResponseDto: {
+            id: string;
+            entity_type: components["schemas"]["ImportEntityType"];
+            source_system: string;
+            file_name: string;
+            file_sha256: string;
+            status: components["schemas"]["ImportJobStatus"];
+            mapping: {
+                [key: string]: string;
+            };
+            options: {
+                [key: string]: unknown;
+            };
+            totals: components["schemas"]["ImportJobTotalsDto"];
+            created_by: Record<string, never> | null;
+            created_at: string;
+            applied_at: Record<string, never> | null;
+        };
+        ImportTemplateFieldDto: {
+            key: string;
+            label_de: string;
+            required: boolean;
+        };
+        ImportTemplateResponseDto: {
+            entity_type: components["schemas"]["ImportEntityType"];
+            fields: components["schemas"]["ImportTemplateFieldDto"][];
+            /** @description CSV template with German headers */
+            csv: string;
+        };
+        /** @enum {string} */
+        ImportRowAction: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
+        ImportJobRowDto: {
+            row_no: number;
+            external_id: Record<string, never> | null;
+            action: components["schemas"]["ImportRowAction"];
+            entity_id: Record<string, never> | null;
+            errors: Record<string, never>[];
+            warnings: Record<string, never>[];
+            normalized: Record<string, never> | null;
+        };
+        ImportJobRowsResponseDto: {
+            data: components["schemas"]["ImportJobRowDto"][];
+            meta: Record<string, never>;
         };
         TyreStorageSettingsResponseDto: {
             summerSwapMonth: number;
@@ -11816,6 +12075,167 @@ export interface operations {
             };
         };
     };
+    ImportController_createDryRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @enum {string} */
+                    entityType: "CUSTOMER" | "VEHICLE";
+                    /** @example incadea */
+                    sourceSystem: string;
+                    /** @description JSON object mapping logical fields to CSV headers */
+                    mapping: string;
+                    /** @description JSON import options */
+                    options?: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTemplateResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_downloadTemplateCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_listRows: {
+        parameters: {
+            query?: {
+                page?: string;
+                limit?: string;
+                hasErrors?: boolean;
+                action?: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobRowsResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_downloadErrors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
     TyreStorageController_getSettings: {
         parameters: {
             query?: never;
@@ -11860,10 +12280,7 @@ export interface operations {
     };
     TyreStorageController_dueForSwap: {
         parameters: {
-            query?: {
-                /** @description Test-only clock override (ISO date); ignored outside NODE_ENV=test */
-                asOf?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

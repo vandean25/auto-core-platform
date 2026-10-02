@@ -63,13 +63,3 @@ export class TyreSetListQueryDto {
   @Max(100)
   pageSize?: number;
 }
-
-export class TyreSetDueListQueryDto {
-  @ApiPropertyOptional({
-    description:
-      'Test-only clock override (ISO date); ignored outside NODE_ENV=test',
-  })
-  @IsOptional()
-  @IsDateString()
-  asOf?: string;
-}

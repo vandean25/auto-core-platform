@@ -8,8 +8,9 @@ import {
   Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { VehicleRegulatoryFieldsDto } from './vehicle-regulatory-fields.dto.js';
 
-export class CreateVehicleDto {
+export class CreateVehicleDto extends VehicleRegulatoryFieldsDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()

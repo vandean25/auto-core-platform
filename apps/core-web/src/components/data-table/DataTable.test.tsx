@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 
@@ -6,6 +7,11 @@ afterEach(() => {
   cleanup()
   vi.clearAllMocks()
 })
+
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="location">{location.pathname}</output>
+}
 
 describe('DataTable Characterization', () => {
   const columns = [
@@ -158,6 +164,94 @@ describe('DataTable Characterization', () => {
     expect(row).toHaveAttribute('tabindex', '0')
     expect(onRowClick).toHaveBeenNthCalledWith(1, { name: 'Test Item' })
     expect(onRowClick).toHaveBeenNthCalledWith(2, { name: 'Test Item' })
+  })
+
+  it('renders a row detail link and activates it with Enter when getRowHref is provided', () => {
+    const onRowClick = vi.fn()
+    const columnsWithRowLink = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        meta: { rowLink: true },
+      },
+    ]
+
+    render(
+      <MemoryRouter>
+        <DataTable
+          {...defaultProps}
+          columns={columnsWithRowLink}
+          data={[{ id: 'item-1', name: 'Test Item' }]}
+          getRowHref={(row) => `/items/${row.id}`}
+          getRowAccessibleName={(row) => `Open ${row.name}`}
+          onRowClick={onRowClick}
+        />
+      </MemoryRouter>,
+    )
+
+    const link = screen.getByRole('link', { name: 'Open Test Item' })
+    expect(link).toHaveAttribute('href', '/items/item-1')
+
+    const row = screen.getByRole('row', { name: /Test Item/ })
+    expect(row).not.toHaveAttribute('tabindex')
+
+    link.focus()
+    fireEvent.keyDown(link, { key: 'Enter' })
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('navigates when the row detail link is clicked', () => {
+    const onRowClick = vi.fn()
+    const columnsWithRowLink = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        meta: { rowLink: true },
+      },
+    ]
+
+    render(
+      <MemoryRouter initialEntries={['/lists']}>
+        <LocationProbe />
+        <DataTable
+          {...defaultProps}
+          columns={columnsWithRowLink}
+          data={[{ id: 'item-1', name: 'Test Item' }]}
+          getRowHref={(row) => `/items/${row.id}`}
+          getRowAccessibleName={(row) => `Open ${row.name}`}
+          onRowClick={onRowClick}
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('link', { name: 'Open Test Item' }))
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/items/item-1')
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('falls back to row keyboard activation when getRowHref is set without meta.rowLink', () => {
+    const onRowClick = vi.fn()
+
+    render(
+      <MemoryRouter>
+        <DataTable
+          {...defaultProps}
+          data={[{ id: 'item-1', name: 'Test Item' }]}
+          getRowHref={(row) => `/items/${row.id}`}
+          getRowAccessibleName={(row) => `Open ${row.name}`}
+          onRowClick={onRowClick}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByRole('link', { name: 'Open Test Item' })).not.toBeInTheDocument()
+
+    const row = screen.getByRole('row', { name: /Test Item/ })
+    expect(row).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onRowClick).toHaveBeenCalledWith({ id: 'item-1', name: 'Test Item' })
   })
 
   it('opens the clicked row data for each row in a multi-row table (AUT-220)', () => {

@@ -44,8 +44,9 @@ export default function WorkshopOrderList() {
   const columns: ColumnDef<WorkshopOrderRow>[] = [
     {
       accessorKey: 'orderNo',
+      meta: { rowLink: true },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Order No.' />,
-      cell: ({ row }) => <span className='font-medium'>{row.original.orderNo}</span>,
+      cell: ({ row }) => row.original.orderNo,
     },
     {
       accessorKey: 'customer',
@@ -93,6 +94,8 @@ export default function WorkshopOrderList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder='Search workshop orders...'
+        getRowHref={(row) => `/workshop/orders/${row.id}`}
+        getRowAccessibleName={(row) => `Workshop order ${row.orderNo}`}
         onRowClick={(row) => navigate(`/workshop/orders/${row.id}`)}
         {...tableState}
       />

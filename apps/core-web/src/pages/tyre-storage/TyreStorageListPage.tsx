@@ -1,38 +1,68 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import { Download } from 'lucide-react'
+import { Download, Plus } from 'lucide-react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useLocations } from '@/api/locations'
 import { useDueTyreSets, useTyreSets, type TyreSet } from '@/api/tyre-storage'
 import { fetchWithAuth } from '@/api/client'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
+import { toast } from 'sonner'
+
+const ALL = '__all__'
 
 export default function TyreStorageListPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
-  const [showDueOnly, setShowDueOnly] = useState(false)
+  const [viewMode, setViewMode] = useState<'all' | 'due'>('all')
+  const [season, setSeason] = useState(ALL)
+  const [status, setStatus] = useState(ALL)
+  const [locationId, setLocationId] = useState(ALL)
+  const [customerId, setCustomerId] = useState('')
+  const [dueFrom, setDueFrom] = useState('')
+  const [dueTo, setDueTo] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
+  const { data: locations } = useLocations()
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
-  const { data: listData, isLoading } = useTyreSets({
+
+  const listParams = {
     search,
+    season: season === ALL ? undefined : season,
+    status: status === ALL ? undefined : status,
+    locationId: locationId === ALL ? undefined : locationId,
+    customerId: customerId.trim() || undefined,
+    dueFrom: dueFrom || undefined,
+    dueTo: dueTo || undefined,
     pageSize: queryParams.pageSize,
     page: queryParams.page,
-  })
-  const { data: dueData } = useDueTyreSets()
+  }
 
-  const rows = useMemo(() => {
-    const base = listData?.data ?? []
-    if (!showDueOnly) return base
-    const dueIds = new Set((dueData?.data ?? []).map((row) => row.id))
-    return base.filter((row) => dueIds.has(row.id))
-  }, [listData, dueData, showDueOnly])
+  const { data: listData, isLoading: listLoading } = useTyreSets(listParams)
+  const { data: dueData, isLoading: dueLoading } = useDueTyreSets()
 
-  const columns = useMemo<ColumnDef<TyreSet>[]>(
-    () => [
+  const storageLocations = (locations ?? []).filter(
+    (loc) => loc.type === 'customer_storage',
+  )
+
+  const rows = viewMode === 'due' ? (dueData?.data ?? []) : (listData?.data ?? [])
+  const isLoading = viewMode === 'due' ? dueLoading : listLoading
+
+  const columns = useMemo<ColumnDef<TyreSet>[]>(() => {
+    const base: ColumnDef<TyreSet>[] = [
       {
         accessorKey: 'label',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Label" />,
@@ -42,6 +72,22 @@ export default function TyreStorageListPage() {
         accessorKey: 'customerName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
       },
+    ]
+    if (viewMode === 'due') {
+      base.push(
+        {
+          accessorKey: 'customerPhone',
+          header: ({ column }) => <DataTableColumnHeader column={column} title="Phone" />,
+          cell: ({ row }) => row.original.customerPhone ?? '—',
+        },
+        {
+          accessorKey: 'customerEmail',
+          header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+          cell: ({ row }) => row.original.customerEmail ?? '—',
+        },
+      )
+    }
+    base.push(
       {
         accessorKey: 'vehiclePlate',
         header: ({ column }) => <DataTableColumnHeader column={column} title="Plate" />,
@@ -67,12 +113,16 @@ export default function TyreStorageListPage() {
         header: ({ column }) => <DataTableColumnHeader column={column} title="Swap due" />,
         cell: ({ row }) => row.original.plannedSwapOn ?? '—',
       },
-    ],
-    [],
-  )
+    )
+    return base
+  }, [viewMode])
 
   const exportDueCsv = async () => {
     const response = await fetchWithAuth('/api/tyre-sets/due-for-swap/export')
+    if (!response.ok) {
+      toast.error('CSV export failed')
+      return
+    }
     const text = await response.text()
     const blob = new Blob([text], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -93,27 +143,130 @@ export default function TyreStorageListPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="lg" className="min-h-11" onClick={exportDueCsv}>
+          <Button variant="outline" size="lg" className="min-h-11" onClick={() => void exportDueCsv()}>
             <Download className="mr-2 h-4 w-4" />
             Export due CSV
+          </Button>
+          <Button
+            size="lg"
+            className="min-h-11"
+            onClick={() => {
+              if (!customerId.trim()) {
+                toast.error('Enter a customer id in filters to create a set from this page')
+                return
+              }
+              setCreateOpen(true)
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Tyre set
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <Input
-          className="max-w-md min-h-11 text-base"
-          placeholder="Search plate or VIN…"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-        <Button
-          variant={showDueOnly ? 'default' : 'outline'}
-          className="min-h-11"
-          onClick={() => setShowDueOnly((value) => !value)}
-        >
-          Due for swap ({dueData?.data.length ?? 0})
-        </Button>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+          <div className="space-y-1">
+            <Label>Plate / VIN</Label>
+            <Input
+              className="max-w-md min-h-11 text-base"
+              placeholder="Search plate or VIN…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              disabled={viewMode === 'due'}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Customer id</Label>
+            <Input
+              className="min-h-11 w-64"
+              placeholder="UUID"
+              value={customerId}
+              onChange={(event) => setCustomerId(event.target.value)}
+              disabled={viewMode === 'due'}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Season</Label>
+            <Select value={season} onValueChange={setSeason} disabled={viewMode === 'due'}>
+              <SelectTrigger className="min-h-11 w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All</SelectItem>
+                <SelectItem value="WINTER">Winter</SelectItem>
+                <SelectItem value="SUMMER">Summer</SelectItem>
+                <SelectItem value="ALL_SEASON">All season</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus} disabled={viewMode === 'due'}>
+              <SelectTrigger className="min-h-11 w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All</SelectItem>
+                <SelectItem value="IN_STORAGE">In storage</SelectItem>
+                <SelectItem value="RETURNED">Returned</SelectItem>
+                <SelectItem value="DISPOSED">Disposed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Location</Label>
+            <Select value={locationId} onValueChange={setLocationId} disabled={viewMode === 'due'}>
+              <SelectTrigger className="min-h-11 w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All</SelectItem>
+                {storageLocations.map((loc) => (
+                  <SelectItem key={loc.id} value={loc.id}>
+                    {loc.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Due from</Label>
+            <Input
+              type="date"
+              className="min-h-11"
+              value={dueFrom}
+              onChange={(e) => setDueFrom(e.target.value)}
+              disabled={viewMode === 'due'}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Due to</Label>
+            <Input
+              type="date"
+              className="min-h-11"
+              value={dueTo}
+              onChange={(e) => setDueTo(e.target.value)}
+              disabled={viewMode === 'due'}
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={viewMode === 'all' ? 'default' : 'outline'}
+            className="min-h-11"
+            onClick={() => setViewMode('all')}
+          >
+            All sets
+          </Button>
+          <Button
+            variant={viewMode === 'due' ? 'default' : 'outline'}
+            className="min-h-11"
+            onClick={() => setViewMode('due')}
+          >
+            Due for swap ({dueData?.data.length ?? 0})
+          </Button>
+        </div>
       </div>
 
       <DataTable
@@ -122,6 +275,13 @@ export default function TyreStorageListPage() {
         isLoading={isLoading}
         onRowClick={(row) => navigate(APP_ROUTE_PATHS.tyreStorageDetail.replace(':id', row.id))}
         {...tableState}
+        pageCount={viewMode === 'due' ? 1 : listData?.meta?.pageCount}
+      />
+
+      <TyreSetFormDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        customerId={customerId.trim()}
       />
     </div>
   )

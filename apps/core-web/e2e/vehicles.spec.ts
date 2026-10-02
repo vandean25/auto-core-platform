@@ -36,6 +36,8 @@ test.describe('Blueprint: Vehicles Module', () => {
   test('detail page header and customer info renders correctly', async ({ page }) => {
     const mockVehicle = {
       ...createMockVehicleListItem({ make: 'Ford', model: 'Focus', year: 2018, plate: 'FD-5678' }),
+      co2_wltp_g_km: 142,
+      first_registration_date: '2020-05-01',
       sales_orders: [],
       workshop_orders: [],
       invoices: [],
@@ -59,6 +61,10 @@ test.describe('Blueprint: Vehicles Module', () => {
 
     // Verify Vehicle Info Card
     await expect(page.getByText('Vehicle Info')).toBeVisible();
+    await expect(
+      page.getByText('Registration & emissions / Zulassung & Emissionen'),
+    ).toBeVisible();
+    await expect(page.getByText('142').first()).toBeVisible();
 
     // Verify Customer Link renders inside the Info card
     const customerLink = page.getByRole('link', { name: 'Jane Smith' });
@@ -66,20 +72,20 @@ test.describe('Blueprint: Vehicles Module', () => {
     await expect(customerLink).toHaveAttribute('href', `/customers/${mockVehicle.customer.id}`);
   });
 
-  test('create vehicle dialog opens and accepts input', async ({ page }) => {
+  test('create vehicle dialog sends regulatory fields in POST body', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Vehicle');
+    let postBody: Record<string, unknown> | undefined;
 
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), async (route) => {
-      // For POST requests, simulate success
       if (route.request().method() === 'POST') {
+        postBody = route.request().postDataJSON() as Record<string, unknown>;
         return route.fulfill({
           status: 201,
           contentType: 'application/json',
           body: JSON.stringify({ id: 'new-veh-id' }),
         });
       }
-      
-      // For GET requests (list)
+
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -88,24 +94,64 @@ test.describe('Blueprint: Vehicles Module', () => {
     });
 
     await corePage.navigate('/vehicles');
-
-    // Click Create button
     await corePage.createButton.click();
-    
-    // Verify Dialog opens
+
     const dialog = page.getByRole('dialog', { name: 'Add Vehicle' });
     await expect(dialog).toBeVisible();
 
-    // Fill form
     await dialog.getByLabel('Make').fill('Tesla');
     await dialog.getByLabel('Model').fill('Model 3');
     await dialog.getByLabel('Year').fill('2023');
-    
-    // Submit
-    const submitButton = dialog.getByRole('button', { name: 'Create Vehicle' });
-    await submitButton.click();
+    await expect(
+      dialog.getByText('Registration & emissions / Zulassung & Emissionen'),
+    ).toBeVisible();
 
-    // Dialog should close after submit
+    await dialog.getByLabel('First registration date / Erstzulassung').fill('2023-06-01');
+    await dialog.getByLabel('CO₂ WLTP (g/km) / CO₂ WLTP (g/km)').fill('142');
+
+    await dialog.getByRole('button', { name: 'Create Vehicle' }).click();
     await expect(dialog).not.toBeVisible();
+
+    expect(postBody?.first_registration_date).toBe('2023-06-01');
+    expect(postBody?.co2_wltp_g_km).toBe(142);
+  });
+
+  test('edit vehicle dialog prefills regulatory values', async ({ page }) => {
+    const mockVehicle = {
+      ...createMockVehicleListItem({ make: 'VW', model: 'Golf', year: 2021 }),
+      first_registration_date: '2021-04-12T00:00:00.000Z',
+      co2_wltp_g_km: 118,
+      co2_nedc_g_km: 110,
+      typenschein_no: 'TS-PW-1',
+      nova_class: 'STANDARD',
+      emission_class: 'Euro 6d',
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+      customer: null,
+    };
+
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/vehicles/${mockVehicle.id}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockVehicle),
+      });
+    });
+
+    await page.goto(`/vehicles/${mockVehicle.id}`);
+    await page.waitForLoadState('networkidle');
+
+    await page.getByRole('button', { name: 'Edit Vehicle' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Edit Vehicle' });
+    await expect(dialog).toBeVisible();
+
+    await expect(dialog.getByLabel('First registration date / Erstzulassung')).toHaveValue(
+      '2021-04-12',
+    );
+    await expect(dialog.getByLabel('CO₂ WLTP (g/km) / CO₂ WLTP (g/km)')).toHaveValue('118');
+    await expect(dialog.getByLabel('Type approval no. (Typenschein) / Typenschein-Nr.')).toHaveValue(
+      'TS-PW-1',
+    );
   });
 });
