@@ -5,13 +5,13 @@ import {
   tryReloadForStaleChunk,
 } from '@/lib/chunk-load-recovery'
 
-type LazyModule<T extends React.ComponentType<unknown>> = () => Promise<{ default: T }>
+type LazyModule<T extends React.ComponentType> = () => Promise<{ default: T }>
 
 /**
  * React.lazy wrapper that retries a failed dynamic import once, then triggers the
  * guarded stale-chunk reload handler before surfacing the error to the boundary.
  */
-export function lazyWithRetry<T extends React.ComponentType<unknown>>(factory: LazyModule<T>) {
+export function lazyWithRetry<T extends React.ComponentType>(factory: LazyModule<T>) {
   return React.lazy(async () => {
     const load = async (attempt: 'initial' | 'retry'): Promise<{ default: T }> => {
       try {
