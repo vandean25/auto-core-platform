@@ -6,6 +6,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
+import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
+
+registerVitePreloadErrorHandler()
 
 const queryClient = new QueryClient({
   defaultOptions: {
