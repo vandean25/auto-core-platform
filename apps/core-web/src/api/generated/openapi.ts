@@ -12449,14 +12449,14 @@ export interface operations {
         parameters: {
             query?: {
                 customerId?: string;
-                vehicleSearch?: string;
-                locationId?: string;
-                season?: components["schemas"]["TyreSeason"];
-                status?: components["schemas"]["TyreSetStatus"];
                 dueFrom?: string;
                 dueTo?: string;
+                locationId?: string;
                 page?: number;
                 pageSize?: number;
+                season?: components["schemas"]["TyreSeason"];
+                status?: components["schemas"]["TyreSetStatus"];
+                vehicleSearch?: string;
             };
             header?: never;
             path?: never;

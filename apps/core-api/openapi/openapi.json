@@ -9390,10 +9390,20 @@
             }
           },
           {
-            "name": "vehicleSearch",
+            "name": "dueFrom",
             "required": false,
             "in": "query",
             "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
               "type": "string"
             }
           },
@@ -9403,6 +9413,22 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           },
           {
@@ -9422,37 +9448,11 @@
             }
           },
           {
-            "name": "dueFrom",
+            "name": "vehicleSearch",
             "required": false,
             "in": "query",
             "schema": {
-              "format": "date",
               "type": "string"
-            }
-          },
-          {
-            "name": "dueTo",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "format": "date",
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "number"
             }
           }
         ],
