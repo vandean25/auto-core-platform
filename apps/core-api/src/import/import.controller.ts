@@ -40,7 +40,9 @@ export class ImportController {
 
   @Post()
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: IMPORT_MAX_FILE_BYTES } }),
+    FileInterceptor('file', {
+      limits: { fileSize: IMPORT_MAX_FILE_BYTES + 5 * 1024 * 1024 },
+    }),
   )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload CSV and run a synchronous import dry-run' })

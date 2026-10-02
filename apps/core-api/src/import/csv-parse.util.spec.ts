@@ -34,4 +34,19 @@ describe('csv-parse.util', () => {
     const csv = serializeCsv(['a'], [['value;semi']], ';');
     expect(csv).toContain('"value;semi"');
   });
+
+  it('parses quoted fields with embedded newlines', () => {
+    const buffer = Buffer.from(
+      'name;street\n"Acme";"Hauptstr. 1\nStiege 2"\n',
+      'utf8',
+    );
+    const parsed = parseCsvFile(buffer);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0][1]).toContain('\n');
+  });
+
+  it('neutralises formula injection in serialized CSV', () => {
+    const csv = serializeCsv(['id'], [['=1+1']], ';');
+    expect(csv).toContain("'=1+1");
+  });
 });

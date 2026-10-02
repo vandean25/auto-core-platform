@@ -26,39 +26,72 @@ function detectDelimiter(headerLine: string): ';' | ',' {
   return semicolons >= commas ? ';' : ',';
 }
 
-function parseCsvLine(line: string, delimiter: string): string[] {
-  const cells: string[] = [];
-  let current = '';
+/** Neutralises spreadsheet formula injection (OWASP CSV guidance). */
+export function sanitizeCsvInjectionValue(value: string): string {
+  if (/^[=+\-@\t\r]/.test(value)) {
+    return `'${value}`;
+  }
+  return value;
+}
+
+function parseCsvRecords(text: string, delimiter: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentCell = '';
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i += 1;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          currentCell += '"';
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
       } else {
-        inQuotes = !inQuotes;
+        currentCell += char;
       }
       continue;
     }
-    if (!inQuotes && char === delimiter) {
-      cells.push(current.trim());
-      current = '';
+
+    if (char === '"') {
+      inQuotes = true;
       continue;
     }
-    current += char;
+    if (char === delimiter) {
+      currentRow.push(currentCell.trim());
+      currentCell = '';
+      continue;
+    }
+    if (char === '\n') {
+      currentRow.push(currentCell.trim());
+      if (currentRow.some((cell) => cell.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentCell = '';
+      continue;
+    }
+    currentCell += char;
   }
-  cells.push(current.trim());
-  return cells;
+
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    if (currentRow.some((cell) => cell.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
 }
 
 export function parseCsvFile(buffer: Buffer): ParsedCsv {
   const text = decodeCsvBuffer(buffer)
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
-  const lines = text.split('\n').filter((line) => line.trim().length > 0);
-  if (lines.length === 0) {
+  if (text.trim().length === 0) {
     return {
       headers: [],
       rows: [],
@@ -67,9 +100,21 @@ export function parseCsvFile(buffer: Buffer): ParsedCsv {
     };
   }
 
-  const delimiter = detectDelimiter(lines[0]);
-  const headers = parseCsvLine(lines[0], delimiter);
-  const rows = lines.slice(1).map((line) => parseCsvLine(line, delimiter));
+  const firstLineEnd = text.indexOf('\n');
+  const headerLine = firstLineEnd === -1 ? text : text.slice(0, firstLineEnd);
+  const delimiter = detectDelimiter(headerLine);
+  const records = parseCsvRecords(text, delimiter);
+
+  if (records.length === 0) {
+    return {
+      headers: [],
+      rows: [],
+      delimiter,
+      sha256: createHash('sha256').update(buffer).digest('hex'),
+    };
+  }
+
+  const [headers, ...rows] = records;
 
   return {
     headers,
@@ -96,14 +141,11 @@ export function serializeCsv(
   delimiter: ';' | ',' = ';',
 ): string {
   const escape = (value: string) => {
-    if (
-      value.includes(delimiter) ||
-      value.includes('"') ||
-      value.includes('\n')
-    ) {
-      return `"${value.replace(/"/g, '""')}"`;
+    const safe = sanitizeCsvInjectionValue(value);
+    if (safe.includes(delimiter) || safe.includes('"') || safe.includes('\n')) {
+      return `"${safe.replace(/"/g, '""')}"`;
     }
-    return value;
+    return safe;
   };
   const lines = [
     headers.map(escape).join(delimiter),

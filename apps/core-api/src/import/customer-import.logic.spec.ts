@@ -53,11 +53,67 @@ describe('customer-import.logic', () => {
         customerByEmail: new Map(),
         customerById: new Map(),
         duplicateNameKeys: new Set(),
+        externalIdSeenInFile: new Map(),
+        emailSeenInFile: new Map(),
       },
       {},
       [],
     );
     expect(planned.action).toBe(ImportRowAction.CREATE);
+  });
+
+  it('does not warn on possible duplicate for a unique new name', () => {
+    const row = normalizeCustomerRow(
+      {
+        'Kunden-Nr': '3003',
+        Vorname: 'Unique',
+        Nachname: 'Person',
+      },
+      mapping,
+      {},
+    ).row!;
+    const planned = planCustomerDryRunRow(
+      1,
+      row,
+      {
+        mappingByExternalId: new Map(),
+        customerByEmail: new Map(),
+        customerById: new Map(),
+        duplicateNameKeys: new Set(),
+        externalIdSeenInFile: new Map(),
+        emailSeenInFile: new Map(),
+      },
+      {},
+      [],
+    );
+    expect(
+      planned.warnings.some((w) => w.code === 'IMPORT_POSSIBLE_DUPLICATE'),
+    ).toBe(false);
+  });
+
+  it('errors on duplicate external_id in one file', () => {
+    const context = {
+      mappingByExternalId: new Map(),
+      customerByEmail: new Map(),
+      customerById: new Map(),
+      duplicateNameKeys: new Set(),
+      externalIdSeenInFile: new Map([['dup', 1]]),
+      emailSeenInFile: new Map(),
+    };
+    const row = normalizeCustomerRow(
+      {
+        'Kunden-Nr': 'dup',
+        Vorname: 'A',
+        Nachname: 'B',
+      },
+      mapping,
+      {},
+    ).row!;
+    const planned = planCustomerDryRunRow(2, row, context, {}, []);
+    expect(planned.action).toBe(ImportRowAction.ERROR);
+    expect(planned.errors[0]?.code).toBe(
+      'IMPORT_DUPLICATE_EXTERNAL_ID_IN_FILE',
+    );
   });
 
   it('ignores consent columns with warning', () => {

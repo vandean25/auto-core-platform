@@ -10,6 +10,7 @@ import type {
   NormalizedCustomerRow,
 } from './import.types.js';
 import { ImportRowAction } from '@prisma/client';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 const CONSENT_COLUMN_KEYS = new Set([
   'consent',
@@ -26,6 +27,8 @@ export type CustomerMatchContext = {
   customerByEmail: Map<string, { id: string; record: Record<string, unknown> }>;
   customerById: Map<string, Record<string, unknown>>;
   duplicateNameKeys: Set<string>;
+  externalIdSeenInFile: Map<string, number>;
+  emailSeenInFile: Map<string, number>;
 };
 
 function cellValue(
@@ -69,7 +72,7 @@ function formatComparable(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function customerNameKey(row: NormalizedCustomerRow): string {
+export function customerNameKey(row: NormalizedCustomerRow): string {
   if (row.type === 'COMPANY' && row.company_name) {
     return `company:${row.company_name.trim().toLowerCase()}`;
   }
@@ -221,7 +224,7 @@ function buildCustomerPayload(row: NormalizedCustomerRow) {
   };
 }
 
-function recordsEqual(
+export function recordsEqual(
   existing: Record<string, unknown>,
   desired: Record<string, unknown>,
   fillEmptyOnly: boolean,
@@ -253,6 +256,26 @@ export function planCustomerDryRunRow(
   options: ImportJobOptions,
   warnings: ImportRowIssue[],
 ): DryRunRowResult {
+  const priorExternalRow = context.externalIdSeenInFile.get(row.external_id);
+  if (priorExternalRow !== undefined && priorExternalRow !== rowNo) {
+    return {
+      row_no: rowNo,
+      external_id: row.external_id,
+      action: ImportRowAction.ERROR,
+      entity_id: null,
+      errors: [
+        {
+          code: IMPORT_ERROR_CODES.DUPLICATE_EXTERNAL_ID_IN_FILE,
+          message: `Duplicate external_id in file (first seen on row ${priorExternalRow})`,
+          field: 'external_id',
+        },
+      ],
+      warnings,
+      normalized: null,
+    };
+  }
+  context.externalIdSeenInFile.set(row.external_id, rowNo);
+
   const payload = buildCustomerPayload(row);
   const mappingEntityId = context.mappingByExternalId.get(row.external_id);
   let entityId: string | null = mappingEntityId ?? null;
@@ -268,15 +291,35 @@ export function planCustomerDryRunRow(
     }
   }
 
-  const nameKey = customerNameKey(row);
-  if (!entityId && context.duplicateNameKeys.has(nameKey)) {
-    warnings.push({
-      code: 'IMPORT_POSSIBLE_DUPLICATE',
-      message: 'A row or existing record may be a duplicate by name',
-    });
-  }
-
   if (!entityId) {
+    const nameKey = customerNameKey(row);
+    if (context.duplicateNameKeys.has(nameKey)) {
+      warnings.push({
+        code: 'IMPORT_POSSIBLE_DUPLICATE',
+        message: 'A row or existing record may be a duplicate by name',
+      });
+    }
+    if (row.email) {
+      const priorEmailRow = context.emailSeenInFile.get(row.email);
+      if (priorEmailRow !== undefined && priorEmailRow !== rowNo) {
+        return {
+          row_no: rowNo,
+          external_id: row.external_id,
+          action: ImportRowAction.ERROR,
+          entity_id: null,
+          errors: [
+            {
+              code: IMPORT_ERROR_CODES.DUPLICATE_EMAIL_IN_FILE,
+              message: `Duplicate email in file (first seen on row ${priorEmailRow})`,
+              field: 'email',
+            },
+          ],
+          warnings,
+          normalized: null,
+        };
+      }
+      context.emailSeenInFile.set(row.email, rowNo);
+    }
     return {
       row_no: rowNo,
       external_id: row.external_id,

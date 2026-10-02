@@ -11,13 +11,17 @@ import {
   normalizeVin,
 } from './vin.validation.js';
 import { normalizeVehicleIdentityValueOrNull } from '../vehicle/vehicle-identity.util.js';
+import { recordsEqual } from './customer-import.logic.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 export type VehicleMatchContext = {
   mappingByExternalId: Map<string, string>;
   vehicleByVin: Map<string, string>;
   vehicleByPlate: Map<string, string>;
+  vehicleById: Map<string, Record<string, unknown>>;
   customerExternalToEntityId: Map<string, string>;
   vinSeenInFile: Map<string, number>;
+  externalIdSeenInFile: Map<string, number>;
 };
 
 function cellValue(
@@ -126,8 +130,12 @@ export function normalizeVehicleRow(
     });
   }
 
-  const ownerExternalId =
-    cellValue(record, mapping, 'owner_customer_external_id') || null;
+  const ownerExternalIdRaw = cellValue(
+    record,
+    mapping,
+    'owner_customer_external_id',
+  );
+  const ownerExternalId = ownerExternalIdRaw || null;
 
   if (issues.length > 0) {
     return { row: null, issues, warnings };
@@ -144,6 +152,7 @@ export function normalizeVehicleRow(
       mileage: parseMileage(cellValue(record, mapping, 'mileage')),
       color: cellValue(record, mapping, 'color') || null,
       owner_customer_external_id: ownerExternalId,
+      owner_external_id_provided: ownerExternalIdRaw.length > 0,
       key_number: cellValue(record, mapping, 'key_number') || null,
     },
     issues,
@@ -165,6 +174,7 @@ function buildVehiclePayload(
     color: row.color,
     key_number: row.key_number,
     customer_id: customerId,
+    owner_external_id_provided: row.owner_external_id_provided,
   };
 }
 
@@ -176,6 +186,26 @@ export function planVehicleDryRunRow(
   warnings: ImportRowIssue[],
 ): DryRunRowResult {
   const issues: ImportRowIssue[] = [];
+
+  const priorExternalRow = context.externalIdSeenInFile.get(row.external_id);
+  if (priorExternalRow !== undefined && priorExternalRow !== rowNo) {
+    return {
+      row_no: rowNo,
+      external_id: row.external_id,
+      action: ImportRowAction.ERROR,
+      entity_id: null,
+      errors: [
+        {
+          code: IMPORT_ERROR_CODES.DUPLICATE_EXTERNAL_ID_IN_FILE,
+          message: `Duplicate external_id in file (first seen on row ${priorExternalRow})`,
+          field: 'external_id',
+        },
+      ],
+      warnings,
+      normalized: null,
+    };
+  }
+  context.externalIdSeenInFile.set(row.external_id, rowNo);
 
   if (row.vin) {
     const firstRow = context.vinSeenInFile.get(row.vin);
@@ -277,6 +307,37 @@ export function planVehicleDryRunRow(
       warnings,
       normalized,
     };
+  }
+
+  const existing = context.vehicleById.get(entityId);
+  if (existing) {
+    const comparable = {
+      make: normalized.make,
+      model: normalized.model,
+      year: normalized.year,
+      vin: normalized.vin,
+      plate: normalized.plate,
+      mileage: normalized.mileage,
+      color: normalized.color,
+      key_number: normalized.key_number,
+      customer_id: normalized.customer_id,
+    };
+    const unchanged = recordsEqual(
+      existing,
+      comparable,
+      options.fill_empty_only === true,
+    );
+    if (unchanged) {
+      return {
+        row_no: rowNo,
+        external_id: row.external_id,
+        action: ImportRowAction.SKIP,
+        entity_id: entityId,
+        errors: [],
+        warnings,
+        normalized,
+      };
+    }
   }
 
   return {

@@ -31,8 +31,10 @@ describe('vehicle-import.logic', () => {
       mappingByExternalId: new Map(),
       vehicleByVin: new Map(),
       vehicleByPlate: new Map(),
+      vehicleById: new Map(),
       customerExternalToEntityId: new Map(),
       vinSeenInFile: new Map([['1HGCM82633A004352', 1]]),
+      externalIdSeenInFile: new Map(),
     };
     const planned = planVehicleDryRunRow(2, row, context, {}, []);
     expect(planned.action).toBe(ImportRowAction.ERROR);
@@ -59,8 +61,10 @@ describe('vehicle-import.logic', () => {
         mappingByExternalId: new Map(),
         vehicleByVin: new Map(),
         vehicleByPlate: new Map(),
+        vehicleById: new Map(),
         customerExternalToEntityId: new Map(),
         vinSeenInFile: new Map(),
+        externalIdSeenInFile: new Map(),
       },
       {},
       [],

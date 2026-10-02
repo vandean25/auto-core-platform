@@ -13,7 +13,10 @@ import {
   runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
-import { IMPORT_MAX_ROW_COUNT } from '../src/import/import.constants.js';
+import {
+  IMPORT_MAX_FILE_BYTES,
+  IMPORT_MAX_ROW_COUNT,
+} from '../src/import/import.constants.js';
 import { serializeCsv } from '../src/import/csv-parse.util.js';
 
 describe('Legacy CSV import (e2e)', () => {
@@ -264,6 +267,233 @@ describe('Legacy CSV import (e2e)', () => {
       .field('sourceSystem', 'legacy-dms')
       .field('mapping', JSON.stringify(customerMapping))
       .attach('file', customerCsv(rows), 'too-many.csv')
-      .expect(400);
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.code).toBe('IMPORT_ROW_LIMIT_EXCEEDED');
+      });
+  });
+
+  it('rejects an empty CSV with IMPORT_EMPTY_FILE', async () => {
+    await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', Buffer.from('\n', 'utf8'), 'empty.csv')
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.code).toBe('IMPORT_EMPTY_FILE');
+      });
+  });
+
+  it('returns IMPORT_FILE_TOO_LARGE for oversized uploads', async () => {
+    const big = Buffer.alloc(IMPORT_MAX_FILE_BYTES + 100, 'a');
+    await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', big, 'big.csv')
+      .expect(400)
+      .expect((res) => {
+        expect(res.body.code).toBe('IMPORT_FILE_TOO_LARGE');
+      });
+  });
+
+  it('does not duplicate customers when two dry-runs are both applied', async () => {
+    const csv = customerCsv([
+      ['9400', 'PRIVATE', 'Once', 'Only', 'once-only@example.com', '', '', 'AT'],
+    ]);
+    const job1 = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', csv, 'customers.csv')
+      .expect(201);
+    const job2 = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', csv, 'customers.csv')
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/imports/${job1.body.id}/apply`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/imports/${job2.body.id}/apply`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const count = await tenantPrisma.customer.count({
+      where: { email: 'once-only@example.com' },
+    });
+    expect(count).toBe(1);
+  });
+
+  it('blocks tenant B from applying tenant A import job', async () => {
+    const job = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach(
+        'file',
+        customerCsv([['9500', 'PRIVATE', 'Cross', 'Tenant', 'cross@example.com', '', '', 'AT']]),
+        'customers.csv',
+      )
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/imports/${job.body.id}/apply`)
+      .set('Authorization', authHeaderB)
+      .expect(404);
+
+    const stillDry = await request(app.getHttpServer())
+      .get(`/imports/${job.body.id}`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+    expect(stillDry.body.status).toBe('DRY_RUN_DONE');
+  });
+
+  it('allows the same external_id in different tenants', async () => {
+    const externalId = '9600';
+    const csvA = customerCsv([
+      [externalId, 'PRIVATE', 'Tenant', 'A', 'same-ext-a@example.com', '', '', 'AT'],
+    ]);
+    const csvB = customerCsv([
+      [externalId, 'PRIVATE', 'Tenant', 'B', 'same-ext-b@example.com', '', '', 'AT'],
+    ]);
+
+    const jobA = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', csvA, 'a.csv')
+      .expect(201);
+    const jobB = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderB)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', csvB, 'b.csv')
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/imports/${jobA.body.id}/apply`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/imports/${jobB.body.id}/apply`)
+      .set('Authorization', authHeaderB)
+      .expect(200);
+
+    const countA = await createTenantAwarePrisma(prisma, tenantA.tenantId).customer.count({
+      where: { email: 'same-ext-a@example.com' },
+    });
+    const countB = await createTenantAwarePrisma(prisma, tenantB.tenantId).customer.count({
+      where: { email: 'same-ext-b@example.com' },
+    });
+    expect(countA).toBe(1);
+    expect(countB).toBe(1);
+  });
+
+  it('rejects concurrent apply on the same job', async () => {
+    const job = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms-slow')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach(
+        'file',
+        customerCsv([
+          ['9700', 'PRIVATE', 'Concurrent', 'One', 'concurrent1@example.com', '', '', 'AT'],
+          ['9701', 'PRIVATE', 'Concurrent', 'Two', 'concurrent2@example.com', '', '', 'AT'],
+        ]),
+        'customers.csv',
+      )
+      .expect(201);
+
+    const server = app.getHttpServer();
+    const apply = () =>
+      request(server)
+        .post(`/imports/${job.body.id}/apply`)
+        .set('Authorization', authHeaderA);
+
+    const [first, second] = await Promise.all([apply(), apply()]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 409]);
+  });
+
+  it('validates vehicle imports via API rows', async () => {
+    const ownerCsv = customerCsv([
+      ['own-1', 'PRIVATE', 'Vehicle', 'Owner', 'veh-owner@example.com', '', '', 'AT'],
+    ]);
+    const ownerJob = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms-veh')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', ownerCsv, 'owner.csv')
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/imports/${ownerJob.body.id}/apply`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const vehicleMapping = {
+      external_id: 'Fahrzeug-Nr',
+      vin: 'FIN',
+      plate: 'Kennzeichen',
+      make: 'Marke',
+      model: 'Modell',
+      year: 'Baujahr',
+      owner_customer_external_id: 'Kunden-Nr',
+    };
+    const vehicleCsv = Buffer.from(
+      [
+        'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kunden-Nr',
+        'v1;BADVIN;W-1;Make;Model;2020;own-1',
+        'v2;1HGCM82633A004352;W-2;Make;Model;2020;own-1',
+        'v3;1HGCM82633A004352;W-3;Make;Model;2020;own-1',
+        'v4;1HGCM82633A004353;W-4;Make;Model;2020;missing-owner',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const vehJob = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'VEHICLE')
+      .field('sourceSystem', 'legacy-dms-veh')
+      .field('mapping', JSON.stringify(vehicleMapping))
+      .attach('file', vehicleCsv, 'vehicles.csv')
+      .expect(201);
+
+    const rows = await request(app.getHttpServer())
+      .get(`/imports/${vehJob.body.id}/rows?limit=50`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const codes = rows.body.data.flatMap((row: { errors: Array<{ code: string }> }) =>
+      row.errors.map((error) => error.code),
+    );
+    expect(codes).toContain('IMPORT_VIN_INVALID');
+    expect(codes).toContain('IMPORT_DUPLICATE_VIN_IN_FILE');
+    expect(codes).toContain('IMPORT_UNKNOWN_OWNER');
   });
 });

@@ -48,6 +48,7 @@ export type NormalizedVehicleRow = {
   mileage: number | null;
   color: string | null;
   owner_customer_external_id: string | null;
+  owner_external_id_provided: boolean;
   key_number: string | null;
 };
 

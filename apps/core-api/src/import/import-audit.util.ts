@@ -1,3 +1,27 @@
+export function pickVehicleAuditSnapshot(vehicle: {
+  make: string;
+  model: string;
+  year: number;
+  vin: string | null;
+  plate: string | null;
+  mileage: number | null;
+  color: string | null;
+  key_number: string | null;
+  customer_id: string | null;
+}): Record<string, unknown> {
+  return {
+    make: vehicle.make,
+    model: vehicle.model,
+    year: vehicle.year,
+    vin: vehicle.vin,
+    plate: vehicle.plate,
+    mileage: vehicle.mileage,
+    color: vehicle.color,
+    key_number: vehicle.key_number,
+    customer_id: vehicle.customer_id,
+  };
+}
+
 export function pickCustomerAuditSnapshot(customer: {
   type: string;
   company_name: string | null;

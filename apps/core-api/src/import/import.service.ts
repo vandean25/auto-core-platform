@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -31,6 +32,7 @@ import type {
   ImportJobTotals,
 } from './import.types.js';
 import {
+  customerNameKey,
   normalizeCustomerRow,
   planCustomerDryRunRow,
 } from './customer-import.logic.js';
@@ -42,7 +44,15 @@ import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import {
   buildImportAuditDiff,
   pickCustomerAuditSnapshot,
+  pickVehicleAuditSnapshot,
 } from './import-audit.util.js';
+
+class ApplyRowStaleError extends Error {
+  constructor() {
+    super('Import row plan is stale');
+    this.name = 'ApplyRowStaleError';
+  }
+}
 
 function resolveImportExternalId(
   payload: Record<string, unknown>,
@@ -60,6 +70,8 @@ function resolveImportExternalId(
 
 @Injectable()
 export class ImportService {
+  private readonly logger = new Logger(ImportService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
@@ -320,6 +332,13 @@ export class ImportService {
 
         try {
           await this.prisma.$transaction(async (tx) => {
+            await this.assertApplyRowIsFresh(
+              tx,
+              tenantId,
+              job.entity_type,
+              job.source_system,
+              row,
+            );
             if (job.entity_type === ImportEntityType.CUSTOMER) {
               await this.applyCustomerRow(
                 tx,
@@ -343,8 +362,19 @@ export class ImportService {
           } else if (row.action === ImportRowAction.UPDATE) {
             totals.update += 1;
           }
-        } catch {
+        } catch (error) {
+          this.logger.warn(
+            `Import apply row failed jobId=${jobId} rowNo=${row.row_no}`,
+          );
           totals.error += 1;
+          const staleMessage =
+            error instanceof ApplyRowStaleError
+              ? error.message
+              : 'Row failed during apply';
+          const staleCode =
+            error instanceof ApplyRowStaleError
+              ? IMPORT_ERROR_CODES.ROW_STALE
+              : 'IMPORT_APPLY_FAILED';
           await this.prisma.importJobRow.update({
             where: {
               tenant_id_import_job_id_row_no: {
@@ -357,8 +387,8 @@ export class ImportService {
               action: ImportRowAction.ERROR,
               errors_json: [
                 {
-                  code: 'IMPORT_APPLY_FAILED',
-                  message: 'Row failed during apply',
+                  code: staleCode,
+                  message: staleMessage,
                 },
               ],
             },
@@ -482,6 +512,8 @@ export class ImportService {
       duplicateNameKeys.add(key);
     }
 
+    const externalIdSeenInFile = new Map<string, number>();
+    const emailSeenInFile = new Map<string, number>();
     const results: DryRunRowResult[] = [];
     for (let index = 0; index < parsed.rows.length; index += 1) {
       const rowNo = index + 1;
@@ -499,32 +531,24 @@ export class ImportService {
         });
         continue;
       }
-      const nameKey =
-        normalized.row.type === 'COMPANY' && normalized.row.company_name
-          ? `company:${normalized.row.company_name.trim().toLowerCase()}`
-          : `person:${normalized.row.first_name.trim().toLowerCase()}|${normalized.row.last_name.trim().toLowerCase()}`;
-      if (duplicateNameKeys.has(nameKey)) {
-        normalized.warnings.push({
-          code: 'IMPORT_POSSIBLE_DUPLICATE',
-          message: 'A row or existing record may be a duplicate by name',
-        });
-      }
-      duplicateNameKeys.add(nameKey);
-
-      results.push(
-        planCustomerDryRunRow(
-          rowNo,
-          normalized.row,
-          {
-            mappingByExternalId,
-            customerByEmail,
-            customerById,
-            duplicateNameKeys,
-          },
-          options,
-          normalized.warnings,
-        ),
+      const planned = planCustomerDryRunRow(
+        rowNo,
+        normalized.row,
+        {
+          mappingByExternalId,
+          customerByEmail,
+          customerById,
+          duplicateNameKeys,
+          externalIdSeenInFile,
+          emailSeenInFile,
+        },
+        options,
+        normalized.warnings,
       );
+      if (planned.action === ImportRowAction.CREATE) {
+        duplicateNameKeys.add(customerNameKey(normalized.row));
+      }
+      results.push(planned);
     }
     return results;
   }
@@ -555,11 +579,12 @@ export class ImportService {
 
     const vehicles = await this.prisma.vehicle.findMany({
       where: { tenant_id: tenantId },
-      select: { id: true, vin: true, plate: true },
     });
     const vehicleByVin = new Map<string, string>();
     const vehicleByPlate = new Map<string, string>();
+    const vehicleById = new Map<string, Record<string, unknown>>();
     for (const vehicle of vehicles) {
+      vehicleById.set(vehicle.id, pickVehicleAuditSnapshot(vehicle));
       if (vehicle.vin) {
         vehicleByVin.set(vehicle.vin.toUpperCase(), vehicle.id);
       }
@@ -575,8 +600,10 @@ export class ImportService {
       mappingByExternalId,
       vehicleByVin,
       vehicleByPlate,
+      vehicleById,
       customerExternalToEntityId,
       vinSeenInFile: new Map<string, number>(),
+      externalIdSeenInFile: new Map<string, number>(),
     };
 
     const results: DryRunRowResult[] = [];
@@ -607,6 +634,65 @@ export class ImportService {
       );
     }
     return results;
+  }
+
+  private async assertApplyRowIsFresh(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    entityType: ImportEntityType,
+    sourceSystem: string,
+    row: {
+      action: ImportRowAction;
+      entity_id: string | null;
+      external_id: string | null;
+      normalized_json: Prisma.JsonValue;
+    },
+  ): Promise<void> {
+    if (
+      row.action !== ImportRowAction.CREATE &&
+      row.action !== ImportRowAction.UPDATE
+    ) {
+      return;
+    }
+
+    const payload = row.normalized_json as Record<string, unknown>;
+    const externalId = resolveImportExternalId(payload, row.external_id);
+
+    if (row.action === ImportRowAction.CREATE) {
+      const mapping = await tx.externalIdMapping.findFirst({
+        where: {
+          tenant_id: tenantId,
+          entity_type: entityType,
+          source_system: sourceSystem,
+          external_id: externalId,
+        },
+      });
+      if (mapping) {
+        throw new ApplyRowStaleError();
+      }
+      return;
+    }
+
+    if (!row.entity_id) {
+      throw new ApplyRowStaleError();
+    }
+
+    if (entityType === ImportEntityType.CUSTOMER) {
+      const customer = await tx.customer.findFirst({
+        where: { tenant_id: tenantId, id: row.entity_id },
+      });
+      if (!customer) {
+        throw new ApplyRowStaleError();
+      }
+      return;
+    }
+
+    const vehicle = await tx.vehicle.findFirst({
+      where: { tenant_id: tenantId, id: row.entity_id },
+    });
+    if (!vehicle) {
+      throw new ApplyRowStaleError();
+    }
   }
 
   private async applyCustomerRow(
@@ -754,6 +840,60 @@ export class ImportService {
     return data;
   }
 
+  private buildVehicleUpdateData(
+    existing: {
+      make: string;
+      model: string;
+      year: number;
+      vin: string | null;
+      plate: string | null;
+      mileage: number | null;
+      color: string | null;
+      key_number: string | null;
+      customer_id: string | null;
+    },
+    payload: Record<string, unknown>,
+    options: ImportJobOptions,
+  ) {
+    const data: Prisma.VehicleUpdateInput = {};
+    const assign = (
+      key: keyof typeof existing,
+      value: unknown,
+      allowEmpty = false,
+    ) => {
+      if (
+        !allowEmpty &&
+        (value === null || value === undefined || value === '')
+      ) {
+        return;
+      }
+      if (options.fill_empty_only) {
+        const current = existing[key];
+        if (
+          current !== null &&
+          current !== undefined &&
+          String(current).trim() !== ''
+        ) {
+          return;
+        }
+      }
+      (data as Record<string, unknown>)[key] = value;
+    };
+
+    assign('make', payload.make);
+    assign('model', payload.model);
+    assign('year', payload.year);
+    assign('vin', payload.vin, true);
+    assign('plate', payload.plate, true);
+    assign('mileage', payload.mileage, true);
+    assign('color', payload.color, true);
+    assign('key_number', payload.key_number, true);
+    if (payload.owner_external_id_provided === true) {
+      assign('customer_id', payload.customer_id, true);
+    }
+    return data;
+  }
+
   private async applyVehicleRow(
     tx: Prisma.TransactionClient,
     tenantId: string,
@@ -770,6 +910,7 @@ export class ImportService {
     const payload = row.normalized_json as Record<string, unknown>;
     const externalId = resolveImportExternalId(payload, row.external_id);
     delete payload.external_id;
+    delete payload.owner_external_id_provided;
 
     if (row.action === ImportRowAction.CREATE) {
       const created = await tx.vehicle.create({
@@ -814,21 +955,16 @@ export class ImportService {
         where: { tenant_id: tenantId, id: row.entity_id },
       });
       if (!before) {
-        throw new Error('Vehicle not found');
+        throw new ApplyRowStaleError();
       }
+      const updateData = this.buildVehicleUpdateData(
+        before,
+        payload,
+        (job.options_json as ImportJobOptions) ?? {},
+      );
       const after = await tx.vehicle.update({
         where: { id: row.entity_id },
-        data: {
-          make: String(payload.make),
-          model: String(payload.model),
-          year: Number(payload.year),
-          vin: payload.vin as string | null,
-          plate: payload.plate as string | null,
-          mileage: payload.mileage as number | null,
-          color: payload.color as string | null,
-          key_number: payload.key_number as string | null,
-          customer_id: payload.customer_id as string | null,
-        },
+        data: updateData,
       });
       await this.upsertExternalMapping(
         tx,
