@@ -6,15 +6,24 @@ import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  LOANER_ALREADY_RETURNED,
   LOANER_BOOKING_OVERLAP,
+  LOANER_FLEET_DELETE_BLOCKED,
+  LOANER_FORBIDDEN_WRITE,
   LOANER_ODOMETER_IN_INVALID,
+  LOANER_RETURN_BEFORE_HANDOVER,
+  LOANER_VEHICLE_ON_LOAN,
 } from '../src/loaner-vehicles/loaner.constants.js';
+import { setLoanerNowForTests } from '../src/loaner-vehicles/loaner-clock.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
   resolveTestMainSiteId,
+  runWithTenantContext,
+  seedTestEmployee,
+  seedTestTenantMember,
   type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
@@ -26,10 +35,14 @@ describe('Loaner vehicles (e2e)', () => {
   let tenant: TestTenantResult;
   let prisma: PrismaService;
   let authToken: string;
+  let advisorToken: string;
+  let salesToken: string;
+  let mechanicToken: string;
   let siteId: string;
   let customerId: string;
   let loanerVehicleId: string;
   let otherSiteId: string;
+  let adminUserId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -46,6 +59,7 @@ describe('Loaner vehicles (e2e)', () => {
   });
 
   beforeEach(async () => {
+    setLoanerNowForTests(undefined);
     tenant = await createTestTenant(basePrisma, 'loaner-vehicles');
     prisma = createTenantAwarePrisma(basePrisma, tenant.tenantId);
     authToken = createTestAuthToken(authService, tenant);
@@ -98,9 +112,108 @@ describe('Loaner vehicles (e2e)', () => {
       },
     });
     otherSiteId = otherSite.id;
+
+    await runWithTenantContext(tenant.tenantId, async () => {
+      const adminUser = await basePrisma.user.findFirstOrThrow({
+        where: { firebaseUid: tenant.firebaseUid },
+        select: { id: true },
+      });
+      adminUserId = adminUser.id;
+
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          user_id: adminUserId,
+          site_id: otherSiteId,
+          is_active: true,
+        },
+      });
+
+      const advisorUid = `loaner-advisor-${Date.now()}`;
+      const advisorUser = await basePrisma.user.create({
+        data: {
+          firebaseUid: advisorUid,
+          email: `loaner-advisor-${Date.now()}@test.local`,
+        },
+      });
+      await seedTestTenantMember(basePrisma, {
+        tenantId: tenant.tenantId,
+        userId: advisorUser.id,
+        role: 'SALES',
+      });
+      await seedTestEmployee(basePrisma, {
+        tenantId: tenant.tenantId,
+        name: 'Loaner Advisor',
+        role: 'SERVICE_ADVISOR',
+        userId: advisorUser.id,
+      });
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenant.tenantId,
+          user_id: advisorUser.id,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
+      await basePrisma.user.update({
+        where: { id: advisorUser.id },
+        data: { active_site_id: siteId },
+      });
+      advisorToken = authService.createTestToken({
+        sub: advisorUid,
+        email: advisorUser.email,
+        tenantId: tenant.tenantId,
+        role: 'SALES',
+      });
+
+      const salesUid = `loaner-sales-${Date.now()}`;
+      const salesUser = await basePrisma.user.create({
+        data: {
+          firebaseUid: salesUid,
+          email: `loaner-sales-${Date.now()}@test.local`,
+        },
+      });
+      await seedTestTenantMember(basePrisma, {
+        tenantId: tenant.tenantId,
+        userId: salesUser.id,
+        role: 'SALES',
+      });
+      salesToken = authService.createTestToken({
+        sub: salesUid,
+        email: salesUser.email,
+        tenantId: tenant.tenantId,
+        role: 'SALES',
+      });
+
+      const mechanicUid = `loaner-mech-${Date.now()}`;
+      const mechanicUser = await basePrisma.user.create({
+        data: {
+          firebaseUid: mechanicUid,
+          email: `loaner-mech-${Date.now()}@test.local`,
+        },
+      });
+      await seedTestTenantMember(basePrisma, {
+        tenantId: tenant.tenantId,
+        userId: mechanicUser.id,
+        role: 'TECH',
+      });
+      await seedTestEmployee(basePrisma, {
+        tenantId: tenant.tenantId,
+        name: 'Loaner Mechanic',
+        role: 'MECHANIC',
+        userId: mechanicUser.id,
+      });
+      mechanicToken = authService.createTestToken({
+        sub: mechanicUid,
+        email: mechanicUser.email,
+        tenantId: tenant.tenantId,
+        role: 'TECH',
+      });
+    });
   });
 
   afterEach(async () => {
+    setLoanerNowForTests(undefined);
     if (tenant?.tenantId) {
       await cleanupTestTenantGraph(basePrisma, tenant.tenantId).catch(
         () => undefined,
@@ -120,6 +233,17 @@ describe('Loaner vehicles (e2e)', () => {
       plannedTo: '2026-10-12T18:00:00.000Z',
       ...overrides,
     };
+  }
+
+  async function createReservedBooking(
+    overrides: Record<string, unknown> = {},
+  ) {
+    const response = await request(app.getHttpServer())
+      .post('/api/workshop/loaner-bookings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(bookingPayload(overrides))
+      .expect(201);
+    return response.body;
   }
 
   it('returns 409 for overlapping concurrent booking creates', async () => {
@@ -215,14 +339,10 @@ describe('Loaner vehicles (e2e)', () => {
   });
 
   it('validates return odometer against handover reading', async () => {
-    const created = await request(app.getHttpServer())
-      .post('/api/workshop/loaner-bookings')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(bookingPayload())
-      .expect(201);
+    const created = await createReservedBooking();
 
     await request(app.getHttpServer())
-      .post(`/api/workshop/loaner-bookings/${created.body.id}/hand-over`)
+      .post(`/api/workshop/loaner-bookings/${created.id}/hand-over`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         odometerOut: 50000,
@@ -232,7 +352,7 @@ describe('Loaner vehicles (e2e)', () => {
       .expect(201);
 
     const invalidReturn = await request(app.getHttpServer())
-      .post(`/api/workshop/loaner-bookings/${created.body.id}/return`)
+      .post(`/api/workshop/loaner-bookings/${created.id}/return`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         odometerIn: 49999,
@@ -247,12 +367,250 @@ describe('Loaner vehicles (e2e)', () => {
     );
 
     await request(app.getHttpServer())
-      .post(`/api/workshop/loaner-bookings/${created.body.id}/return`)
+      .post(`/api/workshop/loaner-bookings/${created.id}/return`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         odometerIn: 50100,
         fuelIn: 70,
       })
       .expect(201);
+  });
+
+  it('allows SERVICE_ADVISOR write and blocks SALES and MECHANIC', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/api/workshop/loaner-bookings')
+      .set('Authorization', `Bearer ${advisorToken}`)
+      .send(bookingPayload())
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/workshop/loaner-bookings')
+      .set('Authorization', `Bearer ${salesToken}`)
+      .send(bookingPayload())
+      .expect(403)
+      .expect((res) => {
+        expect(res.body.code ?? res.body.message).toEqual(
+          expect.stringMatching(new RegExp(LOANER_FORBIDDEN_WRITE)),
+        );
+      });
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/cancel`)
+      .set('Authorization', `Bearer ${mechanicToken}`)
+      .expect(403);
+  });
+
+  it('rejects return before handover', async () => {
+    const created = await createReservedBooking();
+    const response = await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/return`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ odometerIn: 1000, fuelIn: 50 })
+      .expect(400);
+
+    expect(response.body.code ?? response.body.message).toEqual(
+      expect.stringMatching(new RegExp(LOANER_RETURN_BEFORE_HANDOVER)),
+    );
+  });
+
+  it('rejects double return', async () => {
+    const created = await createReservedBooking();
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 1000,
+        fuelOut: 50,
+        driverLicenceChecked: true,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/return`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ odometerIn: 1100, fuelIn: 40 })
+      .expect(201);
+
+    const secondReturn = await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/return`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ odometerIn: 1200, fuelIn: 30 })
+      .expect(400);
+
+    expect(secondReturn.body.code ?? secondReturn.body.message).toEqual(
+      expect.stringMatching(new RegExp(LOANER_ALREADY_RETURNED)),
+    );
+  });
+
+  it('handles parallel double return with a single success', async () => {
+    const created = await createReservedBooking();
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 2000,
+        fuelOut: 60,
+        driverLicenceChecked: true,
+      })
+      .expect(201);
+
+    const [first, second] = await Promise.all([
+      request(app.getHttpServer())
+        .post(`/api/workshop/loaner-bookings/${created.id}/return`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ odometerIn: 2100, fuelIn: 50 }),
+      request(app.getHttpServer())
+        .post(`/api/workshop/loaner-bookings/${created.id}/return`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ odometerIn: 2100, fuelIn: 50 }),
+    ]);
+
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([201, 400]);
+  });
+
+  it('rejects fleet create with a vehicle from another tenant', async () => {
+    const otherTenant = await createTestTenant(basePrisma, 'loaner-fleet-x');
+    const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
+    const foreignVehicle = await otherPrisma.vehicle.create({
+      data: {
+        make: 'Audi',
+        model: 'A3',
+        year: 2020,
+        plate: 'X-FOREIGN',
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/workshop/loaner-vehicles')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vehicleId: foreignVehicle.id,
+        displayName: 'Foreign fleet',
+      })
+      .expect(404);
+
+    await cleanupTestTenantGraph(basePrisma, otherTenant.tenantId).catch(
+      () => undefined,
+    );
+  });
+
+  it('returns 404 when fetching a booking from another site context', async () => {
+    const created = await createReservedBooking();
+    await runWithTenantContext(tenant.tenantId, async () => {
+      await basePrisma.user.update({
+        where: { id: adminUserId },
+        data: { active_site_id: otherSiteId },
+      });
+    });
+
+    await request(app.getHttpServer())
+      .get(`/api/workshop/loaner-bookings/${created.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(404);
+
+    await runWithTenantContext(tenant.tenantId, async () => {
+      await basePrisma.user.update({
+        where: { id: adminUserId },
+        data: { active_site_id: siteId },
+      });
+    });
+  });
+
+  it('lists overdue bookings using injected clock via asOf', async () => {
+    setLoanerNowForTests(new Date('2026-10-15T12:00:00.000Z'));
+    await createReservedBooking({
+      plannedFrom: '2026-10-01T08:00:00.000Z',
+      plannedTo: '2026-10-05T18:00:00.000Z',
+    });
+
+    const overdue = await request(app.getHttpServer())
+      .get('/api/workshop/loaner-bookings/overdue')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(overdue.body.data.length).toBeGreaterThanOrEqual(1);
+    expect(overdue.body.asOf).toBe('2026-10-15T12:00:00.000Z');
+  });
+
+  it('marks reserved overlapping vehicles unavailable regardless of asOf', async () => {
+    await createReservedBooking({
+      plannedFrom: '2026-11-01T08:00:00.000Z',
+      plannedTo: '2026-11-05T18:00:00.000Z',
+    });
+
+    const availability = await request(app.getHttpServer())
+      .get(
+        '/api/workshop/loaner-vehicles/availability?from=2026-11-02T08:00:00.000Z&to=2026-11-04T18:00:00.000Z&asOf=2026-10-01T08:00:00.000Z',
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const row = availability.body.data.find(
+      (entry: { vehicle: { id: string } }) => entry.vehicle.id === loanerVehicleId,
+    );
+    expect(row?.available).toBe(false);
+  });
+
+  it('rejects hand-over while the vehicle is already on loan', async () => {
+    const first = await createReservedBooking({
+      plannedFrom: '2026-12-01T08:00:00.000Z',
+      plannedTo: '2026-12-05T18:00:00.000Z',
+    });
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${first.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 3000,
+        fuelOut: 70,
+        driverLicenceChecked: true,
+      })
+      .expect(201);
+
+    const second = await createReservedBooking({
+      plannedFrom: '2026-12-10T08:00:00.000Z',
+      plannedTo: '2026-12-12T18:00:00.000Z',
+    });
+
+    const conflict = await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${second.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 3100,
+        fuelOut: 60,
+        driverLicenceChecked: true,
+      })
+      .expect(409);
+
+    expect(conflict.body.code ?? conflict.body.message).toEqual(
+      expect.stringMatching(new RegExp(LOANER_VEHICLE_ON_LOAN)),
+    );
+  });
+
+  it('blocks fleet delete when booking history exists', async () => {
+    const created = await createReservedBooking();
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/cancel`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .delete(`/api/workshop/loaner-vehicles/${loanerVehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(409);
+
+    expect(response.body.code ?? response.body.message).toEqual(
+      expect.stringMatching(new RegExp(LOANER_FLEET_DELETE_BLOCKED)),
+    );
+  });
+
+  it('marks a reserved booking as no-show', async () => {
+    const created = await createReservedBooking();
+    const response = await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${created.id}/no-show`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+
+    expect(response.body.status).toBe('NO_SHOW');
   });
 });

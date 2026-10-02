@@ -5119,6 +5119,7 @@
             "required": true,
             "in": "query",
             "schema": {
+              "format": "date-time",
               "type": "string"
             }
           },
@@ -5127,6 +5128,7 @@
             "required": true,
             "in": "query",
             "schema": {
+              "format": "date-time",
               "type": "string"
             }
           },
@@ -5134,7 +5136,9 @@
             "name": "asOf",
             "required": false,
             "in": "query",
+            "description": "Evaluation timestamp for availability (reserved for future use; overlap uses the requested window).",
             "schema": {
+              "format": "date-time",
               "type": "string"
             }
           }
@@ -5320,7 +5324,9 @@
             "name": "asOf",
             "required": false,
             "in": "query",
+            "description": "Evaluation timestamp for overdue detection (defaults to server now).",
             "schema": {
+              "format": "date-time",
               "type": "string"
             }
           }
@@ -5427,7 +5433,37 @@
           }
         ],
         "responses": {
-          "200": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/{id}/no-show": {
+      "post": {
+        "operationId": "LoanerBookingsController_markNoShow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -5467,7 +5503,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -5507,7 +5543,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -15748,6 +15784,49 @@
           }
         }
       },
+      "LoanerBookingCustomerSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "companyName"
+        ]
+      },
+      "LoanerBookingVehicleSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "siteId"
+        ]
+      },
       "LoanerBookingResponseDto": {
         "type": "object",
         "properties": {
@@ -15808,6 +15887,14 @@
             "type": "number",
             "nullable": true
           },
+          "damageNotesOut": {
+            "type": "string",
+            "nullable": true
+          },
+          "damageNotesIn": {
+            "type": "string",
+            "nullable": true
+          },
           "driverLicenceChecked": {
             "type": "boolean"
           },
@@ -15826,6 +15913,12 @@
           "updatedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/LoanerBookingCustomerSummaryDto"
+          },
+          "loanerVehicle": {
+            "$ref": "#/components/schemas/LoanerBookingVehicleSummaryDto"
           }
         },
         "required": [
@@ -15842,6 +15935,8 @@
           "odometerIn",
           "fuelOut",
           "fuelIn",
+          "damageNotesOut",
+          "damageNotesIn",
           "driverLicenceChecked",
           "licenceCheckedById",
           "notes",
@@ -15876,10 +15971,12 @@
             "type": "string"
           },
           "plannedFrom": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "plannedTo": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "notes": {
             "type": "string"
@@ -15896,10 +15993,12 @@
         "type": "object",
         "properties": {
           "plannedFrom": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "plannedTo": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "workshopOrderId": {
             "type": "object"

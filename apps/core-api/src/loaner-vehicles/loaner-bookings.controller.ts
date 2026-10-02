@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -70,13 +71,22 @@ export class LoanerBookingsController {
   }
 
   @Post(':id/cancel')
-  @ApiOkResponse({ type: LoanerBookingResponseDto })
+  @HttpCode(201)
+  @ApiCreatedResponse({ type: LoanerBookingResponseDto })
   cancel(@Param('id', ParseUUIDPipe) id: string) {
     return this.loanerService.cancelBooking(id);
   }
 
+  @Post(':id/no-show')
+  @HttpCode(201)
+  @ApiCreatedResponse({ type: LoanerBookingResponseDto })
+  markNoShow(@Param('id', ParseUUIDPipe) id: string) {
+    return this.loanerService.markNoShow(id);
+  }
+
   @Post(':id/hand-over')
-  @ApiOkResponse({ type: LoanerBookingResponseDto })
+  @HttpCode(201)
+  @ApiCreatedResponse({ type: LoanerBookingResponseDto })
   handOver(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: HandOverLoanerBookingDto,
@@ -85,7 +95,8 @@ export class LoanerBookingsController {
   }
 
   @Post(':id/return')
-  @ApiOkResponse({ type: LoanerBookingResponseDto })
+  @HttpCode(201)
+  @ApiCreatedResponse({ type: LoanerBookingResponseDto })
   returnBooking(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReturnLoanerBookingDto,

@@ -6,10 +6,13 @@ import {
 import {
   LOANER_ALREADY_RETURNED,
   LOANER_BOOKING_OVERLAP,
+  LOANER_FLEET_DELETE_BLOCKED,
+  LOANER_FLEET_NOT_BOOKABLE,
   LOANER_FORBIDDEN_WRITE,
   LOANER_INVALID_HANDOVER_STATE,
   LOANER_ODOMETER_IN_INVALID,
   LOANER_RETURN_BEFORE_HANDOVER,
+  LOANER_VEHICLE_ON_LOAN,
 } from './loaner.constants.js';
 
 export function loanerOverlapException(): ConflictException {
@@ -54,6 +57,29 @@ export function loanerInvalidHandoverStateException(
 ): BadRequestException {
   return new BadRequestException({
     code: LOANER_INVALID_HANDOVER_STATE,
+    message,
+  });
+}
+
+export function loanerVehicleOnLoanException(): ConflictException {
+  return new ConflictException({
+    code: LOANER_VEHICLE_ON_LOAN,
+    message: 'This loaner vehicle is already handed over on another booking.',
+  });
+}
+
+export function loanerFleetDeleteBlockedException(): ConflictException {
+  return new ConflictException({
+    code: LOANER_FLEET_DELETE_BLOCKED,
+    message: 'Cannot remove a loaner vehicle that has booking history.',
+  });
+}
+
+export function loanerFleetNotBookableException(
+  message = 'This loaner vehicle cannot be booked in its current state.',
+): BadRequestException {
+  return new BadRequestException({
+    code: LOANER_FLEET_NOT_BOOKABLE,
     message,
   });
 }

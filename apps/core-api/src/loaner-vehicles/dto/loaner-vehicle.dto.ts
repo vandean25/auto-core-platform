@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -94,19 +95,21 @@ export class ListLoanerVehiclesQueryDto {
 }
 
 export class LoanerAvailabilityQueryDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ format: 'date-time' })
+  @IsISO8601()
   from!: string;
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ format: 'date-time' })
+  @IsISO8601()
   to!: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Evaluation timestamp for availability (reserved for future use; overlap uses the requested window).',
+    format: 'date-time',
+  })
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   asOf?: string;
 }
 

@@ -163,13 +163,14 @@ describe('LoanerVehiclesService', () => {
         ]),
       },
       loanerBooking: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            loaner_vehicle_id: 'lv-1',
-            planned_to: new Date('2026-10-13T08:00:00.000Z'),
-            status: LoanerBookingStatus.RESERVED,
-          },
-        ]),
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([
+            {
+              loaner_vehicle_id: 'lv-1',
+            },
+          ]),
       },
     };
 

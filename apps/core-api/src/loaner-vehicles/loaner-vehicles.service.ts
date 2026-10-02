@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import {
   LoanerBookingStatus,
+  LoanerVehicle,
   LoanerVehicleStatus,
   Prisma,
 } from '@prisma/client';
@@ -27,10 +28,13 @@ import { ACTIVE_LOANER_BOOKING_STATUSES } from './loaner.constants.js';
 import { getLoanerNow } from './loaner-clock.js';
 import {
   loanerAlreadyReturnedException,
+  loanerFleetDeleteBlockedException,
+  loanerFleetNotBookableException,
   loanerInvalidHandoverStateException,
   loanerOdometerInInvalidException,
   loanerOverlapException,
   loanerReturnBeforeHandoverException,
+  loanerVehicleOnLoanException,
 } from './loaner.errors.js';
 import { mapLoanerBooking, mapLoanerVehicle } from './loaner.mapper.js';
 import { LoanerVehiclesAuthorization } from './loaner-vehicles.authorization.js';
@@ -125,7 +129,7 @@ export class LoanerVehiclesService {
       });
       return mapLoanerVehicle(created);
     } catch (error) {
-      this.rethrowOverlapIfNeeded(error);
+      this.rethrowLoanerConstraintIfNeeded(error);
       throw error;
     }
   }
@@ -166,17 +170,14 @@ export class LoanerVehiclesService {
     ]);
     await this.findFleetVehicleOrThrow(tenantId, siteId, id);
 
-    const activeBookings = await this.prisma.loanerBooking.count({
+    const bookingHistory = await this.prisma.loanerBooking.count({
       where: {
         tenant_id: tenantId,
         loaner_vehicle_id: id,
-        status: { in: [...ACTIVE_LOANER_BOOKING_STATUSES] },
       },
     });
-    if (activeBookings > 0) {
-      throw new BadRequestException(
-        'Cannot remove a loaner vehicle with active bookings.',
-      );
+    if (bookingHistory > 0) {
+      throw loanerFleetDeleteBlockedException();
     }
 
     await this.prisma.loanerVehicle.delete({
@@ -211,26 +212,31 @@ export class LoanerVehiclesService {
       orderBy: [{ display_name: 'asc' }],
     });
 
-    const overlapping = await this.prisma.loanerBooking.findMany({
+    const vehicleIds = vehicles.map((vehicle) => vehicle.id);
+    const handedOver = await this.prisma.loanerBooking.findMany({
       where: {
         tenant_id: tenantId,
-        loaner_vehicle_id: { in: vehicles.map((vehicle) => vehicle.id) },
-        status: { in: [...ACTIVE_LOANER_BOOKING_STATUSES] },
+        loaner_vehicle_id: { in: vehicleIds },
+        status: LoanerBookingStatus.HANDED_OVER,
+      },
+      select: { loaner_vehicle_id: true },
+    });
+
+    const overlappingReserved = await this.prisma.loanerBooking.findMany({
+      where: {
+        tenant_id: tenantId,
+        loaner_vehicle_id: { in: vehicleIds },
+        status: LoanerBookingStatus.RESERVED,
         planned_from: { lt: to },
         planned_to: { gt: from },
       },
-      select: { loaner_vehicle_id: true, planned_to: true, status: true },
+      select: { loaner_vehicle_id: true },
     });
 
-    const blockedIds = new Set(
-      overlapping
-        .filter(
-          (booking) =>
-            booking.status === LoanerBookingStatus.HANDED_OVER ||
-            booking.planned_to > asOf,
-        )
-        .map((booking) => booking.loaner_vehicle_id),
-    );
+    const blockedIds = new Set([
+      ...handedOver.map((booking) => booking.loaner_vehicle_id),
+      ...overlappingReserved.map((booking) => booking.loaner_vehicle_id),
+    ]);
 
     return {
       from: from.toISOString(),
@@ -285,7 +291,12 @@ export class LoanerVehiclesService {
     const plannedTo = this.parseDate(dto.plannedTo, 'plannedTo');
     this.assertPlannedRange(plannedFrom, plannedTo);
 
-    await this.findFleetVehicleOrThrow(tenantId, siteId, dto.loanerVehicleId);
+    const fleetVehicle = await this.findFleetVehicleOrThrow(
+      tenantId,
+      siteId,
+      dto.loanerVehicleId,
+    );
+    this.assertFleetBookable(fleetVehicle);
     await this.assertCustomerInTenant(tenantId, dto.customerId);
     if (dto.workshopOrderId) {
       await this.assertWorkshopOrderInSite(
@@ -315,7 +326,7 @@ export class LoanerVehiclesService {
       });
       return mapLoanerBooking(created);
     } catch (error) {
-      this.rethrowOverlapIfNeeded(error);
+      this.rethrowLoanerConstraintIfNeeded(error);
       throw error;
     }
   }
@@ -369,7 +380,7 @@ export class LoanerVehiclesService {
       });
       return mapLoanerBooking(updated);
     } catch (error) {
-      this.rethrowOverlapIfNeeded(error);
+      this.rethrowLoanerConstraintIfNeeded(error);
       throw error;
     }
   }
@@ -381,23 +392,69 @@ export class LoanerVehiclesService {
       this.siteContext.getSiteId(),
     ]);
 
-    const existing = await this.findBookingOrThrow(tenantId, siteId, id);
-    if (
-      existing.status === LoanerBookingStatus.RETURNED ||
-      existing.status === LoanerBookingStatus.CANCELLED
-    ) {
-      throw loanerAlreadyReturnedException();
-    }
-    if (existing.status === LoanerBookingStatus.HANDED_OVER) {
-      throw loanerInvalidHandoverStateException(
-        'Handed-over bookings must be returned, not cancelled.',
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.loanerBooking.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id,
+          status: LoanerBookingStatus.RESERVED,
+          loaner_vehicle: { site_id: siteId },
+        },
+        data: { status: LoanerBookingStatus.CANCELLED },
+      });
+      if (result.count === 0) {
+        await this.assertCancelAllowed(tenantId, siteId, id);
+      }
+
+      const booking = await tx.loanerBooking.findFirstOrThrow({
+        where: { tenant_id: tenantId, id },
+        include: LOANER_BOOKING_INCLUDE,
+      });
+      await this.syncLoanerVehicleStatus(
+        tx,
+        tenantId,
+        siteId,
+        booking.loaner_vehicle_id,
       );
-    }
+      return booking;
+    });
+
+    return mapLoanerBooking(updated);
+  }
+
+  async markNoShow(id: string) {
+    await this.authorization.assertWriteAccess();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const booking = await tx.loanerBooking.update({
-        where: { tenant_id_id: { tenant_id: tenantId, id } },
-        data: { status: LoanerBookingStatus.CANCELLED },
+      const result = await tx.loanerBooking.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id,
+          status: LoanerBookingStatus.RESERVED,
+          loaner_vehicle: { site_id: siteId },
+        },
+        data: { status: LoanerBookingStatus.NO_SHOW },
+      });
+      if (result.count === 0) {
+        const existing = await this.findBookingOrThrow(tenantId, siteId, id);
+        if (
+          existing.status === LoanerBookingStatus.RETURNED ||
+          existing.status === LoanerBookingStatus.CANCELLED ||
+          existing.status === LoanerBookingStatus.NO_SHOW
+        ) {
+          throw loanerAlreadyReturnedException();
+        }
+        throw loanerInvalidHandoverStateException(
+          'Only reserved bookings can be marked as no-show.',
+        );
+      }
+
+      const booking = await tx.loanerBooking.findFirstOrThrow({
+        where: { tenant_id: tenantId, id },
         include: LOANER_BOOKING_INCLUDE,
       });
       await this.syncLoanerVehicleStatus(
@@ -420,9 +477,6 @@ export class LoanerVehiclesService {
     ]);
 
     const existing = await this.findBookingOrThrow(tenantId, siteId, id);
-    if (existing.status !== LoanerBookingStatus.RESERVED) {
-      throw loanerInvalidHandoverStateException();
-    }
     if (!dto.driverLicenceChecked) {
       throw loanerInvalidHandoverStateException(
         'Driver licence must be checked before handover.',
@@ -432,31 +486,65 @@ export class LoanerVehiclesService {
       await this.assertEmployeeInTenant(tenantId, dto.licenceCheckedById);
     }
 
-    const now = getLoanerNow();
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const booking = await tx.loanerBooking.update({
-        where: { tenant_id_id: { tenant_id: tenantId, id } },
-        data: {
-          status: LoanerBookingStatus.HANDED_OVER,
-          handed_over_at: now,
-          odometer_out: dto.odometerOut,
-          fuel_out: dto.fuelOut,
-          driver_licence_checked: true,
-          licence_checked_by_id: dto.licenceCheckedById ?? null,
-          damage_notes_out: dto.damageNotesOut ?? null,
-        },
-        include: LOANER_BOOKING_INCLUDE,
-      });
-      await this.syncLoanerVehicleStatus(
-        tx,
-        tenantId,
-        siteId,
-        booking.loaner_vehicle_id,
-      );
-      return booking;
-    });
+    const fleetVehicle = await this.findFleetVehicleOrThrow(
+      tenantId,
+      siteId,
+      existing.loaner_vehicle_id,
+    );
+    this.assertFleetBookable(fleetVehicle);
 
-    return mapLoanerBooking(updated);
+    const now = getLoanerNow();
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.loanerBooking.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id,
+            status: LoanerBookingStatus.RESERVED,
+            loaner_vehicle: { site_id: siteId },
+          },
+          data: {
+            status: LoanerBookingStatus.HANDED_OVER,
+            handed_over_at: now,
+            odometer_out: dto.odometerOut,
+            fuel_out: dto.fuelOut,
+            driver_licence_checked: true,
+            licence_checked_by_id: dto.licenceCheckedById ?? null,
+            damage_notes_out: dto.damageNotesOut ?? null,
+          },
+        });
+        if (result.count === 0) {
+          const current = await tx.loanerBooking.findFirst({
+            where: { tenant_id: tenantId, id },
+            select: { status: true },
+          });
+          if (!current) {
+            throw new NotFoundException(`Loaner booking ${id} not found`);
+          }
+          if (current.status !== LoanerBookingStatus.RESERVED) {
+            throw loanerInvalidHandoverStateException();
+          }
+          throw loanerInvalidHandoverStateException();
+        }
+
+        const booking = await tx.loanerBooking.findFirstOrThrow({
+          where: { tenant_id: tenantId, id },
+          include: LOANER_BOOKING_INCLUDE,
+        });
+        await this.syncLoanerVehicleStatus(
+          tx,
+          tenantId,
+          siteId,
+          booking.loaner_vehicle_id,
+        );
+        return booking;
+      });
+
+      return mapLoanerBooking(updated);
+    } catch (error) {
+      this.rethrowLoanerConstraintIfNeeded(error);
+      throw error;
+    }
   }
 
   async returnBooking(id: string, dto: ReturnLoanerBookingDto) {
@@ -468,15 +556,6 @@ export class LoanerVehiclesService {
 
     const existing = await this.findBookingOrThrow(tenantId, siteId, id);
     if (
-      existing.status === LoanerBookingStatus.RETURNED ||
-      existing.status === LoanerBookingStatus.CANCELLED
-    ) {
-      throw loanerAlreadyReturnedException();
-    }
-    if (existing.status !== LoanerBookingStatus.HANDED_OVER) {
-      throw loanerReturnBeforeHandoverException();
-    }
-    if (
       existing.odometer_out != null &&
       dto.odometerIn < existing.odometer_out
     ) {
@@ -485,8 +564,13 @@ export class LoanerVehiclesService {
 
     const now = getLoanerNow();
     const updated = await this.prisma.$transaction(async (tx) => {
-      const booking = await tx.loanerBooking.update({
-        where: { tenant_id_id: { tenant_id: tenantId, id } },
+      const result = await tx.loanerBooking.updateMany({
+        where: {
+          tenant_id: tenantId,
+          id,
+          status: LoanerBookingStatus.HANDED_OVER,
+          loaner_vehicle: { site_id: siteId },
+        },
         data: {
           status: LoanerBookingStatus.RETURNED,
           returned_at: now,
@@ -494,6 +578,19 @@ export class LoanerVehiclesService {
           fuel_in: dto.fuelIn,
           damage_notes_in: dto.damageNotesIn ?? null,
         },
+      });
+      if (result.count === 0) {
+        if (
+          existing.status === LoanerBookingStatus.RETURNED ||
+          existing.status === LoanerBookingStatus.CANCELLED
+        ) {
+          throw loanerAlreadyReturnedException();
+        }
+        throw loanerReturnBeforeHandoverException();
+      }
+
+      const booking = await tx.loanerBooking.findFirstOrThrow({
+        where: { tenant_id: tenantId, id },
         include: LOANER_BOOKING_INCLUDE,
       });
       await this.syncLoanerVehicleStatus(
@@ -551,8 +648,16 @@ export class LoanerVehiclesService {
 
   /** @internal exposed for unit tests */
   rethrowOverlapIfNeeded(error: unknown): void {
+    this.rethrowLoanerConstraintIfNeeded(error);
+  }
+
+  /** @internal exposed for unit tests */
+  rethrowLoanerConstraintIfNeeded(error: unknown): void {
     if (this.isLoanerOverlapError(error)) {
       throw loanerOverlapException();
+    }
+    if (this.isLoanerVehicleOnLoanError(error)) {
+      throw loanerVehicleOnLoanException();
     }
   }
 
@@ -583,6 +688,69 @@ export class LoanerVehiclesService {
     return (
       message.includes('23P01') ||
       message.includes('loaner_bookings_no_active_overlap')
+    );
+  }
+
+  /** @internal exposed for unit tests */
+  isLoanerVehicleOnLoanError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        const target = error.meta?.target;
+        const targetText = Array.isArray(target)
+          ? target.join(',')
+          : String(target ?? '');
+        if (targetText.includes('loaner_bookings_one_handed_over_per_vehicle')) {
+          return true;
+        }
+      }
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : JSON.stringify(error);
+
+    return message.includes('loaner_bookings_one_handed_over_per_vehicle');
+  }
+
+  private assertFleetBookable(
+    vehicle: Pick<LoanerVehicle, 'active' | 'status'>,
+  ): void {
+    if (!vehicle.active) {
+      throw loanerFleetNotBookableException(
+        'This loaner vehicle is inactive and cannot be booked.',
+      );
+    }
+    if (
+      vehicle.status === LoanerVehicleStatus.MAINTENANCE ||
+      vehicle.status === LoanerVehicleStatus.RETIRED
+    ) {
+      throw loanerFleetNotBookableException();
+    }
+  }
+
+  private async assertCancelAllowed(
+    tenantId: string,
+    siteId: string,
+    id: string,
+  ): Promise<void> {
+    const existing = await this.findBookingOrThrow(tenantId, siteId, id);
+    if (
+      existing.status === LoanerBookingStatus.RETURNED ||
+      existing.status === LoanerBookingStatus.CANCELLED ||
+      existing.status === LoanerBookingStatus.NO_SHOW
+    ) {
+      throw loanerAlreadyReturnedException();
+    }
+    if (existing.status === LoanerBookingStatus.HANDED_OVER) {
+      throw loanerInvalidHandoverStateException(
+        'Handed-over bookings must be returned, not cancelled.',
+      );
+    }
+    throw loanerInvalidHandoverStateException(
+      'Only reserved bookings can be cancelled.',
     );
   }
 

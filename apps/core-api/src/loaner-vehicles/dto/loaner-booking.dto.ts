@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsInt,
+  IsISO8601,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -30,14 +31,12 @@ export class CreateLoanerBookingDto {
   @IsUUID()
   workshopOrderId?: string;
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ format: 'date-time' })
+  @IsISO8601()
   plannedFrom!: string;
 
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
+  @ApiProperty({ format: 'date-time' })
+  @IsISO8601()
   plannedTo!: string;
 
   @ApiPropertyOptional()
@@ -48,16 +47,14 @@ export class CreateLoanerBookingDto {
 }
 
 export class UpdateLoanerBookingDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'date-time' })
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
+  @IsISO8601()
   plannedFrom?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'date-time' })
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
+  @IsISO8601()
   plannedTo?: string;
 
   @ApiPropertyOptional()
@@ -123,10 +120,39 @@ export class ReturnLoanerBookingDto {
 }
 
 export class LoanerOverdueQueryDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Evaluation timestamp for overdue detection (defaults to server now).',
+    format: 'date-time',
+  })
   @IsOptional()
-  @IsString()
+  @IsISO8601()
   asOf?: string;
+}
+
+export class LoanerBookingCustomerSummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  firstName!: string;
+
+  @ApiProperty()
+  lastName!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  companyName!: string | null;
+}
+
+export class LoanerBookingVehicleSummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  displayName!: string;
+
+  @ApiProperty()
+  siteId!: string;
 }
 
 export class LoanerBookingResponseDto {
@@ -169,6 +195,12 @@ export class LoanerBookingResponseDto {
   @ApiProperty({ type: Number, nullable: true })
   fuelIn!: number | null;
 
+  @ApiProperty({ type: String, nullable: true })
+  damageNotesOut!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  damageNotesIn!: string | null;
+
   @ApiProperty()
   driverLicenceChecked!: boolean;
 
@@ -183,6 +215,12 @@ export class LoanerBookingResponseDto {
 
   @ApiProperty()
   updatedAt!: Date;
+
+  @ApiPropertyOptional({ type: () => LoanerBookingCustomerSummaryDto })
+  customer?: LoanerBookingCustomerSummaryDto;
+
+  @ApiPropertyOptional({ type: () => LoanerBookingVehicleSummaryDto })
+  loanerVehicle?: LoanerBookingVehicleSummaryDto;
 }
 
 export class LoanerBookingListResponseDto {
