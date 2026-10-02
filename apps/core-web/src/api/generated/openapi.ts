@@ -1651,6 +1651,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/loaner-bookings/{id}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_markNoShow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/loaner-bookings/{id}/hand-over": {
         parameters: {
             query?: never;
@@ -4675,6 +4691,17 @@ export interface components {
             insuranceNote?: Record<string, never>;
             active?: boolean;
         };
+        LoanerBookingCustomerSummaryDto: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            companyName: string | null;
+        };
+        LoanerBookingVehicleSummaryDto: {
+            id: string;
+            displayName: string;
+            siteId: string;
+        };
         LoanerBookingResponseDto: {
             id: string;
             loanerVehicleId: string;
@@ -4694,6 +4721,8 @@ export interface components {
             odometerIn: number | null;
             fuelOut: number | null;
             fuelIn: number | null;
+            damageNotesOut: string | null;
+            damageNotesIn: string | null;
             driverLicenceChecked: boolean;
             licenceCheckedById: string | null;
             notes: string | null;
@@ -4701,6 +4730,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            customer?: components["schemas"]["LoanerBookingCustomerSummaryDto"];
+            loanerVehicle?: components["schemas"]["LoanerBookingVehicleSummaryDto"];
         };
         LoanerBookingListResponseDto: {
             data: components["schemas"]["LoanerBookingResponseDto"][];
@@ -4709,12 +4740,16 @@ export interface components {
             loanerVehicleId: string;
             customerId: string;
             workshopOrderId?: string;
+            /** Format: date-time */
             plannedFrom: string;
+            /** Format: date-time */
             plannedTo: string;
             notes?: string;
         };
         UpdateLoanerBookingDto: {
+            /** Format: date-time */
             plannedFrom?: string;
+            /** Format: date-time */
             plannedTo?: string;
             workshopOrderId?: Record<string, never>;
             customerId?: string;
@@ -9623,6 +9658,7 @@ export interface operations {
             query: {
                 from: string;
                 to: string;
+                /** @description Evaluation timestamp for availability (reserved for future use; overlap uses the requested window). */
                 asOf?: string;
             };
             header?: never;
@@ -9763,6 +9799,7 @@ export interface operations {
     LoanerBookingsController_overdue: {
         parameters: {
             query?: {
+                /** @description Evaluation timestamp for overdue detection (defaults to server now). */
                 asOf?: string;
             };
             header?: never;
@@ -9845,7 +9882,28 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_markNoShow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9870,7 +9928,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9895,7 +9953,7 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

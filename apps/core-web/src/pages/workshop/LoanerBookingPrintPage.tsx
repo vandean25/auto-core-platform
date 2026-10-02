@@ -21,8 +21,7 @@ export default function LoanerBookingPrintPage() {
     return <p className='p-8 text-destructive'>Buchung nicht gefunden.</p>
   }
 
-  const damageOut = (booking as { damageNotesOut?: string | null }).damageNotesOut
-  const damageIn = (booking as { damageNotesIn?: string | null }).damageNotesIn
+  const loanerLabel = booking.loanerVehicle?.displayName ?? booking.loanerVehicleId
 
   return (
     <>
@@ -51,6 +50,11 @@ export default function LoanerBookingPrintPage() {
             </span>
           </div>
         </header>
+
+        <section className='space-y-2'>
+          <h2 className='text-lg font-medium'>Ersatzfahrzeug</h2>
+          <p className='font-medium'>{loanerLabel}</p>
+        </section>
 
         <section className='space-y-2'>
           <h2 className='text-lg font-medium'>Kunde</h2>
@@ -86,9 +90,13 @@ export default function LoanerBookingPrintPage() {
               </div>
               <div>
                 <dt className='text-muted-foreground'>Schäden / Notizen</dt>
-                <dd className='mt-1 whitespace-pre-wrap'>{damageOut || '—'}</dd>
+                <dd className='mt-1 whitespace-pre-wrap'>{booking.damageNotesOut || '—'}</dd>
               </div>
             </dl>
+            <div className='mt-8 border-t border-dashed border-slate-300 pt-4'>
+              <p className='text-sm text-muted-foreground'>Unterschrift Kunde (Übergabe)</p>
+              <div className='mt-10 h-10 border-b border-slate-400' />
+            </div>
           </div>
 
           <div className='space-y-3 rounded-lg border border-slate-200 p-4'>
@@ -110,9 +118,13 @@ export default function LoanerBookingPrintPage() {
               </div>
               <div>
                 <dt className='text-muted-foreground'>Schäden / Notizen</dt>
-                <dd className='mt-1 whitespace-pre-wrap'>{damageIn || '—'}</dd>
+                <dd className='mt-1 whitespace-pre-wrap'>{booking.damageNotesIn || '—'}</dd>
               </div>
             </dl>
+            <div className='mt-8 border-t border-dashed border-slate-300 pt-4'>
+              <p className='text-sm text-muted-foreground'>Unterschrift Kunde (Rückgabe)</p>
+              <div className='mt-10 h-10 border-b border-slate-400' />
+            </div>
           </div>
         </section>
 

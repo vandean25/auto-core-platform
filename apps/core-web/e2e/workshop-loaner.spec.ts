@@ -104,4 +104,12 @@ test.describe('Blueprint: Workshop Loaner Vehicles', () => {
     await expect(page.getByRole('table')).toBeVisible()
     await expect(page.getByText('Golf Ersatz')).toBeVisible()
   })
+
+  test('preselects fleet vehicle from query parameter', async ({ page }) => {
+    await setupLoanerRoutes(page)
+    await page.goto('/workshop/loaner-vehicles?vehicle=loaner-1')
+
+    await expect(page.getByText('Buchungen · Golf Ersatz')).toBeVisible()
+    await expect(page.getByText('Pilot Customer')).toBeVisible()
+  })
 })

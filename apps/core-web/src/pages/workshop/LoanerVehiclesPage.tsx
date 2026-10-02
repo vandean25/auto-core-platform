@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { format } from 'date-fns'
 import { Plus, Printer } from 'lucide-react'
@@ -17,6 +17,9 @@ import {
   type LoanerBooking,
   type LoanerVehicle,
 } from '@/api/loaner-vehicles'
+import { useWorkshopOrders, useWorkshopSearch } from '@/api/workshop'
+import type { Customer, Vehicle, WorkshopOrder } from '@/api/types'
+import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
@@ -34,6 +37,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 
 type FleetRow = {
@@ -63,8 +73,14 @@ function fleetVehicleLabel(vehicle: LoanerVehicle) {
   return vehicle.displayName
 }
 
+function vehicleSearchLabel(vehicle: Vehicle) {
+  const plate = vehicle.plate ? ` · ${vehicle.plate}` : ''
+  return `${vehicle.year} ${vehicle.make} ${vehicle.model}${plate}`
+}
+
 export default function LoanerVehiclesPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { ...tableState } = useDataTableQuery({
     defaultPageSize: 25,
   })
@@ -78,10 +94,12 @@ export default function LoanerVehiclesPage() {
   const [handOverBooking, setHandOverBooking] = useState<LoanerBooking | null>(null)
   const [returnBooking, setReturnBooking] = useState<LoanerBooking | null>(null)
 
-  const [newVehicleId, setNewVehicleId] = useState('')
+  const [vehicleSearch, setVehicleSearch] = useState('')
+  const [debouncedVehicleSearch, setDebouncedVehicleSearch] = useState('')
+  const [selectedPoolVehicle, setSelectedPoolVehicle] = useState<Vehicle | null>(null)
   const [newDisplayName, setNewDisplayName] = useState('')
 
-  const [bookingCustomerId, setBookingCustomerId] = useState('')
+  const [bookingCustomer, setBookingCustomer] = useState<Customer | null>(null)
   const [bookingWorkshopOrderId, setBookingWorkshopOrderId] = useState('')
   const [bookingPlannedFrom, setBookingPlannedFrom] = useState(() => toLocalDateTimeInput())
   const [bookingPlannedTo, setBookingPlannedTo] = useState(() => {
@@ -92,7 +110,7 @@ export default function LoanerVehiclesPage() {
 
   const [handOverOdometer, setHandOverOdometer] = useState('')
   const [handOverFuel, setHandOverFuel] = useState('')
-  const [handOverLicenceChecked, setHandOverLicenceChecked] = useState(true)
+  const [handOverLicenceChecked, setHandOverLicenceChecked] = useState(false)
   const [handOverDamageNotes, setHandOverDamageNotes] = useState('')
 
   const [returnOdometer, setReturnOdometer] = useState('')
@@ -104,6 +122,40 @@ export default function LoanerVehiclesPage() {
   const cancelBooking = useCancelLoanerBooking()
   const handOver = useHandOverLoanerBooking()
   const returnLoaner = useReturnLoanerBooking()
+
+  const { data: workshopSearchData } = useWorkshopSearch(debouncedVehicleSearch)
+  const vehicleSearchResults =
+    workshopSearchData?.data?.vehicles?.filter((vehicle) => vehicle.id) ?? []
+
+  const { data: workshopOrdersData } = useWorkshopOrders(
+    bookingCustomer
+      ? {
+          page: 1,
+          pageSize: 50,
+          search: bookingCustomer.company_name ?? bookingCustomer.last_name,
+          filters: [],
+        }
+      : undefined,
+  )
+
+  const customerWorkshopOrders = useMemo(() => {
+    if (!bookingCustomer) return []
+    return (workshopOrdersData?.data ?? []).filter(
+      (order: WorkshopOrder) => order.customer_id === bookingCustomer.id,
+    )
+  }, [bookingCustomer, workshopOrdersData])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedVehicleSearch(vehicleSearch), 250)
+    return () => clearTimeout(timer)
+  }, [vehicleSearch])
+
+  useEffect(() => {
+    const vehicleFromQuery = searchParams.get('vehicle')
+    if (vehicleFromQuery) {
+      setSelectedVehicleId(vehicleFromQuery)
+    }
+  }, [searchParams])
 
   const overdueCount = overdueData?.data?.length ?? 0
 
@@ -141,18 +193,19 @@ export default function LoanerVehiclesPage() {
   ]
 
   async function handleCreateVehicle() {
-    if (!newVehicleId.trim() || !newDisplayName.trim()) {
-      toast.error('Fahrzeug-ID und Anzeigename sind erforderlich')
+    if (!selectedPoolVehicle?.id || !newDisplayName.trim()) {
+      toast.error('Fahrzeug und Anzeigename sind erforderlich')
       return
     }
     try {
       await createVehicle.mutateAsync({
-        vehicleId: newVehicleId.trim(),
+        vehicleId: selectedPoolVehicle.id,
         displayName: newDisplayName.trim(),
       })
       toast.success('Ersatzfahrzeug hinzugefügt')
       setAddVehicleOpen(false)
-      setNewVehicleId('')
+      setSelectedPoolVehicle(null)
+      setVehicleSearch('')
       setNewDisplayName('')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Speichern fehlgeschlagen')
@@ -164,29 +217,47 @@ export default function LoanerVehiclesPage() {
       toast.error('Bitte zuerst ein Ersatzfahrzeug auswählen')
       return
     }
-    if (!bookingCustomerId.trim()) {
-      toast.error('Kunden-ID ist erforderlich')
+    if (!bookingCustomer?.id) {
+      toast.error('Kunde ist erforderlich')
       return
     }
     try {
       await createBooking.mutateAsync({
         loanerVehicleId: selectedVehicleId,
-        customerId: bookingCustomerId.trim(),
-        workshopOrderId: bookingWorkshopOrderId.trim() || undefined,
+        customerId: bookingCustomer.id,
+        workshopOrderId: bookingWorkshopOrderId || undefined,
         plannedFrom: new Date(bookingPlannedFrom).toISOString(),
         plannedTo: new Date(bookingPlannedTo).toISOString(),
       })
       toast.success('Buchung angelegt')
       setBookingDialogOpen(false)
-      setBookingCustomerId('')
+      setBookingCustomer(null)
       setBookingWorkshopOrderId('')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Buchung fehlgeschlagen')
     }
   }
 
+  function validateHandOverInputs() {
+    const odometer = Number(handOverOdometer)
+    const fuel = Number(handOverFuel)
+    if (!Number.isFinite(odometer) || odometer < 0) {
+      toast.error('Gültiger Kilometerstand erforderlich')
+      return false
+    }
+    if (!Number.isFinite(fuel) || fuel < 0 || fuel > 100) {
+      toast.error('Tankfüllung muss zwischen 0 und 100 % liegen')
+      return false
+    }
+    if (!handOverLicenceChecked) {
+      toast.error('Führerschein muss bestätigt werden')
+      return false
+    }
+    return true
+  }
+
   async function handleHandOver() {
-    if (!handOverBooking) return
+    if (!handOverBooking || !validateHandOverInputs()) return
     try {
       await handOver.mutateAsync({
         id: handOverBooking.id,
@@ -204,8 +275,22 @@ export default function LoanerVehiclesPage() {
     }
   }
 
+  function validateReturnInputs() {
+    const odometer = Number(returnOdometer)
+    const fuel = Number(returnFuel)
+    if (!Number.isFinite(odometer) || odometer < 0) {
+      toast.error('Gültiger Kilometerstand erforderlich')
+      return false
+    }
+    if (!Number.isFinite(fuel) || fuel < 0 || fuel > 100) {
+      toast.error('Tankfüllung muss zwischen 0 und 100 % liegen')
+      return false
+    }
+    return true
+  }
+
   async function handleReturn() {
-    if (!returnBooking) return
+    if (!returnBooking || !validateReturnInputs()) return
     try {
       await returnLoaner.mutateAsync({
         id: returnBooking.id,
@@ -225,7 +310,7 @@ export default function LoanerVehiclesPage() {
   function openHandOverDialog(booking: LoanerBooking) {
     setHandOverOdometer('')
     setHandOverFuel('')
-    setHandOverLicenceChecked(true)
+    setHandOverLicenceChecked(false)
     setHandOverDamageNotes('')
     setHandOverBooking(booking)
   }
@@ -396,13 +481,39 @@ export default function LoanerVehiclesPage() {
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='loaner-vehicle-id'>Fahrzeug-ID (UUID)</Label>
+              <Label htmlFor='loaner-vehicle-search'>Fahrzeug suchen</Label>
               <Input
-                id='loaner-vehicle-id'
-                value={newVehicleId}
-                onChange={(event) => setNewVehicleId(event.target.value)}
-                placeholder='Vehicle UUID'
+                id='loaner-vehicle-search'
+                value={vehicleSearch}
+                onChange={(event) => setVehicleSearch(event.target.value)}
+                placeholder='Kennzeichen, VIN, Modell…'
               />
+              {vehicleSearchResults.length > 0 ? (
+                <ul className='max-h-40 overflow-y-auto rounded-md border border-slate-200 text-sm'>
+                  {vehicleSearchResults.map((vehicle) => (
+                    <li key={vehicle.id}>
+                      <button
+                        type='button'
+                        className='flex w-full px-3 py-2 text-left hover:bg-slate-50'
+                        onClick={() => {
+                          setSelectedPoolVehicle(vehicle)
+                          setNewDisplayName(
+                            newDisplayName.trim() ||
+                              `${vehicle.make} ${vehicle.model}`.trim(),
+                          )
+                        }}
+                      >
+                        {vehicleSearchLabel(vehicle)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {selectedPoolVehicle ? (
+                <p className='text-sm text-muted-foreground'>
+                  Ausgewählt: {vehicleSearchLabel(selectedPoolVehicle)}
+                </p>
+              ) : null}
             </div>
             <div className='space-y-2'>
               <Label htmlFor='loaner-display-name'>Anzeigename</Label>
@@ -432,20 +543,30 @@ export default function LoanerVehiclesPage() {
           </DialogHeader>
           <div className='space-y-4'>
             <div className='space-y-2'>
-              <Label htmlFor='booking-customer-id'>Kunden-ID</Label>
-              <Input
-                id='booking-customer-id'
-                value={bookingCustomerId}
-                onChange={(event) => setBookingCustomerId(event.target.value)}
-              />
+              <Label>Kunde</Label>
+              <CustomerSearch value={bookingCustomer} onChange={setBookingCustomer} />
             </div>
             <div className='space-y-2'>
               <Label htmlFor='booking-order-id'>Werkstattauftrag (optional)</Label>
-              <Input
-                id='booking-order-id'
-                value={bookingWorkshopOrderId}
-                onChange={(event) => setBookingWorkshopOrderId(event.target.value)}
-              />
+              <Select
+                value={bookingWorkshopOrderId || 'none'}
+                onValueChange={(value) =>
+                  setBookingWorkshopOrderId(value === 'none' ? '' : value)
+                }
+                disabled={!bookingCustomer}
+              >
+                <SelectTrigger id='booking-order-id'>
+                  <SelectValue placeholder='Auftrag wählen' />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value='none'>Kein Auftrag</SelectItem>
+                  {customerWorkshopOrders.map((order) => (
+                    <SelectItem key={order.id} value={order.id}>
+                      {order.order_number ?? order.id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className='grid gap-4 sm:grid-cols-2'>
               <div className='space-y-2'>

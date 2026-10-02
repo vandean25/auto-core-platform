@@ -305,7 +305,7 @@ describe('WorkshopOrderDetails Characterization', () => {
       const header = screen.getByRole('banner')
       expect(within(header).getByRole('link', { name: /Ersatzwagen: W-LOAN 1 bis/i })).toHaveAttribute(
         'href',
-        '/workshop/loaner-vehicles',
+        '/workshop/loaner-vehicles?vehicle=loaner-veh-1',
       )
     })
 

@@ -4,8 +4,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LoanerVehiclesPage from './LoanerVehiclesPage'
 import * as loanerApi from '@/api/loaner-vehicles'
+import * as workshopApi from '@/api/workshop'
 
 vi.mock('@/api/loaner-vehicles')
+vi.mock('@/api/workshop')
+vi.mock('@/components/sales/CustomerSearch', () => ({
+  CustomerSearch: () => <div data-testid='customer-search' />,
+}))
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -45,6 +50,16 @@ const mockFleetVehicle = {
 
 describe('LoanerVehiclesPage', () => {
   beforeEach(() => {
+    vi.mocked(workshopApi.useWorkshopSearch).mockReturnValue({
+      data: { data: { vehicles: [], customers: [] }, meta: { total: 0, page: 1, limit: 0, totalPages: 0 } },
+      isLoading: false,
+    } as unknown as ReturnType<typeof workshopApi.useWorkshopSearch>)
+
+    vi.mocked(workshopApi.useWorkshopOrders).mockReturnValue({
+      data: { data: [], meta: { total: 0, page: 1, pageSize: 50, pageCount: 0 } },
+      isLoading: false,
+    } as unknown as ReturnType<typeof workshopApi.useWorkshopOrders>)
+
     vi.mocked(loanerApi.useLoanerFleet).mockReturnValue({
       data: { data: [mockFleetVehicle] },
       isLoading: false,

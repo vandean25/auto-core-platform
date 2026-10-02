@@ -76,12 +76,15 @@ export function OrderTopBar({
               </p>
               {order.loanerBooking ? (
                 <Link
-                  to={APP_ROUTE_PATHS.workshopLoanerVehicles}
-                  className='inline-flex items-center rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
+                  to={`${APP_ROUTE_PATHS.workshopLoanerVehicles}?vehicle=${order.loanerBooking.loanerVehicleId}`}
+                  className='inline-flex items-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
                 >
-                  Ersatzwagen:{' '}
-                  {order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName} bis{' '}
-                  {format(new Date(order.loanerBooking.plannedTo), 'PP')}
+                  <span>
+                    Ersatzwagen:{' '}
+                    {order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName} bis{' '}
+                    {format(new Date(order.loanerBooking.plannedTo), 'PP')}
+                  </span>
+                  <StatusBadge status={order.loanerBooking.status} />
                 </Link>
               ) : null}
               {(catalogSearchSession?.parts || catalogSearchSession?.labor) && (
