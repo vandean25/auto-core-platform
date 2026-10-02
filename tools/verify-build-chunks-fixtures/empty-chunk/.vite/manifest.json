@@ -1,0 +1,11 @@
+{
+  "index.html": {
+    "file": "assets/index-entry.js",
+    "isEntry": true,
+    "dynamicImports": ["src/pages/LazyPage.tsx"]
+  },
+  "src/pages/LazyPage.tsx": {
+    "file": "assets/lazy-page.js",
+    "isDynamicEntry": true
+  }
+}
