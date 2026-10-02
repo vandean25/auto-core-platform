@@ -254,13 +254,15 @@ Steuerschuld Lieferung: **Ende des Kalendermonats** der Lieferung (§ 7 Abs. 1 Z
 | Code | When |
 |------|------|
 | `MISSING_CO2` | No CO₂ and no valid substitute for class |
+| `INVALID_CO2` | Non-finite or negative `co2GramsPerKm`, `ratedPowerKw`, or `displacementCc` |
 | `INVALID_NEDC_CYCLE` | NEDC on motorcycle |
+| `TARIFF_CLASS_MISMATCH` | `vehicleClass` does not match selected `tariffVersion` row |
 | `UNKNOWN_TARIFF_VERSION` | Bad tariff id |
 | `INVALID_NET_PRICE` | Invalid net price |
 
 ### Warnings (v1)
 
-`phev_weighted_wltp`, `wertentwicklung_not_applied`, `fractional_co2_unverified`, `eu_import_tariff_hint` (when `firstRegistrationDate` set but Wertentwicklung not computed).
+`phev_weighted_wltp`, `wertentwicklung_not_applied`, `nedc_fractional_co2_unverified`, `tariff_outside_registration_date`, `eu_import_tariff_hint` (when `firstRegistrationDate` set but Wertentwicklung not computed).
 
 ---
 
