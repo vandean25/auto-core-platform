@@ -177,6 +177,7 @@ steps:
         export VITE_APP_VERSION="${TAG_NAME}"
         npm ci
         npm run build --workspace=core-web
+        node tools/verify-build-chunks.mjs --dist apps/core-web/dist
 
   - id: deploy-firebase-hosting
     name: us-docker.pkg.dev/firebase-cli/us/firebase

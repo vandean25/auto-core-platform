@@ -1,0 +1,6 @@
+{
+  "index.html": {
+    "file": "assets/index-entry.js",
+    "isEntry": true
+  }
+}
