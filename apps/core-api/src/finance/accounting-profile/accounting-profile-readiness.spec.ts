@@ -1,3 +1,4 @@
+import { DEFAULT_AT_PROFILE_CODE, DEFAULT_DE_PROFILE_CODE } from './accounting-profile.codes.js';
 import { computeAccountingProfileReadiness } from './accounting-profile-readiness.js';
 import type { AccountingMappingRule } from './accounting-profile.types.js';
 
@@ -18,6 +19,7 @@ describe('accounting-profile-readiness', () => {
   it('marks a fully mapped profile as ready', () => {
     const readiness = computeAccountingProfileReadiness({
       countryIso: 'DE',
+      profileCode: DEFAULT_DE_PROFILE_CODE,
       advisorNumber: '12345',
       clientNumber: '1',
       accountLength: 4,
@@ -75,6 +77,7 @@ describe('accounting-profile-readiness', () => {
   it('reports missing profile fields and unmapped categories', () => {
     const readiness = computeAccountingProfileReadiness({
       countryIso: 'DE',
+      profileCode: DEFAULT_DE_PROFILE_CODE,
       advisorNumber: null,
       clientNumber: null,
       accountLength: null,
@@ -104,6 +107,7 @@ describe('accounting-profile-readiness', () => {
   it('requires manual_bu rules to include a BU key', () => {
     const readiness = computeAccountingProfileReadiness({
       countryIso: 'DE',
+      profileCode: DEFAULT_DE_PROFILE_CODE,
       advisorNumber: '12345',
       clientNumber: '1',
       accountLength: 4,
@@ -128,5 +132,33 @@ describe('accounting-profile-readiness', () => {
 
     expect(readiness.isReady).toBe(false);
     expect(readiness.unmappedCategories).toEqual(['labor']);
+  });
+
+  it('does not require DATEV advisor numbers for RZL profiles', () => {
+    const readiness = computeAccountingProfileReadiness({
+      countryIso: 'AT',
+      profileCode: DEFAULT_AT_PROFILE_CODE,
+      advisorNumber: null,
+      clientNumber: null,
+      accountLength: 4,
+      defaultDebtorAccount: '20000',
+      mappingRules: [
+        baseRule({
+          sourceCategoryKey: 'labor',
+          sourceCategoryLabel: 'Labor',
+        }),
+      ],
+      requiredSourceCategories: [
+        {
+          key: 'labor',
+          label: 'Labor',
+          taxMode: 'STANDARD',
+          taxRate: '20.00',
+        },
+      ],
+    });
+
+    expect(readiness.missingFields).not.toContain('advisor_number');
+    expect(readiness.isReady).toBe(true);
   });
 });

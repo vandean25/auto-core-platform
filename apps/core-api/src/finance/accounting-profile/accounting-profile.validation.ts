@@ -1,9 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
+import { assertChartAllowedForProfile } from './accounting-chart-catalog.js';
 import {
-  type AccountingMappingRule,
-  DEFAULT_DE_PROFILE_CODE,
-  DEFAULT_FORMAT_VERSION,
-} from './accounting-profile.types.js';
+  isDatevProfileCode,
+  isExportSerializerImplemented,
+} from './accounting-profile.codes.js';
+import {
+  parseAccountingProfileSerializerParams,
+  type AccountingProfileSerializerParams,
+} from './accounting-profile.serializer-params.js';
+import { type AccountingMappingRule } from './accounting-profile.types.js';
 
 export function normalizeOptionalString(
   value: string | undefined | null,
@@ -120,13 +125,31 @@ export type AccountingProfilePatchInput = {
   fiscalYearStartMonth?: number | null;
   defaultDebtorAccount?: string | null;
   mappingRules?: AccountingMappingRule[];
+  serializerParams?: AccountingProfileSerializerParams;
   isEnabled?: boolean;
 };
 
+export type AccountingProfileValidationContext = {
+  countryIso: 'AT' | 'DE';
+  currentProfileCode: string | null;
+  currentChart: string | null;
+};
+
+function resolveProfileCodeAfterPatch(
+  patch: AccountingProfilePatchInput,
+  context: AccountingProfileValidationContext,
+): string | null {
+  if (patch.profileCode !== undefined) {
+    return normalizeOptionalString(patch.profileCode);
+  }
+  return context.currentProfileCode;
+}
+
 export function validateAccountingProfilePatch(
   patch: AccountingProfilePatchInput,
-  countryIso: 'AT' | 'DE',
+  context: AccountingProfileValidationContext,
 ): AccountingProfilePatchInput {
+  const countryIso = context.countryIso;
   const normalized: AccountingProfilePatchInput = {};
 
   if (patch.profileCode !== undefined) {
@@ -178,11 +201,45 @@ export function validateAccountingProfilePatch(
     normalized.mappingRules = parseMappingRules(patch.mappingRules);
   }
 
+  if (patch.serializerParams !== undefined) {
+    normalized.serializerParams = parseAccountingProfileSerializerParams(
+      patch.serializerParams,
+    );
+  }
+
+  const effectiveProfileCode = resolveProfileCodeAfterPatch(patch, context);
+  const effectiveChart =
+    patch.chart !== undefined
+      ? (normalized.chart ?? null)
+      : context.currentChart;
+
+  const chartChanged = effectiveChart !== context.currentChart;
+  const profileCodeChanged =
+    effectiveProfileCode !== context.currentProfileCode;
+  if (chartChanged || profileCodeChanged) {
+    assertChartAllowedForProfile(effectiveProfileCode, effectiveChart);
+  }
+
+  if (
+    profileCodeChanged &&
+    !isExportSerializerImplemented(effectiveProfileCode) &&
+    patch.isEnabled === undefined
+  ) {
+    normalized.isEnabled = false;
+  }
+
   if (patch.isEnabled !== undefined) {
-    if (patch.isEnabled && countryIso !== 'DE') {
-      throw new BadRequestException(
-        'DATEV export profile can only be enabled for DE legal entities in slice 1',
-      );
+    if (patch.isEnabled) {
+      if (!isExportSerializerImplemented(effectiveProfileCode)) {
+        throw new BadRequestException(
+          'Accounting export profile cannot be enabled until the serializer is approved and implemented.',
+        );
+      }
+      if (isDatevProfileCode(effectiveProfileCode) && countryIso !== 'DE') {
+        throw new BadRequestException(
+          'DATEV export profile can only be enabled for DE legal entities',
+        );
+      }
     }
     normalized.isEnabled = patch.isEnabled;
   }
@@ -199,16 +256,4 @@ export function validateAccountingProfilePatch(
   );
 
   return normalized;
-}
-
-export function defaultProfileCodeForCountry(
-  countryIso: 'AT' | 'DE',
-): string | null {
-  return countryIso === 'DE' ? DEFAULT_DE_PROFILE_CODE : null;
-}
-
-export function defaultFormatVersionForCountry(
-  countryIso: 'AT' | 'DE',
-): string | null {
-  return countryIso === 'DE' ? DEFAULT_FORMAT_VERSION : null;
 }

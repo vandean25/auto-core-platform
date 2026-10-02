@@ -13,6 +13,34 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class RzlSerializerParamsDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 32 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  firmNumber?: string | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 16,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(16)
+  costCenterLength?: number | null;
+}
+
+export class AccountingProfileSerializerParamsDto {
+  @ApiPropertyOptional({ type: RzlSerializerParamsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RzlSerializerParamsDto)
+  rzl?: RzlSerializerParamsDto;
+}
+
 export class AccountingMappingRuleDto {
   @ApiProperty()
   @IsString()
@@ -117,8 +145,18 @@ export class UpdateAccountingProfileDto {
   mappingRules?: AccountingMappingRuleDto[];
 
   @ApiPropertyOptional({
+    type: AccountingProfileSerializerParamsDto,
     description:
-      'Gates DATEV CSV export only; does not affect invoice issuance readiness',
+      'Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage.',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AccountingProfileSerializerParamsDto)
+  serializerParams?: AccountingProfileSerializerParamsDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Gates accounting CSV export only; does not affect invoice issuance readiness',
   })
   @IsOptional()
   @IsBoolean()
@@ -192,6 +230,9 @@ export class AccountingProfileResponseDto {
 
   @ApiPropertyOptional({ type: String, nullable: true })
   default_debtor_account!: string | null;
+
+  @ApiProperty({ type: AccountingProfileSerializerParamsDto })
+  serializer_params!: AccountingProfileSerializerParamsDto;
 
   @ApiProperty({ type: [AccountingMappingRuleDto] })
   mapping_rules!: AccountingMappingRuleDto[];

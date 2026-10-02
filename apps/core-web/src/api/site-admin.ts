@@ -129,6 +129,12 @@ export type AccountingProfileRecord = {
   client_number: string | null
   fiscal_year_start_month: number | null
   default_debtor_account: string | null
+  serializer_params: {
+    rzl?: {
+      firmNumber?: string | null
+      costCenterLength?: number | null
+    }
+  }
   mapping_rules: AccountingMappingRule[]
   required_source_categories: SourceCategoryDefinition[]
   mapping_readiness: AccountingProfileReadiness

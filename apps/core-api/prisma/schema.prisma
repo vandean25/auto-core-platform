@@ -411,6 +411,7 @@ model LegalEntityAccountingProfile {
   client_number           String?
   fiscal_year_start_month Int?
   default_debtor_account  String?
+  serializer_params       Json        @default("{}")
   mapping_rules           Json        @default("[]")
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
