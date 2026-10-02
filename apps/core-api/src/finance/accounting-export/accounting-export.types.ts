@@ -63,6 +63,7 @@ export type AccountingExportProfileSnapshot = {
   clientNumber: string | null;
   fiscalYearStartMonth: number | null;
   defaultDebtorAccount: string | null;
+  serializerParams: Record<string, unknown>;
   isEnabled: boolean;
 };
 

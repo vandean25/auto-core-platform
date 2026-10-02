@@ -3093,6 +3093,13 @@ export interface components {
             fuel_type?: string | null;
             power_kw?: number | null;
             customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
         };
         /** @enum {string} */
@@ -3751,6 +3758,13 @@ export interface components {
             fuel_type?: string | null;
             power_kw?: number | null;
             customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
         };
         /** @enum {string} */
@@ -3989,6 +4003,13 @@ export interface components {
             fuel_type?: string | null;
             power_kw?: number | null;
             customer_id?: string | null;
+            /** Format: date */
+            first_registration_date?: string | null;
+            co2_wltp_g_km?: number | null;
+            co2_nedc_g_km?: number | null;
+            typenschein_no?: string | null;
+            nova_class?: string | null;
+            emission_class?: string | null;
             customer: components["schemas"]["CustomerResponseDto"] | null;
         };
         WorkshopSearchCustomerDto: {
@@ -4169,6 +4190,24 @@ export interface components {
             expectedSiteId?: string;
         };
         PatchVehicleStockDto: {
+            /**
+             * Format: date
+             * @description Date of first registration (Erstzulassung)
+             */
+            first_registration_date?: string | null;
+            /** @description CO₂ emissions WLTP (g/km) */
+            co2_wltp_g_km?: number | null;
+            /** @description CO₂ emissions NEDC (g/km), optional legacy value */
+            co2_nedc_g_km?: number | null;
+            /** @description Type approval certificate number (Typenschein) */
+            typenschein_no?: string | null;
+            /**
+             * @description NoVA classification (values may expand in future releases)
+             * @enum {string|null}
+             */
+            nova_class?: "NOT_SET" | "STANDARD" | "ELECTRIC_EXEMPT" | "OTHER" | null;
+            /** @description Emission class (e.g. Euro 6d) */
+            emission_class?: string | null;
             location_id?: Record<string, never> | null;
             expectedLocationId?: string;
             reserved_for_customer_id?: Record<string, never> | null;
@@ -4923,6 +4962,24 @@ export interface components {
             meta: components["schemas"]["PaginationMetaDto"];
         };
         CreateVehicleDto: {
+            /**
+             * Format: date
+             * @description Date of first registration (Erstzulassung)
+             */
+            first_registration_date?: string | null;
+            /** @description CO₂ emissions WLTP (g/km) */
+            co2_wltp_g_km?: number | null;
+            /** @description CO₂ emissions NEDC (g/km), optional legacy value */
+            co2_nedc_g_km?: number | null;
+            /** @description Type approval certificate number (Typenschein) */
+            typenschein_no?: string | null;
+            /**
+             * @description NoVA classification (values may expand in future releases)
+             * @enum {string|null}
+             */
+            nova_class?: "NOT_SET" | "STANDARD" | "ELECTRIC_EXEMPT" | "OTHER" | null;
+            /** @description Emission class (e.g. Euro 6d) */
+            emission_class?: string | null;
             make: string;
             model: string;
             year: number;
@@ -4933,6 +4990,24 @@ export interface components {
             customer_id?: string | null;
         };
         UpdateVehicleDto: {
+            /**
+             * Format: date
+             * @description Date of first registration (Erstzulassung)
+             */
+            first_registration_date?: string | null;
+            /** @description CO₂ emissions WLTP (g/km) */
+            co2_wltp_g_km?: number | null;
+            /** @description CO₂ emissions NEDC (g/km), optional legacy value */
+            co2_nedc_g_km?: number | null;
+            /** @description Type approval certificate number (Typenschein) */
+            typenschein_no?: string | null;
+            /**
+             * @description NoVA classification (values may expand in future releases)
+             * @enum {string|null}
+             */
+            nova_class?: "NOT_SET" | "STANDARD" | "ELECTRIC_EXEMPT" | "OTHER" | null;
+            /** @description Emission class (e.g. Euro 6d) */
+            emission_class?: string | null;
             make?: string;
             model?: string;
             year?: number;
@@ -5331,6 +5406,13 @@ export interface components {
             payment_terms_text?: string | null;
             seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
         };
+        RzlSerializerParamsDto: {
+            firmNumber?: string | null;
+            costCenterLength?: number | null;
+        };
+        AccountingProfileSerializerParamsDto: {
+            rzl?: components["schemas"]["RzlSerializerParamsDto"];
+        };
         AccountingMappingRuleDto: {
             sourceCategoryKey: string;
             sourceCategoryLabel: string;
@@ -5369,6 +5451,7 @@ export interface components {
             client_number?: string | null;
             fiscal_year_start_month?: number | null;
             default_debtor_account?: string | null;
+            serializer_params: components["schemas"]["AccountingProfileSerializerParamsDto"];
             mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
             required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
             mapping_readiness: components["schemas"]["AccountingProfileReadinessDto"];
@@ -5385,7 +5468,9 @@ export interface components {
             fiscalYearStartMonth?: number | null;
             defaultDebtorAccount?: string | null;
             mappingRules?: components["schemas"]["AccountingMappingRuleDto"][];
-            /** @description Gates DATEV CSV export only; does not affect invoice issuance readiness */
+            /** @description Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage. */
+            serializerParams?: components["schemas"]["AccountingProfileSerializerParamsDto"];
+            /** @description Gates accounting CSV export only; does not affect invoice issuance readiness */
             isEnabled?: boolean;
         };
         CreateLegalEntityDto: {

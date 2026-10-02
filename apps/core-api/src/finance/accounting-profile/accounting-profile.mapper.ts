@@ -3,6 +3,7 @@ import {
   buildRequiredSourceCategories,
   computeAccountingProfileReadiness,
 } from './accounting-profile-readiness.js';
+import { parseAccountingProfileSerializerParams } from './accounting-profile.serializer-params.js';
 import {
   type AccountingMappingRule,
   type SourceCategoryDefinition,
@@ -22,6 +23,7 @@ export type AccountingProfileResponse = {
   client_number: string | null;
   fiscal_year_start_month: number | null;
   default_debtor_account: string | null;
+  serializer_params: unknown;
   mapping_rules: AccountingMappingRule[];
   required_source_categories: SourceCategoryDefinition[];
   mapping_readiness: {
@@ -52,6 +54,7 @@ export function toAccountingProfileResponse(
   const requiredSourceCategories = buildRequiredSourceCategories(revenueGroups);
   const readiness = computeAccountingProfileReadiness({
     countryIso,
+    profileCode: profile.profile_code,
     advisorNumber: profile.advisor_number,
     clientNumber: profile.client_number,
     accountLength: profile.account_length,
@@ -74,6 +77,9 @@ export function toAccountingProfileResponse(
     client_number: profile.client_number,
     fiscal_year_start_month: profile.fiscal_year_start_month,
     default_debtor_account: profile.default_debtor_account,
+    serializer_params: parseAccountingProfileSerializerParams(
+      profile.serializer_params,
+    ),
     mapping_rules: mappingRules,
     required_source_categories: requiredSourceCategories,
     mapping_readiness: {

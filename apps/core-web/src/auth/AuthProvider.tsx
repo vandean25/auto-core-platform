@@ -11,7 +11,11 @@ import {
 } from 'firebase/auth'
 import { authSessionKeys } from '@/api/auth-session'
 import { firebaseAuth, firebaseConfigMissing } from '@/lib/firebase'
-import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
+import {
+  getE2ETestToken,
+  isE2EAuthBypassEnabled,
+  isE2ETestTokenAuthEnabled,
+} from '@/lib/runtime-flags'
 
 function shouldFallbackToRedirect(error: unknown) {
   if (typeof error !== 'object' || error === null) {
@@ -66,6 +70,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
+    if (isE2ETestTokenAuthEnabled()) {
+      const testToken = getE2ETestToken()
+      if (!testToken) {
+        setLoading(false)
+        return
+      }
+
+      setUser({
+        uid: 'e2e-fullstack-user',
+        email: 'e2e-fullstack@auto.core.test',
+        displayName: 'E2E Fullstack',
+        getIdToken: async () => testToken,
+        getIdTokenResult: async () => ({ claims: {} }),
+      })
+      setClaims(null)
+      setLoading(false)
+      return
+    }
+
     if (isE2EAuthBypassEnabled()) {
       setUser({
         uid: 'e2e-test-user',

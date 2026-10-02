@@ -33,6 +33,31 @@ chunks under `/assets/` therefore return **404** instead of the HTML shell
 (from `VITE_APP_VERSION`, `Cache-Control: no-cache`) so long-lived tabs can
 show a non-blocking reload banner when a new tag is deployed.
 
+**Pre-deploy chunk manifest check (AUT-347):** Firebase Hosting releases are
+**atomic** — once `deploy-firebase-hosting` finishes, the new `index.html` and
+hashed assets are live. A post-deploy smoke cannot abort or roll back traffic,
+and stale-tab lazy chunk failures (see AUT-308 and AUT-292) must be caught
+**before** deploy. Vite therefore emits `build.manifest: true` into
+`apps/core-web/dist/.vite/manifest.json`. After every `core-web` production
+build, Cloud Build and PR CI run `tools/verify-build-chunks.mjs`, which
+asserts that every dynamic-import chunk in the manifest exists under `dist/`,
+that `index.html` only references existing entry/modulepreload/stylesheet
+assets, and that referenced JS/CSS files are non-empty. Failures list missing
+paths and fail the build step (runtime is well under 30 seconds).
+
+Local verification:
+
+```bash
+npm run build --workspace=core-web
+npm run build:verify-chunks
+npm run build:verify-chunks:test
+```
+
+The unit tests include a deliberately broken fixture; `node tools/verify-build-chunks.mjs --dist tools/verify-build-chunks-fixtures/missing-chunk` must exit non-zero.
+
+Optional **report-only** post-deploy fetch (does not abort deploy):
+`HOSTING_BASE_URL=https://auto-core-platform-vande.web.app node tools/verify-deployed-chunks.mjs`.
+
 The staging template intentionally disables Cloud Tasks and Redis realtime and
 scales from zero to two instances. It is a low-cost deployment/schema
 validation target, not the environment for realtime acceptance testing.

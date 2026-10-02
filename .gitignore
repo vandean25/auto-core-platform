@@ -24,6 +24,8 @@ apps/core-api/node_modules/
 apps/core-api/dist/
 apps/core-web/node_modules/
 apps/core-web/dist/
+apps/core-web/.e2e-fullstack/
+apps/core-web/e2e-fullstack/.pids.json
 
 # Prisma
 apps/core-api/prisma/*.db

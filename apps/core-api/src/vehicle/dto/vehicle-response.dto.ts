@@ -62,6 +62,29 @@ export class VehicleResponseDto {
   customer_id?: string | null;
 
   @ApiProperty({
+    type: String,
+    format: 'date',
+    required: false,
+    nullable: true,
+  })
+  first_registration_date?: string | Date | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  co2_wltp_g_km?: number | null;
+
+  @ApiProperty({ type: Number, required: false, nullable: true })
+  co2_nedc_g_km?: number | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  typenschein_no?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  nova_class?: string | null;
+
+  @ApiProperty({ type: String, required: false, nullable: true })
+  emission_class?: string | null;
+
+  @ApiProperty({
     type: () => CustomerResponseDto,
     required: false,
     nullable: true,

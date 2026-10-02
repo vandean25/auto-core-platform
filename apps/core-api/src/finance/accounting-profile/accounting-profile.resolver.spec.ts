@@ -17,6 +17,7 @@ const baseProfile = (
   client_number: '1',
   fiscal_year_start_month: 1,
   default_debtor_account: '10000',
+  serializer_params: {},
   mapping_rules: [
     {
       sourceCategoryKey: 'revenue_group:1',

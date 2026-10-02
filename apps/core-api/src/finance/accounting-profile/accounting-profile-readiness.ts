@@ -1,4 +1,5 @@
 import type { LegalEntityCountry } from '@prisma/client';
+import { isDatevProfileCode } from './accounting-profile.codes.js';
 import {
   type AccountingMappingRule,
   type SourceCategoryDefinition,
@@ -7,6 +8,7 @@ import {
 
 export type AccountingProfileReadinessInput = {
   countryIso: LegalEntityCountry;
+  profileCode: string | null;
   advisorNumber: string | null;
   clientNumber: string | null;
   accountLength: number | null;
@@ -42,11 +44,13 @@ export function computeAccountingProfileReadiness(
   const missingFields: string[] = [];
   const unmappedCategories: string[] = [];
 
-  if (!input.advisorNumber?.trim()) {
-    missingFields.push('advisor_number');
-  }
-  if (!input.clientNumber?.trim()) {
-    missingFields.push('client_number');
+  if (isDatevProfileCode(input.profileCode)) {
+    if (!input.advisorNumber?.trim()) {
+      missingFields.push('advisor_number');
+    }
+    if (!input.clientNumber?.trim()) {
+      missingFields.push('client_number');
+    }
   }
   if (input.accountLength === null || input.accountLength < 1) {
     missingFields.push('account_length');

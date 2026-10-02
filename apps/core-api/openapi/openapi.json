@@ -10210,6 +10210,31 @@
             "type": "string",
             "nullable": true
           },
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true
+          },
           "customer": {
             "nullable": true,
             "type": "object",
@@ -12702,6 +12727,31 @@
             "type": "string",
             "nullable": true
           },
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true
+          },
           "customer": {
             "nullable": true,
             "type": "object",
@@ -13548,6 +13598,31 @@
             "type": "string",
             "nullable": true
           },
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true
+          },
           "customer": {
             "nullable": true,
             "type": "object",
@@ -14221,6 +14296,47 @@
       "PatchVehicleStockDto": {
         "type": "object",
         "properties": {
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Date of first registration (Erstzulassung)"
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 600,
+            "description": "CO₂ emissions WLTP (g/km)"
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 600,
+            "description": "CO₂ emissions NEDC (g/km), optional legacy value"
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true,
+            "description": "Type approval certificate number (Typenschein)"
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NOT_SET",
+              "STANDARD",
+              "ELECTRIC_EXEMPT",
+              "OTHER"
+            ],
+            "description": "NoVA classification (values may expand in future releases)"
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true,
+            "description": "Emission class (e.g. Euro 6d)"
+          },
           "location_id": {
             "type": "object",
             "nullable": true
@@ -16621,6 +16737,47 @@
       "CreateVehicleDto": {
         "type": "object",
         "properties": {
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Date of first registration (Erstzulassung)"
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 600,
+            "description": "CO₂ emissions WLTP (g/km)"
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 600,
+            "description": "CO₂ emissions NEDC (g/km), optional legacy value"
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true,
+            "description": "Type approval certificate number (Typenschein)"
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NOT_SET",
+              "STANDARD",
+              "ELECTRIC_EXEMPT",
+              "OTHER"
+            ],
+            "description": "NoVA classification (values may expand in future releases)"
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true,
+            "description": "Emission class (e.g. Euro 6d)"
+          },
           "make": {
             "type": "string"
           },
@@ -16654,6 +16811,47 @@
       "UpdateVehicleDto": {
         "type": "object",
         "properties": {
+          "first_registration_date": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "Date of first registration (Erstzulassung)"
+          },
+          "co2_wltp_g_km": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 600,
+            "description": "CO₂ emissions WLTP (g/km)"
+          },
+          "co2_nedc_g_km": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 600,
+            "description": "CO₂ emissions NEDC (g/km), optional legacy value"
+          },
+          "typenschein_no": {
+            "type": "string",
+            "nullable": true,
+            "description": "Type approval certificate number (Typenschein)"
+          },
+          "nova_class": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NOT_SET",
+              "STANDARD",
+              "ELECTRIC_EXEMPT",
+              "OTHER"
+            ],
+            "description": "NoVA classification (values may expand in future releases)"
+          },
+          "emission_class": {
+            "type": "string",
+            "nullable": true,
+            "description": "Emission class (e.g. Euro 6d)"
+          },
           "make": {
             "type": "string"
           },
@@ -17830,6 +18028,30 @@
           "seller_readiness"
         ]
       },
+      "RzlSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "firmNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "costCenterLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 16
+          }
+        }
+      },
+      "AccountingProfileSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "rzl": {
+            "$ref": "#/components/schemas/RzlSerializerParamsDto"
+          }
+        }
+      },
       "AccountingMappingRuleDto": {
         "type": "object",
         "properties": {
@@ -17979,6 +18201,9 @@
             "type": "string",
             "nullable": true
           },
+          "serializer_params": {
+            "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+          },
           "mapping_rules": {
             "type": "array",
             "items": {
@@ -18001,6 +18226,7 @@
           "legal_entity_id",
           "version",
           "is_enabled",
+          "serializer_params",
           "mapping_rules",
           "required_source_categories",
           "mapping_readiness"
@@ -18061,9 +18287,17 @@
               "$ref": "#/components/schemas/AccountingMappingRuleDto"
             }
           },
+          "serializerParams": {
+            "description": "Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+              }
+            ]
+          },
           "isEnabled": {
             "type": "boolean",
-            "description": "Gates DATEV CSV export only; does not affect invoice issuance readiness"
+            "description": "Gates accounting CSV export only; does not affect invoice issuance readiness"
           }
         },
         "required": [

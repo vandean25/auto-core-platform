@@ -24,7 +24,7 @@ import {
   isStockTransferUpdatedPayload,
 } from '@/features/realtime/types'
 import { firebaseAuth } from '@/lib/firebase'
-import { isE2EAuthBypassEnabled } from '@/lib/runtime-flags'
+import { isE2EAuthBypassEnabled, isE2ETestTokenAuthEnabled } from '@/lib/runtime-flags'
 
 /**
  * Site-owned operational data. Invalidated on `site:context_updated` so all
@@ -84,7 +84,8 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
   const queryClient = useQueryClient()
   const { signOutUser, user } = useAuth()
   const [token, setToken] = React.useState<string | null>(null)
-  const shouldSkipRealtime = isE2EAuthBypassEnabled()
+  const shouldSkipRealtime =
+    isE2EAuthBypassEnabled() || isE2ETestTokenAuthEnabled()
 
   React.useEffect(() => {
     if (shouldSkipRealtime) {

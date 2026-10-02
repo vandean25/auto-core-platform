@@ -34,6 +34,12 @@ import type {
   Vehicle,
   WorkshopOrderStatus,
 } from '@/api/types'
+import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
+import { VehicleRegulatorySection } from '@/components/vehicles/VehicleRegulatorySection'
+import type {
+  VehicleNovaClass,
+  VehicleRegulatoryValues,
+} from '@/components/vehicles/VehicleRegulatorySection'
 
 type VehicleSalesOrderSummary = {
   id: string
@@ -118,6 +124,7 @@ export default function VehicleDetail() {
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [startServiceOpen, setStartServiceOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading vehicle details...</div>
@@ -164,6 +171,19 @@ export default function VehicleDetail() {
     | 'engine_code'
     | 'vin'
     | 'plate'
+
+  const saveRegulatoryField = async (patch: Partial<VehicleRegulatoryValues>) => {
+    try {
+      await updateVehicle.mutateAsync({
+        id: vehicle.id,
+        data: patch,
+      })
+      toast.success('Vehicle updated')
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to update vehicle'))
+      throw error
+    }
+  }
 
   const handleSaveVehicleField = async (
     field: EditableVehicleField,
@@ -248,11 +268,20 @@ export default function VehicleDetail() {
           </div>
         </div>
         <div className='flex gap-2'>
+          <Button variant='outline' onClick={() => setEditDialogOpen(true)}>
+            Edit Vehicle
+          </Button>
           <Button variant='outline' onClick={handleCreateServiceOrder}>
             <Wrench className='mr-2 h-4 w-4' /> Service Order
           </Button>
         </div>
       </div>
+
+      <VehicleDialog
+        vehicle={vehicle}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
 
       <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
         <Card className='lg:col-span-1'>
@@ -319,6 +348,32 @@ export default function VehicleDetail() {
                 />
               </div>
             </div>
+
+            <VehicleRegulatorySection
+              mode='inline'
+              values={{
+                first_registration_date:
+                  typeof vehicle.first_registration_date === 'string'
+                    ? vehicle.first_registration_date.slice(0, 10)
+                    : vehicle.first_registration_date ?? null,
+                co2_wltp_g_km: vehicle.co2_wltp_g_km ?? null,
+                co2_nedc_g_km: vehicle.co2_nedc_g_km ?? null,
+                typenschein_no: vehicle.typenschein_no ?? null,
+                nova_class: (vehicle.nova_class as VehicleNovaClass | null) ?? null,
+                emission_class: vehicle.emission_class ?? null,
+              }}
+              onChange={(patch) => void saveRegulatoryField(patch)}
+              renderInlineField={(field, label, value, onSave) => (
+                <div key={field}>
+                  <div className='text-muted-foreground'>{label}</div>
+                  <InlineEdit
+                    value={value}
+                    onSave={onSave}
+                    ariaLabel={label}
+                  />
+                </div>
+              )}
+            />
 
             <div className='pt-3 border-t'>
               <div className='flex items-center justify-between gap-2 mb-1'>

@@ -330,6 +330,12 @@ jobs:
         # It intentionally does not inject production VITE_* runtime values.
         run: npm run build --workspace=core-web
 
+      - name: Verify frontend build chunk manifest
+        run: npm run build:verify-chunks
+
+      - name: Verify build chunk manifest script (unit tests)
+        run: npm run build:verify-chunks:test
+
       - name: Run frontend unit tests
         run: npm test --workspace=core-web
 
