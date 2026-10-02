@@ -473,6 +473,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.importJobRow.deleteMany({});
   await tenantPrisma.externalIdMapping.deleteMany({});
   await tenantPrisma.importJob.deleteMany({});
+  await tenantPrisma.importMappingProfile.deleteMany({});
   await tenantPrisma.vehicle.deleteMany({});
   await tenantPrisma.catalogOemConcernMake.deleteMany({});
   await tenantPrisma.catalogOemConcern.deleteMany({});

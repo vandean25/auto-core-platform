@@ -41,6 +41,7 @@ import { AccountingExportSettingsTab } from "@/components/settings/AccountingExp
 import { LegalEntitiesSettingsTab } from "@/components/settings/LegalEntitiesSettingsTab"
 import { SitesSettingsTab } from "@/components/settings/SitesSettingsTab"
 import { VehicleDataSettingsTab } from "@/components/settings/VehicleDataSettingsTab"
+import { DataImportSettingsTab } from "@/components/settings/data-import/DataImportSettingsTab"
 import { cn } from "@/lib/utils"
 import { getErrorMessage } from "@/lib/error-utils"
 import type { Brand } from "@/api/types"
@@ -277,7 +278,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "team", "audit-logs"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "data-import", "team", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -290,6 +291,7 @@ export default function SettingsPage() {
     const activeTab: SettingsTab =
         requestedTab === 'team' && !canManageTeam ? 'finance'
         : requestedTab === 'vehicle-data' && !canManageVehicleData ? 'finance'
+        : requestedTab === 'data-import' && !canManageTeam ? 'finance'
         : (requestedTab === 'legal-entities' || requestedTab === 'sites') && !canManageTeam ? 'finance'
         : requestedTab
 
@@ -379,6 +381,7 @@ export default function SettingsPage() {
                     <TabsTrigger className="shrink-0" value="hours">Hours</TabsTrigger>
                     <TabsTrigger className="shrink-0" value="labor">Labor</TabsTrigger>
                     {canManageVehicleData ? <TabsTrigger className="shrink-0" value="vehicle-data">Vehicle data</TabsTrigger> : null}
+                    {canManageTeam ? <TabsTrigger className="shrink-0" value="data-import">Data import</TabsTrigger> : null}
                     {canManageTeam ? <TabsTrigger className="shrink-0" value="team">Team</TabsTrigger> : null}
                     <TabsTrigger className="shrink-0" value="audit-logs">Audit Logs</TabsTrigger>
                 </TabsList>
@@ -540,6 +543,12 @@ export default function SettingsPage() {
                 {canManageVehicleData ? (
                     <TabsContent value="vehicle-data" className="space-y-6">
                         <VehicleDataSettingsTab />
+                    </TabsContent>
+                ) : null}
+
+                {canManageTeam ? (
+                    <TabsContent value="data-import" className="space-y-6">
+                        <DataImportSettingsTab />
                     </TabsContent>
                 ) : null}
 

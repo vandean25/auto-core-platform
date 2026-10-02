@@ -1,6 +1,7 @@
 import * as React from 'react'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Eye, ShieldAlert, User, Server, Terminal, Filter } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import type { AuditLog } from '@/api/audit'
 import { useAuditLogs } from '@/api/audit'
 import { useWorkshopSettings } from '@/api/workshop'
@@ -95,8 +96,13 @@ function JsonViewer({ data }: { data: unknown }) {
 }
 
 export function AuditLogsTab() {
+  const [searchParams] = useSearchParams()
+  const initialEntityType = searchParams.get('auditEntityType') ?? undefined
+  const initialEntityId = searchParams.get('auditEntityId') ?? undefined
   const { queryParams, setPagination, ...tableState } = useDataTableQuery({ defaultPageSize: 20 })
   const [actionFilter, setActionFilter] = React.useState<'ALL' | 'CREATE' | 'UPDATE' | 'DELETE'>('ALL')
+  const [entityTypeFilter, setEntityTypeFilter] = React.useState(initialEntityType ?? '')
+  const [entityIdFilter, setEntityIdFilter] = React.useState(initialEntityId ?? '')
   const [selectedLog, setSelectedLog] = React.useState<AuditLog | null>(null)
   const [detailOpen, setDetailOpen] = React.useState(false)
   const { data: workshopSettings } = useWorkshopSettings()
@@ -105,6 +111,8 @@ export function AuditLogsTab() {
   const { data: responseData, isLoading } = useAuditLogs({
     limit: 100,
     action: actionFilter === 'ALL' ? undefined : actionFilter,
+    entityType: entityTypeFilter.trim() || undefined,
+    entityId: entityIdFilter.trim() || undefined,
   })
 
   const logs = React.useMemo(() => responseData?.data ?? [], [responseData?.data])
@@ -249,7 +257,7 @@ export function AuditLogsTab() {
             Immutable, append-only audit trail of business entity mutations and deletions.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Filter className="h-4 w-4 text-slate-400" />
           <Select
             value={actionFilter}
@@ -265,6 +273,22 @@ export function AuditLogsTab() {
               <SelectItem value="CREATE">Create</SelectItem>
             </SelectContent>
           </Select>
+          <input
+            type="search"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[140px]"
+            placeholder="Entity type"
+            value={entityTypeFilter}
+            onChange={(event) => setEntityTypeFilter(event.target.value)}
+            aria-label="Filter by entity type"
+          />
+          <input
+            type="search"
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm w-[200px]"
+            placeholder="Entity ID"
+            value={entityIdFilter}
+            onChange={(event) => setEntityIdFilter(event.target.value)}
+            aria-label="Filter by entity ID"
+          />
         </div>
       </div>
 

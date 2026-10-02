@@ -193,6 +193,31 @@
         "operationId": "InventoryController_findAll",
         "parameters": [
           {
+            "name": "brand",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brandId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "location",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -216,31 +241,6 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "name": "location",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "brand",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "brandId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
             }
           }
         ],
@@ -533,30 +533,6 @@
         "operationId": "PurchaseController_findAll",
         "parameters": [
           {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "DRAFT",
-                "SENT",
-                "PARTIAL",
-                "COMPLETED",
-                "open",
-                "all"
-              ]
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -575,7 +551,7 @@
             }
           },
           {
-            "name": "sortField",
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -591,6 +567,30 @@
               "enum": [
                 "asc",
                 "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "SENT",
+                "PARTIAL",
+                "COMPLETED",
+                "open",
+                "all"
               ]
             }
           }
@@ -1003,15 +1003,7 @@
         "operationId": "PurchaseInvoiceController_findAll",
         "parameters": [
           {
-            "name": "vendorId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
+            "name": "order",
             "required": true,
             "in": "query",
             "schema": {
@@ -1043,7 +1035,15 @@
             }
           },
           {
-            "name": "order",
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vendorId",
             "required": true,
             "in": "query",
             "schema": {
@@ -1253,17 +1253,17 @@
         "operationId": "VendorUnbilledController_getUnbilledReceipts",
         "parameters": [
           {
-            "name": "vendorId",
-            "required": true,
-            "in": "path",
+            "name": "invoiceId",
+            "required": false,
+            "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "invoiceId",
-            "required": false,
-            "in": "query",
+            "name": "vendorId",
+            "required": true,
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -1323,14 +1323,6 @@
         "operationId": "VendorController_findAll",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -1349,7 +1341,7 @@
             }
           },
           {
-            "name": "sortField",
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -1366,6 +1358,14 @@
                 "asc",
                 "desc"
               ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -1843,20 +1843,20 @@
         "operationId": "DocumentBrandingController_discardDraft",
         "parameters": [
           {
+            "name": "expectedRevision",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
               "type": "string"
-            }
-          },
-          {
-            "name": "expectedRevision",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "number"
             }
           }
         ],
@@ -1923,20 +1923,20 @@
         "operationId": "DocumentBrandingController_removeDraftSource",
         "parameters": [
           {
+            "name": "expectedRevision",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
               "type": "string"
-            }
-          },
-          {
-            "name": "expectedRevision",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "number"
             }
           }
         ],
@@ -1963,15 +1963,6 @@
         "operationId": "DocumentBrandingController_confirm",
         "parameters": [
           {
-            "name": "legalEntityId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
             "name": "idempotency-key",
             "required": true,
             "in": "header",
@@ -1984,6 +1975,15 @@
             "in": "header",
             "required": true,
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -2021,15 +2021,6 @@
         "operationId": "DocumentBrandingController_reset",
         "parameters": [
           {
-            "name": "legalEntityId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
             "name": "idempotency-key",
             "required": true,
             "in": "header",
@@ -2042,6 +2033,15 @@
             "in": "header",
             "required": true,
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -2180,15 +2180,6 @@
         "operationId": "DocumentBrandingController_createExtraction",
         "parameters": [
           {
-            "name": "legalEntityId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
             "name": "idempotency-key",
             "required": true,
             "in": "header",
@@ -2201,6 +2192,15 @@
             "in": "header",
             "required": true,
             "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legalEntityId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -2238,19 +2238,19 @@
         "operationId": "DocumentBrandingController_getExtraction",
         "parameters": [
           {
+            "name": "extractionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "extractionId",
-            "required": true,
-            "in": "path",
-            "schema": {
               "type": "string"
             }
           }
@@ -2278,19 +2278,19 @@
         "operationId": "DocumentBrandingController_discardExtraction",
         "parameters": [
           {
+            "name": "extractionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "extractionId",
-            "required": true,
-            "in": "path",
-            "schema": {
               "type": "string"
             }
           }
@@ -2318,19 +2318,19 @@
         "operationId": "DocumentBrandingController_getAsset",
         "parameters": [
           {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "assetId",
-            "required": true,
-            "in": "path",
-            "schema": {
               "type": "string"
             }
           }
@@ -2358,19 +2358,19 @@
         "operationId": "DocumentBrandingController_getAssetContent",
         "parameters": [
           {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "assetId",
-            "required": true,
-            "in": "path",
-            "schema": {
               "type": "string"
             }
           }
@@ -2405,19 +2405,19 @@
         "operationId": "DocumentBrandingController_getAssetPagePreview",
         "parameters": [
           {
+            "name": "assetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "legalEntityId",
             "required": true,
             "in": "path",
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "name": "assetId",
-            "required": true,
-            "in": "path",
-            "schema": {
               "type": "string"
             }
           }
@@ -2475,26 +2475,6 @@
         "operationId": "CustomerController_findAll",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "type",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PRIVATE",
-                "COMPANY"
-              ]
-            }
-          },
-          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -2513,7 +2493,7 @@
             }
           },
           {
-            "name": "sortField",
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -2529,6 +2509,26 @@
               "enum": [
                 "asc",
                 "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRIVATE",
+                "COMPANY"
               ]
             }
           }
@@ -2569,11 +2569,12 @@
         "operationId": "CustomerController_findOne",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
+            "name": "historyLimit",
+            "required": false,
+            "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "minimum": 1
             }
           },
           {
@@ -2586,12 +2587,11 @@
             }
           },
           {
-            "name": "historyLimit",
-            "required": false,
-            "in": "query",
+            "name": "id",
+            "required": true,
+            "in": "path",
             "schema": {
-              "type": "integer",
-              "minimum": 1
+              "type": "string"
             }
           }
         ],
@@ -2860,12 +2860,11 @@
         "operationId": "AccountingExportController_list",
         "parameters": [
           {
-            "name": "page",
+            "name": "legalEntityId",
             "required": false,
             "in": "query",
             "schema": {
-              "default": 1,
-              "type": "number"
+              "type": "string"
             }
           },
           {
@@ -2878,15 +2877,16 @@
             }
           },
           {
-            "name": "search",
+            "name": "page",
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "default": 1,
+              "type": "number"
             }
           },
           {
-            "name": "legalEntityId",
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -3012,7 +3012,7 @@
         "operationId": "BrandController_findAll",
         "parameters": [
           {
-            "name": "isVehicleMake",
+            "name": "isPartManufacturer",
             "required": true,
             "in": "query",
             "schema": {
@@ -3020,7 +3020,7 @@
             }
           },
           {
-            "name": "isPartManufacturer",
+            "name": "isVehicleMake",
             "required": true,
             "in": "query",
             "schema": {
@@ -3171,29 +3171,6 @@
         "operationId": "SalesOrderController_findAll",
         "parameters": [
           {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "DRAFT",
-                "CONFIRMED",
-                "IN_PROGRESS",
-                "COMPLETED",
-                "INVOICED"
-              ]
-            }
-          },
-          {
-            "name": "params",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -3212,7 +3189,7 @@
             }
           },
           {
-            "name": "search",
+            "name": "params",
             "required": false,
             "in": "query",
             "schema": {
@@ -3220,7 +3197,7 @@
             }
           },
           {
-            "name": "sortField",
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -3236,6 +3213,29 @@
               "enum": [
                 "asc",
                 "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "CONFIRMED",
+                "IN_PROGRESS",
+                "COMPLETED",
+                "INVOICED"
               ]
             }
           }
@@ -3599,6 +3599,15 @@
         "operationId": "WorkshopController_getPlanner",
         "parameters": [
           {
+            "name": "bayId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
             "name": "from",
             "required": true,
             "in": "query",
@@ -3611,15 +3620,6 @@
             "required": true,
             "in": "query",
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "bayId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "format": "uuid",
               "type": "string"
             }
           }
@@ -3707,10 +3707,10 @@
         "operationId": "WorkshopController_findAll",
         "parameters": [
           {
-            "name": "search",
+            "name": "customerId",
             "required": false,
             "in": "query",
-            "description": "Free-text search term for order number, customer, plate, or vehicle",
+            "description": "When set, only orders for this customer are returned (open workshop statuses only).",
             "schema": {
               "type": "string"
             }
@@ -3736,10 +3736,10 @@
             }
           },
           {
-            "name": "sortField",
+            "name": "search",
             "required": false,
             "in": "query",
-            "description": "Field name to sort by",
+            "description": "Free-text search term for order number, customer, plate, or vehicle",
             "schema": {
               "type": "string"
             }
@@ -3758,10 +3758,10 @@
             }
           },
           {
-            "name": "customerId",
+            "name": "sortField",
             "required": false,
             "in": "query",
-            "description": "When set, only orders for this customer are returned (open workshop statuses only).",
+            "description": "Field name to sort by",
             "schema": {
               "type": "string"
             }
@@ -4386,7 +4386,7 @@
         "operationId": "VehiclePurchaseController_findAll",
         "parameters": [
           {
-            "name": "search",
+            "name": "limit",
             "required": true,
             "in": "query",
             "schema": {
@@ -4402,7 +4402,7 @@
             }
           },
           {
-            "name": "limit",
+            "name": "pageSize",
             "required": true,
             "in": "query",
             "schema": {
@@ -4410,7 +4410,7 @@
             }
           },
           {
-            "name": "pageSize",
+            "name": "search",
             "required": true,
             "in": "query",
             "schema": {
@@ -4655,7 +4655,54 @@
         "operationId": "VehicleStockController_list",
         "parameters": [
           {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
             "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
             "required": false,
             "in": "query",
             "schema": {
@@ -4674,53 +4721,6 @@
                 "RESERVED",
                 "IN_PREP",
                 "SOLD"
-              ]
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "sortField",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sortDirection",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
               ]
             }
           }
@@ -5124,6 +5124,16 @@
         "operationId": "LoanerVehiclesController_availability",
         "parameters": [
           {
+            "name": "asOf",
+            "required": false,
+            "in": "query",
+            "description": "Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
             "name": "from",
             "required": true,
             "in": "query",
@@ -5136,16 +5146,6 @@
             "name": "to",
             "required": true,
             "in": "query",
-            "schema": {
-              "format": "date-time",
-              "type": "string"
-            }
-          },
-          {
-            "name": "asOf",
-            "required": false,
-            "in": "query",
-            "description": "Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window.",
             "schema": {
               "format": "date-time",
               "type": "string"
@@ -6046,15 +6046,6 @@
         "operationId": "CreditNotesController_list",
         "parameters": [
           {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "default": 1,
-              "type": "number"
-            }
-          },
-          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -6064,7 +6055,7 @@
             }
           },
           {
-            "name": "search",
+            "name": "originalInvoiceId",
             "required": false,
             "in": "query",
             "schema": {
@@ -6072,7 +6063,16 @@
             }
           },
           {
-            "name": "originalInvoiceId",
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -6429,15 +6429,6 @@
         "operationId": "LaborController_listOperations",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "Search term matching code or description",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "categoryId",
             "required": false,
             "in": "query",
@@ -6457,6 +6448,17 @@
             }
           },
           {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -6467,14 +6469,25 @@
             }
           },
           {
-            "name": "limit",
+            "name": "search",
             "required": false,
             "in": "query",
-            "description": "Items per page",
+            "description": "Search term matching code or description",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "type": "number"
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "description": "Sort direction",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           },
           {
@@ -6490,19 +6503,6 @@
                 "standardAw",
                 "hourlyRate",
                 "createdAt"
-              ]
-            }
-          },
-          {
-            "name": "sortDirection",
-            "required": false,
-            "in": "query",
-            "description": "Sort direction",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
               ]
             }
           }
@@ -6803,22 +6803,6 @@
         "operationId": "CatalogController_externalSearch",
         "parameters": [
           {
-            "name": "workshopOrderId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "concern",
             "required": true,
             "in": "query",
@@ -6828,6 +6812,15 @@
                 "PARTS",
                 "LABOR"
               ]
+            }
+          },
+          {
+            "name": "confirmFallback",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": false,
+              "type": "boolean"
             }
           },
           {
@@ -6853,12 +6846,19 @@
             }
           },
           {
-            "name": "confirmFallback",
-            "required": false,
+            "name": "taskId",
+            "required": true,
             "in": "query",
             "schema": {
-              "default": false,
-              "type": "boolean"
+              "type": "string"
+            }
+          },
+          {
+            "name": "workshopOrderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -6890,14 +6890,6 @@
         "operationId": "CatalogController_externalAssemblyGroups",
         "parameters": [
           {
-            "name": "workshopOrderId",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "concern",
             "required": true,
             "in": "query",
@@ -6906,6 +6898,14 @@
               "enum": [
                 "PARTS"
               ]
+            }
+          },
+          {
+            "name": "workshopOrderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -6931,14 +6931,6 @@
         "operationId": "VehicleController_findAll",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -6957,7 +6949,7 @@
             }
           },
           {
-            "name": "sortField",
+            "name": "search",
             "required": false,
             "in": "query",
             "schema": {
@@ -6974,6 +6966,14 @@
                 "asc",
                 "desc"
               ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -7197,7 +7197,7 @@
         "operationId": "VehicleInspectionRecordController_findOne",
         "parameters": [
           {
-            "name": "vehicleId",
+            "name": "recordId",
             "required": true,
             "in": "path",
             "schema": {
@@ -7205,7 +7205,7 @@
             }
           },
           {
-            "name": "recordId",
+            "name": "vehicleId",
             "required": true,
             "in": "path",
             "schema": {
@@ -7233,7 +7233,7 @@
         "operationId": "VehicleInspectionRecordController_update",
         "parameters": [
           {
-            "name": "vehicleId",
+            "name": "recordId",
             "required": true,
             "in": "path",
             "schema": {
@@ -7241,7 +7241,7 @@
             }
           },
           {
-            "name": "recordId",
+            "name": "vehicleId",
             "required": true,
             "in": "path",
             "schema": {
@@ -7279,7 +7279,7 @@
         "operationId": "VehicleInspectionRecordController_remove",
         "parameters": [
           {
-            "name": "vehicleId",
+            "name": "recordId",
             "required": true,
             "in": "path",
             "schema": {
@@ -7287,7 +7287,7 @@
             }
           },
           {
-            "name": "recordId",
+            "name": "vehicleId",
             "required": true,
             "in": "path",
             "schema": {
@@ -7310,20 +7310,23 @@
         "operationId": "EmployeeController_findAll",
         "parameters": [
           {
-            "name": "role",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/EmployeeRole"
-            }
-          },
-          {
             "name": "includeInactive",
             "required": false,
             "in": "query",
             "description": "Include inactive employees when true",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
             }
           },
           {
@@ -7337,14 +7340,11 @@
             }
           },
           {
-            "name": "limit",
+            "name": "role",
             "required": false,
             "in": "query",
-            "description": "Items per page",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "type": "number"
+              "$ref": "#/components/schemas/EmployeeRole"
             }
           }
         ],
@@ -7572,6 +7572,15 @@
         "operationId": "HrController_getAttendance",
         "parameters": [
           {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
             "name": "from",
             "required": true,
             "in": "query",
@@ -7588,15 +7597,6 @@
             "schema": {
               "format": "date",
               "example": "2026-08-22",
-              "type": "string"
-            }
-          },
-          {
-            "name": "employeeId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "format": "uuid",
               "type": "string"
             }
           }
@@ -7781,6 +7781,16 @@
         "operationId": "HrController_listTeamLeave",
         "parameters": [
           {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "description": "Filter leave for a specific employee",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
             "name": "from",
             "required": false,
             "in": "query",
@@ -7799,16 +7809,6 @@
             "schema": {
               "format": "date",
               "example": "2026-08-31",
-              "type": "string"
-            }
-          },
-          {
-            "name": "employeeId",
-            "required": false,
-            "in": "query",
-            "description": "Filter leave for a specific employee",
-            "schema": {
-              "format": "uuid",
               "type": "string"
             }
           }
@@ -8080,16 +8080,6 @@
             }
           },
           {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number (1-based)",
-            "schema": {
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
             "name": "limit",
             "required": false,
             "in": "query",
@@ -8097,6 +8087,16 @@
             "schema": {
               "minimum": 1,
               "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number (1-based)",
+            "schema": {
+              "minimum": 1,
               "type": "number"
             }
           }
@@ -9086,21 +9086,22 @@
         "operationId": "PlatformAdminController_findAll",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "Search by tenant name or slug",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "includeInactive",
             "required": false,
             "in": "query",
             "description": "Include inactive tenants when true",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
             }
           },
           {
@@ -9113,13 +9114,12 @@
             }
           },
           {
-            "name": "limit",
+            "name": "search",
             "required": false,
             "in": "query",
+            "description": "Search by tenant name or slug",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "type": "number"
+              "type": "string"
             }
           }
         ],
@@ -9288,21 +9288,22 @@
         "operationId": "TenantMemberController_findAll",
         "parameters": [
           {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "Search by email or user name",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "includeInactive",
             "required": false,
             "in": "query",
             "description": "Include inactive memberships when true",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
             }
           },
           {
@@ -9316,13 +9317,12 @@
             }
           },
           {
-            "name": "limit",
+            "name": "search",
             "required": false,
             "in": "query",
+            "description": "Search by email or user name",
             "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "type": "number"
+              "type": "string"
             }
           }
         ],
@@ -9470,47 +9470,6 @@
         "operationId": "AuditController_findAll",
         "parameters": [
           {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Items per page",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "entityType",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "action",
             "required": false,
             "in": "query",
@@ -9534,6 +9493,56 @@
             }
           },
           {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
             "name": "search",
             "required": false,
             "in": "query",
@@ -9547,15 +9556,6 @@
             "required": false,
             "in": "query",
             "description": "Start date filter (ISO string)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": false,
-            "in": "query",
-            "description": "End date filter (ISO string)",
             "schema": {
               "type": "string"
             }
@@ -9642,6 +9642,79 @@
         ]
       }
     },
+    "/api/imports/mapping-profiles": {
+      "get": {
+        "operationId": "ImportController_listMappingProfiles",
+        "parameters": [
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "CUSTOMER",
+                "VEHICLE"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceSystem",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportMappingProfileListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List saved column mapping profiles for a source system",
+        "tags": [
+          "imports"
+        ]
+      },
+      "post": {
+        "operationId": "ImportController_createMappingProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImportMappingProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportMappingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Save a named column mapping profile",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/api/imports/templates/{entityType}": {
       "get": {
         "operationId": "ImportController_getTemplate",
@@ -9702,30 +9775,6 @@
         "operationId": "ImportController_listRows",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "action",
             "required": false,
             "in": "query",
@@ -9745,6 +9794,30 @@
             "in": "query",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -10028,10 +10101,20 @@
             }
           },
           {
-            "name": "vehicleSearch",
+            "name": "dueFrom",
             "required": false,
             "in": "query",
             "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
               "type": "string"
             }
           },
@@ -10041,6 +10124,22 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           },
           {
@@ -10060,37 +10159,11 @@
             }
           },
           {
-            "name": "dueFrom",
+            "name": "vehicleSearch",
             "required": false,
             "in": "query",
             "schema": {
-              "format": "date",
               "type": "string"
-            }
-          },
-          {
-            "name": "dueTo",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "format": "date",
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "number"
             }
           }
         ],
@@ -22053,6 +22126,94 @@
           "created_by",
           "created_at",
           "applied_at"
+        ]
+      },
+      "ImportMappingProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportEntityType"
+              }
+            ]
+          },
+          "source_system": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "entity_type",
+          "source_system",
+          "name",
+          "mapping",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "ImportMappingProfileListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportMappingProfileResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateImportMappingProfileDto": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportEntityType"
+              }
+            ]
+          },
+          "source_system": {
+            "type": "string",
+            "example": "incadea"
+          },
+          "name": {
+            "type": "string",
+            "example": "Default customer mapping"
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "entity_type",
+          "source_system",
+          "name",
+          "mapping"
         ]
       },
       "ImportTemplateFieldDto": {

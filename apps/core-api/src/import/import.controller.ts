@@ -32,11 +32,20 @@ import {
 import { ImportJobResponseDto } from './dto/import-job-response.dto.js';
 import { ImportJobRowsResponseDto } from './dto/import-job-rows-response.dto.js';
 import { ImportTemplateResponseDto } from './dto/import-template-response.dto.js';
+import { ImportMappingProfileService } from './import-mapping-profile.service.js';
+import {
+  ImportMappingProfileListResponseDto,
+  ImportMappingProfileResponseDto,
+} from './dto/import-mapping-profile-response.dto.js';
+import { CreateImportMappingProfileDto } from './dto/create-import-mapping-profile.dto.js';
 
 @ApiTags('imports')
 @Controller('imports')
 export class ImportController {
-  constructor(private readonly importService: ImportService) {}
+  constructor(
+    private readonly importService: ImportService,
+    private readonly mappingProfileService: ImportMappingProfileService,
+  ) {}
 
   @Post()
   @UseInterceptors(
@@ -84,6 +93,31 @@ export class ImportController {
       mappingJson: parsedMapping,
       optionsJson: parsedOptions,
     });
+  }
+
+  @Get('mapping-profiles')
+  @ApiOperation({
+    summary: 'List saved column mapping profiles for a source system',
+  })
+  @ApiQuery({ name: 'entityType', required: true, enum: ImportEntityType })
+  @ApiQuery({ name: 'sourceSystem', required: true })
+  @ApiOkResponse({ type: ImportMappingProfileListResponseDto })
+  async listMappingProfiles(
+    @Query('entityType') entityType: string,
+    @Query('sourceSystem') sourceSystem: string,
+  ) {
+    const data = await this.mappingProfileService.listProfiles({
+      entityType: this.parseEntityType(entityType),
+      sourceSystem,
+    });
+    return { data };
+  }
+
+  @Post('mapping-profiles')
+  @ApiOperation({ summary: 'Save a named column mapping profile' })
+  @ApiCreatedResponse({ type: ImportMappingProfileResponseDto })
+  createMappingProfile(@Body() body: CreateImportMappingProfileDto) {
+    return this.mappingProfileService.createProfile(body);
   }
 
   @Get('templates/:entityType')
