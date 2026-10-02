@@ -4,13 +4,11 @@ import type { FallbackProps } from 'react-error-boundary'
 import { AlertCircle, RefreshCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { isChunkLoadError } from '@/lib/chunk-load-recovery'
 
 function ErrorFallback({ error }: FallbackProps) {
   const err = error as { name?: string; message?: string }
-  const isChunkLoadError = 
-    err?.name === 'ChunkLoadError' || 
-    err?.message?.includes('Failed to fetch dynamically imported module') ||
-    err?.message?.includes('Importing a module script failed')
+  const chunkLoadError = isChunkLoadError(err)
 
   return (
     <div className="flex min-h-[50vh] w-full items-center justify-center p-4">
@@ -20,10 +18,10 @@ function ErrorFallback({ error }: FallbackProps) {
             <AlertCircle className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl font-bold tracking-tight text-slate-900">
-            {isChunkLoadError ? 'Update Required' : 'Unexpected Error'}
+            {chunkLoadError ? 'Update Required' : 'Unexpected Error'}
           </CardTitle>
           <CardDescription className="text-slate-500">
-            {isChunkLoadError 
+            {chunkLoadError
               ? 'The application was updated or encountered a network interruption. A reload is required to continue.'
               : 'The application encountered an unexpected error. Please try reloading to recover.'}
           </CardDescription>
