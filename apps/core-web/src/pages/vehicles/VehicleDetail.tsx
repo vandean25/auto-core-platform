@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Wrench } from 'lucide-react'
+import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { toast } from 'sonner'
 import { useVehicle, useUpdateVehicle } from '@/api/vehicles'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
@@ -260,6 +261,7 @@ export default function VehicleDetail() {
             <CardTitle className='text-base font-semibold'>Vehicle Info</CardTitle>
           </CardHeader>
           <CardContent className='space-y-3 text-sm'>
+            <TyreSetsSummary vehicleId={vehicle.id} />
             <div className='grid grid-cols-2 gap-3'>
               <div>
                 <div className='text-muted-foreground'>Year</div>
