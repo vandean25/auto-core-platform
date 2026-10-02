@@ -7,6 +7,7 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
+import { LoanerBookingStatus } from '@prisma/client';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class WorkshopCustomerSummaryDto {
@@ -134,6 +135,35 @@ export class WorkshopTaskResponseDto {
   updatedAt!: Date;
 }
 
+export class WorkshopOrderLoanerBookingSummaryDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: LoanerBookingStatus })
+  status!: LoanerBookingStatus;
+
+  @ApiProperty()
+  plannedFrom!: Date;
+
+  @ApiProperty()
+  plannedTo!: Date;
+
+  @ApiProperty()
+  loanerVehicleId!: string;
+
+  @ApiProperty()
+  displayName!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  vehicleMake!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  vehicleModel!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  vehiclePlate!: string | null;
+}
+
 export class WorkshopOrderResponseDto {
   @ApiProperty()
   id!: string;
@@ -189,6 +219,13 @@ export class WorkshopOrderResponseDto {
 
   @ApiProperty({ required: false, type: () => WorkshopInvoiceSummaryDto })
   invoice?: WorkshopInvoiceSummaryDto | null;
+
+  @ApiProperty({
+    required: false,
+    nullable: true,
+    type: () => WorkshopOrderLoanerBookingSummaryDto,
+  })
+  loanerBooking?: WorkshopOrderLoanerBookingSummaryDto | null;
 
   @ApiProperty()
   createdAt!: Date;

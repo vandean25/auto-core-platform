@@ -46,6 +46,7 @@ import { HealthController } from './health.controller.js';
 import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
 import { DocumentBrandingModule } from './document-branding/document-branding.module.js';
 import { AppObservabilityModule } from './common/observability/observability.module.js';
+import { LoanerVehiclesModule } from './loaner-vehicles/loaner-vehicles.module.js';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AppObservabilityModule } from './common/observability/observability.mod
     BrandModule,
     SalesOrderModule,
     WorkshopModule,
+    LoanerVehiclesModule,
     MechanicModule,
     InvoicesModule,
     CreditNotesModule,
