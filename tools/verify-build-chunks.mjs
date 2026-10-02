@@ -28,5 +28,5 @@ Default dist: apps/core-web/dist`);
 const { distDir } = parseArgs(process.argv.slice(2));
 const result = verifyBuildChunks({ distDir });
 console.log(
-  `Build chunk verification passed (${result.dynamicChunkCount} dynamic chunks, ${result.indexReferenceCount} index.html references) for ${result.distDir}`,
+  `Build chunk verification passed (${result.dynamicChunkCount} lazy-route files, ${result.indexReferenceCount} index.html references) for ${result.distDir}`,
 );

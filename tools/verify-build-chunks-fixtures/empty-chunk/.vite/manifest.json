@@ -6,10 +6,6 @@
   },
   "src/pages/LazyPage.tsx": {
     "file": "assets/lazy-page.js",
-    "isDynamicEntry": true,
-    "imports": ["_shared.js"]
-  },
-  "_shared.js": {
-    "file": "assets/shared.js"
+    "isDynamicEntry": true
   }
 }

@@ -4,32 +4,60 @@ import path from 'node:path';
 export const DEFAULT_MANIFEST_RELATIVE = '.vite/manifest.json';
 
 /**
- * @param {Record<string, import('./verify-build-chunks-lib.mjs').ManifestEntry>} manifest
+ * @typedef {{
+ *   file?: string,
+ *   isDynamicEntry?: boolean,
+ *   isEntry?: boolean,
+ *   dynamicImports?: string[],
+ *   imports?: string[],
+ *   css?: string[],
+ *   assets?: string[],
+ * }} ManifestEntry
+ */
+
+/**
+ * @param {Record<string, ManifestEntry>} manifest
+ * @returns {{ files: Set<string>, unresolved: Set<string> }}
  */
 export function collectDynamicImportChunkFiles(manifest) {
   const files = new Set();
+  const unresolved = new Set();
+  const visited = new Set();
 
-  for (const entry of Object.values(manifest)) {
-    if (entry.isDynamicEntry && entry.file) {
-      files.add(entry.file);
+  const visit = (key) => {
+    if (visited.has(key)) {
+      return;
+    }
+    visited.add(key);
+
+    const entry = manifest[key];
+    if (!entry?.file) {
+      unresolved.add(key);
+      return;
+    }
+
+    files.add(entry.file);
+    for (const css of entry.css ?? []) {
+      files.add(css);
+    }
+    for (const asset of entry.assets ?? []) {
+      files.add(asset);
+    }
+    for (const child of entry.imports ?? []) {
+      visit(child);
+    }
+  };
+
+  for (const [key, entry] of Object.entries(manifest)) {
+    if (entry.isDynamicEntry) {
+      visit(key);
+    }
+    for (const dynamicKey of entry.dynamicImports ?? []) {
+      visit(dynamicKey);
     }
   }
 
-  for (const entry of Object.values(manifest)) {
-    if (!entry.dynamicImports) {
-      continue;
-    }
-    for (const importKey of entry.dynamicImports) {
-      const target = manifest[importKey];
-      if (target?.file) {
-        files.add(target.file);
-      } else {
-        files.add(`(unresolved manifest key: ${importKey})`);
-      }
-    }
-  }
-
-  return files;
+  return { files, unresolved };
 }
 
 /**
@@ -70,10 +98,6 @@ function isJsOrCss(relativePath) {
 }
 
 /**
- * @typedef {{ file?: string, isDynamicEntry?: boolean, dynamicImports?: string[] }} ManifestEntry
- */
-
-/**
  * @param {{ distDir: string, manifestRelative?: string, readManifest?: () => Record<string, ManifestEntry>, readIndexHtml?: () => string }} options
  */
 export function verifyBuildChunks(options) {
@@ -110,12 +134,11 @@ export function verifyBuildChunks(options) {
     );
   }
 
-  const dynamicFiles = collectDynamicImportChunkFiles(manifest);
+  const { files: dynamicFiles, unresolved } = collectDynamicImportChunkFiles(manifest);
+  for (const key of unresolved) {
+    problems.push(`dynamic import references unknown manifest key: ${key}`);
+  }
   for (const file of dynamicFiles) {
-    if (file.startsWith('(unresolved')) {
-      problems.push(`dynamic import ${file}`);
-      continue;
-    }
     const absolute = path.join(distDir, file);
     if (!fs.existsSync(absolute)) {
       problems.push(`missing dynamic-import chunk: ${file}`);
@@ -146,6 +169,7 @@ export function verifyBuildChunks(options) {
   return {
     distDir,
     dynamicChunkCount: dynamicFiles.size,
+    unresolvedDynamicKeyCount: unresolved.size,
     indexReferenceCount: indexPaths.length,
   };
 }
