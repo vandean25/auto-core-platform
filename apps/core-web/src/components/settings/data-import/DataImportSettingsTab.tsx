@@ -287,7 +287,7 @@ export function DataImportSettingsTab() {
       toast.error(
         getErrorMessage(
           error,
-          bilingualLabel('Template download failed', 'CSV-Vorlage konnte nicht geladen werden'),
+          bilingualLabel('Template download failed', 'Vorlage konnte nicht heruntergeladen werden'),
         ),
       )
     }
@@ -302,7 +302,7 @@ export function DataImportSettingsTab() {
       toast.error(
         getErrorMessage(
           error,
-          bilingualLabel('Error CSV download failed', 'Fehler-CSV konnte nicht geladen werden'),
+          bilingualLabel('Error CSV download failed', 'Fehler-CSV konnte nicht heruntergeladen werden'),
         ),
       )
     }
@@ -741,11 +741,11 @@ export function DataImportSettingsTab() {
                     const issues = [
                       ...(row.errors ?? []).map(
                         (issue) =>
-                          `${bilingualLabel('Error', 'Fehler')}: ${issue.message ?? ''}`,
+                          `${bilingualLabel('Error', 'Fehler')}: ${issue.message}`,
                       ),
                       ...(row.warnings ?? []).map(
                         (issue) =>
-                          `${bilingualLabel('Warning', 'Warnung')}: ${issue.message ?? ''}`,
+                          `${bilingualLabel('Warning', 'Warnung')}: ${issue.message}`,
                       ),
                     ]
                     return (
