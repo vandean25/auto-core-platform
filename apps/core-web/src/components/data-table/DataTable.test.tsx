@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 
@@ -149,15 +150,55 @@ describe('DataTable Characterization', () => {
 
   it('activates clickable rows with Enter and Space', () => {
     const onRowClick = vi.fn()
-    render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
+    render(
+      <DataTable
+        {...defaultProps}
+        onRowClick={onRowClick}
+        getRowAccessibleName={(row) => `Open ${row.name}`}
+      />,
+    )
 
-    const row = screen.getByRole('row', { name: 'Test Item' })
+    const row = screen.getByRole('button', { name: 'Open Test Item' })
     fireEvent.keyDown(row, { key: 'Enter' })
     fireEvent.keyDown(row, { key: ' ' })
 
     expect(row).toHaveAttribute('tabindex', '0')
     expect(onRowClick).toHaveBeenNthCalledWith(1, { name: 'Test Item' })
     expect(onRowClick).toHaveBeenNthCalledWith(2, { name: 'Test Item' })
+  })
+
+  it('renders a row detail link and activates it with Enter when getRowHref is provided', () => {
+    const onRowClick = vi.fn()
+    const columnsWithRowLink = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        meta: { rowLink: true },
+      },
+    ]
+
+    render(
+      <MemoryRouter>
+        <DataTable
+          {...defaultProps}
+          columns={columnsWithRowLink}
+          data={[{ id: 'item-1', name: 'Test Item' }]}
+          getRowHref={(row) => `/items/${row.id}`}
+          getRowAccessibleName={(row) => `Open ${row.name}`}
+          onRowClick={onRowClick}
+        />
+      </MemoryRouter>,
+    )
+
+    const link = screen.getByRole('link', { name: 'Open Test Item' })
+    expect(link).toHaveAttribute('href', '/items/item-1')
+
+    const row = screen.getByRole('row', { name: /Test Item/ })
+    expect(row).not.toHaveAttribute('tabindex')
+
+    link.focus()
+    fireEvent.keyDown(link, { key: 'Enter' })
+    expect(onRowClick).not.toHaveBeenCalled()
   })
 
   it('opens the clicked row data for each row in a multi-row table (AUT-220)', () => {

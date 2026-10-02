@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { DataTableToolbar } from "./data-table-toolbar"
+import { DataTableRowDetailLink, isDataTableRowLinkColumn } from "./data-table-row-link"
 
 type DataTableRowContextAction<TData extends object> = {
   label: string
@@ -36,8 +37,31 @@ type DataTableRowContextAction<TData extends object> = {
   destructive?: boolean
 }
 
-function isInteractiveTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, [role="button"]'))
+function isInteractiveTarget(
+  target: EventTarget | null,
+  eventCurrentTarget?: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element)) {
+    return false
+  }
+
+  const interactive = target.closest('button, a, input, select, textarea, [role="button"]')
+  if (!interactive) {
+    return false
+  }
+
+  if (
+    interactive instanceof HTMLTableRowElement &&
+    interactive.getAttribute('data-table-row') === 'true'
+  ) {
+    return false
+  }
+
+  if (eventCurrentTarget instanceof Element && interactive === eventCurrentTarget) {
+    return false
+  }
+
+  return true
 }
 
 function getTableRowId(record: object): string | undefined {
@@ -63,7 +87,7 @@ function activateRow<TData extends object>(
   data: TData[],
   onRowClick?: (row: TData) => void,
 ) {
-  if (!onRowClick || isInteractiveTarget(event.target)) {
+  if (!onRowClick || isInteractiveTarget(event.target, event.currentTarget)) {
     return
   }
 
@@ -75,7 +99,8 @@ function activateRow<TData extends object>(
   onRowClick(resolveRowFromElement(rowElement, data, fallback))
 }
 
-const clickableRowClassName = 'cursor-pointer hover:bg-muted/50'
+const clickableRowClassName =
+  'cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
 
 function handleRowClick<TData extends object>(
   event: React.MouseEvent<HTMLTableRowElement>,
@@ -110,6 +135,8 @@ interface DataTableProps<TData extends object> {
   searchPlaceholder?: string
   emptyStateMessage?: string
   onRowClick?: (row: TData) => void
+  getRowHref?: (row: TData) => string | undefined
+  getRowAccessibleName?: (row: TData) => string
   getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
 }
 
@@ -132,6 +159,8 @@ export function DataTable<TData extends object>({
   searchPlaceholder,
   emptyStateMessage = 'No results.',
   onRowClick,
+  getRowHref,
+  getRowAccessibleName,
   getRowContextActions,
 }: DataTableProps<TData>) {
   const [contextMenu, setContextMenu] = useState<{
@@ -241,6 +270,12 @@ export function DataTable<TData extends object>({
               table.getRowModel().rows.map((row) => {
                 const rowData = row.original as TData
                 const rowId = getTableRowId(rowData)
+                const rowHref = getRowHref?.(rowData)
+                const rowAccessibleName = getRowAccessibleName?.(rowData)
+                const rowUsesDetailLink = Boolean(rowHref)
+                const rowIsKeyboardActivatable = Boolean(
+                  (onRowClick && !rowUsesDetailLink) || getRowContextActions?.(rowData)?.length,
+                )
 
                 return (
                 <TableRow
@@ -248,6 +283,10 @@ export function DataTable<TData extends object>({
                   data-table-row="true"
                   data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
+                  role={onRowClick && !rowUsesDetailLink ? "button" : undefined}
+                  aria-label={
+                    onRowClick && !rowUsesDetailLink ? rowAccessibleName : undefined
+                  }
                   onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
                   onContextMenu={(event) => {
                     event.preventDefault()
@@ -267,21 +306,36 @@ export function DataTable<TData extends object>({
                       return
                     }
 
+                    if (rowUsesDetailLink) {
+                      return
+                    }
+
                     if (event.key !== "Enter" && event.key !== " ") {
                       return
                     }
 
-                    if (!onRowClick || isInteractiveTarget(event.target)) {
+                    if (!onRowClick || isInteractiveTarget(event.target, event.currentTarget)) {
                       return
                     }
 
                     event.preventDefault()
                     activateRow(event, resolvedRow, data, onRowClick)
                   }}
-                  tabIndex={onRowClick || getRowContextActions?.(rowData)?.length ? 0 : undefined}
+                  tabIndex={rowIsKeyboardActivatable ? 0 : undefined}
                   className={onRowClick ? clickableRowClassName : ""}
                 >
-                  {row.getVisibleCells().map((cell) => (
+                  {row.getVisibleCells().map((cell) => {
+                    const cellContent = flexRender(
+                      cell.column.columnDef.cell,
+                      cell.getContext(),
+                    )
+                    const shouldRenderRowLink =
+                      rowUsesDetailLink &&
+                      rowHref &&
+                      rowAccessibleName &&
+                      isDataTableRowLinkColumn(cell.column.columnDef)
+
+                    return (
                     <TableCell
                       key={cell.id}
                       className={onRowClick ? "cursor-pointer" : undefined}
@@ -291,12 +345,19 @@ export function DataTable<TData extends object>({
                           : undefined
                       }
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
+                      {shouldRenderRowLink ? (
+                        <DataTableRowDetailLink
+                          href={rowHref}
+                          accessibleName={rowAccessibleName}
+                        >
+                          {cellContent}
+                        </DataTableRowDetailLink>
+                      ) : (
+                        cellContent
                       )}
                     </TableCell>
-                  ))}
+                    )
+                  })}
                 </TableRow>
                 )
               })

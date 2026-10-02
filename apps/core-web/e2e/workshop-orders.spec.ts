@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
 
@@ -27,6 +27,32 @@ test.describe('Workshop Orders list', () => {
 
     await corePage.navigate('/workshop/orders')
     await corePage.openRowDetails('WO-2026-0221')
+    await page.waitForURL(`/workshop/orders/${order.id}`)
+  })
+
+  test('opens the workshop order detail when the row link is activated with keyboard', async ({
+    page,
+  }) => {
+    const corePage = new AutoCorePage(page, 'Order')
+    const order = createMockWorkshopOrder({
+      id: 'workshop-order-keyboard-1',
+      order_number: 'WO-2026-0295',
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([order])),
+      })
+    })
+
+    await corePage.navigate('/workshop/orders')
+
+    const orderLink = page.getByRole('link', { name: 'Workshop order WO-2026-0295' })
+    await expect(orderLink).toBeVisible()
+    await orderLink.focus()
+    await page.keyboard.press('Enter')
     await page.waitForURL(`/workshop/orders/${order.id}`)
   })
 })

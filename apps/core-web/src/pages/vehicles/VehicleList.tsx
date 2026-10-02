@@ -63,8 +63,9 @@ export default function VehicleList() {
     },
     {
       accessorKey: 'vehicle',
+      meta: { rowLink: true },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Make & Model' />,
-      cell: ({ row }) => <span className='font-medium'>{row.original.vehicle}</span>,
+      cell: ({ row }) => row.original.vehicle,
     },
     {
       accessorKey: 'year',
@@ -107,6 +108,8 @@ export default function VehicleList() {
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
         searchPlaceholder='Search vehicles...'
+        getRowHref={(row) => `/vehicles/${row.id}`}
+        getRowAccessibleName={(row) => `Vehicle ${row.vehicle}`}
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
         {...tableState}
       />
