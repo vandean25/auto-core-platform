@@ -673,7 +673,7 @@ export function assertCustomerComplete(customer: Customer): void {
   }
 }
 
-/** Gross invoice total above which AT B2B issuance requires customer UID (accountant to confirm). */
+/** Gross total above which an AT seller requires business recipient UID at issuance (§ 11 UStG; accountant to confirm). */
 export const AT_HIGH_VALUE_INVOICE_GROSS_THRESHOLD_EUR = new Prisma.Decimal(
   '10000.00',
 );
@@ -691,12 +691,6 @@ export function assertAtHighValueBusinessRecipientUid(params: {
   if (params.customer.type !== CustomerType.COMPANY) {
     return;
   }
-  const recipientCountry = params.customer.address_country
-    ?.trim()
-    .toUpperCase();
-  if (recipientCountry !== 'AT') {
-    return;
-  }
 
   const grossTotal = toMoney(params.totalGross);
   if (!grossTotal.greaterThan(AT_HIGH_VALUE_INVOICE_GROSS_THRESHOLD_EUR)) {
@@ -710,7 +704,7 @@ export function assertAtHighValueBusinessRecipientUid(params: {
   throw new UnprocessableEntityException({
     code: AT_RECIPIENT_UID_REQUIRED_CODE,
     message:
-      'Customer UID is required for Austrian business recipients when invoice gross exceeds EUR 10,000.',
+      'Customer UID is required for business recipients when an Austrian seller issues an invoice above EUR 10,000 gross.',
     missingFields: ['vat_id'],
   });
 }

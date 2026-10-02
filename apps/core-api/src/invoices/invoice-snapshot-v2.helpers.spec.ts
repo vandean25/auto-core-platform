@@ -111,7 +111,7 @@ describe('invoice-snapshot-v2.helpers', () => {
       address_city: 'Wien',
     };
 
-    it('requires customer UID above EUR 10,000 for AT B2B', () => {
+    it('requires customer UID above EUR 10,000 for AT seller B2B', () => {
       expect(() =>
         assertAtHighValueBusinessRecipientUid({
           seller: atSeller,
@@ -169,6 +169,27 @@ describe('invoice-snapshot-v2.helpers', () => {
           totalGross: '50000.00',
         }),
       ).not.toThrow();
+    });
+
+    it('requires UID for non-AT business recipients when AT seller exceeds threshold', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: atSeller,
+          customer: {
+            ...atCompanyCustomer,
+            address_country: 'DE',
+            vat_id: null,
+          } as never,
+          totalGross: '10000.01',
+        }),
+      ).toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            code: AT_RECIPIENT_UID_REQUIRED_CODE,
+            missingFields: ['vat_id'],
+          }),
+        }),
+      );
     });
   });
 
