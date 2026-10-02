@@ -359,6 +359,7 @@ async function parseErrorResponse(response: Response, fallbackMessage: string): 
 async function fetchWorkshopOrdersPage(queryParams: DataTableQueryParams): Promise<WorkshopOrderResponse> {
   const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
     searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
+    exactFilterMap: { customer_id: 'customerId' },
   })
 
   const response = await fetchWithAuth(url)
@@ -377,6 +378,7 @@ export function useWorkshopOrders(queryParams?: DataTableQueryParams) {
     queryFn: async () => {
       const url = buildDataTableUrl(`${WORKSHOP_API}/orders`, queryParams, {
         searchFallbackFilterFields: ['order_number', 'id', 'customer.first_name', 'customer.last_name', 'vehicle.make', 'vehicle.model', 'vehicle.plate'],
+        exactFilterMap: { customer_id: 'customerId' },
       })
       const response = await fetchWithAuth(url)
       if (!response.ok) throw new Error('Failed to fetch workshop orders')

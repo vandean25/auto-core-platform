@@ -105,7 +105,7 @@ export class LoanerAvailabilityQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Evaluation timestamp for availability (reserved for future use; overlap uses the requested window).',
+      'Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window.',
     format: 'date-time',
   })
   @IsOptional()

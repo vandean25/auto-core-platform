@@ -218,6 +218,8 @@ export class LoanerVehiclesService {
         tenant_id: tenantId,
         loaner_vehicle_id: { in: vehicleIds },
         status: LoanerBookingStatus.HANDED_OVER,
+        planned_from: { lt: to },
+        OR: [{ planned_to: { gt: from } }, { planned_to: { lte: asOf } }],
       },
       select: { loaner_vehicle_id: true },
     });
@@ -339,11 +341,6 @@ export class LoanerVehiclesService {
     ]);
 
     const existing = await this.findBookingOrThrow(tenantId, siteId, id);
-    if (existing.status !== LoanerBookingStatus.RESERVED) {
-      throw loanerInvalidHandoverStateException(
-        'Only reserved bookings can be updated.',
-      );
-    }
 
     const plannedFrom = dto.plannedFrom
       ? this.parseDate(dto.plannedFrom, 'plannedFrom')
@@ -365,18 +362,43 @@ export class LoanerVehiclesService {
     }
 
     try {
-      const updated = await this.prisma.loanerBooking.update({
-        where: { tenant_id_id: { tenant_id: tenantId, id } },
-        data: {
-          ...(dto.plannedFrom !== undefined && { planned_from: plannedFrom }),
-          ...(dto.plannedTo !== undefined && { planned_to: plannedTo }),
-          ...(dto.customerId !== undefined && { customer_id: dto.customerId }),
-          ...(dto.workshopOrderId !== undefined && {
-            workshop_order_id: dto.workshopOrderId,
-          }),
-          ...(dto.notes !== undefined && { notes: dto.notes }),
-        },
-        include: LOANER_BOOKING_INCLUDE,
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const result = await tx.loanerBooking.updateMany({
+          where: {
+            tenant_id: tenantId,
+            id,
+            status: LoanerBookingStatus.RESERVED,
+            loaner_vehicle: { site_id: siteId },
+          },
+          data: {
+            ...(dto.plannedFrom !== undefined && { planned_from: plannedFrom }),
+            ...(dto.plannedTo !== undefined && { planned_to: plannedTo }),
+            ...(dto.customerId !== undefined && {
+              customer_id: dto.customerId,
+            }),
+            ...(dto.workshopOrderId !== undefined && {
+              workshop_order_id: dto.workshopOrderId,
+            }),
+            ...(dto.notes !== undefined && { notes: dto.notes }),
+          },
+        });
+        if (result.count === 0) {
+          const current = await tx.loanerBooking.findFirst({
+            where: { tenant_id: tenantId, id },
+            select: { status: true },
+          });
+          if (!current) {
+            throw new NotFoundException(`Loaner booking ${id} not found`);
+          }
+          throw loanerInvalidHandoverStateException(
+            'Only reserved bookings can be updated.',
+          );
+        }
+
+        return tx.loanerBooking.findFirstOrThrow({
+          where: { tenant_id: tenantId, id },
+          include: LOANER_BOOKING_INCLUDE,
+        });
       });
       return mapLoanerBooking(updated);
     } catch (error) {
@@ -521,8 +543,12 @@ export class LoanerVehiclesService {
           if (!current) {
             throw new NotFoundException(`Loaner booking ${id} not found`);
           }
-          if (current.status !== LoanerBookingStatus.RESERVED) {
-            throw loanerInvalidHandoverStateException();
+          if (
+            current.status === LoanerBookingStatus.RETURNED ||
+            current.status === LoanerBookingStatus.CANCELLED ||
+            current.status === LoanerBookingStatus.NO_SHOW
+          ) {
+            throw loanerAlreadyReturnedException();
           }
           throw loanerInvalidHandoverStateException();
         }
@@ -580,9 +606,14 @@ export class LoanerVehiclesService {
         },
       });
       if (result.count === 0) {
+        const current = await tx.loanerBooking.findFirst({
+          where: { tenant_id: tenantId, id },
+          select: { status: true },
+        });
         if (
-          existing.status === LoanerBookingStatus.RETURNED ||
-          existing.status === LoanerBookingStatus.CANCELLED
+          current?.status === LoanerBookingStatus.RETURNED ||
+          current?.status === LoanerBookingStatus.CANCELLED ||
+          current?.status === LoanerBookingStatus.NO_SHOW
         ) {
           throw loanerAlreadyReturnedException();
         }

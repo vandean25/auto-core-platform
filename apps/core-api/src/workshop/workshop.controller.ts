@@ -201,6 +201,7 @@ export class WorkshopController {
       ...pagination,
       sortField: query.sortField,
       sortDirection: query.sortDirection,
+      customerId: query.customerId,
     });
   }
 

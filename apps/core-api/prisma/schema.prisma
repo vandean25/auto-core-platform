@@ -1962,7 +1962,7 @@ model LoanerBooking {
   loaner_vehicle_id      String
   loaner_vehicle         LoanerVehicle       @relation(fields: [tenant_id, loaner_vehicle_id], references: [tenant_id, id])
   workshop_order_id      String?
-  workshop_order         WorkshopOrder?      @relation(fields: [workshop_order_id], references: [id], onDelete: SetNull)
+  workshop_order         WorkshopOrder?      @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: SetNull)
   customer_id            String
   customer               Customer            @relation(fields: [tenant_id, customer_id], references: [tenant_id, id])
   planned_from           DateTime
@@ -1978,7 +1978,7 @@ model LoanerBooking {
   damage_notes_in        String?
   driver_licence_checked Boolean             @default(false)
   licence_checked_by_id  String?
-  licence_checked_by     Employee?           @relation("LoanerLicenceCheckedBy", fields: [licence_checked_by_id], references: [id], onDelete: SetNull)
+  licence_checked_by     Employee?           @relation("LoanerLicenceCheckedBy", fields: [tenant_id, licence_checked_by_id], references: [tenant_id, id], onDelete: SetNull)
   notes                  String?
   created_by_user_id     String?
   createdAt              DateTime            @default(now())

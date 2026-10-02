@@ -312,6 +312,59 @@ describe('Loaner vehicles (e2e)', () => {
       .expect(404);
   });
 
+  it('rejects a workshop order from another tenant', async () => {
+    const otherTenant = await createTestTenant(basePrisma, 'loaner-order-x');
+    const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
+    const otherSiteId = await resolveTestMainSiteId(basePrisma, otherTenant.tenantId);
+    const foreignCustomer = await otherPrisma.customer.create({
+      data: {
+        first_name: 'pilot',
+        last_name: 'customer',
+        type: 'PRIVATE',
+      },
+    });
+    const foreignVehicle = await otherPrisma.vehicle.create({
+      data: {
+        customer_id: foreignCustomer.id,
+        make: 'Seat',
+        model: 'Leon',
+        year: 2020,
+        plate: 'X-TENANT',
+      },
+    });
+    const foreignOrder = await otherPrisma.workshopOrder.create({
+      data: {
+        site_id: otherSiteId,
+        customer_id: foreignCustomer.id,
+        vehicle_id: foreignVehicle.id,
+        order_number: 'WO-FOREIGN-TENANT',
+        odometer: 1000,
+        fuel_level: 50,
+      },
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/workshop/loaner-bookings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(
+        bookingPayload({
+          workshopOrderId: foreignOrder.id,
+        }),
+      )
+      .expect(404);
+
+    const created = await createReservedBooking();
+    await request(app.getHttpServer())
+      .patch(`/api/workshop/loaner-bookings/${created.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ workshopOrderId: foreignOrder.id })
+      .expect(404);
+
+    await cleanupTestTenantGraph(basePrisma, otherTenant.tenantId).catch(
+      () => undefined,
+    );
+  });
+
   it('rejects a customer from another tenant', async () => {
     const otherTenant = await createTestTenant(basePrisma, 'loaner-other');
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
@@ -467,6 +520,10 @@ describe('Loaner vehicles (e2e)', () => {
 
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual([201, 400]);
+    const failed = first.status === 400 ? first : second;
+    expect(failed.body.code ?? failed.body.message).toEqual(
+      expect.stringMatching(new RegExp(LOANER_ALREADY_RETURNED)),
+    );
   });
 
   it('rejects fleet create with a vehicle from another tenant', async () => {
@@ -519,9 +576,28 @@ describe('Loaner vehicles (e2e)', () => {
 
   it('lists overdue bookings using injected clock via asOf', async () => {
     setLoanerNowForTests(new Date('2026-10-15T12:00:00.000Z'));
-    await createReservedBooking({
+    const overdueBooking = await createReservedBooking({
       plannedFrom: '2026-10-01T08:00:00.000Z',
       plannedTo: '2026-10-05T18:00:00.000Z',
+    });
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${overdueBooking.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 1000,
+        fuelOut: 50,
+        driverLicenceChecked: true,
+      })
+      .expect(201);
+
+    const notYetDue = await createReservedBooking({
+      plannedFrom: '2026-11-01T08:00:00.000Z',
+      plannedTo: '2026-11-10T18:00:00.000Z',
+    });
+
+    const boundaryBooking = await createReservedBooking({
+      plannedFrom: '2026-10-14T08:00:00.000Z',
+      plannedTo: '2026-10-15T12:00:00.000Z',
     });
 
     const overdue = await request(app.getHttpServer())
@@ -529,8 +605,105 @@ describe('Loaner vehicles (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(overdue.body.data.length).toBeGreaterThanOrEqual(1);
+    const overdueIds = overdue.body.data.map((row: { id: string }) => row.id);
+    expect(overdueIds).toContain(overdueBooking.id);
+    expect(overdueIds).not.toContain(notYetDue.id);
+    expect(overdueIds).not.toContain(boundaryBooking.id);
     expect(overdue.body.asOf).toBe('2026-10-15T12:00:00.000Z');
+  });
+
+  it('clears workshop_order_id but keeps tenant when the order is deleted', async () => {
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'VW',
+        model: 'Polo',
+        year: 2018,
+        plate: 'W-ORD-DEL',
+      },
+    });
+    const workshopOrder = await prisma.workshopOrder.create({
+      data: {
+        site_id: siteId,
+        customer_id: customerId,
+        vehicle_id: vehicle.id,
+        order_number: 'WO-LOANER-DEL',
+        status: 'SCHEDULED',
+        odometer: 12000,
+        fuel_level: 40,
+      },
+    });
+
+    const booking = await createReservedBooking({
+      workshopOrderId: workshopOrder.id,
+    });
+    expect(booking.workshopOrderId).toBe(workshopOrder.id);
+
+    await prisma.workshopOrder.delete({ where: { id: workshopOrder.id } });
+
+    const refreshed = await prisma.loanerBooking.findFirstOrThrow({
+      where: { id: booking.id, tenant_id: tenant.tenantId },
+    });
+    expect(refreshed.tenant_id).toBe(tenant.tenantId);
+    expect(refreshed.workshop_order_id).toBeNull();
+  });
+
+  it('shows a handed-over car available for a later window when the loan is not overdue', async () => {
+    setLoanerNowForTests(new Date('2026-10-10T08:00:00.000Z'));
+    const booking = await createReservedBooking({
+      plannedFrom: '2026-10-05T08:00:00.000Z',
+      plannedTo: '2026-10-14T18:00:00.000Z',
+    });
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${booking.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 4000,
+        fuelOut: 70,
+        driverLicenceChecked: true,
+      })
+      .expect(201);
+
+    const availability = await request(app.getHttpServer())
+      .get(
+        '/api/workshop/loaner-vehicles/availability?from=2026-10-20T08:00:00.000Z&to=2026-10-22T18:00:00.000Z&asOf=2026-10-10T08:00:00.000Z',
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const row = availability.body.data.find(
+      (entry: { vehicle: { id: string } }) => entry.vehicle.id === loanerVehicleId,
+    );
+    expect(row?.available).toBe(true);
+  });
+
+  it('blocks availability for an overdue handed-over loan outside its planned window', async () => {
+    setLoanerNowForTests(new Date('2026-10-16T08:00:00.000Z'));
+    const booking = await createReservedBooking({
+      plannedFrom: '2026-10-05T08:00:00.000Z',
+      plannedTo: '2026-10-14T18:00:00.000Z',
+    });
+    await request(app.getHttpServer())
+      .post(`/api/workshop/loaner-bookings/${booking.id}/hand-over`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        odometerOut: 5000,
+        fuelOut: 65,
+        driverLicenceChecked: true,
+      })
+      .expect(201);
+
+    const availability = await request(app.getHttpServer())
+      .get(
+        '/api/workshop/loaner-vehicles/availability?from=2026-10-20T08:00:00.000Z&to=2026-10-22T18:00:00.000Z&asOf=2026-10-16T08:00:00.000Z',
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const row = availability.body.data.find(
+      (entry: { vehicle: { id: string } }) => entry.vehicle.id === loanerVehicleId,
+    );
+    expect(row?.available).toBe(false);
   });
 
   it('marks reserved overlapping vehicles unavailable regardless of asOf', async () => {

@@ -112,4 +112,84 @@ test.describe('Blueprint: Workshop Loaner Vehicles', () => {
     await expect(page.getByText('Buchungen · Golf Ersatz')).toBeVisible()
     await expect(page.getByText('Pilot Customer')).toBeVisible()
   })
+
+  test('hand-over sends licence-checked payload', async ({ page }) => {
+    let handOverBody: Record<string, unknown> | undefined
+    await setupLoanerRoutes(page)
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/loaner-bookings/booking-1/hand-over'),
+      async (route) => {
+        handOverBody = route.request().postDataJSON() as Record<string, unknown>
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...mockBookings.data[0],
+            status: 'HANDED_OVER',
+            driverLicenceChecked: true,
+          }),
+        })
+      },
+    )
+
+    await page.goto('/workshop/loaner-vehicles?vehicle=loaner-1')
+    await page.getByRole('button', { name: 'Übergabe' }).click()
+    await page.getByLabel('Kilometerstand').fill('15000')
+    await page.getByLabel('Tankfüllung (%)').fill('80')
+    await page.getByRole('button', { name: 'Übergabe speichern' }).click()
+    expect(handOverBody).toBeUndefined()
+    await page.getByLabel('Führerschein geprüft').check()
+    await page.getByRole('button', { name: 'Übergabe speichern' }).click()
+
+    await expect.poll(() => handOverBody?.driverLicenceChecked).toBe(true)
+    expect(handOverBody).toMatchObject({
+      odometerOut: 15000,
+      fuelOut: 80,
+      driverLicenceChecked: true,
+    })
+  })
+
+  test('return sends odometer payload', async ({ page }) => {
+    let returnBody: Record<string, unknown> | undefined
+    const handedOver = {
+      ...mockBookings.data[0],
+      status: 'HANDED_OVER',
+      odometerOut: 15000,
+      fuelOut: 80,
+      driverLicenceChecked: true,
+      handedOverAt: '2026-10-10T09:00:00.000Z',
+    }
+    await setupLoanerRoutes(page)
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/loaner-bookings'), async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: [handedOver] }),
+      })
+    })
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/loaner-bookings/booking-1/return'),
+      async (route) => {
+        returnBody = route.request().postDataJSON() as Record<string, unknown>
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...handedOver, status: 'RETURNED' }),
+        })
+      },
+    )
+
+    await page.goto('/workshop/loaner-vehicles?vehicle=loaner-1')
+    await page.getByRole('button', { name: 'Rückgabe' }).click()
+    await page.getByLabel('Kilometerstand').fill('15100')
+    await page.getByLabel('Tankfüllung (%)').fill('70')
+    await page.getByRole('button', { name: 'Rückgabe speichern' }).click()
+
+    await expect.poll(() => returnBody?.odometerIn).toBe(15100)
+    expect(returnBody).toMatchObject({ odometerIn: 15100, fuelIn: 70 })
+  })
 })

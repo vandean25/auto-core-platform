@@ -3756,6 +3756,15 @@
                 "desc"
               ]
             }
+          },
+          {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "description": "When set, only orders for this customer are returned (open workshop statuses only).",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5136,7 +5145,7 @@
             "name": "asOf",
             "required": false,
             "in": "query",
-            "description": "Evaluation timestamp for availability (reserved for future use; overlap uses the requested window).",
+            "description": "Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window.",
             "schema": {
               "format": "date-time",
               "type": "string"

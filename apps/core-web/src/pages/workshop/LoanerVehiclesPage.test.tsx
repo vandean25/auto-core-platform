@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LoanerVehiclesPage from './LoanerVehiclesPage'
@@ -9,7 +9,19 @@ import * as workshopApi from '@/api/workshop'
 vi.mock('@/api/loaner-vehicles')
 vi.mock('@/api/workshop')
 vi.mock('@/components/sales/CustomerSearch', () => ({
-  CustomerSearch: () => <div data-testid='customer-search' />,
+  CustomerSearch: ({
+    onChange,
+  }: {
+    onChange: (customer: { id: string; last_name: string }) => void
+  }) => (
+    <button
+      type='button'
+      data-testid='customer-search'
+      onClick={() => onChange({ id: 'cust-1', last_name: 'Customer' })}
+    >
+      Kunde wählen
+    </button>
+  ),
 }))
 vi.mock('sonner', () => ({
   toast: {
@@ -48,8 +60,53 @@ const mockFleetVehicle = {
   },
 }
 
+const reservedBooking = {
+  id: 'booking-reserved',
+  loanerVehicleId: 'loaner-1',
+  workshopOrderId: null,
+  customerId: 'cust-1',
+  plannedFrom: '2026-10-10T08:00:00.000Z',
+  plannedTo: '2026-10-12T18:00:00.000Z',
+  status: 'RESERVED' as const,
+  handedOverAt: null,
+  returnedAt: null,
+  odometerOut: null,
+  odometerIn: null,
+  fuelOut: null,
+  fuelIn: null,
+  driverLicenceChecked: false,
+  licenceCheckedById: null,
+  notes: null,
+  createdAt: '2026-10-09T10:00:00.000Z',
+  updatedAt: '2026-10-09T10:00:00.000Z',
+  customer: {
+    id: 'cust-1',
+    firstName: 'Pilot',
+    lastName: 'Customer',
+    companyName: null,
+  },
+}
+
+const handedOverBooking = {
+  ...reservedBooking,
+  id: 'booking-handed',
+  status: 'HANDED_OVER' as const,
+  handedOverAt: '2026-10-10T09:00:00.000Z',
+  odometerOut: 1000,
+  fuelOut: 80,
+  driverLicenceChecked: true,
+}
+
 describe('LoanerVehiclesPage', () => {
+  const createBookingMutate = vi.fn()
+  const handOverMutate = vi.fn()
+  const returnMutate = vi.fn()
+
   beforeEach(() => {
+    createBookingMutate.mockResolvedValue({})
+    handOverMutate.mockResolvedValue({})
+    returnMutate.mockResolvedValue({})
+
     vi.mocked(workshopApi.useWorkshopSearch).mockReturnValue({
       data: { data: { vehicles: [], customers: [] }, meta: { total: 0, page: 1, limit: 0, totalPages: 0 } },
       isLoading: false,
@@ -66,41 +123,12 @@ describe('LoanerVehiclesPage', () => {
     } as ReturnType<typeof loanerApi.useLoanerFleet>)
 
     vi.mocked(loanerApi.useOverdueLoanerBookings).mockReturnValue({
-      data: {
-        data: [
-          {
-            id: 'booking-overdue',
-            loanerVehicleId: 'loaner-1',
-            workshopOrderId: null,
-            customerId: 'cust-1',
-            plannedFrom: '2026-10-01T08:00:00.000Z',
-            plannedTo: '2026-10-01T18:00:00.000Z',
-            status: 'HANDED_OVER',
-            handedOverAt: '2026-10-01T09:00:00.000Z',
-            returnedAt: null,
-            odometerOut: 1000,
-            odometerIn: null,
-            fuelOut: 80,
-            fuelIn: null,
-            driverLicenceChecked: true,
-            licenceCheckedById: null,
-            notes: null,
-            createdAt: '2026-10-01T07:00:00.000Z',
-            updatedAt: '2026-10-01T09:00:00.000Z',
-            customer: {
-              id: 'cust-1',
-              firstName: 'Pilot',
-              lastName: 'Customer',
-              companyName: null,
-            },
-          },
-        ],
-      },
+      data: { data: [] },
       isLoading: false,
     } as ReturnType<typeof loanerApi.useOverdueLoanerBookings>)
 
     vi.mocked(loanerApi.useLoanerBookings).mockReturnValue({
-      data: { data: [] },
+      data: { data: [reservedBooking] },
       isLoading: false,
     } as unknown as ReturnType<typeof loanerApi.useLoanerBookings>)
 
@@ -110,7 +138,7 @@ describe('LoanerVehiclesPage', () => {
     } as unknown as ReturnType<typeof loanerApi.useCreateLoanerVehicle>)
 
     vi.mocked(loanerApi.useCreateLoanerBooking).mockReturnValue({
-      mutateAsync: vi.fn(),
+      mutateAsync: createBookingMutate,
       isPending: false,
     } as unknown as ReturnType<typeof loanerApi.useCreateLoanerBooking>)
 
@@ -119,12 +147,12 @@ describe('LoanerVehiclesPage', () => {
     } as unknown as ReturnType<typeof loanerApi.useCancelLoanerBooking>)
 
     vi.mocked(loanerApi.useHandOverLoanerBooking).mockReturnValue({
-      mutateAsync: vi.fn(),
+      mutateAsync: handOverMutate,
       isPending: false,
     } as unknown as ReturnType<typeof loanerApi.useHandOverLoanerBooking>)
 
     vi.mocked(loanerApi.useReturnLoanerBooking).mockReturnValue({
-      mutateAsync: vi.fn(),
+      mutateAsync: returnMutate,
       isPending: false,
     } as unknown as ReturnType<typeof loanerApi.useReturnLoanerBooking>)
   })
@@ -134,18 +162,103 @@ describe('LoanerVehiclesPage', () => {
     vi.clearAllMocks()
   })
 
-  it('renders fleet header with overdue badge', () => {
-    render(
+  function renderPage(initialPath = '/workshop/loaner-vehicles?vehicle=loaner-1') {
+    return render(
       <QueryClientProvider client={createQueryClient()}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[initialPath]}>
           <LoanerVehiclesPage />
         </MemoryRouter>
       </QueryClientProvider>,
     )
+  }
+
+  it('renders fleet header with overdue badge', () => {
+    vi.mocked(loanerApi.useOverdueLoanerBookings).mockReturnValue({
+      data: {
+        data: [
+          {
+            ...handedOverBooking,
+            id: 'booking-overdue',
+            plannedTo: '2026-10-01T18:00:00.000Z',
+          },
+        ],
+      },
+      isLoading: false,
+    } as ReturnType<typeof loanerApi.useOverdueLoanerBookings>)
+
+    renderPage()
 
     expect(screen.getByRole('heading', { name: 'Ersatzfahrzeuge' })).toBeInTheDocument()
     expect(screen.getByText('1 überfällig')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Ersatzfahrzeug$/ })).toBeInTheDocument()
     expect(screen.getByText('Golf Ersatz')).toBeInTheDocument()
+  })
+
+  it('creates a booking with the expected payload', async () => {
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Buchung' }))
+    fireEvent.click(screen.getByTestId('customer-search'))
+    fireEvent.click(screen.getByRole('button', { name: 'Buchung anlegen' }))
+
+    await waitFor(() => {
+      expect(createBookingMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          loanerVehicleId: 'loaner-1',
+          customerId: 'cust-1',
+        }),
+      )
+    })
+  })
+
+  it('blocks hand-over until the licence checkbox is checked', async () => {
+    const { toast } = await import('sonner')
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Übergabe' }))
+    fireEvent.change(screen.getByLabelText('Kilometerstand'), { target: { value: '12000' } })
+    fireEvent.change(screen.getByLabelText('Tankfüllung (%)'), { target: { value: '75' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Übergabe speichern' }))
+
+    expect(toast.error).toHaveBeenCalled()
+    expect(handOverMutate).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByLabelText('Führerschein geprüft'))
+    fireEvent.click(screen.getByRole('button', { name: 'Übergabe speichern' }))
+
+    await waitFor(() => {
+      expect(handOverMutate).toHaveBeenCalledWith({
+        id: 'booking-reserved',
+        data: expect.objectContaining({
+          odometerOut: 12000,
+          fuelOut: 75,
+          driverLicenceChecked: true,
+        }),
+      })
+    })
+  })
+
+  it('submits return with odometer and fuel payload', async () => {
+    vi.mocked(loanerApi.useLoanerBookings).mockReturnValue({
+      data: { data: [handedOverBooking] },
+      isLoading: false,
+    } as unknown as ReturnType<typeof loanerApi.useLoanerBookings>)
+
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgabe' }))
+    fireEvent.change(screen.getByLabelText('Kilometerstand'), { target: { value: '12100' } })
+    fireEvent.change(screen.getByLabelText('Tankfüllung (%)'), { target: { value: '60' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rückgabe speichern' }))
+
+    await waitFor(() => {
+      expect(returnMutate).toHaveBeenCalledWith({
+        id: 'booking-handed',
+        data: expect.objectContaining({
+          odometerIn: 12100,
+          fuelIn: 60,
+        }),
+      })
+    })
   })
 })

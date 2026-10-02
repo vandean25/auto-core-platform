@@ -18,7 +18,7 @@ import {
   type LoanerVehicle,
 } from '@/api/loaner-vehicles'
 import { useWorkshopOrders, useWorkshopSearch } from '@/api/workshop'
-import type { Customer, Vehicle, WorkshopOrder } from '@/api/types'
+import type { Customer, Vehicle } from '@/api/types'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
@@ -127,23 +127,18 @@ export default function LoanerVehiclesPage() {
   const vehicleSearchResults =
     workshopSearchData?.data?.vehicles?.filter((vehicle) => vehicle.id) ?? []
 
-  const { data: workshopOrdersData } = useWorkshopOrders(
-    bookingCustomer
-      ? {
-          page: 1,
-          pageSize: 50,
-          search: bookingCustomer.company_name ?? bookingCustomer.last_name,
-          filters: [],
-        }
-      : undefined,
-  )
-
-  const customerWorkshopOrders = useMemo(() => {
-    if (!bookingCustomer) return []
-    return (workshopOrdersData?.data ?? []).filter(
-      (order: WorkshopOrder) => order.customer_id === bookingCustomer.id,
+  const { data: workshopOrdersData, isLoading: workshopOrdersLoading } =
+    useWorkshopOrders(
+      bookingCustomer
+        ? {
+            page: 1,
+            pageSize: 50,
+            filters: [{ field: 'customer_id', value: bookingCustomer.id }],
+          }
+        : undefined,
     )
-  }, [bookingCustomer, workshopOrdersData])
+
+  const customerWorkshopOrders = workshopOrdersData?.data ?? []
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedVehicleSearch(vehicleSearch), 250)
@@ -567,6 +562,11 @@ export default function LoanerVehiclesPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {bookingCustomer && !workshopOrdersLoading && customerWorkshopOrders.length === 0 ? (
+                <p className='text-xs text-muted-foreground'>
+                  Keine offenen Werkstattaufträge für diesen Kunden.
+                </p>
+              ) : null}
             </div>
             <div className='grid gap-4 sm:grid-cols-2'>
               <div className='space-y-2'>
