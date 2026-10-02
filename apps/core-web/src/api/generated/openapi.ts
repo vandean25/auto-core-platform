@@ -2706,6 +2706,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload CSV and run a synchronous import dry-run */
+        post: operations["ImportController_createDryRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/templates/{entityType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CSV template metadata and inline CSV content */
+        get: operations["ImportController_getTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/templates/{entityType}/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download CSV import template (German headers) */
+        get: operations["ImportController_downloadTemplateCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List dry-run rows for an import job */
+        get: operations["ImportController_listRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/errors.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download CSV of rows that failed validation */
+        get: operations["ImportController_downloadErrors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get import job summary */
+        get: operations["ImportController_getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/imports/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a completed dry-run import job */
+        post: operations["ImportController_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5851,6 +5970,61 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
+        };
+        /** @enum {string} */
+        ImportEntityType: "CUSTOMER" | "VEHICLE";
+        /** @enum {string} */
+        ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
+        ImportJobTotalsDto: {
+            rows: number;
+            create: number;
+            update: number;
+            skip: number;
+            error: number;
+        };
+        ImportJobResponseDto: {
+            id: string;
+            entity_type: components["schemas"]["ImportEntityType"];
+            source_system: string;
+            file_name: string;
+            file_sha256: string;
+            status: components["schemas"]["ImportJobStatus"];
+            mapping: {
+                [key: string]: string;
+            };
+            options: {
+                [key: string]: unknown;
+            };
+            totals: components["schemas"]["ImportJobTotalsDto"];
+            created_by: Record<string, never> | null;
+            created_at: string;
+            applied_at: Record<string, never> | null;
+        };
+        ImportTemplateFieldDto: {
+            key: string;
+            label_de: string;
+            required: boolean;
+        };
+        ImportTemplateResponseDto: {
+            entity_type: components["schemas"]["ImportEntityType"];
+            fields: components["schemas"]["ImportTemplateFieldDto"][];
+            /** @description CSV template with German headers */
+            csv: string;
+        };
+        /** @enum {string} */
+        ImportRowAction: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
+        ImportJobRowDto: {
+            row_no: number;
+            external_id: Record<string, never> | null;
+            action: components["schemas"]["ImportRowAction"];
+            entity_id: Record<string, never> | null;
+            errors: Record<string, never>[];
+            warnings: Record<string, never>[];
+            normalized: Record<string, never> | null;
+        };
+        ImportJobRowsResponseDto: {
+            data: components["schemas"]["ImportJobRowDto"][];
+            meta: Record<string, never>;
         };
     };
     responses: never;
@@ -11518,6 +11692,167 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_createDryRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    /** @enum {string} */
+                    entityType: "CUSTOMER" | "VEHICLE";
+                    /** @example incadea */
+                    sourceSystem: string;
+                    /** @description JSON object mapping logical fields to CSV headers */
+                    mapping: string;
+                    /** @description JSON import options */
+                    options?: string;
+                };
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportTemplateResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_downloadTemplateCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_listRows: {
+        parameters: {
+            query?: {
+                page?: string;
+                limit?: string;
+                action?: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
+                hasErrors?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobRowsResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_downloadErrors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ImportController_getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportJobResponseDto"];
                 };
             };
         };

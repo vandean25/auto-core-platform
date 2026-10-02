@@ -8867,6 +8867,279 @@
           "Audit Logs"
         ]
       }
+    },
+    "/api/imports": {
+      "post": {
+        "operationId": "ImportController_createDryRun",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "entityType",
+                  "sourceSystem",
+                  "mapping"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "entityType": {
+                    "type": "string",
+                    "enum": [
+                      "CUSTOMER",
+                      "VEHICLE"
+                    ]
+                  },
+                  "sourceSystem": {
+                    "type": "string",
+                    "example": "incadea"
+                  },
+                  "mapping": {
+                    "type": "string",
+                    "description": "JSON object mapping logical fields to CSV headers"
+                  },
+                  "options": {
+                    "type": "string",
+                    "description": "JSON import options"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Upload CSV and run a synchronous import dry-run",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/templates/{entityType}": {
+      "get": {
+        "operationId": "ImportController_getTemplate",
+        "parameters": [
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportTemplateResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "CSV template metadata and inline CSV content",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/templates/{entityType}/csv": {
+      "get": {
+        "operationId": "ImportController_downloadTemplateCsv",
+        "parameters": [
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Download CSV import template (German headers)",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/{id}/rows": {
+      "get": {
+        "operationId": "ImportController_listRows",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "SKIP",
+                "ERROR"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "hasErrors",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobRowsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List dry-run rows for an import job",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/{id}/errors.csv": {
+      "get": {
+        "operationId": "ImportController_downloadErrors",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Download CSV of rows that failed validation",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/{id}": {
+      "get": {
+        "operationId": "ImportController_getJob",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get import job summary",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/imports/{id}/apply": {
+      "post": {
+        "operationId": "ImportController_apply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportJobResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply a completed dry-run import job",
+        "tags": [
+          "imports"
+        ]
+      }
     }
   },
   "info": {
@@ -19465,6 +19738,240 @@
                 "$ref": "#/components/schemas/AuditLogPaginationMetaDto"
               }
             ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ImportEntityType": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER",
+          "VEHICLE"
+        ]
+      },
+      "ImportJobStatus": {
+        "type": "string",
+        "enum": [
+          "DRY_RUN_DONE",
+          "APPLYING",
+          "APPLIED",
+          "FAILED",
+          "CANCELLED"
+        ]
+      },
+      "ImportJobTotalsDto": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "number"
+          },
+          "create": {
+            "type": "number"
+          },
+          "update": {
+            "type": "number"
+          },
+          "skip": {
+            "type": "number"
+          },
+          "error": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "rows",
+          "create",
+          "update",
+          "skip",
+          "error"
+        ]
+      },
+      "ImportJobResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportEntityType"
+              }
+            ]
+          },
+          "source_system": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "file_sha256": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportJobStatus"
+              }
+            ]
+          },
+          "mapping": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "totals": {
+            "$ref": "#/components/schemas/ImportJobTotalsDto"
+          },
+          "created_by": {
+            "type": "object",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "applied_at": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "entity_type",
+          "source_system",
+          "file_name",
+          "file_sha256",
+          "status",
+          "mapping",
+          "options",
+          "totals",
+          "created_by",
+          "created_at",
+          "applied_at"
+        ]
+      },
+      "ImportTemplateFieldDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label_de": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label_de",
+          "required"
+        ]
+      },
+      "ImportTemplateResponseDto": {
+        "type": "object",
+        "properties": {
+          "entity_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportEntityType"
+              }
+            ]
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportTemplateFieldDto"
+            }
+          },
+          "csv": {
+            "type": "string",
+            "description": "CSV template with German headers"
+          }
+        },
+        "required": [
+          "entity_type",
+          "fields",
+          "csv"
+        ]
+      },
+      "ImportRowAction": {
+        "type": "string",
+        "enum": [
+          "CREATE",
+          "UPDATE",
+          "SKIP",
+          "ERROR"
+        ]
+      },
+      "ImportJobRowDto": {
+        "type": "object",
+        "properties": {
+          "row_no": {
+            "type": "number"
+          },
+          "external_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "action": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ImportRowAction"
+              }
+            ]
+          },
+          "entity_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "normalized": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "row_no",
+          "external_id",
+          "action",
+          "entity_id",
+          "errors",
+          "warnings",
+          "normalized"
+        ]
+      },
+      "ImportJobRowsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportJobRowDto"
+            }
+          },
+          "meta": {
+            "type": "object"
           }
         },
         "required": [
