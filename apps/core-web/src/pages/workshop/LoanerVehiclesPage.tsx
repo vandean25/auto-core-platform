@@ -65,7 +65,7 @@ function fleetVehicleLabel(vehicle: LoanerVehicle) {
 
 export default function LoanerVehiclesPage() {
   const navigate = useNavigate()
-  const { queryParams: _fleetTableQuery, ...tableState } = useDataTableQuery({
+  const { ...tableState } = useDataTableQuery({
     defaultPageSize: 25,
   })
   const { data: fleetData, isLoading: fleetLoading } = useLoanerFleet()
