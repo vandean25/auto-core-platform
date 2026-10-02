@@ -4,6 +4,7 @@ import { configDefaults, defineConfig } from 'vitest/config'
 import { loadEnv } from 'vite'
 import tailwindcss from '@tailwindcss/vite'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
+import { emitVersionJsonPlugin } from './vite-plugins/emit-version-json.ts'
 
 // Production source maps are uploaded by Cloud Build under the git tag release.
 const hasSentryUploadCredentials = Boolean(
@@ -13,11 +14,13 @@ const hasSentryUploadCredentials = Boolean(
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '')
   const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000'
+  const appVersion = env.VITE_APP_VERSION ?? process.env.VITE_APP_VERSION ?? ''
 
   return {
     plugins: [
       react(),
       tailwindcss(),
+      emitVersionJsonPlugin(appVersion),
       ...(hasSentryUploadCredentials
         ? [
             sentryVitePlugin({

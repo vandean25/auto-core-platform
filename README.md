@@ -230,6 +230,10 @@ Deletion rules are defined centrally in [docs/deletion-policy.md](docs/deletion-
 
 Cloud Run and Firebase Hosting are project-aligned on `auto-core-platform-vande`, enabling direct Firebase Hosting Cloud Run rewrites for `/api/**`.
 
+There is no separate staging Firebase Hosting site today; UAT/staging validation uses the same site (preview channels when enabled) per `docs/internal/05-Runbooks/environments.md`.
+
+**Static assets and SPA fallback:** Hashed files live under `/assets/**` with long-lived cache headers. Unknown paths under `/assets/` and other extensioned URLs are **not** rewritten to `index.html`, so a missing chunk returns **404** instead of HTML (reducing stale-module confusion). Client routes without a file extension still rewrite to `index.html`. After each production build, Hosting serves `/version.json` (`Cache-Control: no-cache`) containing `VITE_APP_VERSION` (the git tag from Cloud Build); the UI polls it and shows a reload banner when a newer tag is deployed. Local and PR builds leave `VITE_APP_VERSION` unset—the banner stays off (`dev`).
+
 ### Firebase Auth (Frontend)
 
 The frontend uses Firebase Authentication and supports:
@@ -334,7 +338,7 @@ In Firebase project `auto-core-platform-vande`:
 The release trigger deploys on tags matching `^v.*$`.
 
 - Build file: `cloudbuild.yaml`
-- Hosting config: `firebase.json` (site set to `auto-core-platform-vande`, with `/api/**` rewritten to Cloud Run `core-api`)
+- Hosting config: `firebase.json` (site `auto-core-platform-vande`; `/api/**` → Cloud Run `core-api`; SPA rewrites exclude `/assets/**` and extensioned paths; `/version.json` for release polling)
 
 Tag-triggered Cloud Build runs `prisma migrate deploy` and fails the release on any non-zero exit, including Prisma `P3005` (schema not empty / not baselined). Do not skip `P3005` in that pipeline.
 
