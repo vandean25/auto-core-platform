@@ -2723,6 +2723,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/imports/mapping-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List saved column mapping profiles for a source system */
+        get: operations["ImportController_listMappingProfiles"];
+        put?: never;
+        /** Save a named column mapping profile */
+        post: operations["ImportController_createMappingProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/templates/{entityType}": {
         parameters: {
             query?: never;
@@ -6085,6 +6103,30 @@ export interface components {
             created_at: string;
             applied_at: Record<string, never> | null;
         };
+        ImportMappingProfileResponseDto: {
+            id: string;
+            entity_type: components["schemas"]["ImportEntityType"];
+            source_system: string;
+            name: string;
+            mapping: {
+                [key: string]: string;
+            };
+            created_at: string;
+            updated_at: string;
+        };
+        ImportMappingProfileListResponseDto: {
+            data: components["schemas"]["ImportMappingProfileResponseDto"][];
+        };
+        CreateImportMappingProfileDto: {
+            entity_type: components["schemas"]["ImportEntityType"];
+            /** @example incadea */
+            source_system: string;
+            /** @example Default customer mapping */
+            name: string;
+            mapping: {
+                [key: string]: string;
+            };
+        };
         ImportTemplateFieldDto: {
             key: string;
             label_de: string;
@@ -6740,11 +6782,11 @@ export interface operations {
         parameters: {
             query: {
                 vendorId: string;
-                status: string;
                 page: string;
                 pageSize: string;
                 sortBy: string;
                 order: string;
+                status: string;
             };
             header?: never;
             path?: never;
@@ -8076,13 +8118,13 @@ export interface operations {
     SalesOrderController_findAll: {
         parameters: {
             query?: {
-                status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
                 params?: string;
                 page?: number;
                 pageSize?: number;
                 search?: string;
                 sortField?: string;
                 sortDirection?: "asc" | "desc";
+                status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
             };
             header?: never;
             path?: never;
@@ -11815,6 +11857,51 @@ export interface operations {
             };
         };
     };
+    ImportController_listMappingProfiles: {
+        parameters: {
+            query: {
+                entityType: "CUSTOMER" | "VEHICLE";
+                sourceSystem: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportMappingProfileListResponseDto"];
+                };
+            };
+        };
+    };
+    ImportController_createMappingProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateImportMappingProfileDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportMappingProfileResponseDto"];
+                };
+            };
+        };
+    };
     ImportController_getTemplate: {
         parameters: {
             query?: never;
@@ -11860,8 +11947,8 @@ export interface operations {
             query?: {
                 page?: string;
                 limit?: string;
-                action?: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
                 hasErrors?: boolean;
+                action?: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
             };
             header?: never;
             path: {
