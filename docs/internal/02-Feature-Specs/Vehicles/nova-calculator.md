@@ -17,7 +17,7 @@ tags:
 
 > Austrian dealers must calculate, collect, and remit **Normverbrauchsabgabe (NoVA)** on taxable vehicle transactions. This spec defines a **pure, deterministic calculation engine** driven by a **versioned tariff table** (`valid_from` / `valid_to`) so annual BMF/RIS parameter changes are **data**, not application code. **Phase 1 (AUT-376):** internal spec + engine module only — no Prisma/schema, API route, UI, or invoice line changes.
 
-**Consolidated law pinned:** [RIS NoVAG Gesamte Rechtsvorschrift](https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=10004698) as retrieved **2026-10-02**, including amendments through **BGBl. I Nr. 98/2025** and references to **BGBl. I Nr. 26/2025** (Budgetbegleitgesetz 2025 — repeal of § 6 Abs. 3 N1 tariff, § 2 scope). Later consolidations (e.g. Budgetbegleitgesetz 2027–2028, BGBl. I Nr. 62/2026) must be re-checked before extending tariff rows beyond 2029.
+**Consolidated law pinned:** [RIS NoVAG Gesamte Rechtsvorschrift](https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=Bundesnormen&Gesetzesnummer=10004698) as retrieved **2026-10-02**, including amendments through **BGBl. I Nr. 62/2026** (Budgetbegleitgesetz 2027–2028; § 16 Abs. 29 amends § 6 Abs. 6 Z 2 and Abs. 8 — NEFZ×1,27 and Wertentwicklung), **BGBl. I Nr. 98/2025**, and **BGBl. I Nr. 26/2025** (repeal of § 6 Abs. 3 N1 tariff; § 2 scope). Re-check RIS before extending tariff rows beyond 2029.
 
 ---
 
@@ -75,7 +75,7 @@ tags:
 | `n1_legacy_z6` | Former **§ 6 Abs. 3** (repealed 1.7.2025) | Separate N1 tariff only until **2025-06-30**. Last row: `at-n1-2025-h1`. |
 | `motorcycle_z1_z2` | § 2 Abs. 1 Z 1–2; § 6 Abs. 1 | WMTC; ÷4; **no €350** Abzug (`flat_deduction_eur: 0`). |
 
-**Out of scope (not in tariff table):** Kraftfahrzeuge **hauptsächlich zur Güterbeförderung** (§ 2 Abs. 1 Z 4 lit. a — Kastenwagen, Pritschenwagen, etc.) after BGBl. I 26/2025. Engine returns error `OUT_OF_SCOPE_VEHICLE` when `vehicleScope: 'goods_transport_z4'` (future input).
+**Out of scope (not in tariff table):** Kraftfahrzeuge **hauptsächlich zur Güterbeförderung** (§ 2 Abs. 1 Z 4 lit. a — Kastenwagen, Pritschenwagen, etc.) after BGBl. I 26/2025. **Engine v1** does not classify goods vs passenger vehicles; a future API may reject these with `OUT_OF_SCOPE_VEHICLE` before calling `calculateNova`.
 
 ---
 
@@ -116,14 +116,14 @@ tags:
 | NEFZ only | **×1,27** only for **§ 2 Abs. 1 Z 3** when exclusively NEFZ exists | § 6 Abs. 6 Z 2; BMF |
 | No CO₂ (Z 3) | **2 × kW** Nennleistung, or NEFZ×1,27 path | § 6 Abs. 6 Z 2 |
 | No CO₂ (motorcycle) | **(Hubraum − 100) × 0,02 %**, max 30% | § 6 Abs. 6 Z 1 |
-| Wohnmobil SA + 2×kW option | **16% Mindeststeuersatz** when using 2×kW basis | § 6 Abs. 6 Z 4 |
+| Wohnmobil SA | **16% Mindeststeuersatz** when CO₂ is taken from the optional **2×kW** basis (Z 4) **or** from any **§ 6 Abs. 6 Z 2** substitute (**2×kW** or **NEFZ×1,27**) | § 6 Abs. 6 Z 4 |
 
 **Engine v1:**
 
 - `emissionCycle: 'NEDC'` → ×1.27 only when `vehicleClass === 'passenger_z3'`; otherwise **`INVALID_NEDC_CYCLE`** for motorcycles.
 - **`ratedPowerKw`** (Z 3): 2×kW substitute CO₂ for rate/malus.
 - **`displacementCc`** (motorcycle): hubraum rate when CO₂ absent.
-- **`isCamperSA`**: when true and rate derived from **2×kW** (not from certificate CO₂), apply **16%** minimum rate (not stored on tariff row).
+- **`isCamperSA`**: when true and effective CO₂ comes from **§ 6 Abs. 6 Z 2** (2×kW or NEDC×1.27) or the **Z 4** 2×kW option, apply **16%** minimum rate (rule id `tariff.camper_sa_min_rate`; not stored on tariff row). WLTP certificate CO₂ without Z 2 path does **not** trigger the minimum.
 
 **Fractional CO₂ after ×1.27:** e.g. 130 × 1.27 = **165.1** g/km changes malus grams (10.1 × €80 vs 10 × €80). **UNVERIFIED** whether to round to whole grams before rate and malus — see *Needs Steuerberater confirmation*. Engine v1 uses **unrounded** effective CO₂ and emits warning `nedc_fractional_co2_unverified` when NEDC×1.27 is not an integer.
 
@@ -134,7 +134,7 @@ tags:
 1. `effectiveCo2` — after NEFZ factor if applicable (see UNVERIFIED rounding).
 2. `rawRate = (effectiveCo2 - co2_deduction_g) / rate_divisor`.
 3. `ratePercent = roundToWholePercent(rawRate)`; floor at 0%; cap at `max_rate_percent`.
-4. If `isCamperSA` && `co2.substitute_double_kw` → `ratePercent = max(ratePercent, 16)`.
+4. If `isCamperSA` && effective CO₂ came from **§ 6 Abs. 6 Z 2** (2×kW or NEDC×1.27) → `ratePercent = max(ratePercent, 16)` (§ 6 Abs. 6 Z 4).
 5. `baseAmount = netPriceEuro × ratePercent / 100`.
 6. `malus = max(0, effectiveCo2 - malus_threshold_g) × malus_eur_per_g`.
 7. `nova = max(0, baseAmount + malus - flat_deduction_eur)`.
@@ -247,7 +247,7 @@ Steuerschuld Lieferung: **Ende des Kalendermonats** der Lieferung (§ 7 Abs. 1 Z
 | `vehicleClass` | enum | No | Default `passenger_z3` |
 | `ratedPowerKw` | number | No | § 6 Abs. 6 Z 2 (Z 3 only) |
 | `displacementCc` | number | No | § 6 Abs. 6 Z 1 (motorcycle) |
-| `isCamperSA` | boolean | No | 16% min when using 2×kW basis |
+| `isCamperSA` | boolean | No | 16% min when CO₂ from § 6 Abs. 6 Z 2 (2×kW or NEDC×1.27) per Z 4 |
 
 ### Errors
 
