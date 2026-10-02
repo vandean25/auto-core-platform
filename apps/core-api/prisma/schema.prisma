@@ -1995,7 +1995,7 @@ model TyreSetEvent {
   tenant_id           String
   tenant              Tenant           @relation(fields: [tenant_id], references: [id])
   tyre_set_id         String
-  tyre_set            TyreSet          @relation(fields: [tenant_id, tyre_set_id], references: [tenant_id, id], onDelete: Cascade)
+  tyre_set            TyreSet          @relation(fields: [tenant_id, tyre_set_id], references: [tenant_id, id], onDelete: Restrict)
   event_type          TyreSetEventType
   occurred_at         DateTime
   workshop_order_id   String?

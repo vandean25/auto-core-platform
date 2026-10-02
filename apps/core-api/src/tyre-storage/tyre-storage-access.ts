@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import type { TenantMemberRole } from '@prisma/client';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 
+/** Workshop desk write: Linear SERVICE_ADVISOR maps to tenant role SALES in ACP. */
 const WRITE_ROLES: ReadonlySet<TenantMemberRole> = new Set([
   'OWNER',
   'ADMIN',

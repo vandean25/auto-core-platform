@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { assertSetMatchesEventLedger } from '../src/tyre-storage/tyre-set-event.helpers.js';
+import { TyreStorageClock } from '../src/tyre-storage/tyre-storage.clock.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -195,26 +196,73 @@ describe('Tyre storage (e2e)', () => {
       .expect(404);
   });
 
-  it('lists due-for-swap sets using tenant season defaults', async () => {
-    await tenantPrisma.tyreSet.create({
+  async function seedDueSet(label: string, plannedSwapOn: string) {
+    return tenantPrisma.tyreSet.create({
       data: {
         tenant_id: tenantId,
         customer_id: customerId,
         site_id: siteId,
         location_id: storageLocationId,
-        label: 'Due winter',
+        label,
         season: 'WINTER',
         status: 'IN_STORAGE',
-        planned_swap_on: new Date('2026-03-01'),
+        planned_swap_on: new Date(plannedSwapOn),
       },
     });
+  }
+
+  async function dueIds(asOf: string): Promise<string[]> {
+    const res = await request(app.getHttpServer())
+      .get('/api/tyre-sets/due-for-swap')
+      .query({ asOf })
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    return res.body.data.map((row: { id: string }) => row.id);
+  }
+
+  it('lists due-for-swap with injected asOf around season boundaries', async () => {
+    const dueSet = await seedDueSet('Due winter', '2026-03-01T00:00:00.000Z');
+    await seedDueSet('Not yet due', '2026-10-01T00:00:00.000Z');
+
+    const dayBeforeWindow = await dueIds('2026-01-29T12:00:00.000Z');
+    expect(dayBeforeWindow).not.toContain(dueSet.id);
+
+    const firstDayInside = await dueIds('2026-01-30T12:00:00.000Z');
+    expect(firstDayInside).toContain(dueSet.id);
+
+    const onSwapDay = await dueIds('2026-03-01T12:00:00.000Z');
+    expect(onSwapDay).toContain(dueSet.id);
+
+    const overdue = await dueIds('2026-06-01T12:00:00.000Z');
+    expect(overdue).toContain(dueSet.id);
+    expect(overdue[0]).toBe(dueSet.id);
 
     const res = await request(app.getHttpServer())
       .get('/api/tyre-sets/due-for-swap')
+      .query({ asOf: '2026-03-01T12:00:00.000Z' })
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
-    expect(res.body.data.length).toBeGreaterThan(0);
     expect(res.body.data[0].customerPhone).toBeTruthy();
+  });
+
+  it('derives planned swap across year rollover when creating with clock override', async () => {
+    const clock = app.get(TyreStorageClock);
+    clock.setOverride(new Date('2026-12-15T12:00:00.000Z'));
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        locationId: storageLocationId,
+        label: 'Summer rollover',
+        season: 'SUMMER',
+      })
+      .expect(201);
+
+    clock.setOverride(null);
+
+    expect(createRes.body.plannedSwapOn).toBe('2027-10-01');
   });
 });

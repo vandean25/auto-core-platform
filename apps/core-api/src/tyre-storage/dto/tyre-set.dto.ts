@@ -5,6 +5,7 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -22,22 +23,30 @@ import {
 export class TreadDepthDto {
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
+  @IsNumber()
+  @Min(0)
+  @Max(20)
   FL?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
+  @IsNumber()
+  @Min(0)
+  @Max(20)
   FR?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
+  @IsNumber()
+  @Min(0)
+  @Max(20)
   RL?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
+  @IsNumber()
+  @Min(0)
+  @Max(20)
   RR?: number;
 }
 
@@ -270,6 +279,9 @@ export class TyreSetResponseDto {
 
   @ApiPropertyOptional({ nullable: true, type: String })
   locationId!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  locationCode!: string | null;
 
   @ApiProperty()
   label!: string;

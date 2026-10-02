@@ -15,10 +15,14 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import {
+  TyreSetDueListQueryDto,
+  TyreSetListQueryDto,
+} from './dto/tyre-set-list-query.dto.js';
+import { TyreSetListEnvelopeDto } from './dto/tyre-set-list-response.dto.js';
 import {
   CreateTyreSetDto,
   TyreSetLocationActionDto,
@@ -52,9 +56,9 @@ export class TyreStorageController {
   @ApiOperation({
     summary: 'List stored sets approaching planned swap (manual calling only)',
   })
-  @ApiOkResponse({ type: [TyreSetResponseDto] })
-  dueForSwap() {
-    return this.tyreStorageService.listDueForSwap();
+  @ApiOkResponse({ type: TyreSetListEnvelopeDto })
+  dueForSwap(@Query() query: TyreSetDueListQueryDto) {
+    return this.tyreStorageService.listDueForSwap(query.asOf);
   }
 
   @Get('due-for-swap/export')
@@ -65,50 +69,21 @@ export class TyreStorageController {
   }
 
   @Get('by-customer/:customerId')
-  @ApiOkResponse({ type: [TyreSetResponseDto] })
+  @ApiPaginatedResponse(TyreSetResponseDto)
   byCustomer(@Param('customerId') customerId: string) {
     return this.tyreStorageService.findByCustomer(customerId);
   }
 
   @Get('by-vehicle/:vehicleId')
-  @ApiOkResponse({ type: [TyreSetResponseDto] })
+  @ApiOkResponse({ type: TyreSetListEnvelopeDto })
   byVehicle(@Param('vehicleId') vehicleId: string) {
     return this.tyreStorageService.findByVehicle(vehicleId);
   }
 
   @Get()
   @ApiPaginatedResponse(TyreSetResponseDto)
-  @ApiQuery({ name: 'customerId', required: false })
-  @ApiQuery({ name: 'vehicleSearch', required: false })
-  @ApiQuery({ name: 'locationId', required: false })
-  @ApiQuery({ name: 'season', required: false })
-  @ApiQuery({ name: 'status', required: false })
-  @ApiQuery({ name: 'dueFrom', required: false })
-  @ApiQuery({ name: 'dueTo', required: false })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'pageSize', required: false })
-  list(
-    @Query('customerId') customerId?: string,
-    @Query('vehicleSearch') vehicleSearch?: string,
-    @Query('locationId') locationId?: string,
-    @Query('season') season?: string,
-    @Query('status') status?: string,
-    @Query('dueFrom') dueFrom?: string,
-    @Query('dueTo') dueTo?: string,
-    @Query('page') page?: string,
-    @Query('pageSize') pageSize?: string,
-  ) {
-    return this.tyreStorageService.list({
-      customerId,
-      vehicleSearch,
-      locationId,
-      season,
-      status,
-      dueFrom,
-      dueTo,
-      page: page ? Number(page) : undefined,
-      pageSize: pageSize ? Number(pageSize) : undefined,
-    });
+  list(@Query() query: TyreSetListQueryDto) {
+    return this.tyreStorageService.list(query);
   }
 
   @Get(':id')
@@ -153,5 +128,12 @@ export class TyreStorageController {
   @ApiOkResponse({ type: TyreSetResponseDto })
   move(@Param('id') id: string, @Body() dto: TyreSetLocationActionDto) {
     return this.tyreStorageService.move(id, dto);
+  }
+
+  @Post(':id/dispose')
+  @HttpCode(200)
+  @ApiOkResponse({ type: TyreSetResponseDto })
+  dispose(@Param('id') id: string, @Body() dto: TyreSetLocationActionDto) {
+    return this.tyreStorageService.dispose(id, dto);
   }
 }

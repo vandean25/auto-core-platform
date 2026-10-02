@@ -27,6 +27,9 @@ export function assertEventAllowed(
       'Moves are only allowed while the set is in storage.',
     );
   }
+  if (eventType === 'DISPOSED' && currentStatus === 'DISPOSED') {
+    throw new ConflictException('Tyre set is already disposed.');
+  }
 }
 
 export function applyTyreSetEvent(

@@ -17,6 +17,8 @@ import {
   isDueForSwap,
 } from './tyre-storage-season.helpers.js';
 import { applyTyreSetEvent } from './tyre-set-event.helpers.js';
+import { TyreStorageClock } from './tyre-storage.clock.js';
+import type { TyreSetListQueryDto } from './dto/tyre-set-list-query.dto.js';
 import type {
   CreateTyreSetDto,
   TyreSetLocationActionDto,
@@ -34,6 +36,7 @@ type TyreSetWithRelations = TyreSet & {
     email: string | null;
   };
   vehicle: { plate: string | null } | null;
+  location?: { code: string } | null;
   events?: TyreSetEvent[];
 };
 
@@ -43,6 +46,7 @@ export class TyreStorageService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly clock: TyreStorageClock,
   ) {}
 
   async getSettings(): Promise<TyreStorageSettingsResponseDto> {
@@ -57,6 +61,8 @@ export class TyreStorageService {
   ): Promise<TyreStorageSettingsResponseDto> {
     assertTyreStorageWrite(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    this.assertValidSwapCalendar(dto);
+
     const updated = await this.prisma.tyreStorageSettings.upsert({
       where: { tenant_id: tenantId },
       create: {
@@ -78,17 +84,7 @@ export class TyreStorageService {
     return this.toSettingsResponse(updated);
   }
 
-  async list(query: {
-    customerId?: string;
-    vehicleSearch?: string;
-    locationId?: string;
-    season?: string;
-    status?: string;
-    dueFrom?: string;
-    dueTo?: string;
-    page?: number;
-    pageSize?: number;
-  }) {
+  async list(query: TyreSetListQueryDto) {
     assertTyreStorageRead(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
@@ -102,8 +98,8 @@ export class TyreStorageService {
     };
     if (query.customerId) where.customer_id = query.customerId;
     if (query.locationId) where.location_id = query.locationId;
-    if (query.season) where.season = query.season as TyreSet['season'];
-    if (query.status) where.status = query.status as TyreSet['status'];
+    if (query.season) where.season = query.season;
+    if (query.status) where.status = query.status;
     if (query.dueFrom || query.dueTo) {
       where.planned_swap_on = {};
       if (query.dueFrom) {
@@ -137,6 +133,7 @@ export class TyreStorageService {
             },
           },
           vehicle: { select: { plate: true } },
+          location: { select: { code: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip: (page - 1) * pageSize,
@@ -155,12 +152,12 @@ export class TyreStorageService {
     };
   }
 
-  async listDueForSwap() {
+  async listDueForSwap(asOfParam?: string) {
     assertTyreStorageRead(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const settings = await this.ensureSettings(tenantId);
-    const asOf = new Date();
+    const asOf = this.resolveAsOf(asOfParam);
     const windowEnd = new Date(asOf);
     windowEnd.setUTCDate(windowEnd.getUTCDate() + settings.due_for_swap_days);
 
@@ -184,6 +181,7 @@ export class TyreStorageService {
           },
         },
         vehicle: { select: { plate: true } },
+        location: { select: { code: true } },
       },
       orderBy: { planned_swap_on: 'asc' },
     });
@@ -200,7 +198,7 @@ export class TyreStorageService {
   async exportDueForSwapCsv(): Promise<string> {
     const { data } = await this.listDueForSwap();
     const header =
-      'label,season,planned_swap_on,customer,phone,email,plate,bin_label,location_id';
+      'label,season,planned_swap_on,customer,phone,email,plate,bin_label,location_code';
     const lines = data.map((row) =>
       [
         csvEscape(row.label),
@@ -211,7 +209,7 @@ export class TyreStorageService {
         csvEscape(row.customerEmail ?? ''),
         csvEscape(row.vehiclePlate ?? ''),
         csvEscape(row.binLabel ?? ''),
-        row.locationId ?? '',
+        csvEscape(row.locationCode ?? ''),
       ].join(','),
     );
     return [header, ...lines].join('\n');
@@ -224,8 +222,9 @@ export class TyreStorageService {
   async findByVehicle(vehicleId: string) {
     assertTyreStorageRead(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const rows = await this.prisma.tyreSet.findMany({
-      where: { tenant_id: tenantId, vehicle_id: vehicleId },
+      where: { tenant_id: tenantId, site_id: siteId, vehicle_id: vehicleId },
       include: {
         customer: {
           select: {
@@ -236,6 +235,7 @@ export class TyreStorageService {
           },
         },
         vehicle: { select: { plate: true } },
+        location: { select: { code: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -245,8 +245,9 @@ export class TyreStorageService {
   async findOne(id: string, includeEvents = true) {
     assertTyreStorageRead(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const row = await this.prisma.tyreSet.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       include: {
         customer: {
           select: {
@@ -257,6 +258,7 @@ export class TyreStorageService {
           },
         },
         vehicle: { select: { plate: true } },
+        location: { select: { code: true } },
         events: includeEvents ? { orderBy: { occurred_at: 'desc' } } : false,
       },
     });
@@ -281,7 +283,7 @@ export class TyreStorageService {
       await this.assertLocationOnSite(tenantId, siteId, dto.locationId);
     }
 
-    const now = new Date();
+    const now = this.clock.now();
     const planned =
       dto.plannedSwapOn != null
         ? new Date(dto.plannedSwapOn)
@@ -338,8 +340,9 @@ export class TyreStorageService {
   async update(id: string, dto: UpdateTyreSetDto) {
     assertTyreStorageWrite(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const existing = await this.prisma.tyreSet.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (!existing) {
       throw new NotFoundException(`Tyre set ${id} not found`);
@@ -355,7 +358,7 @@ export class TyreStorageService {
           ? new Date(dto.plannedSwapOn)
           : null
         : dto.season
-          ? derivePlannedSwapOn(season, settings, new Date())
+          ? derivePlannedSwapOn(season, settings, this.clock.now())
           : existing.planned_swap_on;
 
     await this.prisma.tyreSet.update({
@@ -389,15 +392,19 @@ export class TyreStorageService {
   async remove(id: string) {
     assertTyreStorageWrite(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const existing = await this.prisma.tyreSet.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (!existing) {
       throw new NotFoundException(`Tyre set ${id} not found`);
     }
-    if (existing.status === 'IN_STORAGE') {
+    const eventCount = await this.prisma.tyreSetEvent.count({
+      where: { tenant_id: tenantId, tyre_set_id: id },
+    });
+    if (eventCount > 0) {
       throw new ConflictException(
-        'Check out or dispose the set before deleting it.',
+        'Tyre sets with event history cannot be deleted; record a dispose event instead.',
       );
     }
     await this.prisma.tyreSet.delete({ where: { id } });
@@ -416,27 +423,49 @@ export class TyreStorageService {
     return this.recordLocationEvent(id, 'MOVED', dto);
   }
 
+  async dispose(id: string, dto: TyreSetLocationActionDto) {
+    return this.recordLocationEvent(id, 'DISPOSED', dto);
+  }
+
   private async recordLocationEvent(
     id: string,
-    eventType: 'CHECK_IN' | 'CHECK_OUT' | 'MOVED',
+    eventType: 'CHECK_IN' | 'CHECK_OUT' | 'MOVED' | 'DISPOSED',
     dto: TyreSetLocationActionDto,
   ) {
     assertTyreStorageWrite(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const userId = this.tenantContext.getAuthenticatedUser()?.userId ?? null;
-    const occurredAt = dto.occurredAt ? new Date(dto.occurredAt) : new Date();
+    const occurredAt = dto.occurredAt
+      ? new Date(dto.occurredAt)
+      : this.clock.now();
 
     const set = await this.prisma.tyreSet.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
     });
     if (!set) {
       throw new NotFoundException(`Tyre set ${id} not found`);
     }
 
     const toLocationId =
-      eventType === 'CHECK_OUT' ? null : (dto.locationId ?? set.location_id);
-    if (eventType !== 'CHECK_OUT' && !toLocationId) {
+      eventType === 'CHECK_OUT' || eventType === 'DISPOSED'
+        ? null
+        : (dto.locationId ?? set.location_id);
+    if (
+      eventType !== 'CHECK_OUT' &&
+      eventType !== 'DISPOSED' &&
+      !toLocationId
+    ) {
       throw new UnprocessableEntityException('locationId is required');
+    }
+    if (
+      eventType === 'MOVED' &&
+      toLocationId &&
+      toLocationId === set.location_id
+    ) {
+      throw new UnprocessableEntityException(
+        'Destination must differ from the current location.',
+      );
     }
     if (toLocationId) {
       await this.assertLocationOnSite(tenantId, set.site_id, toLocationId);
@@ -448,10 +477,35 @@ export class TyreStorageService {
         dto.workshopOrderId,
       );
     }
+    if (dto.employeeId) {
+      await this.assertEmployee(tenantId, dto.employeeId);
+    }
 
+    const expectedStatus = set.status;
     const patch = applyTyreSetEvent(set, eventType, toLocationId, occurredAt);
 
     await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.tyreSet.updateMany({
+        where: {
+          id: set.id,
+          tenant_id: tenantId,
+          site_id: siteId,
+          status: expectedStatus,
+        },
+        data: {
+          status: patch.status,
+          location_id: patch.location_id,
+          stored_since: patch.stored_since,
+          tread_depth_mm_json: dto.treadDepthMm
+            ? (dto.treadDepthMm as Prisma.InputJsonValue)
+            : undefined,
+        },
+      });
+      if (updated.count === 0) {
+        throw new ConflictException(
+          'Tyre set status changed concurrently. Please refresh.',
+        );
+      }
       await tx.tyreSetEvent.create({
         data: {
           tenant_id: tenantId,
@@ -469,20 +523,40 @@ export class TyreStorageService {
           created_by_user_id: userId,
         },
       });
-      await tx.tyreSet.update({
-        where: { id: set.id },
-        data: {
-          status: patch.status,
-          location_id: patch.location_id,
-          stored_since: patch.stored_since,
-          tread_depth_mm_json: dto.treadDepthMm
-            ? (dto.treadDepthMm as Prisma.InputJsonValue)
-            : undefined,
-        },
-      });
     });
 
     return this.findOne(id);
+  }
+
+  private resolveAsOf(asOfParam?: string): Date {
+    if (asOfParam && process.env.NODE_ENV === 'test') {
+      return new Date(asOfParam);
+    }
+    return this.clock.now();
+  }
+
+  private assertValidSwapCalendar(dto: UpdateTyreStorageSettingsDto): void {
+    this.assertSwapDay(dto.summerSwapMonth, dto.summerSwapDay, 'summer');
+    this.assertSwapDay(dto.winterSwapMonth, dto.winterSwapDay, 'winter');
+  }
+
+  private assertSwapDay(month: number, day: number, label: string): void {
+    const probe = new Date(Date.UTC(2024, month - 1, day));
+    if (probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) {
+      throw new UnprocessableEntityException(
+        `Invalid ${label} swap day for the given month.`,
+      );
+    }
+  }
+
+  private async assertEmployee(tenantId: string, employeeId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenant_id: tenantId, is_active: true },
+      select: { id: true },
+    });
+    if (!employee) {
+      throw new NotFoundException(`Employee ${employeeId} not found`);
+    }
   }
 
   private async ensureSettings(tenantId: string) {
@@ -582,6 +656,7 @@ export class TyreStorageService {
       vehicleId: row.vehicle_id,
       siteId: row.site_id,
       locationId: row.location_id,
+      locationCode: row.location?.code ?? null,
       label: row.label,
       season: row.season,
       tyreCount: row.tyre_count,
@@ -615,8 +690,19 @@ export class TyreStorageService {
 }
 
 function csvEscape(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replaceAll('"', '""')}"`;
+  const escaped =
+    value.startsWith('=') ||
+    value.startsWith('+') ||
+    value.startsWith('-') ||
+    value.startsWith('@')
+      ? `'${value}`
+      : value;
+  if (
+    escaped.includes(',') ||
+    escaped.includes('"') ||
+    escaped.includes('\n')
+  ) {
+    return `"${escaped.replaceAll('"', '""')}"`;
   }
-  return value;
+  return escaped;
 }
