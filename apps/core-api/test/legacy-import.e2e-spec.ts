@@ -7,8 +7,10 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { IMPORT_MAX_ROW_COUNT } from '../src/import/import.constants.js';
@@ -22,7 +24,6 @@ describe('Legacy CSV import (e2e)', () => {
   let tenantB: Awaited<ReturnType<typeof createTestTenant>>;
   let authHeaderA: string;
   let authHeaderB: string;
-  let techHeaderA: string;
 
   const customerMapping = {
     external_id: 'Kunden-Nr',
@@ -51,9 +52,6 @@ describe('Legacy CSV import (e2e)', () => {
     tenantB = await createTestTenant(prisma, 'import-b');
     authHeaderA = `Bearer ${createTestAuthToken(authService, tenantA)}`;
     authHeaderB = `Bearer ${createTestAuthToken(authService, tenantB)}`;
-    techHeaderA = `Bearer ${createTestAuthToken(authService, tenantA, {
-      role: 'TECH',
-    })}`;
   });
 
   afterAll(async () => {
@@ -77,15 +75,11 @@ describe('Legacy CSV import (e2e)', () => {
   }
 
   it('dry-run does not write customers, vehicles, or import audit rows', async () => {
-    const beforeCustomers = await prisma.customer.count({
-      where: { tenant_id: tenantA.tenantId },
-    });
-    const beforeVehicles = await prisma.vehicle.count({
-      where: { tenant_id: tenantA.tenantId },
-    });
-    const beforeAudit = await prisma.auditLog.count({
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const beforeCustomers = await tenantPrisma.customer.count({});
+    const beforeVehicles = await tenantPrisma.vehicle.count({});
+    const beforeAudit = await tenantPrisma.auditLog.count({
       where: {
-        tenant_id: tenantA.tenantId,
         entity_type: { in: ['Customer', 'Vehicle'] },
       },
     });
@@ -100,15 +94,10 @@ describe('Legacy CSV import (e2e)', () => {
       .attach('file', customerCsv([['9001', 'PRIVATE', 'Pilot', 'User', 'pilot@example.com', '', '', 'AT']]), 'customers.csv')
       .expect(201);
 
-    const afterCustomers = await prisma.customer.count({
-      where: { tenant_id: tenantA.tenantId },
-    });
-    const afterVehicles = await prisma.vehicle.count({
-      where: { tenant_id: tenantA.tenantId },
-    });
-    const afterAudit = await prisma.auditLog.count({
+    const afterCustomers = await tenantPrisma.customer.count({});
+    const afterVehicles = await tenantPrisma.vehicle.count({});
+    const afterAudit = await tenantPrisma.auditLog.count({
       where: {
-        tenant_id: tenantA.tenantId,
         entity_type: { in: ['Customer', 'Vehicle'] },
       },
     });
@@ -196,14 +185,14 @@ describe('Legacy CSV import (e2e)', () => {
       .set('Authorization', authHeaderA)
       .expect(200);
 
-    const customer = await prisma.customer.findFirst({
-      where: { tenant_id: tenantA.tenantId, email },
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const customer = await tenantPrisma.customer.findFirst({
+      where: { email },
     });
     expect(customer?.phone).toBe('222');
 
-    const audit = await prisma.auditLog.findFirst({
+    const audit = await tenantPrisma.auditLog.findFirst({
       where: {
-        tenant_id: tenantA.tenantId,
         entity_type: 'Customer',
         entity_id: customer?.id,
         action: 'UPDATE',
@@ -235,14 +224,28 @@ describe('Legacy CSV import (e2e)', () => {
   });
 
   it('rejects TECH role and oversized row counts', async () => {
+    const techTenant = await createTestTenant(prisma, 'import-tech');
+    await runWithTenantContext(techTenant.tenantId, async () => {
+      await prisma.tenantMember.updateMany({
+        where: { tenant_id: techTenant.tenantId },
+        data: { role: 'TECH' },
+      });
+    });
+    const techHeader = `Bearer ${createTestAuthToken(authService, {
+      ...techTenant,
+      role: 'TECH',
+    })}`;
+
     await request(app.getHttpServer())
       .post('/imports')
-      .set('Authorization', techHeaderA)
+      .set('Authorization', techHeader)
       .field('entityType', 'CUSTOMER')
       .field('sourceSystem', 'legacy-dms')
       .field('mapping', JSON.stringify(customerMapping))
       .attach('file', customerCsv([['1', 'PRIVATE', 'A', 'B', 'a@b.com', '', '', 'AT']]), 'c.csv')
       .expect(403);
+
+    await cleanupTestTenantGraph(prisma, techTenant.tenantId);
 
     const rows = Array.from({ length: IMPORT_MAX_ROW_COUNT + 1 }, (_, i) => [
       String(10_000 + i),

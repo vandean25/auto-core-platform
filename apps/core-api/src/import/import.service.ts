@@ -112,7 +112,6 @@ export class ImportService {
         created_by: currentUser.id,
         rows: {
           create: dryRunRows.map((row) => ({
-            tenant_id: tenantId,
             row_no: row.row_no,
             external_id: row.external_id,
             action: row.action,

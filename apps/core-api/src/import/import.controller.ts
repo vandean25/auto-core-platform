@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Header,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -149,6 +150,7 @@ export class ImportController {
   }
 
   @Post(':id/apply')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Apply a completed dry-run import job' })
   @ApiOkResponse({ type: ImportJobResponseDto })
   apply(@Param('id') id: string) {
