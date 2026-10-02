@@ -125,7 +125,7 @@ tags:
 - **`displacementCc`** (motorcycle): hubraum rate when CO₂ absent.
 - **`isCamperSA`**: when true and rate derived from **2×kW** (not from certificate CO₂), apply **16%** minimum rate (not stored on tariff row).
 
-**Fractional CO₂ after ×1.27:** e.g. 130 × 1.27 = **165.1** g/km changes malus grams (10.1 × €80 vs 10 × €80). **UNVERIFIED** whether to round to whole grams before rate and malus — see *Needs Steuerberater confirmation*. Engine v1 uses **unrounded** effective CO₂ and emits warning `fractional_co2_unverified`.
+**Fractional CO₂ after ×1.27:** e.g. 130 × 1.27 = **165.1** g/km changes malus grams (10.1 × €80 vs 10 × €80). **UNVERIFIED** whether to round to whole grams before rate and malus — see *Needs Steuerberater confirmation*. Engine v1 uses **unrounded** effective CO₂ and emits warning `nedc_fractional_co2_unverified` when NEDC×1.27 is not an integer.
 
 ---
 
