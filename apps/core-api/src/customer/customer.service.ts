@@ -209,7 +209,8 @@ export class CustomerService {
 
     const data: UpdateCustomerDto = { ...updateCustomerDto };
     if (updateCustomerDto.vat_id !== undefined) {
-      data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id) ?? undefined;
+      data.vat_id =
+        normalizeCustomerVatId(updateCustomerDto.vat_id) ?? undefined;
     }
 
     return this.prisma.customer.update({

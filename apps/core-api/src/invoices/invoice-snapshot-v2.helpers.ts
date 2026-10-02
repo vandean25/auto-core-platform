@@ -691,7 +691,9 @@ export function assertAtHighValueBusinessRecipientUid(params: {
   if (params.customer.type !== CustomerType.COMPANY) {
     return;
   }
-  const recipientCountry = params.customer.address_country?.trim().toUpperCase();
+  const recipientCountry = params.customer.address_country
+    ?.trim()
+    .toUpperCase();
   if (recipientCountry !== 'AT') {
     return;
   }
