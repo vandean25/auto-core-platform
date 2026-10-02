@@ -9,6 +9,8 @@ export const VEHICLE_NOVA_CLASS_VALUES = [
 
 export type VehicleNovaClass = (typeof VEHICLE_NOVA_CLASS_VALUES)[number];
 
+export const VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE =
+  'VEHICLE_FIRST_REGISTRATION_DATE_INVALID';
 export const VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE =
   'VEHICLE_FIRST_REGISTRATION_DATE_FUTURE';
 export const VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE =
@@ -19,6 +21,7 @@ export const VEHICLE_NOVA_CLASS_INVALID_CODE = 'VEHICLE_NOVA_CLASS_INVALID';
 
 const CO2_MIN = 0;
 const CO2_MAX = 600;
+const VIENNA_TIME_ZONE = 'Europe/Vienna';
 
 export type VehicleRegulatoryInput = {
   first_registration_date?: string | Date | null;
@@ -52,16 +55,23 @@ export function normalizeNovaClass(
   return normalized.toUpperCase();
 }
 
-function parseDateOnlyUtc(value: string | Date): Date {
+function toDateOnlyInput(value: string | Date): string {
   if (value instanceof Date) {
-    return new Date(
-      Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()),
-    );
+    return value.toISOString().slice(0, 10);
   }
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const trimmed = value.trim();
+  if (trimmed.length >= 10) {
+    return trimmed.slice(0, 10);
+  }
+  return trimmed;
+}
+
+function parseDateOnlyUtc(value: string | Date): Date {
+  const dateOnly = toDateOnlyInput(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
   if (!match) {
     throw new BadRequestException({
-      code: VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
+      code: VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
       message: 'first_registration_date must be a valid ISO date (YYYY-MM-DD)',
       field: 'first_registration_date',
     });
@@ -76,7 +86,7 @@ function parseDateOnlyUtc(value: string | Date): Date {
     parsed.getUTCDate() !== day
   ) {
     throw new BadRequestException({
-      code: VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
+      code: VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
       message: 'first_registration_date must be a valid ISO date (YYYY-MM-DD)',
       field: 'first_registration_date',
     });
@@ -84,11 +94,10 @@ function parseDateOnlyUtc(value: string | Date): Date {
   return parsed;
 }
 
-function startOfTodayUtc(): Date {
-  const now = new Date();
-  return new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
+function todayInViennaYmd(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: VIENNA_TIME_ZONE,
+  }).format(new Date());
 }
 
 function assertCo2InRange(
@@ -116,7 +125,8 @@ export function assertVehicleRegulatoryFields(
       // cleared
     } else {
       const parsed = parseDateOnlyUtc(input.first_registration_date);
-      if (parsed.getTime() > startOfTodayUtc().getTime()) {
+      const parsedYmd = parsed.toISOString().slice(0, 10);
+      if (parsedYmd > todayInViennaYmd()) {
         throw new BadRequestException({
           code: VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
           message: 'first_registration_date cannot be in the future',

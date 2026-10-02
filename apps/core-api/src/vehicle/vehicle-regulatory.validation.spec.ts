@@ -1,11 +1,29 @@
 import { BadRequestException } from '@nestjs/common';
 import {
+  VEHICLE_CO2_NEDC_OUT_OF_RANGE_CODE,
   VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
   VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
+  VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
   VEHICLE_NOVA_CLASS_INVALID_CODE,
   assertVehicleRegulatoryFields,
   normalizeVehicleRegulatoryFields,
 } from './vehicle-regulatory.validation.js';
+
+function expectBadRequest(
+  fn: () => void,
+  code: string,
+  field: string,
+): void {
+  try {
+    fn();
+    throw new Error('expected BadRequestException');
+  } catch (error) {
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect((error as BadRequestException).getResponse()).toEqual(
+      expect.objectContaining({ code, field }),
+    );
+  }
+}
 
 describe('vehicle-regulatory.validation', () => {
   it('rejects a future first registration date', () => {
@@ -13,47 +31,71 @@ describe('vehicle-regulatory.validation', () => {
     future.setUTCFullYear(future.getUTCFullYear() + 1);
     const iso = future.toISOString().slice(0, 10);
 
-    expect(() => assertVehicleRegulatoryFields({ first_registration_date: iso })).toThrow(
-      BadRequestException,
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ first_registration_date: iso }),
+      VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
+      'first_registration_date',
     );
-
-    try {
-      assertVehicleRegulatoryFields({ first_registration_date: iso });
-    } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException);
-      expect((error as BadRequestException).getResponse()).toEqual(
-        expect.objectContaining({
-          code: VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
-          field: 'first_registration_date',
-        }),
-      );
-    }
   });
 
-  it('rejects CO2 WLTP outside 0-600', () => {
-    try {
-      assertVehicleRegulatoryFields({ co2_wltp_g_km: 601 });
-    } catch (error) {
-      expect((error as BadRequestException).getResponse()).toEqual(
-        expect.objectContaining({
-          code: VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
-          field: 'co2_wltp_g_km',
-        }),
-      );
-    }
+  it('rejects invalid date format with INVALID code', () => {
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ first_registration_date: 'not-a-date' }),
+      VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
+      'first_registration_date',
+    );
+  });
+
+  it('accepts ISO datetime by using the date portion only', () => {
+    expect(() =>
+      assertVehicleRegulatoryFields({
+        first_registration_date: '2020-06-15T10:00:00Z',
+      }),
+    ).not.toThrow();
+  });
+
+  it('validates CO2 WLTP boundaries and null clear', () => {
+    expect(() =>
+      assertVehicleRegulatoryFields({ co2_wltp_g_km: 0 }),
+    ).not.toThrow();
+    expect(() =>
+      assertVehicleRegulatoryFields({ co2_wltp_g_km: 600 }),
+    ).not.toThrow();
+    expect(() =>
+      assertVehicleRegulatoryFields({ co2_wltp_g_km: null }),
+    ).not.toThrow();
+
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ co2_wltp_g_km: -1 }),
+      VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
+      'co2_wltp_g_km',
+    );
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ co2_wltp_g_km: 601 }),
+      VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
+      'co2_wltp_g_km',
+    );
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ co2_wltp_g_km: Number.NaN }),
+      VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
+      'co2_wltp_g_km',
+    );
+  });
+
+  it('validates CO2 NEDC out of range', () => {
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ co2_nedc_g_km: 700 }),
+      VEHICLE_CO2_NEDC_OUT_OF_RANGE_CODE,
+      'co2_nedc_g_km',
+    );
   });
 
   it('rejects invalid nova_class values', () => {
-    try {
-      assertVehicleRegulatoryFields({ nova_class: 'UNKNOWN_CLASS' });
-    } catch (error) {
-      expect((error as BadRequestException).getResponse()).toEqual(
-        expect.objectContaining({
-          code: VEHICLE_NOVA_CLASS_INVALID_CODE,
-          field: 'nova_class',
-        }),
-      );
-    }
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ nova_class: 'BOGUS' }),
+      VEHICLE_NOVA_CLASS_INVALID_CODE,
+      'nova_class',
+    );
   });
 
   it('normalizes trimmed strings and uppercases nova_class', () => {

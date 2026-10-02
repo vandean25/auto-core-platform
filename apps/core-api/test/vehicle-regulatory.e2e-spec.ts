@@ -6,6 +6,7 @@ import { createGlobalValidationPipe } from '../src/common/index.js';
 import {
   VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
   VEHICLE_FIRST_REGISTRATION_DATE_FUTURE_CODE,
+  VEHICLE_NOVA_CLASS_INVALID_CODE,
 } from '../src/vehicle/vehicle-regulatory.validation.js';
 import { AppModule } from '../src/app.module.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
@@ -25,6 +26,9 @@ describe('Vehicle regulatory fields (e2e)', () => {
   let authToken: string;
   let otherAuthToken: string;
   let vehicleId: string;
+  let stockVehicleId: string;
+  let siteId: string;
+  let lotId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -47,6 +51,30 @@ describe('Vehicle regulatory fields (e2e)', () => {
       'vehicle-regulatory-other',
     );
     otherAuthToken = createTestAuthToken(app.get(AuthService), otherTenant);
+
+    const site = await prisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantId },
+    });
+    siteId = site.id;
+    const lot = await prisma.storageLocation.findFirstOrThrow({
+      where: { tenant_id: tenantId, site_id: siteId, type: 'vehicle_lot' },
+    });
+    lotId = lot.id;
+
+    const stockVehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        make: 'BMW',
+        model: 'X3',
+        year: 2022,
+        inventory_role: 'USED',
+        stock_status: 'IN_STOCK',
+        site_id: siteId,
+        location_id: lotId,
+        co2_wltp_g_km: 50,
+      },
+    });
+    stockVehicleId = stockVehicle.id;
   });
 
   afterAll(async () => {
@@ -132,12 +160,100 @@ describe('Vehicle regulatory fields (e2e)', () => {
       .expect(({ body }) => {
         expect(body.code).toBe(VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE);
       });
+
+    await request(app.getHttpServer())
+      .post('/api/vehicles')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        make: 'Audi',
+        model: 'A4',
+        year: 2025,
+        nova_class: 'BOGUS',
+      })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.code).toBe(VEHICLE_NOVA_CLASS_INVALID_CODE);
+      });
   });
 
-  it('isolates vehicles by tenant on read', async () => {
+  it('isolates vehicles by tenant on read and patch', async () => {
     await request(app.getHttpServer())
       .get(`/api/vehicles/${vehicleId}`)
       .set('Authorization', `Bearer ${otherAuthToken}`)
       .expect(404);
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicles/${vehicleId}`)
+      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .send({ co2_wltp_g_km: 1 })
+      .expect(404);
+
+    const row = await prisma.vehicle.findFirst({
+      where: { id: vehicleId, tenant_id: tenantId },
+    });
+    expect(row?.co2_wltp_g_km).toBe(99);
+  });
+
+  it('leaves regulatory fields unchanged when patch omits them', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/vehicles/${vehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ plate: 'W-REG-375' })
+      .expect(200);
+
+    const row = await prisma.vehicle.findFirst({
+      where: { id: vehicleId, tenant_id: tenantId },
+    });
+    expect(row?.plate).toBe('W-REG-375');
+    expect(row?.co2_wltp_g_km).toBe(99);
+    expect(row?.typenschein_no).toBe('TS-AUT375');
+  });
+
+  it('patches regulatory fields on dealer stock vehicles', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-stock/${stockVehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        co2_wltp_g_km: 120,
+        typenschein_no: 'STOCK-TS',
+        nova_class: 'OTHER',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.co2_wltp_g_km).toBe(120);
+        expect(body.typenschein_no).toBe('STOCK-TS');
+        expect(body.nova_class).toBe('OTHER');
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-stock/${stockVehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ co2_nedc_g_km: null, emission_class: null })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.co2_nedc_g_km).toBeNull();
+        expect(body.emission_class).toBeNull();
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-stock/${stockVehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ co2_wltp_g_km: 999 })
+      .expect(400)
+      .expect(({ body }) => {
+        expect(body.code).toBe(VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE);
+      });
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-stock/${stockVehicleId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ mileage: 42_000 })
+      .expect(200);
+
+    const row = await prisma.vehicle.findFirst({
+      where: { id: stockVehicleId, tenant_id: tenantId },
+    });
+    expect(row?.mileage).toBe(42_000);
+    expect(row?.co2_wltp_g_km).toBe(120);
   });
 });

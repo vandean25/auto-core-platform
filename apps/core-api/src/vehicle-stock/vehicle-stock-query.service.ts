@@ -273,12 +273,22 @@ export function buildPatchUpdateData(
     color: dto.color,
     key_number: dto.key_number,
     registration_certificate_no: dto.registration_certificate_no,
-    first_registration_date: dto.first_registration_date,
-    co2_wltp_g_km: dto.co2_wltp_g_km,
-    co2_nedc_g_km: dto.co2_nedc_g_km,
-    typenschein_no: dto.typenschein_no,
-    nova_class: dto.nova_class,
-    emission_class: dto.emission_class,
+    ...(dto.first_registration_date !== undefined
+      ? { first_registration_date: dto.first_registration_date }
+      : {}),
+    ...(dto.co2_wltp_g_km !== undefined
+      ? { co2_wltp_g_km: dto.co2_wltp_g_km }
+      : {}),
+    ...(dto.co2_nedc_g_km !== undefined
+      ? { co2_nedc_g_km: dto.co2_nedc_g_km }
+      : {}),
+    ...(dto.typenschein_no !== undefined
+      ? { typenschein_no: dto.typenschein_no }
+      : {}),
+    ...(dto.nova_class !== undefined ? { nova_class: dto.nova_class } : {}),
+    ...(dto.emission_class !== undefined
+      ? { emission_class: dto.emission_class }
+      : {}),
   };
 
   const where: Prisma.VehicleWhereInput = {

@@ -47,6 +47,17 @@ function toInputString(value: string | number | null | undefined) {
   return String(value)
 }
 
+export function parseCo2FieldInput(next: string): number | null {
+  if (next === '') {
+    return null
+  }
+  const parsed = Number(next)
+  if (!Number.isInteger(parsed)) {
+    throw new Error('CO2 value must be a whole number')
+  }
+  return parsed
+}
+
 export function VehicleRegulatorySection({
   values,
   onChange,
@@ -70,15 +81,13 @@ export function VehicleRegulatorySection({
             'co2_wltp_g_km',
             bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Wltp),
             toInputString(values.co2_wltp_g_km),
-            async (next) =>
-              onChange({ co2_wltp_g_km: next === '' ? null : Number(next) }),
+            async (next) => onChange({ co2_wltp_g_km: parseCo2FieldInput(next) }),
           )}
           {renderInlineField(
             'co2_nedc_g_km',
             bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Nedc),
             toInputString(values.co2_nedc_g_km),
-            async (next) =>
-              onChange({ co2_nedc_g_km: next === '' ? null : Number(next) }),
+            async (next) => onChange({ co2_nedc_g_km: parseCo2FieldInput(next) }),
           )}
           {renderInlineField(
             'typenschein_no',
@@ -129,6 +138,7 @@ export function VehicleRegulatorySection({
           </span>
           <Input
             type="date"
+            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.firstRegistrationDate)}
             value={toInputString(values.first_registration_date)}
             onChange={(event) =>
               onChange({ first_registration_date: event.target.value || null })
@@ -141,13 +151,15 @@ export function VehicleRegulatorySection({
             type="number"
             min={0}
             max={600}
+            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Wltp)}
             value={toInputString(values.co2_wltp_g_km)}
-            onChange={(event) =>
-              onChange({
-                co2_wltp_g_km:
-                  event.target.value === '' ? null : Number(event.target.value),
-              })
-            }
+            onChange={(event) => {
+              try {
+                onChange({ co2_wltp_g_km: parseCo2FieldInput(event.target.value) })
+              } catch {
+                // ignore invalid partial input while typing
+              }
+            }}
           />
         </label>
         <label className="space-y-1 text-sm">
@@ -156,13 +168,15 @@ export function VehicleRegulatorySection({
             type="number"
             min={0}
             max={600}
+            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.co2Nedc)}
             value={toInputString(values.co2_nedc_g_km)}
-            onChange={(event) =>
-              onChange({
-                co2_nedc_g_km:
-                  event.target.value === '' ? null : Number(event.target.value),
-              })
-            }
+            onChange={(event) => {
+              try {
+                onChange({ co2_nedc_g_km: parseCo2FieldInput(event.target.value) })
+              } catch {
+                // ignore invalid partial input while typing
+              }
+            }}
           />
         </label>
         <label className="space-y-1 text-sm">
@@ -170,6 +184,7 @@ export function VehicleRegulatorySection({
             {bilingualLabel(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
           </span>
           <Input
+            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.typenscheinNo)}
             value={toInputString(values.typenschein_no)}
             onChange={(event) => onChange({ typenschein_no: event.target.value || null })}
           />
@@ -199,6 +214,7 @@ export function VehicleRegulatorySection({
             {bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass)}
           </span>
           <Input
+            aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.emissionClass)}
             value={toInputString(values.emission_class)}
             onChange={(event) => onChange({ emission_class: event.target.value || null })}
           />

@@ -1,13 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
-import {
-  IsDateString,
-  IsIn,
-  IsInt,
-  IsOptional,
-  IsString,
-  ValidateIf,
-} from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsOptional, IsString, ValidateIf } from 'class-validator';
 import { VEHICLE_NOVA_CLASS_VALUES } from '../vehicle-regulatory.validation.js';
 
 export class VehicleRegulatoryFieldsDto {
@@ -19,7 +12,6 @@ export class VehicleRegulatoryFieldsDto {
   })
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
-  @IsDateString({ strict: true })
   first_registration_date?: string | null;
 
   @ApiPropertyOptional({
@@ -32,7 +24,6 @@ export class VehicleRegulatoryFieldsDto {
   @Type(() => Number)
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
-  @IsInt()
   co2_wltp_g_km?: number | null;
 
   @ApiPropertyOptional({
@@ -45,7 +36,6 @@ export class VehicleRegulatoryFieldsDto {
   @Type(() => Number)
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
-  @IsInt()
   co2_nedc_g_km?: number | null;
 
   @ApiPropertyOptional({
@@ -66,17 +56,7 @@ export class VehicleRegulatoryFieldsDto {
   })
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
-  @Transform(({ value }: { value: unknown }): string | null | undefined => {
-    if (typeof value === 'string') {
-      return value.trim().toUpperCase();
-    }
-    if (value === null || value === undefined) {
-      return value;
-    }
-    return undefined;
-  })
   @IsString()
-  @IsIn([...VEHICLE_NOVA_CLASS_VALUES])
   nova_class?: string | null;
 
   @ApiPropertyOptional({
