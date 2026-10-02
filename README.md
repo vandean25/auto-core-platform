@@ -232,7 +232,7 @@ Cloud Run and Firebase Hosting are project-aligned on `auto-core-platform-vande`
 
 There is no separate staging Firebase Hosting site today; UAT/staging validation uses the same site (preview channels when enabled) per `docs/internal/05-Runbooks/environments.md`.
 
-**Static assets and SPA fallback:** Hashed files live under `/assets/**` with long-lived cache headers. Unknown paths under `/assets/` and other extensioned URLs are **not** rewritten to `index.html`, so a missing chunk returns **404** instead of HTML (reducing stale-module confusion). Client routes without a file extension still rewrite to `index.html`. After each production build, Hosting serves `/version.json` (`Cache-Control: no-cache`) containing `VITE_APP_VERSION` (the git tag from Cloud Build); the UI polls it and shows a reload banner when a newer tag is deployed. Local and PR builds leave `VITE_APP_VERSION` unset—the banner stays off (`dev`).
+**Static assets and SPA fallback:** Hashed files live under `/assets/**` with long-lived cache headers. Unknown paths under `/assets/` and other extensioned URLs are **not** rewritten to `index.html`, so a missing chunk returns **404** instead of HTML (reducing stale-module confusion). Extensionless client routes (including trailing-slash URLs such as `/dashboard/`) still rewrite to `index.html`. After each production build, Hosting serves `/version.json` (`Cache-Control: no-cache`) containing `VITE_APP_VERSION` (the git tag from Cloud Build); the UI polls it and shows a reload banner when a newer tag is deployed. Local and PR builds leave `VITE_APP_VERSION` unset—the banner stays off (`dev`).
 
 ### Firebase Auth (Frontend)
 

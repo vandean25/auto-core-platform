@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
+import { normalizeAppVersion } from '../src/lib/app-version.ts'
 
 /** Writes dist/version.json from VITE_APP_VERSION (git tag in Cloud Build). */
 export function emitVersionJsonPlugin(appVersion: string): Plugin {
@@ -17,9 +18,4 @@ export function emitVersionJsonPlugin(appVersion: string): Plugin {
       writeFileSync(join(outDir, 'version.json'), payload, 'utf8')
     },
   }
-}
-
-function normalizeAppVersion(value: string): string {
-  const trimmed = value.trim()
-  return trimmed === '' ? 'dev' : trimmed
 }

@@ -25,11 +25,13 @@ site and does not change the cross-project Hosting-to-Cloud Run rewrite
 limitation documented in the root README.
 
 **SPA routing vs static files:** `firebase.json` rewrites only path segments
-without a file extension to `/index.html`, and never rewrites under `/assets/**`.
-Missing hashed chunks under `/assets/` therefore return **404** instead of the
-HTML shell (verify with `firebase emulators:start --only hosting`). The build
-also emits `/version.json` (from `VITE_APP_VERSION`, `Cache-Control: no-cache`)
-so long-lived tabs can show a non-blocking reload banner when a new tag is deployed.
+without a file extension to `/index.html` (including trailing-slash client routes
+such as `/dashboard/`), and never rewrites under `/assets/**`. Missing hashed
+chunks under `/assets/` therefore return **404** instead of the HTML shell
+(verify with `firebase emulators:start --only hosting` and
+`tools/verify-firebase-hosting-spa.sh`). The build also emits `/version.json`
+(from `VITE_APP_VERSION`, `Cache-Control: no-cache`) so long-lived tabs can
+show a non-blocking reload banner when a new tag is deployed.
 
 The staging template intentionally disables Cloud Tasks and Redis realtime and
 scales from zero to two instances. It is a low-cost deployment/schema
