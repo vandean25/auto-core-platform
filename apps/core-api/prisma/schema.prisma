@@ -112,6 +112,9 @@ model Tenant {
   documentBrandQuotaEvents      DocumentBrandQuotaEvent[]
   documentBrandQuotaLocks       DocumentBrandQuotaLock[]
   documentBrandExtractions      DocumentBrandExtraction[]
+  importJobs                    ImportJob[]
+  importJobRows                 ImportJobRow[]
+  externalIdMappings            ExternalIdMapping[]
 
   @@map("tenants")
 }
@@ -2381,6 +2384,84 @@ model LaborFitment {
   @@index([labor_operation_id])
   @@index([make, model, year_from, year_to, engine_code])
   @@map("labor_fitments")
+}
+
+enum ImportEntityType {
+  CUSTOMER
+  VEHICLE
+}
+
+enum ImportJobStatus {
+  DRY_RUN_DONE
+  APPLYING
+  APPLIED
+  FAILED
+  CANCELLED
+}
+
+enum ImportRowAction {
+  CREATE
+  UPDATE
+  SKIP
+  ERROR
+}
+
+model ImportJob {
+  id            String           @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id])
+  entity_type   ImportEntityType
+  source_system String
+  file_name     String
+  file_sha256   String
+  status        ImportJobStatus  @default(DRY_RUN_DONE)
+  mapping_json  Json
+  options_json  Json
+  totals_json   Json
+  created_by    String?
+  createdAt     DateTime         @default(now())
+  appliedAt     DateTime?
+  rows          ImportJobRow[]
+  firstSeenExternalIdMappings ExternalIdMapping[]
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, createdAt])
+  @@map("import_jobs")
+}
+
+model ImportJobRow {
+  tenant_id       String
+  tenant          Tenant          @relation(fields: [tenant_id], references: [id])
+  import_job_id   String
+  import_job      ImportJob       @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id], onDelete: Cascade)
+  row_no          Int
+  external_id     String?
+  action          ImportRowAction
+  entity_id       String?
+  errors_json     Json?
+  warnings_json   Json?
+  normalized_json Json?
+
+  @@id([tenant_id, import_job_id, row_no])
+  @@index([tenant_id, import_job_id, action])
+  @@map("import_job_rows")
+}
+
+model ExternalIdMapping {
+  id                       String           @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant           @relation(fields: [tenant_id], references: [id])
+  entity_type              ImportEntityType
+  source_system            String
+  external_id              String
+  entity_id                String
+  first_seen_import_job_id String
+  first_seen_import_job    ImportJob        @relation(fields: [tenant_id, first_seen_import_job_id], references: [tenant_id, id])
+  createdAt                DateTime         @default(now())
+
+  @@unique([tenant_id, entity_type, source_system, external_id])
+  @@index([tenant_id, entity_type, entity_id])
+  @@map("external_id_mappings")
 }
 
 model MasterPart {
