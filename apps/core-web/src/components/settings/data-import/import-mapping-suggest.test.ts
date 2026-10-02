@@ -12,12 +12,14 @@ describe('import mapping suggest', () => {
     const headers = ['Kunden-Nr', 'Firma', 'Mail', 'Tel', 'Ust-ID', 'Zip']
     const mapping = suggestColumnMapping(headers, CUSTOMER_IMPORT_FIELDS)
 
-    expect(mapping.external_id).toBe('Kunden-Nr')
-    expect(mapping.company_name).toBe('Firma')
-    expect(mapping.email).toBe('Mail')
-    expect(mapping.phone).toBe('Tel')
-    expect(mapping.vat_id).toBe('Ust-ID')
-    expect(mapping.address_zip).toBe('Zip')
+    expect(mapping).toEqual({
+      external_id: 'Kunden-Nr',
+      company_name: 'Firma',
+      email: 'Mail',
+      phone: 'Tel',
+      vat_id: 'Ust-ID',
+      address_zip: 'Zip',
+    })
   })
 
   it('auto-suggests German and English customer headers', () => {

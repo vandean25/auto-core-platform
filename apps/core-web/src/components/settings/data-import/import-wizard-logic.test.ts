@@ -89,10 +89,10 @@ describe('import wizard logic', () => {
   })
 
   it('maps row filter to server query params', () => {
-    expect(importRowQueryFromFilter('ALL')).toEqual({})
+    expect(importRowQueryFromFilter('ALL')).toEqual({ hasErrors: false })
     expect(importRowQueryFromFilter('ERROR')).toEqual({ hasErrors: true })
-    expect(importRowQueryFromFilter('CREATE')).toEqual({ action: 'CREATE' })
-    expect(importRowQueryFromFilter('UPDATE')).toEqual({ action: 'UPDATE' })
-    expect(importRowQueryFromFilter('SKIP')).toEqual({ action: 'SKIP' })
+    expect(importRowQueryFromFilter('CREATE')).toEqual({ action: 'CREATE', hasErrors: false })
+    expect(importRowQueryFromFilter('UPDATE')).toEqual({ action: 'UPDATE', hasErrors: false })
+    expect(importRowQueryFromFilter('SKIP')).toEqual({ action: 'SKIP', hasErrors: false })
   })
 })

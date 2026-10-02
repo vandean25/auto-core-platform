@@ -71,7 +71,9 @@ import {
 import {
   canApplyImport,
   DEFAULT_IMPORT_OPTIONS,
+  importRowQueryFromFilter,
   isDryRunStale,
+  type ImportRowFilter,
   type ImportWizardOptions,
 } from './import-wizard-logic'
 import { parseImportCsvFile, sha256HexFromFile } from './parse-import-csv-client'
@@ -84,8 +86,6 @@ const WIZARD_STEPS = [
   { id: 5, labelEn: 'Apply', labelDe: 'Import' },
 ] as const
 
-type RowFilter = 'ALL' | 'ERROR' | 'CREATE' | 'UPDATE' | 'SKIP'
-
 export function DataImportSettingsTab() {
   const [step, setStep] = React.useState(1)
   const [entityType, setEntityType] = React.useState<ImportEntityTypeUi>('CUSTOMER')
@@ -97,7 +97,7 @@ export function DataImportSettingsTab() {
   const [mapping, setMapping] = React.useState<Record<string, string>>({})
   const [options, setOptions] = React.useState<ImportWizardOptions>(DEFAULT_IMPORT_OPTIONS)
   const [errorThreshold, setErrorThreshold] = React.useState(0)
-  const [rowFilter, setRowFilter] = React.useState<RowFilter>('ALL')
+  const [rowFilter, setRowFilter] = React.useState<ImportRowFilter>('ALL')
   const [rowsPage, setRowsPage] = React.useState(1)
   const [dryRunJob, setDryRunJob] = React.useState<ImportJob | null>(null)
   const [appliedJob, setAppliedJob] = React.useState<ImportJob | null>(null)
@@ -122,9 +122,7 @@ export function DataImportSettingsTab() {
 
   const missingRequired = validateRequiredMappings(mapping, fields)
 
-  const rowQueryAction =
-    rowFilter === 'ALL' || rowFilter === 'ERROR' ? undefined : rowFilter
-  const rowQueryHasErrors = rowFilter === 'ERROR'
+  const rowQuery = importRowQueryFromFilter(rowFilter)
 
   React.useEffect(() => {
     setRowsPage(1)
@@ -135,8 +133,8 @@ export function DataImportSettingsTab() {
     {
       page: rowsPage,
       limit: IMPORT_ROWS_PAGE_LIMIT,
-      action: rowQueryAction,
-      hasErrors: rowQueryHasErrors,
+      action: rowQuery.action,
+      hasErrors: rowQuery.hasErrors,
     },
   )
 
@@ -286,7 +284,12 @@ export function DataImportSettingsTab() {
       const blob = await downloadImportTemplateCsv(entityType as ImportEntityType)
       triggerBlobDownload(blob, `${entityType.toLowerCase()}-import-template.csv`)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Template download failed'))
+      toast.error(
+        getErrorMessage(
+          error,
+          bilingualLabel('Template download failed', 'CSV-Vorlage konnte nicht geladen werden'),
+        ),
+      )
     }
   }
 
@@ -296,7 +299,12 @@ export function DataImportSettingsTab() {
       const blob = await downloadImportErrorRowsCsv(dryRunJob.id)
       triggerBlobDownload(blob, `import-${dryRunJob.id}-errors.csv`)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Error CSV download failed'))
+      toast.error(
+        getErrorMessage(
+          error,
+          bilingualLabel('Error CSV download failed', 'Fehler-CSV konnte nicht geladen werden'),
+        ),
+      )
     }
   }
 
@@ -681,7 +689,7 @@ export function DataImportSettingsTab() {
               <Select
                 value={rowFilter}
                 onValueChange={(value) => {
-                  setRowFilter(value as RowFilter)
+                  setRowFilter(value as ImportRowFilter)
                   setRowsPage(1)
                 }}
               >
@@ -731,8 +739,14 @@ export function DataImportSettingsTab() {
                 <TableBody>
                   {jobRows.map((row) => {
                     const issues = [
-                      ...(row.errors ?? []).map((issue) => `Error: ${issue.message}`),
-                      ...(row.warnings ?? []).map((issue) => `Warning: ${issue.message}`),
+                      ...(row.errors ?? []).map(
+                        (issue) =>
+                          `${bilingualLabel('Error', 'Fehler')}: ${issue.message ?? ''}`,
+                      ),
+                      ...(row.warnings ?? []).map(
+                        (issue) =>
+                          `${bilingualLabel('Warning', 'Warnung')}: ${issue.message ?? ''}`,
+                      ),
                     ]
                     return (
                       <TableRow key={row.row_no}>

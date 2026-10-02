@@ -3,8 +3,6 @@ import type { components } from '@/api/generated/openapi'
 export type ImportJob = components['schemas']['ImportJobResponseDto']
 export type ImportJobRow = components['schemas']['ImportJobRowDto']
 
-export type ImportRowFilter = 'ALL' | 'ERROR' | 'CREATE' | 'UPDATE' | 'SKIP'
-
 export type ImportWizardOptions = {
   update_existing: boolean
   fill_empty_only: boolean
@@ -58,15 +56,17 @@ export function canApplyImport(params: {
   return errors <= params.errorThreshold
 }
 
+export type ImportRowFilter = 'ALL' | 'ERROR' | 'CREATE' | 'UPDATE' | 'SKIP'
+
 export function importRowQueryFromFilter(filter: ImportRowFilter): {
   action?: 'CREATE' | 'UPDATE' | 'SKIP' | 'ERROR'
-  hasErrors?: boolean
+  hasErrors: boolean
 } {
   if (filter === 'ERROR') {
     return { hasErrors: true }
   }
   if (filter === 'ALL') {
-    return {}
+    return { hasErrors: false }
   }
-  return { action: filter }
+  return { action: filter, hasErrors: false }
 }
