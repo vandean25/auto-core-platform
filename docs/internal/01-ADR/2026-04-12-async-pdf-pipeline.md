@@ -70,7 +70,7 @@ Production uses a **split deployment** between the user-facing API and a dedicat
 #### Application authentication (HMAC + tenant binding)
 
 4. **HMAC worker secret.** Every task carries `x-cloud-tasks-secret` (shared GSM secret) and a signed JSON body `{ kind, resourceId, tenantId, signature }`. `CloudTasksWorkerGuard` and `PdfTaskTenantGuard` validate the secret and bind tenant context before rendering.
-5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`FINALIZED`/`ISSUED`/`PAID` for `Invoice`, `FINALIZED` for `CreditNote`, `INVOICED` for `WorkshopOrder`).
+5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`FINALIZED`/`ISSUED`/`PAID` for `Invoice`, `FINALIZED` for `CreditNote`, `INVOICED` for `WorkshopOrder`, `SENT`/`APPROVED`/`DECLINED`/`EXPIRED`/`SUPERSEDED` for `WorkshopEstimateVersion` — never `DRAFT`).
 6. **Server-side HTML generation.** PDFs are produced from server-generated HTML via `page.setContent(...)` — no browser navigation to an internal render route.
 
 #### Fail-closed production behavior
@@ -100,7 +100,7 @@ If Cloud Tasks configuration is incomplete on `core-api` (missing queue, target 
 - A dedicated render route must be maintained for each new entity type added to the pipeline (one route per document type).
 - Playwright and headless Chromium add significant size to the PDF worker image (~300 MB); the user-facing API image does not carry those browser binaries.
 - GCS storage costs scale linearly with document volume. For **invoices and credit notes**, bucket-level lifecycle may apply; for **estimates and other compliance-linked archives**, per-document `retain_until` and legal hold (ADR-0025 §2) take precedence over bucket-only deletion.
-- PDF generation is idempotent: re-triggering for the same entity overwrites the existing GCS object and updates `pdf_storage_key`. Historical copies are not versioned by default unless GCS object versioning is enabled on the bucket.
+- PDF generation is idempotent: re-triggering for the same entity overwrites the existing GCS object and updates `pdf_storage_key`, **except** for branded invoices (ADR-0024 §5) and `WorkshopEstimateVersion` (ADR-0025 §2), whose existing archive is served unchanged and never re-rendered. Historical copies are not versioned by default unless GCS object versioning is enabled on the bucket.
 
 ## Alternatives Considered
 

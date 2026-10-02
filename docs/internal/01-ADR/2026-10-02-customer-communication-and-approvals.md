@@ -45,11 +45,11 @@ Decisions were answered in [AUT-360](https://linear.app/auto-core-platform/issue
 - **Numbering:** `KV-YYYY-XXXX` per tenant and calendar year (ADR-0009 atomic counter pattern). Revisions keep the number and increment **version** (e.g. `KV-2026-0012` v2).
 - **Lifecycle (estimate-owned, not order status):** `DRAFT` → `SENT` → `APPROVED` | `DECLINED` | `EXPIRED` | `SUPERSEDED`. No new `WorkshopOrderStatus` in v1.
 - **Binding:** Non-binding Kostenvoranschlag by default, free of charge, **valid 14 days** from send (`valid_until`, advisor-editable). Mandatory **B2C non-binding declaration** (KSchG § 5 Abs 2) as a code-owned, versioned, non-removable block on PDF and public approval page, directly above the action button. B2B prints the same block for simplicity. Exact German wording requires lawyer sign-off; sending to customers remains flag-gated until then.
-- **Overrun:** Tenant-configurable guide threshold (default **15 %** gross vs the **approved** version; not statutory — § 1170a Abs 2 ABGB “beträchtlich”). When detected, persist `overrun_detected_at`, `overrun_notified_at` (+ channel, user, amount quoted, customer reaction) in the audit trail; advisor actions **Kunden informiert** and **Send revised estimate** (new version supersedes; baseline resets on approval). Invoice finalisation shows a **prominent warning** if totals exceed approved × (1 + threshold) without approved revision or notification record; hard block is an open product decision. Customer change-request extras require their own approval path.
+- **Overrun:** Tenant-configurable guide threshold (default **15 %**, measured on **gross** totals vs the **approved** version — **provisional** pending D18/lawyer gross-vs-net confirmation; not statutory — § 1170a Abs 2 ABGB “beträchtlich”). When detected, persist `overrun_detected_at`, `overrun_notified_at` (+ channel, user, amount quoted, customer reaction) in the audit trail; advisor actions **Kunden informiert** and **Send revised estimate** (new version supersedes; baseline resets on approval). Invoice finalisation shows a **prominent warning** if totals exceed approved × (1 + threshold) without approved revision or notification record; hard block is an open product decision. Customer change-request extras require their own approval path.
 
 ### 2. Amendment to ADR-0007 — PDF kind `Estimate`
 
-Add a fourth row to ADR-0007’s supported-entity table (authoritative detail lives here until ADR-0007 is edited):
+Add a fourth row to ADR-0007’s supported-entity table (applied in [ADR-0007](2026-04-12-async-pdf-pipeline.md) together with its §5 status-validation list and overwrite bullet):
 
 | Entity                    | Renderable when status is                                             |
 | ------------------------- | --------------------------------------------------------------------- |
@@ -60,7 +60,7 @@ Add a fourth row to ADR-0007’s supported-entity table (authoritative detail li
 - Reuse `pdf_storage_key`, `pdf_generated_at`, `pdf_generation_error` on the version row.
 - Worker guard and frontend polling follow the existing invoice/credit-note pattern (ADR-0007 §5 retrieval).
 
-**Retention amendment (supersedes ADR-0007 neutral bullet “retention = bucket config” for compliance records):** archived estimate PDFs and linked snapshots carry per-document `retain_until` = 31 December of (document calendar year + 7) (UGB § 212 Abs 2, BAO § 132 Abs 1). Bucket policy must be **≥ 8 years** or honour per-object `retain_until`, plus legal hold and a deletion mechanism after expiry (DSGVO Art 5(1)(e), Art 17(3)(b)). Never re-render archived PDFs; retain original bytes and SHA-256.
+**Retention amendment (supersedes ADR-0007 neutral bullet “retention = bucket config” for compliance records):** each sent estimate version gets `retain_until` at send time using the **never-converted** default (31 December of document calendar year + 3; lawyer to confirm — see §10). When the linked `WorkshopOrder` reaches `INVOICED`, extend `retain_until` to 31 December of (document calendar year + 7) (UGB § 212 Abs 2, BAO § 132 Abs 1). Bucket policy must be **≥ 8 years** or honour per-object `retain_until`, plus legal hold and a deletion mechanism after expiry (DSGVO Art 5(1)(e), Art 17(3)(b)). Never re-render archived PDFs; retain original bytes and SHA-256.
 
 ### 3. Amendment to ADR-0024 — branding for estimates
 
@@ -80,7 +80,7 @@ When a version transitions from `DRAFT` to `SENT`, freeze immutably:
 - Resolved branding snapshot (schema version, tokens, preset, asset refs).
 - Content hash (`content_sha256`) of the canonical snapshot JSON for evidence.
 
-Post-send order edits do **not** mutate the snapshot. Approving a stale version after order change returns **409**; advisor must send a revised version.
+Post-send order edits do **not** mutate the snapshot and do **not** by themselves block approval. Link or advisor-recorded approval returns **409** when the version is not `SENT` (already `SUPERSEDED`, `EXPIRED`, `APPROVED`, or `DECLINED`), when `valid_until` has passed, or when the approval token is invalid/consumed. Material order drift after send is handled by the overrun flow (§1), not by rejecting an otherwise valid `SENT` version.
 
 ### 5. Who may send and who may approve
 
@@ -109,7 +109,7 @@ Post-send order edits do **not** mutate the snapshot. Approving a stale version 
 - Lookup via one narrow `system-prisma-allowlist` function, then tenant context; response projection = estimate document fields only.
 - Throttle per IP and per token; generic 404/410 for invalid/expired/used; `noindex`, `no-referrer`.
 - Approval page: summary/confirm step, ECG §§ 9–11 static info (workshop-supplied text), privacy-notice link, mandatory legal blocks, B2C button wording per lawyer (draft: “Kostenvoranschlag annehmen und zahlungspflichtig beauftragen” — unverified).
-- **Evidence package** on link approval: `estimate_version_id`, snapshot and PDF `content_sha256`, `token_id` (not raw token), decision, `decided_at`, IP, user-agent, `accept-language`, legal-text hash/version, typed full name + checkbox, recipient email, confirmation email sent_at + provider message id, open tracking, channel `LINK` | `ADVISOR_RECORDED`. UI: “elektronisch bestätigt”, never “digital signiert”.
+- **Evidence package** on link approval: `estimate_version_id`, snapshot and PDF `content_sha256`, `token_id` (not raw token), decision, `decided_at`, IP, user-agent, `accept-language`, legal-text hash/version, typed full name + checkbox, recipient email, confirmation email sent_at + provider message id, open tracking (disabled until D26 / TKG § 165 Abs 3 is cleared), channel `LINK` | `ADVISOR_RECORDED`. UI: “elektronisch bestätigt”, never “digital signiert”.
 - **FAGG / distance contract:** `WorkshopOrder.intake_channel` enum `IN_PERSON` | `REMOTE_ONLY`. For B2C `REMOTE_ONLY`, enable distance-contract mode (FAGG info, withdrawal instruction, “Vertrag widerrufen” from 2026-10-01, early-start request). Customer sending stays behind feature flag until lawyer confirms scenario A.
 
 ### 8. Consent and contact (Epic 7 owns ledger)
@@ -125,13 +125,14 @@ Post-send order edits do **not** mutate the snapshot. Approving a stale version 
 
 ### 10. Retention and erasure (defaults until Epic 7 engine)
 
-| Record                                   | Retention                                                                                            |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Estimate PDF + snapshot (invoiced order) | `retain_until` = 31 Dec (year + 7); legal hold; restricted access after erasure request until expiry |
-| Never-converted estimates                | 3 years from end of year (lawyer to confirm)                                                         |
-| Link-approval IP / UA                    | `approved_at` + 3 years (tenant-configurable), then null; approval row kept                          |
-| Outbox body                              | Purge after 90 days; metadata up to 3 years                                                          |
-| Email send metadata log                  | Up to 3 years                                                                                        |
+| Record                                   | Retention                                                                                                                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Estimate PDF + snapshot at send          | `retain_until` = 31 Dec (document year + 3) until the linked order is `INVOICED` (never-converted default; lawyer to confirm) |
+| Estimate PDF + snapshot (invoiced order) | On `INVOICED`, extend `retain_until` to 31 Dec (year + 7); legal hold; restricted access after erasure request until expiry   |
+| Never-converted estimates (final)        | Remain at 31 Dec (year + 3) if the order never invoices (lawyer to confirm)                                                   |
+| Link-approval IP / UA                    | `approved_at` + 3 years (tenant-configurable), then null; approval row kept                                                   |
+| Outbox body                              | Purge after 90 days; metadata up to 3 years                                                                                   |
+| Email send metadata log                  | Up to 3 years                                                                                                                 |
 
 ### 11. Migrations
 
