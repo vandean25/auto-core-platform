@@ -339,7 +339,7 @@ Same operational states as customer repair through `COMPLETED`. **`COMPLETED` is
 
 Existing `/vehicles` list stays the CRM/service registry. Stock cars may show a badge there; operational work happens on `/vehicle-stock`.
 
-Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the country-specific margin-scheme legal line (DE: `Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.`; AT: existing § 24 UStG 1994 wording until accountant confirms AT hardening). Do not imply the buyer can deduct input VAT on the full price.
+Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the country-specific margin-scheme legal line (DE: `Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.`; AT: `Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 24 UStG 1994.`). Do not imply the buyer can deduct input VAT on the full price.
 
 ---
 

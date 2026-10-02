@@ -636,6 +636,7 @@ describe('invoice-pdf.layout', () => {
       const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
       expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.AT);
       expect(html).toContain('§ 24 UStG 1994');
+      expect(html).toContain('Gebrauchtgegenstände/Sonderregelung');
       expect(html).not.toContain('§ 25a');
       expect(html).not.toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
       expect(html).not.toContain('margin_tax');

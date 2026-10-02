@@ -145,6 +145,7 @@ describe('toRenderableCreditNoteSnapshot', () => {
     const html = buildInvoiceTotalsSection(renderable!, escapeHtml);
     expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.AT);
     expect(html).toContain('§ 24 UStG 1994');
+    expect(html).toContain('Gebrauchtgegenstände/Sonderregelung');
     expect(html).not.toContain('§ 25a');
   });
 });

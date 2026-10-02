@@ -22,6 +22,10 @@ describe('margin-scheme-legal-notes', () => {
     expect(resolveMarginSchemeLegalNote('AT')).toBe(
       MARGIN_SCHEME_LEGAL_NOTES.AT,
     );
+    expect(MARGIN_SCHEME_LEGAL_NOTES.AT).toContain('§ 24 UStG 1994');
+    expect(MARGIN_SCHEME_LEGAL_NOTES.AT).toContain(
+      'Gebrauchtgegenstände/Sonderregelung',
+    );
     expect(MARGIN_SCHEME_LEGAL_NOTES.AT).not.toContain('§ 25a');
   });
 
