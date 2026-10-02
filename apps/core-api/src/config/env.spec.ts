@@ -96,14 +96,14 @@ describe('validateEnv', () => {
   });
 
   it('does not require Observe credentials in production when telemetry secrets are not deployed', () => {
-    expect(() =>
-      validateEnv(
-        productionEnv({
-          OBSERVE_APP_KEY: undefined,
-          OBSERVE_APP_SECRET: undefined,
-        }),
-      ),
-    ).not.toThrow();
+    const env = validateEnv(
+      productionEnv({
+        OBSERVE_APP_KEY: undefined,
+        OBSERVE_APP_SECRET: undefined,
+      }),
+    );
+    expect(env.OBSERVE_APP_KEY).toBeUndefined();
+    expect(env.OBSERVE_APP_SECRET).toBeUndefined();
   });
 
   it('accepts the optional production pooler requirement flag', () => {
