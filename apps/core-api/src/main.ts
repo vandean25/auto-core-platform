@@ -16,6 +16,7 @@ import {
   logRuntimeDatabaseUrlStatus,
   requireRuntimePooler,
 } from './prisma/runtime-database-url-health.js';
+import { assertE2eFullstackInMemoryPdfAllowed } from './e2e-fullstack/assert-in-memory-pdf-allowed.js';
 
 async function bootstrap() {
   const env = validateEnv();
@@ -33,7 +34,9 @@ async function bootstrap() {
     ...(observeTelemetry ? { instrument: ObserveInstrument } : {}),
   });
 
-  if (process.env.E2E_FULLSTACK_IN_MEMORY_PDF === 'true') {
+  const inMemoryPdfEnabled = process.env.E2E_FULLSTACK_IN_MEMORY_PDF === 'true';
+  assertE2eFullstackInMemoryPdfAllowed(env.NODE_ENV, inMemoryPdfEnabled);
+  if (inMemoryPdfEnabled) {
     const { installInMemoryInvoicePdfStorage } =
       await import('./e2e-fullstack/in-memory-invoice-pdf-storage.js');
     installInMemoryInvoicePdfStorage(app, { mockRenderer: false });

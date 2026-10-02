@@ -5,6 +5,8 @@ import { E2E_FULLSTACK_API_PORT } from '../../core-api/test/e2e-fullstack/consta
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Full-stack sales invoice and credit note flows', () => {
+  let finalizedInvoiceNumber = ''
+
   test('flow 1: sales order → finalize invoice → PDF download', async ({ page, request }) => {
     const fixture = loadE2eFullstackFixture()
     const apiBase = `http://127.0.0.1:${E2E_FULLSTACK_API_PORT}/api`
@@ -57,7 +59,10 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
       .click()
 
     await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+$/)
-    await expect(page.getByRole('heading', { name: /^RE-/ })).toBeVisible()
+    const invoiceHeading = page.getByRole('heading', { name: /^RE-/ })
+    await expect(invoiceHeading).toBeVisible()
+    finalizedInvoiceNumber = (await invoiceHeading.textContent())?.trim() ?? ''
+    expect(finalizedInvoiceNumber.length).toBeGreaterThan(0)
 
     await page.getByRole('button', { name: 'Print' }).click()
     await expect(page.getByText('Invoice PDF downloaded successfully')).toBeVisible({
@@ -80,8 +85,11 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
     loadE2eFullstackFixture()
     await page.goto('/sales/invoices')
     await expect(page.getByRole('heading', { name: 'Sales Invoices' })).toBeVisible()
-    await page.getByRole('cell', { name: 'RE-2026-0001' }).click()
-    await expect(page.getByRole('heading', { name: /^RE-2026-0001$/ })).toBeVisible()
+    expect(finalizedInvoiceNumber).toBeTruthy()
+    await page.getByRole('cell', { name: finalizedInvoiceNumber }).click()
+    await expect(
+      page.getByRole('heading', { name: finalizedInvoiceNumber }),
+    ).toBeVisible()
 
     await page.getByRole('button', { name: 'Credit Note' }).click()
     await page.getByLabel('Reason').fill('E2E fullstack commercial correction')

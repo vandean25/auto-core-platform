@@ -13,6 +13,9 @@ const hasSentryUploadCredentials = Boolean(
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, import.meta.dirname, '')
+  if (mode === 'production' && env.VITE_E2E_TEST_TOKEN?.trim()) {
+    throw new Error('VITE_E2E_TEST_TOKEN must not be set for production builds')
+  }
   const apiProxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:3000'
   const appVersion = env.VITE_APP_VERSION ?? process.env.VITE_APP_VERSION ?? ''
 
@@ -43,6 +46,7 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: './src/test/setup.ts',
+      include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.ts'],
       exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-fullstack/**'],
     },
     server: {

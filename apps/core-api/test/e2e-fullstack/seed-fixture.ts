@@ -87,16 +87,16 @@ async function seedBaseTenantData(
   const customer = await seedInvoiceReadyCustomer(tenantPrisma, tenant.tenantId);
 
   const siteId = await resolveTestMainSiteId(prisma, tenant.tenantId);
-    const catalogItem = await tenantPrisma.catalogItem.create({
-      data: {
-        sku: E2E_FULLSTACK_CATALOG_SKU,
-        name: E2E_FULLSTACK_CATALOG_NAME,
-        cost_price: 5,
-        retail_price: 12,
-        unit: 'pcs',
-      },
-    });
-    const catalogItemId = catalogItem.id;
+  const catalogItem = await tenantPrisma.catalogItem.create({
+    data: {
+      sku: E2E_FULLSTACK_CATALOG_SKU,
+      name: E2E_FULLSTACK_CATALOG_NAME,
+      cost_price: 5,
+      retail_price: 12,
+      unit: 'pcs',
+    },
+  });
+  const catalogItemId = catalogItem.id;
 
   const location = await tenantPrisma.storageLocation.create({
     data: {
@@ -191,16 +191,6 @@ export async function seedE2eFullstackFixture(
     await mkdir(dirname(fixturePath), { recursive: true });
     await writeFile(fixturePath, `${JSON.stringify(fixture, null, 2)}\n`, 'utf8');
     return fixture;
-  } finally {
-    await teardownTestApp(app, prisma);
-  }
-}
-
-export async function resetE2eFullstackTransactionalData(): Promise<void> {
-  const app = await createHarnessApp();
-  const prisma = app.get(PrismaService);
-  try {
-    await truncateTransactionalTables(prisma);
   } finally {
     await teardownTestApp(app, prisma);
   }
