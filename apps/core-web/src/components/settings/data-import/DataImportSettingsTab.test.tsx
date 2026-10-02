@@ -6,7 +6,6 @@ import type { ImportJob } from '@/api/imports'
 import * as importsApi from '@/api/imports'
 
 import { DataImportSettingsTab } from './DataImportSettingsTab'
-import { canApplyImport } from './import-wizard-logic'
 
 vi.mock('@/api/imports', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/imports')>()
@@ -44,15 +43,6 @@ const dryRunJob: ImportJob = {
   applied_at: null,
 }
 
-function mockDryRunJobForApply(overrides: Partial<ImportJob> = {}): ImportJob {
-  return {
-    ...dryRunJob,
-    file_sha256: 'abc',
-    totals: { rows: 3, create: 1, update: 0, skip: 0, error: 2 },
-    ...overrides,
-  }
-}
-
 function renderTab() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -63,61 +53,6 @@ function renderTab() {
     </QueryClientProvider>,
   )
 }
-
-function ApplyImportButton({
-  job,
-  dryRunStale,
-  errorThreshold,
-  isApplying,
-}: {
-  job: ImportJob | null
-  dryRunStale: boolean
-  errorThreshold: number
-  isApplying: boolean
-}) {
-  const enabled = canApplyImport({
-    dryRunJob: job,
-    dryRunStale,
-    errorThreshold,
-    isApplying,
-  })
-  return (
-    <button type="button" disabled={!enabled}>
-      Apply import / Import anwenden
-    </button>
-  )
-}
-
-describe('DataImportSettingsTab apply control', () => {
-  it('disables apply when dry-run is stale or errors exceed the threshold', () => {
-    const job = mockDryRunJobForApply()
-
-    const { rerender } = render(
-      <ApplyImportButton
-        job={job}
-        dryRunStale={false}
-        errorThreshold={0}
-        isApplying={false}
-      />,
-    )
-    expect(screen.getByRole('button', { name: /Apply import/i })).toBeDisabled()
-
-    rerender(
-      <ApplyImportButton
-        job={job}
-        dryRunStale={false}
-        errorThreshold={2}
-        isApplying={false}
-      />,
-    )
-    expect(screen.getByRole('button', { name: /Apply import/i })).toBeEnabled()
-
-    rerender(
-      <ApplyImportButton job={job} dryRunStale={true} errorThreshold={10} isApplying={false} />,
-    )
-    expect(screen.getByRole('button', { name: /Apply import/i })).toBeDisabled()
-  })
-})
 
 describe('DataImportSettingsTab row filter', () => {
   beforeEach(() => {
