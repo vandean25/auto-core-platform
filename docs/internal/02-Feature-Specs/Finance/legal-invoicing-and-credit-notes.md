@@ -119,7 +119,7 @@ For a partial credit, allocate original net/tax amounts proportionally to credit
 - Credit eligibility: original version-2 FINALIZED/ISSUED/PAID; same tenant/site/entity; quantity > 0 and ≤ remaining; nonempty reason; date ≥ original date and > lock date. Full credit after partials means all remaining quantities, not the original gross a second time.
 - On original locked periods, a new credit uses the open-period date and leaves the original unchanged. A lock advance racing issuance must serialize with the same finance-settings row lock.
 - Missing/invalid active site → 422 `ACTIVE_SITE_REQUIRED`; wrong tenant/site document → 404; role denial → 403; malformed payload → 400; stale version, idempotency mismatch or exceeded remaining credit → 409; locked fiscal date or incomplete/unsupported legal profile → 422.
-- Business error codes include `SELLER_IDENTITY_INCOMPLETE` with `missingFields`, `CUSTOMER_IDENTITY_INCOMPLETE`, `SOURCE_DOCUMENT_REQUIRED`, `ACCOUNTING_MAPPING_INCOMPLETE`, `FISCAL_PERIOD_LOCKED`, `UNSUPPORTED_TAX_PROFILE`, `LEGACY_DOCUMENT_UNSUPPORTED`, `CREDIT_LIMIT_EXCEEDED`. Do not disclose foreign document existence in diagnostics.
+- Business error codes include `SELLER_IDENTITY_INCOMPLETE` with `missingFields`, `CUSTOMER_IDENTITY_INCOMPLETE`, `AT_RECIPIENT_UID_REQUIRED`, `CUSTOMER_VAT_ID_INVALID` (field `vat_id` on customer writes), `SOURCE_DOCUMENT_REQUIRED`, `ACCOUNTING_MAPPING_INCOMPLETE`, `FISCAL_PERIOD_LOCKED`, `UNSUPPORTED_TAX_PROFILE`, `LEGACY_DOCUMENT_UNSUPPORTED`, `CREDIT_LIMIT_EXCEEDED`. Do not disclose foreign document existence in diagnostics.
 
 ## API Contract Changes
 
