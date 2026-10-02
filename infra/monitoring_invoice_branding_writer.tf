@@ -1,10 +1,10 @@
 resource "google_logging_metric" "core_api_invoice_branding_writer_disabled" {
   name = "core_api_invoice_branding_writer_disabled"
 
+  # Nest ConsoleLogger writes warn() as unstructured stdout (textPayload, severity DEFAULT).
   filter = <<-EOT
     resource.type="cloud_run_revision"
     resource.labels.service_name="${var.service_name}"
-    severity>=WARNING
     (
       textPayload=~"\"code\":\"INVOICE_BRANDING_WRITER_DISABLED\""
       OR jsonPayload.code="INVOICE_BRANDING_WRITER_DISABLED"

@@ -155,7 +155,9 @@ that code when the flag is off (for example after rollback).
 
 **Monitoring:** `infra/monitoring_invoice_branding_writer.tf` defines a log-based
 metric and alert on `INVOICE_BRANDING_WRITER_DISABLED` (503 operational responses
-logged by `GlobalExceptionFilter`). Wire
+logged by `GlobalExceptionFilter` as JSON inside unstructured `textPayload`; do not
+filter on LogEntry `severity`, which stays `DEFAULT` for Nest `ConsoleLogger`).
+Wire
 `invoice_branding_writer_disabled_alert_notification_channel_ids` in the target
 workspace before apply; record the alert link in
 [Slice 1 release acceptance](document-branding-slice-1-release-acceptance.md)
