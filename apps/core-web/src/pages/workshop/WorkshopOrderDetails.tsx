@@ -7,6 +7,7 @@ import { useCatalogProviderSettings } from '@/api/useCatalogProviderSettings'
 import { useVehicle, useResolveVehicleIdentity } from '@/api/vehicles'
 import { FitmentSearchModal } from '@/components/workshop/FitmentSearchModal'
 import { VehicleIdentityBanner } from '@/components/workshop/VehicleIdentityBanner'
+import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -345,6 +346,7 @@ export function WorkshopOrderDetails() {
         />
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
+        <TyreSetsSummary vehicleId={order.vehicle.id} readOnly />
 
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
           <motion.div

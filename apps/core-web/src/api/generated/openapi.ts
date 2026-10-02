@@ -2843,6 +2843,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tyre-sets/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tenant tyre storage season swap defaults */
+        get: operations["TyreStorageController_getSettings"];
+        /** Update tenant tyre storage season swap defaults */
+        put: operations["TyreStorageController_updateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/due-for-swap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List stored sets approaching planned swap (manual calling only) */
+        get: operations["TyreStorageController_dueForSwap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/due-for-swap/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CSV export for due-for-swap list */
+        get: operations["TyreStorageController_exportDueForSwap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/by-customer/{customerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreStorageController_byCustomer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/by-vehicle/{vehicleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreStorageController_byVehicle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreStorageController_list"];
+        put?: never;
+        post: operations["TyreStorageController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TyreStorageController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["TyreStorageController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["TyreStorageController_update"];
+        trace?: never;
+    };
+    "/api/tyre-sets/{id}/check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TyreStorageController_checkIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/{id}/check-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TyreStorageController_checkOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TyreStorageController_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tyre-sets/{id}/dispose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TyreStorageController_dispose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6152,6 +6332,120 @@ export interface components {
         ImportJobRowsResponseDto: {
             data: components["schemas"]["ImportJobRowDto"][];
             meta: Record<string, never>;
+        };
+        TyreStorageSettingsResponseDto: {
+            summerSwapMonth: number;
+            summerSwapDay: number;
+            winterSwapMonth: number;
+            winterSwapDay: number;
+            dueForSwapDays: number;
+        };
+        UpdateTyreStorageSettingsDto: {
+            summerSwapMonth: number;
+            summerSwapDay: number;
+            winterSwapMonth: number;
+            winterSwapDay: number;
+            dueForSwapDays: number;
+        };
+        /** @enum {string} */
+        TyreSeason: "SUMMER" | "WINTER" | "ALL_SEASON";
+        /** @enum {string} */
+        TyreRimType: "NONE" | "STEEL" | "ALLOY";
+        /** @enum {string} */
+        TyreSetStatus: "IN_STORAGE" | "ON_VEHICLE" | "RETURNED" | "DISPOSED";
+        /** @enum {string} */
+        TyreSetEventType: "CHECK_IN" | "CHECK_OUT" | "MOVED" | "INSPECTED" | "DISPOSED";
+        TyreSetEventResponseDto: {
+            id: string;
+            eventType: components["schemas"]["TyreSetEventType"];
+            occurredAt: string;
+            workshopOrderId?: string | null;
+            fromLocationId?: string | null;
+            toLocationId?: string | null;
+            odometer?: number | null;
+            note?: string | null;
+        };
+        TyreSetResponseDto: {
+            id: string;
+            customerId: string;
+            vehicleId?: string | null;
+            siteId: string;
+            locationId?: string | null;
+            locationCode?: string | null;
+            label: string;
+            season: components["schemas"]["TyreSeason"];
+            tyreCount: number;
+            rimType: components["schemas"]["TyreRimType"];
+            brand?: string | null;
+            model?: string | null;
+            dimension?: string | null;
+            dotCodes: string[];
+            treadDepthMm?: Record<string, never> | null;
+            conditionNotes?: string | null;
+            status: components["schemas"]["TyreSetStatus"];
+            storedSince?: string | null;
+            plannedSwapOn?: string | null;
+            binLabel?: string | null;
+            events?: components["schemas"]["TyreSetEventResponseDto"][];
+            customerName?: string;
+            vehiclePlate?: string | null;
+            customerPhone?: string | null;
+            customerEmail?: string | null;
+        };
+        TyreSetListEnvelopeDto: {
+            data: components["schemas"]["TyreSetResponseDto"][];
+        };
+        TreadDepthDto: {
+            FL?: number;
+            FR?: number;
+            RL?: number;
+            RR?: number;
+        };
+        CreateTyreSetDto: {
+            customerId: string;
+            vehicleId?: string;
+            locationId?: string;
+            label: string;
+            season: components["schemas"]["TyreSeason"];
+            /** @default 4 */
+            tyreCount: number;
+            rimType?: components["schemas"]["TyreRimType"];
+            brand?: string;
+            model?: string;
+            /** @example 245/45 R18 */
+            dimension?: string;
+            dotCodes?: string[];
+            treadDepthMm?: components["schemas"]["TreadDepthDto"];
+            conditionNotes?: string;
+            binLabel?: string;
+            /** Format: date */
+            plannedSwapOn?: string;
+        };
+        UpdateTyreSetDto: {
+            vehicleId?: Record<string, never>;
+            label?: string;
+            season?: components["schemas"]["TyreSeason"];
+            tyreCount?: number;
+            rimType?: components["schemas"]["TyreRimType"];
+            brand?: Record<string, never>;
+            model?: Record<string, never>;
+            dimension?: Record<string, never>;
+            dotCodes?: string[];
+            treadDepthMm?: components["schemas"]["TreadDepthDto"];
+            conditionNotes?: Record<string, never>;
+            binLabel?: Record<string, never>;
+            /** Format: date */
+            plannedSwapOn?: string;
+        };
+        TyreSetLocationActionDto: {
+            locationId?: string;
+            odometer?: number;
+            treadDepthMm?: components["schemas"]["TreadDepthDto"];
+            note?: string;
+            workshopOrderId?: string;
+            employeeId?: string;
+            /** Format: date-time */
+            occurredAt?: string;
         };
     };
     responses: never;
@@ -12025,6 +12319,347 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportJobResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreStorageSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTyreStorageSettingsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreStorageSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_dueForSwap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetListEnvelopeDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_exportDueForSwap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TyreStorageController_byCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["TyreSetResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    TyreStorageController_byVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetListEnvelopeDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_list: {
+        parameters: {
+            query?: {
+                customerId?: string;
+                vehicleSearch?: string;
+                locationId?: string;
+                season?: components["schemas"]["TyreSeason"];
+                status?: components["schemas"]["TyreSetStatus"];
+                dueFrom?: string;
+                dueTo?: string;
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["TyreSetResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    TyreStorageController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTyreSetDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TyreStorageController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTyreSetDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_checkIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_checkOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_dispose: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
                 };
             };
         };

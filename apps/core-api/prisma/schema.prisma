@@ -111,6 +111,9 @@ model Tenant {
   invoiceBrandAssetReferences   InvoiceBrandAssetReference[]
   documentBrandQuotaEvents      DocumentBrandQuotaEvent[]
   documentBrandQuotaLocks       DocumentBrandQuotaLock[]
+  tyreSets                      TyreSet[]
+  tyreSetEvents                 TyreSetEvent[]
+  tyreStorageSettings           TyreStorageSettings?
   documentBrandExtractions      DocumentBrandExtraction[]
   importJobs                    ImportJob[]
   importJobRows                 ImportJobRow[]
@@ -482,6 +485,7 @@ model Site {
   purchaseOrders           PurchaseOrder[]
   vehiclePurchases         VehiclePurchase[]
   vehicleSales             VehicleSale[]
+  tyreSets                 TyreSet[]
   invoices                 Invoice[]
   creditNotes              CreditNote[]
   createdAt                DateTime              @default(now())
@@ -759,6 +763,9 @@ model StorageLocation {
   stagingWorkshopOrders WorkshopOrder[]        @relation("WorkshopOrderStagingLocation")
   parkedVehicles        Vehicle[]              @relation("VehicleLot")
   partsReservations     PartsReservation[]
+  tyreSets              TyreSet[]
+  tyreSetEventsFrom     TyreSetEvent[]         @relation("TyreSetEventFromLocation")
+  tyreSetEventsTo       TyreSetEvent[]         @relation("TyreSetEventToLocation")
   transferSourceLines   StockTransferLine[]    @relation("StockTransferSourceLocation")
   transferDestLines     StockTransferLine[]    @relation("StockTransferDestLocation")
   createdAt             DateTime               @default(now())
@@ -1077,6 +1084,7 @@ model Customer {
   workshop_orders         WorkshopOrder[]
   vehicle_purchases       VehiclePurchase[] @relation("VehiclePurchaseSeller")
   vehicle_sales           VehicleSale[]
+  tyre_sets               TyreSet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1133,6 +1141,7 @@ model Vehicle {
   purchases                      VehiclePurchase[]
   sales                          VehicleSale[]
   ledger_entries                 VehicleLedgerEntry[]
+  tyre_sets                      TyreSet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1654,6 +1663,7 @@ model Employee {
   is_active                Boolean                  @default(true)
   sort_order               Int                      @default(0)
   mother_language_code     String?
+  tyre_set_events          TyreSetEvent[]
   workshopOrdersAsMechanic WorkshopOrder[]          @relation("WorkshopOrderMechanic")
   workshopTasksAsMechanic  WorkshopTask[]           @relation("WorkshopTaskMechanic")
   laborEntries             LaborEntry[]             @relation("EmployeeLaborEntries")
@@ -1888,6 +1898,7 @@ model WorkshopOrder {
   tasks                  WorkshopTask[]
   invoice                Invoice?
   vehicle_ledger_entries VehicleLedgerEntry[]
+  tyre_set_events        TyreSetEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1906,6 +1917,116 @@ model WorkshopOrder {
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
   @@index([tenant_id, bay_id, scheduled_start_at], map: "idx_workshop_orders_bay_schedule")
   @@map("workshop_orders")
+}
+
+enum TyreSeason {
+  SUMMER
+  WINTER
+  ALL_SEASON
+}
+
+enum TyreRimType {
+  NONE
+  STEEL
+  ALLOY
+}
+
+enum TyreSetStatus {
+  IN_STORAGE
+  ON_VEHICLE
+  RETURNED
+  DISPOSED
+}
+
+enum TyreSetEventType {
+  CHECK_IN
+  CHECK_OUT
+  MOVED
+  INSPECTED
+  DISPOSED
+}
+
+model TyreStorageSettings {
+  id                  String   @id @default(uuid())
+  tenant_id           String   @unique
+  tenant              Tenant   @relation(fields: [tenant_id], references: [id])
+  summer_swap_month   Int      @default(3)
+  summer_swap_day     Int      @default(1)
+  winter_swap_month   Int      @default(10)
+  winter_swap_day     Int      @default(1)
+  due_for_swap_days   Int      @default(30)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenant_id])
+  @@map("tyre_storage_settings")
+}
+
+model TyreSet {
+  id                   String         @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant         @relation(fields: [tenant_id], references: [id])
+  customer_id          String
+  customer             Customer       @relation(fields: [customer_id], references: [id])
+  vehicle_id           String?
+  vehicle              Vehicle?       @relation(fields: [vehicle_id], references: [id])
+  site_id              String
+  site                 Site           @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  location_id          String?
+  location             StorageLocation? @relation(fields: [tenant_id, site_id, location_id], references: [tenant_id, site_id, id], onDelete: SetNull)
+  label                String
+  season               TyreSeason
+  tyre_count           Int            @default(4)
+  rim_type             TyreRimType    @default(NONE)
+  brand                String?
+  model                String?
+  dimension            String?
+  dot_codes            String[]
+  tread_depth_mm_json  Json?
+  condition_notes      String?
+  status               TyreSetStatus  @default(IN_STORAGE)
+  stored_since         DateTime?      @db.Date
+  planned_swap_on      DateTime?      @db.Date
+  bin_label            String?
+  created_by_user_id   String?
+  events               TyreSetEvent[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, status])
+  @@index([tenant_id, customer_id])
+  @@index([tenant_id, site_id, status])
+  @@index([tenant_id, planned_swap_on])
+  @@map("tyre_sets")
+}
+
+model TyreSetEvent {
+  id                  String           @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant           @relation(fields: [tenant_id], references: [id])
+  tyre_set_id         String
+  tyre_set            TyreSet          @relation(fields: [tenant_id, tyre_set_id], references: [tenant_id, id], onDelete: Restrict)
+  event_type          TyreSetEventType
+  occurred_at         DateTime
+  workshop_order_id   String?
+  workshop_order      WorkshopOrder?   @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: SetNull)
+  from_location_id    String?
+  from_location       StorageLocation? @relation("TyreSetEventFromLocation", fields: [from_location_id], references: [id], onDelete: SetNull)
+  to_location_id      String?
+  to_location         StorageLocation? @relation("TyreSetEventToLocation", fields: [to_location_id], references: [id], onDelete: SetNull)
+  odometer            Int?
+  tread_depth_mm_json Json?
+  note                String?
+  employee_id         String?
+  employee            Employee?        @relation(fields: [employee_id], references: [id], onDelete: SetNull)
+  created_by_user_id  String?
+  createdAt           DateTime         @default(now())
+
+  @@index([tenant_id])
+  @@index([tenant_id, tyre_set_id])
+  @@index([tenant_id, occurred_at])
+  @@map("tyre_set_events")
 }
 
 enum WorkshopTaskStatus {
