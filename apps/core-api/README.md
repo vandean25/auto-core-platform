@@ -53,8 +53,9 @@ compiled `dist/main.js` entry point.
 
 Use the repository scripts for supported TypeScript entry points:
 
-- `npm run openapi:generate` uses the `ts-node/esm` loader because Nest
-  decorator metadata must be available while the application is inspected.
+- `npm run openapi:generate` builds the API and then runs the compiled
+  `scripts/generate-openapi.mjs`, which boots the application so Nest decorator
+  metadata is available while the application is inspected.
 - Operational scripts such as `check:cloudrun-env`, `db:baseline`, and the
   seed commands use `tsx` and are safe ESM entry points.
 - `npm run verify:esm-artifact` checks a previously built `dist/` artifact for a
