@@ -2175,6 +2175,38 @@ export interface paths {
         patch: operations["VehicleController_update"];
         trace?: never;
     };
+    "/api/vehicles/{vehicleId}/inspection-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleInspectionRecordController_list"];
+        put?: never;
+        post: operations["VehicleInspectionRecordController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/inspection-records/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleInspectionRecordController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["VehicleInspectionRecordController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["VehicleInspectionRecordController_update"];
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -3532,6 +3564,22 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        /** @enum {string} */
+        PickerlDueStatus: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
+        PickerlWarningDto: {
+            code: string;
+            message: string;
+        };
+        PickerlDueDto: {
+            /**
+             * @description Next due month as YYYY-MM
+             * @example 2027-03
+             */
+            due_month: string | null;
+            status: components["schemas"]["PickerlDueStatus"];
+            rule_id: string;
+            warnings: components["schemas"]["PickerlWarningDto"][];
+        };
         VehicleResponseDto: {
             id: string;
             make: string;
@@ -3560,6 +3608,7 @@ export interface components {
             nova_class?: string | null;
             emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         /** @enum {string} */
         InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
@@ -4225,6 +4274,7 @@ export interface components {
             nova_class?: string | null;
             emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         /** @enum {string} */
         WorkshopOrderPurpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
@@ -4485,6 +4535,7 @@ export interface components {
             nova_class?: string | null;
             emission_class?: string | null;
             customer: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         WorkshopSearchCustomerDto: {
             id: string;
@@ -5608,6 +5659,44 @@ export interface components {
             plate?: string;
             /** Format: uuid */
             customer_id?: string | null;
+        };
+        /** @enum {string} */
+        VehicleInspectionType: "PICKERL_57A";
+        /** @enum {string} */
+        VehicleInspectionRecordSource: "MANUAL";
+        VehicleInspectionRecordResponseDto: {
+            id: string;
+            vehicle_id: string;
+            inspection_type: components["schemas"]["VehicleInspectionType"];
+            /** Format: date */
+            inspected_on: string;
+            plaketten_valid_until_year: number;
+            plaketten_valid_until_month: number;
+            station_name?: string | null;
+            source: components["schemas"]["VehicleInspectionRecordSource"];
+            notes?: string | null;
+            created_by_user_id?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateVehicleInspectionRecordDto: {
+            inspection_type: components["schemas"]["VehicleInspectionType"];
+            /** Format: date */
+            inspected_on: string;
+            plaketten_valid_until_year: number;
+            plaketten_valid_until_month: number;
+            station_name?: string;
+            notes?: string;
+        };
+        UpdateVehicleInspectionRecordDto: {
+            /** Format: date */
+            inspected_on?: string;
+            plaketten_valid_until_year?: number;
+            plaketten_valid_until_month?: number;
+            station_name?: Record<string, never>;
+            notes?: Record<string, never>;
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -11230,6 +11319,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"][];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleInspectionRecordDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleInspectionRecordController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+                recordId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVehicleInspectionRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
                 };
             };
         };

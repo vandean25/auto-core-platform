@@ -67,7 +67,7 @@ describe('Loaner vehicles (e2e)', () => {
 
     const customer = await prisma.customer.create({
       data: {
-        first_name: 'pilot',
+        first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
       },
@@ -276,7 +276,7 @@ describe('Loaner vehicles (e2e)', () => {
   it('rejects a workshop order from another site', async () => {
     const foreignCustomer = await prisma.customer.create({
       data: {
-        first_name: 'pilot',
+        first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
       },
@@ -295,7 +295,7 @@ describe('Loaner vehicles (e2e)', () => {
         site_id: otherSiteId,
         customer_id: foreignCustomer.id,
         vehicle_id: foreignVehicle.id,
-        order_number: 'WO-LOANER-OTHER',
+        order_number: `WO-LOANER-OTHER-${Date.now()}`,
         odometer: 1000,
         fuel_level: 50,
       },
@@ -318,7 +318,7 @@ describe('Loaner vehicles (e2e)', () => {
     const otherSiteId = await resolveTestMainSiteId(basePrisma, otherTenant.tenantId);
     const foreignCustomer = await otherPrisma.customer.create({
       data: {
-        first_name: 'pilot',
+        first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
       },
@@ -337,7 +337,7 @@ describe('Loaner vehicles (e2e)', () => {
         site_id: otherSiteId,
         customer_id: foreignCustomer.id,
         vehicle_id: foreignVehicle.id,
-        order_number: 'WO-FOREIGN-TENANT',
+        order_number: `WO-FOREIGN-TENANT-${Date.now()}`,
         odometer: 1000,
         fuel_level: 50,
       },
@@ -370,7 +370,7 @@ describe('Loaner vehicles (e2e)', () => {
     const otherPrisma = createTenantAwarePrisma(basePrisma, otherTenant.tenantId);
     const foreignCustomer = await otherPrisma.customer.create({
       data: {
-        first_name: 'pilot',
+        first_name: 'demo',
         last_name: 'customer',
         type: 'PRIVATE',
       },

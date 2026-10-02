@@ -120,6 +120,7 @@ export const AUDITED_MODELS = new Set([
   'VehiclePurchase',
   'VehicleSale',
   'VehicleLedgerEntry',
+  'VehicleInspectionRecord',
   'WorkshopOpeningHour',
   'WorkshopHoliday',
   'LegalEntity',
