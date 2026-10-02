@@ -287,4 +287,86 @@ describe('CustomerService', () => {
       }),
     });
   });
+
+  it('clears vat_id on update when inline editor sends empty string', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'AT',
+      vat_id: 'ATU12345678',
+    });
+    mockPrisma.customer.update.mockResolvedValue({ id: 'c-1' });
+
+    await service.update('c-1', { vat_id: '' });
+
+    expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+      where: { id: 'c-1' },
+      data: expect.objectContaining({ vat_id: null }),
+    });
+  });
+
+  it('clears vat_id on update when null is sent', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'AT',
+      vat_id: 'ATU12345678',
+    });
+    mockPrisma.customer.update.mockResolvedValue({ id: 'c-1' });
+
+    await service.update('c-1', { vat_id: null as unknown as string });
+
+    expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+      where: { id: 'c-1' },
+      data: expect.objectContaining({ vat_id: null }),
+    });
+  });
+
+  it('allows unrelated updates when stored vat_id is legacy invalid', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'AT',
+      vat_id: 'LEGACY',
+    });
+    mockPrisma.customer.update.mockResolvedValue({ id: 'c-1' });
+
+    await service.update('c-1', { phone: '123' });
+
+    expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+      where: { id: 'c-1' },
+      data: { phone: '123' },
+    });
+  });
+
+  it('validates stored vat_id when address_country changes', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'CH',
+      vat_id: 'LEGACY',
+    });
+
+    await expect(
+      service.update('c-1', { address_country: 'AT' }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'CUSTOMER_VAT_ID_INVALID',
+        field: 'vat_id',
+      },
+    });
+    expect(mockPrisma.customer.update).not.toHaveBeenCalled();
+  });
+
+  it('normalizes vat_id on update', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'AT',
+      vat_id: null,
+    });
+    mockPrisma.customer.update.mockResolvedValue({ id: 'c-1' });
+
+    await service.update('c-1', { vat_id: ' atu 1234 5678 ' });
+
+    expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+      where: { id: 'c-1' },
+      data: expect.objectContaining({ vat_id: 'ATU12345678' }),
+    });
+  });
 });

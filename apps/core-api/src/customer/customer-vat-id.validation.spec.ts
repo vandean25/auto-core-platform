@@ -9,6 +9,7 @@ describe('customer-vat-id.validation', () => {
   describe('normalizeCustomerVatId', () => {
     it('uppercases and strips whitespace', () => {
       expect(normalizeCustomerVatId('  atu12345678 ')).toBe('ATU12345678');
+      expect(normalizeCustomerVatId('atu 1234 5678')).toBe('ATU12345678');
     });
 
     it('returns null for blank values', () => {

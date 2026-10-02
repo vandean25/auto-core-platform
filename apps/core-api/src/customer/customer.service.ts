@@ -205,12 +205,16 @@ export class CustomerService {
       updateCustomerDto.vat_id !== undefined
         ? updateCustomerDto.vat_id
         : existing.vat_id;
-    assertCustomerVatIdFormat(mergedCountry, mergedVatId);
+    if (
+      updateCustomerDto.vat_id !== undefined ||
+      updateCustomerDto.address_country !== undefined
+    ) {
+      assertCustomerVatIdFormat(mergedCountry, mergedVatId);
+    }
 
-    const data: UpdateCustomerDto = { ...updateCustomerDto };
+    const data: Prisma.CustomerUpdateInput = { ...updateCustomerDto };
     if (updateCustomerDto.vat_id !== undefined) {
-      data.vat_id =
-        normalizeCustomerVatId(updateCustomerDto.vat_id) ?? undefined;
+      data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id);
     }
 
     return this.prisma.customer.update({

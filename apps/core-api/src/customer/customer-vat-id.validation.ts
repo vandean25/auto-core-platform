@@ -10,7 +10,10 @@ export const CUSTOMER_VAT_ID_INVALID_CODE = 'CUSTOMER_VAT_ID_INVALID';
 export function normalizeCustomerVatId(
   value: string | undefined | null,
 ): string | null {
-  return normalizeUppercaseOptionalString(value);
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return normalizeUppercaseOptionalString(value.replace(/\s+/g, ''));
 }
 
 function normalizeCountryIso(
