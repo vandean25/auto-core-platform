@@ -1,4 +1,7 @@
+import { Link } from 'react-router-dom'
+import { format } from 'date-fns'
 import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,6 +74,16 @@ export function OrderTopBar({
               <p className='text-sm text-slate-500'>
                 Promised time: Not set · Tech: {assignedTechName ?? 'Unassigned'} · Bay: {bayName ?? 'Unassigned'}
               </p>
+              {order.loanerBooking ? (
+                <Link
+                  to={APP_ROUTE_PATHS.workshopLoanerVehicles}
+                  className='inline-flex items-center rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800 hover:bg-sky-100'
+                >
+                  Ersatzwagen:{' '}
+                  {order.loanerBooking.vehiclePlate ?? order.loanerBooking.displayName} bis{' '}
+                  {format(new Date(order.loanerBooking.plannedTo), 'PP')}
+                </Link>
+              ) : null}
               {(catalogSearchSession?.parts || catalogSearchSession?.labor) && (
                 <div className='flex flex-wrap gap-2 pt-1'>
                   {catalogSearchSession.parts && (

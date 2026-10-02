@@ -55,6 +55,13 @@ const statusClassMap: Record<string, string> = {
   SHIPPED: 'border-amber-200 bg-amber-100 text-amber-700',
   REJECTED: 'border-rose-200 bg-rose-100 text-rose-700',
   VOID: 'border-slate-200 bg-slate-100 text-slate-500',
+  AVAILABLE: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  ON_LOAN: 'border-sky-200 bg-sky-100 text-sky-700',
+  MAINTENANCE: 'border-amber-200 bg-amber-100 text-amber-700',
+  RETIRED: 'border-slate-200 bg-slate-100 text-slate-500',
+  HANDED_OVER: 'border-indigo-200 bg-indigo-100 text-indigo-700',
+  RETURNED: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  NO_SHOW: 'border-rose-200 bg-rose-100 text-rose-700',
 }
 
 export function formatStatusLabel(status: string) {
