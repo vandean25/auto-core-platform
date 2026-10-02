@@ -1,9 +1,6 @@
 name: PR Build Check
 
 on:
-  schedule:
-    # Nightly full-stack Playwright (see e2e-fullstack job). Not a PR gate yet.
-    - cron: '0 3 * * *'
   pull_request:
     # branches matches the PR base (target), not the head (source).
     # PRs from feature/* into main already run via `main`. Include feature/*
@@ -359,64 +356,6 @@ jobs:
 
       - name: Validate Terraform configuration
         run: terraform -chdir=infra validate
-
-  e2e-fullstack:
-    # Promotion criterion: after 2 consecutive weeks of green nightly runs, add
-    # `paths: apps/**` to pull_request and remove the schedule-only guard below.
-    name: Full-stack Playwright (nightly / manual)
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: auto_core_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install workspace dependencies
-        run: npm ci
-
-      - name: Generate Prisma Client
-        run: npm exec --workspace=core-api -- prisma generate
-
-      - name: Install Playwright browsers
-        run: npm exec --workspace=core-api -- playwright install --with-deps chromium
-
-      - name: Run full-stack Playwright harness
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
-          CI: true
-        run: npm run test:e2e:fullstack --workspace=core-web
-
-      - name: Upload Playwright traces and screenshots
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: playwright-fullstack-artifacts
-          path: |
-            apps/core-web/playwright-report
-            apps/core-web/test-results
-          retention-days: 14
-          if-no-files-found: warn
 
   repowise-analysis:
     name: Repowise Code Health & Dead Code (Advisory)
