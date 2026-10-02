@@ -698,8 +698,12 @@ export class LoanerVehiclesService {
         const target = error.meta?.target;
         const targetText = Array.isArray(target)
           ? target.join(',')
-          : String(target ?? '');
-        if (targetText.includes('loaner_bookings_one_handed_over_per_vehicle')) {
+          : typeof target === 'string'
+            ? target
+            : '';
+        if (
+          targetText.includes('loaner_bookings_one_handed_over_per_vehicle')
+        ) {
           return true;
         }
       }
