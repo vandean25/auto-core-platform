@@ -50,7 +50,9 @@ export interface CalculateNovaResult {
 
 export type NovaCalculationErrorCode =
   | 'MISSING_CO2'
+  | 'INVALID_CO2'
   | 'INVALID_NEDC_CYCLE'
+  | 'TARIFF_CLASS_MISMATCH'
   | 'UNKNOWN_TARIFF_VERSION'
   | 'INVALID_NET_PRICE';
 

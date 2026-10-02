@@ -20,6 +20,15 @@ function assertNetPrice(netPriceEuro: number): void {
   }
 }
 
+function assertNonNegativeFinite(value: number, fieldName: string): void {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new NovaCalculationError(
+      'INVALID_CO2',
+      `${fieldName} must be a non-negative finite number`,
+    );
+  }
+}
+
 function vehicleClass(input: CalculateNovaInput): NovaVehicleClass {
   return input.vehicleClass ?? 'passenger_z3';
 }
@@ -39,8 +48,10 @@ function resolveEffectiveCo2(
   input: CalculateNovaInput,
   vClass: NovaVehicleClass,
   appliedRuleIds: string[],
+  warnings: string[],
 ): number {
-  if (input.co2GramsPerKm !== undefined && input.co2GramsPerKm !== null) {
+  if (input.co2GramsPerKm !== undefined) {
+    assertNonNegativeFinite(input.co2GramsPerKm, 'co2GramsPerKm');
     let co2 = input.co2GramsPerKm;
     if (input.emissionCycle === 'NEDC') {
       if (vClass !== 'passenger_z3') {
@@ -51,20 +62,24 @@ function resolveEffectiveCo2(
       }
       co2 = co2 * NEDC_TO_WLTP_FACTOR;
       appliedRuleIds.push('co2.nedc_to_wltp_factor');
+      if (!Number.isInteger(co2)) {
+        warnings.push('nedc_fractional_co2_unverified');
+      }
     }
     return co2;
   }
   if (vClass === 'motorcycle_z1_z2') {
-    if (input.displacementCc !== undefined && input.displacementCc !== null) {
+    if (input.displacementCc !== undefined) {
+      assertNonNegativeFinite(input.displacementCc, 'displacementCc');
       appliedRuleIds.push('co2.substitute_motorcycle_hubraum');
       return 0;
     }
   }
   if (
     (vClass === 'passenger_z3' || vClass === 'n1_legacy_z6') &&
-    input.ratedPowerKw !== undefined &&
-    input.ratedPowerKw !== null
+    input.ratedPowerKw !== undefined
   ) {
+    assertNonNegativeFinite(input.ratedPowerKw, 'ratedPowerKw');
     appliedRuleIds.push('co2.substitute_double_kw');
     return input.ratedPowerKw * 2;
   }
@@ -142,6 +157,14 @@ export function calculateNova(
     );
   }
 
+  const vClass = vehicleClass(input);
+  if (tariff.vehicle_class !== vClass) {
+    throw new NovaCalculationError(
+      'TARIFF_CLASS_MISMATCH',
+      `Tariff ${tariff.id} is for ${tariff.vehicle_class}, input is ${vClass}`,
+    );
+  }
+
   const appliedRuleIds: string[] = [];
   const warnings: string[] = [];
 
@@ -151,6 +174,10 @@ export function calculateNova(
   if (input.firstRegistrationDate) {
     warnings.push('wertentwicklung_not_applied');
     warnings.push('eu_import_tariff_hint');
+    const reg = input.firstRegistrationDate.slice(0, 10);
+    if (reg < tariff.valid_from || reg > tariff.valid_to) {
+      warnings.push('tariff_outside_registration_date');
+    }
   }
 
   if (isZeroEmissionExempt(input.driveType)) {
@@ -165,13 +192,17 @@ export function calculateNova(
     };
   }
 
-  const vClass = vehicleClass(input);
   const usedKwSubstitute =
     input.co2GramsPerKm === undefined &&
     input.ratedPowerKw !== undefined &&
     vClass !== 'motorcycle_z1_z2';
 
-  const effectiveCo2 = resolveEffectiveCo2(input, vClass, appliedRuleIds);
+  const effectiveCo2 = resolveEffectiveCo2(
+    input,
+    vClass,
+    appliedRuleIds,
+    warnings,
+  );
   if (input.co2GramsPerKm === 0) {
     appliedRuleIds.push('exempt.z3.zero_co2');
     return {
@@ -184,7 +215,11 @@ export function calculateNova(
     };
   }
 
-  if (!Number.isInteger(effectiveCo2) && effectiveCo2 > 0) {
+  if (
+    !Number.isInteger(effectiveCo2) &&
+    effectiveCo2 > 0 &&
+    !warnings.includes('nedc_fractional_co2_unverified')
+  ) {
     warnings.push('fractional_co2_unverified');
   }
 

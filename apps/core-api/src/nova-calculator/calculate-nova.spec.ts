@@ -187,7 +187,7 @@ describe('calculateNova', () => {
       'at-m1-2026',
     );
     expect(result.effectiveCo2GramsPerKm).toBe(165.1);
-    expect(result.warnings).toContain('fractional_co2_unverified');
+    expect(result.warnings).toContain('nedc_fractional_co2_unverified');
   });
 
   it('rejects NEDC for motorcycles', () => {
@@ -236,8 +236,12 @@ describe('calculateNova', () => {
     );
   });
 
-  describe('N1 malus boundary 208 g/km', () => {
-    it.each([207, 208, 209])('co2=%i', (co2) => {
+  describe('N1 malus boundary 208 g/km (at-n1-2025-h1, €30,000)', () => {
+    it.each([
+      { co2: 207, expected: 3_250 },
+      { co2: 208, expected: 3_250 },
+      { co2: 209, expected: 3_330 },
+    ])('co2=$co2 → €$expected', ({ co2, expected }) => {
       const result = calculateNova(
         {
           ...baseInput,
@@ -246,12 +250,89 @@ describe('calculateNova', () => {
         },
         'at-n1-2025-h1',
       );
-      const malus = Math.max(0, co2 - 208) * 80;
-      const base = (30_000 * result.ratePercentApplied) / 100;
-      expect(result.novaAmountEuro).toBe(
-        Math.round((base + malus - 350) * 100) / 100,
-      );
+      expect(result.novaAmountEuro).toBe(expected);
     });
+  });
+
+  it('throws INVALID_CO2 for NaN CO₂', () => {
+    expect(() =>
+      calculateNova({ ...baseInput, co2GramsPerKm: Number.NaN }, T),
+    ).toThrow(NovaCalculationError);
+    try {
+      calculateNova({ ...baseInput, co2GramsPerKm: Number.NaN }, T);
+    } catch (e) {
+      expect((e as NovaCalculationError).code).toBe('INVALID_CO2');
+    }
+  });
+
+  it('throws INVALID_CO2 for negative CO₂', () => {
+    try {
+      calculateNova({ ...baseInput, co2GramsPerKm: -50 }, T);
+    } catch (e) {
+      expect((e as NovaCalculationError).code).toBe('INVALID_CO2');
+    }
+  });
+
+  it('throws TARIFF_CLASS_MISMATCH for N1 input with M1 tariff', () => {
+    try {
+      calculateNova(
+        {
+          ...baseInput,
+          vehicleClass: 'n1_legacy_z6',
+          co2GramsPerKm: 120,
+        },
+        T,
+      );
+    } catch (e) {
+      expect((e as NovaCalculationError).code).toBe('TARIFF_CLASS_MISMATCH');
+    }
+  });
+
+  it('NEDC with ratedPowerKw substitute does not apply ×1.27', () => {
+    const result = calculateNova(
+      {
+        ...baseInput,
+        emissionCycle: 'NEDC',
+        ratedPowerKw: 100,
+      },
+      T,
+    );
+    expect(result.effectiveCo2GramsPerKm).toBe(200);
+    expect(result.appliedRuleIds).not.toContain('co2.nedc_to_wltp_factor');
+    expect(result.appliedRuleIds).toContain('co2.substitute_double_kw');
+  });
+
+  it('warns when first registration outside tariff validity', () => {
+    const result = calculateNova(
+      {
+        ...baseInput,
+        co2GramsPerKm: 120,
+        firstRegistrationDate: '2020-01-01',
+      },
+      T,
+    );
+    expect(result.warnings).toContain('tariff_outside_registration_date');
+  });
+
+  it('computes 2026 M1 tariff row', () => {
+    const result = calculateNova(
+      { ...baseInput, co2GramsPerKm: 120, taxableEventDate: '2026-05-01' },
+      'at-m1-2026',
+    );
+    expect(result.ratePercentApplied).toBe(6);
+    expect(result.novaAmountEuro).toBe(1_450);
+  });
+
+  it('resolves legacy N1 for 2023', () => {
+    expect(resolveTariffVersion('n1_legacy_z6', '2023-05-01')?.id).toBe(
+      'at-n1-2023',
+    );
+  });
+
+  it('resolves motorcycle for 2026', () => {
+    expect(
+      resolveTariffVersion('motorcycle_z1_z2', '2026-05-01')?.id,
+    ).toBe('at-mc-2026-h1');
   });
 
   describe('percent rounding boundaries', () => {
