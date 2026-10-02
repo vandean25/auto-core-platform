@@ -1,5 +1,4 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { IsOptional, IsString, ValidateIf } from 'class-validator';
 import { VEHICLE_NOVA_CLASS_VALUES } from '../vehicle-regulatory.validation.js';
 
@@ -21,7 +20,6 @@ export class VehicleRegulatoryFieldsDto {
     maximum: 600,
     description: 'CO₂ emissions WLTP (g/km)',
   })
-  @Type(() => Number)
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
   co2_wltp_g_km?: number | null;
@@ -33,7 +31,6 @@ export class VehicleRegulatoryFieldsDto {
     maximum: 600,
     description: 'CO₂ emissions NEDC (g/km), optional legacy value',
   })
-  @Type(() => Number)
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
   co2_nedc_g_km?: number | null;
