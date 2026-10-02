@@ -37,31 +37,14 @@ type DataTableRowContextAction<TData extends object> = {
   destructive?: boolean
 }
 
-function isInteractiveTarget(
-  target: EventTarget | null,
-  eventCurrentTarget?: EventTarget | null,
-): boolean {
+function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
     return false
   }
 
-  const interactive = target.closest('button, a, input, select, textarea, [role="button"]')
-  if (!interactive) {
-    return false
-  }
-
-  if (
-    interactive instanceof HTMLTableRowElement &&
-    interactive.getAttribute('data-table-row') === 'true'
-  ) {
-    return false
-  }
-
-  if (eventCurrentTarget instanceof Element && interactive === eventCurrentTarget) {
-    return false
-  }
-
-  return true
+  return Boolean(
+    target.closest('button, a, input, select, textarea, [role="button"]'),
+  )
 }
 
 function getTableRowId(record: object): string | undefined {
@@ -87,7 +70,7 @@ function activateRow<TData extends object>(
   data: TData[],
   onRowClick?: (row: TData) => void,
 ) {
-  if (!onRowClick || isInteractiveTarget(event.target, event.currentTarget)) {
+  if (!onRowClick || isInteractiveTarget(event.target)) {
     return
   }
 
@@ -272,7 +255,13 @@ export function DataTable<TData extends object>({
                 const rowId = getTableRowId(rowData)
                 const rowHref = getRowHref?.(rowData)
                 const rowAccessibleName = getRowAccessibleName?.(rowData)
-                const rowUsesDetailLink = Boolean(rowHref)
+                const rowUsesDetailLink = Boolean(
+                  rowHref &&
+                    rowAccessibleName &&
+                    row
+                      .getVisibleCells()
+                      .some((cell) => isDataTableRowLinkColumn(cell.column.columnDef)),
+                )
                 const rowIsKeyboardActivatable = Boolean(
                   (onRowClick && !rowUsesDetailLink) || getRowContextActions?.(rowData)?.length,
                 )
@@ -310,7 +299,7 @@ export function DataTable<TData extends object>({
                       return
                     }
 
-                    if (!onRowClick || isInteractiveTarget(event.target, event.currentTarget)) {
+                    if (!onRowClick || isInteractiveTarget(event.target)) {
                       return
                     }
 
@@ -327,8 +316,6 @@ export function DataTable<TData extends object>({
                     )
                     const shouldRenderRowLink =
                       rowUsesDetailLink &&
-                      rowHref &&
-                      rowAccessibleName &&
                       isDataTableRowLinkColumn(cell.column.columnDef)
 
                     return (
@@ -341,7 +328,7 @@ export function DataTable<TData extends object>({
                           : undefined
                       }
                     >
-                      {shouldRenderRowLink ? (
+                      {shouldRenderRowLink && rowHref && rowAccessibleName ? (
                         <DataTableRowDetailLink
                           href={rowHref}
                           accessibleName={rowAccessibleName}
