@@ -8715,6 +8715,8 @@ export interface operations {
                 sortField?: string;
                 /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
+                /** @description When set, only orders for this customer are returned (open workshop statuses only). */
+                customerId?: string;
             };
             header?: never;
             path?: never;
@@ -9658,7 +9660,7 @@ export interface operations {
             query: {
                 from: string;
                 to: string;
-                /** @description Evaluation timestamp for availability (reserved for future use; overlap uses the requested window). */
+                /** @description Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window. */
                 asOf?: string;
             };
             header?: never;
