@@ -1,3 +1,8 @@
+import { escapeHtml } from '../common/pdf/pdf-layout.js';
+import {
+  buildInvoiceTotalsSection,
+  MARGIN_SCHEME_LEGAL_NOTES,
+} from '../invoices/invoice-pdf.layout.js';
 import { toRenderableCreditNoteSnapshot } from './credit-note-snapshot-render.adapter.js';
 
 describe('toRenderableCreditNoteSnapshot', () => {
@@ -96,5 +101,50 @@ describe('toRenderableCreditNoteSnapshot', () => {
       original_document: snapshot.original_document,
       total_gross: '120.00',
     });
+  });
+
+  it('renders DE margin-scheme legal wording on Stornorechnung totals', () => {
+    const renderable = toRenderableCreditNoteSnapshot(
+      {
+        ...snapshot,
+        tax_mode: 'MARGIN_SCHEME',
+        tax_breakdown: [],
+        total_tax: '0.00',
+        items: snapshot.items.map((item) => ({
+          ...item,
+          tax: '0.00',
+        })),
+      },
+      'CN-2026-0099',
+      'credit-margin-de',
+    );
+
+    const html = buildInvoiceTotalsSection(renderable!, escapeHtml);
+    expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
+    expect(html).toContain('§ 25a UStG');
+    expect(html).not.toContain('§ 24 UStG');
+  });
+
+  it('renders AT margin-scheme legal wording on Stornorechnung totals', () => {
+    const renderable = toRenderableCreditNoteSnapshot(
+      {
+        ...snapshot,
+        tax_mode: 'MARGIN_SCHEME',
+        tax_breakdown: [],
+        total_tax: '0.00',
+        seller: { ...snapshot.seller, country_iso: 'AT' },
+        items: snapshot.items.map((item) => ({
+          ...item,
+          tax: '0.00',
+        })),
+      },
+      'CN-2026-0100',
+      'credit-margin-at',
+    );
+
+    const html = buildInvoiceTotalsSection(renderable!, escapeHtml);
+    expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.AT);
+    expect(html).toContain('§ 24 UStG 1994');
+    expect(html).not.toContain('§ 25a');
   });
 });

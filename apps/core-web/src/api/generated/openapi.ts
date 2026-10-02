@@ -3141,6 +3141,8 @@ export interface components {
             pdf_generated_at?: string | null;
             pdf_generation_error?: string | null;
             items: components["schemas"]["InvoiceItemResponseDto"][];
+            /** @description Country-specific margin-scheme legal notice for on-screen invoice display. */
+            margin_scheme_legal_note?: string | null;
         };
         CreateDraftInvoiceDto: {
             /** @example workshop-order-id */

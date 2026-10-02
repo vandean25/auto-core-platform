@@ -10398,6 +10398,11 @@
             "items": {
               "$ref": "#/components/schemas/InvoiceItemResponseDto"
             }
+          },
+          "margin_scheme_legal_note": {
+            "type": "string",
+            "nullable": true,
+            "description": "Country-specific margin-scheme legal notice for on-screen invoice display."
           }
         },
         "required": [

@@ -122,7 +122,12 @@ export class SalesService {
     const tenantId = await this.tenantContext.getTenantId();
     const invoice = await this.prisma.invoice.findFirst({
       where: { id, tenant_id: tenantId },
-      include: { customer: true, items: true, vehicle: true },
+      include: {
+        customer: true,
+        items: true,
+        vehicle: true,
+        legal_entity: true,
+      },
     });
 
     if (!invoice) {
