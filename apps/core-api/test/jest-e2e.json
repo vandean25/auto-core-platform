@@ -9,7 +9,10 @@
     "^.+\\.(t|j)s$": ["ts-jest", { "useESM": true, "tsconfig": "tsconfig.e2e.json" }]
   },
   "extensionsToTreatAsEsm": [".ts"],
-  "moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" },
+  "moduleNameMapper": {
+    "^@nestjs/throttler$": "<rootDir>/test/support/throttler.shim.ts",
+    "^(\\.{1,2}/(?!.*node_modules).*)\\.js$": "$1"
+  },
   "transformIgnorePatterns": [
     "node_modules/(?!(jose)/)"
   ],

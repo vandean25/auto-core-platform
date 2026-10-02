@@ -285,6 +285,102 @@ function resolveEntityId(
   );
 }
 
+const PRISMA_SCALAR_FILTER_KEYS = new Set([
+  'equals',
+  'in',
+  'notIn',
+  'lt',
+  'lte',
+  'gt',
+  'gte',
+  'contains',
+  'startsWith',
+  'endsWith',
+  'mode',
+  'not',
+]);
+
+const PRISMA_RELATION_FILTER_KEYS = new Set([
+  'some',
+  'every',
+  'none',
+  'is',
+  'isNot',
+]);
+
+const PRISMA_LOGICAL_FILTER_KEYS = new Set(['AND', 'OR', 'NOT']);
+
+function isPlainWhereRecord(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  if (value instanceof Date) {
+    return false;
+  }
+  if (Prisma.Decimal.isDecimal(value)) {
+    return false;
+  }
+  const prototype: object | null = Object.getPrototypeOf(value) as
+    object | null;
+  return prototype === null || prototype === Object.prototype;
+}
+
+function isScalarWhereValue(value: unknown): boolean {
+  return (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
+}
+
+function looksLikeCompoundUniqueFilter(
+  key: string,
+  value: Record<string, unknown>,
+): boolean {
+  if (!key.includes('_') || key.startsWith('$')) {
+    return false;
+  }
+  const innerKeys = Object.keys(value);
+  if (innerKeys.length === 0) {
+    return false;
+  }
+  return innerKeys.every((innerKey) => {
+    if (innerKey.startsWith('$')) {
+      return false;
+    }
+    if (PRISMA_SCALAR_FILTER_KEYS.has(innerKey)) {
+      return false;
+    }
+    if (PRISMA_RELATION_FILTER_KEYS.has(innerKey)) {
+      return false;
+    }
+    return isScalarWhereValue(value[innerKey]);
+  });
+}
+
+/** @internal Exported for unit tests. */
+export function normalizeWhereForFindFirst(
+  where: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const normalized: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(where)) {
+    if (PRISMA_LOGICAL_FILTER_KEYS.has(key)) {
+      normalized[key] = value;
+      continue;
+    }
+    if (
+      isPlainWhereRecord(value) &&
+      looksLikeCompoundUniqueFilter(key, value)
+    ) {
+      Object.assign(normalized, value);
+      continue;
+    }
+    normalized[key] = value;
+  }
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
 async function fetchBeforeSnapshot(
   modelDelegate: PrismaModelDelegate,
   model: string,
@@ -294,7 +390,11 @@ async function fetchBeforeSnapshot(
     return undefined;
   }
   try {
-    return await modelDelegate.findFirst({ where });
+    const normalizedWhere = normalizeWhereForFindFirst(where);
+    if (!normalizedWhere) {
+      return undefined;
+    }
+    return await modelDelegate.findFirst({ where: normalizedWhere });
   } catch (error) {
     // Composite unique keys (e.g. tenant_id_code) are valid for update/delete
     // but rejected by findFirst — proceed without a before snapshot.

@@ -42,7 +42,11 @@ export {
   type SignedPdfTaskPayload,
 } from './pdf/index.js';
 export { PlaywrightBrowserService } from './services/playwright-browser.service.js';
-export { createGlobalValidationPipe } from './validation.pipe.js';
+export {
+  createGlobalValidationPipe,
+  createGlobalValidationPipes,
+} from './validation.pipe.js';
+export { standardSchemaConverter } from './validation/standard-schema-converter.js';
 export {
   STALE_STATUS_CONFLICT_MESSAGE,
   bindStatusUpdateMany,
@@ -50,3 +54,8 @@ export {
   type StatusUpdateMany,
   type GuardedStatusUpdateInput,
 } from './utils/status-transition.js';
+export {
+  AppObservabilityModule,
+  ObserveInstrument,
+  isObserveTelemetryConfigured,
+} from './observability/observability.module.js';

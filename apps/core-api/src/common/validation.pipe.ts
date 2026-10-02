@@ -1,4 +1,8 @@
-import { ValidationPipe } from '@nestjs/common';
+import {
+  StandardSchemaValidationPipe,
+  ValidationPipe,
+  type PipeTransform,
+} from '@nestjs/common';
 
 export function createGlobalValidationPipe(): ValidationPipe {
   return new ValidationPipe({
@@ -6,4 +10,8 @@ export function createGlobalValidationPipe(): ValidationPipe {
     whitelist: true,
     forbidNonWhitelisted: true,
   });
+}
+
+export function createGlobalValidationPipes(): PipeTransform[] {
+  return [new StandardSchemaValidationPipe(), createGlobalValidationPipe()];
 }

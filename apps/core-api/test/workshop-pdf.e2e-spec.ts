@@ -21,7 +21,7 @@ import {
 } from './tenant-test-utils.js';
 
 const WORKER_SECRET = 'workshop-pdf-e2e-worker-secret';
-const WORKSHOP_ORDER_ID = '11111111-1111-1111-1111-111111111111';
+const WORKSHOP_ORDER_ID = '11111111-1111-4111-a111-111111111111';
 
 describe('Workshop PDF endpoints (e2e)', () => {
   let app: INestApplication;
@@ -69,11 +69,11 @@ describe('Workshop PDF endpoints (e2e)', () => {
   it('returns ready JSON when workshop PDF generation finishes inline', async () => {
     mockPdfService.requestGeneration.mockResolvedValue({
       mode: 'generated',
-      workshopOrderId: '11111111-1111-1111-1111-111111111111',
+      workshopOrderId: WORKSHOP_ORDER_ID,
     });
 
     await request(app.getHttpServer())
-      .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
+      .post(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(201)
       .expect({
@@ -85,12 +85,12 @@ describe('Workshop PDF endpoints (e2e)', () => {
   it('returns enqueued JSON when workshop PDF generation is queued', async () => {
     mockPdfService.requestGeneration.mockResolvedValue({
       mode: 'enqueued',
-      workshopOrderId: '11111111-1111-1111-1111-111111111111',
+      workshopOrderId: WORKSHOP_ORDER_ID,
       taskId: 'task-123',
     });
 
     await request(app.getHttpServer())
-      .post('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
+      .post(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(201)
       .expect({
@@ -109,7 +109,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
+      .get(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200)
       .expect('Content-Type', /application\/pdf/);
@@ -121,7 +121,7 @@ describe('Workshop PDF endpoints (e2e)', () => {
     );
 
     await request(app.getHttpServer())
-      .get('/api/workshop/orders/11111111-1111-1111-1111-111111111111/pdf')
+      .get(`/api/workshop/orders/${WORKSHOP_ORDER_ID}/pdf`)
       .set('Authorization', `Bearer ${authToken}`)
       .expect(404);
   });
