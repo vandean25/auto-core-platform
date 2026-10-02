@@ -24,6 +24,7 @@ import { generateId } from '@/lib/id'
 import { isKnownAppPath, APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
+import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PageLoader } from '@/components/ui/PageLoader'
 
@@ -257,6 +258,7 @@ function AppShell({
       <DashboardWidgetsProvider userKey={effectiveUserKey}>
         <RealtimeDashboardSyncProvider>
           <div className="min-h-screen bg-slate-100">
+            <NewVersionAvailableBanner />
             <a
               href="#main-content"
               className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-md"
@@ -338,6 +340,7 @@ export function MechanicShell({ activeTenant, userEmail, onSignOut, children }: 
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <NewVersionAvailableBanner />
       {/* Minimal top bar — hides all admin/billing navigation */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">

@@ -27,6 +27,15 @@
         ]
       },
       {
+        "source": "/version.json",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
         "source": "/assets/**",
         "headers": [
           {
@@ -66,7 +75,7 @@
         }
       },
       {
-        "source": "**",
+        "regex": "^\\/(?:[^./]+\\/)*[^./]*$",
         "destination": "/index.html"
       }
     ]
