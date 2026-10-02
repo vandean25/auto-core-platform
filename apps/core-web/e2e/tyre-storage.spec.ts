@@ -96,16 +96,19 @@ test.describe('Reifenlager', () => {
       }
       await route.continue()
     })
-    await page.route(AutoCorePage.apiRouteMatcher('/api/locations'), async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          { id: 'loc-1', code: 'RACK-A', name: 'Rack A', type: 'customer_storage' },
-          { id: 'loc-2', code: 'RACK-B', name: 'Rack B', type: 'customer_storage' },
-        ]),
-      })
-    })
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/inventory/locations'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            { id: 'loc-1', code: 'RACK-A', name: 'Rack A', type: 'customer_storage' },
+            { id: 'loc-2', code: 'RACK-B', name: 'Rack B', type: 'customer_storage' },
+          ]),
+        })
+      },
+    )
     await page.route(
       AutoCorePage.apiRouteMatcher('/api/tyre-sets/tyre-set-1/check-in'),
       async (route) => {
