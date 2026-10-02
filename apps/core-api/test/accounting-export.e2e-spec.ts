@@ -724,6 +724,55 @@ describe('Accounting export (e2e)', () => {
     expect(ownershipPreview.body.canGenerate).toBe(false);
   });
 
+  it('EX-11: re-download returns identical export bytes', async () => {
+    await openFinancePeriod();
+    await finalizeSalesInvoice(1, 88, '2028-03-18');
+    await closeFinancePeriod(prisma, tenantA.tenantId, '2028-03-31');
+
+    const preview = await previewExport({
+      legalEntityId: deEntityId,
+      dateFrom: '2028-03-01',
+      dateTo: '2028-03-31',
+    }).expect(200);
+
+    const generated = await generateExport({
+      legalEntityId: deEntityId,
+      dateFrom: '2028-03-01',
+      dateTo: '2028-03-31',
+      previewHash: preview.body.previewHash,
+      profileVersion: preview.body.profileVersion,
+      idempotencyKey: `redownload-${randomUUID()}`,
+      acknowledgeOverlap: true,
+    }).expect(201);
+
+    const downloadOnce = await request(app.getHttpServer())
+      .get(`/api/finance/accounting-exports/${generated.body.id}/download`)
+      .set('Authorization', `Bearer ${authTokenA}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+
+    const downloadTwice = await request(app.getHttpServer())
+      .get(`/api/finance/accounting-exports/${generated.body.id}/download`)
+      .set('Authorization', `Bearer ${authTokenA}`)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+
+    expect(downloadOnce.body).toEqual(downloadTwice.body);
+    expect(
+      createHash('sha256').update(downloadOnce.body as Buffer).digest('hex'),
+    ).toBe(generated.body.sha256);
+  });
+
   it('EX-09b: rejects stale preview hash on generation', async () => {
     await openFinancePeriod();
     await finalizeSalesInvoice(1, 75, '2027-01-12');

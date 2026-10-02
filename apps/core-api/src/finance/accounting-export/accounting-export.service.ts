@@ -41,13 +41,13 @@ import {
 } from './accounting-export-scope.js';
 import type { AccountingExportProfileSnapshot } from './accounting-export.types.js';
 import {
-  buildAccountingExportFilename,
-  serializeDatevBuchungsstapel,
-} from './datev-serializer.js';
+  exportProfileCanGenerate,
+  resolveAccountingExportSerializer,
+} from './accounting-export-serializer.registry.js';
 import {
-  DATEV_MAX_CSV_BYTES,
-  DATEV_MAX_DOCUMENTS_PER_RUN,
-} from './datev-format.constants.js';
+  parseAccountingProfileSerializerParams,
+  serializeAccountingProfileSerializerParams,
+} from '../accounting-profile/accounting-profile.serializer-params.js';
 import type {
   AccountingExportDetailDto,
   AccountingExportListQueryDto,
@@ -84,6 +84,9 @@ function toProfileSnapshot(
     clientNumber: profile.client_number,
     fiscalYearStartMonth: profile.fiscal_year_start_month,
     defaultDebtorAccount: profile.default_debtor_account,
+    serializerParams: serializeAccountingProfileSerializerParams(
+      parseAccountingProfileSerializerParams(profile.serializer_params),
+    ),
     isEnabled: profile.is_enabled,
   };
 }
@@ -126,7 +129,10 @@ export class AccountingExportService {
       canGenerate:
         blockers.length === 0 &&
         bookingRows.length > 0 &&
-        context.profile.is_enabled,
+        exportProfileCanGenerate(
+          context.profile.profile_code,
+          context.profile.is_enabled,
+        ),
     };
   }
 
@@ -188,10 +194,15 @@ export class AccountingExportService {
       });
     }
 
-    if (!context.profile.is_enabled) {
+    if (
+      !exportProfileCanGenerate(
+        context.profile.profile_code,
+        context.profile.is_enabled,
+      )
+    ) {
       throw new UnprocessableEntityException({
         code: 'EXPORT_PROFILE_DISABLED',
-        message: 'DATEV export profile is not enabled.',
+        message: 'Accounting export profile is not enabled.',
       });
     }
 
@@ -210,7 +221,10 @@ export class AccountingExportService {
       });
     }
 
-    if (context.candidates.length > DATEV_MAX_DOCUMENTS_PER_RUN) {
+    const serializerLimits = resolveAccountingExportSerializer(
+      context.profile.profile_code,
+    ).limits;
+    if (context.candidates.length > serializerLimits.maxDocumentsPerRun) {
       throw new UnprocessableEntityException({
         code: 'EXPORT_RANGE_TOO_LARGE',
         message: 'Export range exceeds the maximum document count.',
@@ -227,7 +241,10 @@ export class AccountingExportService {
 
     const createdAt = new Date();
     const profileSnapshot = toProfileSnapshot(context.profile);
-    const serialized = serializeDatevBuchungsstapel({
+    const serializer = resolveAccountingExportSerializer(
+      profileSnapshot.profileCode,
+    );
+    const serialized = serializer.serialize({
       profile: profileSnapshot,
       dateFrom: dto.dateFrom,
       dateTo: dto.dateTo,
@@ -235,7 +252,7 @@ export class AccountingExportService {
       rows: bookingRows,
     });
 
-    if (serialized.byteLength > DATEV_MAX_CSV_BYTES) {
+    if (serialized.byteLength > serializer.limits.maxCsvBytes) {
       throw new UnprocessableEntityException({
         code: 'EXPORT_RANGE_TOO_LARGE',
         message: 'Encoded CSV exceeds the maximum export size.',
@@ -244,7 +261,7 @@ export class AccountingExportService {
 
     const exportId = randomUUID();
 
-    const filename = buildAccountingExportFilename({
+    const filename = serializer.buildFilename({
       legalEntityId: dto.legalEntityId,
       dateFrom: dto.dateFrom,
       dateTo: dto.dateTo,
@@ -280,10 +297,12 @@ export class AccountingExportService {
           });
         }
 
-        if (!profile.is_enabled) {
+        if (
+          !exportProfileCanGenerate(profile.profile_code, profile.is_enabled)
+        ) {
           throw new UnprocessableEntityException({
             code: 'EXPORT_PROFILE_DISABLED',
-            message: 'DATEV export profile is not enabled.',
+            message: 'Accounting export profile is not enabled.',
           });
         }
 
@@ -295,7 +314,7 @@ export class AccountingExportService {
             created_by_user_id: currentUser.id,
             date_from: context.dateFrom,
             date_to: context.dateTo,
-            profile_snapshot: profileSnapshot,
+            profile_snapshot: profileSnapshot as Prisma.InputJsonValue,
             document_manifest: manifest,
             site_ids: context.sites.map((site) => site.id),
             file_bytes: new Uint8Array(serialized.bytes),
@@ -511,7 +530,12 @@ export class AccountingExportService {
       },
     });
 
-    const filename = buildAccountingExportFilename({
+    const snapshot =
+      exportRun.profile_snapshot as AccountingExportProfileSnapshot;
+    const downloadSerializer = resolveAccountingExportSerializer(
+      snapshot.profileCode,
+    );
+    const filename = downloadSerializer.buildFilename({
       legalEntityId: exportRun.legal_entity_id,
       dateFrom: exportRun.date_from.toISOString().slice(0, 10),
       dateTo: exportRun.date_to.toISOString().slice(0, 10),
@@ -715,12 +739,16 @@ export class AccountingExportService {
       document_count: number;
       row_count: number;
       createdAt: Date;
+      profile_snapshot: unknown;
     },
     filename?: string,
   ) {
     const resolvedFilename =
       filename ??
-      buildAccountingExportFilename({
+      resolveAccountingExportSerializer(
+        (exportRun.profile_snapshot as AccountingExportProfileSnapshot)
+          .profileCode,
+      ).buildFilename({
         legalEntityId: exportRun.legal_entity_id,
         dateFrom: exportRun.date_from.toISOString().slice(0, 10),
         dateTo: exportRun.date_to.toISOString().slice(0, 10),
@@ -748,13 +776,17 @@ export class AccountingExportService {
     byte_length: number;
     createdAt: Date;
     created_by_user_id: string | null;
+    profile_snapshot: unknown;
   }) {
     return {
       id: exportRun.id,
       legalEntityId: exportRun.legal_entity_id,
       dateFrom: exportRun.date_from.toISOString().slice(0, 10),
       dateTo: exportRun.date_to.toISOString().slice(0, 10),
-      filename: buildAccountingExportFilename({
+      filename: resolveAccountingExportSerializer(
+        (exportRun.profile_snapshot as AccountingExportProfileSnapshot)
+          .profileCode,
+      ).buildFilename({
         legalEntityId: exportRun.legal_entity_id,
         dateFrom: exportRun.date_from.toISOString().slice(0, 10),
         dateTo: exportRun.date_to.toISOString().slice(0, 10),

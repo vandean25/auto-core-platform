@@ -16,10 +16,14 @@ import {
 import { toAccountingProfileResponse } from './accounting-profile.mapper.js';
 import { UpdateAccountingProfileDto } from './dto/accounting-profile.dto.js';
 import type { AccountingMappingRule } from './accounting-profile.types.js';
+import { defaultChartForProfileCode } from './accounting-chart-catalog.js';
 import {
-  type AccountingProfilePatchInput,
   defaultFormatVersionForCountry,
   defaultProfileCodeForCountry,
+} from './accounting-profile.codes.js';
+import { serializeAccountingProfileSerializerParams } from './accounting-profile.serializer-params.js';
+import {
+  type AccountingProfilePatchInput,
   validateAccountingProfilePatch,
 } from './accounting-profile.validation.js';
 
@@ -79,9 +83,14 @@ export class AccountingProfileService {
         fiscalYearStartMonth: dto.fiscalYearStartMonth,
         defaultDebtorAccount: dto.defaultDebtorAccount,
         mappingRules: dto.mappingRules,
+        serializerParams: dto.serializerParams,
         isEnabled: dto.isEnabled,
       },
-      entity.country_iso,
+      {
+        countryIso: entity.country_iso,
+        currentProfileCode: existing.profile_code,
+        currentChart: existing.chart,
+      },
     );
 
     const revenueGroups = await this.loadRevenueGroups(tenantId);
@@ -125,6 +134,11 @@ export class AccountingProfileService {
     }
     if (patch.mappingRules !== undefined) {
       updateData.mapping_rules = patch.mappingRules;
+    }
+    if (patch.serializerParams !== undefined) {
+      updateData.serializer_params = serializeAccountingProfileSerializerParams(
+        patch.serializerParams,
+      ) as Prisma.InputJsonValue;
     }
     if (patch.isEnabled !== undefined) {
       updateData.is_enabled = patch.isEnabled;
@@ -171,8 +185,14 @@ export class AccountingProfileService {
   ): void {
     const mergedMappingRules =
       patch.mappingRules ?? parseStoredMappingRules(existing.mapping_rules);
+    const mergedProfileCode =
+      patch.profileCode !== undefined
+        ? patch.profileCode
+        : existing.profile_code;
+
     const readiness = computeAccountingProfileReadiness({
       countryIso,
+      profileCode: mergedProfileCode,
       advisorNumber:
         patch.advisorNumber !== undefined
           ? patch.advisorNumber
@@ -223,15 +243,18 @@ export class AccountingProfileService {
       return existing;
     }
 
+    const profileCode = defaultProfileCodeForCountry(countryIso);
     return this.prisma.legalEntityAccountingProfile.create({
       data: {
         tenant_id: tenantId,
         legal_entity_id: legalEntityId,
         version: 1,
         is_enabled: false,
-        profile_code: defaultProfileCodeForCountry(countryIso),
+        profile_code: profileCode,
         format_version: defaultFormatVersionForCountry(countryIso),
+        chart: defaultChartForProfileCode(profileCode),
         mapping_rules: [],
+        serializer_params: {},
       },
     });
   }

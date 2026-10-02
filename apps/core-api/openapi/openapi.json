@@ -17830,6 +17830,30 @@
           "seller_readiness"
         ]
       },
+      "RzlSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "firmNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "costCenterLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 16
+          }
+        }
+      },
+      "AccountingProfileSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "rzl": {
+            "$ref": "#/components/schemas/RzlSerializerParamsDto"
+          }
+        }
+      },
       "AccountingMappingRuleDto": {
         "type": "object",
         "properties": {
@@ -17979,6 +18003,9 @@
             "type": "string",
             "nullable": true
           },
+          "serializer_params": {
+            "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+          },
           "mapping_rules": {
             "type": "array",
             "items": {
@@ -18001,6 +18028,7 @@
           "legal_entity_id",
           "version",
           "is_enabled",
+          "serializer_params",
           "mapping_rules",
           "required_source_categories",
           "mapping_readiness"
@@ -18061,9 +18089,17 @@
               "$ref": "#/components/schemas/AccountingMappingRuleDto"
             }
           },
+          "serializerParams": {
+            "description": "Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+              }
+            ]
+          },
           "isEnabled": {
             "type": "boolean",
-            "description": "Gates DATEV CSV export only; does not affect invoice issuance readiness"
+            "description": "Gates accounting CSV export only; does not affect invoice issuance readiness"
           }
         },
         "required": [

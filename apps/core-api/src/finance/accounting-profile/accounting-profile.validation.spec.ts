@@ -1,17 +1,39 @@
 import { BadRequestException } from '@nestjs/common';
+import { DEFAULT_AT_PROFILE_CODE, DEFAULT_DE_PROFILE_CODE } from './accounting-profile.codes.js';
 import { validateAccountingProfilePatch } from './accounting-profile.validation.js';
 
+const deContext = {
+  countryIso: 'DE' as const,
+  currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+  currentChart: 'SKR03',
+};
+
+const atContext = {
+  countryIso: 'AT' as const,
+  currentProfileCode: DEFAULT_AT_PROFILE_CODE,
+  currentChart: 'UGB',
+};
+
 describe('accounting-profile.validation', () => {
+  it('rejects enabling the RZL profile before serializer approval', () => {
+    expect(() =>
+      validateAccountingProfilePatch({ isEnabled: true }, atContext),
+    ).toThrow(BadRequestException);
+  });
+
   it('rejects enabling DATEV export for AT entities', () => {
     expect(() =>
-      validateAccountingProfilePatch({ isEnabled: true }, 'AT'),
+      validateAccountingProfilePatch(
+        { isEnabled: true, profileCode: DEFAULT_DE_PROFILE_CODE },
+        atContext,
+      ),
     ).toThrow(BadRequestException);
   });
 
   it('allows incomplete profile patches', () => {
     const patch = validateAccountingProfilePatch(
       { advisorNumber: '12345' },
-      'DE',
+      deContext,
     );
     expect(patch.advisorNumber).toBe('12345');
   });
@@ -30,7 +52,7 @@ describe('accounting-profile.validation', () => {
           },
         ],
       },
-      'DE',
+      deContext,
     );
 
     expect(patch.mappingRules).toEqual([]);
@@ -51,8 +73,14 @@ describe('accounting-profile.validation', () => {
             },
           ],
         },
-        'DE',
+        deContext,
       ),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects DATEV charts on RZL profiles', () => {
+    expect(() =>
+      validateAccountingProfilePatch({ chart: 'SKR03' }, atContext),
     ).toThrow(BadRequestException);
   });
 });
