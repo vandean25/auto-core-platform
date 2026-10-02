@@ -64,6 +64,8 @@ const WorkshopBoard = lazyWithRetry(() => import('./pages/workshop/WorkshopBoard
 const WorkshopPlannerPage = lazyWithRetry(() => import('./pages/workshop/WorkshopPlannerPage'))
 const LoanerVehiclesPage = lazyWithRetry(() => import('./pages/workshop/LoanerVehiclesPage'))
 const LoanerBookingPrintPage = lazyWithRetry(() => import('./pages/workshop/LoanerBookingPrintPage'))
+const TyreStorageListPage = lazyWithRetry(() => import('./pages/tyre-storage/TyreStorageListPage'))
+const TyreSetDetailPage = lazyWithRetry(() => import('./pages/tyre-storage/TyreSetDetailPage'))
 const CustomerList = lazyWithRetry(() => import('./pages/customers/CustomerList'))
 const CustomerDetail = lazyWithRetry(() => import('./pages/customers/CustomerDetail'))
 const VehicleDetail = lazyWithRetry(() => import('./pages/vehicles/VehicleDetail'))
@@ -165,6 +167,8 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<LoanerVehiclesPage />} />
               <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<LoanerBookingPrintPage />} />
               <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<WorkshopOrderDetails />} />
+              <Route path={APP_ROUTE_PATHS.tyreStorage} element={<TyreStorageListPage />} />
+              <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<TyreSetDetailPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </motion.div>

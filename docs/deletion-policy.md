@@ -79,6 +79,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | LeaveRequest | Soft-cancel | Set `status = CANCELLED`; no hard-delete API. |
 | AttendanceEvent | No delete | Immutable attendance log; corrections are additional events. |
 | Bay | Soft-disable preferred | Set `is_active = false`. Hard delete blocked if `WorkshopOrder.bay_id` references this bay. |
+| TyreSet | Conditional | Hard delete only when no `TyreSetEvent` exists (FK RESTRICT; otherwise 409 — record a dispose event instead). Not inventory — no ledger impact. |
+| TyreSetEvent | No | Append-only storage ledger; never updated or deleted through the API. |
+| TyreStorageSettings | No | Tenant singleton; update in place only. |
 
 ## ADR-0023 — Legal invoicing and accounting export
 

@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
+import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import {
   Dialog,
   DialogContent,
@@ -318,6 +319,7 @@ export default function CustomerDetail() {
                 ariaLabel='Customer phone'
               />
             </div>
+            <TyreSetsSummary customerId={customer.id} />
             <div className='flex items-start gap-2'>
               <MapPin className='h-4 w-4 text-muted-foreground mt-1' />
               <div className='w-full space-y-1'>

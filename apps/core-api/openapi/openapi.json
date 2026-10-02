@@ -9667,6 +9667,557 @@
           "imports"
         ]
       }
+    },
+    "/api/tyre-sets/settings": {
+      "get": {
+        "operationId": "TyreStorageController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreStorageSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Tenant tyre storage season swap defaults",
+        "tags": [
+          "tyre-sets"
+        ]
+      },
+      "put": {
+        "operationId": "TyreStorageController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTyreStorageSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreStorageSettingsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update tenant tyre storage season swap defaults",
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/due-for-swap": {
+      "get": {
+        "operationId": "TyreStorageController_dueForSwap",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetListEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List stored sets approaching planned swap (manual calling only)",
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/due-for-swap/export": {
+      "get": {
+        "operationId": "TyreStorageController_exportDueForSwap",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "CSV export for due-for-swap list",
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/by-customer/{customerId}": {
+      "get": {
+        "operationId": "TyreStorageController_byCustomer",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TyreSetResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/by-vehicle/{vehicleId}": {
+      "get": {
+        "operationId": "TyreStorageController_byVehicle",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetListEnvelopeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets": {
+      "get": {
+        "operationId": "TyreStorageController_list",
+        "parameters": [
+          {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleSearch",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "locationId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TyreSeason"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TyreSetStatus"
+            }
+          },
+          {
+            "name": "dueFrom",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "dueTo",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TyreSetResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      },
+      "post": {
+        "operationId": "TyreStorageController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTyreSetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}": {
+      "get": {
+        "operationId": "TyreStorageController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      },
+      "patch": {
+        "operationId": "TyreStorageController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTyreSetDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      },
+      "delete": {
+        "operationId": "TyreStorageController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}/check-in": {
+      "post": {
+        "operationId": "TyreStorageController_checkIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}/check-out": {
+      "post": {
+        "operationId": "TyreStorageController_checkOut",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}/move": {
+      "post": {
+        "operationId": "TyreStorageController_move",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}/dispose": {
+      "post": {
+        "operationId": "TyreStorageController_dispose",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
     }
   },
   "info": {
@@ -21233,6 +21784,454 @@
           "data",
           "meta"
         ]
+      },
+      "TyreStorageSettingsResponseDto": {
+        "type": "object",
+        "properties": {
+          "summerSwapMonth": {
+            "type": "number"
+          },
+          "summerSwapDay": {
+            "type": "number"
+          },
+          "winterSwapMonth": {
+            "type": "number"
+          },
+          "winterSwapDay": {
+            "type": "number"
+          },
+          "dueForSwapDays": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "summerSwapMonth",
+          "summerSwapDay",
+          "winterSwapMonth",
+          "winterSwapDay",
+          "dueForSwapDays"
+        ]
+      },
+      "UpdateTyreStorageSettingsDto": {
+        "type": "object",
+        "properties": {
+          "summerSwapMonth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "summerSwapDay": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "winterSwapMonth": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "winterSwapDay": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 31
+          },
+          "dueForSwapDays": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "summerSwapMonth",
+          "summerSwapDay",
+          "winterSwapMonth",
+          "winterSwapDay",
+          "dueForSwapDays"
+        ]
+      },
+      "TyreSeason": {
+        "type": "string",
+        "enum": [
+          "SUMMER",
+          "WINTER",
+          "ALL_SEASON"
+        ]
+      },
+      "TyreRimType": {
+        "type": "string",
+        "enum": [
+          "NONE",
+          "STEEL",
+          "ALLOY"
+        ]
+      },
+      "TyreSetStatus": {
+        "type": "string",
+        "enum": [
+          "IN_STORAGE",
+          "ON_VEHICLE",
+          "RETURNED",
+          "DISPOSED"
+        ]
+      },
+      "TyreSetEventType": {
+        "type": "string",
+        "enum": [
+          "CHECK_IN",
+          "CHECK_OUT",
+          "MOVED",
+          "INSPECTED",
+          "DISPOSED"
+        ]
+      },
+      "TyreSetEventResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "eventType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreSetEventType"
+              }
+            ]
+          },
+          "occurredAt": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromLocationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "toLocationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "odometer": {
+            "type": "number",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "eventType",
+          "occurredAt"
+        ]
+      },
+      "TyreSetResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "vehicleId": {
+            "type": "string",
+            "nullable": true
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "label": {
+            "type": "string"
+          },
+          "season": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreSeason"
+              }
+            ]
+          },
+          "tyreCount": {
+            "type": "number"
+          },
+          "rimType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreRimType"
+              }
+            ]
+          },
+          "brand": {
+            "type": "string",
+            "nullable": true
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "dimension": {
+            "type": "string",
+            "nullable": true
+          },
+          "dotCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "treadDepthMm": {
+            "type": "object",
+            "nullable": true
+          },
+          "conditionNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreSetStatus"
+              }
+            ]
+          },
+          "storedSince": {
+            "type": "string",
+            "nullable": true
+          },
+          "plannedSwapOn": {
+            "type": "string",
+            "nullable": true
+          },
+          "binLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TyreSetEventResponseDto"
+            }
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "vehiclePlate": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerEmail": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "customerId",
+          "siteId",
+          "label",
+          "season",
+          "tyreCount",
+          "rimType",
+          "dotCodes",
+          "status"
+        ]
+      },
+      "TyreSetListEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TyreSetResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "TreadDepthDto": {
+        "type": "object",
+        "properties": {
+          "FL": {
+            "type": "number"
+          },
+          "FR": {
+            "type": "number"
+          },
+          "RL": {
+            "type": "number"
+          },
+          "RR": {
+            "type": "number"
+          }
+        }
+      },
+      "CreateTyreSetDto": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string"
+          },
+          "vehicleId": {
+            "type": "string"
+          },
+          "locationId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "season": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreSeason"
+              }
+            ]
+          },
+          "tyreCount": {
+            "type": "number",
+            "default": 4
+          },
+          "rimType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreRimType"
+              }
+            ]
+          },
+          "brand": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "string",
+            "example": "245/45 R18"
+          },
+          "dotCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "treadDepthMm": {
+            "$ref": "#/components/schemas/TreadDepthDto"
+          },
+          "conditionNotes": {
+            "type": "string"
+          },
+          "binLabel": {
+            "type": "string"
+          },
+          "plannedSwapOn": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "customerId",
+          "label",
+          "season"
+        ]
+      },
+      "UpdateTyreSetDto": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "object"
+          },
+          "label": {
+            "type": "string"
+          },
+          "season": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreSeason"
+              }
+            ]
+          },
+          "tyreCount": {
+            "type": "number"
+          },
+          "rimType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TyreRimType"
+              }
+            ]
+          },
+          "brand": {
+            "type": "object"
+          },
+          "model": {
+            "type": "object"
+          },
+          "dimension": {
+            "type": "object"
+          },
+          "dotCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "treadDepthMm": {
+            "$ref": "#/components/schemas/TreadDepthDto"
+          },
+          "conditionNotes": {
+            "type": "object"
+          },
+          "binLabel": {
+            "type": "object"
+          },
+          "plannedSwapOn": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "TyreSetLocationActionDto": {
+        "type": "object",
+        "properties": {
+          "locationId": {
+            "type": "string"
+          },
+          "odometer": {
+            "type": "number"
+          },
+          "treadDepthMm": {
+            "$ref": "#/components/schemas/TreadDepthDto"
+          },
+          "note": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string"
+          },
+          "employeeId": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   },

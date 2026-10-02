@@ -48,6 +48,7 @@ import { DocumentBrandingModule } from './document-branding/document-branding.mo
 import { AppObservabilityModule } from './common/observability/observability.module.js';
 import { LoanerVehiclesModule } from './loaner-vehicles/loaner-vehicles.module.js';
 import { ImportModule } from './import/import.module.js';
+import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { ImportModule } from './import/import.module.js';
     PartsRequisitionModule,
     DocumentBrandingModule,
     ImportModule,
+    TyreStorageModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

@@ -22,6 +22,7 @@ import {
   UserRound,
   Users,
   Wrench,
+  Warehouse,
   LayoutGrid,
   Calendar,
   CarFront,
@@ -129,6 +130,14 @@ const coreModules: SidebarModule[] = [
     icon: CarFront,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/loaner-vehicles'),
+  },
+  {
+    id: 'tyre-storage',
+    label: 'Reifenlager',
+    to: '/workshop/tyre-storage',
+    icon: Warehouse,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/workshop/tyre-storage'),
   },
   {
     id: 'hr',
