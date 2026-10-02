@@ -22,6 +22,8 @@ export const VEHICLE_NOVA_CLASS_INVALID_CODE = 'VEHICLE_NOVA_CLASS_INVALID';
 const CO2_MIN = 0;
 const CO2_MAX = 600;
 const VIENNA_TIME_ZONE = 'Europe/Vienna';
+const DATE_ONLY_OR_ISO_DATETIME =
+  /^(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
 export type VehicleRegulatoryInput = {
   first_registration_date?: string | Date | null;
@@ -55,18 +57,23 @@ export function normalizeNovaClass(
   return normalized.toUpperCase();
 }
 
-function toDateOnlyInput(value: string | Date): string {
-  if (value instanceof Date) {
+function toDateOnlyInput(value: unknown): string {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return value.toISOString().slice(0, 10);
   }
-  const trimmed = value.trim();
-  if (trimmed.length >= 10) {
-    return trimmed.slice(0, 10);
+  if (typeof value !== 'string') {
+    throw new BadRequestException({
+      code: VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
+      message: 'first_registration_date must be a valid ISO date (YYYY-MM-DD)',
+      field: 'first_registration_date',
+    });
   }
-  return trimmed;
+  const trimmed = value.trim();
+  const match = DATE_ONLY_OR_ISO_DATETIME.exec(trimmed);
+  return match ? match[1] : trimmed;
 }
 
-function parseDateOnlyUtc(value: string | Date): Date {
+function parseDateOnlyUtc(value: unknown): Date {
   const dateOnly = toDateOnlyInput(value);
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOnly);
   if (!match) {
