@@ -86,7 +86,9 @@ function parseDateOnlyUtc(value: string | Date): Date {
 
 function startOfTodayUtc(): Date {
   const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
 }
 
 function assertCo2InRange(
@@ -137,9 +139,7 @@ export function assertVehicleRegulatoryFields(
 
   if (input.nova_class !== undefined && input.nova_class !== null) {
     const normalized = input.nova_class.trim().toUpperCase();
-    if (
-      !VEHICLE_NOVA_CLASS_VALUES.includes(normalized as VehicleNovaClass)
-    ) {
+    if (!VEHICLE_NOVA_CLASS_VALUES.includes(normalized as VehicleNovaClass)) {
       throw new BadRequestException({
         code: VEHICLE_NOVA_CLASS_INVALID_CODE,
         message: `nova_class must be one of: ${VEHICLE_NOVA_CLASS_VALUES.join(', ')}`,

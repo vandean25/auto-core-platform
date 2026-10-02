@@ -66,9 +66,15 @@ export class VehicleRegulatoryFieldsDto {
   })
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value,
-  )
+  @Transform(({ value }: { value: unknown }): string | null | undefined => {
+    if (typeof value === 'string') {
+      return value.trim().toUpperCase();
+    }
+    if (value === null || value === undefined) {
+      return value;
+    }
+    return undefined;
+  })
   @IsString()
   @IsIn([...VEHICLE_NOVA_CLASS_VALUES])
   nova_class?: string | null;
