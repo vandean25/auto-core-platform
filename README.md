@@ -2,7 +2,7 @@
 
 # Auto Core Platform
 
-A multi-tenant workshop operations platform: parts inventory, procurement, sales, workshop jobs, vehicle stock, and finance. NestJS 11 API and React 19 + Vite 8 frontend.
+A multi-tenant workshop operations platform: parts inventory, procurement, sales, workshop jobs, vehicle stock, and finance. NestJS 12 API and React 19 + Vite 8 frontend.
 
 ## Modules
 
@@ -22,7 +22,7 @@ A multi-tenant workshop operations platform: parts inventory, procurement, sales
 ```
 auto-core-platform/
 ├── apps/
-│   ├── core-api/          # NestJS 11 backend API
+│   ├── core-api/          # NestJS 12 backend API
 │   │   ├── prisma/        # Database schema & migrations (Prisma 7)
 │   │   │   ├── schema.prisma
 │   │   │   └── seed.ts    # Seeds the default-workshop tenant + sample catalog
@@ -657,7 +657,7 @@ Press `Ctrl+K` (Windows/Linux) or `Cmd+K` (Mac) to open the global search.
 ## Tech Stack
 
 ### Backend
-- **NestJS 11** - Node.js framework
+- **NestJS 12** - Node.js framework
 - **Prisma 7** - ORM with PostgreSQL
 - **TypeScript** - Type safety
 
