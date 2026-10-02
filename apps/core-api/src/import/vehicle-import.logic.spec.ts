@@ -2,6 +2,7 @@ import { ImportRowAction } from '@prisma/client';
 import {
   normalizeVehicleRow,
   planVehicleDryRunRow,
+  vehicleComparableForUpdate,
 } from './vehicle-import.logic.js';
 
 const mapping = {
@@ -71,5 +72,137 @@ describe('vehicle-import.logic', () => {
     );
     expect(planned.action).toBe(ImportRowAction.ERROR);
     expect(planned.errors[0]?.code).toBe('IMPORT_UNKNOWN_OWNER');
+  });
+
+  it('SKIPs re-import when owner cell is empty but vehicle already has an owner', () => {
+    const row = normalizeVehicleRow(
+      {
+        'Fahrzeug-Nr': 'v-1',
+        FIN: '',
+        Marke: 'Make',
+        Modell: 'Model',
+        Baujahr: '2020',
+      },
+      mapping,
+      { allow_missing_vin: true },
+    ).row!;
+    const existing = {
+      make: 'Make',
+      model: 'Model',
+      year: 2020,
+      vin: '1HGCM82633A004352',
+      plate: null,
+      mileage: 50000,
+      color: null,
+      key_number: null,
+      customer_id: 'cust-1',
+    };
+    const planned = planVehicleDryRunRow(
+      1,
+      row,
+      {
+        mappingByExternalId: new Map([['v-1', 'veh-1']]),
+        vehicleByVin: new Map(),
+        vehicleByPlate: new Map(),
+        vehicleById: new Map([['veh-1', existing]]),
+        customerExternalToEntityId: new Map(),
+        vinSeenInFile: new Map(),
+        externalIdSeenInFile: new Map(),
+      },
+      { update_existing: true },
+      [],
+    );
+    expect(planned.action).toBe(ImportRowAction.SKIP);
+    expect(vehicleComparableForUpdate(planned.normalized!)).not.toHaveProperty(
+      'customer_id',
+    );
+  });
+
+  it('does not plan UPDATE when empty VIN and mileage would clear stored values', () => {
+    const row = normalizeVehicleRow(
+      {
+        'Fahrzeug-Nr': 'v-1',
+        FIN: '',
+        Marke: 'Make',
+        Modell: 'Model',
+        Baujahr: '2020',
+      },
+      mapping,
+      { allow_missing_vin: true, update_existing: true },
+    ).row!;
+    const existing = {
+      make: 'Make',
+      model: 'Model',
+      year: 2020,
+      vin: '1HGCM82633A004352',
+      plate: null,
+      mileage: 50000,
+      color: null,
+      key_number: null,
+      customer_id: null,
+    };
+    const planned = planVehicleDryRunRow(
+      1,
+      row,
+      {
+        mappingByExternalId: new Map([['v-1', 'veh-1']]),
+        vehicleByVin: new Map(),
+        vehicleByPlate: new Map(),
+        vehicleById: new Map([['veh-1', existing]]),
+        customerExternalToEntityId: new Map(),
+        vinSeenInFile: new Map(),
+        externalIdSeenInFile: new Map(),
+      },
+      { update_existing: true },
+      [],
+    );
+    expect(planned.action).toBe(ImportRowAction.SKIP);
+  });
+
+  it('plans UPDATE when mileage changes', () => {
+    const mappingWithMileage = { ...mapping, mileage: 'Kilometerstand' };
+    const row = normalizeVehicleRow(
+      {
+        'Fahrzeug-Nr': 'v-1',
+        FIN: '1HGCM82633A004352',
+        Marke: 'Make',
+        Modell: 'Model',
+        Baujahr: '2020',
+        Kilometerstand: '60000',
+      },
+      mappingWithMileage,
+      {},
+    ).row!;
+    const planned = planVehicleDryRunRow(
+      1,
+      row,
+      {
+        mappingByExternalId: new Map([['v-1', 'veh-1']]),
+        vehicleByVin: new Map(),
+        vehicleByPlate: new Map(),
+        vehicleById: new Map([
+          [
+            'veh-1',
+            {
+              make: 'Make',
+              model: 'Model',
+              year: 2020,
+              vin: '1HGCM82633A004352',
+              plate: null,
+              mileage: 50000,
+              color: null,
+              key_number: null,
+              customer_id: null,
+            },
+          ],
+        ]),
+        customerExternalToEntityId: new Map(),
+        vinSeenInFile: new Map(),
+        externalIdSeenInFile: new Map(),
+      },
+      { update_existing: true },
+      [],
+    );
+    expect(planned.action).toBe(ImportRowAction.UPDATE);
   });
 });

@@ -160,6 +160,25 @@ export function normalizeVehicleRow(
   };
 }
 
+export function vehicleComparableForUpdate(
+  normalized: Record<string, unknown>,
+): Record<string, unknown> {
+  const ownerProvided = normalized.owner_external_id_provided === true;
+  return Object.fromEntries(
+    Object.entries({
+      make: normalized.make,
+      model: normalized.model,
+      year: normalized.year,
+      vin: normalized.vin,
+      plate: normalized.plate,
+      mileage: normalized.mileage,
+      color: normalized.color,
+      key_number: normalized.key_number,
+      ...(ownerProvided ? { customer_id: normalized.customer_id } : {}),
+    }).filter(([, value]) => value !== null && value !== ''),
+  );
+}
+
 function buildVehiclePayload(
   row: NormalizedVehicleRow,
   customerId: string | null,
@@ -311,17 +330,7 @@ export function planVehicleDryRunRow(
 
   const existing = context.vehicleById.get(entityId);
   if (existing) {
-    const comparable = {
-      make: normalized.make,
-      model: normalized.model,
-      year: normalized.year,
-      vin: normalized.vin,
-      plate: normalized.plate,
-      mileage: normalized.mileage,
-      color: normalized.color,
-      key_number: normalized.key_number,
-      customer_id: normalized.customer_id,
-    };
+    const comparable = vehicleComparableForUpdate(normalized);
     const unchanged = recordsEqual(
       existing,
       comparable,

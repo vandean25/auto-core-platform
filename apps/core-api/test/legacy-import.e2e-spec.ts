@@ -496,4 +496,84 @@ describe('Legacy CSV import (e2e)', () => {
     expect(codes).toContain('IMPORT_DUPLICATE_VIN_IN_FILE');
     expect(codes).toContain('IMPORT_UNKNOWN_OWNER');
   });
+
+  it('applies vehicles and idempotently SKIPs on second import with update_existing', async () => {
+    const ownerCsv = customerCsv([
+      ['veh-own-2', 'PRIVATE', 'Veh', 'Owner', 'veh-own-2@example.com', '', '', 'AT'],
+    ]);
+    const ownerJob = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms-veh2')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', ownerCsv, 'owner.csv')
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/imports/${ownerJob.body.id}/apply`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const vehicleMapping = {
+      external_id: 'Fahrzeug-Nr',
+      vin: 'FIN',
+      plate: 'Kennzeichen',
+      make: 'Marke',
+      model: 'Modell',
+      year: 'Baujahr',
+      owner_customer_external_id: 'Kunden-Nr',
+    };
+    const vehicleCsv = Buffer.from(
+      [
+        'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kunden-Nr',
+        'veh-ext-1;1HGCM82633A004352;W-IMP-1;Make;Model;2020;veh-own-2',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const firstJob = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'VEHICLE')
+      .field('sourceSystem', 'legacy-dms-veh2')
+      .field('mapping', JSON.stringify(vehicleMapping))
+      .field('options', JSON.stringify({ update_existing: true }))
+      .attach('file', vehicleCsv, 'vehicles.csv')
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/imports/${firstJob.body.id}/apply`)
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const reimportCsv = Buffer.from(
+      [
+        'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kunden-Nr',
+        'veh-ext-1;;W-IMP-1;Make;Model;2020;',
+      ].join('\n'),
+      'utf8',
+    );
+    const secondJob = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', authHeaderA)
+      .field('entityType', 'VEHICLE')
+      .field('sourceSystem', 'legacy-dms-veh2')
+      .field('mapping', JSON.stringify(vehicleMapping))
+      .field(
+        'options',
+        JSON.stringify({ update_existing: true, allow_missing_vin: true }),
+      )
+      .attach('file', reimportCsv, 'vehicles.csv')
+      .expect(201);
+
+    expect(secondJob.body.totals.skip).toBe(secondJob.body.totals.rows);
+    expect(secondJob.body.totals.update).toBe(0);
+    expect(secondJob.body.totals.create).toBe(0);
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const vehicle = await tenantPrisma.vehicle.findFirst({
+      where: { vin: '1HGCM82633A004352' },
+    });
+    expect(vehicle?.vin).toBe('1HGCM82633A004352');
+  });
 });

@@ -363,8 +363,14 @@ export class ImportService {
             totals.update += 1;
           }
         } catch (error) {
+          const cause =
+            error instanceof Prisma.PrismaClientKnownRequestError
+              ? error.code
+              : error instanceof Error
+                ? error.name
+                : 'unknown';
           this.logger.warn(
-            `Import apply row failed jobId=${jobId} rowNo=${row.row_no}`,
+            `Import apply row failed jobId=${jobId} rowNo=${row.row_no} cause=${cause}`,
           );
           totals.error += 1;
           const staleMessage =
@@ -730,10 +736,10 @@ export class ImportService {
           address_street: payload.address_street as string | null,
           address_zip: payload.address_zip as string | null,
           address_city: payload.address_city as string | null,
-          address_country: payload.address_country as string | null,
+          address_country: (payload.address_country as string | null) ?? 'AT',
         },
       });
-      await this.upsertExternalMapping(
+      await this.createExternalMapping(
         tx,
         tenantId,
         ImportEntityType.CUSTOMER,
@@ -824,6 +830,9 @@ export class ImportService {
           return;
         }
       }
+      if (value === null || value === undefined || value === '') {
+        return;
+      }
       (data as Record<string, unknown>)[key] = value;
     };
     assign('type', payload.type);
@@ -856,17 +865,7 @@ export class ImportService {
     options: ImportJobOptions,
   ) {
     const data: Prisma.VehicleUpdateInput = {};
-    const assign = (
-      key: keyof typeof existing,
-      value: unknown,
-      allowEmpty = false,
-    ) => {
-      if (
-        !allowEmpty &&
-        (value === null || value === undefined || value === '')
-      ) {
-        return;
-      }
+    const assign = (key: keyof typeof existing, value: unknown) => {
       if (options.fill_empty_only) {
         const current = existing[key];
         if (
@@ -877,19 +876,30 @@ export class ImportService {
           return;
         }
       }
+      if (value === null || value === undefined || value === '') {
+        return;
+      }
       (data as Record<string, unknown>)[key] = value;
     };
 
     assign('make', payload.make);
     assign('model', payload.model);
     assign('year', payload.year);
-    assign('vin', payload.vin, true);
-    assign('plate', payload.plate, true);
-    assign('mileage', payload.mileage, true);
-    assign('color', payload.color, true);
-    assign('key_number', payload.key_number, true);
+    assign('vin', payload.vin);
+    assign('plate', payload.plate);
+    assign('mileage', payload.mileage);
+    assign('color', payload.color);
+    assign('key_number', payload.key_number);
     if (payload.owner_external_id_provided === true) {
-      assign('customer_id', payload.customer_id, true);
+      if (
+        payload.customer_id === null ||
+        payload.customer_id === undefined ||
+        payload.customer_id === ''
+      ) {
+        data.customer_id = null;
+      } else {
+        assign('customer_id', payload.customer_id);
+      }
     }
     return data;
   }
@@ -927,7 +937,7 @@ export class ImportService {
           customer_id: payload.customer_id as string | null,
         },
       });
-      await this.upsertExternalMapping(
+      await this.createExternalMapping(
         tx,
         tenantId,
         ImportEntityType.VEHICLE,
@@ -945,7 +955,7 @@ export class ImportService {
         created.id,
         AuditLogAction.CREATE,
         null,
-        created,
+        pickVehicleAuditSnapshot(created),
       );
       return;
     }
@@ -983,9 +993,40 @@ export class ImportService {
         'Vehicle',
         after.id,
         AuditLogAction.UPDATE,
-        before,
-        after,
+        pickVehicleAuditSnapshot(before),
+        pickVehicleAuditSnapshot(after),
       );
+    }
+  }
+
+  private async createExternalMapping(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    entityType: ImportEntityType,
+    sourceSystem: string,
+    externalId: string,
+    entityId: string,
+    jobId: string,
+  ) {
+    try {
+      await tx.externalIdMapping.create({
+        data: {
+          tenant_id: tenantId,
+          entity_type: entityType,
+          source_system: sourceSystem,
+          external_id: externalId,
+          entity_id: entityId,
+          first_seen_import_job_id: jobId,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ApplyRowStaleError();
+      }
+      throw error;
     }
   }
 

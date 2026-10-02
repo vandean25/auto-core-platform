@@ -180,9 +180,12 @@ export function normalizeCustomerRow(
   const emailRaw = cellValue(record, mapping, 'email');
   const email = emailRaw ? emailRaw.toLowerCase() : null;
   const vatRaw = normalizeCustomerVatId(cellValue(record, mapping, 'vat_id'));
-  const country = cellValue(record, mapping, 'address_country') || 'AT';
+  const hasCountryColumn = Boolean(mapping.address_country);
+  const country = hasCountryColumn
+    ? cellValue(record, mapping, 'address_country') || null
+    : null;
 
-  const vatResult = validateVatId(country, vatRaw, options);
+  const vatResult = validateVatId(country ?? '', vatRaw, options);
   issues.push(...vatResult.issues);
   warnings.push(...vatResult.warnings);
 
@@ -206,6 +209,16 @@ export function normalizeCustomerRow(
   }
 
   return { row, issues, warnings };
+}
+
+export function customerComparableForUpdate(
+  payload: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(payload).filter(
+      ([, value]) => value !== null && value !== '',
+    ),
+  );
 }
 
 function buildCustomerPayload(row: NormalizedCustomerRow) {
@@ -339,8 +352,10 @@ export function planCustomerDryRunRow(
         : undefined;
 
   const updateExisting = options.update_existing === true;
+  const comparablePayload = customerComparableForUpdate(payload);
+
   if (!updateExisting) {
-    if (existing && !recordsEqual(existing, payload, false)) {
+    if (existing && !recordsEqual(existing, comparablePayload, false)) {
       warnings.push({
         code: 'IMPORT_EXISTING_NOT_UPDATED',
         message: 'Existing customer matched but update_existing is false',
@@ -360,7 +375,7 @@ export function planCustomerDryRunRow(
   if (existing) {
     const unchanged = recordsEqual(
       existing,
-      payload,
+      comparablePayload,
       options.fill_empty_only === true,
     );
     if (unchanged) {
