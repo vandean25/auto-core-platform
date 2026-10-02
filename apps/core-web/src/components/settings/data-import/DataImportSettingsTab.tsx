@@ -132,7 +132,7 @@ export function DataImportSettingsTab() {
     dryRunJob,
     dryRunStale,
     errorThreshold,
-    isApplying: applyMutation.isPending || applyInFlightRef.current,
+    isApplying: applyMutation.isPending,
   })
 
   const resetDryRun = React.useCallback(() => {
@@ -489,49 +489,61 @@ export function DataImportSettingsTab() {
           ) : null}
 
           <div className="grid gap-3 md:grid-cols-2 max-w-3xl">
-            <label className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-sm">
               <Checkbox
+                id="import-opt-update-existing"
                 checked={options.update_existing}
                 onCheckedChange={(checked) => {
                   setOptions((prev) => ({ ...prev, update_existing: checked === true }))
                   resetDryRun()
                 }}
               />
-              Update existing / Bestehende aktualisieren
-            </label>
-            <label className="flex items-center gap-2 text-sm">
+              <Label htmlFor="import-opt-update-existing" className="font-normal cursor-pointer">
+                Update existing / Bestehende aktualisieren
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
               <Checkbox
+                id="import-opt-fill-empty"
                 checked={options.fill_empty_only}
                 onCheckedChange={(checked) => {
                   setOptions((prev) => ({ ...prev, fill_empty_only: checked === true }))
                   resetDryRun()
                 }}
               />
-              Fill empty only / Nur leere Felder füllen
-            </label>
+              <Label htmlFor="import-opt-fill-empty" className="font-normal cursor-pointer">
+                Fill empty only / Nur leere Felder füllen
+              </Label>
+            </div>
             {entityType === 'VEHICLE' ? (
-              <label className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-sm">
                 <Checkbox
+                  id="import-opt-allow-missing-vin"
                   checked={options.allow_missing_vin}
                   onCheckedChange={(checked) => {
                     setOptions((prev) => ({ ...prev, allow_missing_vin: checked === true }))
                     resetDryRun()
                   }}
                 />
-                Allow missing VIN / FIN optional
-              </label>
+                <Label htmlFor="import-opt-allow-missing-vin" className="font-normal cursor-pointer">
+                  Allow missing VIN / FIN optional
+                </Label>
+              </div>
             ) : null}
             {entityType === 'CUSTOMER' ? (
-              <label className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-sm">
                 <Checkbox
+                  id="import-opt-invalid-vat-error"
                   checked={options.invalid_vat_as_error}
                   onCheckedChange={(checked) => {
                     setOptions((prev) => ({ ...prev, invalid_vat_as_error: checked === true }))
                     resetDryRun()
                   }}
                 />
-                Invalid VAT ID as error / Ungültige UID als Fehler
-              </label>
+                <Label htmlFor="import-opt-invalid-vat-error" className="font-normal cursor-pointer">
+                  Invalid VAT ID as error / Ungültige UID als Fehler
+                </Label>
+              </div>
             ) : null}
           </div>
 

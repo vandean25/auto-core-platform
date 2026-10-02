@@ -78,7 +78,7 @@ export class ImportMappingProfileService {
           entity_type: body.entity_type,
           source_system: sourceSystem,
           name,
-          mapping_json: body.mapping as Prisma.InputJsonValue,
+          mapping_json: body.mapping,
         },
       });
       return this.toDto(created);

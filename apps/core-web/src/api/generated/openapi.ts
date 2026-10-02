@@ -6309,12 +6309,12 @@ export interface operations {
     InventoryController_findAll: {
         parameters: {
             query?: {
+                brand?: string;
+                brandId?: number;
+                location?: string;
                 page?: number;
                 pageSize?: number;
                 search?: string;
-                location?: string;
-                brand?: string;
-                brandId?: number;
             };
             header?: never;
             path?: never;
@@ -6505,12 +6505,12 @@ export interface operations {
     PurchaseController_findAll: {
         parameters: {
             query?: {
-                status?: "DRAFT" | "SENT" | "PARTIAL" | "COMPLETED" | "open" | "all";
-                search?: string;
                 page?: number;
                 pageSize?: number;
-                sortField?: string;
+                search?: string;
                 sortDirection?: "asc" | "desc";
+                sortField?: string;
+                status?: "DRAFT" | "SENT" | "PARTIAL" | "COMPLETED" | "open" | "all";
             };
             header?: never;
             path?: never;
@@ -6781,12 +6781,12 @@ export interface operations {
     PurchaseInvoiceController_findAll: {
         parameters: {
             query: {
-                vendorId: string;
+                order: string;
                 page: string;
                 pageSize: string;
                 sortBy: string;
-                order: string;
                 status: string;
+                vendorId: string;
             };
             header?: never;
             path?: never;
@@ -6980,11 +6980,11 @@ export interface operations {
     VendorController_findAll: {
         parameters: {
             query?: {
-                search?: string;
                 page?: number;
                 pageSize?: number;
-                sortField?: string;
+                search?: string;
                 sortDirection?: "asc" | "desc";
+                sortField?: string;
             };
             header?: never;
             path?: never;
@@ -7565,8 +7565,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                legalEntityId: string;
                 extractionId: string;
+                legalEntityId: string;
             };
             cookie?: never;
         };
@@ -7587,8 +7587,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                legalEntityId: string;
                 extractionId: string;
+                legalEntityId: string;
             };
             cookie?: never;
         };
@@ -7609,8 +7609,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                legalEntityId: string;
                 assetId: string;
+                legalEntityId: string;
             };
             cookie?: never;
         };
@@ -7631,8 +7631,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                legalEntityId: string;
                 assetId: string;
+                legalEntityId: string;
             };
             cookie?: never;
         };
@@ -7654,8 +7654,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                legalEntityId: string;
                 assetId: string;
+                legalEntityId: string;
             };
             cookie?: never;
         };
@@ -7674,12 +7674,12 @@ export interface operations {
     CustomerController_findAll: {
         parameters: {
             query?: {
-                search?: string;
-                type?: "PRIVATE" | "COMPANY";
                 page?: number;
                 pageSize?: number;
-                sortField?: string;
+                search?: string;
                 sortDirection?: "asc" | "desc";
+                sortField?: string;
+                type?: "PRIVATE" | "COMPANY";
             };
             header?: never;
             path?: never;
@@ -7725,8 +7725,8 @@ export interface operations {
     CustomerController_findOne: {
         parameters: {
             query?: {
-                historyPage?: number;
                 historyLimit?: number;
+                historyPage?: number;
             };
             header?: never;
             path: {
@@ -7919,10 +7919,10 @@ export interface operations {
     AccountingExportController_list: {
         parameters: {
             query?: {
-                page?: number;
-                limit?: number;
-                search?: string;
                 legalEntityId?: string;
+                limit?: number;
+                page?: number;
+                search?: string;
             };
             header?: never;
             path?: never;
@@ -8008,8 +8008,8 @@ export interface operations {
     BrandController_findAll: {
         parameters: {
             query: {
-                isVehicleMake: string;
                 isPartManufacturer: string;
+                isVehicleMake: string;
             };
             header?: never;
             path?: never;
@@ -8118,12 +8118,12 @@ export interface operations {
     SalesOrderController_findAll: {
         parameters: {
             query?: {
-                params?: string;
                 page?: number;
                 pageSize?: number;
+                params?: string;
                 search?: string;
-                sortField?: string;
                 sortDirection?: "asc" | "desc";
+                sortField?: string;
                 status?: "DRAFT" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "INVOICED";
             };
             header?: never;
@@ -8408,9 +8408,9 @@ export interface operations {
     WorkshopController_getPlanner: {
         parameters: {
             query: {
+                bayId?: string;
                 from: string;
                 to: string;
-                bayId?: string;
             };
             header?: never;
             path?: never;
@@ -8454,16 +8454,16 @@ export interface operations {
     WorkshopController_findAll: {
         parameters: {
             query?: {
-                /** @description Free-text search term for order number, customer, plate, or vehicle */
-                search?: string;
                 /** @description Page number */
                 page?: number;
                 /** @description Number of items per page */
                 pageSize?: number;
-                /** @description Field name to sort by */
-                sortField?: string;
+                /** @description Free-text search term for order number, customer, plate, or vehicle */
+                search?: string;
                 /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
+                /** @description Field name to sort by */
+                sortField?: string;
             };
             header?: never;
             path?: never;
@@ -8893,10 +8893,10 @@ export interface operations {
     VehiclePurchaseController_findAll: {
         parameters: {
             query: {
-                search: string;
-                page: string;
                 limit: string;
+                page: string;
                 pageSize: string;
+                search: string;
             };
             header?: never;
             path?: never;
@@ -9117,13 +9117,13 @@ export interface operations {
     VehicleStockController_list: {
         parameters: {
             query?: {
-                search?: string;
-                stock_status?: "ON_ORDER" | "IN_STOCK" | "RESERVED" | "IN_PREP" | "SOLD";
-                page?: number;
                 limit?: number;
+                page?: number;
                 pageSize?: number;
-                sortField?: string;
+                search?: string;
                 sortDirection?: "asc" | "desc";
+                sortField?: string;
+                stock_status?: "ON_ORDER" | "IN_STOCK" | "RESERVED" | "IN_PREP" | "SOLD";
             };
             header?: never;
             path?: never;
@@ -9686,10 +9686,10 @@ export interface operations {
     CreditNotesController_list: {
         parameters: {
             query?: {
-                page?: number;
                 limit?: number;
-                search?: string;
                 originalInvoiceId?: string;
+                page?: number;
+                search?: string;
             };
             header?: never;
             path?: never;
@@ -9918,20 +9918,20 @@ export interface operations {
     LaborController_listOperations: {
         parameters: {
             query?: {
-                /** @description Search term matching code or description */
-                search?: string;
                 /** @description Filter by category ID */
                 categoryId?: string;
                 /** @description Filter by active status */
                 isActive?: boolean;
-                /** @description Page number (1-based) */
-                page?: number;
                 /** @description Items per page */
                 limit?: number;
-                /** @description Sort field */
-                sortField?: "code" | "description" | "standardAw" | "hourlyRate" | "createdAt";
+                /** @description Page number (1-based) */
+                page?: number;
+                /** @description Search term matching code or description */
+                search?: string;
                 /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
+                /** @description Sort field */
+                sortField?: "code" | "description" | "standardAw" | "hourlyRate" | "createdAt";
             };
             header?: never;
             path?: never;
@@ -10150,12 +10150,12 @@ export interface operations {
     CatalogController_externalSearch: {
         parameters: {
             query: {
-                workshopOrderId: string;
-                taskId: string;
                 concern: "PARTS" | "LABOR";
+                confirmFallback?: boolean;
                 q?: string;
                 source?: "AUTO" | "OEM" | "AFTERMARKET";
-                confirmFallback?: boolean;
+                taskId: string;
+                workshopOrderId: string;
             };
             header?: never;
             path?: never;
@@ -10190,8 +10190,8 @@ export interface operations {
     CatalogController_externalAssemblyGroups: {
         parameters: {
             query: {
-                workshopOrderId: string;
                 concern: "PARTS";
+                workshopOrderId: string;
             };
             header?: never;
             path?: never;
@@ -10212,11 +10212,11 @@ export interface operations {
     VehicleController_findAll: {
         parameters: {
             query?: {
-                search?: string;
                 page?: number;
                 pageSize?: number;
-                sortField?: string;
+                search?: string;
                 sortDirection?: "asc" | "desc";
+                sortField?: string;
             };
             header?: never;
             path?: never;
@@ -10327,13 +10327,13 @@ export interface operations {
     EmployeeController_findAll: {
         parameters: {
             query?: {
-                role?: components["schemas"]["EmployeeRole"];
                 /** @description Include inactive employees when true */
                 includeInactive?: boolean;
-                /** @description Page number (1-based) */
-                page?: number;
                 /** @description Items per page */
                 limit?: number;
+                /** @description Page number (1-based) */
+                page?: number;
+                role?: components["schemas"]["EmployeeRole"];
             };
             header?: never;
             path?: never;
@@ -10512,9 +10512,9 @@ export interface operations {
     HrController_getAttendance: {
         parameters: {
             query: {
+                employeeId?: string;
                 from: string;
                 to: string;
-                employeeId?: string;
             };
             header?: never;
             path?: never;
@@ -10624,12 +10624,12 @@ export interface operations {
     HrController_listTeamLeave: {
         parameters: {
             query?: {
+                /** @description Filter leave for a specific employee */
+                employeeId?: string;
                 /** @description Filter leave overlapping on/after date */
                 from?: string;
                 /** @description Filter leave overlapping on/before date */
                 to?: string;
-                /** @description Filter leave for a specific employee */
-                employeeId?: string;
             };
             header?: never;
             path?: never;
@@ -10818,10 +10818,10 @@ export interface operations {
             query?: {
                 /** @description Include inactive bays when true */
                 includeInactive?: boolean;
-                /** @description Page number (1-based) */
-                page?: number;
                 /** @description Items per page */
                 limit?: number;
+                /** @description Page number (1-based) */
+                page?: number;
             };
             header?: never;
             path?: never;
@@ -11526,12 +11526,12 @@ export interface operations {
     PlatformAdminController_findAll: {
         parameters: {
             query?: {
-                /** @description Search by tenant name or slug */
-                search?: string;
                 /** @description Include inactive tenants when true */
                 includeInactive?: boolean;
-                page?: number;
                 limit?: number;
+                page?: number;
+                /** @description Search by tenant name or slug */
+                search?: string;
             };
             header?: never;
             path?: never;
@@ -11670,13 +11670,13 @@ export interface operations {
     TenantMemberController_findAll: {
         parameters: {
             query?: {
-                /** @description Search by email or user name */
-                search?: string;
                 /** @description Include inactive memberships when true */
                 includeInactive?: boolean;
+                limit?: number;
                 /** @description Page number (1-based) */
                 page?: number;
-                limit?: number;
+                /** @description Search by email or user name */
+                search?: string;
             };
             header?: never;
             path?: never;
@@ -11787,24 +11787,24 @@ export interface operations {
     AuditController_findAll: {
         parameters: {
             query?: {
-                /** @description Page number */
-                page?: number;
-                /** @description Items per page */
-                limit?: number;
-                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
-                entityType?: string;
-                /** @description Filter by entity ID */
-                entityId?: string;
                 /** @description Filter by audit action (UPDATE, DELETE) */
                 action?: "CREATE" | "UPDATE" | "DELETE";
                 /** @description Filter by actor user ID */
                 actorUserId?: string;
+                /** @description End date filter (ISO string) */
+                endDate?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
+                entityType?: string;
+                /** @description Items per page */
+                limit?: number;
+                /** @description Page number */
+                page?: number;
                 /** @description Free-text search across entityId, actorEmail, and requestId */
                 search?: string;
                 /** @description Start date filter (ISO string) */
                 startDate?: string;
-                /** @description End date filter (ISO string) */
-                endDate?: string;
             };
             header?: never;
             path?: never;
@@ -11945,10 +11945,10 @@ export interface operations {
     ImportController_listRows: {
         parameters: {
             query?: {
-                page?: string;
-                limit?: string;
-                hasErrors?: boolean;
                 action?: "CREATE" | "UPDATE" | "SKIP" | "ERROR";
+                hasErrors?: boolean;
+                limit?: string;
+                page?: string;
             };
             header?: never;
             path: {

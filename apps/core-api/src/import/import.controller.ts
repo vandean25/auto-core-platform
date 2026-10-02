@@ -96,7 +96,9 @@ export class ImportController {
   }
 
   @Get('mapping-profiles')
-  @ApiOperation({ summary: 'List saved column mapping profiles for a source system' })
+  @ApiOperation({
+    summary: 'List saved column mapping profiles for a source system',
+  })
   @ApiQuery({ name: 'entityType', required: true, enum: ImportEntityType })
   @ApiQuery({ name: 'sourceSystem', required: true })
   @ApiOkResponse({ type: ImportMappingProfileListResponseDto })
