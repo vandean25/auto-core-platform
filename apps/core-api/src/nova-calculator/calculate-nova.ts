@@ -94,7 +94,7 @@ function computeRatePercent(
   tariff: NovaTariffVersion,
   input: CalculateNovaInput,
   appliedRuleIds: string[],
-  usedKwSubstitute: boolean,
+  usedZ2Substitute: boolean,
 ): number {
   if (
     tariff.vehicle_class === 'motorcycle_z1_z2' &&
@@ -117,7 +117,7 @@ function computeRatePercent(
   }
   if (
     input.isCamperSA &&
-    usedKwSubstitute &&
+    usedZ2Substitute &&
     rate < CAMPER_SA_MIN_RATE_PERCENT
   ) {
     rate = CAMPER_SA_MIN_RATE_PERCENT;
@@ -196,6 +196,11 @@ export function calculateNova(
     input.co2GramsPerKm === undefined &&
     input.ratedPowerKw !== undefined &&
     vClass !== 'motorcycle_z1_z2';
+  const usedNedcZ2Substitute =
+    input.co2GramsPerKm !== undefined &&
+    input.emissionCycle === 'NEDC' &&
+    vClass === 'passenger_z3';
+  const usedZ2Substitute = usedKwSubstitute || usedNedcZ2Substitute;
 
   const effectiveCo2 = resolveEffectiveCo2(
     input,
@@ -233,7 +238,7 @@ export function calculateNova(
     tariff,
     input,
     appliedRuleIds,
-    usedKwSubstitute,
+    usedZ2Substitute,
   );
   const baseAmount = (input.netPriceEuro * ratePercent) / 100;
   appliedRuleIds.push('tariff.base_on_net_price');

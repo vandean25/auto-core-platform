@@ -358,4 +358,58 @@ describe('calculateNova', () => {
     );
     expect(String(result.novaAmountEuro)).toMatch(/^\d+(\.\d{1,2})?$/);
   });
+
+  describe('Wohnmobil SA 16% minimum (§ 6 Abs. 6 Z 4)', () => {
+    it('applies 16% min when CO₂ comes from 2×kW substitute', () => {
+      const result = calculateNova(
+        {
+          ...baseInput,
+          ratedPowerKw: 40,
+          isCamperSA: true,
+        },
+        T,
+      );
+      expect(result.ratePercentApplied).toBe(16);
+      expect(result.appliedRuleIds).toContain('tariff.camper_sa_min_rate');
+      expect(result.appliedRuleIds).toContain('co2.substitute_double_kw');
+    });
+
+    it('applies 16% min when CO₂ comes from NEDC×1.27 (Z 2)', () => {
+      const withoutMin = calculateNova(
+        {
+          ...baseInput,
+          co2GramsPerKm: 80,
+          emissionCycle: 'NEDC',
+        },
+        T,
+      );
+      const withMin = calculateNova(
+        {
+          ...baseInput,
+          co2GramsPerKm: 80,
+          emissionCycle: 'NEDC',
+          isCamperSA: true,
+        },
+        T,
+      );
+      expect(withoutMin.ratePercentApplied).toBeLessThan(16);
+      expect(withMin.ratePercentApplied).toBe(16);
+      expect(withMin.appliedRuleIds).toContain('tariff.camper_sa_min_rate');
+      expect(withMin.appliedRuleIds).toContain('co2.nedc_to_wltp_factor');
+    });
+
+    it('does not apply 16% min for WLTP certificate CO₂ without Z 2 substitute', () => {
+      const result = calculateNova(
+        {
+          ...baseInput,
+          co2GramsPerKm: 96,
+          emissionCycle: 'WLTP',
+          isCamperSA: true,
+        },
+        T,
+      );
+      expect(result.ratePercentApplied).toBe(0);
+      expect(result.appliedRuleIds).not.toContain('tariff.camper_sa_min_rate');
+    });
+  });
 });
