@@ -36,6 +36,7 @@ These links show the merged implementation checks; the AUT-325 PR checks page ab
 | Object storage and IAM | Target-environment bucket identity, retention/lifecycle, exact prefixes/generations, writer and cleanup principals, and permission checks | Deployment owner to be designated | **BLOCKED — target environment not checked** |
 | Monitoring and response | Dashboard/alert links, observed signals, thresholds, on-call owner, and a verified alert/recovery exercise for PDF publication, upload cleanup, and extraction lease recovery | Operations owner to be designated | **BLOCKED — no target-environment evidence recorded** |
 | Deployment and rollback | Migration/deploy order, writer gate state, rollback owner and change record; show rollback preserves issued PDFs, retained logo generations, readers, and fonts | Release owner to be designated | **BLOCKED — target environment not checked** |
+| Invoice finalize smoke (writer gate) | **Manual only:** finalize a test sales invoice and confirm PDF archive metadata (not automated in Cloud Build — immutable legal invoice in live UAT DB). See [archive rollout runbook](document-branding-archive-rollout.md). | Release owner (AUT-366) | **PENDING — human step** |
 
 ### Approval collection
 

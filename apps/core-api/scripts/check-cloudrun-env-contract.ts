@@ -24,6 +24,13 @@ export const REQUIRED_CORE_API_PRODUCTION_ENV_KEYS = [
   'INVOICE_BRANDING_WRITER_ENABLED',
 ] as const;
 
+/** Literal env values required on production core-api deploys (not secrets). */
+export const REQUIRED_CORE_API_PRODUCTION_ENV_VALUES: Readonly<
+  Record<string, string>
+> = {
+  INVOICE_BRANDING_WRITER_ENABLED: 'true',
+};
+
 export const REQUIRED_PDF_WORKER_BOOT_ENV_KEYS = [
   'DATABASE_URL',
   'SECRET_ENCRYPTION_KEY',
@@ -102,6 +109,18 @@ function hasMissingEnvironmentKeys(
   return requiredKeys.some((key) => !environment.has(key));
 }
 
+export function getIncorrectEnvironmentValues(
+  environment: CloudRunDeployEnvironment,
+  requiredValues: Readonly<Record<string, string>>,
+): string[] {
+  return Object.entries(requiredValues)
+    .filter(([key, expectedValue]) => environment.get(key) !== expectedValue)
+    .map(
+      ([key, expectedValue]) =>
+        `${key}=${environment.get(key) ?? '(missing)'} (expected ${expectedValue})`,
+    );
+}
+
 function main(): void {
   const cloudBuildPath = join(import.meta.dirname, '../../../cloudbuild.yaml');
   const source = readFileSync(cloudBuildPath, 'utf8');
@@ -115,6 +134,19 @@ function main(): void {
   ) {
     console.error(
       'Cloud Run core-api environment contract is missing required keys. See REQUIRED_CORE_API_PRODUCTION_ENV_KEYS in check-cloudrun-env-contract.ts.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const incorrectCoreApiValues = getIncorrectEnvironmentValues(
+    coreApi,
+    REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
+  );
+  if (incorrectCoreApiValues.length > 0) {
+    console.error(
+      'Cloud Run core-api environment contract has incorrect values:',
+      incorrectCoreApiValues.join(', '),
     );
     process.exitCode = 1;
     return;

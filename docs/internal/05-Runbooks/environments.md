@@ -40,7 +40,13 @@ Cloud Run `core-api` service. It captures the service settings currently
 passed by `gcloud run deploy`: 1 CPU, 512 MiB, concurrency 40, one minimum
 instance, five maximum instances, continuous CPU, public invocation, runtime
 environment variables, and GSM secret references. Use the environment
-tfvars examples to diff or recreate a service without console clickops:
+tfvars examples to diff or recreate a service without console clickops.
+
+For branded invoice issuance, **Cloud Build remains the deploy-time source of
+truth** for `INVOICE_BRANDING_WRITER_ENABLED` on the services it deploys. The
+tfvars examples set `invoice_branding_writer_enabled = true` so Terraform
+plans match the enabled writer gate; CI also asserts the Cloud Build value is
+the literal string `true` via `check-cloudrun-env-contract.ts`.
 
 ```bash
 terraform -chdir=infra init -backend=false

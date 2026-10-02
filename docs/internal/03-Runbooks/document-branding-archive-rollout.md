@@ -146,17 +146,32 @@ returns `503` with code `INVOICE_BRANDING_WRITER_DISABLED` on invoice
 finalize/issue paths (sales, workshop, vehicle sale). Clients should surface
 that code when the flag is off (for example after rollback).
 
-**Terraform (`infra/`):** optional parallel control via
-`invoice_branding_writer_enabled` (defaults to `false` until a workspace opts in).
-Prefer Cloud Build for the current live/staging services if that is the active
-deploy path.
+**Terraform vs Cloud Build (source of truth):**
 
-**Post-deploy smoke checks:**
+| Control | Role |
+|---|---|
+| **Cloud Build** (`cloudbuild.yaml`, `cloudbuild.staging.yaml`) | **Authoritative for live tag and staging deploys today.** Each `gcloud run deploy --set-env-vars` replaces the full env map, so the flag must stay in these files or the next release drops it. CI enforces presence and value via `apps/core-api/scripts/check-cloudrun-env-contract.ts`. |
+| **Terraform** (`infra/`, `invoice_branding_writer_enabled`) | **Recovery/reference** for the Cloud Run service definition. The variable defaults to `false` for workspaces that have not opted in; `environments/production.tfvars.example` and `environments/staging.tfvars.example` set `invoice_branding_writer_enabled = true` to match the enabled writer gate. Applying Terraform without importing the live service can still diverge from Cloud Build until Terraform becomes the config writer (see [environments runbook](../05-Runbooks/environments.md)). |
 
-1. Finalize a test sales invoice and confirm finalized status (not `503` /
-   `INVOICE_BRANDING_WRITER_DISABLED`).
-2. Download the issued invoice PDF and confirm archive metadata on the invoice
-   record points at the expected immutable object generation.
+**Monitoring:** `infra/monitoring_invoice_branding_writer.tf` defines a log-based
+metric and alert on `INVOICE_BRANDING_WRITER_DISABLED` (503 operational responses
+logged by `GlobalExceptionFilter`). Wire
+`invoice_branding_writer_disabled_alert_notification_channel_ids` in the target
+workspace before apply; record the alert link in
+[Slice 1 release acceptance](document-branding-slice-1-release-acceptance.md)
+(AUT-366).
+
+**Post-deploy smoke checks (manual — human owner, AUT-366):**
+
+Do **not** automate finalize/issue in Cloud Build: `cloudbuild.staging.yaml` is
+an API-only template whose push trigger is intentionally not enabled, and
+finalizing creates an immutable numbered legal invoice (RE-number, fiscal data)
+in the live UAT database.
+
+1. **Human:** Finalize a test sales invoice and confirm finalized status (not
+   `503` / `INVOICE_BRANDING_WRITER_DISABLED`).
+2. **Human:** Download the issued invoice PDF and confirm archive metadata on
+   the invoice record points at the expected immutable object generation.
 
 **Rollback:** remove `INVOICE_BRANDING_WRITER_ENABLED=true` from the relevant
 `--set-env-vars` line (or set `false`), redeploy `core-api` only, and verify
