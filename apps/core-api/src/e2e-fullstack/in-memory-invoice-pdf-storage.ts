@@ -60,9 +60,7 @@ export function installInMemoryInvoicePdfStorage(
   app: INestApplication,
   options: InMemoryInvoicePdfStorageOptions = {},
 ) {
-  const invoicePdfService = app
-    .select(InvoicesModule)
-    .get(InvoicePdfService);
+  const invoicePdfService = app.select(InvoicesModule).get(InvoicePdfService);
   const dependencies = invoicePdfService as unknown as {
     renderer: InvoicePdfRenderer;
     storage: PdfStorage;
@@ -83,17 +81,17 @@ export function installInMemoryInvoicePdfStorage(
 
   if (options.mockRenderer) {
     const fixturePdf = Buffer.from('%PDF-1.4 AUT-345 in-memory fixture');
-    renderer.render = async () => fixturePdf;
+    renderer.render = () => Promise.resolve(fixturePdf);
   }
 
-  brandingStorage.readGeneration = async (bucket, key, generation) => {
+  brandingStorage.readGeneration = (bucket, key, generation) => {
     void bucket;
     void key;
     void generation;
-    return Buffer.from(TEST_LOGO_BYTES);
+    return Promise.resolve(Buffer.from(TEST_LOGO_BYTES));
   };
 
-  storage.publishImmutablePdf = async (input) => {
+  storage.publishImmutablePdf = (input) => {
     const bucket = testInvoicePdfBucket;
     const objectIdentity = `${bucket}:${input.key}`;
     if (archives.has(objectIdentity)) {
@@ -114,10 +112,10 @@ export function installInMemoryInvoicePdfStorage(
       body: Buffer.from(input.body),
     };
     archives.set(objectIdentity, archive);
-    return archive;
+    return Promise.resolve(archive);
   };
 
-  storage.readImmutablePdfByKey = async (input) => {
+  storage.readImmutablePdfByKey = (input) => {
     const objectIdentity = `${input.bucket}:${input.key}`;
     const archive = archives.get(objectIdentity);
     if (!archive) {
@@ -129,10 +127,10 @@ export function installInMemoryInvoicePdfStorage(
       );
     }
     assertPdfHash(archive);
-    return archive;
+    return Promise.resolve(archive);
   };
 
-  storage.readImmutablePdfGeneration = async (input) => {
+  storage.readImmutablePdfGeneration = (input) => {
     const objectIdentity = `${input.bucket}:${input.key}`;
     const archive = archives.get(objectIdentity);
     if (!archive || archive.generation !== input.generation) {
@@ -144,22 +142,22 @@ export function installInMemoryInvoicePdfStorage(
       );
     }
     assertPdfHash(archive);
-    return archive;
+    return Promise.resolve(archive);
   };
 
-  storage.getPdfStream = async (input) => {
+  storage.getPdfStream = (input) => {
     const objectIdentity = `${input.bucket ?? process.env.INVOICE_PDF_BUCKET}:${input.key}`;
     const archive = archives.get(objectIdentity);
     if (!archive) {
       throw new NotFoundException('PDF not found in storage');
     }
-    return {
+    return Promise.resolve({
       bucket: archive.bucket,
       key: archive.key,
       stream: Readable.from([archive.body]),
       contentType: PDF_MIME_TYPE,
       contentLength: archive.body.length,
-    };
+    });
   };
 
   return { archives, testInvoicePdfBucket };

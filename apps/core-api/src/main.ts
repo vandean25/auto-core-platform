@@ -34,9 +34,8 @@ async function bootstrap() {
   });
 
   if (process.env.E2E_FULLSTACK_IN_MEMORY_PDF === 'true') {
-    const { installInMemoryInvoicePdfStorage } = await import(
-      './e2e-fullstack/in-memory-invoice-pdf-storage.js'
-    );
+    const { installInMemoryInvoicePdfStorage } =
+      await import('./e2e-fullstack/in-memory-invoice-pdf-storage.js');
     installInMemoryInvoicePdfStorage(app, { mockRenderer: false });
   }
 
