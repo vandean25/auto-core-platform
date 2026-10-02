@@ -1,5 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
-import { Prisma, WorkshopOrderStatus } from '@prisma/client';
+import {
+  LoanerBookingStatus,
+  Prisma,
+  WorkshopOrderStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
   normalizeWorkshopOrder,
@@ -31,13 +35,29 @@ export const ORDER_WITH_INVOICE_RELATIONS = {
   customer: true,
   vehicle: true,
   invoice: { select: { id: true, invoice_number: true } },
+  loaner_bookings: {
+    where: {
+      status: {
+        in: [LoanerBookingStatus.RESERVED, LoanerBookingStatus.HANDED_OVER],
+      },
+    },
+    orderBy: [{ handed_over_at: 'desc' }, { planned_from: 'desc' }],
+    take: 1,
+    include: {
+      loaner_vehicle: {
+        include: {
+          vehicle: { select: { make: true, model: true, plate: true } },
+        },
+      },
+    },
+  },
   tasks: {
     orderBy: { createdAt: 'asc' },
     include: {
       line_items: true,
     },
   },
-} as const;
+} satisfies Prisma.WorkshopOrderInclude;
 
 export interface FindAllPagination {
   page: number;
@@ -51,6 +71,7 @@ export interface FindAllWorkshopOrdersParams {
   pageSize?: number;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
+  customerId?: string;
 }
 
 export function resolveFindAllPagination(
@@ -227,16 +248,26 @@ export async function executeFindAllWorkshopOrders(
     params.sortField,
     params.sortDirection,
   );
+  const scopedWhere: Prisma.WorkshopOrderWhereInput = {
+    ...where,
+    site_id: siteId,
+    ...(params.customerId
+      ? {
+          customer_id: params.customerId,
+          status: { in: LIVE_ORDER_STATUSES },
+        }
+      : {}),
+  };
 
   const [data, total] = await Promise.all([
     prisma.workshopOrder.findMany({
-      where: { ...where, site_id: siteId },
+      where: scopedWhere,
       include: ORDER_WITH_RELATIONS,
       skip,
       take: pageSize,
       orderBy,
     }),
-    prisma.workshopOrder.count({ where: { ...where, site_id: siteId } }),
+    prisma.workshopOrder.count({ where: scopedWhere }),
   ]);
 
   return {

@@ -3707,6 +3707,15 @@
         "operationId": "WorkshopController_findAll",
         "parameters": [
           {
+            "name": "customerId",
+            "required": false,
+            "in": "query",
+            "description": "When set, only orders for this customer are returned (open workshop statuses only).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -5038,6 +5047,524 @@
         },
         "tags": [
           "parts-requisitions"
+        ]
+      }
+    },
+    "/api/workshop/loaner-vehicles": {
+      "get": {
+        "operationId": "LoanerVehiclesController_list",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LoanerVehicleResponseDto"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "post": {
+        "operationId": "LoanerVehiclesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLoanerVehicleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerVehicleResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Vehicle already in loaner fleet"
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-vehicles/availability": {
+      "get": {
+        "operationId": "LoanerVehiclesController_availability",
+        "parameters": [
+          {
+            "name": "asOf",
+            "required": false,
+            "in": "query",
+            "description": "Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window.",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerAvailabilityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-vehicles/{id}": {
+      "get": {
+        "operationId": "LoanerVehiclesController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerVehicleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "patch": {
+        "operationId": "LoanerVehiclesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLoanerVehicleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerVehicleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "delete": {
+        "operationId": "LoanerVehiclesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings": {
+      "get": {
+        "operationId": "LoanerBookingsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "post": {
+        "operationId": "LoanerBookingsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLoanerBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Overlapping active booking"
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/overdue": {
+      "get": {
+        "operationId": "LoanerBookingsController_overdue",
+        "parameters": [
+          {
+            "name": "asOf",
+            "required": false,
+            "in": "query",
+            "description": "Evaluation timestamp for overdue detection (defaults to server now).",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/{id}": {
+      "get": {
+        "operationId": "LoanerBookingsController_getOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "patch": {
+        "operationId": "LoanerBookingsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLoanerBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Overlapping active booking"
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/{id}/cancel": {
+      "post": {
+        "operationId": "LoanerBookingsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/{id}/no-show": {
+      "post": {
+        "operationId": "LoanerBookingsController_markNoShow",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/{id}/hand-over": {
+      "post": {
+        "operationId": "LoanerBookingsController_handOver",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandOverLoanerBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/loaner-bookings/{id}/return": {
+      "post": {
+        "operationId": "LoanerBookingsController_returnBooking",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnLoanerBookingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanerBookingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
         ]
       }
     },
@@ -6591,6 +7118,190 @@
         },
         "tags": [
           "Vehicle"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/inspection-records": {
+      "get": {
+        "operationId": "VehicleInspectionRecordController_list",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      },
+      "post": {
+        "operationId": "VehicleInspectionRecordController_create",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleInspectionRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/inspection-records/{recordId}": {
+      "get": {
+        "operationId": "VehicleInspectionRecordController_findOne",
+        "parameters": [
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      },
+      "patch": {
+        "operationId": "VehicleInspectionRecordController_update",
+        "parameters": [
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVehicleInspectionRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      },
+      "delete": {
+        "operationId": "VehicleInspectionRecordController_remove",
+        "parameters": [
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
         ]
       }
     },
@@ -11042,6 +11753,63 @@
           "last_name"
         ]
       },
+      "PickerlDueStatus": {
+        "type": "string",
+        "enum": [
+          "OK",
+          "DUE_SOON",
+          "OVERDUE",
+          "UNKNOWN"
+        ]
+      },
+      "PickerlWarningDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "PickerlDueDto": {
+        "type": "object",
+        "properties": {
+          "due_month": {
+            "type": "string",
+            "nullable": true,
+            "description": "Next due month as YYYY-MM",
+            "example": "2027-03"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PickerlDueStatus"
+              }
+            ]
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickerlWarningDto"
+            }
+          }
+        },
+        "required": [
+          "due_month",
+          "status",
+          "rule_id",
+          "warnings"
+        ]
+      },
       "VehicleResponseDto": {
         "type": "object",
         "properties": {
@@ -11140,6 +11908,9 @@
                 "$ref": "#/components/schemas/CustomerResponseDto"
               }
             ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
           }
         },
         "required": [
@@ -13657,6 +14428,9 @@
                 "$ref": "#/components/schemas/CustomerResponseDto"
               }
             ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
           }
         },
         "required": [
@@ -13949,6 +14723,61 @@
           "id"
         ]
       },
+      "WorkshopOrderLoanerBookingSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RESERVED",
+              "HANDED_OVER",
+              "RETURNED",
+              "CANCELLED",
+              "NO_SHOW"
+            ]
+          },
+          "plannedFrom": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "plannedTo": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "loanerVehicleId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "vehicleMake": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicleModel": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehiclePlate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "plannedFrom",
+          "plannedTo",
+          "loanerVehicleId",
+          "displayName",
+          "vehicleMake",
+          "vehicleModel",
+          "vehiclePlate"
+        ]
+      },
       "WorkshopOrderResponseDto": {
         "type": "object",
         "properties": {
@@ -14028,6 +14857,15 @@
           },
           "invoice": {
             "$ref": "#/components/schemas/WorkshopInvoiceSummaryDto"
+          },
+          "loanerBooking": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopOrderLoanerBookingSummaryDto"
+              }
+            ]
           },
           "createdAt": {
             "format": "date-time",
@@ -14528,6 +15366,9 @@
                 "$ref": "#/components/schemas/CustomerResponseDto"
               }
             ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
           }
         },
         "required": [
@@ -15668,6 +16509,436 @@
         "required": [
           "vendorId",
           "items"
+        ]
+      },
+      "LoanerVehicleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string"
+          },
+          "vehicleId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "ON_LOAN",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "dailyRateCents": {
+            "type": "number",
+            "nullable": true
+          },
+          "insuranceNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "siteId",
+          "vehicleId",
+          "displayName",
+          "status",
+          "dailyRateCents",
+          "insuranceNote",
+          "active",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "LoanerAvailabilityItemDto": {
+        "type": "object",
+        "properties": {
+          "vehicle": {
+            "$ref": "#/components/schemas/LoanerVehicleResponseDto"
+          },
+          "available": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vehicle",
+          "available"
+        ]
+      },
+      "LoanerAvailabilityResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoanerAvailabilityItemDto"
+            }
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "asOf": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "from",
+          "to"
+        ]
+      },
+      "CreateLoanerVehicleDto": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "ON_LOAN",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "dailyRateCents": {
+            "type": "number"
+          },
+          "insuranceNote": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "vehicleId",
+          "displayName"
+        ]
+      },
+      "UpdateLoanerVehicleDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "ON_LOAN",
+              "MAINTENANCE",
+              "RETIRED"
+            ]
+          },
+          "dailyRateCents": {
+            "type": "object"
+          },
+          "insuranceNote": {
+            "type": "object"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "LoanerBookingCustomerSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "companyName"
+        ]
+      },
+      "LoanerBookingVehicleSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "siteId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "siteId"
+        ]
+      },
+      "LoanerBookingResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "loanerVehicleId": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "plannedFrom": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "plannedTo": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RESERVED",
+              "HANDED_OVER",
+              "RETURNED",
+              "CANCELLED",
+              "NO_SHOW"
+            ]
+          },
+          "handedOverAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "returnedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "odometerOut": {
+            "type": "number",
+            "nullable": true
+          },
+          "odometerIn": {
+            "type": "number",
+            "nullable": true
+          },
+          "fuelOut": {
+            "type": "number",
+            "nullable": true
+          },
+          "fuelIn": {
+            "type": "number",
+            "nullable": true
+          },
+          "damageNotesOut": {
+            "type": "string",
+            "nullable": true
+          },
+          "damageNotesIn": {
+            "type": "string",
+            "nullable": true
+          },
+          "driverLicenceChecked": {
+            "type": "boolean"
+          },
+          "licenceCheckedById": {
+            "type": "string",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/LoanerBookingCustomerSummaryDto"
+          },
+          "loanerVehicle": {
+            "$ref": "#/components/schemas/LoanerBookingVehicleSummaryDto"
+          }
+        },
+        "required": [
+          "id",
+          "loanerVehicleId",
+          "workshopOrderId",
+          "customerId",
+          "plannedFrom",
+          "plannedTo",
+          "status",
+          "handedOverAt",
+          "returnedAt",
+          "odometerOut",
+          "odometerIn",
+          "fuelOut",
+          "fuelIn",
+          "damageNotesOut",
+          "damageNotesIn",
+          "driverLicenceChecked",
+          "licenceCheckedById",
+          "notes",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "LoanerBookingListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LoanerBookingResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "CreateLoanerBookingDto": {
+        "type": "object",
+        "properties": {
+          "loanerVehicleId": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string"
+          },
+          "plannedFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "plannedTo": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "loanerVehicleId",
+          "customerId",
+          "plannedFrom",
+          "plannedTo"
+        ]
+      },
+      "UpdateLoanerBookingDto": {
+        "type": "object",
+        "properties": {
+          "plannedFrom": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "plannedTo": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "workshopOrderId": {
+            "type": "object"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "object"
+          }
+        }
+      },
+      "HandOverLoanerBookingDto": {
+        "type": "object",
+        "properties": {
+          "odometerOut": {
+            "type": "number"
+          },
+          "fuelOut": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "driverLicenceChecked": {
+            "type": "boolean"
+          },
+          "licenceCheckedById": {
+            "type": "string"
+          },
+          "damageNotesOut": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "odometerOut",
+          "fuelOut",
+          "driverLicenceChecked"
+        ]
+      },
+      "ReturnLoanerBookingDto": {
+        "type": "object",
+        "properties": {
+          "odometerIn": {
+            "type": "number"
+          },
+          "fuelIn": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "damageNotesIn": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "odometerIn",
+          "fuelIn"
         ]
       },
       "MechanicVehicleDto": {
@@ -17771,6 +19042,147 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          }
+        }
+      },
+      "VehicleInspectionType": {
+        "type": "string",
+        "enum": [
+          "PICKERL_57A"
+        ]
+      },
+      "VehicleInspectionRecordSource": {
+        "type": "string",
+        "enum": [
+          "MANUAL"
+        ]
+      },
+      "VehicleInspectionRecordResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "inspection_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleInspectionType"
+              }
+            ]
+          },
+          "inspected_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "plaketten_valid_until_year": {
+            "type": "number"
+          },
+          "plaketten_valid_until_month": {
+            "type": "number"
+          },
+          "station_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleInspectionRecordSource"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "inspection_type",
+          "inspected_on",
+          "plaketten_valid_until_year",
+          "plaketten_valid_until_month",
+          "source",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateVehicleInspectionRecordDto": {
+        "type": "object",
+        "properties": {
+          "inspection_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleInspectionType"
+              }
+            ]
+          },
+          "inspected_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "plaketten_valid_until_year": {
+            "type": "number",
+            "minimum": 1980,
+            "maximum": 2100
+          },
+          "plaketten_valid_until_month": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "station_name": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "inspection_type",
+          "inspected_on",
+          "plaketten_valid_until_year",
+          "plaketten_valid_until_month"
+        ]
+      },
+      "UpdateVehicleInspectionRecordDto": {
+        "type": "object",
+        "properties": {
+          "inspected_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "plaketten_valid_until_year": {
+            "type": "number",
+            "minimum": 1980,
+            "maximum": 2100
+          },
+          "plaketten_valid_until_month": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "station_name": {
+            "type": "object"
+          },
+          "notes": {
+            "type": "object"
           }
         }
       },

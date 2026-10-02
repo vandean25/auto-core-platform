@@ -39,7 +39,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
 | Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
-| Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, or `VehicleLedgerEntry`. |
+| Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, `VehicleLedgerEntry`, or `LoanerVehicle` fleet entry. |
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
@@ -53,6 +53,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopSettings | No (removed) | Tenant singleton is replaced by per-site fields on `Site` (ADR-0022). Do not reintroduce a tenant-wide hours singleton. |
 | WorkshopOpeningHour | No | Seven weekday rows **per site**; replaced by updating hours, never deleted independently. Cascade when a pristine site is hard-deleted. |
 | WorkshopHoliday | Yes | Hard delete allowed (site-scoped). Not referenced by orders. Removing a holiday only changes future grid hours for that site. |
+| LoanerVehicle | Conditional | Soft-disable via `active = false` preferred. Hard delete only when no `LoanerBooking` rows reference the fleet entry. |
+| LoanerBooking | Status lifecycle | No hard delete. Use `CANCELLED`, `RETURNED`, or `NO_SHOW`. Hand-over/return fields are retained for audit. |
 | WorkshopOrder | Conditional | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED`, no linked invoice exists yet on the order, no `LaborEntry` records exist for the task, and **no child line has a `PartsReservation` or inventory activity**. |
 | WorkshopTaskLineItem | Soft-cancel after operational history | Hard delete forbidden once any `PartsReservation` or `InventoryTransaction` exists. Consumed > 0: leftover-release shrinks `quantity` to consumed, status `CONSUMED` (still billable). Consumed = 0: status `CANCELLED`. Keep the row so reservations retain `workshop_task_line_item_id`. `replaceTaskLineItems` must not `deleteMany` operational lines. |

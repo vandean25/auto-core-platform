@@ -898,6 +898,8 @@ describe('Prisma Audit Extension', () => {
       expect(AUDITED_MODELS.has('PartsReservation')).toBe(true);
       expect(AUDITED_MODELS.has('PartsRequisition')).toBe(true);
       expect(AUDITED_MODELS.has('PartsRequisitionLine')).toBe(true);
+      expect(AUDITED_MODELS.has('LoanerVehicle')).toBe(true);
+      expect(AUDITED_MODELS.has('LoanerBooking')).toBe(true);
       expect(AUDITED_MODELS.has('AttendanceEvent')).toBe(false);
 
       expect(AUDITED_MODELS.has('AuditLog')).toBe(false);

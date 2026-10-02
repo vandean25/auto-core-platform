@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
+import { PickerlDueDto } from './pickerl-due.dto.js';
 
 export class VehicleResponseDto {
   @ApiProperty()
@@ -90,6 +91,9 @@ export class VehicleResponseDto {
     nullable: true,
   })
   customer?: CustomerResponseDto | null;
+
+  @ApiProperty({ type: () => PickerlDueDto, required: false })
+  pickerl_due?: PickerlDueDto;
 }
 
 export class VehicleListItemDto extends VehicleResponseDto {}

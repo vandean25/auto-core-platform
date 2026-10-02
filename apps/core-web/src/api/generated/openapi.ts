@@ -1539,6 +1539,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/loaner-vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerVehiclesController_list"];
+        put?: never;
+        post: operations["LoanerVehiclesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-vehicles/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerVehiclesController_availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerVehiclesController_getOne"];
+        put?: never;
+        post?: never;
+        delete: operations["LoanerVehiclesController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["LoanerVehiclesController_update"];
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerBookingsController_list"];
+        put?: never;
+        post: operations["LoanerBookingsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/overdue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerBookingsController_overdue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerBookingsController_getOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["LoanerBookingsController_update"];
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_markNoShow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/hand-over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_handOver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_returnBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mechanic/queue": {
         parameters: {
             query?: never;
@@ -2013,6 +2173,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["VehicleController_update"];
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/inspection-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleInspectionRecordController_list"];
+        put?: never;
+        post: operations["VehicleInspectionRecordController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/inspection-records/{recordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleInspectionRecordController_findOne"];
+        put?: never;
+        post?: never;
+        delete: operations["VehicleInspectionRecordController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["VehicleInspectionRecordController_update"];
         trace?: never;
     };
     "/api/employees": {
@@ -3390,6 +3582,22 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        /** @enum {string} */
+        PickerlDueStatus: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
+        PickerlWarningDto: {
+            code: string;
+            message: string;
+        };
+        PickerlDueDto: {
+            /**
+             * @description Next due month as YYYY-MM
+             * @example 2027-03
+             */
+            due_month: string | null;
+            status: components["schemas"]["PickerlDueStatus"];
+            rule_id: string;
+            warnings: components["schemas"]["PickerlWarningDto"][];
+        };
         VehicleResponseDto: {
             id: string;
             make: string;
@@ -3418,6 +3626,7 @@ export interface components {
             nova_class?: string | null;
             emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         /** @enum {string} */
         InvoiceTaxMode: "STANDARD" | "MARGIN_SCHEME";
@@ -4083,6 +4292,7 @@ export interface components {
             nova_class?: string | null;
             emission_class?: string | null;
             customer?: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         /** @enum {string} */
         WorkshopOrderPurpose: "CUSTOMER_REPAIR" | "STOCK_PREP";
@@ -4159,6 +4369,20 @@ export interface components {
             id: string;
             invoice_number?: string | null;
         };
+        WorkshopOrderLoanerBookingSummaryDto: {
+            id: string;
+            /** @enum {string} */
+            status: "RESERVED" | "HANDED_OVER" | "RETURNED" | "CANCELLED" | "NO_SHOW";
+            /** Format: date-time */
+            plannedFrom: string;
+            /** Format: date-time */
+            plannedTo: string;
+            loanerVehicleId: string;
+            displayName: string;
+            vehicleMake: string | null;
+            vehicleModel: string | null;
+            vehiclePlate: string | null;
+        };
         WorkshopOrderResponseDto: {
             id: string;
             order_number: string;
@@ -4179,6 +4403,7 @@ export interface components {
             vehicle: components["schemas"]["WorkshopVehicleSummaryDto"];
             tasks: components["schemas"]["WorkshopTaskResponseDto"][];
             invoice?: components["schemas"]["WorkshopInvoiceSummaryDto"];
+            loanerBooking?: components["schemas"]["WorkshopOrderLoanerBookingSummaryDto"] | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -4328,6 +4553,7 @@ export interface components {
             nova_class?: string | null;
             emission_class?: string | null;
             customer: components["schemas"]["CustomerResponseDto"] | null;
+            pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         WorkshopSearchCustomerDto: {
             id: string;
@@ -4671,6 +4897,124 @@ export interface components {
             /** Format: uuid */
             vendorId: string;
             items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
+        };
+        LoanerVehicleResponseDto: {
+            id: string;
+            siteId: string;
+            vehicleId: string;
+            displayName: string;
+            /** @enum {string} */
+            status: "AVAILABLE" | "ON_LOAN" | "MAINTENANCE" | "RETIRED";
+            dailyRateCents: number | null;
+            insuranceNote: string | null;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LoanerAvailabilityItemDto: {
+            vehicle: components["schemas"]["LoanerVehicleResponseDto"];
+            available: boolean;
+        };
+        LoanerAvailabilityResponseDto: {
+            data: components["schemas"]["LoanerAvailabilityItemDto"][];
+            from: string;
+            to: string;
+            asOf?: string;
+        };
+        CreateLoanerVehicleDto: {
+            vehicleId: string;
+            displayName: string;
+            /** @enum {string} */
+            status?: "AVAILABLE" | "ON_LOAN" | "MAINTENANCE" | "RETIRED";
+            dailyRateCents?: number;
+            insuranceNote?: string;
+            active?: boolean;
+        };
+        UpdateLoanerVehicleDto: {
+            displayName?: string;
+            /** @enum {string} */
+            status?: "AVAILABLE" | "ON_LOAN" | "MAINTENANCE" | "RETIRED";
+            dailyRateCents?: Record<string, never>;
+            insuranceNote?: Record<string, never>;
+            active?: boolean;
+        };
+        LoanerBookingCustomerSummaryDto: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            companyName: string | null;
+        };
+        LoanerBookingVehicleSummaryDto: {
+            id: string;
+            displayName: string;
+            siteId: string;
+        };
+        LoanerBookingResponseDto: {
+            id: string;
+            loanerVehicleId: string;
+            workshopOrderId: string | null;
+            customerId: string;
+            /** Format: date-time */
+            plannedFrom: string;
+            /** Format: date-time */
+            plannedTo: string;
+            /** @enum {string} */
+            status: "RESERVED" | "HANDED_OVER" | "RETURNED" | "CANCELLED" | "NO_SHOW";
+            /** Format: date-time */
+            handedOverAt: string | null;
+            /** Format: date-time */
+            returnedAt: string | null;
+            odometerOut: number | null;
+            odometerIn: number | null;
+            fuelOut: number | null;
+            fuelIn: number | null;
+            damageNotesOut: string | null;
+            damageNotesIn: string | null;
+            driverLicenceChecked: boolean;
+            licenceCheckedById: string | null;
+            notes: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            customer?: components["schemas"]["LoanerBookingCustomerSummaryDto"];
+            loanerVehicle?: components["schemas"]["LoanerBookingVehicleSummaryDto"];
+        };
+        LoanerBookingListResponseDto: {
+            data: components["schemas"]["LoanerBookingResponseDto"][];
+        };
+        CreateLoanerBookingDto: {
+            loanerVehicleId: string;
+            customerId: string;
+            workshopOrderId?: string;
+            /** Format: date-time */
+            plannedFrom: string;
+            /** Format: date-time */
+            plannedTo: string;
+            notes?: string;
+        };
+        UpdateLoanerBookingDto: {
+            /** Format: date-time */
+            plannedFrom?: string;
+            /** Format: date-time */
+            plannedTo?: string;
+            workshopOrderId?: Record<string, never>;
+            customerId?: string;
+            notes?: Record<string, never>;
+        };
+        HandOverLoanerBookingDto: {
+            odometerOut: number;
+            fuelOut: number;
+            driverLicenceChecked: boolean;
+            licenceCheckedById?: string;
+            damageNotesOut?: string;
+        };
+        ReturnLoanerBookingDto: {
+            odometerIn: number;
+            fuelIn: number;
+            damageNotesIn?: string;
         };
         MechanicVehicleDto: {
             id: string;
@@ -5333,6 +5677,44 @@ export interface components {
             plate?: string;
             /** Format: uuid */
             customer_id?: string | null;
+        };
+        /** @enum {string} */
+        VehicleInspectionType: "PICKERL_57A";
+        /** @enum {string} */
+        VehicleInspectionRecordSource: "MANUAL";
+        VehicleInspectionRecordResponseDto: {
+            id: string;
+            vehicle_id: string;
+            inspection_type: components["schemas"]["VehicleInspectionType"];
+            /** Format: date */
+            inspected_on: string;
+            plaketten_valid_until_year: number;
+            plaketten_valid_until_month: number;
+            station_name?: string | null;
+            source: components["schemas"]["VehicleInspectionRecordSource"];
+            notes?: string | null;
+            created_by_user_id?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateVehicleInspectionRecordDto: {
+            inspection_type: components["schemas"]["VehicleInspectionType"];
+            /** Format: date */
+            inspected_on: string;
+            plaketten_valid_until_year: number;
+            plaketten_valid_until_month: number;
+            station_name?: string;
+            notes?: string;
+        };
+        UpdateVehicleInspectionRecordDto: {
+            /** Format: date */
+            inspected_on?: string;
+            plaketten_valid_until_year?: number;
+            plaketten_valid_until_month?: number;
+            station_name?: Record<string, never>;
+            notes?: Record<string, never>;
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -8748,6 +9130,8 @@ export interface operations {
     WorkshopController_findAll: {
         parameters: {
             query?: {
+                /** @description When set, only orders for this customer are returned (open workshop statuses only). */
+                customerId?: string;
                 /** @description Page number */
                 page?: number;
                 /** @description Number of items per page */
@@ -9639,6 +10023,369 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PurchaseOrderResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_list: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: components["schemas"]["LoanerVehicleResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLoanerVehicleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerVehicleResponseDto"];
+                };
+            };
+            /** @description Vehicle already in loaner fleet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoanerVehiclesController_availability: {
+        parameters: {
+            query: {
+                /** @description Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window. */
+                asOf?: string;
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerAvailabilityResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerVehicleResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        deleted?: boolean;
+                    };
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLoanerVehicleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerVehicleResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingListResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLoanerBookingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+            /** @description Overlapping active booking */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoanerBookingsController_overdue: {
+        parameters: {
+            query?: {
+                /** @description Evaluation timestamp for overdue detection (defaults to server now). */
+                asOf?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingListResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLoanerBookingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+            /** @description Overlapping active booking */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoanerBookingsController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_markNoShow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_handOver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandOverLoanerBookingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_returnBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnLoanerBookingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
                 };
             };
         };
@@ -10614,6 +11361,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"][];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleInspectionRecordDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recordId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleInspectionRecordController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recordId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleInspectionRecordController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recordId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateVehicleInspectionRecordDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
                 };
             };
         };

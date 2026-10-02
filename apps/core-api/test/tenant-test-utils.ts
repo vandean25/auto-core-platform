@@ -430,6 +430,7 @@ export async function cleanupTestTenantGraph(
 ): Promise<void> {
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
 
+  await tenantPrisma.vehicleInspectionRecord.deleteMany({});
   await tenantPrisma.vehicleLedgerEntry.deleteMany({});
   await tenantPrisma.invoiceItem.deleteMany({});
   await tenantPrisma.invoice.deleteMany({});
@@ -453,6 +454,8 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.workshopVoiceNoteDraft.deleteMany({});
   await tenantPrisma.voiceNoteRateLimit.deleteMany({});
   await tenantPrisma.workshopTask.deleteMany({});
+  await tenantPrisma.loanerBooking.deleteMany({});
+  await tenantPrisma.loanerVehicle.deleteMany({});
   await tenantPrisma.workshopOrder.deleteMany({});
   await tenantPrisma.bay.deleteMany({});
   await tenantPrisma.inspectionTemplateItem.deleteMany({});

@@ -25,6 +25,7 @@ import {
   Warehouse,
   LayoutGrid,
   Calendar,
+  CarFront,
   ArrowLeftRight,
   X,
 } from 'lucide-react'
@@ -121,6 +122,14 @@ const coreModules: SidebarModule[] = [
     icon: Calendar,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/planner'),
+  },
+  {
+    id: 'workshop-loaner-vehicles',
+    label: 'Ersatzfahrzeuge',
+    to: '/workshop/loaner-vehicles',
+    icon: CarFront,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/workshop/loaner-vehicles'),
   },
   {
     id: 'tyre-storage',

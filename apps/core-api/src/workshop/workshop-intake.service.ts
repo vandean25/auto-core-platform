@@ -81,6 +81,7 @@ export class WorkshopIntakeService {
     pageSize?: number;
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
+    customerId?: string;
   }) {
     const services = this.getServices();
     const tenantId = await services.tenantContext.getTenantId();

@@ -12,6 +12,7 @@ const siteOwnedModelFields: Readonly<Record<string, readonly string[]>> = {
   WorkshopOpeningHour: ['site_id'],
   WorkshopHoliday: ['site_id'],
   WorkshopOrder: ['site_id'],
+  LoanerVehicle: ['site_id'],
 };
 
 type PrismaModel = {
@@ -33,6 +34,7 @@ const siteOwnedDelegates: ReadonlySet<string> = new Set([
   'workshopOpeningHour',
   'workshopHoliday',
   'workshopOrder',
+  'loanerVehicle',
 ]);
 
 const scopedPrismaOperations = new Set([

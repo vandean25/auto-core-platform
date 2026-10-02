@@ -285,6 +285,30 @@ describe('WorkshopOrderDetails Characterization', () => {
       expect(screen.queryByText('Est. Margin')).not.toBeInTheDocument()
     })
 
+    it('shows loaner booking chip when order has loaner summary', () => {
+      setupDefaultMocks({
+        ...baseOrder,
+        loanerBooking: {
+          id: 'loaner-booking-1',
+          status: 'HANDED_OVER',
+          plannedFrom: '2026-10-01T08:00:00.000Z',
+          plannedTo: '2026-10-05T18:00:00.000Z',
+          loanerVehicleId: 'loaner-veh-1',
+          displayName: 'Golf Ersatz',
+          vehicleMake: 'VW',
+          vehicleModel: 'Golf',
+          vehiclePlate: 'W-LOAN 1',
+        },
+      })
+      renderComponent()
+
+      const header = screen.getByRole('banner')
+      expect(within(header).getByRole('link', { name: /Ersatzwagen: W-LOAN 1 bis/i })).toHaveAttribute(
+        'href',
+        '/workshop/loaner-vehicles?vehicle=loaner-veh-1',
+      )
+    })
+
     it('puts Print Job Card in the header and keeps invoice actions out of it', () => {
       renderComponent()
 

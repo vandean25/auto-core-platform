@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class FindAllWorkshopOrdersQueryDto {
   @ApiPropertyOptional({
@@ -32,4 +32,12 @@ export class FindAllWorkshopOrdersQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sortDirection?: 'asc' | 'desc';
+
+  @ApiPropertyOptional({
+    description:
+      'When set, only orders for this customer are returned (open workshop statuses only).',
+  })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
 }
