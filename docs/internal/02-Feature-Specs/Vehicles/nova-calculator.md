@@ -1,1 +1,1 @@
-LOAD_FROM_FILE
+$include:/tmp/nova-push2-ready-file-0.txt
