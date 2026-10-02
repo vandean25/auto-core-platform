@@ -5,6 +5,7 @@ import {
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
+import { mapWorkshopOrderLoanerBookingSummary } from '../loaner-vehicles/loaner.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 
 export type WorkshopOrderWithTasks = Prisma.WorkshopOrderGetPayload<{
@@ -21,6 +22,15 @@ export type WorkshopOrderWithTasks = Prisma.WorkshopOrderGetPayload<{
 
 export type WorkshopOrderWithRelations = WorkshopOrderWithTasks & {
   invoice?: { id: string; invoice_number: string | null } | null;
+  loaner_bookings?: Prisma.LoanerBookingGetPayload<{
+    include: {
+      loaner_vehicle: {
+        include: {
+          vehicle: { select: { make: true; model: true; plate: true } };
+        };
+      };
+    };
+  }>[];
 };
 
 export function deriveOrderStatus(taskStatuses: WorkshopTaskStatus[]) {
@@ -54,8 +64,10 @@ export function assertOrderEditable(order: {
 }
 
 export function normalizeWorkshopOrder(order: WorkshopOrderWithRelations) {
+  const { loaner_bookings, ...rest } = order;
   return {
-    ...order,
+    ...rest,
+    loanerBooking: mapWorkshopOrderLoanerBookingSummary(loaner_bookings ?? []),
     vehicle: order.vehicle
       ? stripVehicleIdentityResolutionState(order.vehicle)
       : order.vehicle,

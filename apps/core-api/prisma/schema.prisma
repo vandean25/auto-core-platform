@@ -75,6 +75,8 @@ model Tenant {
   workshopVoiceNoteDrafts       WorkshopVoiceNoteDraft[]
   voiceNoteRateLimits           VoiceNoteRateLimit[]
   workshopOrders                WorkshopOrder[]
+  loanerVehicles                LoanerVehicle[]
+  loanerBookings                LoanerBooking[]
   workshopTasks                 WorkshopTask[]
   workshopTaskLineItems         WorkshopTaskLineItem[]
   employees                     Employee[]
@@ -488,6 +490,7 @@ model Site {
   tyreSets                 TyreSet[]
   invoices                 Invoice[]
   creditNotes              CreditNote[]
+  loanerVehicles           LoanerVehicle[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1084,11 +1087,13 @@ model Customer {
   workshop_orders         WorkshopOrder[]
   vehicle_purchases       VehiclePurchase[] @relation("VehiclePurchaseSeller")
   vehicle_sales           VehicleSale[]
+  loaner_bookings         LoanerBooking[]
   tyre_sets               TyreSet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenant_id, id])
   @@unique([tenant_id, email]) // tenant-scoped
   @@index([tenant_id])
   @@map("customers")
@@ -1141,12 +1146,14 @@ model Vehicle {
   purchases                      VehiclePurchase[]
   sales                          VehicleSale[]
   ledger_entries                 VehicleLedgerEntry[]
+  loaner_fleet_entry             LoanerVehicle?
   inspection_records             VehicleInspectionRecord[]
   tyre_sets                      TyreSet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([tenant_id, id])
   @@index([tenant_id])
   @@index([tenant_id, inventory_role, stock_status])
   @@index([tenant_id, hsn, tsn])
@@ -1708,6 +1715,7 @@ model Employee {
   leaveBalances            EmployeeLeaveBalance[]
   leaveRequests            LeaveRequest[]
   attendanceEvents         AttendanceEvent[]
+  loaner_licence_checks    LoanerBooking[]          @relation("LoanerLicenceCheckedBy")
   createdAt                DateTime                 @default(now())
   updatedAt                DateTime                 @updatedAt
 
@@ -1929,6 +1937,7 @@ model WorkshopOrder {
   tasks                  WorkshopTask[]
   invoice                Invoice?
   vehicle_ledger_entries VehicleLedgerEntry[]
+  loaner_bookings        LoanerBooking[]
   tyre_set_events        TyreSetEvent[]
 
   createdAt DateTime @default(now())
@@ -1948,6 +1957,81 @@ model WorkshopOrder {
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
   @@index([tenant_id, bay_id, scheduled_start_at], map: "idx_workshop_orders_bay_schedule")
   @@map("workshop_orders")
+}
+
+enum LoanerVehicleStatus {
+  AVAILABLE
+  ON_LOAN
+  MAINTENANCE
+  RETIRED
+}
+
+enum LoanerBookingStatus {
+  RESERVED
+  HANDED_OVER
+  RETURNED
+  CANCELLED
+  NO_SHOW
+}
+
+model LoanerVehicle {
+  id               String              @id @default(uuid())
+  tenant_id        String
+  tenant           Tenant              @relation(fields: [tenant_id], references: [id])
+  site_id          String
+  site             Site                @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  vehicle_id       String
+  vehicle          Vehicle             @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id])
+  display_name     String
+  status           LoanerVehicleStatus @default(AVAILABLE)
+  daily_rate_cents Int?
+  insurance_note   String?
+  active           Boolean             @default(true)
+  bookings         LoanerBooking[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, vehicle_id])
+  @@index([tenant_id])
+  @@index([tenant_id, site_id])
+  @@map("loaner_vehicles")
+}
+
+model LoanerBooking {
+  id                     String              @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant              @relation(fields: [tenant_id], references: [id])
+  loaner_vehicle_id      String
+  loaner_vehicle         LoanerVehicle       @relation(fields: [tenant_id, loaner_vehicle_id], references: [tenant_id, id])
+  workshop_order_id      String?
+  workshop_order         WorkshopOrder?      @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: SetNull)
+  customer_id            String
+  customer               Customer            @relation(fields: [tenant_id, customer_id], references: [tenant_id, id])
+  planned_from           DateTime
+  planned_to             DateTime
+  status                 LoanerBookingStatus @default(RESERVED)
+  handed_over_at         DateTime?
+  returned_at            DateTime?
+  odometer_out           Int?
+  odometer_in            Int?
+  fuel_out               Int?
+  fuel_in                Int?
+  damage_notes_out       String?
+  damage_notes_in        String?
+  driver_licence_checked Boolean             @default(false)
+  licence_checked_by_id  String?
+  licence_checked_by     Employee?           @relation("LoanerLicenceCheckedBy", fields: [tenant_id, licence_checked_by_id], references: [tenant_id, id], onDelete: SetNull)
+  notes                  String?
+  created_by_user_id     String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@index([tenant_id, loaner_vehicle_id])
+  @@index([tenant_id, workshop_order_id])
+  @@map("loaner_bookings")
 }
 
 enum TyreSeason {

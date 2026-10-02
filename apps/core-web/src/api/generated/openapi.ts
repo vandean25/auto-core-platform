@@ -1539,6 +1539,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/loaner-vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerVehiclesController_list"];
+        put?: never;
+        post: operations["LoanerVehiclesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-vehicles/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerVehiclesController_availability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerVehiclesController_getOne"];
+        put?: never;
+        post?: never;
+        delete: operations["LoanerVehiclesController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["LoanerVehiclesController_update"];
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerBookingsController_list"];
+        put?: never;
+        post: operations["LoanerBookingsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/overdue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerBookingsController_overdue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LoanerBookingsController_getOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["LoanerBookingsController_update"];
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/no-show": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_markNoShow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/hand-over": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_handOver"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/loaner-bookings/{id}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["LoanerBookingsController_returnBooking"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mechanic/queue": {
         parameters: {
             query?: never;
@@ -4191,6 +4351,20 @@ export interface components {
             id: string;
             invoice_number?: string | null;
         };
+        WorkshopOrderLoanerBookingSummaryDto: {
+            id: string;
+            /** @enum {string} */
+            status: "RESERVED" | "HANDED_OVER" | "RETURNED" | "CANCELLED" | "NO_SHOW";
+            /** Format: date-time */
+            plannedFrom: string;
+            /** Format: date-time */
+            plannedTo: string;
+            loanerVehicleId: string;
+            displayName: string;
+            vehicleMake: string | null;
+            vehicleModel: string | null;
+            vehiclePlate: string | null;
+        };
         WorkshopOrderResponseDto: {
             id: string;
             order_number: string;
@@ -4211,6 +4385,7 @@ export interface components {
             vehicle: components["schemas"]["WorkshopVehicleSummaryDto"];
             tasks: components["schemas"]["WorkshopTaskResponseDto"][];
             invoice?: components["schemas"]["WorkshopInvoiceSummaryDto"];
+            loanerBooking?: components["schemas"]["WorkshopOrderLoanerBookingSummaryDto"] | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -4704,6 +4879,124 @@ export interface components {
             /** Format: uuid */
             vendorId: string;
             items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
+        };
+        LoanerVehicleResponseDto: {
+            id: string;
+            siteId: string;
+            vehicleId: string;
+            displayName: string;
+            /** @enum {string} */
+            status: "AVAILABLE" | "ON_LOAN" | "MAINTENANCE" | "RETIRED";
+            dailyRateCents: number | null;
+            insuranceNote: string | null;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LoanerAvailabilityItemDto: {
+            vehicle: components["schemas"]["LoanerVehicleResponseDto"];
+            available: boolean;
+        };
+        LoanerAvailabilityResponseDto: {
+            data: components["schemas"]["LoanerAvailabilityItemDto"][];
+            from: string;
+            to: string;
+            asOf?: string;
+        };
+        CreateLoanerVehicleDto: {
+            vehicleId: string;
+            displayName: string;
+            /** @enum {string} */
+            status?: "AVAILABLE" | "ON_LOAN" | "MAINTENANCE" | "RETIRED";
+            dailyRateCents?: number;
+            insuranceNote?: string;
+            active?: boolean;
+        };
+        UpdateLoanerVehicleDto: {
+            displayName?: string;
+            /** @enum {string} */
+            status?: "AVAILABLE" | "ON_LOAN" | "MAINTENANCE" | "RETIRED";
+            dailyRateCents?: Record<string, never>;
+            insuranceNote?: Record<string, never>;
+            active?: boolean;
+        };
+        LoanerBookingCustomerSummaryDto: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            companyName: string | null;
+        };
+        LoanerBookingVehicleSummaryDto: {
+            id: string;
+            displayName: string;
+            siteId: string;
+        };
+        LoanerBookingResponseDto: {
+            id: string;
+            loanerVehicleId: string;
+            workshopOrderId: string | null;
+            customerId: string;
+            /** Format: date-time */
+            plannedFrom: string;
+            /** Format: date-time */
+            plannedTo: string;
+            /** @enum {string} */
+            status: "RESERVED" | "HANDED_OVER" | "RETURNED" | "CANCELLED" | "NO_SHOW";
+            /** Format: date-time */
+            handedOverAt: string | null;
+            /** Format: date-time */
+            returnedAt: string | null;
+            odometerOut: number | null;
+            odometerIn: number | null;
+            fuelOut: number | null;
+            fuelIn: number | null;
+            damageNotesOut: string | null;
+            damageNotesIn: string | null;
+            driverLicenceChecked: boolean;
+            licenceCheckedById: string | null;
+            notes: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            customer?: components["schemas"]["LoanerBookingCustomerSummaryDto"];
+            loanerVehicle?: components["schemas"]["LoanerBookingVehicleSummaryDto"];
+        };
+        LoanerBookingListResponseDto: {
+            data: components["schemas"]["LoanerBookingResponseDto"][];
+        };
+        CreateLoanerBookingDto: {
+            loanerVehicleId: string;
+            customerId: string;
+            workshopOrderId?: string;
+            /** Format: date-time */
+            plannedFrom: string;
+            /** Format: date-time */
+            plannedTo: string;
+            notes?: string;
+        };
+        UpdateLoanerBookingDto: {
+            /** Format: date-time */
+            plannedFrom?: string;
+            /** Format: date-time */
+            plannedTo?: string;
+            workshopOrderId?: Record<string, never>;
+            customerId?: string;
+            notes?: Record<string, never>;
+        };
+        HandOverLoanerBookingDto: {
+            odometerOut: number;
+            fuelOut: number;
+            driverLicenceChecked: boolean;
+            licenceCheckedById?: string;
+            damageNotesOut?: string;
+        };
+        ReturnLoanerBookingDto: {
+            odometerIn: number;
+            fuelIn: number;
+            damageNotesIn?: string;
         };
         MechanicVehicleDto: {
             id: string;
@@ -8805,6 +9098,8 @@ export interface operations {
                 sortField?: string;
                 /** @description Sort direction */
                 sortDirection?: "asc" | "desc";
+                /** @description When set, only orders for this customer are returned (open workshop statuses only). */
+                customerId?: string;
             };
             header?: never;
             path?: never;
@@ -9686,6 +9981,369 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PurchaseOrderResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_list: {
+        parameters: {
+            query?: {
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data?: components["schemas"]["LoanerVehicleResponseDto"][];
+                    };
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLoanerVehicleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerVehicleResponseDto"];
+                };
+            };
+            /** @description Vehicle already in loaner fleet */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoanerVehiclesController_availability: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                /** @description Evaluation timestamp for overdue HANDED_OVER loans that block availability outside their planned window. */
+                asOf?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerAvailabilityResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerVehicleResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        deleted?: boolean;
+                    };
+                };
+            };
+        };
+    };
+    LoanerVehiclesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLoanerVehicleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerVehicleResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingListResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLoanerBookingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+            /** @description Overlapping active booking */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoanerBookingsController_overdue: {
+        parameters: {
+            query?: {
+                /** @description Evaluation timestamp for overdue detection (defaults to server now). */
+                asOf?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingListResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_getOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLoanerBookingDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+            /** @description Overlapping active booking */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LoanerBookingsController_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_markNoShow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_handOver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandOverLoanerBookingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    LoanerBookingsController_returnBooking: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnLoanerBookingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoanerBookingResponseDto"];
                 };
             };
         };

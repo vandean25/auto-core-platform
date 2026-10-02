@@ -76,6 +76,7 @@ VALUES
   ('stock_transfer_commands'),
   ('stock_transfer_lines'),
   ('vehicles'),
+  ('loaner_vehicles'),
   ('purchase_invoice_lines'),
   ('sales_orders'),
   ('tyre_sets'),
@@ -84,6 +85,7 @@ VALUES
   ('vehicle_sales'),
   ('workshop_orders'),
   ('invoices'),
+  ('loaner_bookings'),
   ('sales_order_items'),
   ('tyre_set_events'),
   ('vehicle_ledger_entries'),
@@ -233,6 +235,14 @@ VALUES
   ('legal_entities', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('legal_entity_accounting_profiles', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('legal_entity_accounting_profiles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('loaner_bookings', 'customers', 'tenant_id,customer_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('loaner_bookings', 'employees', 'tenant_id,licence_checked_by_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('loaner_bookings', 'loaner_vehicles', 'tenant_id,loaner_vehicle_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('loaner_bookings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('loaner_bookings', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('loaner_vehicles', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('loaner_vehicles', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('loaner_vehicles', 'vehicles', 'tenant_id,vehicle_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('local_inventories', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
   ('part_fitments', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
   ('parts_requisition_lines', 'parts_requisitions', 'requisition_id', 'id', 'CASCADE', 'CASCADE'),
@@ -577,6 +587,8 @@ DELETE FROM public."tyre_set_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."loaner_bookings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_orders"
@@ -592,6 +604,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_orders"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."purchase_invoice_lines"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."loaner_vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

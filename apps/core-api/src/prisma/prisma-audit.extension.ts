@@ -135,6 +135,8 @@ export const AUDITED_MODELS = new Set([
   'PartsReservation',
   'PartsRequisition',
   'PartsRequisitionLine',
+  'LoanerVehicle',
+  'LoanerBooking',
 ]);
 
 function extractEntityId(value: unknown): string | undefined {
