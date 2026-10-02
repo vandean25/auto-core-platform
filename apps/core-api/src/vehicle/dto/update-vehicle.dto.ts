@@ -1,7 +1,8 @@
 import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { VehicleRegulatoryFieldsDto } from './vehicle-regulatory-fields.dto.js';
 
-export class UpdateVehicleDto {
+export class UpdateVehicleDto extends VehicleRegulatoryFieldsDto {
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()

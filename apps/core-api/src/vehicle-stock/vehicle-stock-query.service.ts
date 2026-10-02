@@ -17,6 +17,10 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { QueryBuilder } from '../common/utils/query-builder.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import {
+  assertVehicleRegulatoryFields,
+  normalizeVehicleRegulatoryFields,
+} from '../vehicle/vehicle-regulatory.validation.js';
 import { costBasis } from './vehicle-cost.js';
 import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
@@ -269,6 +273,12 @@ export function buildPatchUpdateData(
     color: dto.color,
     key_number: dto.key_number,
     registration_certificate_no: dto.registration_certificate_no,
+    first_registration_date: dto.first_registration_date,
+    co2_wltp_g_km: dto.co2_wltp_g_km,
+    co2_nedc_g_km: dto.co2_nedc_g_km,
+    typenschein_no: dto.typenschein_no,
+    nova_class: dto.nova_class,
+    emission_class: dto.emission_class,
   };
 
   const where: Prisma.VehicleWhereInput = {
@@ -427,6 +437,9 @@ export class VehicleStockQueryService {
     validatePatchTransitions(vehicle, vehicleId);
     validateLotInput(dto);
 
+    const normalizedDto = normalizeVehicleRegulatoryFields(dto);
+    assertVehicleRegulatoryFields(normalizedDto);
+
     const isLocationChange =
       dto.location_id !== undefined && dto.location_id !== vehicle.location_id;
     const destinationLocationId = isLocationChange
@@ -445,7 +458,7 @@ export class VehicleStockQueryService {
       vehicleId,
       tenantId,
       vehicle,
-      dto,
+      normalizedDto,
       isLocationChange,
       siteId,
       destinationLocationId,

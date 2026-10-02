@@ -59,6 +59,9 @@ test.describe('Blueprint: Vehicles Module', () => {
 
     // Verify Vehicle Info Card
     await expect(page.getByText('Vehicle Info')).toBeVisible();
+    await expect(
+      page.getByText('Registration & emissions / Zulassung & Emissionen'),
+    ).toBeVisible();
 
     // Verify Customer Link renders inside the Info card
     const customerLink = page.getByRole('link', { name: 'Jane Smith' });
@@ -100,7 +103,10 @@ test.describe('Blueprint: Vehicles Module', () => {
     await dialog.getByLabel('Make').fill('Tesla');
     await dialog.getByLabel('Model').fill('Model 3');
     await dialog.getByLabel('Year').fill('2023');
-    
+    await expect(
+      dialog.getByText('Registration & emissions / Zulassung & Emissionen'),
+    ).toBeVisible();
+
     // Submit
     const submitButton = dialog.getByRole('button', { name: 'Create Vehicle' });
     await submitButton.click();
