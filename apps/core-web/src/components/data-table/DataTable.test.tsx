@@ -150,15 +150,9 @@ describe('DataTable Characterization', () => {
 
   it('activates clickable rows with Enter and Space', () => {
     const onRowClick = vi.fn()
-    render(
-      <DataTable
-        {...defaultProps}
-        onRowClick={onRowClick}
-        getRowAccessibleName={(row) => `Open ${row.name}`}
-      />,
-    )
+    render(<DataTable {...defaultProps} onRowClick={onRowClick} />)
 
-    const row = screen.getByRole('button', { name: 'Open Test Item' })
+    const row = screen.getByRole('row', { name: 'Test Item' })
     fireEvent.keyDown(row, { key: 'Enter' })
     fireEvent.keyDown(row, { key: ' ' })
 

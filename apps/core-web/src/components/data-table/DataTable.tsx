@@ -283,10 +283,6 @@ export function DataTable<TData extends object>({
                   data-table-row="true"
                   data-row-id={rowId}
                   data-state={row.getIsSelected() && "selected"}
-                  role={onRowClick && !rowUsesDetailLink ? "button" : undefined}
-                  aria-label={
-                    onRowClick && !rowUsesDetailLink ? rowAccessibleName : undefined
-                  }
                   onClick={(event) => handleRowClick(event, data, rowData, onRowClick)}
                   onContextMenu={(event) => {
                     event.preventDefault()
