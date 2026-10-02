@@ -342,6 +342,17 @@ jobs:
       - name: Run Playwright UI smoke tests
         run: npm run test:e2e --workspace=core-web
 
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            apps/core-web/playwright-report
+            apps/core-web/test-results
+          retention-days: 14
+          if-no-files-found: warn
+
   infrastructure:
     name: Terraform Infrastructure Validation
     runs-on: ubuntu-latest

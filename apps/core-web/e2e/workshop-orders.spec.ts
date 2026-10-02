@@ -1,3 +1,4 @@
+import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
@@ -25,8 +26,10 @@ test.describe('Workshop Orders list', () => {
       })
     })
 
+    await expectNoCriticalA11yViolations(page);
     await corePage.navigate('/workshop/orders')
     await corePage.openRowDetails('WO-2026-0221')
+    await expectNoCriticalA11yViolations(page);
     await page.waitForURL(`/workshop/orders/${order.id}`)
   })
 

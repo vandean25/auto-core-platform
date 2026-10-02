@@ -1,3 +1,4 @@
+import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
@@ -61,6 +62,7 @@ test.describe('Customers list row navigation (AUT-220)', () => {
   test('each row opens the matching customer detail URL', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Customer');
     await corePage.navigate('/customers');
+    await expectNoCriticalA11yViolations(page);
 
     await clickRowAndExpectCustomerId(page, 'Max Mustermann3', 'cust-max');
     await clickRowAndExpectCustomerId(page, 'Anna Alpin', 'cust-anna');
