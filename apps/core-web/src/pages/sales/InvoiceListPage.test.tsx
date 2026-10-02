@@ -134,8 +134,7 @@ describe('InvoiceListPage', () => {
 
     renderPage('/sales/invoices?sortField=date&sortDirection=asc')
 
-    const rows = screen.getAllByRole('row')
-    const bodyRows = rows.slice(1)
+    const bodyRows = document.querySelectorAll('[data-table-row="true"]')
     expect(bodyRows[0]).toHaveTextContent('RE-2026-0001')
     expect(bodyRows[1]).toHaveTextContent('RE-2026-0002')
   })
