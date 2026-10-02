@@ -6,7 +6,6 @@ import {
 } from './accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
-  serializeAccountingProfileSerializerParams,
   type AccountingProfileSerializerParams,
 } from './accounting-profile.serializer-params.js';
 import { type AccountingMappingRule } from './accounting-profile.types.js';
