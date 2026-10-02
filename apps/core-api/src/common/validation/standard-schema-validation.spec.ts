@@ -102,6 +102,17 @@ describe('NestJS 12 Standard Schema (Zod) Validation Pipeline', () => {
     expect(caughtError).toBeInstanceOf(BadRequestException);
     const badRequest = caughtError as BadRequestException;
     expect(badRequest.getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    const response = badRequest.getResponse() as {
+      message: string[];
+      statusCode: number;
+    };
+    expect(response.statusCode).toBe(HttpStatus.BAD_REQUEST);
+    expect(response.message).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/title/i),
+        expect.stringMatching(/count/i),
+      ]),
+    );
   });
 
   it('standardSchemaConverter generates JSON Schema for OpenAPI integration', () => {

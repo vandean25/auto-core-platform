@@ -6,6 +6,8 @@ import {
   GlobalExceptionFilter,
   HttpLoggingInterceptor,
   LogLevelService,
+  ObserveInstrument,
+  isObserveTelemetryConfigured,
 } from './common/index.js';
 import { validateEnv } from './config/env.js';
 import { configureHttpSecurity } from './common/http/http-security.js';
@@ -21,8 +23,14 @@ async function bootstrap() {
   logRuntimeDatabaseUrlStatus(runtimeDatabaseUrlStatus);
   requireRuntimePooler(runtimeDatabaseUrlStatus);
 
+  const observeTelemetry = isObserveTelemetryConfigured();
   const app = await NestFactory.create(AppModule, {
     logger: LogLevelService.getInitialNestLogLevels(),
+    routeConflictPolicy: {
+      duplicate: 'warn',
+      shadow: 'warn',
+    },
+    ...(observeTelemetry ? { instrument: ObserveInstrument } : {}),
   });
 
   app.setGlobalPrefix('api');

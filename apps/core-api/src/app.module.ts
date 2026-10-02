@@ -45,9 +45,11 @@ import { PartsRequisitionModule } from './parts-requisition/parts-requisition.mo
 import { HealthController } from './health.controller.js';
 import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
 import { DocumentBrandingModule } from './document-branding/document-branding.module.js';
+import { AppObservabilityModule } from './common/observability/observability.module.js';
 
 @Module({
   imports: [
+    AppObservabilityModule.register(),
     forwardRef(() => PrismaModule),
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([AUTH_THROTTLER_OPTIONS]),

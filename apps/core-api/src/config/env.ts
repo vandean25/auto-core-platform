@@ -39,6 +39,9 @@ export const DOCUMENTED_ENV_KEYS = [
   'GSM_MAPPING_PATH',
   'VOICE_NOTE_RATE_LIMIT_MAX',
   'VOICE_NOTE_RATE_LIMIT_TTL_SECONDS',
+  'OBSERVE_APP_KEY',
+  'OBSERVE_APP_SECRET',
+  'OBSERVE_SERVICE_ID',
 ] as const;
 
 export type DocumentedEnvKey = (typeof DOCUMENTED_ENV_KEYS)[number];
@@ -114,6 +117,9 @@ const envSchema = z
     GSM_MAPPING_PATH: optionalString,
     VOICE_NOTE_RATE_LIMIT_MAX: optionalString,
     VOICE_NOTE_RATE_LIMIT_TTL_SECONDS: optionalString,
+    OBSERVE_APP_KEY: optionalString,
+    OBSERVE_APP_SECRET: optionalString,
+    OBSERVE_SERVICE_ID: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'test') {
@@ -135,6 +141,8 @@ const envSchema = z
         env.FIREBASE_PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT,
       );
       addRequiredIssue(ctx, 'FRONTEND_URL', env.FRONTEND_URL);
+      addRequiredIssue(ctx, 'OBSERVE_APP_KEY', env.OBSERVE_APP_KEY);
+      addRequiredIssue(ctx, 'OBSERVE_APP_SECRET', env.OBSERVE_APP_SECRET);
     }
 
     if (arePdfWorkersEnabled(env)) {

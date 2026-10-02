@@ -11,7 +11,7 @@
   "extensionsToTreatAsEsm": [".ts"],
   "moduleNameMapper": {
     "^@nestjs/throttler$": "<rootDir>/test/support/throttler.shim.ts",
-    "^(\\.{1,2}/.*)\\.js$": "$1"
+    "^(\\.{1,2}/(?!.*node_modules).*)\\.js$": "$1"
   },
   "transformIgnorePatterns": [
     "node_modules/(?!(jose)/)"

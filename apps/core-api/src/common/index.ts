@@ -57,4 +57,5 @@ export {
 export {
   AppObservabilityModule,
   ObserveInstrument,
+  isObserveTelemetryConfigured,
 } from './observability/observability.module.js';
