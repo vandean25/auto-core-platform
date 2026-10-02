@@ -154,6 +154,12 @@ variable "invoice_branding_writer_enabled" {
   default     = false
 }
 
+variable "invoice_branding_writer_disabled_alert_notification_channel_ids" {
+  description = "Cloud Monitoring notification channel IDs for INVOICE_BRANDING_WRITER_DISABLED log alerts. Leave empty in CI validate-only runs; set before terraform apply in the target project."
+  type        = list(string)
+  default     = []
+}
+
 variable "document_branding_bucket_secret_name" {
   description = "GSM secret containing the private document branding source and logo bucket name."
   type        = string

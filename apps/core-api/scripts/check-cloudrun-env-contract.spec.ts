@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  getIncorrectEnvironmentValues,
   parseCloudBuildDeployContracts,
   parseCloudBuildDeployStep,
   REQUIRED_CORE_API_PRODUCTION_ENV_KEYS,
+  REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
   REQUIRED_PDF_WORKER_BOOT_ENV_KEYS,
 } from './check-cloudrun-env-contract.js';
 
@@ -68,5 +70,39 @@ describe('Cloud Run environment contract', () => {
     );
 
     expect(stagingCoreApi.get('INVOICE_BRANDING_WRITER_ENABLED')).toBe('true');
+  });
+
+  it('requires INVOICE_BRANDING_WRITER_ENABLED=true on production core-api', () => {
+    const source = readFileSync(cloudBuildPath, 'utf8');
+    const { coreApi } = parseCloudBuildDeployContracts(source);
+
+    expect(
+      getIncorrectEnvironmentValues(
+        coreApi,
+        REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
+      ),
+    ).toEqual([]);
+  });
+
+  it('flags missing or disabled INVOICE_BRANDING_WRITER_ENABLED', () => {
+    const missing = new Map<string, string>();
+    expect(
+      getIncorrectEnvironmentValues(
+        missing,
+        REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
+      ),
+    ).toEqual([
+      'INVOICE_BRANDING_WRITER_ENABLED=(missing) (expected true)',
+    ]);
+
+    const disabled = new Map<string, string>([
+      ['INVOICE_BRANDING_WRITER_ENABLED', 'false'],
+    ]);
+    expect(
+      getIncorrectEnvironmentValues(
+        disabled,
+        REQUIRED_CORE_API_PRODUCTION_ENV_VALUES,
+      ),
+    ).toEqual(['INVOICE_BRANDING_WRITER_ENABLED=false (expected true)']);
   });
 });

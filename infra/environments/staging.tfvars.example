@@ -16,3 +16,4 @@ database_secret_name             = "DATABASE_URL_UAT"
 database_pooled_secret_name      = "acp-core-api-database-url-pooled"
 database_pooler_required         = false
 firebase_project_id              = "auto-core-platform-vande"
+invoice_branding_writer_enabled  = true
