@@ -1,10 +1,4 @@
 import {
-  CustomerType,
-  DiscountType,
-  InvoiceTaxMode,
-  Prisma,
-} from '@prisma/client';
-import {
   collectCustomerMissingFields,
   isMissingBrandingConfig,
   matchesBrandingVersion,
@@ -14,7 +8,10 @@ import {
   buildSellerSnapshot,
   buildInvoiceLineItemSnapshots,
   buildTotalsSnapshot,
+  assertAtHighValueBusinessRecipientUid,
+  AT_RECIPIENT_UID_REQUIRED_CODE,
 } from './invoice-snapshot-v2.helpers.js';
+import { CustomerType, DiscountType, InvoiceTaxMode, Prisma } from '@prisma/client';
 import { INVOICE_BRANDED_TEMPLATE_VERSION } from './invoice-snapshot-v2.js';
 import { FIXED_SOURCE_CATEGORY_KEYS } from '../finance/accounting-profile/accounting-profile.types.js';
 
@@ -97,6 +94,102 @@ describe('invoice-snapshot-v2.helpers', () => {
     it('returns customer when customer is null or undefined', () => {
       expect(collectCustomerMissingFields(null)).toEqual(['customer']);
       expect(collectCustomerMissingFields(undefined)).toEqual(['customer']);
+    });
+  });
+
+  describe('assertAtHighValueBusinessRecipientUid', () => {
+    const atSeller = { country_iso: 'AT' as const };
+    const atCompanyCustomer = {
+      type: CustomerType.COMPANY,
+      address_country: 'AT',
+      vat_id: null,
+      company_name: 'ACME GmbH',
+      first_name: 'Max',
+      last_name: 'Mustermann',
+      address_street: 'Str 1',
+      address_zip: '1010',
+      address_city: 'Wien',
+    };
+
+    it('requires customer UID above EUR 10,000 for AT seller B2B', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: atSeller,
+          customer: atCompanyCustomer as never,
+          totalGross: '10000.01',
+        }),
+      ).toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            code: AT_RECIPIENT_UID_REQUIRED_CODE,
+            missingFields: ['vat_id'],
+          }),
+        }),
+      );
+    });
+
+    it('allows gross total at EUR 10,000.00', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: atSeller,
+          customer: atCompanyCustomer as never,
+          totalGross: '10000.00',
+        }),
+      ).not.toThrow();
+    });
+
+    it('allows AT B2B with UID present above threshold', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: atSeller,
+          customer: { ...atCompanyCustomer, vat_id: 'ATU12345678' } as never,
+          totalGross: '50000.00',
+        }),
+      ).not.toThrow();
+    });
+
+    it('does not apply to B2C recipients', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: atSeller,
+          customer: {
+            ...atCompanyCustomer,
+            type: CustomerType.PRIVATE,
+          } as never,
+          totalGross: '50000.00',
+        }),
+      ).not.toThrow();
+    });
+
+    it('does not apply when seller is not AT', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: { country_iso: 'DE' },
+          customer: atCompanyCustomer as never,
+          totalGross: '50000.00',
+        }),
+      ).not.toThrow();
+    });
+
+    it('requires UID for non-AT business recipients when AT seller exceeds threshold', () => {
+      expect(() =>
+        assertAtHighValueBusinessRecipientUid({
+          seller: atSeller,
+          customer: {
+            ...atCompanyCustomer,
+            address_country: 'DE',
+            vat_id: null,
+          } as never,
+          totalGross: '10000.01',
+        }),
+      ).toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            code: AT_RECIPIENT_UID_REQUIRED_CODE,
+            missingFields: ['vat_id'],
+          }),
+        }),
+      );
     });
   });
 

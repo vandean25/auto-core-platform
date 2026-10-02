@@ -29,6 +29,7 @@ import {
 import {
   assertBrandingWriterEnabled,
   assertCommitmentContextMatches,
+  assertAtHighValueBusinessRecipientUid,
   assertCustomerComplete,
   assertOwnershipUnchanged,
   assertSourceOwnershipMatchesIdentity,
@@ -157,6 +158,11 @@ export class InvoiceSnapshotCommitService {
       ownership.legalEntityId,
     );
     assertCustomerComplete(invoice.customer);
+    assertAtHighValueBusinessRecipientUid({
+      seller,
+      customer: invoice.customer,
+      totalGross: invoice.total_gross,
+    });
     const profile = await loadAccountingProfile(
       tx,
       tenantId,

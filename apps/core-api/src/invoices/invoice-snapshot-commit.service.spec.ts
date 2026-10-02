@@ -536,6 +536,58 @@ describe('InvoiceSnapshotCommitService', () => {
     });
   });
 
+  it('rejects AT B2B invoices above EUR 10,000 without customer UID', async () => {
+    await expect(
+      service.prepareV2Snapshot({
+        tx: tx as never,
+        tenantId: 'tenant-1',
+        invoice: {
+          id: 'inv-1',
+          tenant_id: 'tenant-1',
+          customer_id: customer.id,
+          vehicle_id: null,
+          sales_order_id: null,
+          workshop_order_id: 'wo-1',
+          vehicle_sale_id: null,
+          site_id: 'site-1',
+          legal_entity_id: 'le-1',
+          currency: 'EUR',
+          status: InvoiceStatus.DRAFT,
+          tax_mode: InvoiceTaxMode.STANDARD,
+          invoice_number: null,
+          date: new Date('2026-04-01'),
+          due_date: new Date('2026-04-15'),
+          supply_date_from: null,
+          supply_date_to: null,
+          total_net: new Prisma.Decimal(8333.34),
+          total_tax: new Prisma.Decimal(1666.67),
+          total_gross: new Prisma.Decimal(10000.01),
+          notes: null,
+          internal_notes: null,
+          snapshot: null,
+          global_discount_type: null,
+          global_discount_value: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          customer: {
+            ...customer,
+            type: CustomerType.COMPANY,
+            company_name: 'ACME GmbH',
+            vat_id: null,
+          },
+          vehicle: null,
+          items: [],
+        },
+        invoiceNumber: '',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'AT_RECIPIENT_UID_REQUIRED',
+        missingFields: ['vat_id'],
+      },
+    });
+  });
+
   it('rejects locked fiscal periods with FISCAL_PERIOD_LOCKED', async () => {
     tx.financeSettings.findFirst.mockResolvedValue({
       lock_date: new Date('2026-12-31'),
