@@ -41,9 +41,7 @@ export interface CalculateNovaResult {
 }
 
 export type NovaCalculationErrorCode =
-  | 'MISSING_CO2'
-  | 'UNKNOWN_TARIFF_VERSION'
-  | 'INVALID_NET_PRICE';
+  'MISSING_CO2' | 'UNKNOWN_TARIFF_VERSION' | 'INVALID_NET_PRICE';
 
 export class NovaCalculationError extends Error {
   readonly code: NovaCalculationErrorCode;

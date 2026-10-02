@@ -18,7 +18,9 @@ function assertNetPrice(netPriceEuro: number): void {
   }
 }
 
-function isZeroEmissionExempt(driveType: CalculateNovaInput['driveType']): boolean {
+function isZeroEmissionExempt(
+  driveType: CalculateNovaInput['driveType'],
+): boolean {
   return driveType === 'BEV' || driveType === 'FCEV';
 }
 
@@ -44,8 +46,7 @@ function computeRatePercent(
   tariff: NovaTariffVersion,
   appliedRuleIds: string[],
 ): number {
-  const raw =
-    (effectiveCo2 - tariff.co2_deduction_g) / tariff.rate_divisor;
+  const raw = (effectiveCo2 - tariff.co2_deduction_g) / tariff.rate_divisor;
   appliedRuleIds.push('tariff.co2_rate_formula');
   let rate = Math.max(0, roundToWholePercent(raw));
   if (raw < 0) {
@@ -124,10 +125,7 @@ export function calculateNova(
   if (input.emissionCycle === 'NEDC') {
     appliedRuleIds.push('co2.nedc_to_wltp_factor');
   }
-  if (
-    input.co2GramsPerKm === undefined &&
-    input.ratedPowerKw !== undefined
-  ) {
+  if (input.co2GramsPerKm === undefined && input.ratedPowerKw !== undefined) {
     appliedRuleIds.push('co2.substitute_double_kw');
   }
 
