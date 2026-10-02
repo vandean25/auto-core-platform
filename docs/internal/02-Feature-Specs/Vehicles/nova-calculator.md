@@ -125,7 +125,7 @@ tags:
 - **`displacementCc`** (motorcycle): hubraum rate when CO₂ absent.
 - **`isCamperSA`**: when true and rate derived from **2×kW** (not from certificate CO₂), apply **16%** minimum rate (not stored on tariff row).
 
-**Fractional CO₂ after ×1.27:** e.g. 130 × 1.27 = **165.1** g/km changes malus grams (10.1 × €80 vs 10 × €80). **UNVERIFIED** whether to round to whole grams before rate and malus — see *Needs Steuerberater confirmation*. Engine v1 uses **unrounded** effective CO₂ and emits warning `fractional_co2_unverified`.
+**Fractional CO₂ after ×1.27:** e.g. 130 × 1.27 = **165.1** g/km changes malus grams (10.1 × €80 vs 10 × €80). **UNVERIFIED** whether to round to whole grams before rate and malus — see *Needs Steuerberater confirmation*. Engine v1 uses **unrounded** effective CO₂ and emits warning `nedc_fractional_co2_unverified` when NEDC×1.27 is not an integer.
 
 ---
 
@@ -254,13 +254,15 @@ Steuerschuld Lieferung: **Ende des Kalendermonats** der Lieferung (§ 7 Abs. 1 Z
 | Code | When |
 |------|------|
 | `MISSING_CO2` | No CO₂ and no valid substitute for class |
+| `INVALID_CO2` | Non-finite or negative `co2GramsPerKm`, `ratedPowerKw`, or `displacementCc` |
 | `INVALID_NEDC_CYCLE` | NEDC on motorcycle |
+| `TARIFF_CLASS_MISMATCH` | `vehicleClass` does not match selected `tariffVersion` row |
 | `UNKNOWN_TARIFF_VERSION` | Bad tariff id |
 | `INVALID_NET_PRICE` | Invalid net price |
 
 ### Warnings (v1)
 
-`phev_weighted_wltp`, `wertentwicklung_not_applied`, `fractional_co2_unverified`, `eu_import_tariff_hint` (when `firstRegistrationDate` set but Wertentwicklung not computed).
+`phev_weighted_wltp`, `wertentwicklung_not_applied`, `nedc_fractional_co2_unverified`, `tariff_outside_registration_date`, `eu_import_tariff_hint` (when `firstRegistrationDate` set but Wertentwicklung not computed).
 
 ---
 
