@@ -87,7 +87,7 @@ describe('LoanerVehiclesPage', () => {
     vi.mocked(loanerApi.useLoanerBookings).mockReturnValue({
       data: { data: [] },
       isLoading: false,
-    } as ReturnType<typeof loanerApi.useLoanerBookings>)
+    } as unknown as ReturnType<typeof loanerApi.useLoanerBookings>)
 
     vi.mocked(loanerApi.useCreateLoanerVehicle).mockReturnValue({
       mutateAsync: vi.fn(),

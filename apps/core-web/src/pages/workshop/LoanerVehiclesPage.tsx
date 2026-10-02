@@ -19,6 +19,7 @@ import {
 } from '@/api/loaner-vehicles'
 import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
+import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,9 @@ function fleetVehicleLabel(vehicle: LoanerVehicle) {
 
 export default function LoanerVehiclesPage() {
   const navigate = useNavigate()
+  const { queryParams: _fleetTableQuery, ...tableState } = useDataTableQuery({
+    defaultPageSize: 25,
+  })
   const { data: fleetData, isLoading: fleetLoading } = useLoanerFleet()
   const { data: overdueData } = useOverdueLoanerBookings()
   const { data: bookingsData } = useLoanerBookings()
@@ -267,6 +271,7 @@ export default function LoanerVehiclesPage() {
         onRowClick={(row) =>
           setSelectedVehicleId((current) => (current === row.id ? null : row.id))
         }
+        {...tableState}
       />
 
       {selectedVehicleId && selectedVehicle ? (
