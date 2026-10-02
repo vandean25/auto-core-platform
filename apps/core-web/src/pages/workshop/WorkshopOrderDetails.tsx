@@ -346,7 +346,7 @@ export function WorkshopOrderDetails() {
         />
 
         <VehicleIdentityBanner vehicleId={order.vehicle.id} />
-        <TyreSetsSummary vehicleId={order.vehicle.id} />
+        <TyreSetsSummary vehicleId={order.vehicle.id} readOnly />
 
         <div className='grid grid-cols-1 lg:grid-cols-3 gap-6 items-start'>
           <motion.div

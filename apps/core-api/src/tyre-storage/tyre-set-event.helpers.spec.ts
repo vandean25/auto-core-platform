@@ -17,6 +17,17 @@ describe('tyre-set-event.helpers', () => {
     expect(projected.location_id).toBeNull();
   });
 
+  it('rejects storage events after disposal', () => {
+    expect(() =>
+      applyTyreSetEvent(
+        { status: 'DISPOSED', location_id: null, stored_since: null },
+        'CHECK_IN',
+        'loc-a',
+        new Date(),
+      ),
+    ).toThrow('disposed');
+  });
+
   it('rejects double check-in', () => {
     expect(() =>
       applyTyreSetEvent(

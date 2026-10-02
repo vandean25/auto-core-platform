@@ -390,4 +390,64 @@ describe('Tyre storage (e2e)', () => {
     const statuses = [first.status, second.status].sort();
     expect(statuses).toEqual([200, 409]);
   });
+
+  it('rejects check-in after dispose with 409', async () => {
+    const createRes = await request(app.getHttpServer())
+      .post('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        locationId: storageLocationId,
+        label: 'Dispose me',
+        season: 'WINTER',
+      })
+      .expect(201);
+
+    const setId = createRes.body.id;
+    await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/dispose`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({})
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ locationId: storageLocationId })
+      .expect(409);
+  });
+
+  it('rejects backdated storage events with 422', async () => {
+    const clock = app.get(TyreStorageClock);
+    clock.setOverride(new Date('2026-06-15T12:00:00.000Z'));
+
+    const createRes = await request(app.getHttpServer())
+      .post('/api/tyre-sets')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        customerId,
+        locationId: storageLocationId,
+        label: 'Timeline',
+        season: 'WINTER',
+      })
+      .expect(201);
+
+    const setId = createRes.body.id;
+    await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/check-out`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ occurredAt: '2026-06-10T12:00:00.000Z' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/tyre-sets/${setId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        locationId: storageLocationId,
+        occurredAt: '2026-06-01T12:00:00.000Z',
+      })
+      .expect(422);
+
+    clock.setOverride(null);
+  });
 });

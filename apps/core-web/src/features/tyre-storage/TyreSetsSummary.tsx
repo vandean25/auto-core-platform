@@ -14,9 +14,10 @@ import { TyreSetFormDialog } from './TyreSetFormDialog'
 type Props = {
   vehicleId?: string
   customerId?: string
+  readOnly?: boolean
 }
 
-export function TyreSetsSummary({ vehicleId, customerId }: Props) {
+export function TyreSetsSummary({ vehicleId, customerId, readOnly = false }: Props) {
   const byVehicle = useTyreSetsByVehicle(vehicleId)
   const byCustomer = useTyreSetsByCustomer(customerId)
   const { data, isLoading } = vehicleId ? byVehicle : byCustomer
@@ -35,7 +36,7 @@ export function TyreSetsSummary({ vehicleId, customerId }: Props) {
     <div className="space-y-2 border-t pt-4">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-700">Tyre storage</h3>
-        {resolvedCustomerId ? (
+        {resolvedCustomerId && !readOnly ? (
           <Button
             type="button"
             variant="outline"
@@ -64,20 +65,22 @@ export function TyreSetsSummary({ vehicleId, customerId }: Props) {
                 {set.label}
               </Link>
               <StatusBadge status={set.status} />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={() => setEditSet(set)}
-              >
-                Edit
-              </Button>
+              {!readOnly ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setEditSet(set)}
+                >
+                  Edit
+                </Button>
+              ) : null}
             </div>
           ))}
         </div>
       )}
-      {resolvedCustomerId ? (
+      {resolvedCustomerId && !readOnly ? (
         <>
           <TyreSetFormDialog
             open={createOpen}

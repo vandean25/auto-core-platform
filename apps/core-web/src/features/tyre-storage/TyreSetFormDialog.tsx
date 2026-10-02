@@ -72,14 +72,16 @@ export function TyreSetFormDialog({
     }
     try {
       if (existing) {
+        const body: Record<string, unknown> = { label, season }
+        if (binLabel !== (existing.binLabel ?? '')) {
+          body.binLabel = binLabel || null
+        }
+        if (dimension !== (existing.dimension ?? '')) {
+          body.dimension = dimension || null
+        }
         await updateTyreSet.mutateAsync({
           id: existing.id,
-          body: {
-            label,
-            season,
-            ...(binLabel ? { binLabel } : {}),
-            ...(dimension ? { dimension } : {}),
-          } as components['schemas']['UpdateTyreSetDto'],
+          body: body as components['schemas']['UpdateTyreSetDto'],
         })
       } else {
         await createTyreSet.mutateAsync(body)
@@ -115,21 +117,23 @@ export function TyreSetFormDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Storage location</Label>
-            <Select value={locationId} onValueChange={setLocationId}>
-              <SelectTrigger className="min-h-11">
-                <SelectValue placeholder="Optional on create" />
-              </SelectTrigger>
-              <SelectContent>
-                {storageLocations.map((loc) => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.code} — {loc.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!existing ? (
+            <div className="space-y-2">
+              <Label>Storage location</Label>
+              <Select value={locationId} onValueChange={setLocationId}>
+                <SelectTrigger className="min-h-11">
+                  <SelectValue placeholder="Optional on create" />
+                </SelectTrigger>
+                <SelectContent>
+                  {storageLocations.map((loc) => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.code} — {loc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label>Bin label</Label>
             <Input className="min-h-11" value={binLabel} onChange={(e) => setBinLabel(e.target.value)} />

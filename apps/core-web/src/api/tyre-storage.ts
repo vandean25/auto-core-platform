@@ -8,6 +8,17 @@ export type TyreSetListResponse = {
   meta?: components['schemas']['PaginationMetaDto']
 }
 
+async function readApiErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  const payload = (await response.json().catch(() => null)) as {
+    message?: string | string[]
+  } | null
+  if (!payload?.message) return fallback
+  return Array.isArray(payload.message) ? payload.message.join(', ') : payload.message
+}
+
 export const tyreStorageKeys = {
   all: ['tyre-sets'] as const,
   list: (params: Record<string, string | number | undefined>) =>
@@ -47,7 +58,9 @@ export function useTyreSets(params: {
     queryKey: tyreStorageKeys.list(params),
     queryFn: async () => {
       const response = await fetchWithAuth(`/api/tyre-sets?${query.toString()}`)
-      if (!response.ok) throw new Error('Failed to load tyre sets')
+      if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, 'Failed to load tyre sets'))
+      }
       return response.json()
     },
   })
@@ -97,7 +110,9 @@ export function useCreateTyreSet() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      if (!response.ok) throw new Error('Failed to create tyre set')
+      if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, 'Failed to create tyre set'))
+      }
       return response.json() as Promise<TyreSet>
     },
     onSuccess: () => {
@@ -119,10 +134,7 @@ export function useUpdateTyreSet() {
         body: JSON.stringify(input.body),
       })
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          message?: string
-        } | null
-        throw new Error(payload?.message ?? 'Failed to update tyre set')
+        throw new Error(await readApiErrorMessage(response, 'Failed to update tyre set'))
       }
       return response.json() as Promise<TyreSet>
     },
@@ -162,10 +174,7 @@ export function useTyreSetAction() {
         },
       )
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          message?: string
-        } | null
-        throw new Error(payload?.message ?? 'Tyre set action failed')
+        throw new Error(await readApiErrorMessage(response, 'Tyre set action failed'))
       }
       return response.json() as Promise<TyreSet>
     },

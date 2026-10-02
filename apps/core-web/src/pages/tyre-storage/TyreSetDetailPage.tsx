@@ -77,37 +77,39 @@ export default function TyreSetDetailPage() {
             <Printer className="mr-2 h-4 w-4" />
             Print tag
           </Button>
-          {tyreSet.status === 'IN_STORAGE' ? (
-            <>
-              <Button className="min-h-11" onClick={() => setAction('check-out')}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Check out
-              </Button>
-              {canMove ? (
-                <Button
-                  variant="secondary"
-                  className="min-h-11"
-                  onClick={() => setAction('move')}
-                >
-                  <MoveRight className="mr-2 h-4 w-4" />
-                  Move
+          {tyreSet.status !== 'DISPOSED' ? (
+            tyreSet.status === 'IN_STORAGE' ? (
+              <>
+                <Button className="min-h-11" onClick={() => setAction('check-out')}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Check out
                 </Button>
-              ) : null}
-              <Button
-                variant="destructive"
-                className="min-h-11"
-                onClick={() => setAction('dispose')}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Dispose
+                {canMove ? (
+                  <Button
+                    variant="secondary"
+                    className="min-h-11"
+                    onClick={() => setAction('move')}
+                  >
+                    <MoveRight className="mr-2 h-4 w-4" />
+                    Move
+                  </Button>
+                ) : null}
+                <Button
+                  variant="destructive"
+                  className="min-h-11"
+                  onClick={() => setAction('dispose')}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Dispose
+                </Button>
+              </>
+            ) : (
+              <Button className="min-h-11" onClick={() => setAction('check-in')}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Check in
               </Button>
-            </>
-          ) : (
-            <Button className="min-h-11" onClick={() => setAction('check-in')}>
-              <LogIn className="mr-2 h-4 w-4" />
-              Check in
-            </Button>
-          )}
+            )
+          ) : null}
         </div>
       </div>
 

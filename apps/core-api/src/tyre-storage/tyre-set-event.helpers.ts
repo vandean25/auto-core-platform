@@ -14,6 +14,11 @@ export function assertEventAllowed(
   currentStatus: TyreSetStatus,
   eventType: TyreSetEventType,
 ): void {
+  if (currentStatus === 'DISPOSED' && eventType !== 'INSPECTED') {
+    throw new ConflictException(
+      'Tyre set is disposed; no further storage events are allowed.',
+    );
+  }
   if (eventType === 'CHECK_IN' && currentStatus === 'IN_STORAGE') {
     throw new ConflictException('Tyre set is already checked in to storage.');
   }

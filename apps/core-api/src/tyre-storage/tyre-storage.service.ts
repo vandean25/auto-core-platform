@@ -499,6 +499,26 @@ export class TyreStorageService {
     const patch = applyTyreSetEvent(set, eventType, toLocationId, occurredAt);
 
     await this.prisma.$transaction(async (tx) => {
+      const latestEvent = await tx.tyreSetEvent.findFirst({
+        where: { tenant_id: tenantId, tyre_set_id: set.id },
+        orderBy: { occurred_at: 'desc' },
+        select: { occurred_at: true },
+      });
+      const now = this.clock.now();
+      if (occurredAt.getTime() > now.getTime()) {
+        throw new UnprocessableEntityException(
+          'occurredAt cannot be in the future.',
+        );
+      }
+      if (
+        latestEvent &&
+        occurredAt.getTime() < latestEvent.occurred_at.getTime()
+      ) {
+        throw new UnprocessableEntityException(
+          'occurredAt cannot be earlier than the latest event.',
+        );
+      }
+
       const updated = await tx.tyreSet.updateMany({
         where: {
           id: set.id,

@@ -21,6 +21,8 @@ import { fetchWithAuth } from '@/api/client'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
+import { CustomerSearch } from '@/components/sales/CustomerSearch'
+import type { Customer } from '@/api/types'
 import { toast } from 'sonner'
 
 const ALL = '__all__'
@@ -32,7 +34,7 @@ export default function TyreStorageListPage() {
   const [season, setSeason] = useState(ALL)
   const [status, setStatus] = useState(ALL)
   const [locationId, setLocationId] = useState(ALL)
-  const [customerId, setCustomerId] = useState('')
+  const [customerFilter, setCustomerFilter] = useState<Customer | null>(null)
   const [dueFrom, setDueFrom] = useState('')
   const [dueTo, setDueTo] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
@@ -44,7 +46,7 @@ export default function TyreStorageListPage() {
     season: season === ALL ? undefined : season,
     status: status === ALL ? undefined : status,
     locationId: locationId === ALL ? undefined : locationId,
-    customerId: customerId.trim() || undefined,
+    customerId: customerFilter?.id,
     dueFrom: dueFrom || undefined,
     dueTo: dueTo || undefined,
     pageSize: queryParams.pageSize,
@@ -151,8 +153,8 @@ export default function TyreStorageListPage() {
             size="lg"
             className="min-h-11"
             onClick={() => {
-              if (!customerId.trim()) {
-                toast.error('Enter a customer id in filters to create a set from this page')
+              if (!customerFilter?.id) {
+                toast.error('Select a customer in filters to create a set from this page')
                 return
               }
               setCreateOpen(true)
@@ -176,15 +178,11 @@ export default function TyreStorageListPage() {
               disabled={viewMode === 'due'}
             />
           </div>
-          <div className="space-y-1">
-            <Label>Customer id</Label>
-            <Input
-              className="min-h-11 w-64"
-              placeholder="UUID"
-              value={customerId}
-              onChange={(event) => setCustomerId(event.target.value)}
-              disabled={viewMode === 'due'}
-            />
+          <div
+            className={`space-y-1 min-w-[16rem] ${viewMode === 'due' ? 'pointer-events-none opacity-50' : ''}`}
+          >
+            <Label>Customer</Label>
+            <CustomerSearch value={customerFilter} onChange={setCustomerFilter} />
           </div>
           <div className="space-y-1">
             <Label>Season</Label>
@@ -281,7 +279,7 @@ export default function TyreStorageListPage() {
       <TyreSetFormDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        customerId={customerId.trim()}
+        customerId={customerFilter?.id ?? ''}
       />
     </div>
   )
