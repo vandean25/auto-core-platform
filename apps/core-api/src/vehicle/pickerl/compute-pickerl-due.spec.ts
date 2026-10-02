@@ -203,6 +203,9 @@ describe('computePickerlDue', () => {
       expect(result.warnings.some((w) => w.code === 'VEHICLE_CLASS_ASSUMED_M1')).toBe(
         true,
       );
+      expect(
+        result.warnings.some((w) => w.code === 'WKO_GUIDANCE_NOT_RIS_VERIFIED'),
+      ).toBe(true);
     },
   );
 

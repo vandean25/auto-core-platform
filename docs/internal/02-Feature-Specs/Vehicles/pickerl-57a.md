@@ -23,20 +23,27 @@ ACP records Austrian §57a periodic inspection (Pickerl) outcomes per vehicle an
 - CRUD API on `/vehicles/:vehicleId/inspection-records`; `pickerl_due` on vehicle read.
 - Minimal vehicle detail UI: history list + **Pickerl erfasst** dialog.
 
-## Pinned rules (primary sources)
+## Pinned rules (RIS primary)
 
-Retrieval date for all URLs below: **2026-10-02**.
+Retrieval date for RIS URLs: **2026-10-02**.
 
 | Rule ID | Description | Source |
 |--------|-------------|--------|
-| `m1-legacy-intervals` | M1 (excl. taxi / ambulance): intervals **3–2–1–1…** years from first registration anniversary / last inspection anniversary | [WKO — Pickerl-Überprüfung §57a](https://www.wko.at/transport/pickerl-ueberpruefung-begutachtung-57a-kfg) |
-| `m1-legacy-tolerance` | Tolerance **−1 / +4** months relative to punched due month | Same WKO page (table) |
-| `m1-kfg42-intervals` | From **2027-05-19**: M1 (excl. taxi / ambulance) **4–2–2–2–1** then annual; applies to all vehicles including those registered before 2027-05-19 | [WKO — Begutachtungstermine ab 2027](https://www.wko.at/paragraph-57a/begutachtungstermine) |
-| `m1-kfg42-tolerance` | From **2027-05-19**: tolerance **−4 / +0** months | Same WKO page (table) |
 | `kfg42-effective-date` | 42. KFG-Novelle entry into force **2027-05-19** | [RIS §57a (fassung ab 19.05.2027)](https://www.ris.bka.gv.at/eli/bgbl/1967/267/P57a/NOR40069745) |
 | `anniversary-anchor` | Due month anchored to anniversary of first registration (also if registered abroad) | [RIS §57a Abs. 3](https://www.ris.bka.gv.at/eli/bgbl/1967/267/P57a/NOR40069745) |
-| `transition-2027-tolerance` | For due months **Jan–Oct 2027**, legacy **−1/+4** applies but ends **at the latest** at end of **November 2027** (§132 Abs 37 Z 3) | [WKO — Begutachtungstermine ab 2027](https://www.wko.at/paragraph-57a/begutachtungstermine) |
-| `austauschplakette-punching` | Austauschplakette punching: **first registration + 4 years** when no periodic inspection on file; otherwise **last inspection + 2 years** (workflow not stored in ACP) | Same WKO page (§4) |
+
+## Pinned rules (WKO guidance — not RIS-verified in engine)
+
+Retrieval date for WKO URLs: **2026-10-02**. The rule engine implements these tables but emits API warning `WKO_GUIDANCE_NOT_RIS_VERIFIED` (and rule-specific warnings below) because they are taken from WKO chamber guidance, not re-parsed from RIS text in code.
+
+| Rule ID | Description | Source |
+|--------|-------------|--------|
+| `m1-legacy-intervals` | M1 (excl. taxi / ambulance): intervals **3–2–1–1…** | [WKO — Pickerl-Überprüfung §57a](https://www.wko.at/transport/pickerl-ueberpruefung-begutachtung-57a-kfg) |
+| `m1-legacy-tolerance` | Tolerance **−1 / +4** months | Same WKO page |
+| `m1-kfg42-intervals` | From **2027-05-19**: **4–2–2–2–1** for M1; applies to vehicles registered before that date | [WKO — Begutachtungstermine ab 2027](https://www.wko.at/paragraph-57a/begutachtungstermine) |
+| `m1-kfg42-tolerance` | From **2027-05-19**: tolerance **−4 / +0** months | Same WKO page |
+| `transition-2027-tolerance` | Due months **Jan–Oct 2027**: legacy **−1/+4** capped at end of **November 2027** (§132 Abs 37 Z 3 on WKO page) | Same WKO page |
+| `austauschplakette-punching` | Punching hint: **Erstzulassung + 4 years** without periodic inspection on file; else **last inspection + 2 years** | Same WKO page (§4) |
 
 ## Vehicle classes
 
@@ -50,8 +57,9 @@ Retrieval date for all URLs below: **2026-10-02**.
 | Warning code | When |
 |--------------|------|
 | `VEHICLE_CLASS_ASSUMED_M1` | Always (until `vehicle_class` exists) |
+| `WKO_GUIDANCE_NOT_RIS_VERIFIED` | Always; interval/tolerance tables are WKO-sourced |
 | `NO_INSPECTION_RECORDS` | No records and `onDate` is past the first-interval tolerance window |
-| `TRANSITION_2027_TOLERANCE` | Due month is 2027-01 … 2027-10 (legacy tolerance with Nov 2027 cap) |
+| `TRANSITION_2027_TOLERANCE` | Due month is 2027-01 … 2027-10 (legacy tolerance with Nov 2027 cap; WKO-sourced) |
 | `AUSTAUSCHPLAKETTE_NOT_TRACKED` | `onDate` ≥ 2027-05-19; message includes computed Austausch month per WKO §4 |
 
 ## Rule engine contract

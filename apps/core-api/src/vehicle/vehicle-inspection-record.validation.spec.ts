@@ -17,6 +17,17 @@ describe('assertVehicleInspectionRecordFields', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('allows inspected_on on the Vienna calendar day when UTC is still yesterday', () => {
+    assertVehicleInspectionRecordFields(
+      {
+        inspected_on: '2026-10-03',
+        plaketten_valid_until_year: 2027,
+        plaketten_valid_until_month: 3,
+      },
+      new Date('2026-10-02T22:30:00.000Z'),
+    );
+  });
+
   it('rejects plakette month before inspection month', () => {
     expect(() =>
       assertVehicleInspectionRecordFields(

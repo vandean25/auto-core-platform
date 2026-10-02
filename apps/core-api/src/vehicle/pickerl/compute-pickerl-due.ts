@@ -52,6 +52,12 @@ const ASSUMED_M1_WARNING: PickerlWarning = {
     'Vehicle class is not stored; §57a computation assumes ordinary M1 (Pkw) intervals.',
 };
 
+const WKO_GUIDANCE_WARNING: PickerlWarning = {
+  code: 'WKO_GUIDANCE_NOT_RIS_VERIFIED',
+  message:
+    'Interval and tolerance tables follow WKO guidance pages; they are not individually cross-checked against RIS §57a in this engine.',
+};
+
 const NO_INSPECTION_RECORDS_WARNING: PickerlWarning = {
   code: 'NO_INSPECTION_RECORDS',
   message: 'Keine Begutachtung erfasst — bitte letzte Plakette erfassen.',
@@ -120,7 +126,7 @@ function resolveTolerance(
     warnings.push({
       code: 'TRANSITION_2027_TOLERANCE',
       message:
-        '2027 transition: legacy −1/+4 tolerance applies with late end capped at November 2027 (WKO §132 Abs 37 Z 3).',
+        '2027 transition: legacy −1/+4 tolerance with late end capped at November 2027 (WKO §132 Abs 37 Z 3; WKO-sourced, not RIS-verified in engine).',
     });
     return {
       monthsBefore: 1,
@@ -179,7 +185,7 @@ function buildAustauschWarning(
   );
   return {
     code: 'AUSTAUSCHPLAKETTE_NOT_TRACKED',
-    message: `Austauschplakette punching hint: ${austauschMonth} (WKO §4; issuance not tracked in ACP).`,
+    message: `Austauschplakette punching hint: ${austauschMonth} (WKO §4; WKO-sourced, not RIS-verified; issuance not tracked in ACP).`,
   };
 }
 
@@ -189,7 +195,7 @@ export function computePickerlDue(
   onDate: Date,
   ruleSetVersion?: PickerlRuleSetId | null,
 ): PickerlDueResult {
-  const warnings: PickerlWarning[] = [ASSUMED_M1_WARNING];
+  const warnings: PickerlWarning[] = [ASSUMED_M1_WARNING, WKO_GUIDANCE_WARNING];
 
   if (!vehicle.first_registration_date) {
     return {

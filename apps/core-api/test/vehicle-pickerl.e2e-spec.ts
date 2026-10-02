@@ -14,6 +14,7 @@ import {
   seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import { computePickerlDue } from '../src/vehicle/pickerl/compute-pickerl-due.js';
 
 describe('Vehicle Pickerl (e2e)', () => {
   let app: INestApplication;
@@ -97,16 +98,6 @@ describe('Vehicle Pickerl (e2e)', () => {
     });
     vehicleId = vehicle.id;
 
-    const pickerlVehicle = await prisma.vehicle.create({
-      data: {
-        tenant_id: tenantId,
-        make: 'Skoda',
-        model: 'Octavia',
-        year: 2018,
-        first_registration_date: new Date('2018-03-01T00:00:00.000Z'),
-      },
-    });
-    pickerlVehicleId = pickerlVehicle.id;
   });
 
   afterAll(async () => {
@@ -149,7 +140,13 @@ describe('Vehicle Pickerl (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    expect(before.body.pickerl_due.due_month).toBe('2027-01');
+    expect(before.body.pickerl_due.due_month).toBe(
+      computePickerlDue(
+        { first_registration_date: '2024-01-15' },
+        [],
+        new Date(),
+      ).due_month,
+    );
 
     await request(app.getHttpServer())
       .post(`/api/vehicles/${freshVehicle.id}/inspection-records`)

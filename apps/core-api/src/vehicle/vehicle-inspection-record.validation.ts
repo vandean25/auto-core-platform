@@ -14,6 +14,15 @@ function yearMonthOrdinal(year: number, month: number): number {
   return year * 12 + month;
 }
 
+export const PICKERL_BUSINESS_TIME_ZONE = 'Europe/Vienna';
+
+export function calendarDateInTimeZone(
+  date: Date,
+  timeZone: string = PICKERL_BUSINESS_TIME_ZONE,
+): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
+}
+
 export function assertVehicleInspectionRecordFields(
   dto: VehicleInspectionRecordFieldInput,
   referenceDate: Date,
@@ -23,14 +32,8 @@ export function assertVehicleInspectionRecordFields(
     throw new BadRequestException('inspected_on must be a valid date');
   }
 
-  const referenceUtc = new Date(
-    Date.UTC(
-      referenceDate.getUTCFullYear(),
-      referenceDate.getUTCMonth(),
-      referenceDate.getUTCDate(),
-    ),
-  );
-  if (inspectedOn.getTime() > referenceUtc.getTime()) {
+  const referenceCalendarDay = calendarDateInTimeZone(referenceDate);
+  if (dto.inspected_on > referenceCalendarDay) {
     throw new BadRequestException('inspected_on cannot be in the future');
   }
 
