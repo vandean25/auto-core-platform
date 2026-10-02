@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
 } from 'class-validator';
@@ -22,7 +23,10 @@ export class CreateVehicleInspectionRecordDto {
   inspection_type!: VehicleInspectionType;
 
   @ApiProperty({ type: String, format: 'date' })
-  @IsDateString()
+  @IsDateString({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'inspected_on must be YYYY-MM-DD',
+  })
   inspected_on!: string;
 
   @ApiProperty({ minimum: 1980, maximum: 2100 })
@@ -51,7 +55,10 @@ export class CreateVehicleInspectionRecordDto {
 export class UpdateVehicleInspectionRecordDto {
   @ApiPropertyOptional({ type: String, format: 'date' })
   @IsOptional()
-  @IsDateString()
+  @IsDateString({ strict: true })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'inspected_on must be YYYY-MM-DD',
+  })
   inspected_on?: string;
 
   @ApiPropertyOptional({ minimum: 1980, maximum: 2100 })

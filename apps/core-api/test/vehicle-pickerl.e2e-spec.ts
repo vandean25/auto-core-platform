@@ -231,6 +231,17 @@ describe('Vehicle Pickerl (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         inspection_type: 'PICKERL_57A',
+        inspected_on: '2026-10',
+        plaketten_valid_until_year: 2026,
+        plaketten_valid_until_month: 10,
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicleId}/inspection-records`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
         inspected_on: '2024-06-01',
         plaketten_valid_until_year: 2026,
         plaketten_valid_until_month: 13,
