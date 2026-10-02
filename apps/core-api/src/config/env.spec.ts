@@ -13,8 +13,6 @@ function productionEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     SECRET_ENCRYPTION_KEY: VALID_ENCRYPTION_KEY,
     CATALOG_HIT_HMAC_SECRET: 'catalog-hit-production-secret',
     FRONTEND_URL: 'https://app.example.com',
-    OBSERVE_APP_KEY: 'observe-production-app-key',
-    OBSERVE_APP_SECRET: 'observe-production-app-secret',
     CLOUD_TASKS_ENABLED: 'false',
     ...overrides,
   };
@@ -39,8 +37,6 @@ describe('validateEnv', () => {
       'CATALOG_HIT_HMAC_SECRET',
       'FIREBASE_PROJECT_ID',
       'FRONTEND_URL',
-      'OBSERVE_APP_KEY',
-      'OBSERVE_APP_SECRET',
       'CLOUD_TASKS_WORKER_SECRET',
     ]);
     expect(validationError.message).toContain('DATABASE_URL');

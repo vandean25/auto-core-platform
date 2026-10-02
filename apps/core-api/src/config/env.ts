@@ -141,8 +141,6 @@ const envSchema = z
         env.FIREBASE_PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT,
       );
       addRequiredIssue(ctx, 'FRONTEND_URL', env.FRONTEND_URL);
-      addRequiredIssue(ctx, 'OBSERVE_APP_KEY', env.OBSERVE_APP_KEY);
-      addRequiredIssue(ctx, 'OBSERVE_APP_SECRET', env.OBSERVE_APP_SECRET);
     }
 
     if (arePdfWorkersEnabled(env)) {
