@@ -1,6 +1,5 @@
 export type PickerlRuleSetId =
-  | 'm1-legacy-pre-2027'
-  | 'm1-kfg42-from-2027-05-19';
+  'm1-legacy-pre-2027' | 'm1-kfg42-from-2027-05-19';
 
 export type PickerlTolerance = {
   monthsBefore: number;

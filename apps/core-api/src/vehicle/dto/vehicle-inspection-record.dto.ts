@@ -14,7 +14,10 @@ import {
 } from '@prisma/client';
 
 export class CreateVehicleInspectionRecordDto {
-  @ApiProperty({ enum: VehicleInspectionType, enumName: 'VehicleInspectionType' })
+  @ApiProperty({
+    enum: VehicleInspectionType,
+    enumName: 'VehicleInspectionType',
+  })
   @IsEnum(VehicleInspectionType)
   inspection_type!: VehicleInspectionType;
 
@@ -83,7 +86,10 @@ export class VehicleInspectionRecordResponseDto {
   @ApiProperty()
   vehicle_id!: string;
 
-  @ApiProperty({ enum: VehicleInspectionType, enumName: 'VehicleInspectionType' })
+  @ApiProperty({
+    enum: VehicleInspectionType,
+    enumName: 'VehicleInspectionType',
+  })
   inspection_type!: VehicleInspectionType;
 
   @ApiProperty({ type: String, format: 'date' })

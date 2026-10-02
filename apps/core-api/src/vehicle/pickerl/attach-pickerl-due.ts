@@ -10,13 +10,12 @@ export function attachPickerlDue<T extends VehicleWithPickerlFields>(
   vehicle: T,
   onDate: Date,
 ) {
-  const records = vehicle.inspection_records ?? [];
+  const { inspection_records = [], ...rest } = vehicle;
   const pickerl_due = computePickerlDue(
     { first_registration_date: vehicle.first_registration_date },
-    records,
+    inspection_records,
     onDate,
   );
-  const { inspection_records: _records, ...rest } = vehicle;
   return {
     ...rest,
     pickerl_due,

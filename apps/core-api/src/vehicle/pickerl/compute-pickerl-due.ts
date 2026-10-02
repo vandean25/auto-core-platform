@@ -68,7 +68,8 @@ function sortRecords(
 ): PickerlInspectionRecordInput[] {
   return [...records].sort(
     (left, right) =>
-      toDate(left.inspected_on).getTime() - toDate(right.inspected_on).getTime(),
+      toDate(left.inspected_on).getTime() -
+      toDate(right.inspected_on).getTime(),
   );
 }
 
