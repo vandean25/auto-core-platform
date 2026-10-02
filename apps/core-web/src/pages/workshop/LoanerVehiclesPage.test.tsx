@@ -81,8 +81,8 @@ const reservedBooking = {
   updatedAt: '2026-10-09T10:00:00.000Z',
   customer: {
     id: 'cust-1',
-    firstName: 'Pilot',
-    lastName: 'Customer',
+    firstName: 'Demo',
+    lastName: 'Kunde',
     companyName: null,
   },
 }
@@ -120,12 +120,12 @@ describe('LoanerVehiclesPage', () => {
     vi.mocked(loanerApi.useLoanerFleet).mockReturnValue({
       data: { data: [mockFleetVehicle] },
       isLoading: false,
-    } as ReturnType<typeof loanerApi.useLoanerFleet>)
+    } as unknown as ReturnType<typeof loanerApi.useLoanerFleet>)
 
     vi.mocked(loanerApi.useOverdueLoanerBookings).mockReturnValue({
       data: { data: [] },
       isLoading: false,
-    } as ReturnType<typeof loanerApi.useOverdueLoanerBookings>)
+    } as unknown as ReturnType<typeof loanerApi.useOverdueLoanerBookings>)
 
     vi.mocked(loanerApi.useLoanerBookings).mockReturnValue({
       data: { data: [reservedBooking] },
@@ -184,7 +184,7 @@ describe('LoanerVehiclesPage', () => {
         ],
       },
       isLoading: false,
-    } as ReturnType<typeof loanerApi.useOverdueLoanerBookings>)
+    } as unknown as ReturnType<typeof loanerApi.useOverdueLoanerBookings>)
 
     renderPage()
 
