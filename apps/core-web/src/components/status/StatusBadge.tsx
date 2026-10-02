@@ -55,6 +55,10 @@ const statusClassMap: Record<string, string> = {
   SHIPPED: 'border-amber-200 bg-amber-100 text-amber-700',
   REJECTED: 'border-rose-200 bg-rose-100 text-rose-700',
   VOID: 'border-slate-200 bg-slate-100 text-slate-500',
+  OK: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  DUE_SOON: 'border-amber-200 bg-amber-100 text-amber-700',
+  OVERDUE: 'border-rose-200 bg-rose-100 text-rose-700',
+  UNKNOWN: 'border-slate-200 bg-slate-100 text-slate-600',
 }
 
 export function formatStatusLabel(status: string) {

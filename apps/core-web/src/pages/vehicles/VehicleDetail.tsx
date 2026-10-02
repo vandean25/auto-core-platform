@@ -36,6 +36,8 @@ import type {
 } from '@/api/types'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { VehicleRegulatorySection } from '@/components/vehicles/VehicleRegulatorySection'
+import { VehiclePickerlSection } from '@/components/vehicles/VehiclePickerlSection'
+import type { components } from '@/api/generated/openapi'
 import type {
   VehicleNovaClass,
   VehicleRegulatoryValues,
@@ -82,6 +84,7 @@ type VehicleDetailResponse = Vehicle & {
   sales_orders?: VehicleSalesOrderSummary[]
   workshop_orders?: VehicleWorkshopOrderSummary[]
   invoices?: VehicleInvoiceSummary[]
+  pickerl_due?: components['schemas']['PickerlDueDto']
 }
 
 type ActiveOrderRow = {
@@ -348,6 +351,11 @@ export default function VehicleDetail() {
                 />
               </div>
             </div>
+
+            <VehiclePickerlSection
+              vehicleId={vehicle.id}
+              pickerlDue={vehicle.pickerl_due}
+            />
 
             <VehicleRegulatorySection
               mode='inline'
