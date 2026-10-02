@@ -8,8 +8,9 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { VehicleRegulatoryFieldsDto } from '../../vehicle/dto/vehicle-regulatory-fields.dto.js';
 
-export class PatchVehicleStockDto {
+export class PatchVehicleStockDto extends VehicleRegulatoryFieldsDto {
   @ApiPropertyOptional({ nullable: true })
   @IsOptional()
   @ValidateIf((_, value: unknown) => value !== null)

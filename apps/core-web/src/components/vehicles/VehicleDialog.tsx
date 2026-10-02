@@ -22,6 +22,11 @@ import { useCreateVehicle, useUpdateVehicle } from '@/api/vehicles'
 import type { components } from '@/api/generated/openapi'
 import type { Customer, Vehicle } from '@/api/types'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
+import {
+  VehicleRegulatorySection,
+  type VehicleNovaClass,
+  type VehicleRegulatoryValues,
+} from '@/components/vehicles/VehicleRegulatorySection'
 import { toast } from 'sonner'
 
 interface VehicleDialogProps {
@@ -42,12 +47,44 @@ const DEFAULT_VEHICLE: VehicleFormValues = {
     plate: '',
 }
 
+const EMPTY_REGULATORY: VehicleRegulatoryValues = {
+    first_registration_date: null,
+    co2_wltp_g_km: null,
+    co2_nedc_g_km: null,
+    typenschein_no: null,
+    nova_class: null,
+    emission_class: null,
+}
+
+function regulatoryFromVehicle(
+    vehicle?: Vehicle & { customer?: Customer | null },
+): VehicleRegulatoryValues {
+    if (!vehicle) {
+        return EMPTY_REGULATORY
+    }
+    const firstRegistration =
+        typeof vehicle.first_registration_date === 'string'
+            ? vehicle.first_registration_date.slice(0, 10)
+            : null
+    return {
+        first_registration_date: firstRegistration,
+        co2_wltp_g_km: vehicle.co2_wltp_g_km ?? null,
+        co2_nedc_g_km: vehicle.co2_nedc_g_km ?? null,
+        typenschein_no: vehicle.typenschein_no ?? null,
+        nova_class: (vehicle.nova_class as VehicleNovaClass | null) ?? null,
+        emission_class: vehicle.emission_class ?? null,
+    }
+}
+
 export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenChange }: VehicleDialogProps) {
     const [open, setOpen] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(vehicle?.customer || null)
     const isEdit = !!vehicle
     const createMutation = useCreateVehicle()
     const updateMutation = useUpdateVehicle()
+    const [regulatoryValues, setRegulatoryValues] = useState<VehicleRegulatoryValues>(
+        () => regulatoryFromVehicle(vehicle),
+    )
 
     const form = useForm<VehicleFormValues>({
         defaultValues: {
@@ -64,6 +101,7 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
         try {
             const payload: components['schemas']['CreateVehicleDto'] = {
                 ...data,
+                ...regulatoryValues,
                 year: Number(data.year),
                 customer_id: selectedCustomer?.id || null,
             }
@@ -94,9 +132,11 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                 plate: vehicle.plate || '',
             })
             setSelectedCustomer(vehicle.customer || null)
+            setRegulatoryValues(regulatoryFromVehicle(vehicle))
         } else {
             form.reset(DEFAULT_VEHICLE)
             setSelectedCustomer(null)
+            setRegulatoryValues(EMPTY_REGULATORY)
         }
     }, [vehicle, form])
 
@@ -212,6 +252,14 @@ export function VehicleDialog({ vehicle, trigger, open: controlledOpen, onOpenCh
                                 onChange={setSelectedCustomer}
                             />
                         </div>
+
+                        <VehicleRegulatorySection
+                            mode="form"
+                            values={regulatoryValues}
+                            onChange={(patch) =>
+                                setRegulatoryValues((current) => ({ ...current, ...patch }))
+                            }
+                        />
 
                         <div className="flex justify-end gap-2 pt-4">
                             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>

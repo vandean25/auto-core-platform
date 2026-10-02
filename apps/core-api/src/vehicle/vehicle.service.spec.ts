@@ -431,8 +431,8 @@ describe('VehicleService', () => {
 
       expect(prisma.vehicle.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          customer: { connect: { id: 'cust-1' } },
-          tenant: { connect: { id: tenantId } },
+          customer_id: 'cust-1',
+          tenant_id: tenantId,
         }),
         include: { customer: true },
       });
