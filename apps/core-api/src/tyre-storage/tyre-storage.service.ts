@@ -442,7 +442,11 @@ export class TyreStorageService {
       await this.assertLocationOnSite(tenantId, set.site_id, toLocationId);
     }
     if (dto.workshopOrderId) {
-      await this.assertWorkshopOrder(tenantId, dto.workshopOrderId);
+      await this.assertWorkshopOrder(
+        tenantId,
+        set.site_id,
+        dto.workshopOrderId,
+      );
     }
 
     const patch = applyTyreSetEvent(
@@ -543,9 +547,17 @@ export class TyreStorageService {
     }
   }
 
-  private async assertWorkshopOrder(tenantId: string, workshopOrderId: string) {
+  private async assertWorkshopOrder(
+    tenantId: string,
+    siteId: string,
+    workshopOrderId: string,
+  ) {
     const order = await this.prisma.workshopOrder.findFirst({
-      where: { id: workshopOrderId, tenant_id: tenantId },
+      where: {
+        id: workshopOrderId,
+        tenant_id: tenantId,
+        site_id: siteId,
+      },
       select: { id: true },
     });
     if (!order) {
