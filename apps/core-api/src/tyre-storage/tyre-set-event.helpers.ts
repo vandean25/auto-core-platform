@@ -2,11 +2,7 @@ import {
   ConflictException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type {
-  TyreSet,
-  TyreSetEventType,
-  TyreSetStatus,
-} from '@prisma/client';
+import type { TyreSet, TyreSetEventType, TyreSetStatus } from '@prisma/client';
 
 export type TyreSetEventPatch = {
   status: TyreSetStatus;
@@ -78,7 +74,7 @@ export function applyTyreSetEvent(
         stored_since: set.stored_since,
       };
     default:
-      throw new UnprocessableEntityException(`Unsupported event ${eventType}`);
+      throw new UnprocessableEntityException('Unsupported tyre set event type');
   }
 }
 

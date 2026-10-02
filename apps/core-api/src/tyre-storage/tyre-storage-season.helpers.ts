@@ -12,11 +12,7 @@ function utcDate(year: number, month: number, day: number): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-function nextOnOrAfter(
-  month: number,
-  day: number,
-  asOfUtc: Date,
-): Date {
+function nextOnOrAfter(month: number, day: number, asOfUtc: Date): Date {
   const year = asOfUtc.getUTCFullYear();
   let candidate = utcDate(year, month, day);
   if (candidate.getTime() < startOfUtcDay(asOfUtc).getTime()) {

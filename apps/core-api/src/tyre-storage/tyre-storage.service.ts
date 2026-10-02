@@ -257,9 +257,7 @@ export class TyreStorageService {
           },
         },
         vehicle: { select: { plate: true } },
-        events: includeEvents
-          ? { orderBy: { occurred_at: 'desc' } }
-          : false,
+        events: includeEvents ? { orderBy: { occurred_at: 'desc' } } : false,
       },
     });
     if (!row) {
@@ -305,7 +303,8 @@ export class TyreStorageService {
           model: dto.model ?? null,
           dimension: dto.dimension ?? null,
           dot_codes: dto.dotCodes ?? [],
-          tread_depth_mm_json: (dto.treadDepthMm ?? undefined) as Prisma.InputJsonValue,
+          tread_depth_mm_json: (dto.treadDepthMm ??
+            undefined) as Prisma.InputJsonValue,
           condition_notes: dto.conditionNotes ?? null,
           status: dto.locationId ? 'IN_STORAGE' : 'RETURNED',
           stored_since: dto.locationId ? now : null,
@@ -323,7 +322,8 @@ export class TyreStorageService {
             event_type: 'CHECK_IN',
             occurred_at: now,
             to_location_id: dto.locationId,
-            tread_depth_mm_json: (dto.treadDepthMm ?? undefined) as Prisma.InputJsonValue,
+            tread_depth_mm_json: (dto.treadDepthMm ??
+              undefined) as Prisma.InputJsonValue,
             created_by_user_id: userId,
           },
         });
@@ -449,12 +449,7 @@ export class TyreStorageService {
       );
     }
 
-    const patch = applyTyreSetEvent(
-      set,
-      eventType,
-      toLocationId,
-      occurredAt,
-    );
+    const patch = applyTyreSetEvent(set, eventType, toLocationId, occurredAt);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.tyreSetEvent.create({
@@ -467,7 +462,8 @@ export class TyreStorageService {
           from_location_id: set.location_id,
           to_location_id: toLocationId,
           odometer: dto.odometer ?? null,
-          tread_depth_mm_json: (dto.treadDepthMm ?? undefined) as Prisma.InputJsonValue,
+          tread_depth_mm_json: (dto.treadDepthMm ??
+            undefined) as Prisma.InputJsonValue,
           note: dto.note ?? null,
           employee_id: dto.employeeId ?? null,
           created_by_user_id: userId,
@@ -561,7 +557,9 @@ export class TyreStorageService {
       select: { id: true },
     });
     if (!order) {
-      throw new NotFoundException(`Workshop order ${workshopOrderId} not found`);
+      throw new NotFoundException(
+        `Workshop order ${workshopOrderId} not found`,
+      );
     }
   }
 
