@@ -576,4 +576,34 @@ describe('Legacy CSV import (e2e)', () => {
     });
     expect(vehicle?.vin).toBe('1HGCM82633A004352');
   });
+
+  it('isolates import mapping profiles by tenant', async () => {
+    const mapping = { external_id: 'Kunden-Nr', last_name: 'Nachname' };
+    const created = await request(app.getHttpServer())
+      .post('/imports/mapping-profiles')
+      .set('Authorization', authHeaderA)
+      .send({
+        entity_type: 'CUSTOMER',
+        source_system: 'incadea',
+        name: 'Pilot profile',
+        mapping,
+      })
+      .expect(201);
+
+    const listB = await request(app.getHttpServer())
+      .get('/imports/mapping-profiles?entityType=CUSTOMER&sourceSystem=incadea')
+      .set('Authorization', authHeaderB)
+      .expect(200);
+
+    expect(listB.body.data).toEqual([]);
+
+    const listA = await request(app.getHttpServer())
+      .get('/imports/mapping-profiles?entityType=CUSTOMER&sourceSystem=incadea')
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    expect(listA.body.data).toHaveLength(1);
+    expect(listA.body.data[0].id).toBe(created.body.id);
+    expect(listA.body.data[0].mapping).toEqual(mapping);
+  });
 });

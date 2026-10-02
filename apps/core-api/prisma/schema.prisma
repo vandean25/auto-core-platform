@@ -115,6 +115,7 @@ model Tenant {
   importJobs                    ImportJob[]
   importJobRows                 ImportJobRow[]
   externalIdMappings            ExternalIdMapping[]
+  importMappingProfiles         ImportMappingProfile[]
 
   @@map("tenants")
 }
@@ -2469,6 +2470,23 @@ model ExternalIdMapping {
   @@unique([tenant_id, entity_type, source_system, external_id])
   @@index([tenant_id, entity_type, entity_id])
   @@map("external_id_mappings")
+}
+
+model ImportMappingProfile {
+  id            String           @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant           @relation(fields: [tenant_id], references: [id])
+  entity_type   ImportEntityType
+  source_system String
+  name          String
+  mapping_json  Json
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, entity_type, source_system, name])
+  @@index([tenant_id, entity_type, source_system])
+  @@map("import_mapping_profiles")
 }
 
 model MasterPart {
