@@ -46,12 +46,53 @@ describe('vehicle-regulatory.validation', () => {
     );
   });
 
+  it('rejects non-string first registration date with INVALID code', () => {
+    expectBadRequest(
+      () =>
+        assertVehicleRegulatoryFields({
+          first_registration_date: 20240315 as unknown as string,
+        }),
+      VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
+      'first_registration_date',
+    );
+  });
+
+  it('rejects date strings with trailing garbage', () => {
+    expectBadRequest(
+      () =>
+        assertVehicleRegulatoryFields({
+          first_registration_date: '2024-03-15garbage',
+        }),
+      VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
+      'first_registration_date',
+    );
+  });
+
+  it('rejects impossible calendar dates with INVALID code', () => {
+    expectBadRequest(
+      () => assertVehicleRegulatoryFields({ first_registration_date: '2024-02-30' }),
+      VEHICLE_FIRST_REGISTRATION_DATE_INVALID_CODE,
+      'first_registration_date',
+    );
+  });
+
   it('accepts ISO datetime by using the date portion only', () => {
     expect(() =>
       assertVehicleRegulatoryFields({
         first_registration_date: '2020-06-15T10:00:00Z',
       }),
     ).not.toThrow();
+  });
+
+  it('rejects non-integer CO2 values such as booleans', () => {
+    expectBadRequest(
+      () =>
+        assertVehicleRegulatoryFields({
+          co2_wltp_g_km: true as unknown as number,
+        }),
+      VEHICLE_CO2_WLTP_OUT_OF_RANGE_CODE,
+      'co2_wltp_g_km',
+    );
   });
 
   it('validates CO2 WLTP boundaries and null clear', () => {
