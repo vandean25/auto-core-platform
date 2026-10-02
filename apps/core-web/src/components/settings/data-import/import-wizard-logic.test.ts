@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { ImportJob } from './import-wizard-logic'
 import {
   canApplyImport,
-  filterImportRows,
+  importRowQueryFromFilter,
   isDryRunStale,
 } from './import-wizard-logic'
 
@@ -88,27 +88,11 @@ describe('import wizard logic', () => {
     ).toBe(false)
   })
 
-  it('filters error rows', () => {
-    const rows = [
-      {
-        row_no: 1,
-        external_id: '1',
-        action: 'CREATE' as const,
-        entity_id: null,
-        errors: [],
-        warnings: [],
-      },
-      {
-        row_no: 2,
-        external_id: '2',
-        action: 'ERROR' as const,
-        entity_id: null,
-        errors: [{ code: 'X', message: 'bad' }],
-        warnings: [],
-      },
-    ]
-
-    expect(filterImportRows(rows, 'ERROR')).toHaveLength(1)
-    expect(filterImportRows(rows, 'ERROR')[0]?.row_no).toBe(2)
+  it('maps row filter to server query params', () => {
+    expect(importRowQueryFromFilter('ALL')).toEqual({})
+    expect(importRowQueryFromFilter('ERROR')).toEqual({ hasErrors: true })
+    expect(importRowQueryFromFilter('CREATE')).toEqual({ action: 'CREATE' })
+    expect(importRowQueryFromFilter('UPDATE')).toEqual({ action: 'UPDATE' })
+    expect(importRowQueryFromFilter('SKIP')).toEqual({ action: 'SKIP' })
   })
 })

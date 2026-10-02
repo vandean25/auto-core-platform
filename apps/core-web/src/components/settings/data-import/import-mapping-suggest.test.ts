@@ -8,6 +8,18 @@ import {
 } from './import-mapping-suggest'
 
 describe('import mapping suggest', () => {
+  it('auto-suggests mixed German header aliases from a pilot-style CSV', () => {
+    const headers = ['Kunden-Nr', 'Firma', 'Mail', 'Tel', 'Ust-ID', 'Zip']
+    const mapping = suggestColumnMapping(headers, CUSTOMER_IMPORT_FIELDS)
+
+    expect(mapping.external_id).toBe('Kunden-Nr')
+    expect(mapping.company_name).toBe('Firma')
+    expect(mapping.email).toBe('Mail')
+    expect(mapping.phone).toBe('Tel')
+    expect(mapping.vat_id).toBe('Ust-ID')
+    expect(mapping.address_zip).toBe('Zip')
+  })
+
   it('auto-suggests German and English customer headers', () => {
     const headers = ['Kunden-Nr', 'Vorname', 'Last Name', 'E-Mail', 'UID']
     const mapping = suggestColumnMapping(headers, CUSTOMER_IMPORT_FIELDS)
