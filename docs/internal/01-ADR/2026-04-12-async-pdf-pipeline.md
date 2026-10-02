@@ -23,8 +23,9 @@ tags:
 Generating highly formatted, legal, and professional PDF documents (like Sales Invoices and Workshop Job Cards) is a resource-intensive operation.
 
 Historically, systems either relied on:
-1. *Synchronous generation:* The user clicks "Print", and the backend hangs for 5-10 seconds generating the PDF before returning HTTP 200. This leads to connection timeouts and poor UX.
-2. *Frontend printing:* Relying on the browser's `window.print()` functionality. This produces wildly inconsistent results depending on the user's browser, OS, and local print margins, and fails to automatically archive a "true" digital copy on the server.
+
+1. _Synchronous generation:_ The user clicks "Print", and the backend hangs for 5-10 seconds generating the PDF before returning HTTP 200. This leads to connection timeouts and poor UX.
+2. _Frontend printing:_ Relying on the browser's `window.print()` functionality. This produces wildly inconsistent results depending on the user's browser, OS, and local print margins, and fails to automatically archive a "true" digital copy on the server.
 
 We needed a scalable, consistent, and fast mechanism to generate complex React-based layouts into immutable PDFs and store them for historical compliance.
 
@@ -32,11 +33,12 @@ We needed a scalable, consistent, and fast mechanism to generate complex React-b
 
 We have implemented an **Asynchronous Headless-Browser PDF Pipeline** using Google Cloud Tasks and Playwright. PDF generation is currently supported for the following entity types only:
 
-| Entity | Trigger Status |
-|--------|---------------|
-| `Invoice` | `FINALIZED` / `ISSUED` / `PAID` |
-| `CreditNote` | `FINALIZED` |
-| `WorkshopOrder` | `INVOICED` |
+| Entity                    | Trigger Status                                                                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Invoice`                 | `FINALIZED` / `ISSUED` / `PAID`                                                                                                               |
+| `CreditNote`              | `FINALIZED`                                                                                                                                   |
+| `WorkshopOrder`           | `INVOICED`                                                                                                                                    |
+| `WorkshopEstimateVersion` | `SENT`, `APPROVED`, `DECLINED`, `EXPIRED`, `SUPERSEDED` (not `DRAFT`) — see [ADR-0025](2026-10-02-customer-communication-and-approvals.md) §2 |
 
 Any future entity requiring PDF support (e.g., `PurchaseOrder`) must be explicitly added to this table and its corresponding service registered in the pipeline.
 
@@ -54,10 +56,10 @@ Production uses a **split deployment** between the user-facing API and a dedicat
 
 #### Roles
 
-| Service | Responsibility | Cloud Tasks config |
-|---------|----------------|-------------------|
-| `core-api` | Enqueues PDF tasks; never launches Chromium in production | `CLOUD_TASKS_ENABLED`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_TARGET_BASE_URL`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORKER_SECRET` |
-| `core-api-pdf-worker` | Renders PDFs via Playwright; validates worker requests | `CLOUD_TASKS_WORKER_SECRET` only (must **not** receive enqueue env vars — it must not enqueue to itself) |
+| Service               | Responsibility                                            | Cloud Tasks config                                                                                                                                       |
+| --------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core-api`            | Enqueues PDF tasks; never launches Chromium in production | `CLOUD_TASKS_ENABLED`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, `CLOUD_TASKS_TARGET_BASE_URL`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORKER_SECRET` |
+| `core-api-pdf-worker` | Renders PDFs via Playwright; validates worker requests    | `CLOUD_TASKS_WORKER_SECRET` only (must **not** receive enqueue env vars — it must not enqueue to itself)                                                 |
 
 #### Transport authentication (Cloud Run IAM + OIDC)
 
@@ -68,7 +70,7 @@ Production uses a **split deployment** between the user-facing API and a dedicat
 #### Application authentication (HMAC + tenant binding)
 
 4. **HMAC worker secret.** Every task carries `x-cloud-tasks-secret` (shared GSM secret) and a signed JSON body `{ kind, resourceId, tenantId, signature }`. `CloudTasksWorkerGuard` and `PdfTaskTenantGuard` validate the secret and bind tenant context before rendering.
-5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`FINALIZED`/`ISSUED`/`PAID` for `Invoice`, `FINALIZED` for `CreditNote`, `INVOICED` for `WorkshopOrder`).
+5. **Entity and status validation.** The worker only renders entity types registered in this pipeline and only when their status is allowed (`FINALIZED`/`ISSUED`/`PAID` for `Invoice`, `FINALIZED` for `CreditNote`, `INVOICED` for `WorkshopOrder`, `SENT`/`APPROVED`/`DECLINED`/`EXPIRED`/`SUPERSEDED` for `WorkshopEstimateVersion` — never `DRAFT`).
 6. **Server-side HTML generation.** PDFs are produced from server-generated HTML via `page.setContent(...)` — no browser navigation to an internal render route.
 
 #### Fail-closed production behavior
@@ -97,17 +99,17 @@ If Cloud Tasks configuration is incomplete on `core-api` (missing queue, target 
 - Production deploys two Cloud Run services from the same compiled Nest application but separate images: `core-api` uses a Node 22 slim image without browser binaries (enqueue-only, 512Mi), while `core-api-pdf-worker` uses the pinned Playwright image (render worker, 2Gi, concurrency 1). Cloud Tasks `CLOUD_TASKS_TARGET_BASE_URL` points at the worker service URL with `/api` prefix.
 - A dedicated render route must be maintained for each new entity type added to the pipeline (one route per document type).
 - Playwright and headless Chromium add significant size to the PDF worker image (~300 MB); the user-facing API image does not carry those browser binaries.
-- GCS storage costs scale linearly with document volume. Retention policy for archived PDFs (e.g., delete after 7 years per legal requirement) must be configured at the bucket level, not in application code.
-- PDF generation is idempotent: re-triggering for the same entity overwrites the existing GCS object and updates `pdf_storage_key`. Historical copies are not versioned by default unless GCS object versioning is enabled on the bucket.
+- GCS storage costs scale linearly with document volume. For **invoices and credit notes**, bucket-level lifecycle may apply; for **estimates and other compliance-linked archives**, per-document `retain_until` and legal hold (ADR-0025 §2) take precedence over bucket-only deletion.
+- PDF generation is idempotent: re-triggering for the same entity overwrites the existing GCS object and updates `pdf_storage_key`, **except** for branded invoices (ADR-0024 §5) and `WorkshopEstimateVersion` (ADR-0025 §2), whose existing archive is served unchanged and never re-rendered. Historical copies are not versioned by default unless GCS object versioning is enabled on the bucket.
 
 ## Alternatives Considered
 
-| Option | Pros | Cons |
-|--------|------|------|
-| Server-side PDF Gen (PDFKit/pdfmake) | Very fast, doesn't require a browser. | Nightmare to style. Cannot reuse our existing React components or Tailwind CSS. Requires writing layout in XY coordinates. |
-| Browser `window.print` | Free, zero infrastructure. | No server-side archiving possible. Margins and headers/footers vary by the user's browser and printer driver. Unacceptable for legal invoices. |
-| React-PDF (`@react-pdf/renderer`) | Server-side, no browser required. Faster than headless Chromium. | Requires a completely separate, duplicate component implementation using React-PDF primitives — cannot reuse the existing Tailwind-based component tree. Significant maintenance surface. |
-| Puppeteer (instead of Playwright) | More widely used for headless PDF in Node. Larger ecosystem of examples. | Playwright is already a project dependency (used in E2E testing), so no additional binary is introduced. Playwright's `page.pdf()` API has better timeout handling and built-in waiting strategies for network idle. Playwright is preferred to avoid a second headless browser runtime in the container. |
+| Option                               | Pros                                                                     | Cons                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server-side PDF Gen (PDFKit/pdfmake) | Very fast, doesn't require a browser.                                    | Nightmare to style. Cannot reuse our existing React components or Tailwind CSS. Requires writing layout in XY coordinates.                                                                                                                                                                                |
+| Browser `window.print`               | Free, zero infrastructure.                                               | No server-side archiving possible. Margins and headers/footers vary by the user's browser and printer driver. Unacceptable for legal invoices.                                                                                                                                                            |
+| React-PDF (`@react-pdf/renderer`)    | Server-side, no browser required. Faster than headless Chromium.         | Requires a completely separate, duplicate component implementation using React-PDF primitives — cannot reuse the existing Tailwind-based component tree. Significant maintenance surface.                                                                                                                 |
+| Puppeteer (instead of Playwright)    | More widely used for headless PDF in Node. Larger ecosystem of examples. | Playwright is already a project dependency (used in E2E testing), so no additional binary is introduced. Playwright's `page.pdf()` API has better timeout handling and built-in waiting strategies for network idle. Playwright is preferred to avoid a second headless browser runtime in the container. |
 
 ## References
 
@@ -124,8 +126,8 @@ If Cloud Tasks configuration is incomplete on `core-api` (missing queue, target 
 
 ## Linear Tracking
 
-| Field | Value |
-|-------|-------|
-| Project | [PDF Generation Service & API](https://linear.app/auto-core-platform/project/pdf-generation-service-and-api-eb5521ba858e) |
-| Milestone | Assorted PDF milestones |
-| Issues | AUT-19, AUT-10, AUT-9, AUT-8, AUT-5, etc. |
+| Field     | Value                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Project   | [PDF Generation Service & API](https://linear.app/auto-core-platform/project/pdf-generation-service-and-api-eb5521ba858e) |
+| Milestone | Assorted PDF milestones                                                                                                   |
+| Issues    | AUT-19, AUT-10, AUT-9, AUT-8, AUT-5, etc.                                                                                 |
