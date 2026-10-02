@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { render, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as chunkLoadRecovery from './chunk-load-recovery'
 import { lazyWithRetry } from './lazyWithRetry'
@@ -10,10 +10,12 @@ const chunkError = () =>
 describe('lazyWithRetry', () => {
   beforeEach(() => {
     sessionStorage.clear()
+    chunkLoadRecovery.chunkReloadState.reloadScheduled = false
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
+    cleanup()
     vi.restoreAllMocks()
   })
 
@@ -68,5 +70,27 @@ describe('lazyWithRetry', () => {
     })
 
     expect(reload).not.toHaveBeenCalled()
+  })
+
+  it('waits instead of rendering when a reload is scheduled but the module is missing', async () => {
+    chunkLoadRecovery.chunkReloadState.reloadScheduled = true
+
+    const factory = vi.fn<() => Promise<{ default: React.ComponentType }>>().mockResolvedValue({} as {
+      default: React.ComponentType
+    })
+
+    const LazyComponent = lazyWithRetry(factory)
+
+    render(
+      <React.Suspense fallback={<div>loading</div>}>
+        <LazyComponent />
+      </React.Suspense>,
+    )
+
+    await waitFor(() => {
+      expect(factory).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByText('loading')).toBeInTheDocument()
   })
 })

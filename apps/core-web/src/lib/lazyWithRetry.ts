@@ -1,11 +1,21 @@
 import * as React from 'react'
 import {
-  captureChunkLoadRecovered,
   isChunkLoadError,
+  isChunkReloadScheduled,
   tryReloadForStaleChunk,
 } from '@/lib/chunk-load-recovery'
 
 type LazyModule<T extends React.ComponentType> = () => Promise<{ default: T }>
+
+function waitForChunkReload<T extends React.ComponentType>(): Promise<{ default: T }> {
+  return new Promise(() => {})
+}
+
+function isMissingLazyModule<T extends React.ComponentType>(
+  module: { default: T } | null | undefined,
+): boolean {
+  return !module?.default
+}
 
 /**
  * React.lazy wrapper that retries a failed dynamic import once, then triggers the
@@ -15,7 +25,11 @@ export function lazyWithRetry<T extends React.ComponentType>(factory: LazyModule
   return React.lazy(async () => {
     const load = async (attempt: 'initial' | 'retry'): Promise<{ default: T }> => {
       try {
-        return await factory()
+        const module = await factory()
+        if (isMissingLazyModule(module) && isChunkReloadScheduled()) {
+          return waitForChunkReload()
+        }
+        return module
       } catch (error) {
         if (!isChunkLoadError(error)) {
           throw error
@@ -25,10 +39,8 @@ export function lazyWithRetry<T extends React.ComponentType>(factory: LazyModule
           return load('retry')
         }
 
-        captureChunkLoadRecovered(error, 'lazy_import')
-
-        if (tryReloadForStaleChunk('lazy_import')) {
-          return new Promise(() => {})
+        if (tryReloadForStaleChunk('lazy_import', error)) {
+          return waitForChunkReload()
         }
 
         throw error
