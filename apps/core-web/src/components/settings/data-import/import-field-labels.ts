@@ -5,11 +5,24 @@ export type ImportFieldDefinition = {
   labelDe: string
   labelEn: string
   required: boolean
+  headerAliases?: string[]
 }
 
 export const CUSTOMER_IMPORT_FIELDS: ImportFieldDefinition[] = [
-  { key: 'external_id', labelDe: 'Kunden-Nr', labelEn: 'Customer number', required: true },
-  { key: 'type', labelDe: 'Typ', labelEn: 'Type', required: false },
+  {
+    key: 'external_id',
+    labelDe: 'Kunden-Nr',
+    labelEn: 'Customer number',
+    required: true,
+    headerAliases: ['kundennr', 'customer no', 'customer number', 'customer_id', 'external id'],
+  },
+  {
+    key: 'type',
+    labelDe: 'Typ',
+    labelEn: 'Type',
+    required: false,
+    headerAliases: ['customer type', 'kundentyp'],
+  },
   { key: 'company_name', labelDe: 'Firmenname', labelEn: 'Company name', required: false },
   { key: 'first_name', labelDe: 'Vorname', labelEn: 'First name', required: false },
   { key: 'last_name', labelDe: 'Nachname', labelEn: 'Last name', required: false },
@@ -23,7 +36,13 @@ export const CUSTOMER_IMPORT_FIELDS: ImportFieldDefinition[] = [
 ]
 
 export const VEHICLE_IMPORT_FIELDS: ImportFieldDefinition[] = [
-  { key: 'external_id', labelDe: 'Fahrzeug-Nr', labelEn: 'Vehicle number', required: true },
+  {
+    key: 'external_id',
+    labelDe: 'Fahrzeug-Nr',
+    labelEn: 'Vehicle number',
+    required: true,
+    headerAliases: ['fahrzeugnr', 'vehicle no', 'vehicle number', 'vehicle_id', 'external id'],
+  },
   { key: 'vin', labelDe: 'FIN', labelEn: 'VIN', required: false },
   { key: 'plate', labelDe: 'Kennzeichen', labelEn: 'License plate', required: false },
   { key: 'make', labelDe: 'Marke', labelEn: 'Make', required: true },
@@ -36,6 +55,7 @@ export const VEHICLE_IMPORT_FIELDS: ImportFieldDefinition[] = [
     labelDe: 'Kunden-Nr',
     labelEn: 'Owner customer number',
     required: false,
+    headerAliases: ['customer no', 'owner', 'owner id', 'owner_customer', 'kundennr'],
   },
   { key: 'key_number', labelDe: 'Schlüsselnummer', labelEn: 'Key number', required: false },
 ]
@@ -46,4 +66,8 @@ export function getImportFieldsForEntity(entityType: ImportEntityTypeUi): Import
 
 export function formatFieldLabel(field: ImportFieldDefinition): string {
   return `${field.labelDe} / ${field.labelEn}`
+}
+
+export function bilingualLabel(english: string, german: string): string {
+  return `${english} / ${german}`
 }

@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { ImportEntityType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -64,12 +63,7 @@ export class ImportMappingProfileService {
         message: 'source_system is required',
       });
     }
-    if (!body.mapping || typeof body.mapping !== 'object') {
-      throw new BadRequestException({
-        code: IMPORT_ERROR_CODES.INVALID_MAPPING,
-        message: 'mapping must be a JSON object',
-      });
-    }
+    const mapping = this.parseStringMapping(body.mapping);
 
     try {
       const created = await this.prisma.importMappingProfile.create({
@@ -78,7 +72,7 @@ export class ImportMappingProfileService {
           entity_type: body.entity_type,
           source_system: sourceSystem,
           name,
-          mapping_json: body.mapping,
+          mapping_json: mapping,
         },
       });
       return this.toDto(created);
@@ -96,29 +90,20 @@ export class ImportMappingProfileService {
     }
   }
 
-  async getProfileForTenant(
-    tenantId: string,
-    profileId: string,
-  ): Promise<ImportMappingProfileResponseDto | null> {
-    const row = await this.prisma.importMappingProfile.findFirst({
-      where: { tenant_id: tenantId, id: profileId },
-    });
-    return row ? this.toDto(row) : null;
-  }
-
-  async assertProfileOwnedByTenant(profileId: string): Promise<void> {
-    assertTenantAdmin(this.tenantContext);
-    const tenantId = await this.tenantContext.getTenantId();
-    const row = await this.prisma.importMappingProfile.findFirst({
-      where: { tenant_id: tenantId, id: profileId },
-      select: { id: true },
-    });
-    if (!row) {
-      throw new NotFoundException({
-        code: IMPORT_ERROR_CODES.MAPPING_PROFILE_NOT_FOUND,
-        message: 'Mapping profile not found',
-      });
+  private parseStringMapping(
+    mapping: Record<string, string>,
+  ): Record<string, string> {
+    const parsed: Record<string, string> = {};
+    for (const [key, value] of Object.entries(mapping)) {
+      if (typeof value !== 'string') {
+        throw new BadRequestException({
+          code: IMPORT_ERROR_CODES.INVALID_MAPPING,
+          message: `mapping.${key} must be a string`,
+        });
+      }
+      parsed[key] = value;
     }
+    return parsed;
   }
 
   private toDto(row: {
@@ -130,12 +115,7 @@ export class ImportMappingProfileService {
     createdAt: Date;
     updatedAt: Date;
   }): ImportMappingProfileResponseDto {
-    const mapping =
-      row.mapping_json &&
-      typeof row.mapping_json === 'object' &&
-      !Array.isArray(row.mapping_json)
-        ? (row.mapping_json as Record<string, string>)
-        : {};
+    const mapping = this.readStringMappingFromJson(row.mapping_json);
     return {
       id: row.id,
       entity_type: row.entity_type,
@@ -145,5 +125,20 @@ export class ImportMappingProfileService {
       created_at: row.createdAt.toISOString(),
       updated_at: row.updatedAt.toISOString(),
     };
+  }
+
+  private readStringMappingFromJson(
+    value: Prisma.JsonValue,
+  ): Record<string, string> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {};
+    }
+    const mapping: Record<string, string> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (typeof entry === 'string') {
+        mapping[key] = entry;
+      }
+    }
+    return mapping;
   }
 }

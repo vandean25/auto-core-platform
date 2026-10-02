@@ -1,48 +1,5 @@
 import type { ImportFieldDefinition } from './import-field-labels'
 
-const FIELD_HEADER_ALIASES: Record<string, string[]> = {
-  external_id: [
-    'kunden-nr',
-    'kundennr',
-    'customer no',
-    'customer number',
-    'customer_id',
-    'fahrzeug-nr',
-    'fahrzeugnr',
-    'vehicle no',
-    'vehicle number',
-    'vehicle_id',
-    'external id',
-    'external_id',
-  ],
-  type: ['typ', 'type', 'customer type', 'kundentyp'],
-  company_name: ['firmenname', 'company', 'company name', 'firma'],
-  first_name: ['vorname', 'first name', 'firstname', 'given name'],
-  last_name: ['nachname', 'last name', 'lastname', 'surname', 'family name'],
-  email: ['e-mail', 'email', 'mail'],
-  phone: ['telefon', 'phone', 'tel', 'mobile', 'handy'],
-  vat_id: ['uid', 'vat', 'vat id', 'vat_id', 'ust-id', 'ust id', 'tax id'],
-  address_street: ['straße', 'strasse', 'street', 'address', 'adresse'],
-  address_zip: ['plz', 'zip', 'postal code', 'postcode'],
-  address_city: ['ort', 'city', 'town'],
-  address_country: ['land', 'country', 'country code'],
-  vin: ['fin', 'vin', 'fahrgestellnummer'],
-  plate: ['kennzeichen', 'plate', 'license plate', 'registration'],
-  make: ['marke', 'make', 'manufacturer', 'hersteller'],
-  model: ['modell', 'model'],
-  year: ['baujahr', 'year', 'model year', 'bj'],
-  mileage: ['kilometerstand', 'mileage', 'km', 'odometer'],
-  color: ['farbe', 'color', 'colour'],
-  owner_customer_external_id: [
-    'kunden-nr',
-    'customer no',
-    'owner',
-    'owner id',
-    'owner_customer',
-  ],
-  key_number: ['schlüsselnummer', 'schluesselnummer', 'key number', 'key no'],
-}
-
 function normalizeHeader(value: string): string {
   return value
     .trim()
@@ -63,6 +20,36 @@ function headerMatchesAlias(header: string, alias: string): boolean {
   )
 }
 
+function findHeaderForAlias(
+  csvHeaders: string[],
+  usedHeaders: Set<string>,
+  alias: string,
+): string | undefined {
+  return csvHeaders.find((header) => {
+    if (usedHeaders.has(header)) return false
+    return headerMatchesAlias(header, alias)
+  })
+}
+
+function matchFieldToHeader(
+  csvHeaders: string[],
+  usedHeaders: Set<string>,
+  field: ImportFieldDefinition,
+): string | undefined {
+  const labelCandidates = [field.labelDe, field.labelEn]
+  for (const label of labelCandidates) {
+    const match = findHeaderForAlias(csvHeaders, usedHeaders, label)
+    if (match) return match
+  }
+
+  for (const alias of field.headerAliases ?? []) {
+    const match = findHeaderForAlias(csvHeaders, usedHeaders, alias)
+    if (match) return match
+  }
+
+  return undefined
+}
+
 export function suggestColumnMapping(
   csvHeaders: string[],
   fields: ImportFieldDefinition[],
@@ -71,17 +58,7 @@ export function suggestColumnMapping(
   const mapping: Record<string, string> = {}
 
   for (const field of fields) {
-    const aliases = [
-      field.labelDe,
-      field.labelEn,
-      ...(FIELD_HEADER_ALIASES[field.key] ?? []),
-    ]
-
-    const match = csvHeaders.find((header) => {
-      if (usedHeaders.has(header)) return false
-      return aliases.some((alias) => headerMatchesAlias(header, alias))
-    })
-
+    const match = matchFieldToHeader(csvHeaders, usedHeaders, field)
     if (match) {
       mapping[field.key] = match
       usedHeaders.add(match)
@@ -89,6 +66,21 @@ export function suggestColumnMapping(
   }
 
   return mapping
+}
+
+export function constrainMappingToCsvHeaders(
+  mapping: Record<string, string>,
+  csvHeaders: string[],
+): Record<string, string> {
+  const headerSet = new Set(csvHeaders)
+  const constrained: Record<string, string> = {}
+  for (const [key, column] of Object.entries(mapping)) {
+    const trimmed = column?.trim()
+    if (trimmed && headerSet.has(trimmed)) {
+      constrained[key] = trimmed
+    }
+  }
+  return constrained
 }
 
 export function validateRequiredMappings(

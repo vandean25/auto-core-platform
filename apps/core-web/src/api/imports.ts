@@ -9,12 +9,25 @@ export type ImportJobRow = components['schemas']['ImportJobRowDto']
 export type ImportTemplate = components['schemas']['ImportTemplateResponseDto']
 export type ImportMappingProfile = components['schemas']['ImportMappingProfileResponseDto']
 
+export type ImportJobRowsMeta = {
+  total: number
+  page: number
+  limit: number
+}
+
+export type ImportJobRowsResult = {
+  data: ImportJobRow[]
+  meta: ImportJobRowsMeta
+}
+
 export type ImportWizardOptions = {
   update_existing?: boolean
   fill_empty_only?: boolean
   allow_missing_vin?: boolean
   invalid_vat_as_error?: boolean
 }
+
+export const IMPORT_ROWS_PAGE_LIMIT = 200
 
 export const importKeys = {
   all: ['imports'] as const,
@@ -128,11 +141,18 @@ export function useImportDryRun() {
 
 export function useImportJobRows(
   jobId: string | null,
-  options?: { action?: string; hasErrors?: boolean; limit?: number },
+  options?: {
+    page?: number
+    limit?: number
+    action?: 'CREATE' | 'UPDATE' | 'SKIP' | 'ERROR'
+    hasErrors?: boolean
+  },
 ) {
+  const limit = Math.min(IMPORT_ROWS_PAGE_LIMIT, options?.limit ?? IMPORT_ROWS_PAGE_LIMIT)
+  const page = options?.page ?? 1
   const params: Record<string, string | undefined> = {
-    limit: String(options?.limit ?? 500),
-    page: '1',
+    limit: String(limit),
+    page: String(page),
     action: options?.action,
     hasErrors: options?.hasErrors ? 'true' : undefined,
   }
@@ -149,8 +169,8 @@ export function useImportJobRows(
       if (!response.ok) {
         throw new Error(await readErrorMessage(response, 'Failed to load import rows'))
       }
-      const body = (await response.json()) as { data: ImportJobRow[] }
-      return body.data
+      const body = (await response.json()) as ImportJobRowsResult
+      return body
     },
   })
 }

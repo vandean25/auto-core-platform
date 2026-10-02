@@ -606,4 +606,36 @@ describe('Legacy CSV import (e2e)', () => {
     expect(listA.body.data[0].id).toBe(created.body.id);
     expect(listA.body.data[0].mapping).toEqual(mapping);
   });
+
+  it('rejects invalid mapping profile entity_type', async () => {
+    await request(app.getHttpServer())
+      .post('/imports/mapping-profiles')
+      .set('Authorization', authHeaderA)
+      .send({
+        entity_type: 'NOT_A_TYPE',
+        source_system: 'incadea',
+        name: 'Bad type',
+        mapping: { external_id: 'Kunden-Nr' },
+      })
+      .expect(400);
+  });
+
+  it('rejects duplicate mapping profile names per tenant', async () => {
+    const payload = {
+      entity_type: 'CUSTOMER',
+      source_system: 'dup-test',
+      name: 'Same name',
+      mapping: { external_id: 'Kunden-Nr' },
+    };
+    await request(app.getHttpServer())
+      .post('/imports/mapping-profiles')
+      .set('Authorization', authHeaderA)
+      .send(payload)
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/imports/mapping-profiles')
+      .set('Authorization', authHeaderA)
+      .send(payload)
+      .expect(409);
+  });
 });

@@ -14,6 +14,7 @@ import type { ImportEntityType, ImportJob } from '@/api/imports'
 import {
   downloadImportErrorRowsCsv,
   downloadImportTemplateCsv,
+  IMPORT_ROWS_PAGE_LIMIT,
   useApplyImportJob,
   useCreateImportMappingProfile,
   useImportDryRun,
@@ -57,18 +58,19 @@ import { getErrorMessage } from '@/lib/error-utils'
 import { cn } from '@/lib/utils'
 
 import {
+  bilingualLabel,
   formatFieldLabel,
   getImportFieldsForEntity,
   type ImportEntityTypeUi,
 } from './import-field-labels'
 import {
+  constrainMappingToCsvHeaders,
   suggestColumnMapping,
   validateRequiredMappings,
 } from './import-mapping-suggest'
 import {
   canApplyImport,
   DEFAULT_IMPORT_OPTIONS,
-  filterImportRows,
   isDryRunStale,
   type ImportWizardOptions,
 } from './import-wizard-logic'
@@ -96,10 +98,12 @@ export function DataImportSettingsTab() {
   const [options, setOptions] = React.useState<ImportWizardOptions>(DEFAULT_IMPORT_OPTIONS)
   const [errorThreshold, setErrorThreshold] = React.useState(0)
   const [rowFilter, setRowFilter] = React.useState<RowFilter>('ALL')
+  const [rowsPage, setRowsPage] = React.useState(1)
   const [dryRunJob, setDryRunJob] = React.useState<ImportJob | null>(null)
   const [appliedJob, setAppliedJob] = React.useState<ImportJob | null>(null)
   const [profileName, setProfileName] = React.useState('')
   const [confirmApplyOpen, setConfirmApplyOpen] = React.useState(false)
+  const [applyInFlight, setApplyInFlight] = React.useState(false)
   const applyInFlightRef = React.useRef(false)
 
   const fields = React.useMemo(() => getImportFieldsForEntity(entityType), [entityType])
@@ -118,21 +122,35 @@ export function DataImportSettingsTab() {
 
   const missingRequired = validateRequiredMappings(mapping, fields)
 
-  const { data: jobRows = [], isLoading: isLoadingRows } = useImportJobRows(
+  const rowQueryAction =
+    rowFilter === 'ALL' || rowFilter === 'ERROR' ? undefined : rowFilter
+  const rowQueryHasErrors = rowFilter === 'ERROR'
+
+  React.useEffect(() => {
+    setRowsPage(1)
+  }, [rowFilter, dryRunJob?.id])
+
+  const { data: rowsResponse, isLoading: isLoadingRows } = useImportJobRows(
     step >= 4 ? dryRunJob?.id ?? null : null,
-    { limit: 500 },
+    {
+      page: rowsPage,
+      limit: IMPORT_ROWS_PAGE_LIMIT,
+      action: rowQueryAction,
+      hasErrors: rowQueryHasErrors,
+    },
   )
 
-  const filteredRows = React.useMemo(
-    () => filterImportRows(jobRows, rowFilter),
-    [jobRows, rowFilter],
-  )
+  const jobRows = rowsResponse?.data ?? []
+  const rowsMeta = rowsResponse?.meta
+  const rowsTotalPages = rowsMeta
+    ? Math.max(1, Math.ceil(rowsMeta.total / rowsMeta.limit))
+    : 1
 
   const applyEnabled = canApplyImport({
     dryRunJob,
     dryRunStale,
     errorThreshold,
-    isApplying: applyMutation.isPending,
+    isApplying: applyMutation.isPending || applyInFlight,
   })
 
   const resetDryRun = React.useCallback(() => {
@@ -167,16 +185,23 @@ export function DataImportSettingsTab() {
       const suggested = suggestColumnMapping(parsed.headers, fields)
       setMapping(suggested)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not read CSV file'))
+      setFile(null)
+      setCsvHeaders([])
+      setPreviewRows([])
+      setFileFingerprint(null)
+      setMapping({})
+      toast.error(
+        getErrorMessage(error, bilingualLabel('Could not read CSV file', 'CSV-Datei konnte nicht gelesen werden')),
+      )
     }
   }
 
   const handleLoadProfile = (profileId: string) => {
     const profile = profiles.find((item) => item.id === profileId)
     if (!profile) return
-    setMapping(profile.mapping)
+    setMapping(constrainMappingToCsvHeaders(profile.mapping, csvHeaders))
     resetDryRun()
-    toast.success('Mapping profile loaded')
+    toast.success(bilingualLabel('Mapping profile loaded', 'Zuordnungsprofil geladen'))
   }
 
   const handleSaveProfile = async () => {
@@ -195,17 +220,24 @@ export function DataImportSettingsTab() {
       toast.success('Mapping profile saved / Zuordnung gespeichert')
       setProfileName('')
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to save profile'))
+      toast.error(
+        getErrorMessage(error, bilingualLabel('Failed to save profile', 'Profil konnte nicht gespeichert werden')),
+      )
     }
   }
 
   const handleRunDryRun = async () => {
     if (!file) {
-      toast.error('Select a CSV file first')
+      toast.error(bilingualLabel('Select a CSV file first', 'Zuerst eine CSV-Datei auswählen'))
       return
     }
     if (missingRequired.length > 0) {
-      toast.error('Map all required fields before running dry-run')
+      toast.error(
+        bilingualLabel(
+          'Map all required fields before running dry-run',
+          'Pflichtfelder zuordnen, bevor der Probelauf startet',
+        ),
+      )
       return
     }
 
@@ -222,25 +254,30 @@ export function DataImportSettingsTab() {
       setAppliedJob(null)
       setStep(4)
       setRowFilter('ALL')
+      setRowsPage(1)
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Dry-run failed'))
+      toast.error(getErrorMessage(error, bilingualLabel('Dry-run failed', 'Probelauf fehlgeschlagen')))
     }
   }
 
   const handleApply = async () => {
     if (!dryRunJob || !applyEnabled || applyInFlightRef.current) return
     applyInFlightRef.current = true
+    setApplyInFlight(true)
     try {
       const result = await applyMutation.mutateAsync(dryRunJob.id)
       setAppliedJob(result)
       setDryRunJob(result)
       setStep(5)
       setConfirmApplyOpen(false)
-      toast.success('Import applied successfully')
+      toast.success(
+        bilingualLabel('Import applied successfully', 'Import erfolgreich angewendet'),
+      )
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Apply failed'))
+      toast.error(getErrorMessage(error, bilingualLabel('Apply failed', 'Import fehlgeschlagen')))
     } finally {
       applyInFlightRef.current = false
+      setApplyInFlight(false)
     }
   }
 
@@ -426,7 +463,7 @@ export function DataImportSettingsTab() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Save profile
+                {bilingualLabel('Save profile', 'Profil speichern')}
               </Button>
             </div>
           </div>
@@ -628,7 +665,9 @@ export function DataImportSettingsTab() {
 
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2 max-w-[200px]">
-              <Label htmlFor="import-error-threshold">Max errors to allow apply</Label>
+              <Label htmlFor="import-error-threshold">
+                {bilingualLabel('Max errors to allow apply', 'Max. Fehler für Import')}
+              </Label>
               <Input
                 id="import-error-threshold"
                 type="number"
@@ -641,7 +680,10 @@ export function DataImportSettingsTab() {
               <Label htmlFor="import-row-filter">Row filter / Zeilenfilter</Label>
               <Select
                 value={rowFilter}
-                onValueChange={(value) => setRowFilter(value as RowFilter)}
+                onValueChange={(value) => {
+                  setRowFilter(value as RowFilter)
+                  setRowsPage(1)
+                }}
               >
                 <SelectTrigger id="import-row-filter" className="w-[180px]">
                   <SelectValue />
@@ -657,28 +699,37 @@ export function DataImportSettingsTab() {
             </div>
             <Button type="button" variant="outline" onClick={() => void handleDownloadErrors()}>
               <Download className="mr-2 h-4 w-4" />
-              Error rows CSV
+              {bilingualLabel('Error rows CSV', 'Fehlerzeilen CSV')}
             </Button>
           </div>
+
+          {rowsMeta ? (
+            <p className="text-sm text-muted-foreground">
+              {bilingualLabel('Showing', 'Angezeigt')}{' '}
+              {jobRows.length} {bilingualLabel('of', 'von')} {rowsMeta.total}{' '}
+              {bilingualLabel('rows (page', 'Zeilen (Seite')} {rowsMeta.page}{' '}
+              {bilingualLabel('of', 'von')} {rowsTotalPages})
+            </p>
+          ) : null}
 
           <div className="overflow-x-auto border rounded-md max-h-96">
             {isLoadingRows ? (
               <div className="p-6 flex items-center justify-center text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Loading rows…
+                {bilingualLabel('Loading rows…', 'Zeilen werden geladen…')}
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>#</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>External ID</TableHead>
-                    <TableHead>Issues</TableHead>
+                    <TableHead>{bilingualLabel('Action', 'Aktion')}</TableHead>
+                    <TableHead>{bilingualLabel('External ID', 'Externe ID')}</TableHead>
+                    <TableHead>{bilingualLabel('Issues', 'Hinweise')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRows.map((row) => {
+                  {jobRows.map((row) => {
                     const issues = [
                       ...(row.errors ?? []).map((issue) => `Error: ${issue.message}`),
                       ...(row.warnings ?? []).map((issue) => `Warning: ${issue.message}`),
@@ -705,6 +756,29 @@ export function DataImportSettingsTab() {
             )}
           </div>
 
+          {rowsTotalPages > 1 ? (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={rowsPage <= 1 || isLoadingRows}
+                onClick={() => setRowsPage((page) => Math.max(1, page - 1))}
+              >
+                {bilingualLabel('Previous page', 'Vorherige Seite')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={rowsPage >= rowsTotalPages || isLoadingRows}
+                onClick={() => setRowsPage((page) => Math.min(rowsTotalPages, page + 1))}
+              >
+                {bilingualLabel('Next page', 'Nächste Seite')}
+              </Button>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => setStep(3)}>
               Edit mapping / Zuordnung bearbeiten
@@ -727,9 +801,11 @@ export function DataImportSettingsTab() {
             Import complete / Import abgeschlossen
           </h4>
           <p className="text-sm text-muted-foreground">
-            Status: {appliedJob.status}. Created {appliedJob.totals.create}, updated{' '}
-            {appliedJob.totals.update}, skipped {appliedJob.totals.skip}, errors{' '}
-            {appliedJob.totals.error}.
+            {bilingualLabel('Status', 'Status')}: {appliedJob.status}.{' '}
+            {bilingualLabel('Created', 'Neu')} {appliedJob.totals.create},{' '}
+            {bilingualLabel('updated', 'aktualisiert')} {appliedJob.totals.update},{' '}
+            {bilingualLabel('skipped', 'übersprungen')} {appliedJob.totals.skip},{' '}
+            {bilingualLabel('errors', 'Fehler')} {appliedJob.totals.error}.
           </p>
           <Link
             to={auditLogHref}
@@ -746,7 +822,12 @@ export function DataImportSettingsTab() {
             <AlertDialogTitle>Apply import? / Import anwenden?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-sm">
-                <p>This writes data to your tenant. Counts from the last dry-run:</p>
+                <p>
+                  {bilingualLabel(
+                    'This writes data to your tenant. Counts from the last dry-run:',
+                    'Schreibt Daten in Ihren Mandanten. Zahlen aus dem letzten Probelauf:',
+                  )}
+                </p>
                 <ul className="list-disc pl-5">
                   <li>Create / Neu: {dryRunJob?.totals.create ?? 0}</li>
                   <li>Update: {dryRunJob?.totals.update ?? 0}</li>
@@ -759,7 +840,7 @@ export function DataImportSettingsTab() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel / Abbrechen</AlertDialogCancel>
             <AlertDialogAction
-              disabled={applyMutation.isPending}
+              disabled={applyMutation.isPending || applyInFlight}
               onClick={(event) => {
                 event.preventDefault()
                 void handleApply()

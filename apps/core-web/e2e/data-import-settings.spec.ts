@@ -144,7 +144,7 @@ async function installImportMocks(
             warnings: [],
           },
         ],
-        meta: { total: 2, page: 1, limit: 500 },
+        meta: { total: 2, page: 1, limit: 200 },
       }),
     })
   })
@@ -160,6 +160,7 @@ async function installImportMocks(
   await page.route(AutoCorePage.apiRouteMatcher(`/api/imports/${job.id}/apply`), async (route) => {
     applyCount += 1
     options.onApply?.()
+    await new Promise((resolve) => setTimeout(resolve, 300))
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -195,9 +196,9 @@ test.describe('Data import settings wizard', () => {
     await expect(page.getByText(/Dry-run report/i)).toBeVisible()
     await expect(page.getByText(/Error \/ Fehler: 1/)).toBeVisible()
 
-    await page.getByLabel('Max errors to allow apply').fill('1')
+    await page.getByLabel(/Max errors to allow apply/i).fill('1')
     await page.getByRole('button', { name: /Apply import/i }).click()
-    await page.getByRole('button', { name: /Confirm apply/i }).click()
+    await page.getByRole('button', { name: /Confirm apply/i }).dblclick()
 
     await expect(page.getByText(/Import complete/i)).toBeVisible()
     expect(getApplyCount()).toBe(1)
