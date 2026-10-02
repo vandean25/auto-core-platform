@@ -31,7 +31,7 @@ describe('Pickerl Due (e2e)', () => {
     await app.init();
 
     basePrisma = app.get(PrismaService);
-    const testTenant = await createTestTenant(basePrisma, 'aut380');
+    const testTenant = await createTestTenant(basePrisma, '81d25953');
     tenantId = testTenant.tenantId;
 
     const testUser = await basePrisma.user.create({

@@ -45,7 +45,7 @@ export default function PickerlDueList() {
   const rows = useMemo<PickerlDueRow[]>(() => {
     const source = responseData?.data ?? []
     return source.map((vehicle) => {
-      const v = vehicle as components['schemas']['VehicleResponseDto'];
+      const v = vehicle as components['schemas']['VehicleResponseDto'] & { pickerl_due?: Record<string, unknown>, inspection_records?: Record<string, unknown>[] };
       const customerName = v.customer ? `${v.customer.first_name} ${v.customer.last_name}`.trim() : ''
       const pickerlDue = v.pickerl_due || {}
       const inspectionRecords = (v as unknown as Record<string, unknown>).inspection_records as Record<string, unknown>[] | undefined
