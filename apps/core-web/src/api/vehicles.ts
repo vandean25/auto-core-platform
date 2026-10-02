@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Vehicle } from './types'
-type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
+type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
 
 type CreateVehicleDto = components['schemas']['CreateVehicleDto']
 type UpdateVehicleDto = components['schemas']['UpdateVehicleDto']

@@ -13,8 +13,8 @@ import { usePickerlDueList } from '@/api/vehicles'
 import { triggerBlobDownload } from '@/lib/download'
 import { fetchWithAuth } from '@/api/client'
 import { RecordPickerlDialog } from '@/components/vehicles/RecordPickerlDialog'
-import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 
+import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 type PickerlDueRow = {
   id: string
   plate: string
@@ -44,7 +44,7 @@ export default function PickerlDueList() {
   const rows = useMemo<PickerlDueRow[]>(() => {
     const source = responseData?.data ?? []
     return source.map((vehicle) => {
-      const v = vehicle as components['schemas']['VehicleResponseDto'];
+      const v = vehicle as any;
       const customerName = v.customer ? `${v.customer.first_name} ${v.customer.last_name}`.trim() : ''
       const pickerlDue = v.pickerl_due || {}
       const lastInspectionDate = v.inspection_records?.[0]?.inspected_on

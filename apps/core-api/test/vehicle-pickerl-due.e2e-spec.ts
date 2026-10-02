@@ -60,6 +60,7 @@ describe('Pickerl Due (e2e)', () => {
     await teardownTestApp(app);
   });
 
+
   it('GET /vehicles/pickerl-due returns paginated list', async () => {
     // Create customer and vehicle
     await runWithTenantContext(tenantId, async () => {
@@ -89,7 +90,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId,
           vehicle_id: vehicle.id,
-          inspection_type: 'SEC_57A',
+          inspection_type: 'PICKERL_57A',
           inspected_on: new Date('2023-01-01'),
           plaketten_valid_until_year: 2024,
           plaketten_valid_until_month: 1,
