@@ -864,7 +864,7 @@ export class ImportService {
     payload: Record<string, unknown>,
     options: ImportJobOptions,
   ) {
-    const data: Prisma.VehicleUpdateInput = {};
+    const data: Prisma.VehicleUncheckedUpdateInput = {};
     const assign = (key: keyof typeof existing, value: unknown) => {
       if (options.fill_empty_only) {
         const current = existing[key];
