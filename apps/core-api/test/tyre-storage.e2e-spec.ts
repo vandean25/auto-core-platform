@@ -419,7 +419,7 @@ describe('Tyre storage (e2e)', () => {
 
   it('rejects backdated storage events with 422', async () => {
     const clock = app.get(TyreStorageClock);
-    clock.setOverride(new Date('2026-06-15T12:00:00.000Z'));
+    clock.setOverride(new Date('2026-06-01T12:00:00.000Z'));
 
     const createRes = await request(app.getHttpServer())
       .post('/api/tyre-sets')
@@ -433,6 +433,8 @@ describe('Tyre storage (e2e)', () => {
       .expect(201);
 
     const setId = createRes.body.id;
+    clock.setOverride(new Date('2026-06-15T12:00:00.000Z'));
+
     await request(app.getHttpServer())
       .post(`/api/tyre-sets/${setId}/check-out`)
       .set('Authorization', `Bearer ${authToken}`)
@@ -444,7 +446,7 @@ describe('Tyre storage (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         locationId: storageLocationId,
-        occurredAt: '2026-06-01T12:00:00.000Z',
+        occurredAt: '2026-06-05T12:00:00.000Z',
       })
       .expect(422);
 
