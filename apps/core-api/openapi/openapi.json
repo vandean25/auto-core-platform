@@ -6594,6 +6594,190 @@
         ]
       }
     },
+    "/api/vehicles/{vehicleId}/inspection-records": {
+      "get": {
+        "operationId": "VehicleInspectionRecordController_list",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      },
+      "post": {
+        "operationId": "VehicleInspectionRecordController_create",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVehicleInspectionRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      }
+    },
+    "/api/vehicles/{vehicleId}/inspection-records/{recordId}": {
+      "get": {
+        "operationId": "VehicleInspectionRecordController_findOne",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      },
+      "patch": {
+        "operationId": "VehicleInspectionRecordController_update",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVehicleInspectionRecordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleInspectionRecordResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      },
+      "delete": {
+        "operationId": "VehicleInspectionRecordController_remove",
+        "parameters": [
+          {
+            "name": "vehicleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recordId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "VehicleInspectionRecord"
+        ]
+      }
+    },
     "/api/employees": {
       "get": {
         "operationId": "EmployeeController_findAll",
@@ -10969,6 +11153,63 @@
           "last_name"
         ]
       },
+      "PickerlDueStatus": {
+        "type": "string",
+        "enum": [
+          "OK",
+          "DUE_SOON",
+          "OVERDUE",
+          "UNKNOWN"
+        ]
+      },
+      "PickerlWarningDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "PickerlDueDto": {
+        "type": "object",
+        "properties": {
+          "due_month": {
+            "type": "string",
+            "nullable": true,
+            "description": "Next due month as YYYY-MM",
+            "example": "2027-03"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PickerlDueStatus"
+              }
+            ]
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickerlWarningDto"
+            }
+          }
+        },
+        "required": [
+          "due_month",
+          "status",
+          "rule_id",
+          "warnings"
+        ]
+      },
       "VehicleResponseDto": {
         "type": "object",
         "properties": {
@@ -11067,6 +11308,9 @@
                 "$ref": "#/components/schemas/CustomerResponseDto"
               }
             ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
           }
         },
         "required": [
@@ -13584,6 +13828,9 @@
                 "$ref": "#/components/schemas/CustomerResponseDto"
               }
             ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
           }
         },
         "required": [
@@ -14455,6 +14702,9 @@
                 "$ref": "#/components/schemas/CustomerResponseDto"
               }
             ]
+          },
+          "pickerl_due": {
+            "$ref": "#/components/schemas/PickerlDueDto"
           }
         },
         "required": [
@@ -17698,6 +17948,147 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          }
+        }
+      },
+      "VehicleInspectionType": {
+        "type": "string",
+        "enum": [
+          "PICKERL_57A"
+        ]
+      },
+      "VehicleInspectionRecordSource": {
+        "type": "string",
+        "enum": [
+          "MANUAL"
+        ]
+      },
+      "VehicleInspectionRecordResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "inspection_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleInspectionType"
+              }
+            ]
+          },
+          "inspected_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "plaketten_valid_until_year": {
+            "type": "number"
+          },
+          "plaketten_valid_until_month": {
+            "type": "number"
+          },
+          "station_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "source": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleInspectionRecordSource"
+              }
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_by_user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "vehicle_id",
+          "inspection_type",
+          "inspected_on",
+          "plaketten_valid_until_year",
+          "plaketten_valid_until_month",
+          "source",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateVehicleInspectionRecordDto": {
+        "type": "object",
+        "properties": {
+          "inspection_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VehicleInspectionType"
+              }
+            ]
+          },
+          "inspected_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "plaketten_valid_until_year": {
+            "type": "number",
+            "minimum": 1980,
+            "maximum": 2100
+          },
+          "plaketten_valid_until_month": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "station_name": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "inspection_type",
+          "inspected_on",
+          "plaketten_valid_until_year",
+          "plaketten_valid_until_month"
+        ]
+      },
+      "UpdateVehicleInspectionRecordDto": {
+        "type": "object",
+        "properties": {
+          "inspected_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "plaketten_valid_until_year": {
+            "type": "number",
+            "minimum": 1980,
+            "maximum": 2100
+          },
+          "plaketten_valid_until_month": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "station_name": {
+            "type": "object"
+          },
+          "notes": {
+            "type": "object"
           }
         }
       },

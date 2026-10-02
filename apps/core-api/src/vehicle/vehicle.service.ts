@@ -31,6 +31,7 @@ import {
   assertVehicleRegulatoryFields,
   normalizeVehicleRegulatoryFields,
 } from './vehicle-regulatory.validation.js';
+import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 
 interface ExistingVehicleIdentity {
   id: string;
@@ -148,6 +149,14 @@ export class VehicleService {
           orderBy: { createdAt: 'desc' },
         },
         invoices: invoicesHistorySlice(historySlice),
+        inspection_records: {
+          orderBy: { inspected_on: 'desc' },
+          select: {
+            inspected_on: true,
+            plaketten_valid_until_year: true,
+            plaketten_valid_until_month: true,
+          },
+        },
       },
     });
 
@@ -155,10 +164,11 @@ export class VehicleService {
       throw new NotFoundException(`Vehicle with ID ${id} not found`);
     }
 
-    return projectVehicleOperationalFields(
+    const projected = projectVehicleOperationalFields(
       stripVehicleIdentityResolutionState(vehicle),
       authorizedSiteIds,
     );
+    return attachPickerlDue(projected, new Date());
   }
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto) {

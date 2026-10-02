@@ -117,6 +117,10 @@ describe('VehicleService', () => {
     await expect(service.findOne(vehicleId)).resolves.toEqual({
       id: vehicleId,
       customer: null,
+      pickerl_due: expect.objectContaining({
+        status: 'UNKNOWN',
+        due_month: null,
+      }),
     });
   });
 

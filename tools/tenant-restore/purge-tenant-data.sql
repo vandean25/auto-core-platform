@@ -79,6 +79,7 @@ VALUES
   ('purchase_invoice_lines'),
   ('sales_orders'),
   ('tyre_sets'),
+  ('vehicle_inspection_records'),
   ('vehicle_purchases'),
   ('vehicle_sales'),
   ('workshop_orders'),
@@ -301,6 +302,8 @@ VALUES
   ('tyre_sets', 'vehicles', 'vehicle_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_storage_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('users', 'tenants', 'active_tenant_id', 'id', 'SET NULL', 'CASCADE'),
+  ('vehicle_inspection_records', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_inspection_records', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_ledger_entries', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_ledger_entries', 'vehicle_purchases', 'vehicle_purchase_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicle_ledger_entries', 'vehicle_sales', 'vehicle_sale_id', 'id', 'SET NULL', 'CASCADE'),
@@ -581,6 +584,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_sales"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_purchases"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_inspection_records"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_sets"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
