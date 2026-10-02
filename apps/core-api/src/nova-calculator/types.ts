@@ -2,17 +2,26 @@ export type EmissionCycle = 'WLTP' | 'NEDC';
 
 export type NovaDriveType = 'BEV' | 'FCEV' | 'PHEV' | 'ICE' | 'OTHER';
 
-export type NovaVehicleClass = 'm1_z3' | 'n1_z3' | 'motorcycle_z1_z2';
+/** § 2 Abs. 1 Z 3 (passenger), legacy § 6 Abs. 3 N1, § 2 Z 1–2 motorcycles. */
+export type NovaVehicleClass =
+  'passenger_z3' | 'n1_legacy_z6' | 'motorcycle_z1_z2';
 
 export interface CalculateNovaInput {
   co2GramsPerKm?: number;
   emissionCycle: EmissionCycle;
   netPriceEuro: number;
   driveType: NovaDriveType;
-  firstRegistrationDate: string;
+  /** Lieferung, IG-Erwerb, or Zulassung — drives tariff resolution. */
+  taxableEventDate: string;
+  /** Optional; used for § 6 Abs. 8 / Wertentwicklung warnings only in v1. */
+  firstRegistrationDate?: string;
   vehicleClass?: NovaVehicleClass;
-  /** § 6 Abs. 6 — substitute when CO₂ is absent (2 × kW). */
+  /** § 6 Abs. 6 Z 2 — substitute when CO₂ is absent (Z 3 only). */
   ratedPowerKw?: number;
+  /** § 6 Abs. 6 Z 1 — motorcycle hubraum rate when CO₂ absent. */
+  displacementCc?: number;
+  /** Wohnmobil Aufbauart SA: 16% minimum when using 2×kW basis (§ 6 Abs. 6 Z 4). */
+  isCamperSA?: boolean;
 }
 
 export interface NovaTariffVersion {
@@ -26,7 +35,6 @@ export interface NovaTariffVersion {
   malus_threshold_g: number;
   malus_eur_per_g: number;
   flat_deduction_eur: number;
-  min_rate_percent?: number;
   source_url: string;
   source_retrieved: string;
 }
@@ -41,7 +49,10 @@ export interface CalculateNovaResult {
 }
 
 export type NovaCalculationErrorCode =
-  'MISSING_CO2' | 'UNKNOWN_TARIFF_VERSION' | 'INVALID_NET_PRICE';
+  | 'MISSING_CO2'
+  | 'INVALID_NEDC_CYCLE'
+  | 'UNKNOWN_TARIFF_VERSION'
+  | 'INVALID_NET_PRICE';
 
 export class NovaCalculationError extends Error {
   readonly code: NovaCalculationErrorCode;

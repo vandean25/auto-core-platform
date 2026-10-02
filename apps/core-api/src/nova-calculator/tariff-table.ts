@@ -6,7 +6,7 @@ const BMF_AB_JUL_2025 =
   'https://www.bmf.gv.at/themen/steuern/kraftfahrzeuge/normverbrauchsabgabe-uebersicht/nova-steuersatz/rechtslage_ab_1_juli_2025.html';
 const RETRIEVED = '2026-10-02';
 
-function m1Row(
+function passengerRow(
   id: string,
   valid_from: string,
   valid_to: string,
@@ -18,7 +18,7 @@ function m1Row(
 ): NovaTariffVersion {
   return {
     id,
-    vehicle_class: 'm1_z3',
+    vehicle_class: 'passenger_z3',
     valid_from,
     valid_to,
     co2_deduction_g,
@@ -32,7 +32,7 @@ function m1Row(
   };
 }
 
-function n1Row(
+function n1LegacyRow(
   id: string,
   valid_from: string,
   valid_to: string,
@@ -44,7 +44,7 @@ function n1Row(
 ): NovaTariffVersion {
   return {
     id,
-    vehicle_class: 'n1_z3',
+    vehicle_class: 'n1_legacy_z6',
     valid_from,
     valid_to,
     co2_deduction_g,
@@ -53,6 +53,29 @@ function n1Row(
     malus_threshold_g,
     malus_eur_per_g,
     flat_deduction_eur: 350,
+    source_url,
+    source_retrieved: RETRIEVED,
+  };
+}
+
+function motorcycleRow(
+  id: string,
+  valid_from: string,
+  valid_to: string,
+  co2_deduction_g: number,
+  source_url: string,
+): NovaTariffVersion {
+  return {
+    id,
+    vehicle_class: 'motorcycle_z1_z2',
+    valid_from,
+    valid_to,
+    co2_deduction_g,
+    rate_divisor: 4,
+    max_rate_percent: 30,
+    malus_threshold_g: 150,
+    malus_eur_per_g: 20,
+    flat_deduction_eur: 0,
     source_url,
     source_retrieved: RETRIEVED,
   };
@@ -60,7 +83,7 @@ function n1Row(
 
 /** Git-versioned tariff data — annual BMF changes are new rows, not code changes. */
 export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
-  m1Row(
+  passengerRow(
     'at-m1-2021-h2',
     '2021-07-01',
     '2021-12-31',
@@ -70,7 +93,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     50,
     BMF_2021_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2022',
     '2022-01-01',
     '2022-12-31',
@@ -80,7 +103,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     60,
     BMF_2021_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2023',
     '2023-01-01',
     '2023-12-31',
@@ -90,7 +113,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     70,
     BMF_2021_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2024',
     '2024-01-01',
     '2024-12-31',
@@ -100,7 +123,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_2021_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2025-h1',
     '2025-01-01',
     '2025-06-30',
@@ -110,7 +133,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_2021_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2025-h2',
     '2025-07-01',
     '2025-12-31',
@@ -120,7 +143,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_AB_JUL_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2026',
     '2026-01-01',
     '2026-12-31',
@@ -130,7 +153,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_AB_JUL_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2027',
     '2027-01-01',
     '2027-12-31',
@@ -140,7 +163,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_AB_JUL_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2028',
     '2028-01-01',
     '2028-12-31',
@@ -150,7 +173,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_AB_JUL_2025,
   ),
-  m1Row(
+  passengerRow(
     'at-m1-2029',
     '2029-01-01',
     '2029-12-31',
@@ -160,7 +183,7 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     80,
     BMF_AB_JUL_2025,
   ),
-  n1Row(
+  n1LegacyRow(
     'at-n1-2021-h2',
     '2021-07-01',
     '2021-12-31',
@@ -170,7 +193,37 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     50,
     BMF_2021_2025,
   ),
-  n1Row(
+  n1LegacyRow(
+    'at-n1-2022',
+    '2022-01-01',
+    '2022-12-31',
+    160,
+    60,
+    238,
+    60,
+    BMF_2021_2025,
+  ),
+  n1LegacyRow(
+    'at-n1-2023',
+    '2023-01-01',
+    '2023-12-31',
+    155,
+    70,
+    223,
+    70,
+    BMF_2021_2025,
+  ),
+  n1LegacyRow(
+    'at-n1-2024',
+    '2024-01-01',
+    '2024-12-31',
+    150,
+    80,
+    208,
+    80,
+    BMF_2021_2025,
+  ),
+  n1LegacyRow(
     'at-n1-2025-h1',
     '2025-01-01',
     '2025-06-30',
@@ -179,6 +232,22 @@ export const NOVA_TARIFF_TABLE: readonly NovaTariffVersion[] = [
     208,
     80,
     BMF_2021_2025,
+  ),
+  motorcycleRow('at-mc-2021-h2', '2021-07-01', '2023-12-31', 55, BMF_2021_2025),
+  motorcycleRow('at-mc-2024-h1', '2024-01-01', '2025-12-31', 53, BMF_2021_2025),
+  motorcycleRow(
+    'at-mc-2026-h1',
+    '2026-01-01',
+    '2027-12-31',
+    51,
+    BMF_AB_JUL_2025,
+  ),
+  motorcycleRow(
+    'at-mc-2028-h1',
+    '2028-01-01',
+    '2029-12-31',
+    49,
+    BMF_AB_JUL_2025,
   ),
 ];
 

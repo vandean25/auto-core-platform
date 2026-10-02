@@ -5,9 +5,11 @@ import {
   type CalculateNovaInput,
   type CalculateNovaResult,
   type NovaTariffVersion,
+  type NovaVehicleClass,
 } from './types.js';
 
 const NEDC_TO_WLTP_FACTOR = 1.27;
+const CAMPER_SA_MIN_RATE_PERCENT = 16;
 
 function assertNetPrice(netPriceEuro: number): void {
   if (!Number.isFinite(netPriceEuro) || netPriceEuro < 0) {
@@ -18,34 +20,76 @@ function assertNetPrice(netPriceEuro: number): void {
   }
 }
 
+function vehicleClass(input: CalculateNovaInput): NovaVehicleClass {
+  return input.vehicleClass ?? 'passenger_z3';
+}
+
 function isZeroEmissionExempt(
   driveType: CalculateNovaInput['driveType'],
 ): boolean {
   return driveType === 'BEV' || driveType === 'FCEV';
 }
 
-function resolveEffectiveCo2(input: CalculateNovaInput): number {
+function motorcycleHubraumRatePercent(displacementCc: number): number {
+  const raw = (displacementCc - 100) * 0.02;
+  return Math.min(30, Math.max(0, roundToWholePercent(raw)));
+}
+
+function resolveEffectiveCo2(
+  input: CalculateNovaInput,
+  vClass: NovaVehicleClass,
+  appliedRuleIds: string[],
+): number {
   if (input.co2GramsPerKm !== undefined && input.co2GramsPerKm !== null) {
     let co2 = input.co2GramsPerKm;
     if (input.emissionCycle === 'NEDC') {
+      if (vClass !== 'passenger_z3') {
+        throw new NovaCalculationError(
+          'INVALID_NEDC_CYCLE',
+          'NEDC emission cycle applies only to passenger_z3 vehicles',
+        );
+      }
       co2 = co2 * NEDC_TO_WLTP_FACTOR;
+      appliedRuleIds.push('co2.nedc_to_wltp_factor');
     }
     return co2;
   }
-  if (input.ratedPowerKw !== undefined && input.ratedPowerKw !== null) {
+  if (vClass === 'motorcycle_z1_z2') {
+    if (input.displacementCc !== undefined && input.displacementCc !== null) {
+      appliedRuleIds.push('co2.substitute_motorcycle_hubraum');
+      return 0;
+    }
+  }
+  if (
+    (vClass === 'passenger_z3' || vClass === 'n1_legacy_z6') &&
+    input.ratedPowerKw !== undefined &&
+    input.ratedPowerKw !== null
+  ) {
+    appliedRuleIds.push('co2.substitute_double_kw');
     return input.ratedPowerKw * 2;
   }
   throw new NovaCalculationError(
     'MISSING_CO2',
-    'co2GramsPerKm is required unless drive type is BEV/FCEV or ratedPowerKw is provided',
+    'co2GramsPerKm is required unless drive type is BEV/FCEV or a class-specific substitute is provided',
   );
 }
 
 function computeRatePercent(
   effectiveCo2: number,
   tariff: NovaTariffVersion,
+  input: CalculateNovaInput,
   appliedRuleIds: string[],
+  usedKwSubstitute: boolean,
 ): number {
+  if (
+    tariff.vehicle_class === 'motorcycle_z1_z2' &&
+    input.co2GramsPerKm === undefined &&
+    input.displacementCc !== undefined
+  ) {
+    appliedRuleIds.push('tariff.motorcycle_hubraum_formula');
+    return motorcycleHubraumRatePercent(input.displacementCc);
+  }
+
   const raw = (effectiveCo2 - tariff.co2_deduction_g) / tariff.rate_divisor;
   appliedRuleIds.push('tariff.co2_rate_formula');
   let rate = Math.max(0, roundToWholePercent(raw));
@@ -56,9 +100,13 @@ function computeRatePercent(
     rate = tariff.max_rate_percent;
     appliedRuleIds.push('tariff.max_rate_cap');
   }
-  if (tariff.min_rate_percent !== undefined && rate < tariff.min_rate_percent) {
-    rate = tariff.min_rate_percent;
-    appliedRuleIds.push('tariff.min_rate_floor');
+  if (
+    input.isCamperSA &&
+    usedKwSubstitute &&
+    rate < CAMPER_SA_MIN_RATE_PERCENT
+  ) {
+    rate = CAMPER_SA_MIN_RATE_PERCENT;
+    appliedRuleIds.push('tariff.camper_sa_min_rate');
   }
   return rate;
 }
@@ -67,7 +115,11 @@ function computeMalus(
   effectiveCo2: number,
   tariff: NovaTariffVersion,
   appliedRuleIds: string[],
+  skipMalus: boolean,
 ): number {
+  if (skipMalus || effectiveCo2 <= 0) {
+    return 0;
+  }
   if (effectiveCo2 <= tariff.malus_threshold_g) {
     return 0;
   }
@@ -96,6 +148,10 @@ export function calculateNova(
   if (input.driveType === 'PHEV') {
     warnings.push('phev_weighted_wltp');
   }
+  if (input.firstRegistrationDate) {
+    warnings.push('wertentwicklung_not_applied');
+    warnings.push('eu_import_tariff_hint');
+  }
 
   if (isZeroEmissionExempt(input.driveType)) {
     appliedRuleIds.push('exempt.z3.zero_co2');
@@ -109,8 +165,14 @@ export function calculateNova(
     };
   }
 
-  const effectiveCo2 = resolveEffectiveCo2(input);
-  if (effectiveCo2 === 0) {
+  const vClass = vehicleClass(input);
+  const usedKwSubstitute =
+    input.co2GramsPerKm === undefined &&
+    input.ratedPowerKw !== undefined &&
+    vClass !== 'motorcycle_z1_z2';
+
+  const effectiveCo2 = resolveEffectiveCo2(input, vClass, appliedRuleIds);
+  if (input.co2GramsPerKm === 0) {
     appliedRuleIds.push('exempt.z3.zero_co2');
     return {
       novaAmountEuro: 0,
@@ -122,24 +184,34 @@ export function calculateNova(
     };
   }
 
-  if (input.emissionCycle === 'NEDC') {
-    appliedRuleIds.push('co2.nedc_to_wltp_factor');
-  }
-  if (input.co2GramsPerKm === undefined && input.ratedPowerKw !== undefined) {
-    appliedRuleIds.push('co2.substitute_double_kw');
+  if (!Number.isInteger(effectiveCo2) && effectiveCo2 > 0) {
+    warnings.push('fractional_co2_unverified');
   }
 
-  const ratePercent = computeRatePercent(effectiveCo2, tariff, appliedRuleIds);
+  const skipMalus =
+    tariff.vehicle_class === 'motorcycle_z1_z2' &&
+    input.co2GramsPerKm === undefined &&
+    input.displacementCc !== undefined;
+
+  const ratePercent = computeRatePercent(
+    effectiveCo2,
+    tariff,
+    input,
+    appliedRuleIds,
+    usedKwSubstitute,
+  );
   const baseAmount = (input.netPriceEuro * ratePercent) / 100;
   appliedRuleIds.push('tariff.base_on_net_price');
 
-  const malus = computeMalus(effectiveCo2, tariff, appliedRuleIds);
+  const malus = computeMalus(effectiveCo2, tariff, appliedRuleIds, skipMalus);
   let total = baseAmount + malus - tariff.flat_deduction_eur;
   if (total < 0) {
     total = 0;
     appliedRuleIds.push('tariff.no_tax_credit_floor');
   }
-  appliedRuleIds.push('tariff.flat_deduction');
+  if (tariff.flat_deduction_eur > 0) {
+    appliedRuleIds.push('tariff.flat_deduction');
+  }
 
   return {
     novaAmountEuro: roundMoneyEuro(total),

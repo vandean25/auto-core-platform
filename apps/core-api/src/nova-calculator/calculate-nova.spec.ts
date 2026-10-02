@@ -7,7 +7,7 @@ const baseInput = {
   emissionCycle: 'WLTP' as const,
   netPriceEuro: 30_000,
   driveType: 'ICE' as const,
-  firstRegistrationDate: '2025-03-01',
+  taxableEventDate: '2025-03-01',
 };
 
 describe('calculateNova', () => {
@@ -167,14 +167,55 @@ describe('calculateNova', () => {
     expect(result.appliedRuleIds).toContain('tariff.max_rate_cap');
   });
 
-  it('resolves tariff by first registration date', () => {
-    const row = resolveTariffVersion('m1_z3', '2024-06-15');
+  it('resolves tariff by taxable event date', () => {
+    const row = resolveTariffVersion('passenger_z3', '2024-06-15');
     expect(row?.id).toBe('at-m1-2024');
   });
 
   it('resolves 2025 H2 from July', () => {
-    const row = resolveTariffVersion('m1_z3', '2025-08-01');
+    const row = resolveTariffVersion('passenger_z3', '2025-08-01');
     expect(row?.id).toBe('at-m1-2025-h2');
+  });
+
+  it('warns on fractional CO₂ after NEDC factor', () => {
+    const result = calculateNova(
+      {
+        ...baseInput,
+        co2GramsPerKm: 130,
+        emissionCycle: 'NEDC',
+      },
+      'at-m1-2026',
+    );
+    expect(result.effectiveCo2GramsPerKm).toBe(165.1);
+    expect(result.warnings).toContain('fractional_co2_unverified');
+  });
+
+  it('rejects NEDC for motorcycles', () => {
+    expect(() =>
+      calculateNova(
+        {
+          ...baseInput,
+          vehicleClass: 'motorcycle_z1_z2',
+          co2GramsPerKm: 100,
+          emissionCycle: 'NEDC',
+        },
+        'at-mc-2024-h1',
+      ),
+    ).toThrow(NovaCalculationError);
+  });
+
+  it('motorcycle hubraum substitute has no €350 deduction', () => {
+    const result = calculateNova(
+      {
+        ...baseInput,
+        vehicleClass: 'motorcycle_z1_z2',
+        displacementCc: 600,
+        taxableEventDate: '2024-06-01',
+      },
+      'at-mc-2024-h1',
+    );
+    expect(result.ratePercentApplied).toBe(10);
+    expect(result.novaAmountEuro).toBe(3_000);
   });
 
   describe('table-driven M1 2025 H1 samples', () => {
@@ -200,7 +241,7 @@ describe('calculateNova', () => {
       const result = calculateNova(
         {
           ...baseInput,
-          vehicleClass: 'n1_z3',
+          vehicleClass: 'n1_legacy_z6',
           co2GramsPerKm: co2,
         },
         'at-n1-2025-h1',
