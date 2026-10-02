@@ -21,9 +21,10 @@ describe('Vehicle Pickerl (e2e)', () => {
   let prisma: PrismaService;
   let tenantId: string;
   let adminToken: string;
+  let salesToken: string;
   let techToken: string;
+  let otherTenantToken: string;
   let vehicleId: string;
-
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -39,6 +40,12 @@ describe('Vehicle Pickerl (e2e)', () => {
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     adminToken = createTestAuthToken(app.get(AuthService), testTenant);
+
+    const otherTenant = await createTestTenant(
+      basePrisma,
+      'vehicle-pickerl-other',
+    );
+    otherTenantToken = createTestAuthToken(app.get(AuthService), otherTenant);
 
     await runWithTenantContext(tenantId, async () => {
       const authService = app.get(AuthService);
@@ -59,6 +66,24 @@ describe('Vehicle Pickerl (e2e)', () => {
         tenantId,
         role: 'TECH',
       });
+
+      const salesUser = await prisma.user.create({
+        data: {
+          firebaseUid: `e2e-sales-pickerl-${Date.now()}`,
+          email: `e2e-sales-pickerl-${Date.now()}@test.local`,
+        },
+      });
+      await seedTestTenantMember(prisma, {
+        tenantId,
+        userId: salesUser.id,
+        role: 'SALES',
+      });
+      salesToken = authService.createTestToken({
+        sub: salesUser.firebaseUid,
+        email: salesUser.email,
+        tenantId,
+        role: 'SALES',
+      });
     });
 
     const vehicle = await prisma.vehicle.create({
@@ -71,6 +96,17 @@ describe('Vehicle Pickerl (e2e)', () => {
       },
     });
     vehicleId = vehicle.id;
+
+    const pickerlVehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        make: 'Skoda',
+        model: 'Octavia',
+        year: 2018,
+        first_registration_date: new Date('2018-03-01T00:00:00.000Z'),
+      },
+    });
+    pickerlVehicleId = pickerlVehicle.id;
   });
 
   afterAll(async () => {
@@ -95,6 +131,43 @@ describe('Vehicle Pickerl (e2e)', () => {
 
     expect(res.body.pickerl_due.status).toBe('UNKNOWN');
     expect(res.body.pickerl_due.due_month).toBeNull();
+  });
+
+  it('reflects pickerl_due after creating a record', async () => {
+    const freshVehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        make: 'Toyota',
+        model: 'Yaris',
+        year: 2024,
+        first_registration_date: new Date('2024-01-15T00:00:00.000Z'),
+      },
+    });
+
+    const before = await request(app.getHttpServer())
+      .get(`/api/vehicles/${freshVehicle.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(before.body.pickerl_due.due_month).toBe('2027-01');
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${freshVehicle.id}/inspection-records`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: '2024-03-01',
+        plaketten_valid_until_year: 2026,
+        plaketten_valid_until_month: 3,
+      })
+      .expect(201);
+
+    const after = await request(app.getHttpServer())
+      .get(`/api/vehicles/${freshVehicle.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(after.body.pickerl_due.due_month).toBe('2026-03');
   });
 
   it('creates and lists inspection records; TECH cannot create', async () => {
@@ -128,14 +201,118 @@ describe('Vehicle Pickerl (e2e)', () => {
       .set('Authorization', `Bearer ${techToken}`)
       .expect(200);
 
-    expect(listRes.body).toHaveLength(1);
+    expect(listRes.body.length).toBeGreaterThanOrEqual(1);
+  });
 
-    const detailRes = await request(app.getHttpServer())
-      .get(`/api/vehicles/${vehicleId}`)
+  it('allows SALES to create records', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicleId}/inspection-records`)
+      .set('Authorization', `Bearer ${salesToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: '2024-06-01',
+        plaketten_valid_until_year: 2026,
+        plaketten_valid_until_month: 6,
+      })
+      .expect(201);
+  });
+
+  it('validates DTO fields with 400', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicleId}/inspection-records`)
       .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: 'not-a-date',
+        plaketten_valid_until_year: 2026,
+        plaketten_valid_until_month: 6,
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicleId}/inspection-records`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: '2024-06-01',
+        plaketten_valid_until_year: 2026,
+        plaketten_valid_until_month: 13,
+      })
+      .expect(400);
+  });
+
+  it('supports PATCH and DELETE for writers; TECH gets 403', async () => {
+    const created = await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicleId}/inspection-records`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: '2021-06-01',
+        plaketten_valid_until_year: 2023,
+        plaketten_valid_until_month: 6,
+      })
+      .expect(201);
+
+    const recordId = created.body.id as string;
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${techToken}`)
+      .send({ station_name: 'Blocked' })
+      .expect(403);
+
+    const patched = await request(app.getHttpServer())
+      .patch(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ station_name: 'Updated Prüfstelle' })
       .expect(200);
 
-    expect(detailRes.body.pickerl_due.due_month).toBe('2024-06');
-    expect(detailRes.body.pickerl_due.warnings.length).toBeGreaterThan(0);
+    expect(patched.body.station_name).toBe('Updated Prüfstelle');
+
+    await request(app.getHttpServer())
+      .delete(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${techToken}`)
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .delete(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(204);
+
+    await request(app.getHttpServer())
+      .get(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+  });
+
+  it('returns 404 for cross-tenant inspection record access', async () => {
+    const created = await request(app.getHttpServer())
+      .post(`/api/vehicles/${vehicleId}/inspection-records`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: '2020-06-01',
+        plaketten_valid_until_year: 2022,
+        plaketten_valid_until_month: 6,
+      })
+      .expect(201);
+
+    const recordId = created.body.id as string;
+
+    await request(app.getHttpServer())
+      .get(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${otherTenantToken}`)
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${otherTenantToken}`)
+      .send({ notes: 'nope' })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .delete(`/api/vehicles/${vehicleId}/inspection-records/${recordId}`)
+      .set('Authorization', `Bearer ${otherTenantToken}`)
+      .expect(404);
   });
 });

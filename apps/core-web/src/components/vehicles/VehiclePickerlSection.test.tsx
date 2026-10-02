@@ -2,6 +2,10 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { VehiclePickerlSection } from './VehiclePickerlSection'
 
+vi.mock('@/api/auth-session', () => ({
+  useAuthSession: () => ({ data: { activeRole: 'ADMIN' } }),
+}))
+
 vi.mock('@/api/vehicle-inspection-records', () => ({
   useVehicleInspectionRecords: () => ({ data: [], isLoading: false }),
   useCreateVehicleInspectionRecord: () => ({

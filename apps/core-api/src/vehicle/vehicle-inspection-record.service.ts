@@ -5,6 +5,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { assertVehicleInspectionWriteAccess } from './vehicle-inspection.authorization.js';
 import type { CreateVehicleInspectionRecordDto } from './dto/vehicle-inspection-record.dto.js';
 import type { UpdateVehicleInspectionRecordDto } from './dto/vehicle-inspection-record.dto.js';
+import { assertVehicleInspectionRecordFields } from './vehicle-inspection-record.validation.js';
 
 @Injectable()
 export class VehicleInspectionRecordService {
@@ -38,6 +39,7 @@ export class VehicleInspectionRecordService {
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertVehicleExists(vehicleId);
     const user = this.tenantContext.getAuthenticatedUser();
+    assertVehicleInspectionRecordFields(dto, new Date());
 
     return this.prisma.vehicleInspectionRecord.create({
       data: {
@@ -61,7 +63,16 @@ export class VehicleInspectionRecordService {
     dto: UpdateVehicleInspectionRecordDto,
   ) {
     assertVehicleInspectionWriteAccess(this.tenantContext);
-    await this.findOne(vehicleId, recordId);
+    const existing = await this.findOne(vehicleId, recordId);
+    const merged = {
+      inspected_on:
+        dto.inspected_on ?? existing.inspected_on.toISOString().slice(0, 10),
+      plaketten_valid_until_year:
+        dto.plaketten_valid_until_year ?? existing.plaketten_valid_until_year,
+      plaketten_valid_until_month:
+        dto.plaketten_valid_until_month ?? existing.plaketten_valid_until_month,
+    };
+    assertVehicleInspectionRecordFields(merged, new Date());
 
     const data: Prisma.VehicleInspectionRecordUpdateManyMutationInput = {};
     if (dto.inspected_on !== undefined) {

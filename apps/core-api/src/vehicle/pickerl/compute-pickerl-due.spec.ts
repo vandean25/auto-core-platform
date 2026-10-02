@@ -38,13 +38,25 @@ describe('computePickerlDue', () => {
       },
     },
     {
-      name: 'legacy overdue after +4 month grace',
+      name: 'no records after first-interval window → UNKNOWN',
+      vehicle: { first_registration_date: '2010-04-01' },
+      records: [],
+      onDate: '2026-10-02',
+      expected: {
+        status: 'UNKNOWN',
+        due_month: null,
+        warningCode: 'NO_INSPECTION_RECORDS',
+      },
+    },
+    {
+      name: 'legacy overdue without records → UNKNOWN (not fabricated OVERDUE)',
       vehicle: firstRegVehicle,
       records: [],
       onDate: '2023-08-01',
       expected: {
-        status: 'OVERDUE',
-        due_month: '2023-03',
+        status: 'UNKNOWN',
+        due_month: null,
+        warningCode: 'NO_INSPECTION_RECORDS',
       },
     },
     {
@@ -76,14 +88,15 @@ describe('computePickerlDue', () => {
       },
     },
     {
-      name: 'KFG42 overdue with +0 grace at month end',
+      name: 'KFG42 no records past first window → UNKNOWN',
       vehicle: { first_registration_date: '2023-01-10' },
       records: [],
       onDate: '2027-06-01',
       ruleSetVersion: 'm1-kfg42-from-2027-05-19',
       expected: {
-        status: 'OVERDUE',
-        due_month: '2027-01',
+        status: 'UNKNOWN',
+        due_month: null,
+        warningCode: 'NO_INSPECTION_RECORDS',
       },
     },
     {
@@ -115,6 +128,54 @@ describe('computePickerlDue', () => {
         due_month: '2023-01',
       },
     },
+    {
+      name: '2027-10 transition: still DUE_SOON on 2027-11-30',
+      vehicle: firstRegVehicle,
+      records: [
+        {
+          inspected_on: '2026-03-01',
+          plaketten_valid_until_year: 2027,
+          plaketten_valid_until_month: 10,
+        },
+      ],
+      onDate: '2027-11-30',
+      expected: {
+        status: 'DUE_SOON',
+        due_month: '2027-10',
+      },
+    },
+    {
+      name: '2027-10 transition: OVERDUE on 2027-12-01',
+      vehicle: firstRegVehicle,
+      records: [
+        {
+          inspected_on: '2026-03-01',
+          plaketten_valid_until_year: 2027,
+          plaketten_valid_until_month: 10,
+        },
+      ],
+      onDate: '2027-12-01',
+      expected: {
+        status: 'OVERDUE',
+        due_month: '2027-10',
+      },
+    },
+    {
+      name: '2027-06 transition: DUE_SOON on 2027-10-31',
+      vehicle: firstRegVehicle,
+      records: [
+        {
+          inspected_on: '2026-03-01',
+          plaketten_valid_until_year: 2027,
+          plaketten_valid_until_month: 6,
+        },
+      ],
+      onDate: '2027-10-31',
+      expected: {
+        status: 'DUE_SOON',
+        due_month: '2027-06',
+      },
+    },
   ] as const)(
     '$name',
     ({ vehicle, records, onDate, ruleSetVersion, expected }) => {
@@ -134,13 +195,18 @@ describe('computePickerlDue', () => {
       if ('rule_id' in expected) {
         expect(result.rule_id).toBe(expected.rule_id);
       }
+      if ('warningCode' in expected) {
+        expect(
+          result.warnings.some((warning) => warning.code === expected.warningCode),
+        ).toBe(true);
+      }
       expect(result.warnings.some((w) => w.code === 'VEHICLE_CLASS_ASSUMED_M1')).toBe(
         true,
       );
     },
   );
 
-  it('emits transition warning for 2027 due months under KFG42 set', () => {
+  it('emits transition warning for 2027 due months', () => {
     const result = computePickerlDue(
       { first_registration_date: '2020-04-01' },
       [
@@ -157,5 +223,18 @@ describe('computePickerlDue', () => {
     expect(result.warnings.some((w) => w.code === 'TRANSITION_2027_TOLERANCE')).toBe(
       true,
     );
+  });
+
+  it('includes Austausch month in warning after KFG42 effective date', () => {
+    const result = computePickerlDue(
+      { first_registration_date: '2020-04-01' },
+      [],
+      new Date('2027-06-01T12:00:00.000Z'),
+    );
+
+    const austausch = result.warnings.find(
+      (warning) => warning.code === 'AUSTAUSCHPLAKETTE_NOT_TRACKED',
+    );
+    expect(austausch?.message).toContain('2024-04');
   });
 });

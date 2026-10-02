@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,19 +19,47 @@ type RecordPickerlDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
+function formatLocalDateInput(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function defaultFormValues() {
+  const now = new Date()
+  return {
+    inspectedOn: formatLocalDateInput(now),
+    dueYear: String(now.getFullYear() + 2),
+    dueMonth: String(now.getMonth() + 1),
+    stationName: '',
+    notes: '',
+  }
+}
+
 export function RecordPickerlDialog({
   vehicleId,
   open,
   onOpenChange,
 }: RecordPickerlDialogProps) {
   const createRecord = useCreateVehicleInspectionRecord(vehicleId)
-  const [inspectedOn, setInspectedOn] = useState(
-    new Date().toISOString().slice(0, 10),
-  )
-  const [dueYear, setDueYear] = useState(String(new Date().getFullYear() + 2))
-  const [dueMonth, setDueMonth] = useState(String(new Date().getMonth() + 1))
+  const [inspectedOn, setInspectedOn] = useState(defaultFormValues().inspectedOn)
+  const [dueYear, setDueYear] = useState(defaultFormValues().dueYear)
+  const [dueMonth, setDueMonth] = useState(defaultFormValues().dueMonth)
   const [stationName, setStationName] = useState('')
   const [notes, setNotes] = useState('')
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    const defaults = defaultFormValues()
+    setInspectedOn(defaults.inspectedOn)
+    setDueYear(defaults.dueYear)
+    setDueMonth(defaults.dueMonth)
+    setStationName('')
+    setNotes('')
+  }, [open])
 
   async function handleSubmit() {
     try {

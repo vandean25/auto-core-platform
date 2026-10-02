@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { components } from '@/api/generated/openapi'
+import { useAuthSession } from '@/api/auth-session'
 import { useVehicleInspectionRecords } from '@/api/vehicle-inspection-records'
+import { canRecordVehicleInspection } from '@/components/vehicles/vehicle-pickerl-permissions'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,7 +35,12 @@ export function VehiclePickerlSection({
   pickerlDue,
 }: VehiclePickerlSectionProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const sessionQuery = useAuthSession()
+  const canRecord = canRecordVehicleInspection(sessionQuery.data?.activeRole)
   const { data: records = [], isLoading } = useVehicleInspectionRecords(vehicleId)
+  const hasNoInspectionRecordsWarning = pickerlDue?.warnings?.some(
+    (warning) => warning.code === 'NO_INSPECTION_RECORDS',
+  )
 
   return (
     <div className='pt-4 border-t space-y-3'>
@@ -44,9 +51,11 @@ export function VehiclePickerlSection({
             Fälligkeit aus Erstzulassung und erfassten Begutachtungen
           </div>
         </div>
-        <Button size='sm' onClick={() => setDialogOpen(true)}>
-          Pickerl erfasst
-        </Button>
+        {canRecord ? (
+          <Button size='sm' onClick={() => setDialogOpen(true)}>
+            Pickerl erfasst
+          </Button>
+        ) : null}
       </div>
 
       <div className='flex flex-wrap items-center gap-2 text-sm'>
@@ -59,7 +68,9 @@ export function VehiclePickerlSection({
 
       {pickerlDue?.status === 'UNKNOWN' ? (
         <p className='text-xs text-muted-foreground'>
-          Erstzulassung fehlt — Fälligkeit kann nicht berechnet werden.
+          {hasNoInspectionRecordsWarning
+            ? 'Keine Begutachtung erfasst — bitte letzte Plakette erfassen.'
+            : 'Erstzulassung fehlt — Fälligkeit kann nicht berechnet werden.'}
         </p>
       ) : null}
 

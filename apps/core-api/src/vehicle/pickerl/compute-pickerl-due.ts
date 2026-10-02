@@ -40,16 +40,21 @@ export type PickerlDueResult = {
   warnings: PickerlWarning[];
 };
 
+type ResolvedTolerance = PickerlRuleSet['tolerance'] & {
+  lateEndCap?: Date;
+};
+
+const TRANSITION_2027_LATE_END_CAP = endOfMonthUtc({ year: 2027, month: 11 });
+
 const ASSUMED_M1_WARNING: PickerlWarning = {
   code: 'VEHICLE_CLASS_ASSUMED_M1',
   message:
     'Vehicle class is not stored; §57a computation assumes ordinary M1 (Pkw) intervals.',
 };
 
-const AUSTAUSCH_WARNING: PickerlWarning = {
-  code: 'AUSTAUSCHPLAKETTE_NOT_TRACKED',
-  message:
-    'Austauschplakette (replacement sticker) workflow is not modeled; verify due month manually after KFG 42 transition.',
+const NO_INSPECTION_RECORDS_WARNING: PickerlWarning = {
+  code: 'NO_INSPECTION_RECORDS',
+  message: 'Keine Begutachtung erfasst — bitte letzte Plakette erfassen.',
 };
 
 function toDate(value: Date | string): Date {
@@ -102,25 +107,26 @@ function computeDueAfterInspection(
   return computeDueFromFirstRegistration(firstRegistration, ruleSet, 0);
 }
 
+function usesTransition2027Tolerance(dueMonth: YearMonth): boolean {
+  return dueMonth.year === 2027 && dueMonth.month >= 1 && dueMonth.month <= 10;
+}
+
 function resolveTolerance(
   ruleSet: PickerlRuleSet,
   dueMonth: YearMonth,
-  onDate: Date,
   warnings: PickerlWarning[],
-): PickerlRuleSet['tolerance'] {
-  if (
-    ruleSet.id === 'm1-kfg42-from-2027-05-19' &&
-    onDate.getUTCFullYear() === 2027 &&
-    dueMonth.year === 2027 &&
-    dueMonth.month >= 1 &&
-    dueMonth.month <= 10
-  ) {
+): ResolvedTolerance {
+  if (usesTransition2027Tolerance(dueMonth)) {
     warnings.push({
       code: 'TRANSITION_2027_TOLERANCE',
       message:
-        '2027 transition tolerance for legacy plaketten is simplified; confirm against WKO Begutachtungstermine.',
+        '2027 transition: legacy −1/+4 tolerance applies with late end capped at November 2027 (WKO §132 Abs 37 Z 3).',
     });
-    return { monthsBefore: 1, monthsAfter: 4 };
+    return {
+      monthsBefore: 1,
+      monthsAfter: 4,
+      lateEndCap: TRANSITION_2027_LATE_END_CAP,
+    };
   }
   return ruleSet.tolerance;
 }
@@ -128,12 +134,18 @@ function resolveTolerance(
 function computeStatus(
   onDate: Date,
   dueMonth: YearMonth,
-  tolerance: PickerlRuleSet['tolerance'],
+  tolerance: ResolvedTolerance,
 ): PickerlDueStatus {
   const earlyStart = startOfMonthUtc(
     addMonths(dueMonth, -tolerance.monthsBefore),
   );
-  const lateEnd = endOfMonthUtc(addMonths(dueMonth, tolerance.monthsAfter));
+  let lateEnd = endOfMonthUtc(addMonths(dueMonth, tolerance.monthsAfter));
+  if (
+    tolerance.lateEndCap &&
+    compareUtcDates(lateEnd, tolerance.lateEndCap) > 0
+  ) {
+    lateEnd = tolerance.lateEndCap;
+  }
 
   if (compareUtcDates(onDate, earlyStart) < 0) {
     return 'OK';
@@ -142,6 +154,33 @@ function computeStatus(
     return 'OVERDUE';
   }
   return 'DUE_SOON';
+}
+
+function computeAustauschplaketteMonth(
+  firstRegistration: Date,
+  records: PickerlInspectionRecordInput[],
+): YearMonth {
+  if (records.length === 0) {
+    return addYears(toYearMonthFromDate(firstRegistration), 4);
+  }
+  const latest = records[records.length - 1];
+  if (!latest) {
+    return addYears(toYearMonthFromDate(firstRegistration), 4);
+  }
+  return addYears(toYearMonthFromDate(toDate(latest.inspected_on)), 2);
+}
+
+function buildAustauschWarning(
+  firstRegistration: Date,
+  records: PickerlInspectionRecordInput[],
+): PickerlWarning {
+  const austauschMonth = formatYearMonth(
+    computeAustauschplaketteMonth(firstRegistration, records),
+  );
+  return {
+    code: 'AUSTAUSCHPLAKETTE_NOT_TRACKED',
+    message: `Austauschplakette punching hint: ${austauschMonth} (WKO §4; issuance not tracked in ACP).`,
+  };
 }
 
 export function computePickerlDue(
@@ -166,15 +205,25 @@ export function computePickerlDue(
   const orderedRecords = sortRecords(records);
 
   if (onDate >= new Date(`${KFG42_EFFECTIVE_DATE}T00:00:00.000Z`)) {
-    warnings.push(AUSTAUSCH_WARNING);
+    warnings.push(buildAustauschWarning(firstRegistration, orderedRecords));
   }
 
   const dueMonth = orderedRecords.length
     ? computeDueAfterInspection(firstRegistration, orderedRecords, ruleSet)
     : computeDueFromFirstRegistration(firstRegistration, ruleSet, 0);
 
-  const tolerance = resolveTolerance(ruleSet, dueMonth, onDate, warnings);
+  const tolerance = resolveTolerance(ruleSet, dueMonth, warnings);
   const status = computeStatus(onDate, dueMonth, tolerance);
+
+  if (orderedRecords.length === 0 && status === 'OVERDUE') {
+    warnings.push(NO_INSPECTION_RECORDS_WARNING);
+    return {
+      due_month: null,
+      status: 'UNKNOWN',
+      rule_id: ruleSet.id,
+      warnings,
+    };
+  }
 
   return {
     due_month: formatYearMonth(dueMonth),
