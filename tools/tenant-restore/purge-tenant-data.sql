@@ -29,6 +29,7 @@ VALUES
   ('document_brand_quota_locks'),
   ('employees'),
   ('finance_settings'),
+  ('import_jobs'),
   ('inspection_templates'),
   ('invoice_sequences'),
   ('labor_categories'),
@@ -46,6 +47,8 @@ VALUES
   ('document_brand_assets'),
   ('employee_leave_balances'),
   ('employee_work_schedules'),
+  ('external_id_mappings'),
+  ('import_job_rows'),
   ('inspection_template_items'),
   ('labor_operations'),
   ('leave_requests'),
@@ -182,7 +185,12 @@ VALUES
   ('employee_work_schedules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'users', 'user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('external_id_mappings', 'import_jobs', 'tenant_id,first_seen_import_job_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('external_id_mappings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('finance_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('import_job_rows', 'import_jobs', 'tenant_id,import_job_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('import_job_rows', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('import_jobs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_template_items', 'inspection_templates', 'tenant_id,inspection_template_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('inspection_template_items', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('inspection_templates', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -627,6 +635,10 @@ DELETE FROM public."labor_operations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_template_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_job_rows"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."external_id_mappings"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
@@ -661,6 +673,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoice_sequences"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inspection_templates"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."import_jobs"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."finance_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
