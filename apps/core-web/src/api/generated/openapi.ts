@@ -2870,6 +2870,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tyre-sets/{id}/dispose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TyreStorageController_dispose"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6054,6 +6070,7 @@ export interface components {
             vehicleId?: string | null;
             siteId: string;
             locationId?: string | null;
+            locationCode?: string | null;
             label: string;
             season: components["schemas"]["TyreSeason"];
             tyreCount: number;
@@ -6073,6 +6090,9 @@ export interface components {
             vehiclePlate?: string | null;
             customerPhone?: string | null;
             customerEmail?: string | null;
+        };
+        TyreSetListEnvelopeDto: {
+            data: components["schemas"]["TyreSetResponseDto"][];
         };
         TreadDepthDto: {
             FL?: number;
@@ -11840,7 +11860,10 @@ export interface operations {
     };
     TyreStorageController_dueForSwap: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Test-only clock override (ISO date); ignored outside NODE_ENV=test */
+                asOf?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11852,7 +11875,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TyreSetResponseDto"][];
+                    "application/json": components["schemas"]["TyreSetListEnvelopeDto"];
                 };
             };
         };
@@ -11890,7 +11913,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TyreSetResponseDto"][];
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["TyreSetResponseDto"][];
+                    };
                 };
             };
         };
@@ -11911,7 +11936,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TyreSetResponseDto"][];
+                    "application/json": components["schemas"]["TyreSetListEnvelopeDto"];
                 };
             };
         };
@@ -11922,12 +11947,12 @@ export interface operations {
                 customerId?: string;
                 vehicleSearch?: string;
                 locationId?: string;
-                season?: string;
-                status?: string;
+                season?: components["schemas"]["TyreSeason"];
+                status?: components["schemas"]["TyreSetStatus"];
                 dueFrom?: string;
                 dueTo?: string;
-                page?: string;
-                pageSize?: string;
+                page?: number;
+                pageSize?: number;
             };
             header?: never;
             path?: never;
@@ -12086,6 +12111,31 @@ export interface operations {
         };
     };
     TyreStorageController_move: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TyreSetLocationActionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    TyreStorageController_dispose: {
         parameters: {
             query?: never;
             header?: never;

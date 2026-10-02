@@ -284,7 +284,7 @@ VALUES
   ('tyre_set_events', 'storage_locations', 'from_location_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_set_events', 'storage_locations', 'to_location_id', 'id', 'SET NULL', 'CASCADE'),
   ('tyre_set_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
-  ('tyre_set_events', 'tyre_sets', 'tenant_id,tyre_set_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('tyre_set_events', 'tyre_sets', 'tenant_id,tyre_set_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('tyre_set_events', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('tyre_sets', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tyre_sets', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),

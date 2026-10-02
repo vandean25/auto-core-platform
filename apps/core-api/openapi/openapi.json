@@ -8923,17 +8923,24 @@
     "/api/tyre-sets/due-for-swap": {
       "get": {
         "operationId": "TyreStorageController_dueForSwap",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "asOf",
+            "required": false,
+            "in": "query",
+            "description": "Test-only clock override (ISO date); ignored outside NODE_ENV=test",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TyreSetResponseDto"
-                  }
+                  "$ref": "#/components/schemas/TyreSetListEnvelopeDto"
                 }
               }
             }
@@ -8979,10 +8986,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TyreSetResponseDto"
-                  }
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/TyreSetResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
@@ -9012,10 +9030,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TyreSetResponseDto"
-                  }
+                  "$ref": "#/components/schemas/TyreSetListEnvelopeDto"
                 }
               }
             }
@@ -9059,7 +9074,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/TyreSeason"
             }
           },
           {
@@ -9067,7 +9082,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/TyreSetStatus"
             }
           },
           {
@@ -9075,6 +9090,7 @@
             "required": false,
             "in": "query",
             "schema": {
+              "format": "date",
               "type": "string"
             }
           },
@@ -9083,6 +9099,7 @@
             "required": false,
             "in": "query",
             "schema": {
+              "format": "date",
               "type": "string"
             }
           },
@@ -9091,7 +9108,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           },
           {
@@ -9099,7 +9116,7 @@
             "required": false,
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           }
         ],
@@ -9335,6 +9352,46 @@
     "/api/tyre-sets/{id}/move": {
       "post": {
         "operationId": "TyreStorageController_move",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TyreSetLocationActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TyreSetResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "tyre-sets"
+        ]
+      }
+    },
+    "/api/tyre-sets/{id}/dispose": {
+      "post": {
+        "operationId": "TyreStorageController_dispose",
         "parameters": [
           {
             "name": "id",
@@ -20138,6 +20195,10 @@
             "type": "string",
             "nullable": true
           },
+          "locationCode": {
+            "type": "string",
+            "nullable": true
+          },
           "label": {
             "type": "string"
           },
@@ -20235,6 +20296,20 @@
           "rimType",
           "dotCodes",
           "status"
+        ]
+      },
+      "TyreSetListEnvelopeDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TyreSetResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
         ]
       },
       "TreadDepthDto": {
