@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ImportJob, ImportJobRow } from './import-wizard-logic'
+import type { ImportJob } from './import-wizard-logic'
 import {
   canApplyImport,
   filterImportRows,
@@ -89,11 +89,11 @@ describe('import wizard logic', () => {
   })
 
   it('filters error rows', () => {
-    const rows: ImportJobRow[] = [
+    const rows = [
       {
         row_no: 1,
         external_id: '1',
-        action: 'CREATE',
+        action: 'CREATE' as const,
         entity_id: null,
         errors: [],
         warnings: [],
@@ -101,7 +101,7 @@ describe('import wizard logic', () => {
       {
         row_no: 2,
         external_id: '2',
-        action: 'ERROR',
+        action: 'ERROR' as const,
         entity_id: null,
         errors: [{ code: 'X', message: 'bad' }],
         warnings: [],
