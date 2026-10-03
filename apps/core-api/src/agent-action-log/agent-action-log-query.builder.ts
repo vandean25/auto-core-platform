@@ -18,7 +18,11 @@ export function decodeAgentActionCursor(
     const parsed = JSON.parse(
       Buffer.from(cursor, 'base64url').toString('utf8'),
     ) as AgentActionCursor;
-    if (!parsed?.createdAt || !parsed?.id) {
+    if (
+      typeof parsed?.createdAt !== 'string' ||
+      typeof parsed?.id !== 'string' ||
+      parsed.id.length === 0
+    ) {
       return undefined;
     }
     return parsed;

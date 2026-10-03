@@ -28,6 +28,12 @@ describe('AgentActionLogService', () => {
     getTraceId: jest.fn().mockReturnValue('00000000-0000-4000-8000-00000000aa01'),
   };
 
+  const expectAppendOnlyRecord = () => {
+    expect(prisma.agentActionLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.agentActionLog.update).not.toHaveBeenCalled();
+    expect(prisma.agentActionLog.delete).not.toHaveBeenCalled();
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
@@ -44,17 +50,6 @@ describe('AgentActionLogService', () => {
       id: 'log-1',
       trace_id: '00000000-0000-4000-8000-00000000aa01',
     });
-  });
-
-  it('record is append-only (no update/delete helpers)', () => {
-    expect(
-      (service as unknown as { update?: unknown }).update,
-    ).toBeUndefined();
-    expect(
-      (service as unknown as { delete?: unknown }).delete,
-    ).toBeUndefined();
-    expect(prisma.agentActionLog.update).not.toHaveBeenCalled();
-    expect(prisma.agentActionLog.delete).not.toHaveBeenCalled();
   });
 
   it('record persists a log row and can run correlated work', async () => {
@@ -93,6 +88,7 @@ describe('AgentActionLogService', () => {
     });
 
     expect(observedCorrelation).toBe(traceId);
+    expectAppendOnlyRecord();
     expect(prisma.agentActionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -138,6 +134,7 @@ describe('AgentActionLogService', () => {
       }),
     ).rejects.toThrow('work failed');
 
+    expectAppendOnlyRecord();
     expect(prisma.agentActionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

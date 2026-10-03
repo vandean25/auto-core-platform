@@ -19,6 +19,7 @@ import {
   type AgentActionRecordInput,
 } from './agent-action-log.types.js';
 import { redactAgentActionSummary } from './agent-action-summary.util.js';
+import { isTraceIdUuid } from '../common/services/trace-id.util.js';
 import type {
   AgentActionLogListResponseDto,
   AgentActionTraceDetailResponseDto,
@@ -136,7 +137,7 @@ export class AgentActionLogService {
   async findByTraceId(
     traceId: string,
   ): Promise<AgentActionTraceDetailResponseDto> {
-    if (!/^[0-9a-f-]{36}$/i.test(traceId)) {
+    if (!isTraceIdUuid(traceId)) {
       throw new BadRequestException('traceId must be a UUID');
     }
 

@@ -7,10 +7,18 @@ import type { AuditJsonValue } from '../audit/audit.types.js';
 export const AGENT_ACTION_SUMMARY_TRUNCATED_MARKER = '__truncated__';
 export const AGENT_ACTION_SUMMARY_MAX_BYTES = 16_384;
 
-const AGENT_SUMMARY_SECRET_KEYS = new Set(['token', 'secret']);
-
 const normalizeFieldName = (fieldName: string): string =>
   fieldName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function isAgentSummarySecretKey(fieldName: string): boolean {
+  const normalized = normalizeFieldName(fieldName);
+  return (
+    normalized.includes('token') ||
+    normalized.includes('secret') ||
+    normalized.includes('privatekey') ||
+    normalized.includes('password')
+  );
+}
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -26,7 +34,7 @@ function redactAgentSummarySecretKeys(value: AuditJsonValue): AuditJsonValue {
 
   const redacted: Record<string, AuditJsonValue> = {};
   for (const [key, nested] of Object.entries(value)) {
-    if (AGENT_SUMMARY_SECRET_KEYS.has(normalizeFieldName(key))) {
+    if (isAgentSummarySecretKey(key)) {
       redacted[key] = REDACTED_VALUE;
       continue;
     }

@@ -174,6 +174,13 @@ describe('Agent action log (e2e)', () => {
     });
   });
 
+  it('returns 400 for a non-UUID trace id path param', async () => {
+    await request(app.getHttpServer())
+      .get('/agent-actions/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+      .set('Authorization', adminHeaderA)
+      .expect(400);
+  });
+
   it('isolates traces across tenants', async () => {
     const traceId = '00000000-0000-4000-8000-00000000e001';
     await prismaA.agentActionLog.create({

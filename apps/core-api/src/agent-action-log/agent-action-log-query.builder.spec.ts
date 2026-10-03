@@ -30,4 +30,20 @@ describe('agent-action-log-query.builder', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('rejects cursor when id is not a string', () => {
+    const cursor = Buffer.from(
+      JSON.stringify({
+        createdAt: '2026-10-03T00:00:00.000Z',
+        id: { bad: true },
+      }),
+      'utf8',
+    ).toString('base64url');
+
+    expect(() =>
+      buildAgentActionWhere('tenant-1', {
+        cursor,
+      }),
+    ).toThrow(BadRequestException);
+  });
 });

@@ -15,7 +15,10 @@ describe('agent-action-summary.util', () => {
       accessToken: 'tok',
       token: 'sekret',
       secret: 's3',
-      nested: { token: 'nested-token' },
+      api_token: 'api-tok',
+      client_secret: 'client-s',
+      private_key: 'pk',
+      nested: { token: 'nested-token', client_secret: 'nested-client' },
     });
 
     expect(result).toEqual({
@@ -25,7 +28,10 @@ describe('agent-action-summary.util', () => {
       accessToken: REDACTED_VALUE,
       token: REDACTED_VALUE,
       secret: REDACTED_VALUE,
-      nested: { token: REDACTED_VALUE },
+      api_token: REDACTED_VALUE,
+      client_secret: REDACTED_VALUE,
+      private_key: REDACTED_VALUE,
+      nested: { token: REDACTED_VALUE, client_secret: REDACTED_VALUE },
     });
   });
 
