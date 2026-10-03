@@ -33,11 +33,6 @@ import {
 } from './vehicle-regulatory.validation.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 import {
-  compareUtcDates,
-  endOfMonthUtc,
-  parseYearMonthString,
-} from './pickerl/pickerl-date.util.js';
-import {
   PickerlDueListQueryDto,
   PickerlDueListExportQueryDto,
 } from './dto/pickerl-due-list.dto.js';
@@ -66,76 +61,28 @@ export class VehicleService {
     const tenantId = await this.tenantContext.getTenantId();
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
 
-    const today = new Date();
-    const todayYear = today.getUTCFullYear();
-    const todayMonth = today.getUTCMonth() + 1;
-
-    const windowEndDate = query.window
-      ? new Date(
-          Date.UTC(
-            todayYear,
-            todayMonth - 1,
-            today.getUTCDate() + query.window,
-            23,
-            59,
-            59,
-            999,
-          ),
-        )
-      : null;
-
-    const validUntilOnOrBeforeMonth = (year: number, month: number) => ({
-      OR: [
-        { plaketten_valid_until_year: { lt: year } },
-        {
-          AND: [
-            { plaketten_valid_until_year: year },
-            { plaketten_valid_until_month: { lte: month } },
-          ],
-        },
-      ],
-    });
-
-    const validUntilBeforeCurrentMonth = {
-      OR: [
-        { plaketten_valid_until_year: { lt: todayYear } },
-        {
-          AND: [
-            { plaketten_valid_until_year: todayYear },
-            { plaketten_valid_until_month: { lt: todayMonth } },
-          ],
-        },
-      ],
-    };
-
-    const customerVehicleWhere: Prisma.VehicleWhereInput = {
-      tenant_id: tenantId,
-      inventory_role: 'CUSTOMER',
-    };
-
-    if (query.window && windowEndDate) {
-      const windowEndYear = windowEndDate.getUTCFullYear();
-      const windowEndMonth = windowEndDate.getUTCMonth() + 1;
-      const orBranches: Prisma.VehicleWhereInput[] = [
-        {
-          inspection_records: {
-            some: validUntilBeforeCurrentMonth,
-          },
-        },
-        {
-          inspection_records: {
-            some: validUntilOnOrBeforeMonth(windowEndYear, windowEndMonth),
-          },
-        },
-      ];
-      if (query.status === 'UNKNOWN') {
-        orBranches.push({ inspection_records: { none: {} } });
-      }
-      customerVehicleWhere.OR = orBranches;
-    }
-
+    // We fetch all customer vehicles and their latest inspection record
     const vehicles = await this.prisma.vehicle.findMany({
-      where: customerVehicleWhere,
+      where: {
+        tenant_id: tenantId,
+        inventory_role: 'CUSTOMER',
+        // Approximate pre-filter using the index to skip vehicles definitely not due
+        // We look for ones where the valid_until_year is <= next year, or no records exist.
+        OR: [
+          {
+            inspection_records: {
+              some: {
+                plaketten_valid_until_year: {
+                  lte: new Date().getFullYear() + 1,
+                },
+              },
+            },
+          },
+          {
+            inspection_records: { none: {} },
+          },
+        ],
+      },
       include: {
         customer: true,
         inspection_records: {
@@ -154,8 +101,29 @@ export class VehicleService {
       authorizedSiteIds,
     );
 
+    const today = new Date();
+    // UTC dates for computing Pickerl thresholds
+    const todayYear = today.getUTCFullYear();
+    const todayMonth = today.getUTCMonth() + 1;
+
+    let futureThreshold = '';
+
+    if (query.window) {
+      const maxWindowDays = query.window;
+      const futureDate = new Date(
+        Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + maxWindowDays),
+      );
+      const futureYear = futureDate.getUTCFullYear();
+      const futureMonth = futureDate.getUTCMonth() + 1; // 1-12
+      futureThreshold = `${futureYear}-${futureMonth.toString().padStart(2, '0')}`;
+    }
+
     const results = (projected || [])
-      .map((v) => attachPickerlDue(v, today))
+      .map((v) => {
+        const last_inspected_on = v.inspection_records?.[0]?.inspected_on ?? null;
+        const attached = attachPickerlDue(v, today);
+        return { ...attached, last_inspected_on };
+      })
       .filter((v) => {
         // Filter by status if provided
         if (query.status && v.pickerl_due.status !== query.status) {
@@ -163,7 +131,7 @@ export class VehicleService {
         }
 
         // Filter by window if provided
-        if (query.window && windowEndDate) {
+        if (query.window) {
           // OVERDUE is always included when filtering by any window
           if (v.pickerl_due.status === 'OVERDUE') return true;
 
@@ -172,12 +140,8 @@ export class VehicleService {
             return query.status === 'UNKNOWN';
           }
 
-          const dueMonthEnd = endOfMonthUtc(
-            parseYearMonthString(v.pickerl_due.due_month),
-          );
-          if (compareUtcDates(dueMonthEnd, windowEndDate) > 0) {
-            return false;
-          }
+          // if due_month is greater than the window threshold, it falls outside the requested window
+          if (v.pickerl_due.due_month > futureThreshold) return false;
         }
 
         return true;
@@ -236,7 +200,10 @@ export class VehicleService {
         }
       }
 
-      const lastInspectionStr = row.pickerl_due.last_inspected_on ?? '';
+      const lastInspectionDate = row.last_inspected_on;
+      const lastInspectionStr = lastInspectionDate
+        ? lastInspectionDate.toISOString().split('T')[0]
+        : '';
 
       return [
         csvEscape(row.plate),

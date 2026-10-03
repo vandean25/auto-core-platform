@@ -24,7 +24,6 @@ describe('VehiclePickerlSection', () => {
           status: 'UNKNOWN',
           rule_id: 'm1-legacy-pre-2027',
           warnings: [],
-          last_inspected_on: null,
         }}
       />,
     )

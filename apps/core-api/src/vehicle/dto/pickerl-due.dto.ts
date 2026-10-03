@@ -28,12 +28,4 @@ export class PickerlDueDto {
 
   @ApiProperty({ type: [PickerlWarningDto] })
   warnings!: PickerlWarningDto[];
-
-  @ApiProperty({
-    type: String,
-    nullable: true,
-    description: 'Latest recorded inspection date (YYYY-MM-DD)',
-    example: '2024-05-12',
-  })
-  last_inspected_on!: string | null;
 }
