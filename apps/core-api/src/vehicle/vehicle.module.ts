@@ -23,5 +23,6 @@ import { VehicleService } from './vehicle.service.js';
       useExisting: SandboxVehicleIdentityProvider,
     },
   ],
+  exports: [VehicleService],
 })
 export class VehicleModule {}
