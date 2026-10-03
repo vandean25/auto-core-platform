@@ -200,6 +200,17 @@ Pragmatic mode is **enabled** (balanced).
 
 ---
 
+## Amendment (2026-10-03, AUT-358)
+
+Earlier sections refer to margin-scheme VAT using **“UStG §24”** in an Austria-centric shorthand. For **country-specific statutory citations on invoices**:
+
+- **Germany (DE):** used-vehicle margin scheme is **§ 25a UStG** (not § 24 UStG, which is the agricultural flat-rate scheme in DE).
+- **Austria (AT):** margin scheme remains **§ 24 UStG 1994**.
+
+The original ADR sentences above are retained as historical context; product PDF/API wording follows the country-specific lines in `vehicle-stock-trading.md` and `margin-scheme-legal-notes.ts`.
+
+---
+
 ## Linear Tracking
 
 | Field | Value |

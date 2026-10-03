@@ -50,7 +50,6 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
   const marginSchemeLegalNote = resolveInvoiceMarginSchemeLegalNote({
     tax_mode: response.tax_mode,
     snapshot: _snapshot,
-    sellerCountryIso: _legalEntity?.country_iso,
   });
 
   if (!marginSchemeLegalNote) {

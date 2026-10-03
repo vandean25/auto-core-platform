@@ -5,20 +5,15 @@ import { resolveMarginSchemeLegalNote } from './margin-scheme-legal-notes.js';
 export function resolveInvoiceMarginSchemeLegalNote(params: {
   tax_mode?: InvoiceTaxMode | null;
   snapshot: unknown;
-  sellerCountryIso?: string | null;
 }): string | undefined {
   if (params.tax_mode !== InvoiceTaxMode.MARGIN_SCHEME) {
     return undefined;
   }
-
-  const snapshotCountry =
-    isInvoiceSnapshotV2(params.snapshot) && params.snapshot.seller
-      ? params.snapshot.seller.country_iso
-      : undefined;
-  const countryIso = snapshotCountry ?? params.sellerCountryIso ?? undefined;
-
+  if (!isInvoiceSnapshotV2(params.snapshot) || !params.snapshot.seller) {
+    return undefined;
+  }
   try {
-    return resolveMarginSchemeLegalNote(countryIso);
+    return resolveMarginSchemeLegalNote(params.snapshot.seller.country_iso);
   } catch {
     return undefined;
   }
