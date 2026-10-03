@@ -50,7 +50,8 @@ export class DecisionShadowService {
     });
     const redactedInput = params.input;
 
-    let suggestionJson: Prisma.InputJsonValue | typeof Prisma.JsonNull = null;
+    let suggestionJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      Prisma.JsonNull;
     let provider = this.decisionProvider.providerId;
     let model: string | null = null;
     let latencyMs: number | null = null;
@@ -64,7 +65,7 @@ export class DecisionShadowService {
         choices: params.choices,
       });
       if (suggestion) {
-        suggestionJson = suggestion;
+        suggestionJson = suggestion as Prisma.InputJsonValue;
         provider = suggestion.provider;
         model = suggestion.model;
         latencyMs = suggestion.latency_ms;
@@ -80,9 +81,9 @@ export class DecisionShadowService {
         trace_id: params.traceId,
         use_case: params.useCase,
         input_hash: inputHash,
-        input_redacted_json: redactedInput,
+        input_redacted_json: toInputJson(redactedInput),
         suggestion_json: suggestionJson,
-        actual_outcome_json: params.actualOutcome,
+        actual_outcome_json: toInputJson(params.actualOutcome),
         match,
         provider,
         model,
@@ -91,4 +92,8 @@ export class DecisionShadowService {
       },
     });
   }
+}
+
+function toInputJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
