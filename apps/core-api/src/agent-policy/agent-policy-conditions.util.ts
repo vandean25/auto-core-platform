@@ -9,7 +9,12 @@ export function mergeAgentPolicyConditions(
   if (override === undefined) {
     return { ...platform };
   }
-  return { ...platform, ...override };
+
+  const definedOverride = Object.fromEntries(
+    Object.entries(override).filter(([, value]) => value !== undefined),
+  ) as AgentPolicyConditions;
+
+  return { ...platform, ...definedOverride };
 }
 
 export function assertConditionsAtLeastAsStrictAs(

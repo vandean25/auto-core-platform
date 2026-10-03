@@ -168,6 +168,16 @@ export class AgentPolicyService {
             'A concurrent update created the same rule version. Retry the request.',
         });
       }
+      if (
+        error instanceof Error &&
+        error.message.includes('agent_policy_tenant_tier_looser_than_platform')
+      ) {
+        throw new UnprocessableEntityException({
+          code: AGENT_POLICY_ERROR_CODES.LOOSER_THAN_PLATFORM,
+          message:
+            'Tenant policy must be at least as strict as the platform default.',
+        });
+      }
       throw error;
     }
   }

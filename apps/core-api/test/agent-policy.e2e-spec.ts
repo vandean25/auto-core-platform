@@ -67,6 +67,63 @@ describe('Agent policy (e2e)', () => {
     expect(addLine?.source).toBe('platform');
   });
 
+  it('allows stricter partial conditions and evaluates against merged caps', async () => {
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/workshop_order.add_line')
+      .set('Authorization', authHeaderB)
+      .send({
+        tier: AgentPolicyTier.AUTO,
+        conditions: { amount_max: 100 },
+      })
+      .expect(200);
+
+    const aboveCap = await request(app.getHttpServer())
+      .post('/api/agent-policy/evaluate')
+      .set('Authorization', authHeaderB)
+      .send({
+        action_type: 'workshop_order.add_line',
+        context: { amount_eur: 150 },
+      })
+      .expect(200);
+    expect(aboveCap.body.tier).toBe(AgentPolicyTier.PROPOSE);
+
+    const belowCap = await request(app.getHttpServer())
+      .post('/api/agent-policy/evaluate')
+      .set('Authorization', authHeaderB)
+      .send({
+        action_type: 'workshop_order.add_line',
+        context: { amount_eur: 50 },
+      })
+      .expect(200);
+    expect(belowCap.body.tier).toBe(AgentPolicyTier.AUTO);
+  });
+
+  it('keeps platform customer_facing when tenant sends empty conditions', async () => {
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/estimate.send_customer_message')
+      .set('Authorization', authHeaderB)
+      .send({ tier: AgentPolicyTier.PROPOSE, conditions: {} })
+      .expect(200);
+
+    const evaluation = await request(app.getHttpServer())
+      .post('/api/agent-policy/evaluate')
+      .set('Authorization', authHeaderB)
+      .send({ action_type: 'estimate.send_customer_message', context: {} })
+      .expect(200);
+
+    expect(evaluation.body.tier).toBe(AgentPolicyTier.PROPOSE);
+
+    const listed = await request(app.getHttpServer())
+      .get('/api/agent-policy/rules')
+      .set('Authorization', authHeaderB)
+      .expect(200);
+    const rule = listed.body.data.find(
+      (entry: { action_type: string }) =>
+        entry.action_type === 'estimate.send_customer_message',
+    );
+    expect(rule?.conditions.customer_facing).toBe(true);
+  });
+
   it('rejects looser tenant conditions than platform default', async () => {
     await request(app.getHttpServer())
       .put('/api/agent-policy/rules/workshop_order.add_line')
@@ -187,7 +244,7 @@ describe('Agent policy (e2e)', () => {
           tenant_id: tenantA.tenantId,
           action_type: 'workshop_order.add_line',
           tier: AgentPolicyTier.HUMAN_ONLY,
-          conditions_json: {},
+          conditions_json: { amount_max: 500 },
           enabled: true,
           version: 99,
         },

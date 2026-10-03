@@ -60,4 +60,22 @@ describe('agent policy conditions strictness', () => {
     });
     expect(mergeAgentPolicyConditions(platform)).toEqual(platform);
   });
+
+  it('ignores explicit undefined fields from DTO instances', () => {
+    expect(
+      mergeAgentPolicyConditions(platform, {
+        amount_max: 100,
+        customer_facing: undefined,
+      }),
+    ).toEqual({
+      amount_max: 100,
+      customer_facing: true,
+    });
+    expect(
+      mergeAgentPolicyConditions(platform, {
+        amount_max: undefined,
+        customer_facing: undefined,
+      }),
+    ).toEqual(platform);
+  });
 });

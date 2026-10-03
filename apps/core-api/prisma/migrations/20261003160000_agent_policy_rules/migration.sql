@@ -74,7 +74,7 @@ BEGIN
 
   IF jsonb_typeof(platform_row.conditions_json->'amount_max') = 'number' THEN
     platform_amount_max := (platform_row.conditions_json->>'amount_max')::numeric;
-    IF jsonb_typeof(NEW.conditions_json->'amount_max') <> 'number'
+    IF jsonb_typeof(NEW.conditions_json->'amount_max') IS DISTINCT FROM 'number'
        OR (NEW.conditions_json->>'amount_max')::numeric > platform_amount_max THEN
       RAISE EXCEPTION 'agent_policy_tenant_tier_looser_than_platform'
         USING ERRCODE = 'check_violation';
