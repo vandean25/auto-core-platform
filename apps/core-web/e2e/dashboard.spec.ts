@@ -246,7 +246,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     await expect(page.getByText('Total Sales Value')).toBeVisible();
 
     // Grid should have the correct layout class
-    const grid = page.locator('.grid.gap-4');
+    const grid = page.locator('.dashboard-widgets-grid');
     await expect(grid).toBeVisible();
   });
 });
