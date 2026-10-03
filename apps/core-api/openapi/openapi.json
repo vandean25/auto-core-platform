@@ -11910,13 +11910,20 @@
             "items": {
               "$ref": "#/components/schemas/PickerlWarningDto"
             }
+          },
+          "last_inspected_on": {
+            "type": "string",
+            "nullable": true,
+            "description": "Latest recorded inspection date (YYYY-MM-DD)",
+            "example": "2024-05-12"
           }
         },
         "required": [
           "due_month",
           "status",
           "rule_id",
-          "warnings"
+          "warnings",
+          "last_inspected_on"
         ]
       },
       "VehicleResponseDto": {

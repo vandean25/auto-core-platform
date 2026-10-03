@@ -14,10 +14,13 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
+const FIXTURE_FIRST_REGISTRATION = new Date('2019-06-01T00:00:00.000Z');
+
 describe('Pickerl Due (e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
   let tenantId: string;
+  let otherTenantId: string;
   let adminToken: string;
 
   beforeAll(async () => {
@@ -76,6 +79,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId, customer_id: customer.id,
           make: 'VW', model: 'Overdue', year: 2020, plate: 'W-OVERDUE', inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
@@ -91,6 +95,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId, customer_id: customer.id,
           make: 'VW', model: 'Due30', year: 2020, plate: 'W-DUE30', inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
@@ -106,6 +111,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId, customer_id: customer.id,
           make: 'VW', model: 'Due60', year: 2020, plate: 'W-DUE60', inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
@@ -121,6 +127,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId, customer_id: customer.id,
           make: 'VW', model: 'Due90', year: 2020, plate: 'W-DUE90', inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
@@ -136,6 +143,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId, customer_id: customer.id,
           make: 'VW', model: 'OK', year: 2020, plate: 'W-OK', inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
@@ -150,6 +158,7 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId, customer_id: customer.id,
           make: 'VW', model: 'Unknown', year: 2020, plate: 'W-UNKNOWN', inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
 
@@ -158,25 +167,35 @@ describe('Pickerl Due (e2e)', () => {
         data: {
           tenant_id: tenantId,
           make: 'VW', model: 'Stock', year: 2020, plate: 'W-STOCK', inventory_role: 'USED',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
+    });
 
-      // 8. Other tenant
-      const otherTenant = await basePrisma.tenant.create({
-        data: {
-          name: 'Other', slug: 'other-1', is_active: true,
-        }
-      });
+    const otherTenant = await createTestTenant(basePrisma, 'pickerl-due-other');
+    otherTenantId = otherTenant.tenantId;
+    const today = new Date();
+    const todayYear = today.getUTCFullYear();
+    await runWithTenantContext(otherTenantId, async () => {
       const v8 = await basePrisma.vehicle.create({
         data: {
-          tenant_id: otherTenant.id,
-          make: 'VW', model: 'Other', year: 2020, plate: 'W-OTHER', inventory_role: 'CUSTOMER',
+          tenant_id: otherTenantId,
+          make: 'VW',
+          model: 'Other',
+          year: 2020,
+          plate: 'W-OTHER',
+          inventory_role: 'CUSTOMER',
+          first_registration_date: FIXTURE_FIRST_REGISTRATION,
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
         data: {
-          tenant_id: otherTenant.id, vehicle_id: v8.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
-          plaketten_valid_until_year: todayYear - 1, plaketten_valid_until_month: 1,
+          tenant_id: otherTenantId,
+          vehicle_id: v8.id,
+          inspection_type: 'PICKERL_57A',
+          inspected_on: new Date('2020-01-01'),
+          plaketten_valid_until_year: todayYear - 1,
+          plaketten_valid_until_month: 1,
         },
       });
     });
@@ -184,7 +203,7 @@ describe('Pickerl Due (e2e)', () => {
 
   afterAll(async () => {
     await cleanupTestTenantGraph(basePrisma, tenantId);
-    await basePrisma.tenant.deleteMany({ where: { slug: 'other-1' }});
+    await cleanupTestTenantGraph(basePrisma, otherTenantId);
     await teardownTestApp(app);
   });
 

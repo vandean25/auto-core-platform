@@ -33,6 +33,11 @@ import {
 } from './vehicle-regulatory.validation.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 import {
+  compareUtcDates,
+  endOfMonthUtc,
+  parseYearMonthString,
+} from './pickerl/pickerl-date.util.js';
+import {
   PickerlDueListQueryDto,
   PickerlDueListExportQueryDto,
 } from './dto/pickerl-due-list.dto.js';
@@ -106,17 +111,19 @@ export class VehicleService {
     const todayYear = today.getUTCFullYear();
     const todayMonth = today.getUTCMonth() + 1;
 
-    let futureThreshold = '';
-
-    if (query.window) {
-      const maxWindowDays = query.window;
-      const futureDate = new Date(
-        Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + maxWindowDays),
-      );
-      const futureYear = futureDate.getUTCFullYear();
-      const futureMonth = futureDate.getUTCMonth() + 1; // 1-12
-      futureThreshold = `${futureYear}-${futureMonth.toString().padStart(2, '0')}`;
-    }
+    const windowEndDate = query.window
+      ? new Date(
+          Date.UTC(
+            todayYear,
+            todayMonth - 1,
+            today.getUTCDate() + query.window,
+            23,
+            59,
+            59,
+            999,
+          ),
+        )
+      : null;
 
     const results = (projected || [])
       .map((v) => attachPickerlDue(v, today))
@@ -127,7 +134,7 @@ export class VehicleService {
         }
 
         // Filter by window if provided
-        if (query.window) {
+        if (query.window && windowEndDate) {
           // OVERDUE is always included when filtering by any window
           if (v.pickerl_due.status === 'OVERDUE') return true;
 
@@ -136,8 +143,12 @@ export class VehicleService {
             return query.status === 'UNKNOWN';
           }
 
-          // if due_month is greater than the window threshold, it falls outside the requested window
-          if (v.pickerl_due.due_month > futureThreshold) return false;
+          const dueMonthEnd = endOfMonthUtc(
+            parseYearMonthString(v.pickerl_due.due_month),
+          );
+          if (compareUtcDates(dueMonthEnd, windowEndDate) > 0) {
+            return false;
+          }
         }
 
         return true;
@@ -196,13 +207,7 @@ export class VehicleService {
         }
       }
 
-      const records = row as unknown as {
-        inspection_records?: { inspected_on?: Date }[];
-      };
-      const lastInspectionDate = records.inspection_records?.[0]?.inspected_on;
-      const lastInspectionStr = lastInspectionDate
-        ? lastInspectionDate.toISOString().split('T')[0]
-        : '';
+      const lastInspectionStr = row.pickerl_due.last_inspected_on ?? '';
 
       return [
         csvEscape(row.plate),

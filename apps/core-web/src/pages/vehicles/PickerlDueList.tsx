@@ -60,11 +60,19 @@ export default function PickerlDueList() {
     const source = responseData?.data ?? []
     return source.map((vehicle) => {
       const v = vehicle as components['schemas']['VehicleResponseDto'] & { pickerl_due?: Record<string, unknown>, inspection_records?: Record<string, unknown>[] };
-      const customerName = v.customer ? `${v.customer.first_name} ${v.customer.last_name}`.trim() : ''
+      const customer = v.customer
+      const customerName = customer
+        ? customer.type === 'COMPANY' && customer.company_name
+          ? customer.company_name
+          : `${customer.first_name ?? ''} ${customer.last_name ?? ''}`.trim()
+        : ''
       const pickerlDue = v.pickerl_due || {}
-      const inspectionRecords = (v as unknown as Record<string, unknown>).inspection_records as Record<string, unknown>[] | undefined
-      const lastInspectionDate = inspectionRecords?.[0]?.inspected_on
-        ? format(new Date(inspectionRecords[0].inspected_on as string), 'PP')
+      const lastInspectedOn = (pickerlDue as Record<string, unknown>).last_inspected_on as
+        | string
+        | null
+        | undefined
+      const lastInspectionDate = lastInspectedOn
+        ? format(new Date(`${lastInspectedOn}T00:00:00.000Z`), 'PP')
         : null
 
       return {
