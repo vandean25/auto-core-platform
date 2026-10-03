@@ -189,7 +189,12 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
             <Card key={widget.id}>
               <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
                 <CardTitle className="text-base font-semibold">{widget.name}</CardTitle>
-                <Button variant="ghost" size="icon" onClick={() => removeWidget(widget.id)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeWidget(widget.id)}
+                  aria-label={`Remove widget ${widget.name}`}
+                >
                   <X className="h-4 w-4" />
                 </Button>
               </CardHeader>

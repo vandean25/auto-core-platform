@@ -61,7 +61,11 @@ export function TaskList({
         <CardHeader className='pb-3'>
           <div className='flex items-center justify-between'>
             <CardTitle className='text-base font-semibold'>Reported Issue</CardTitle>
-            {order.status !== 'COMPLETED' && <Badge variant='destructive'>High Priority</Badge>}
+            {order.status !== 'COMPLETED' && (
+              <Badge className='border-rose-200 bg-rose-100 text-rose-800 hover:bg-rose-100'>
+                High Priority
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className='text-sm leading-relaxed'>
@@ -223,6 +227,7 @@ function TaskAccordionRow({
           onCheckedChange={(checked) => onToggleTask(task.id, checked === true)}
           disabled={isLocked}
           onClick={(event) => event.stopPropagation()}
+          aria-label={task.done ? `Mark task "${task.title}" incomplete` : `Mark task "${task.title}" complete`}
         />
         <button
           type='button'

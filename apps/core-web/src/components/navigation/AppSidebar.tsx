@@ -334,7 +334,7 @@ export function AppSidebar({
             ) : null}
             {savedViews.length === 0 ? (
               collapsed ? null : (
-                <p className="px-2 text-xs text-slate-500">
+                <p className="px-2 text-xs text-slate-400">
                   No saved views yet. Apply filters on a table and click Save View.
                 </p>
               )
@@ -374,7 +374,7 @@ export function AppSidebar({
                         <button
                           type="button"
                           onClick={() => removeSavedView(view.id)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:bg-slate-800 hover:text-slate-200"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-slate-400 opacity-0 transition group-hover:opacity-100 hover:bg-slate-800 hover:text-slate-200"
                           aria-label={`Remove saved view ${view.name}`}
                         >
                           <X className="h-3.5 w-3.5" />
@@ -455,7 +455,7 @@ export function AppSidebar({
           </button>
 
           {!collapsed && userEmail ? (
-            <p className="truncate px-3 pt-1 text-xs text-slate-500" title={userEmail}>
+            <p className="truncate px-3 pt-1 text-xs text-slate-400" title={userEmail}>
               {userEmail}
             </p>
           ) : null}
