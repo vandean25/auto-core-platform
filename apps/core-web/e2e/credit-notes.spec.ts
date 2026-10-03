@@ -1,3 +1,4 @@
+import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import {
@@ -114,6 +115,7 @@ test.describe('Credit notes UI', () => {
 
     await page.goto(`/sales/invoices/${INVOICE_ID}`);
     await expect(page.getByRole('button', { name: /Credit Note/i })).toBeVisible();
+    await expectNoCriticalA11yViolations(page);
     await page.getByRole('button', { name: /Credit Note/i }).click();
     await page.getByLabel('Reason').fill('Wrong quantity billed');
     await page.getByRole('button', { name: 'Create Draft' }).click();

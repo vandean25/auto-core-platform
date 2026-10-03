@@ -1,3 +1,4 @@
+import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockInventoryItem, createMockSalesOrder, createMockListResponse } from './utils/mock-factories';
@@ -246,6 +247,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     await expect(page.getByText('Total Sales Value')).toBeVisible();
 
     // Grid should have the correct layout class
+    await expectNoCriticalA11yViolations(page);
     const grid = page.locator('.dashboard-widgets-grid');
     await expect(grid).toBeVisible();
   });

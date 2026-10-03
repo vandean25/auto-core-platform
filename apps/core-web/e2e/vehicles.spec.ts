@@ -1,3 +1,4 @@
+import { expectNoCriticalA11yViolations } from "./utils/a11y";
 import { test, expect } from '@playwright/test';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { createMockCustomer, createMockListResponse, createMockVehicleListItem } from './utils/mock-factories';
@@ -30,6 +31,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     await expect(corePage.dataTable).toBeVisible();
 
     // Verify row click navigation
+    await expectNoCriticalA11yViolations(page);
     await corePage.openRowDetails('Honda Civic');
   });
 
@@ -70,6 +72,7 @@ test.describe('Blueprint: Vehicles Module', () => {
     const customerLink = page.getByRole('link', { name: 'Jane Smith' });
     await expect(customerLink).toBeVisible();
     await expect(customerLink).toHaveAttribute('href', `/customers/${mockVehicle.customer.id}`);
+    await expectNoCriticalA11yViolations(page);
   });
 
   test('create vehicle dialog sends regulatory fields in POST body', async ({ page }) => {
