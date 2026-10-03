@@ -18,7 +18,7 @@ const LONG_REPRESENTATIVE_TEXT = `Max Mustermann ${'bevollmächtigter Vertreter 
 const MARGIN_SCHEME_DE_NOTE =
   'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.';
 const MARGIN_SCHEME_AT_NOTE =
-  'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 24 UStG 1994.';
+  'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).';
 const LONG_HEADER_VISIBLE_PREFIX = 'Workshop & North Worksh';
 const LONG_FOOTER_TEXT = `Keine Veränderung der Rechnungsdaten. ${'Werkstatt Service '.repeat(12)}`;
 const LONG_FOOTER_VISIBLE_PREFIX = 'Keine Veränderung der Rechnungsdaten. Werkstatt';

@@ -10,7 +10,7 @@ export const MARGIN_SCHEME_LEGAL_NOTES: Record<
   string
 > = {
   DE: 'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.',
-  AT: 'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 24 UStG 1994.',
+  AT: 'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).',
 };
 
 export function isMarginSchemeSellerCountry(
