@@ -97,6 +97,7 @@ model Tenant {
   vehicleMakeAliases            VehicleMakeAlias[]
   auditLogs                     AuditLog[]
   agentActionLogs               AgentActionLog[]
+  decisionShadowLogs            DecisionShadowLog[]
   memberships                   TenantMember[]
   siteMemberships               SiteMembership[]
   partsReservations             PartsReservation[]
@@ -1050,6 +1051,30 @@ model AgentActionLog {
   @@index([tenant_id, tier, created_at])
   @@index([tenant_id, entity_type, entity_id, created_at])
   @@map("agent_action_logs")
+}
+
+model DecisionShadowLog {
+  id                    String   @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant   @relation(fields: [tenant_id], references: [id])
+  trace_id              String   @db.Uuid
+  use_case              String
+  input_hash            String
+  input_redacted_json   Json
+  suggestion_json       Json?
+  actual_outcome_json   Json
+  match                 Boolean?
+  provider              String
+  model                 String?
+  latency_ms            Int?
+  error                 String?
+  created_at            DateTime @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, created_at])
+  @@index([tenant_id, trace_id, created_at])
+  @@index([tenant_id, use_case, created_at])
+  @@map("decision_shadow_logs")
 }
 
 model Vendor {

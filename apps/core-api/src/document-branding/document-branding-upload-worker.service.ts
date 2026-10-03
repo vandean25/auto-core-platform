@@ -8,6 +8,9 @@ import sharp from 'sharp';
 import { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
+import { extractLoosePdfText } from '../decision/pdf-loose-text.util.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
 
 const MAX_IMAGE_SIDE = 8192;
 const MAX_IMAGE_PIXELS = 16_000_000;
@@ -21,6 +24,8 @@ export class DocumentBrandingUploadWorkerService {
     private readonly prisma: PrismaService,
     private readonly storage: DocumentBrandingAssetStorage,
     private readonly pdfParser: DocumentBrandingPdfParser,
+    private readonly decisionHooks: DecisionUseCaseHooksService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async validate(assetId: string, tenantId: string) {
@@ -81,6 +86,14 @@ export class DocumentBrandingUploadWorkerService {
         current.detected_mime_type,
         original,
       );
+      if (current.detected_mime_type === 'application/pdf') {
+        const text = extractLoosePdfText(validated.bytes);
+        this.decisionHooks.scheduleDocumentSortForText({
+          tenantId,
+          traceId: this.requestContext.getTraceId(),
+          text,
+        });
+      }
       const rootKey = `tenants/${tenantId}/legal-entities/${current.legal_entity_id}/document-branding`;
       const extension =
         current.detected_mime_type === 'application/pdf' ? 'pdf' : 'png';
