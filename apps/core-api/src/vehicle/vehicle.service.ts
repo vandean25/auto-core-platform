@@ -124,7 +124,10 @@ export class VehicleService {
         },
         {
           inspection_records: {
-            some: validUntilOnOrBeforeMonth(windowEndYear, windowEndMonth),
+            some: validUntilOnOrBeforeMonth(
+              windowEndYear,
+              windowEndMonth,
+            ),
           },
         },
       ];
