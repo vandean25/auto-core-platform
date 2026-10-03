@@ -59,13 +59,15 @@ export class AgentActionLogService {
     }
 
     const status = workError ? 'FAILED' : parsed.status;
-    const resultForSummary = workError
-      ? {
-          error:
-            workError instanceof Error
-              ? workError.message
-              : String(workError),
-        }
+    const failureMessage = workError
+      ? workError instanceof Error
+        ? workError.message
+        : typeof workError === 'string'
+          ? workError
+          : 'Agent action work failed'
+      : undefined;
+    const resultForSummary = failureMessage
+      ? { error: failureMessage }
       : parsed.resultSummary;
 
     const created = await this.prisma.agentActionLog.create({
@@ -93,7 +95,10 @@ export class AgentActionLogService {
     });
 
     if (workError) {
-      throw workError;
+      if (workError instanceof Error) {
+        throw workError;
+      }
+      throw new Error(failureMessage ?? 'Agent action work failed');
     }
 
     return { id: created.id, traceId, workResult };
