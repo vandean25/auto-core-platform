@@ -1,7 +1,8 @@
 const MCP_AGENT_ID_PREFIX = 'mcp:';
+export const MCP_AGENT_NAME_MAX_LENGTH = 128;
 
 export function formatMcpAgentId(clientName: string): string {
-  const trimmed = clientName.trim();
+  const trimmed = clientName.trim().slice(0, MCP_AGENT_NAME_MAX_LENGTH);
   const safeName = trimmed.length > 0 ? trimmed : 'unknown';
   return `${MCP_AGENT_ID_PREFIX}${safeName}`;
 }

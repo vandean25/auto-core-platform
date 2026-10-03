@@ -1,11 +1,21 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import * as z from 'zod';
 import {
   MCP_READ_TOOL_NAMES,
   MCP_SERVER_IMPLEMENTATION,
   type McpReadToolName,
 } from './mcp.constants.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import {
+  getCustomerInputSchema,
+  getStockLevelBaseSchema,
+  getVehicleInputSchema,
+  getWorkshopOrderInputSchema,
+  listWorkshopOrdersInputSchema,
+  searchCustomersInputSchema,
+  searchPartsInputSchema,
+  searchVehiclesInputSchema,
+} from './mcp-tool-schemas.js';
+
 const TOOL_DESCRIPTIONS: Record<McpReadToolName, string> = {
   search_customers: 'Search customers (tenant-scoped, paged)',
   get_customer: 'Get a customer by id',
@@ -18,43 +28,16 @@ const TOOL_DESCRIPTIONS: Record<McpReadToolName, string> = {
   get_stock_level: 'Stock levels for a catalog item id or SKU (active site)',
 };
 
-const TOOL_INPUT_SCHEMAS: Record<McpReadToolName, z.ZodRawShape> = {
-  search_customers: {
-    search: z.string().optional().describe('Free-text search'),
-    page: z.number().int().min(1).optional(),
-    page_size: z.number().int().min(1).max(25).optional(),
-  },
-  get_customer: {
-    customer_id: z.string().uuid(),
-  },
-  search_vehicles: {
-    search: z.string().optional(),
-    page: z.number().int().min(1).optional(),
-    page_size: z.number().int().min(1).max(25).optional(),
-  },
-  get_vehicle: {
-    vehicle_id: z.string().uuid(),
-  },
-  list_workshop_orders: {
-    search: z.string().optional(),
-    customer_id: z.string().uuid().optional(),
-    page: z.number().int().min(1).optional(),
-    page_size: z.number().int().min(1).max(25).optional(),
-  },
-  get_workshop_order: {
-    workshop_order_id: z.string().uuid(),
-  },
-  search_parts: {
-    query: z.string().min(1),
-    workshop_order_id: z.string().uuid().optional(),
-    page: z.number().int().min(1).optional(),
-    page_size: z.number().int().min(1).max(25).optional(),
-  },
-  get_stock_level: {
-    catalog_item_id: z.string().uuid().optional(),
-    sku: z.string().min(1).optional(),
-  },
-};
+const TOOL_INPUT_SCHEMAS = {
+  search_customers: searchCustomersInputSchema.shape,
+  get_customer: getCustomerInputSchema.shape,
+  search_vehicles: searchVehiclesInputSchema.shape,
+  get_vehicle: getVehicleInputSchema.shape,
+  list_workshop_orders: listWorkshopOrdersInputSchema.shape,
+  get_workshop_order: getWorkshopOrderInputSchema.shape,
+  search_parts: searchPartsInputSchema.shape,
+  get_stock_level: getStockLevelBaseSchema.shape,
+} satisfies Record<McpReadToolName, Record<string, unknown>>;
 
 export type McpServerSessionContext = {
   agentId: string;
@@ -84,7 +67,7 @@ export function createMcpServer(
         return {
           content: [
             {
-              type: 'text',
+              type: 'text' as const,
               text: JSON.stringify(result),
             },
           ],

@@ -43,14 +43,17 @@ export const searchPartsInputSchema = z.object({
   page_size: pageSizeSchema,
 });
 
-export const getStockLevelInputSchema = z
-  .object({
-    catalog_item_id: uuidSchema.optional(),
-    sku: z.string().min(1).optional(),
-  })
-  .refine((value) => Boolean(value.catalog_item_id || value.sku), {
+export const getStockLevelBaseSchema = z.object({
+  catalog_item_id: uuidSchema.optional(),
+  sku: z.string().min(1).optional(),
+});
+
+export const getStockLevelInputSchema = getStockLevelBaseSchema.refine(
+  (value) => Boolean(value.catalog_item_id || value.sku),
+  {
     message: 'catalog_item_id or sku is required',
-  });
+  },
+);
 
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],

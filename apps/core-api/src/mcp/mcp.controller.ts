@@ -7,6 +7,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { Public } from '../common/decorators/public.decorator.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { assertMcpTenantAccess } from './mcp.authorization.js';
@@ -20,8 +22,10 @@ export class McpController {
   constructor(
     private readonly authService: AuthService,
     private readonly mcpSessions: McpSessionService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
+  @Public()
   @All()
   async handleMcp(@Req() req: McpRequest, @Res() res: Response): Promise<void> {
     if (!isMcpServerEnabled()) {
@@ -36,6 +40,7 @@ export class McpController {
 
   private async resolveUser(req: McpRequest): Promise<AuthenticatedUser> {
     if (req.user?.tenantId) {
+      this.tenantContext.setAuthenticatedUser(req.user);
       return req.user;
     }
 
@@ -46,6 +51,9 @@ export class McpController {
 
     const user = await this.authService.authenticateBearerToken(authorization);
     req.user = user;
+    if (user.tenantId) {
+      this.tenantContext.setAuthenticatedUser(user);
+    }
     return user;
   }
 }

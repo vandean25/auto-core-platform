@@ -1,6 +1,8 @@
 import {
   Injectable,
   Logger,
+  OnModuleDestroy,
+  OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -18,19 +20,40 @@ import {
   resolveMcpClientNameFromInitializeBody,
 } from './mcp-agent-id.util.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import { respondMcpSessionNotFound } from './mcp-session.util.js';
+
+const MCP_IDLE_SESSION_MS = 30 * 60 * 1000;
+const MCP_SESSION_SWEEP_MS = 60_000;
 
 type McpSessionRecord = {
   transport: StreamableHTTPServerTransport;
   context: McpServerSessionContext;
+  ownerUserId: string;
+  ownerTenantId: string;
   lastActiveMs: number;
 };
 
 @Injectable()
-export class McpSessionService {
+export class McpSessionService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(McpSessionService.name);
   private readonly sessions = new Map<string, McpSessionRecord>();
+  private sweepTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor(private readonly toolHandler: McpToolHandlerService) {}
+
+  onModuleInit(): void {
+    this.sweepTimer = setInterval(() => {
+      this.purgeIdleSessions(MCP_IDLE_SESSION_MS);
+    }, MCP_SESSION_SWEEP_MS);
+    this.sweepTimer.unref?.();
+  }
+
+  onModuleDestroy(): void {
+    if (this.sweepTimer) {
+      clearInterval(this.sweepTimer);
+      this.sweepTimer = undefined;
+    }
+  }
 
   async handleHttpRequest(
     req: IncomingMessage,
@@ -38,11 +61,22 @@ export class McpSessionService {
     body: unknown,
     user: AuthenticatedUser,
   ): Promise<void> {
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+      respondMcpSessionNotFound(res);
+      return;
+    }
+
     const sessionIdHeader = req.headers['mcp-session-id'];
     const sessionId =
       typeof sessionIdHeader === 'string' ? sessionIdHeader : undefined;
 
     const session = sessionId ? this.sessions.get(sessionId) : undefined;
+
+    if (session && !this.sessionOwnedByUser(session, user.userId, tenantId)) {
+      respondMcpSessionNotFound(res);
+      return;
+    }
 
     if (!session && isInitializeRequest(body)) {
       if (this.sessions.size >= MCP_MAX_OPEN_SESSIONS) {
@@ -62,6 +96,8 @@ export class McpSessionService {
           this.sessions.set(newSessionId, {
             transport,
             context,
+            ownerUserId: user.userId,
+            ownerTenantId: tenantId,
             lastActiveMs: Date.now(),
           });
         },
@@ -100,6 +136,7 @@ export class McpSessionService {
       return;
     }
 
+    session.context.onBehalfOfUserId = user.userId;
     session.lastActiveMs = Date.now();
     await session.transport.handleRequest(req, res, body);
   }
@@ -114,5 +151,13 @@ export class McpSessionService {
         this.sessions.delete(id);
       }
     }
+  }
+
+  private sessionOwnedByUser(
+    session: McpSessionRecord,
+    userId: string,
+    tenantId: string,
+  ): boolean {
+    return session.ownerUserId === userId && session.ownerTenantId === tenantId;
   }
 }

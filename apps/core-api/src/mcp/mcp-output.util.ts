@@ -1,6 +1,7 @@
 import { MCP_TOOL_RESULT_MAX_BYTES } from './mcp.constants.js';
 
 const TRUNCATED_MARKER = '__truncated__';
+const MCP_TOOL_RESULT_PREVIEW_CHARS = 1024;
 
 export function capMcpToolPayload<T>(value: T): T | Record<string, unknown> {
   const serialized = JSON.stringify(value);
@@ -9,8 +10,8 @@ export function capMcpToolPayload<T>(value: T): T | Record<string, unknown> {
   }
   return {
     [TRUNCATED_MARKER]: true,
-    previewBytes: MCP_TOOL_RESULT_MAX_BYTES,
     originalBytes: serialized.length,
+    preview: serialized.slice(0, MCP_TOOL_RESULT_PREVIEW_CHARS),
   };
 }
 
