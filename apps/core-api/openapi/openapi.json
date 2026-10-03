@@ -9688,6 +9688,168 @@
         ]
       }
     },
+    "/api/agent-actions": {
+      "get": {
+        "description": "Returns cursor-paginated agent action log rows for the authenticated tenant.",
+        "operationId": "AgentActionLogController_findAll",
+        "parameters": [
+          {
+            "name": "agentId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by agent identifier",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor for forward pagination",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of rows to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by action status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROPOSED",
+                "APPROVED",
+                "REJECTED",
+                "EXECUTED",
+                "FAILED",
+                "DRY_RUN"
+              ]
+            }
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "in": "query",
+            "description": "Filter by policy tier",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AUTO",
+                "PROPOSE",
+                "HUMAN_ONLY"
+              ]
+            }
+          },
+          {
+            "name": "traceId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by trace ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List agent action logs (OWNER/ADMIN)",
+        "tags": [
+          "Agent Actions"
+        ]
+      }
+    },
+    "/api/agent-actions/{traceId}": {
+      "get": {
+        "description": "Returns all log rows for a trace ID plus audit entries correlated on the same trace.",
+        "operationId": "AgentActionLogController_findByTraceId",
+        "parameters": [
+          {
+            "name": "traceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionTraceDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get agent action trace detail (OWNER/ADMIN)",
+        "tags": [
+          "Agent Actions"
+        ]
+      }
+    },
     "/api/imports": {
       "post": {
         "operationId": "ImportController_createDryRun",
@@ -22242,6 +22404,142 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "AgentActionLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentTraceId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "AGENT",
+              "USER",
+              "SYSTEM"
+            ]
+          },
+          "agentId": {
+            "type": "object",
+            "nullable": true
+          },
+          "onBehalfOfUserId": {
+            "type": "object",
+            "nullable": true
+          },
+          "actionType": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROPOSED",
+              "APPROVED",
+              "REJECTED",
+              "EXECUTED",
+              "FAILED",
+              "DRY_RUN"
+            ]
+          },
+          "inputSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "resultSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "entityType": {
+            "type": "object",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "object",
+            "nullable": true
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "revertedByLogId": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "traceId",
+          "actorType",
+          "actionType",
+          "tier",
+          "status",
+          "reversible",
+          "createdAt"
+        ]
+      },
+      "AgentActionLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentActionLogResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "object",
+            "description": "Cursor for the next page when more results exist",
+            "nullable": true
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AgentActionTraceDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentActionLogResponseDto"
+            }
+          },
+          "auditEntries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogResponseDto"
+            }
+          }
+        },
+        "required": [
+          "logs",
+          "auditEntries"
         ]
       },
       "ImportEntityType": {

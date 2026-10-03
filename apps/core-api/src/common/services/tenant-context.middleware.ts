@@ -1,7 +1,12 @@
-import { Injectable, type NestMiddleware } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  type NestMiddleware,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { TenantContextStorage } from './tenant-context.storage.js';
+import { isTraceIdUuid } from './trace-id.util.js';
 
 function getNormalizedHeaderValue(
   value: string | string[] | undefined,
@@ -23,14 +28,24 @@ export class TenantContextMiddleware implements NestMiddleware {
         getNormalizedHeaderValue(request.headers['x-request-id']) ??
         randomUUID();
 
+      const inboundTraceId = getNormalizedHeaderValue(
+        request.headers['x-trace-id'],
+      );
+      if (inboundTraceId !== undefined && !isTraceIdUuid(inboundTraceId)) {
+        throw new BadRequestException('X-Trace-Id must be a valid UUID');
+      }
+      const traceId = inboundTraceId ?? randomUUID();
+
       // Echo the effective request ID back to the caller.
       response.setHeader('x-request-id', requestId);
+      response.setHeader('x-trace-id', traceId);
 
       const ip = request.ip;
       const userAgent = getNormalizedHeaderValue(request.headers['user-agent']);
 
       TenantContextStorage.setRequestMeta({
         requestId,
+        traceId,
         source: 'API',
         ip,
         userAgent,

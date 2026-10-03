@@ -188,8 +188,19 @@ describe('Purchase Order Receipt Flow (e2e)', () => {
 
       expect(updatedPO.status).toBe('COMPLETED');
       expect(updatedPO.items).toHaveLength(2);
-      expect(Number(updatedPO.items[0].quantity_received)).toBe(3);
-      expect(Number(updatedPO.items[1].quantity_received)).toBe(2);
+
+      const quantityReceivedFor = (catalogId: string): number => {
+        const row = updatedPO.items.find(
+          (item) => item.catalog_item_id === catalogId,
+        );
+        if (!row) {
+          throw new Error(`PO has no line for catalog item ${catalogId}`);
+        }
+        return Number(row.quantity_received);
+      };
+
+      expect(quantityReceivedFor(catalogItemId)).toBe(3);
+      expect(quantityReceivedFor(item2.id)).toBe(2);
 
       // Verify ledger transactions created
       const transactions = await prisma.inventoryTransaction.findMany({

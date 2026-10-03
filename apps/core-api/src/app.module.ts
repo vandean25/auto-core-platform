@@ -40,6 +40,7 @@ import { TenantMemberModule } from './tenant-member/tenant-member.module.js';
 import { VoiceTranslationModule } from './voice-translation/voice-translation.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { AuditModule } from './audit/audit.module.js';
+import { AgentActionLogModule } from './agent-action-log/agent-action-log.module.js';
 import { HrModule } from './hr/hr.module.js';
 import { PartsRequisitionModule } from './parts-requisition/parts-requisition.module.js';
 import { HealthController } from './health.controller.js';
@@ -85,6 +86,7 @@ import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
     VoiceTranslationModule,
     SettingsModule,
     AuditModule,
+    AgentActionLogModule,
     HrModule,
     PartsRequisitionModule,
     DocumentBrandingModule,

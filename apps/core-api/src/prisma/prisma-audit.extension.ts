@@ -421,7 +421,10 @@ function buildAuditLogData(
     actor_email: actor.user.email ?? null,
     actor_role: actor.user.role ?? null,
     actor_type: resolveActorType(actor.user, actor.requestMeta),
-    request_id: actor.requestMeta?.requestId ?? null,
+    request_id:
+      actor.requestMeta?.auditCorrelationId ??
+      actor.requestMeta?.requestId ??
+      null,
     source: actor.requestMeta?.source ?? 'API',
     ip_address: actor.requestMeta?.ip ?? null,
     user_agent: actor.requestMeta?.userAgent ?? null,

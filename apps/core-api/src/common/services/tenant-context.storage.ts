@@ -8,6 +8,13 @@ export type AuditSource = 'API' | 'JOB' | 'SCRIPT';
 export type RequestMeta = {
   /** Correlation ID – propagated from inbound `x-request-id` or server-generated. */
   requestId: string;
+  /** Agent trace ID – propagated from inbound `x-trace-id` or server-generated. */
+  traceId: string;
+  /**
+   * When set, audit log rows use this value as `request_id` so they join to
+   * {@link AgentActionLog} rows on `trace_id` without changing non-agent flows.
+   */
+  auditCorrelationId?: string;
   /** How this operation was triggered. */
   source: AuditSource;
   /** Client IP address (undefined for non-HTTP contexts). */
