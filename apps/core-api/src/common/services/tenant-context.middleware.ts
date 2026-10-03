@@ -23,14 +23,19 @@ export class TenantContextMiddleware implements NestMiddleware {
         getNormalizedHeaderValue(request.headers['x-request-id']) ??
         randomUUID();
 
+      const traceId =
+        getNormalizedHeaderValue(request.headers['x-trace-id']) ?? randomUUID();
+
       // Echo the effective request ID back to the caller.
       response.setHeader('x-request-id', requestId);
+      response.setHeader('x-trace-id', traceId);
 
       const ip = request.ip;
       const userAgent = getNormalizedHeaderValue(request.headers['user-agent']);
 
       TenantContextStorage.setRequestMeta({
         requestId,
+        traceId,
         source: 'API',
         ip,
         userAgent,

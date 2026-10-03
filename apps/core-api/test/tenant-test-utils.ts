@@ -77,13 +77,20 @@ export function runWithTenantContext<T>(
     activeSiteId?: string | null;
   },
 ): T {
-  return TenantContextStorage.run(() => {
+  const execute = (): T => {
     TenantContextStorage.setUser({
       ...buildTestTenantIdentity(tenantId),
       ...identity,
     });
     return fn();
-  });
+  };
+
+  const activeUser = TenantContextStorage.getUser();
+  if (activeUser?.tenantId === tenantId) {
+    return execute();
+  }
+
+  return TenantContextStorage.run(execute);
 }
 
 export function createTestAuthToken(
@@ -503,6 +510,10 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.tenantMember.deleteMany({});
   await cleanupTestUsers(prisma, userIds);
 
+  await prisma.$executeRawUnsafe(
+    `DELETE FROM agent_action_logs WHERE tenant_id = $1`,
+    tenantId,
+  );
   await prisma.$executeRawUnsafe(
     `DELETE FROM audit_logs WHERE tenant_id = $1`,
     tenantId,

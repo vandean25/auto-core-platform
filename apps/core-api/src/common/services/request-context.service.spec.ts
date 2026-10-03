@@ -40,6 +40,7 @@ describe('RequestContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'req-abc-123',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'API',
         });
 
@@ -54,6 +55,7 @@ describe('RequestContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'req-aaa',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'API',
         });
         idA = service.getRequestId();
@@ -62,6 +64,7 @@ describe('RequestContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'req-bbb',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'API',
         });
         idB = service.getRequestId();
@@ -79,6 +82,7 @@ describe('RequestContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'req-1',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'JOB',
         });
 
@@ -90,6 +94,7 @@ describe('RequestContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'req-2',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'API',
           ip: '192.168.1.1',
           userAgent: 'Mozilla/5.0',
@@ -158,6 +163,7 @@ describe('RequestContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'outer-req',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'API',
         });
 

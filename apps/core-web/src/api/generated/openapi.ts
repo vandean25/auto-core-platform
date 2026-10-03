@@ -2930,6 +2930,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent action logs (OWNER/ADMIN)
+         * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
+         */
+        get: operations["AgentActionLogController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-actions/{traceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get agent action trace detail (OWNER/ADMIN)
+         * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
+         */
+        get: operations["AgentActionLogController_findByTraceId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports": {
         parameters: {
             query?: never;
@@ -6727,6 +6767,44 @@ export interface components {
             data: components["schemas"]["AuditLogResponseDto"][];
             /** @description Pagination metadata */
             meta: components["schemas"]["AuditLogPaginationMetaDto"];
+        };
+        AgentActionLogResponseDto: {
+            id: string;
+            tenantId: string;
+            /** Format: uuid */
+            traceId: string;
+            /** Format: uuid */
+            parentTraceId?: Record<string, never> | null;
+            /** @enum {string} */
+            actorType: "AGENT" | "USER" | "SYSTEM";
+            agentId?: Record<string, never> | null;
+            onBehalfOfUserId?: Record<string, never> | null;
+            actionType: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            /** @enum {string} */
+            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED" | "DRY_RUN";
+            inputSummary?: {
+                [key: string]: unknown;
+            };
+            resultSummary?: {
+                [key: string]: unknown;
+            };
+            entityType?: Record<string, never> | null;
+            entityId?: Record<string, never> | null;
+            reversible: boolean;
+            revertedByLogId?: Record<string, never> | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentActionLogListResponseDto: {
+            data: components["schemas"]["AgentActionLogResponseDto"][];
+            /** @description Cursor for the next page when more results exist */
+            nextCursor?: Record<string, never> | null;
+        };
+        AgentActionTraceDetailResponseDto: {
+            logs: components["schemas"]["AgentActionLogResponseDto"][];
+            auditEntries: components["schemas"]["AuditLogResponseDto"][];
         };
         /** @enum {string} */
         ImportEntityType: "CUSTOMER" | "VEHICLE";
@@ -13157,6 +13235,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentActionLogController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Filter by agent identifier */
+                agentId?: string;
+                /** @description Opaque cursor for forward pagination */
+                cursor?: string;
+                /** @description End of created_at range (ISO-8601) */
+                endDate?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by entity type */
+                entityType?: string;
+                /** @description Maximum number of rows to return */
+                limit?: number;
+                /** @description Start of created_at range (ISO-8601) */
+                startDate?: string;
+                /** @description Filter by action status */
+                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED" | "DRY_RUN";
+                /** @description Filter by policy tier */
+                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+                /** @description Filter by trace ID */
+                traceId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentActionLogListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentActionLogController_findByTraceId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentActionTraceDetailResponseDto"];
                 };
             };
         };

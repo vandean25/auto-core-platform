@@ -21,9 +21,11 @@ export class TenantContextService {
     const existing = TenantContextStorage.getRequestMeta();
     TenantContextStorage.setRequestMeta({
       requestId: existing?.requestId ?? randomUUID(),
+      traceId: existing?.traceId ?? randomUUID(),
       source: 'JOB',
       ip: existing?.ip,
       userAgent: existing?.userAgent,
+      auditCorrelationId: existing?.auditCorrelationId,
     });
   }
 

@@ -74,6 +74,7 @@ describe('HttpLoggingInterceptor', () => {
       });
       TenantContextStorage.setRequestMeta({
         requestId: 'req-12345',
+        traceId: '00000000-0000-4000-8000-000000000001',
         source: 'API',
         ip: '192.168.1.1',
         userAgent: 'JestClient/1.0',
@@ -153,6 +154,7 @@ describe('HttpLoggingInterceptor', () => {
     await TenantContextStorage.run(async () => {
       TenantContextStorage.setRequestMeta({
         requestId: 'req-err-1',
+        traceId: '00000000-0000-4000-8000-000000000001',
         source: 'API',
         ip: '127.0.0.1',
       });
@@ -199,6 +201,7 @@ describe('HttpLoggingInterceptor', () => {
     await TenantContextStorage.run(async () => {
       TenantContextStorage.setRequestMeta({
         requestId: 'req-500',
+        traceId: '00000000-0000-4000-8000-000000000001',
         source: 'API',
       });
 

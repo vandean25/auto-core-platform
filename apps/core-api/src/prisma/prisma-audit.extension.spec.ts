@@ -14,7 +14,14 @@ const TENANT_ID = 'tenant-audit-123';
 
 function runWithContext<T>(
   userOverrides?: { userId?: string; email?: string; role?: string; tenantId?: string },
-  metaOverrides?: { requestId?: string; source?: 'API' | 'JOB' | 'SCRIPT'; ip?: string; userAgent?: string },
+  metaOverrides?: {
+    requestId?: string;
+    traceId?: string;
+    auditCorrelationId?: string;
+    source?: 'API' | 'JOB' | 'SCRIPT';
+    ip?: string;
+    userAgent?: string;
+  },
   fn?: () => T,
 ): T {
   const callback = fn ?? (() => (undefined as unknown as T));
@@ -27,6 +34,9 @@ function runWithContext<T>(
     });
     TenantContextStorage.setRequestMeta({
       requestId: metaOverrides?.requestId ?? 'req-123',
+      traceId:
+        metaOverrides?.traceId ?? '00000000-0000-4000-8000-000000000001',
+      auditCorrelationId: metaOverrides?.auditCorrelationId,
       source: metaOverrides?.source ?? 'API',
       ip: metaOverrides?.ip ?? '127.0.0.1',
       userAgent: metaOverrides?.userAgent ?? 'Mozilla/5.0 TestBrowser',
@@ -129,6 +139,35 @@ describe('Prisma Audit Extension', () => {
           changed_fields: ['email', 'name'],
           redacted_fields: [],
         },
+      });
+    });
+
+    it('prefers auditCorrelationId over requestId for audit request_id', async () => {
+      const beforeRow = { id: 'cust-2', name: 'Before' };
+      const afterRow = { id: 'cust-2', name: 'After' };
+      mockModelFindFirst.mockResolvedValue(beforeRow);
+      const queryFn = jest.fn().mockResolvedValue(afterRow);
+
+      await runWithContext(
+        undefined,
+        {
+          requestId: 'req-plain',
+          auditCorrelationId: '00000000-0000-4000-8000-00000000abcd',
+        },
+        () =>
+          applyAuditUpdate.call(
+            mockContext,
+            mockContext,
+            'Customer',
+            { where: { id: 'cust-2' }, data: { name: 'After' } },
+            queryFn,
+          ),
+      );
+
+      expect(mockAuditLogCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          request_id: '00000000-0000-4000-8000-00000000abcd',
+        }),
       });
     });
 

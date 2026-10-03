@@ -20,6 +20,7 @@ CREATE TEMP TABLE tenant_restore_expected_tables (
 
 INSERT INTO tenant_restore_expected_tables (table_name)
 VALUES
+  ('agent_action_logs'),
   ('agent_policy_rules'),
   ('audit_logs'),
   ('brands'),
@@ -141,6 +142,8 @@ VALUES
   ('_VendorBrands', 'vendors', 'B', 'id', 'CASCADE', 'CASCADE'),
   ('accounting_exports', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('accounting_exports', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('agent_action_logs', 'agent_action_logs', 'tenant_id,reverted_by_log_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
+  ('agent_action_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('agent_policy_rules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),

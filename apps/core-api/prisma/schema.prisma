@@ -96,6 +96,7 @@ model Tenant {
   catalogOemConcernMakes        CatalogOemConcernMake[]
   vehicleMakeAliases            VehicleMakeAlias[]
   auditLogs                     AuditLog[]
+  agentActionLogs               AgentActionLog[]
   memberships                   TenantMember[]
   siteMemberships               SiteMembership[]
   partsReservations             PartsReservation[]
@@ -1011,6 +1012,44 @@ model AuditLog {
   @@index([tenant_id, entity_type, entity_id, occurred_at])
   @@index([request_id])
   @@map("audit_logs")
+}
+
+enum AgentActionLogActorType {
+  AGENT
+  USER
+  SYSTEM
+}
+
+model AgentActionLog {
+  id                    String                  @id @default(uuid())
+  tenant_id             String
+  tenant                Tenant                  @relation(fields: [tenant_id], references: [id])
+  trace_id              String                  @db.Uuid
+  parent_trace_id       String?                 @db.Uuid
+  actor_type            AgentActionLogActorType
+  agent_id              String?
+  on_behalf_of_user_id  String?
+  action_type           String
+  tier                  String
+  status                String
+  input_summary_json    Json?
+  result_summary_json   Json?
+  entity_type           String?
+  entity_id             String?
+  reversible            Boolean                 @default(false)
+  reverted_by_log_id    String?
+  reverted_by_log       AgentActionLog?         @relation("AgentActionLogRevert", fields: [tenant_id, reverted_by_log_id], references: [tenant_id, id], onDelete: SetNull)
+  reverts               AgentActionLog[]        @relation("AgentActionLogRevert")
+  created_at            DateTime                @default(now())
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, created_at])
+  @@index([tenant_id, trace_id, created_at])
+  @@index([tenant_id, agent_id, created_at])
+  @@index([tenant_id, status, created_at])
+  @@index([tenant_id, tier, created_at])
+  @@index([tenant_id, entity_type, entity_id, created_at])
+  @@map("agent_action_logs")
 }
 
 model Vendor {

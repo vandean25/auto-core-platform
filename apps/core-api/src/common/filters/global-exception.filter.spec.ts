@@ -50,6 +50,7 @@ describe('GlobalExceptionFilter', () => {
       });
       TenantContextStorage.setRequestMeta({
         requestId: 'req-404',
+        traceId: '00000000-0000-4000-8000-000000000001',
         source: 'API',
       });
 
@@ -75,6 +76,7 @@ describe('GlobalExceptionFilter', () => {
       });
       TenantContextStorage.setRequestMeta({
         requestId: 'req-unhandled',
+        traceId: '00000000-0000-4000-8000-000000000001',
         source: 'API',
       });
 
@@ -105,6 +107,7 @@ describe('GlobalExceptionFilter', () => {
     TenantContextStorage.run(() => {
       TenantContextStorage.setRequestMeta({
         requestId: 'req-prisma-1',
+        traceId: '00000000-0000-4000-8000-000000000001',
         source: 'API',
       });
 

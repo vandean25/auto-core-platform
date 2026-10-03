@@ -199,6 +199,7 @@ describe('TenantContextService', () => {
       TenantContextStorage.run(() => {
         TenantContextStorage.setRequestMeta({
           requestId: 'middleware-req-id',
+          traceId: '00000000-0000-4000-8000-000000000001',
           source: 'API',
           ip: '1.2.3.4',
           userAgent: 'CloudTasks/1.0',

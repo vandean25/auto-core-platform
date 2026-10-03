@@ -34,6 +34,11 @@ export class RequestContextService {
     return TenantContextStorage.getRequestMeta()?.requestId;
   }
 
+  /** Returns the agent trace ID for the active ALS context. */
+  getTraceId(): string | undefined {
+    return TenantContextStorage.getRequestMeta()?.traceId;
+  }
+
   /** Returns the audit source (`API`, `JOB`, or `SCRIPT`) for the active context. */
   getSource(): AuditSource | undefined {
     return TenantContextStorage.getRequestMeta()?.source;
@@ -78,8 +83,10 @@ export class RequestContextService {
         role: 'worker',
       });
 
+      const traceId = randomUUID();
       TenantContextStorage.setRequestMeta({
         requestId: randomUUID(),
+        traceId,
         source,
       });
 
