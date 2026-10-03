@@ -4,6 +4,7 @@ import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
+type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
 
 type CreateVehicleDto = components['schemas']['CreateVehicleDto']
 type UpdateVehicleDto = components['schemas']['UpdateVehicleDto']
@@ -32,6 +33,7 @@ export const vehicleKeys = {
   all: ['vehicles'] as const,
   list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.all, 'list', queryParams] as const,
   detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
+  pickerlDue: (filters: string) => [...vehicleKeys.all, 'pickerlDue', { filters }] as const,
 }
 
 export function useVehicles(queryParams?: DataTableQueryParams) {
@@ -133,6 +135,26 @@ export function useUpdateVehicle() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+    },
+  })
+}
+
+export function usePickerlDueList(queryParams: Record<string, unknown>) {
+  const searchParams = new URLSearchParams()
+  Object.entries(queryParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, String(value))
+    }
+  })
+
+  return useQuery({
+    queryKey: vehicleKeys.pickerlDue(searchParams.toString()),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/vehicles/pickerl-due?${searchParams.toString()}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch pickerl due list')
+      }
+      return (await response.json()) as PickerlDuePaginatedResponseDto
     },
   })
 }

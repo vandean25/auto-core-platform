@@ -6926,6 +6926,115 @@
         ]
       }
     },
+    "/api/vehicles/pickerl-due": {
+      "get": {
+        "operationId": "VehicleController_findPickerlDue",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OK",
+                "DUE_SOON",
+                "OVERDUE",
+                "UNKNOWN"
+              ]
+            }
+          },
+          {
+            "name": "window",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "enum": [
+                30,
+                60,
+                90
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickerlDuePaginatedResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
+    "/api/vehicles/pickerl-due/export": {
+      "get": {
+        "operationId": "VehicleController_exportPickerlDue",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OK",
+                "DUE_SOON",
+                "OVERDUE",
+                "UNKNOWN"
+              ]
+            }
+          },
+          {
+            "name": "window",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "enum": [
+                30,
+                60,
+                90
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
     "/api/vehicles": {
       "get": {
         "operationId": "VehicleController_findAll",
@@ -11801,13 +11910,20 @@
             "items": {
               "$ref": "#/components/schemas/PickerlWarningDto"
             }
+          },
+          "last_inspected_on": {
+            "type": "string",
+            "nullable": true,
+            "description": "Latest recorded inspection date (YYYY-MM-DD)",
+            "example": "2024-05-12"
           }
         },
         "required": [
           "due_month",
           "status",
           "rule_id",
-          "warnings"
+          "warnings",
+          "last_inspected_on"
         ]
       },
       "VehicleResponseDto": {
@@ -18882,6 +18998,24 @@
         },
         "required": [
           "groups"
+        ]
+      },
+      "PickerlDuePaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "VehiclePaginatedResponseDto": {

@@ -2127,6 +2127,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicles/pickerl-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleController_findPickerlDue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/pickerl-due/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleController_exportPickerlDue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles": {
         parameters: {
             query?: never;
@@ -3597,6 +3629,11 @@ export interface components {
             status: components["schemas"]["PickerlDueStatus"];
             rule_id: string;
             warnings: components["schemas"]["PickerlWarningDto"][];
+            /**
+             * @description Latest recorded inspection date (YYYY-MM-DD)
+             * @example 2024-05-12
+             */
+            last_inspected_on: string | null;
         };
         VehicleResponseDto: {
             id: string;
@@ -5617,6 +5654,10 @@ export interface components {
         };
         CatalogAssemblyGroupsResponseDto: {
             groups: components["schemas"]["CatalogAssemblyGroupNodeDto"][];
+        };
+        PickerlDuePaginatedResponseDto: {
+            data: components["schemas"]["VehicleResponseDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
         };
         VehiclePaginatedResponseDto: {
             data: components["schemas"]["VehicleListItemDto"][];
@@ -11247,6 +11288,50 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CatalogAssemblyGroupsResponseDto"];
                 };
+            };
+        };
+    };
+    VehicleController_findPickerlDue: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                status?: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
+                window?: 30 | 60 | 90;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickerlDuePaginatedResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleController_exportPickerlDue: {
+        parameters: {
+            query?: {
+                status?: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
+                window?: 30 | 60 | 90;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

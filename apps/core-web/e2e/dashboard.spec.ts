@@ -248,7 +248,7 @@ test.describe('Blueprint: Dashboard Page', () => {
 
     // Grid should have the correct layout class
     await expectNoCriticalA11yViolations(page);
-    const grid = page.locator('.grid.gap-4');
+    const grid = page.locator('.dashboard-widgets-grid');
     await expect(grid).toBeVisible();
   });
 });

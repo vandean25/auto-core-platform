@@ -32,6 +32,16 @@ import {
   normalizeVehicleRegulatoryFields,
 } from './vehicle-regulatory.validation.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
+import {
+  compareUtcDates,
+  endOfMonthUtc,
+  parseYearMonthString,
+} from './pickerl/pickerl-date.util.js';
+import {
+  PickerlDueListQueryDto,
+  PickerlDueListExportQueryDto,
+} from './dto/pickerl-due-list.dto.js';
+import { csvEscape } from '../common/utils/csv-export.util.js';
 
 interface ExistingVehicleIdentity {
   id: string;
@@ -49,6 +59,199 @@ export class VehicleService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
   ) {}
+
+  async getPickerlDueData(
+    query: PickerlDueListQueryDto | PickerlDueListExportQueryDto,
+  ) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+
+    const today = new Date();
+    const todayYear = today.getUTCFullYear();
+    const todayMonth = today.getUTCMonth() + 1;
+
+    const windowEndDate = query.window
+      ? new Date(
+          Date.UTC(
+            todayYear,
+            todayMonth - 1,
+            today.getUTCDate() + query.window,
+            23,
+            59,
+            59,
+            999,
+          ),
+        )
+      : null;
+
+    const validUntilOnOrBeforeMonth = (year: number, month: number) => ({
+      OR: [
+        { plaketten_valid_until_year: { lt: year } },
+        {
+          AND: [
+            { plaketten_valid_until_year: year },
+            { plaketten_valid_until_month: { lte: month } },
+          ],
+        },
+      ],
+    });
+
+    const validUntilBeforeCurrentMonth = {
+      OR: [
+        { plaketten_valid_until_year: { lt: todayYear } },
+        {
+          AND: [
+            { plaketten_valid_until_year: todayYear },
+            { plaketten_valid_until_month: { lt: todayMonth } },
+          ],
+        },
+      ],
+    };
+
+    const customerVehicleWhere: Prisma.VehicleWhereInput = {
+      tenant_id: tenantId,
+      inventory_role: 'CUSTOMER',
+    };
+
+    if (query.window && windowEndDate) {
+      const windowEndYear = windowEndDate.getUTCFullYear();
+      const windowEndMonth = windowEndDate.getUTCMonth() + 1;
+      const orBranches: Prisma.VehicleWhereInput[] = [
+        {
+          inspection_records: {
+            some: validUntilBeforeCurrentMonth,
+          },
+        },
+        {
+          inspection_records: {
+            some: validUntilOnOrBeforeMonth(windowEndYear, windowEndMonth),
+          },
+        },
+      ];
+      if (query.status === 'UNKNOWN') {
+        orBranches.push({ inspection_records: { none: {} } });
+      }
+      customerVehicleWhere.OR = orBranches;
+    }
+
+    const vehicles = await this.prisma.vehicle.findMany({
+      where: customerVehicleWhere,
+      include: {
+        customer: true,
+        inspection_records: {
+          orderBy: { inspected_on: 'desc' },
+          select: {
+            inspected_on: true,
+            plaketten_valid_until_year: true,
+            plaketten_valid_until_month: true,
+          },
+        },
+      },
+    });
+
+    const projected = projectVehicleListOperationalFields(
+      vehicles.map(stripVehicleIdentityResolutionState),
+      authorizedSiteIds,
+    );
+
+    const results = (projected || [])
+      .map((v) => attachPickerlDue(v, today))
+      .filter((v) => {
+        // Filter by status if provided
+        if (query.status && v.pickerl_due.status !== query.status) {
+          return false;
+        }
+
+        // Filter by window if provided
+        if (query.window && windowEndDate) {
+          // OVERDUE is always included when filtering by any window
+          if (v.pickerl_due.status === 'OVERDUE') return true;
+
+          if (!v.pickerl_due.due_month) {
+            // If there's no due_month, we keep it only if the requested status is UNKNOWN
+            return query.status === 'UNKNOWN';
+          }
+
+          const dueMonthEnd = endOfMonthUtc(
+            parseYearMonthString(v.pickerl_due.due_month),
+          );
+          if (compareUtcDates(dueMonthEnd, windowEndDate) > 0) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+    // Sort: OVERDUE first, then by due_month ascending, then UNKNOWN
+    results.sort((a, b) => {
+      const rank = (s: string) =>
+        s === 'OVERDUE' ? 1 : s === 'DUE_SOON' ? 2 : s === 'OK' ? 3 : 4;
+      const rankDiff = rank(a.pickerl_due.status) - rank(b.pickerl_due.status);
+      if (rankDiff !== 0) return rankDiff;
+
+      const m1 = a.pickerl_due.due_month || '9999-99';
+      const m2 = b.pickerl_due.due_month || '9999-99';
+      return m1.localeCompare(m2);
+    });
+
+    return results;
+  }
+
+  async findPickerlDue(query: PickerlDueListQueryDto) {
+    const allData = await this.getPickerlDueData(query);
+
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const pageSize = query.pageSize && query.pageSize > 0 ? query.pageSize : 25;
+    const skip = (page - 1) * pageSize;
+
+    const paginatedData = allData.slice(skip, skip + pageSize);
+
+    return {
+      data: paginatedData,
+      meta: {
+        total: allData.length,
+        page,
+        pageSize,
+        pageCount: Math.ceil(allData.length / pageSize),
+      },
+    };
+  }
+
+  async exportPickerlDueCsv(query: PickerlDueListExportQueryDto) {
+    const allData = await this.getPickerlDueData(query);
+
+    const header =
+      'plate,vehicle,customer,due_month,status,last_inspected_on,phone,email';
+    const lines = allData.map((row) => {
+      const vehicleName = `${row.make} ${row.model}`;
+
+      const customer = row.customer;
+      let customerName = '';
+      if (customer) {
+        if (customer.company_name) {
+          customerName = customer.company_name;
+        } else {
+          customerName = `${customer.first_name} ${customer.last_name}`.trim();
+        }
+      }
+
+      const lastInspectionStr = row.pickerl_due.last_inspected_on ?? '';
+
+      return [
+        csvEscape(row.plate),
+        csvEscape(vehicleName),
+        csvEscape(customerName),
+        csvEscape(row.pickerl_due.due_month),
+        csvEscape(row.pickerl_due.status),
+        csvEscape(lastInspectionStr),
+        csvEscape(row.customer?.phone),
+        csvEscape(row.customer?.email),
+      ].join(',');
+    });
+
+    return [header, ...lines].join('\n');
+  }
 
   async create(createVehicleDto: CreateVehicleDto) {
     const tenantId = await this.tenantContext.getTenantId();

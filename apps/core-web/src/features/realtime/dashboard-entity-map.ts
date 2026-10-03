@@ -83,7 +83,7 @@ const entityInvalidationMap: Record<
     domainQueryKeys: [vendorKeys.all],
   },
   VEHICLE: {
-    dashboardSourceKeys: ["vehicles", "vehicle-stock"],
+    dashboardSourceKeys: ["vehicles", "vehicle-stock", "pickerl-due"],
     domainQueryKeys: [vehicleKeys.all, vehicleStockKeys.all],
   },
   VEHICLE_PURCHASE: {

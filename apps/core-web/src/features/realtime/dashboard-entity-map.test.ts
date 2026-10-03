@@ -31,6 +31,7 @@ describe("dashboard realtime entity mapping", () => {
     expect(getDashboardSourceKeysForEntityType("VEHICLE")).toEqual([
       "vehicles",
       "vehicle-stock",
+      "pickerl-due",
     ]);
     expect(getDashboardSourceKeysForEntityType("VEHICLE_PURCHASE")).toEqual([
       "vehicle-stock",

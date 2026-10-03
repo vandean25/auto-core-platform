@@ -181,7 +181,7 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 dashboard-widgets-grid">
       {widgets.map((widget) => {
         const source = sourcesByKey[widget.sourceKey]
         if (!source) {

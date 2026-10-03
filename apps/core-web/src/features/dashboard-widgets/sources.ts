@@ -89,6 +89,18 @@ const dashboardWidgetSourcesList: DashboardWidgetTableSource[] = [
       { key: 'year', label: 'Year', type: 'number' },
     ],
   },
+  {
+    sourceKey: 'pickerl-due',
+    sourceLabel: 'Pickerl fällig',
+    listPreviewFields: ['plate', 'vehicle', 'customer', 'status', 'dueMonth'],
+    fields: [
+      { key: 'plate', label: 'Plate', type: 'categorical' },
+      { key: 'vehicle', label: 'Vehicle', type: 'categorical' },
+      { key: 'customer', label: 'Customer', type: 'categorical' },
+      { key: 'status', label: 'Status', type: 'categorical' },
+      { key: 'dueMonth', label: 'Due Month', type: 'categorical' },
+    ],
+  },
 ]
 
 export const dashboardWidgetSourcesByKey: Record<string, DashboardWidgetTableSource> = dashboardWidgetSourcesList.reduce(
@@ -117,4 +129,5 @@ export const DASHBOARD_WIDGET_SOURCE_INVENTORY = getDashboardWidgetSource('inven
 export const DASHBOARD_WIDGET_SOURCE_CUSTOMERS = getDashboardWidgetSource('customers')
 export const DASHBOARD_WIDGET_SOURCE_VENDORS = getDashboardWidgetSource('vendors')
 export const DASHBOARD_WIDGET_SOURCE_VEHICLES = getDashboardWidgetSource('vehicles')
+export const DASHBOARD_WIDGET_SOURCE_PICKERL_DUE = getDashboardWidgetSource('pickerl-due')
 
