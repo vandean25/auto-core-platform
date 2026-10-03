@@ -162,20 +162,16 @@ describe('Pickerl Due (e2e)', () => {
       });
 
       // 8. Other tenant
-      const otherTenant = await basePrisma.tenant.create({
-        data: {
-          name: 'Other', slug: 'other-1', is_active: true,
-        }
-      });
+      const otherTenant = await createTestTenant(basePrisma, 'other-1');
       const v8 = await basePrisma.vehicle.create({
         data: {
-          tenant_id: otherTenant.id,
+          tenant_id: otherTenant.tenantId,
           make: 'VW', model: 'Other', year: 2020, plate: 'W-OTHER', inventory_role: 'CUSTOMER',
         },
       });
       await basePrisma.vehicleInspectionRecord.create({
         data: {
-          tenant_id: otherTenant.id, vehicle_id: v8.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
+          tenant_id: otherTenant.tenantId, vehicle_id: v8.id, inspection_type: 'PICKERL_57A', inspected_on: new Date('2020-01-01'),
           plaketten_valid_until_year: todayYear - 1, plaketten_valid_until_month: 1,
         },
       });
