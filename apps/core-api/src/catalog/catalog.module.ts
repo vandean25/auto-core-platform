@@ -95,5 +95,6 @@ class CompositeLaborCatalogProvider implements LaborCatalogProvider {
       ],
     },
   ],
+  exports: [CatalogService],
 })
 export class CatalogModule {}
