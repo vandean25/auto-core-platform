@@ -97,6 +97,20 @@ const widgetSourceDefinitions: WidgetSourceDefinition[] = [
       }),
   },
   {
+    key: 'pickerl-due',
+    pathPrefix: '/vehicles/pickerl-due',
+    buildApiUrl: (queryParams) => {
+      const params = new URLSearchParams()
+      params.set('page', '1')
+      params.set('pageSize', String(Math.max(200, queryParams.pageSize)))
+      const windowFilter = queryParams.filters.find((filter) => filter.field === 'window')?.value
+      if (windowFilter) params.set('window', windowFilter)
+      const statusFilter = queryParams.filters.find((filter) => filter.field === 'status')?.value
+      if (statusFilter) params.set('status', statusFilter)
+      return `/api/vehicles/pickerl-due?${params.toString()}`
+    },
+  },
+  {
     key: 'vehicles',
     pathPrefix: '/vehicles',
     buildApiUrl: (queryParams) =>

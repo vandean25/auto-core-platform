@@ -102,12 +102,21 @@ export class VehicleService {
     );
 
     const today = new Date();
-    const maxWindowDays = query.window || 90;
-    const maxWindowMs = maxWindowDays * 24 * 60 * 60 * 1000;
-    const futureDate = new Date(today.getTime() + maxWindowMs);
-    const futureYear = futureDate.getFullYear();
-    const futureMonth = futureDate.getMonth() + 1; // 1-12
-    const futureThreshold = `${futureYear}-${futureMonth.toString().padStart(2, '0')}`;
+    // UTC dates for computing Pickerl thresholds
+    const todayYear = today.getUTCFullYear();
+    const todayMonth = today.getUTCMonth() + 1;
+
+    let futureThreshold = '';
+
+    if (query.window) {
+      const maxWindowDays = query.window;
+      const futureDate = new Date(
+        Date.UTC(todayYear, todayMonth - 1, today.getUTCDate() + maxWindowDays),
+      );
+      const futureYear = futureDate.getUTCFullYear();
+      const futureMonth = futureDate.getUTCMonth() + 1; // 1-12
+      futureThreshold = `${futureYear}-${futureMonth.toString().padStart(2, '0')}`;
+    }
 
     const results = (projected || [])
       .map((v) => attachPickerlDue(v, today))
@@ -117,14 +126,17 @@ export class VehicleService {
           return false;
         }
 
-        // Filter by window if provided (for DUE_SOON and OK, check if due_month is within window)
-        // If due_month is null, we can't filter by window. If it's OVERDUE, it's always included.
+        // Filter by window if provided
         if (query.window) {
+          // OVERDUE is always included when filtering by any window
           if (v.pickerl_due.status === 'OVERDUE') return true;
+
           if (!v.pickerl_due.due_month) {
-            // For UNKNOWN, we might want to exclude them if a strict window is set,
+            // If there's no due_month, we keep it only if the requested status is UNKNOWN
             return query.status === 'UNKNOWN';
           }
+
+          // if due_month is greater than the window threshold, it falls outside the requested window
           if (v.pickerl_due.due_month > futureThreshold) return false;
         }
 
@@ -161,7 +173,7 @@ export class VehicleService {
         total: allData.length,
         page,
         pageSize,
-        totalPages: Math.ceil(allData.length / pageSize),
+        pageCount: Math.ceil(allData.length / pageSize),
       },
     };
   }
@@ -169,18 +181,36 @@ export class VehicleService {
   async exportPickerlDueCsv(query: PickerlDueListExportQueryDto) {
     const allData = await this.getPickerlDueData(query);
 
-    const header = 'plate,vehicle,customer,due_month,status,phone,email';
+    const header =
+      'plate,vehicle,customer,due_month,status,last_inspected_on,phone,email';
     const lines = allData.map((row) => {
       const vehicleName = `${row.make} ${row.model}`;
-      const customerName = row.customer
-        ? `${row.customer.first_name} ${row.customer.last_name}`.trim()
+
+      const customer = row.customer;
+      let customerName = '';
+      if (customer) {
+        if (customer.company_name) {
+          customerName = customer.company_name;
+        } else {
+          customerName = `${customer.first_name} ${customer.last_name}`.trim();
+        }
+      }
+
+      const records = row as unknown as {
+        inspection_records?: { inspected_on?: Date }[];
+      };
+      const lastInspectionDate = records.inspection_records?.[0]?.inspected_on;
+      const lastInspectionStr = lastInspectionDate
+        ? lastInspectionDate.toISOString().split('T')[0]
         : '';
+
       return [
         csvEscape(row.plate),
         csvEscape(vehicleName),
         csvEscape(customerName),
         csvEscape(row.pickerl_due.due_month),
         csvEscape(row.pickerl_due.status),
+        csvEscape(lastInspectionStr),
         csvEscape(row.customer?.phone),
         csvEscape(row.customer?.email),
       ].join(',');

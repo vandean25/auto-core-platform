@@ -15,7 +15,6 @@ import { triggerBlobDownload } from '@/lib/download'
 import { fetchWithAuth } from '@/api/client'
 import { RecordPickerlDialog } from '@/components/vehicles/RecordPickerlDialog'
 
-import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 type PickerlDueRow = {
   id: string
   plate: string
@@ -29,19 +28,34 @@ type PickerlDueRow = {
 }
 
 type QueryParamsType = {
-  window?: number
+  window?: 30 | 60 | 90
   status?: string
-} & Record<string, unknown>
+  page?: number
+  pageSize?: number
+}
 
 export default function PickerlDueList() {
   const navigate = useNavigate()
-  const { queryParams: _queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
-  const queryParams = _queryParams as unknown as QueryParamsType
+  const { queryParams: _queryParams, columnFilters, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
+
+  // Only keep window, status, page, pageSize. No search/sort as not supported.
+  const queryParams: QueryParamsType = {
+    page: _queryParams.page,
+    pageSize: _queryParams.pageSize,
+  }
+
+  const windowFilter = columnFilters.find((f) => f.id === 'window')
+  if (windowFilter?.value) {
+    queryParams.window = Number(windowFilter.value) as 30 | 60 | 90
+  }
+  const statusFilter = columnFilters.find((f) => f.id === 'status')
+  if (statusFilter?.value) {
+    queryParams.status = statusFilter.value as string
+  }
+
   const { data: responseData, isLoading } = usePickerlDueList(queryParams)
 
   const [recordPickerlVehicleId, setRecordPickerlVehicleId] = useState<string | null>(null)
-  const [createOrderOpen, setCreateOrderOpen] = useState(false)
-
   const rows = useMemo<PickerlDueRow[]>(() => {
     const source = responseData?.data ?? []
     return source.map((vehicle) => {
@@ -157,6 +171,7 @@ export default function PickerlDueList() {
         pageCount={responseData?.meta.pageCount ?? 0}
         getRowAccessibleName={(row) => `Vehicle ${row.plate}`}
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
+        columnFilters={columnFilters}
         {...tableState}
       />
 
@@ -166,10 +181,6 @@ export default function PickerlDueList() {
           open={!!recordPickerlVehicleId}
           onOpenChange={(open) => !open && setRecordPickerlVehicleId(null)}
         />
-      )}
-
-      {createOrderOpen && (
-        <WorkshopOrderIntakeDialog open={createOrderOpen} onOpenChange={setCreateOrderOpen} />
       )}
     </div>
   )

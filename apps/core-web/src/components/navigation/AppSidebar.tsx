@@ -80,7 +80,15 @@ const coreModules: SidebarModule[] = [
     icon: Car,
     isVisible: () => true,
     isActive: (pathname) =>
-      pathname.startsWith('/vehicles') && !pathname.startsWith('/vehicles/stock'),
+      pathname.startsWith('/vehicles') && !pathname.startsWith('/vehicles/stock') && !pathname.startsWith('/vehicles/pickerl-due'),
+  },
+  {
+    id: 'pickerl-due',
+    label: 'Pickerl fällig',
+    to: '/vehicles/pickerl-due',
+    icon: Car,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/vehicles/pickerl-due'),
   },
   {
     id: 'vehicle-stock',
