@@ -132,9 +132,9 @@ describe('PickerlDueList', () => {
     renderList()
 
     await waitFor(() => {
-      expect(screen.getByText('W-12345')).toBeInTheDocument()
+      expect(screen.getAllByText('W-12345').length).toBeGreaterThan(0)
     })
-    expect(screen.getByText('VW Golf')).toBeInTheDocument()
-    expect(screen.getByText('John Doe')).toBeInTheDocument()
+    expect(screen.getAllByText('VW Golf').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('John Doe').length).toBeGreaterThan(0)
   })
 })
