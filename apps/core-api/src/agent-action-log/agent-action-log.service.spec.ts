@@ -104,4 +104,47 @@ describe('AgentActionLogService', () => {
       }),
     );
   });
+
+  it('persists FAILED when work throws and then rethrows', async () => {
+    const traceId = '00000000-0000-4000-8000-00000000cc03';
+
+    await expect(
+      TenantContextStorage.run(async () => {
+        TenantContextStorage.setUser({
+          userId: 'user-1',
+          email: 'admin@example.com',
+          tenantId: 'tenant-1',
+          role: 'ADMIN',
+        });
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-1',
+          traceId,
+          source: 'API',
+        });
+
+        return service.record(
+          {
+            actorType: 'AGENT',
+            agentId: 'mcp:test',
+            actionType: 'customer.update',
+            tier: 'AUTO',
+            status: 'EXECUTED',
+            traceId,
+          },
+          async () => {
+            throw new Error('work failed');
+          },
+        );
+      }),
+    ).rejects.toThrow('work failed');
+
+    expect(prisma.agentActionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'FAILED',
+          result_summary_json: { error: 'work failed' },
+        }),
+      }),
+    );
+  });
 });

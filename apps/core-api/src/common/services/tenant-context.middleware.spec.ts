@@ -1,4 +1,5 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { BadRequestException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { TenantContextMiddleware } from './tenant-context.middleware.js';
 import { TenantContextStorage } from './tenant-context.storage.js';
@@ -121,16 +122,27 @@ describe('TenantContextMiddleware', () => {
   });
 
   describe('trace ID propagation', () => {
-    it('reuses an inbound x-trace-id header value', (done) => {
-      const req = buildRequest({ 'x-trace-id': 'client-trace-id-abc' });
+    it('reuses an inbound x-trace-id header value when it is a UUID', (done) => {
+      const traceId = '00000000-0000-4000-8000-00000000abcd';
+      const req = buildRequest({ 'x-trace-id': traceId });
       const { res, headers } = buildResponse();
 
       middleware.use(req, res, () => {
         const meta = TenantContextStorage.getRequestMeta();
-        expect(meta?.traceId).toBe('client-trace-id-abc');
-        expect(headers['x-trace-id']).toBe('client-trace-id-abc');
+        expect(meta?.traceId).toBe(traceId);
+        expect(headers['x-trace-id']).toBe(traceId);
         done();
       });
+    });
+
+    it('rejects a non-UUID x-trace-id before calling next', () => {
+      const req = buildRequest({ 'x-trace-id': 'client-trace-id-abc' });
+      const { res, headers } = buildResponse();
+      const next = jest.fn();
+
+      expect(() => middleware.use(req, res, next)).toThrow(BadRequestException);
+      expect(next).not.toHaveBeenCalled();
+      expect(headers['x-trace-id']).toBeUndefined();
     });
 
     it('generates a UUID trace ID when x-trace-id header is absent', (done) => {

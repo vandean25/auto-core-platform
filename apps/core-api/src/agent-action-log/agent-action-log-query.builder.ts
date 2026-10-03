@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { QueryAgentActionsDto } from './dto/query-agent-actions.dto.js';
 
@@ -24,6 +25,19 @@ export function decodeAgentActionCursor(
   } catch {
     return undefined;
   }
+}
+
+export function parseInclusiveEndDate(endDate: string): Date {
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
+  if (dateOnly.test(endDate)) {
+    return new Date(`${endDate}T23:59:59.999Z`);
+  }
+
+  const parsed = new Date(endDate);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException('endDate must be a valid ISO-8601 date');
+  }
+  return parsed;
 }
 
 export function buildAgentActionWhere(
@@ -53,18 +67,26 @@ export function buildAgentActionWhere(
   if (query.startDate || query.endDate) {
     where.created_at = {};
     if (query.startDate) {
-      where.created_at.gte = new Date(query.startDate);
+      const start = new Date(query.startDate);
+      if (Number.isNaN(start.getTime())) {
+        throw new BadRequestException('startDate must be a valid ISO-8601 date');
+      }
+      where.created_at.gte = start;
     }
     if (query.endDate) {
-      where.created_at.lte = new Date(query.endDate);
+      where.created_at.lte = parseInclusiveEndDate(query.endDate);
     }
   }
 
-  const decoded = query.cursor
-    ? decodeAgentActionCursor(query.cursor)
-    : undefined;
-  if (decoded) {
+  if (query.cursor) {
+    const decoded = decodeAgentActionCursor(query.cursor);
+    if (!decoded) {
+      throw new BadRequestException('cursor is invalid');
+    }
     const createdAt = new Date(decoded.createdAt);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new BadRequestException('cursor is invalid');
+    }
     where.OR = [
       { created_at: { lt: createdAt } },
       {

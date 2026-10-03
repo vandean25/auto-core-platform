@@ -47,14 +47,26 @@ export class AgentActionLogService {
     const tenantId = await this.tenantContext.getTenantId();
     const traceId = parsed.traceId ?? this.requireTraceId();
 
-    const runWork = async (): Promise<T | undefined> => {
-      if (!work) {
-        return undefined;
-      }
-      return runWithAgentAuditTrace(traceId, work);
-    };
+    let workResult: T | undefined;
+    let workError: unknown;
 
-    const workResult = await runWork();
+    if (work) {
+      try {
+        workResult = await runWithAgentAuditTrace(traceId, work);
+      } catch (error) {
+        workError = error;
+      }
+    }
+
+    const status = workError ? 'FAILED' : parsed.status;
+    const resultForSummary = workError
+      ? {
+          error:
+            workError instanceof Error
+              ? workError.message
+              : String(workError),
+        }
+      : parsed.resultSummary;
 
     const created = await this.prisma.agentActionLog.create({
       data: {
@@ -66,12 +78,12 @@ export class AgentActionLogService {
         on_behalf_of_user_id: parsed.onBehalfOfUserId ?? null,
         action_type: parsed.actionType,
         tier: parsed.tier,
-        status: parsed.status,
+        status,
         input_summary_json: redactAgentActionSummary(
           parsed.inputSummary,
         ) as Prisma.InputJsonValue,
         result_summary_json: redactAgentActionSummary(
-          workResult ?? parsed.resultSummary,
+          resultForSummary,
         ) as Prisma.InputJsonValue,
         entity_type: parsed.entityType ?? null,
         entity_id: parsed.entityId ?? null,
@@ -79,6 +91,10 @@ export class AgentActionLogService {
         reverted_by_log_id: parsed.revertedByLogId ?? null,
       },
     });
+
+    if (workError) {
+      throw workError;
+    }
 
     return { id: created.id, traceId, workResult };
   }
