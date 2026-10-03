@@ -36,11 +36,13 @@ test.describe('Workshop Orders list', () => {
 
 
     await corePage.navigate('/workshop/orders')
+    await expect(corePage.dataTable).toBeVisible()
     await expectNoCriticalA11yViolations(page);
     await corePage.openRowDetails('WO-2026-0221')
 
     await page.waitForURL(`/workshop/orders/${order.id}`)
     await page.waitForLoadState('networkidle')
+    await expect(page.getByRole('heading', { name: order.order_number })).toBeVisible()
     await expectNoCriticalA11yViolations(page);
   })
 
