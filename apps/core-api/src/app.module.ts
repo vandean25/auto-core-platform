@@ -51,6 +51,7 @@ import { LoanerVehiclesModule } from './loaner-vehicles/loaner-vehicles.module.j
 import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
+import { McpModule } from './mcp/mcp.module.js';
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
     ImportModule,
     TyreStorageModule,
     AgentPolicyModule,
+    McpModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

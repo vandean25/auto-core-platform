@@ -11,6 +11,6 @@ import { AtpService } from './atp.service.js';
   imports: [PrismaModule],
   controllers: [InventoryController, LocationController],
   providers: [InventoryService, LedgerService, LocationService, AtpService],
-  exports: [LedgerService, LocationService, AtpService],
+  exports: [LedgerService, LocationService, AtpService, InventoryService],
 })
 export class InventoryModule {}

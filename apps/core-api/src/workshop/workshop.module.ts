@@ -53,6 +53,6 @@ import { WorkshopPlannerController } from './workshop-planner.controller.js';
     WorkshopScheduleService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
-  exports: [WorkshopSettingsService],
+  exports: [WorkshopSettingsService, WorkshopIntakeService],
 })
 export class WorkshopModule {}

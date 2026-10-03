@@ -42,6 +42,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'OBSERVE_APP_KEY',
   'OBSERVE_APP_SECRET',
   'OBSERVE_SERVICE_ID',
+  'MCP_SERVER_ENABLED',
 ] as const;
 
 export type DocumentedEnvKey = (typeof DOCUMENTED_ENV_KEYS)[number];
@@ -120,6 +121,9 @@ const envSchema = z
     OBSERVE_APP_KEY: optionalString,
     OBSERVE_APP_SECRET: optionalString,
     OBSERVE_SERVICE_ID: optionalString,
+    MCP_SERVER_ENABLED: optionalBooleanString.transform(
+      (value) => value === 'true',
+    ),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'test') {
