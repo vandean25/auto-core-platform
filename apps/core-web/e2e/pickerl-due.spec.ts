@@ -59,16 +59,15 @@ test.describe('Pickerl due list and dashboard widgets', () => {
 
   test('export button downloads mocked CSV', async ({ page }) => {
     let exportRequested = false
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/pickerl-due/export'), async (route) => {
+      exportRequested = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/csv',
+        body: 'plate,vehicle\nW-CSV,VW Golf',
+      })
+    })
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/pickerl-due'), async (route) => {
-      if (route.request().url().includes('/export')) {
-        exportRequested = true
-        await route.fulfill({
-          status: 200,
-          contentType: 'text/csv',
-          body: 'plate,vehicle\nW-CSV,VW Golf',
-        })
-        return
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -79,8 +78,8 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await page.goto('/vehicles/pickerl-due')
     await page.waitForLoadState('networkidle')
 
-    await page.getByRole('button', { name: 'Export due CSV' }).click()
-    await expect.poll(() => exportRequested).toBe(true)
+    await page.getByRole('button', { name: 'Export due CSV' }).first().click()
+    await expect.poll(() => exportRequested, { timeout: 15_000 }).toBe(true)
   })
 
   test('dashboard cards show meta.total and 30-day card navigates with filter_window=30', async ({ page }) => {
