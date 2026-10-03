@@ -69,7 +69,9 @@ export function buildAgentActionWhere(
     if (query.startDate) {
       const start = new Date(query.startDate);
       if (Number.isNaN(start.getTime())) {
-        throw new BadRequestException('startDate must be a valid ISO-8601 date');
+        throw new BadRequestException(
+          'startDate must be a valid ISO-8601 date',
+        );
       }
       where.created_at.gte = start;
     }

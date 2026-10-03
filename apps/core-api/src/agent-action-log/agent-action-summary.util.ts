@@ -15,9 +15,7 @@ const normalizeFieldName = (fieldName: string): string =>
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
-function redactAgentSummarySecretKeys(
-  value: AuditJsonValue,
-): AuditJsonValue {
+function redactAgentSummarySecretKeys(value: AuditJsonValue): AuditJsonValue {
   if (Array.isArray(value)) {
     return value.map((entry) => redactAgentSummarySecretKeys(entry));
   }
@@ -32,7 +30,7 @@ function redactAgentSummarySecretKeys(
       redacted[key] = REDACTED_VALUE;
       continue;
     }
-    redacted[key] = redactAgentSummarySecretKeys(nested as AuditJsonValue);
+    redacted[key] = redactAgentSummarySecretKeys(nested);
   }
   return redacted;
 }
