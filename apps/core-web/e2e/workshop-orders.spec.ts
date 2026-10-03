@@ -26,11 +26,22 @@ test.describe('Workshop Orders list', () => {
       })
     })
 
-    await expectNoCriticalA11yViolations(page);
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${order.id}`), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(order),
+      })
+    })
+
+
     await corePage.navigate('/workshop/orders')
-    await corePage.openRowDetails('WO-2026-0221')
     await expectNoCriticalA11yViolations(page);
+    await corePage.openRowDetails('WO-2026-0221')
+
     await page.waitForURL(`/workshop/orders/${order.id}`)
+    await page.waitForLoadState('networkidle')
+    await expectNoCriticalA11yViolations(page);
   })
 
   test('opens the workshop order detail when the row link is activated with keyboard', async ({
