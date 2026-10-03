@@ -511,6 +511,10 @@ export async function cleanupTestTenantGraph(
   await cleanupTestUsers(prisma, userIds);
 
   await prisma.$executeRawUnsafe(
+    `DELETE FROM agent_policy_rules WHERE tenant_id = $1`,
+    tenantId,
+  );
+  await prisma.$executeRawUnsafe(
     `DELETE FROM agent_action_logs WHERE tenant_id = $1`,
     tenantId,
   );
