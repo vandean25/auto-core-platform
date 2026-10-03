@@ -49,6 +49,7 @@ import { AppObservabilityModule } from './common/observability/observability.mod
 import { LoanerVehiclesModule } from './loaner-vehicles/loaner-vehicles.module.js';
 import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
+import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
     DocumentBrandingModule,
     ImportModule,
     TyreStorageModule,
+    AgentPolicyModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

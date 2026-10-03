@@ -1,8 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import { AuditActorType, AuditLogAction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { QueryAuditLogsDto, AuditLogListResponseDto } from './dto/index.js';
 import { AuditQueryBuilder } from './audit-query.builder.js';
+
+export type RecordTenantAuditParams = {
+  entityType: string;
+  entityId: string;
+  action: AuditLogAction;
+  actorUserId?: string | null;
+  source?: string | null;
+  before?: unknown;
+  after?: unknown;
+  diff?: unknown;
+};
 
 @Injectable()
 export class AuditService {
@@ -31,5 +43,33 @@ export class AuditService {
     ]);
 
     return AuditQueryBuilder.buildPaginatedResponse(records, total, pagination);
+  }
+
+  async recordTenantMutation(params: RecordTenantAuditParams): Promise<void> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const authUser = this.tenantContext.getAuthenticatedUser();
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenant_id: tenantId,
+        entity_type: params.entityType,
+        entity_id: params.entityId,
+        action: params.action,
+        actor_user_id: params.actorUserId ?? null,
+        actor_email: authUser?.email ?? null,
+        actor_role: authUser?.role ?? null,
+        actor_type: AuditActorType.USER,
+        source: params.source ?? null,
+        before: params.before
+          ? (params.before as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        after: params.after
+          ? (params.after as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        diff: params.diff
+          ? (params.diff as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+      },
+    });
   }
 }
