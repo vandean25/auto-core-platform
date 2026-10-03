@@ -17,7 +17,8 @@
   --color-secondary: hsl(210 40% 96.1%);
   --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
   --color-muted: hsl(210 40% 96.1%);
-  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  /* Slightly darker than legacy shadcn default for 4.5:1 on slate-100 / muted surfaces */
+  --color-muted-foreground: hsl(215.4 16.3% 41%);
   --color-accent: hsl(210 40% 96.1%);
   --color-accent-foreground: hsl(222.2 47.4% 11.2%);
   --color-destructive: hsl(0 84.2% 60.2%);
@@ -30,6 +31,9 @@
 
   /* Main page content width — wider than legacy max-w-7xl (80rem) for list/detail views */
   --container-page: 96rem;
+
+  /* Default slate-500 is ~4.34:1 on slate-100; align with slate-600 for WCAG AA body copy */
+  --color-slate-500: var(--color-slate-600);
 }
 
 @layer base {
@@ -41,4 +45,5 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+
 }

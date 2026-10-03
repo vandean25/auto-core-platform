@@ -93,7 +93,7 @@ function ReadOnlyCurrentSite({
   return (
     <section className="px-3 pt-3">
       <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
           Current Site
         </p>
         <div className="mt-2 flex items-center gap-2 text-sm text-slate-200">
@@ -244,7 +244,7 @@ export function SiteSwitcher({
           )
         ) : (
           <>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
               Current Site
             </p>
             <div className="mt-2 flex items-center gap-2">

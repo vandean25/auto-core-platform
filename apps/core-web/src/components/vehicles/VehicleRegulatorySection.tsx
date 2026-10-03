@@ -129,7 +129,10 @@ export function VehicleRegulatorySection({
               onChange({ nova_class: (next || null) as VehicleNovaClass | null })
             }
           >
-            <SelectTrigger className="h-9">
+            <SelectTrigger
+              className="h-9"
+              aria-label={bilingualLabel(VEHICLE_REGULATORY_FIELDS.novaClass)}
+            >
               <SelectValue placeholder={bilingualLabel({ en: 'Select', de: 'Auswählen' })} />
             </SelectTrigger>
             <SelectContent>

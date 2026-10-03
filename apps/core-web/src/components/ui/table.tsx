@@ -6,7 +6,13 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement> & { fixed?: boolean }
 >(({ className, fixed = false, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  <div
+    role="region"
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scroll container must be focusable
+    tabIndex={0}
+    aria-label="Scrollable table"
+    className="relative w-full overflow-auto"
+  >
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", fixed && "table-fixed", className)}

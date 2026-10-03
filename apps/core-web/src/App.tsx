@@ -93,7 +93,7 @@ export function AppRoutes() {
   return (
     <LayoutGroup id="app-routes">
       <React.Suspense fallback={<PageLoader />}>
-        <AnimatePresence initial={false}>
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0 }}
@@ -319,7 +319,7 @@ function MechanicRoutes() {
   return (
     <LayoutGroup id="mechanic-routes">
       <React.Suspense fallback={<PageLoader />}>
-        <AnimatePresence initial={false}>
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0 }}

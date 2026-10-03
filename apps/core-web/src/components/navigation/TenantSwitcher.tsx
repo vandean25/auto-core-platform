@@ -53,7 +53,7 @@ export function TenantSwitcher({
             <Building2 className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Current Tenant</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Current Tenant</p>
             <p className="truncate text-sm font-semibold text-white">{activeTenant.name}</p>
             <p className="truncate text-xs text-slate-400">{activeTenant.slug}</p>
           </div>
@@ -66,7 +66,7 @@ export function TenantSwitcher({
 
         {switchableMemberships.length > 0 ? (
           <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Switch Tenant</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Switch Tenant</p>
             <div className="space-y-2">
               {switchableMemberships.map((membership) => (
                 <Button
