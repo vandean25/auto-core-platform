@@ -12,6 +12,12 @@ import {
 } from '../document-branding/decorative-text-layout.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import type { InvoiceSnapshotV2Seller } from './invoice-snapshot-v2.js';
+import { resolveMarginSchemeLegalNote } from './margin-scheme-legal-notes.js';
+
+export {
+  MARGIN_SCHEME_LEGAL_NOTES,
+  resolveMarginSchemeLegalNote,
+} from './margin-scheme-legal-notes.js';
 
 export type { EscapeHtml };
 export type FormatDate = (value: string | Date) => string;
@@ -145,18 +151,6 @@ const buildLineDiscountLabel = (
 
   return `Rabatt ${item.line_discount_value}`;
 };
-
-export const MARGIN_SCHEME_LEGAL_NOTES = {
-  AT: 'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).',
-  DE: 'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).',
-} as const;
-
-export const resolveMarginSchemeLegalNote = (
-  countryIso: 'AT' | 'DE' | undefined,
-): string =>
-  countryIso === 'AT'
-    ? MARGIN_SCHEME_LEGAL_NOTES.AT
-    : MARGIN_SCHEME_LEGAL_NOTES.DE;
 
 export const buildInvoiceTaxBreakdownSection = (
   snapshot: InvoiceSnapshot,

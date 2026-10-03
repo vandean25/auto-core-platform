@@ -83,12 +83,31 @@ describe('InvoicePdfRenderer', () => {
     await renderer.render({
       ...createSnapshot(),
       tax_mode: 'MARGIN_SCHEME',
+      total_tax: '0.00',
+      seller: {
+        name: 'Example GmbH',
+        country_iso: 'DE',
+        address_street: 'Hauptstraße 1',
+        address_line2: null,
+        address_zip: '10115',
+        address_city: 'Berlin',
+        tax_number: '27/123/45678',
+        vat_id: 'DE123456789',
+        iban: null,
+        bic: null,
+        bank_name: null,
+        email: null,
+        phone: null,
+        registration_number: null,
+        registration_court: null,
+        representatives: null,
+      },
     });
 
     const html = page.setContent.mock.calls[0][0] as string;
-    expect(html).toContain(
-      'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).',
-    );
+    expect(html).toContain('§ 25a UStG');
+    expect(html).toContain('Gebrauchtgegenstände/Sonderregelung');
+    expect(html).not.toContain('§ 24 UStG');
     expect(html).not.toContain('<span>Tax:</span>');
     expect(html).not.toContain('<span>Net:</span>');
   });

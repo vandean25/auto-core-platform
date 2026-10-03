@@ -1,5 +1,9 @@
+import { resolveInvoiceMarginSchemeLegalNote } from './invoice-margin-scheme-legal-note.helpers.js';
+
 type InvoiceResponseWithPrivateFields = {
   snapshot: unknown;
+  tax_mode?: import('@prisma/client').InvoiceTaxMode | null;
+  legal_entity?: { country_iso: string } | null;
   pdf_archive_bucket?: unknown;
   pdf_archive_key?: unknown;
   pdf_archive_generation?: unknown;
@@ -10,6 +14,7 @@ type InvoiceResponseWithPrivateFields = {
 
 type PrivateInvoiceResponseField =
   | 'snapshot'
+  | 'legal_entity'
   | 'pdf_archive_bucket'
   | 'pdf_archive_key'
   | 'pdf_archive_generation'
@@ -22,6 +27,7 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
 ): Omit<T, PrivateInvoiceResponseField> {
   const {
     snapshot: _snapshot,
+    legal_entity: _legalEntity,
     pdf_archive_bucket: _pdfArchiveBucket,
     pdf_archive_key: _pdfArchiveKey,
     pdf_archive_generation: _pdfArchiveGeneration,
@@ -32,6 +38,7 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
   } = invoice;
   void [
     _snapshot,
+    _legalEntity,
     _pdfArchiveBucket,
     _pdfArchiveKey,
     _pdfArchiveGeneration,
@@ -39,5 +46,18 @@ export function omitInvoiceSnapshot<T extends InvoiceResponseWithPrivateFields>(
     _pdfStorageBucket,
     _pdfStorageKey,
   ];
-  return response;
+
+  const marginSchemeLegalNote = resolveInvoiceMarginSchemeLegalNote({
+    tax_mode: response.tax_mode,
+    snapshot: _snapshot,
+  });
+
+  if (!marginSchemeLegalNote) {
+    return response;
+  }
+
+  return {
+    ...response,
+    margin_scheme_legal_note: marginSchemeLegalNote,
+  };
 }
