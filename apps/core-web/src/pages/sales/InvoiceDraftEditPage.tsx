@@ -109,7 +109,7 @@ export default function InvoiceDraftEditPage() {
         })
       : null
     hydratedRef.current = true
-  }, [invoice, editor])
+  }, [invoice, editor.hydrateFromSnapshot])
 
   const [partSearchOpen, setPartSearchOpen] = React.useState(false)
   const [activeRowIndex, setActiveRowIndex] = React.useState<number | null>(null)

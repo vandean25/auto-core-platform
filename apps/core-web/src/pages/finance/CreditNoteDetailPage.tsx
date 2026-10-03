@@ -91,7 +91,7 @@ export default function CreditNoteDetailPage() {
       })),
     )
     lastSavedRef.current = null
-  }, [creditNote, creditNoteId, creditNoteStatus])
+  }, [creditNoteId, creditNoteStatus])
 
   const isDraft = creditNote?.status === 'DRAFT'
   const canEditDraft = isDraft && canManageCreditNote

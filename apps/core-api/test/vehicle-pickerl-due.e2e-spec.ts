@@ -164,7 +164,7 @@ describe('Pickerl Due (e2e)', () => {
       // 8. Other tenant
       const otherTenant = await basePrisma.tenant.create({
         data: {
-          name: 'Other', slug: 'other-1', is_active: true,
+          name: 'Other', slug: 'other-1', is_active: true, schema_version: 1, timezone: 'UTC',
         }
       });
       const v8 = await basePrisma.vehicle.create({
