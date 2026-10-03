@@ -10584,6 +10584,101 @@
           "tyre-sets"
         ]
       }
+    },
+    "/api/agent-policy/rules": {
+      "get": {
+        "operationId": "AgentPolicyController_listRules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyRuleListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List effective agent policy rules (OWNER/ADMIN)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-policy/rules/{actionType}": {
+      "put": {
+        "operationId": "AgentPolicyController_upsertRule",
+        "parameters": [
+          {
+            "name": "actionType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertAgentPolicyRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new tenant policy rule version (OWNER/ADMIN)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-policy/evaluate": {
+      "post": {
+        "operationId": "AgentPolicyController_evaluate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPolicyEvaluateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyEvaluationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Evaluate policy tier for an action (OWNER/ADMIN, dry-run)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
     }
   },
   "info": {
@@ -22918,6 +23013,178 @@
             "format": "date-time"
           }
         }
+      },
+      "AgentPolicyConditionsDto": {
+        "type": "object",
+        "properties": {
+          "amount_max": {
+            "type": "number",
+            "nullable": true
+          },
+          "customer_facing": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "affects_legal_document": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentPolicyRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "tenant"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action_type",
+          "tier",
+          "conditions",
+          "enabled",
+          "version",
+          "source",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AgentPolicyRuleListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UpsertAgentPolicyRuleDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "AgentPolicyEvaluateContextDto": {
+        "type": "object",
+        "properties": {
+          "amount_eur": {
+            "type": "number"
+          },
+          "customer_facing": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "affects_legal_document": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentPolicyEvaluateRequestDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "context": {
+            "$ref": "#/components/schemas/AgentPolicyEvaluateContextDto"
+          }
+        },
+        "required": [
+          "action_type"
+        ]
+      },
+      "AgentPolicyEvaluationResponseDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rule_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "rule_version": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "tier",
+          "reasons",
+          "rule_id",
+          "rule_version"
+        ]
       }
     }
   },

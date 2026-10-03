@@ -9,6 +9,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - laborEntry: MechanicSchedulerService nightly cross-tenant close only
  * - financeSettings: PlatformAdminService tenant-provisioning bootstrap only
  * - attendanceEvent: HrAttendanceSchedulerService nightly close only
+ * - agentPolicyRule: AgentPolicyService platform-default rows (tenant_id null)
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -18,6 +19,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'laborEntry',
   'financeSettings',
   'attendanceEvent',
+  'agentPolicyRule',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -72,5 +74,6 @@ export function createSystemPrismaTransactionClient(
     laborEntry: client.laborEntry,
     financeSettings: client.financeSettings,
     attendanceEvent: client.attendanceEvent,
+    agentPolicyRule: client.agentPolicyRule,
   };
 }

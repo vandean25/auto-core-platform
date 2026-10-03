@@ -3247,6 +3247,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent-policy/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List effective agent policy rules (OWNER/ADMIN) */
+        get: operations["AgentPolicyController_listRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/rules/{actionType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Create a new tenant policy rule version (OWNER/ADMIN) */
+        put: operations["AgentPolicyController_upsertRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluate policy tier for an action (OWNER/ADMIN, dry-run) */
+        post: operations["AgentPolicyController_evaluate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6869,6 +6920,53 @@ export interface components {
             employeeId?: string;
             /** Format: date-time */
             occurredAt?: string;
+        };
+        AgentPolicyConditionsDto: {
+            amount_max?: number | null;
+            customer_facing?: boolean;
+            reversible?: boolean;
+            affects_legal_document?: boolean;
+        };
+        AgentPolicyRuleResponseDto: {
+            id: string;
+            action_type: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            conditions: components["schemas"]["AgentPolicyConditionsDto"];
+            enabled: boolean;
+            version: number;
+            /** @enum {string} */
+            source: "platform" | "tenant";
+            created_at: string;
+            updated_at: string;
+        };
+        AgentPolicyRuleListResponseDto: {
+            data: components["schemas"]["AgentPolicyRuleResponseDto"][];
+        };
+        UpsertAgentPolicyRuleDto: {
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            conditions?: components["schemas"]["AgentPolicyConditionsDto"];
+            /** @default true */
+            enabled: boolean;
+        };
+        AgentPolicyEvaluateContextDto: {
+            amount_eur?: number;
+            customer_facing?: boolean;
+            reversible?: boolean;
+            affects_legal_document?: boolean;
+        };
+        AgentPolicyEvaluateRequestDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            context?: components["schemas"]["AgentPolicyEvaluateContextDto"];
+        };
+        AgentPolicyEvaluationResponseDto: {
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            reasons: string[];
+            rule_id: Record<string, never> | null;
+            rule_version: Record<string, never> | null;
         };
     };
     responses: never;
@@ -13606,6 +13704,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyRuleListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_upsertRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                actionType: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAgentPolicyRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyRuleResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_evaluate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPolicyEvaluateRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyEvaluationResponseDto"];
                 };
             };
         };

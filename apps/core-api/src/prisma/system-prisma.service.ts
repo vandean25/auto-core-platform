@@ -80,6 +80,10 @@ export class SystemPrismaService
     return this.prisma.attendanceEvent;
   }
 
+  get agentPolicyRule(): PrismaClient['agentPolicyRule'] {
+    return this.prisma.agentPolicyRule;
+  }
+
   $transaction<Result>(
     fn: (transaction: SystemPrismaTransactionClient) => Promise<Result>,
     options?: Parameters<SystemPrismaClient['$transaction']>[1],

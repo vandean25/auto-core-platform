@@ -23,6 +23,7 @@ Calling it on a tenant model (for example `systemPrisma.customer`) silently bypa
 | `laborEntry` | Mechanic scheduler nightly cross-tenant close only |
 | `financeSettings` | Platform-admin new-tenant bootstrap only |
 | `attendanceEvent` | HR attendance scheduler nightly close only |
+| `agentPolicyRule` | Agent policy platform-default rows (`tenant_id` null) only |
 
 Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELEGATES` **and** documented here with an explicit caller.
 
@@ -37,5 +38,6 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 | `PlatformAdminService` | `tenant`, `financeSettings` (create-tenant transaction) |
 | `MechanicSchedulerService` | `laborEntry` |
 | `HrAttendanceSchedulerService` | `attendanceEvent` |
+| `AgentPolicyService` | `agentPolicyRule` (read platform defaults only) |
 
 Do not inject `SystemPrismaService` into feature modules (customers, workshop, inventory, …). Use `PrismaService`.
