@@ -15,8 +15,10 @@ import {
 const LONG_INVOICE_ITEM_COUNT = 100;
 const LONG_COURT_TEXT = `Handelsgericht Wien ${'mit ergänzenden Firmenbuchangaben '.repeat(8)}`;
 const LONG_REPRESENTATIVE_TEXT = `Max Mustermann ${'bevollmächtigter Vertreter '.repeat(12)}`;
-const MARGIN_SCHEME_DE_NOTE = 'Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).';
-const MARGIN_SCHEME_AT_NOTE = 'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).';
+const MARGIN_SCHEME_DE_NOTE =
+  'Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.';
+const MARGIN_SCHEME_AT_NOTE =
+  'Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).';
 const LONG_HEADER_VISIBLE_PREFIX = 'Workshop & North Worksh';
 const LONG_FOOTER_TEXT = `Keine Veränderung der Rechnungsdaten. ${'Werkstatt Service '.repeat(12)}`;
 const LONG_FOOTER_VISIBLE_PREFIX = 'Keine Veränderung der Rechnungsdaten. Werkstatt';

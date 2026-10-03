@@ -258,6 +258,27 @@ describe('buildInvoiceSnapshotV2', () => {
     expect(JSON.stringify(snapshot.items)).not.toContain('3000.00');
     expect(JSON.stringify(snapshot.items)).not.toContain('18000.00');
   });
+
+  it('rejects margin-scheme snapshots when seller country is unsupported', () => {
+    expect(() =>
+      buildInvoiceSnapshotV2({
+        invoice: buildInvoice({
+          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
+          total_gross: new Prisma.Decimal('15000.00'),
+        }),
+        seller: { ...seller, country_iso: 'CH' },
+        siteId: 'site-1',
+        legalEntityId: seller.id,
+        lineAllocations: [buildLineAllocation({ id: 'line-margin' })],
+        margin: {
+          cost_basis: '12000.00',
+          margin_tax: '500.00',
+          tax_rate: '20.00',
+          calculation_profile: 'vehicle-margin-v1',
+        },
+      }),
+    ).toThrow();
+  });
 });
 
 describe('isInvoiceSnapshotV2 branding validation', () => {

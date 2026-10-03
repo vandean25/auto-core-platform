@@ -512,10 +512,14 @@ describe('invoice-pdf.layout', () => {
     });
 
     it('renders margin scheme legal notice when tax_mode is MARGIN_SCHEME', () => {
-      const snapshot = createSnapshot();
+      const snapshot = createV2Snapshot();
       snapshot.tax_mode = 'MARGIN_SCHEME';
+      snapshot.total_tax = '0.00';
       const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
-      expect(html).toContain('Differenzbesteuerung gemäß § 24 UStG');
+      expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
+      expect(html).toContain('§ 25a UStG');
+      expect(html).toContain('Gebrauchtgegenstände/Sonderregelung');
+      expect(html).not.toContain('§ 24 UStG');
       expect(html).not.toContain('Net:');
       expect(html).not.toContain('Umsatzsteuer-Aufschlüsselung');
     });
@@ -608,7 +612,10 @@ describe('invoice-pdf.layout', () => {
       const html = buildInvoiceTotalsSection(snapshot!, escapeHtml);
       expect(html).toContain('Brutto:');
       expect(html).toContain('15000.00');
+      expect(html).toContain('§ 25a UStG');
+      expect(html).toContain('Gebrauchtgegenstände/Sonderregelung');
       expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
+      expect(html).not.toContain('§ 24 UStG');
       expect(html).not.toContain('Umsatzsteuer-Aufschlüsselung');
       expect(html).not.toContain('Netto:');
       expect(html).not.toContain('Umsatzsteuer:');
@@ -628,6 +635,8 @@ describe('invoice-pdf.layout', () => {
 
       const html = buildInvoiceTotalsSection(snapshot, escapeHtml);
       expect(html).toContain(MARGIN_SCHEME_LEGAL_NOTES.AT);
+      expect(html).toContain('§ 24 UStG 1994');
+      expect(html).not.toContain('§ 25a');
       expect(html).not.toContain(MARGIN_SCHEME_LEGAL_NOTES.DE);
       expect(html).not.toContain('margin_tax');
       expect(html).not.toContain('cost_basis');
@@ -666,6 +675,11 @@ describe('invoice-pdf.layout', () => {
       expect(resolveMarginSchemeLegalNote('AT')).toBe(
         MARGIN_SCHEME_LEGAL_NOTES.AT,
       );
+    });
+
+    it('throws for unsupported seller countries', () => {
+      expect(() => resolveMarginSchemeLegalNote(undefined)).toThrow();
+      expect(() => resolveMarginSchemeLegalNote('CH')).toThrow();
     });
   });
 

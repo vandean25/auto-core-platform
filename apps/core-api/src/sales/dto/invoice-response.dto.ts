@@ -119,4 +119,13 @@ export class InvoiceResponseDto {
 
   @ApiProperty({ type: [InvoiceItemResponseDto] })
   items!: InvoiceItemResponseDto[];
+
+  @ApiProperty({
+    type: String,
+    required: false,
+    nullable: true,
+    description:
+      'Country-specific margin-scheme legal notice for on-screen invoice display.',
+  })
+  margin_scheme_legal_note?: string | null;
 }

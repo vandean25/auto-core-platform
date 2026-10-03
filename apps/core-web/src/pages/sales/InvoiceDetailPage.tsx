@@ -487,9 +487,11 @@ export default function InvoiceDetailPage() {
                       <span>Total</span>
                       <span>{formatCurrency(Number(invoice.total_gross))}</span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Differenzbesteuerung gemäß § 24 UStG (Gebrauchtgegenstände).
-                    </p>
+                    {invoice.margin_scheme_legal_note ? (
+                      <p className="text-xs text-slate-500">
+                        {invoice.margin_scheme_legal_note}
+                      </p>
+                    ) : null}
                   </>
                 ) : (
                   <>

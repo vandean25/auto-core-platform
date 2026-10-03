@@ -10,6 +10,7 @@ import {
   type Vehicle,
 } from '@prisma/client';
 import type { ResolvedAccountingAllocation } from '../finance/accounting-profile/accounting-profile.types.js';
+import { assertMarginSchemeSellerCountrySupported } from './margin-scheme-legal-notes.js';
 
 export const INVOICE_SNAPSHOT_SCHEMA_VERSION = 2;
 export const INVOICE_SNAPSHOT_TEMPLATE_VERSION = 'invoice-pdf-v1';
@@ -343,6 +344,9 @@ export function buildInvoiceSnapshotV2(
     margin,
     branding,
   } = input;
+  if (invoice.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+    assertMarginSchemeSellerCountrySupported(seller.country_iso);
+  }
   const committedAt = input.committedAt ?? new Date();
   const netByLine = allocateGlobalDiscount(
     lineAllocations,
