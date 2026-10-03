@@ -22,6 +22,7 @@ describe('Pickerl Due (e2e)', () => {
   let tenantId: string;
   let otherTenantId: string;
   let adminToken: string;
+  let techToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -55,6 +56,26 @@ describe('Pickerl Due (e2e)', () => {
       sub: testUser.firebaseUid,
       email: testUser.email,
       role: 'ADMIN',
+    });
+
+    await runWithTenantContext(tenantId, async () => {
+      const techUser = await basePrisma.user.create({
+        data: {
+          firebaseUid: `e2e-tech-pickerl-due-${Date.now()}`,
+          email: `e2e-tech-pickerl-due-${Date.now()}@test.local`,
+        },
+      });
+      await seedTestTenantMember(basePrisma, {
+        tenantId,
+        userId: techUser.id,
+        role: 'TECH',
+      });
+      techToken = authService.createTestToken({
+        sub: techUser.firebaseUid,
+        email: techUser.email,
+        tenantId,
+        role: 'TECH',
+      });
     });
 
     // Seed AUT-380 fixtures
@@ -228,34 +249,61 @@ describe('Pickerl Due (e2e)', () => {
     expect(plates).not.toContain('W-OTHER');
   });
 
-  it('GET /vehicles/pickerl-due filters by window 30 correctly', async () => {
+  it('GET /vehicles/pickerl-due filters by window 30 with exact plate set', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/vehicles/pickerl-due?window=30')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const plates = res.body.data.map(v => v.plate);
-    expect(plates).toContain('W-OVERDUE'); // Always included
-    expect(plates).toContain('W-DUE30');
-    expect(plates).not.toContain('W-DUE60');
-    expect(plates).not.toContain('W-DUE90');
-    expect(plates).not.toContain('W-OK');
-    expect(plates).not.toContain('W-UNKNOWN');
+    const plates = res.body.data.map((v: { plate: string }) => v.plate);
+    expect([...plates].sort()).toEqual(['W-DUE30', 'W-OVERDUE'].sort());
   });
 
-  it('GET /vehicles/pickerl-due filters by window 90 correctly', async () => {
+  it('GET /vehicles/pickerl-due filters by window 60 with exact plate set', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?window=60')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const plates = res.body.data.map((v: { plate: string }) => v.plate);
+    expect([...plates].sort()).toEqual(
+      ['W-DUE30', 'W-DUE60', 'W-OVERDUE'].sort(),
+    );
+  });
+
+  it('GET /vehicles/pickerl-due filters by window 90 with exact plate set', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/vehicles/pickerl-due?window=90')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    const plates = res.body.data.map(v => v.plate);
-    expect(plates).toContain('W-OVERDUE'); // Always included
-    expect(plates).toContain('W-DUE30');
-    expect(plates).toContain('W-DUE60');
-    expect(plates).toContain('W-DUE90');
-    expect(plates).not.toContain('W-OK');
-    expect(plates).not.toContain('W-UNKNOWN');
+    const plates = res.body.data.map((v: { plate: string }) => v.plate);
+    expect([...plates].sort()).toEqual(
+      ['W-DUE30', 'W-DUE60', 'W-DUE90', 'W-OVERDUE'].sort(),
+    );
+  });
+
+  it('GET /vehicles/pickerl-due?status=UNKNOWN returns only unknown vehicles', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?status=UNKNOWN')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    const plates = res.body.data.map((v: { plate: string }) => v.plate);
+    expect(plates).toEqual(['W-UNKNOWN']);
+  });
+
+  it('GET /vehicles/pickerl-due returns 401 without a token', async () => {
+    await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due')
+      .expect(401);
+  });
+
+  it('GET /vehicles/pickerl-due returns 403 for TECH role', async () => {
+    await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due')
+      .set('Authorization', `Bearer ${techToken}`)
+      .expect(403);
   });
 
   it('GET /vehicles/pickerl-due/export returns CSV without formulas', async () => {

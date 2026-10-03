@@ -66,28 +66,76 @@ export class VehicleService {
     const tenantId = await this.tenantContext.getTenantId();
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
 
-    // We fetch all customer vehicles and their latest inspection record
+    const today = new Date();
+    const todayYear = today.getUTCFullYear();
+    const todayMonth = today.getUTCMonth() + 1;
+
+    const windowEndDate = query.window
+      ? new Date(
+          Date.UTC(
+            todayYear,
+            todayMonth - 1,
+            today.getUTCDate() + query.window,
+            23,
+            59,
+            59,
+            999,
+          ),
+        )
+      : null;
+
+    const validUntilOnOrBeforeMonth = (year: number, month: number) => ({
+      OR: [
+        { plaketten_valid_until_year: { lt: year } },
+        {
+          AND: [
+            { plaketten_valid_until_year: year },
+            { plaketten_valid_until_month: { lte: month } },
+          ],
+        },
+      ],
+    });
+
+    const validUntilBeforeCurrentMonth = {
+      OR: [
+        { plaketten_valid_until_year: { lt: todayYear } },
+        {
+          AND: [
+            { plaketten_valid_until_year: todayYear },
+            { plaketten_valid_until_month: { lt: todayMonth } },
+          ],
+        },
+      ],
+    };
+
+    const customerVehicleWhere: Prisma.VehicleWhereInput = {
+      tenant_id: tenantId,
+      inventory_role: 'CUSTOMER',
+    };
+
+    if (query.window && windowEndDate) {
+      const windowEndYear = windowEndDate.getUTCFullYear();
+      const windowEndMonth = windowEndDate.getUTCMonth() + 1;
+      const orBranches: Prisma.VehicleWhereInput[] = [
+        {
+          inspection_records: {
+            some: validUntilBeforeCurrentMonth,
+          },
+        },
+        {
+          inspection_records: {
+            some: validUntilOnOrBeforeMonth(windowEndYear, windowEndMonth),
+          },
+        },
+      ];
+      if (query.status === 'UNKNOWN') {
+        orBranches.push({ inspection_records: { none: {} } });
+      }
+      customerVehicleWhere.OR = orBranches;
+    }
+
     const vehicles = await this.prisma.vehicle.findMany({
-      where: {
-        tenant_id: tenantId,
-        inventory_role: 'CUSTOMER',
-        // Approximate pre-filter using the index to skip vehicles definitely not due
-        // We look for ones where the valid_until_year is <= next year, or no records exist.
-        OR: [
-          {
-            inspection_records: {
-              some: {
-                plaketten_valid_until_year: {
-                  lte: new Date().getFullYear() + 1,
-                },
-              },
-            },
-          },
-          {
-            inspection_records: { none: {} },
-          },
-        ],
-      },
+      where: customerVehicleWhere,
       include: {
         customer: true,
         inspection_records: {
@@ -105,25 +153,6 @@ export class VehicleService {
       vehicles.map(stripVehicleIdentityResolutionState),
       authorizedSiteIds,
     );
-
-    const today = new Date();
-    // UTC dates for computing Pickerl thresholds
-    const todayYear = today.getUTCFullYear();
-    const todayMonth = today.getUTCMonth() + 1;
-
-    const windowEndDate = query.window
-      ? new Date(
-          Date.UTC(
-            todayYear,
-            todayMonth - 1,
-            today.getUTCDate() + query.window,
-            23,
-            59,
-            59,
-            999,
-          ),
-        )
-      : null;
 
     const results = (projected || [])
       .map((v) => attachPickerlDue(v, today))

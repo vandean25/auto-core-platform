@@ -91,7 +91,10 @@ export default function CreditNoteDetailPage() {
       })),
     )
     lastSavedRef.current = null
-  }, [creditNote, creditNoteId, creditNoteStatus])
+  // Draft fields reset only when the note id or status changes.
+  // A refetch of the same draft must not discard unsaved edits.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional id/status-only reset
+  }, [creditNoteId, creditNoteStatus])
 
   const isDraft = creditNote?.status === 'DRAFT'
   const canEditDraft = isDraft && canManageCreditNote
