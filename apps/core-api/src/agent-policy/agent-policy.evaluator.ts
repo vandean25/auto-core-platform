@@ -45,7 +45,9 @@ function applyContextEscalations(
 ): AgentPolicyTier {
   let tier = baseTier;
 
-  if (context.customer_facing === true) {
+  const customerFacing =
+    context.customer_facing === true || conditions.customer_facing === true;
+  if (customerFacing) {
     const next = maxTier(tier, AgentPolicyTier.PROPOSE);
     if (next !== tier) {
       reasons.push('customer_facing_requires_propose');
@@ -85,12 +87,21 @@ export function evaluateAgentPolicy(
     };
   }
 
-  if (!rule || !rule.enabled) {
+  if (!rule) {
     return {
       tier: AgentPolicyTier.HUMAN_ONLY,
       reasons: ['unknown_action_fail_closed'],
       rule_id: null,
       rule_version: null,
+    };
+  }
+
+  if (!rule.enabled) {
+    return {
+      tier: AgentPolicyTier.HUMAN_ONLY,
+      reasons: ['rule_disabled_fail_closed'],
+      rule_id: rule.id,
+      rule_version: rule.version,
     };
   }
 

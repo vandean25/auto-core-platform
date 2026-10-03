@@ -21,7 +21,23 @@ const HUMAN_ONLY_FLOOR_ACTION_TYPES = new Set([
 const HUMAN_ONLY_FLOOR_PREFIXES = [
   'credit_note.',
   'accounting_export.',
+  'consent.',
+  'invoice.finalize',
 ] as const;
+
+function matchesTaxOrVatWording(actionType: string): boolean {
+  const lower = actionType.toLowerCase();
+  const mentionsWording = lower.includes('wording');
+  if (!mentionsWording) {
+    return false;
+  }
+  return lower.includes('tax') || lower.includes('vat');
+}
+
+function matchesUserOrRoleChange(actionType: string): boolean {
+  const lower = actionType.toLowerCase();
+  return lower.includes('role_change') || lower.includes('role_update');
+}
 
 export function isHumanOnlyFloorAction(actionType: string): boolean {
   const normalized = actionType.trim();
@@ -33,7 +49,23 @@ export function isHumanOnlyFloorAction(actionType: string): boolean {
     return true;
   }
 
-  return HUMAN_ONLY_FLOOR_PREFIXES.some((prefix) =>
-    normalized.startsWith(prefix),
-  );
+  if (
+    HUMAN_ONLY_FLOOR_PREFIXES.some((prefix) => normalized.startsWith(prefix))
+  ) {
+    return true;
+  }
+
+  if (normalized.endsWith('.delete')) {
+    return true;
+  }
+
+  if (matchesTaxOrVatWording(normalized)) {
+    return true;
+  }
+
+  if (matchesUserOrRoleChange(normalized)) {
+    return true;
+  }
+
+  return false;
 }

@@ -67,6 +67,60 @@ describe('Agent policy (e2e)', () => {
     expect(addLine?.source).toBe('platform');
   });
 
+  it('rejects looser tenant conditions than platform default', async () => {
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/workshop_order.add_line')
+      .set('Authorization', authHeaderA)
+      .send({
+        tier: AgentPolicyTier.AUTO,
+        conditions: { amount_max: null },
+      })
+      .expect(422);
+
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/workshop_order.add_line')
+      .set('Authorization', authHeaderB)
+      .send({
+        tier: AgentPolicyTier.AUTO,
+        conditions: { amount_max: 501 },
+      })
+      .expect(422);
+  });
+
+  it('uses the latest rule version even when it is disabled', async () => {
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/document.sort')
+      .set('Authorization', authHeaderA)
+      .send({ tier: AgentPolicyTier.AUTO, enabled: true })
+      .expect(200);
+
+    const disabled = await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/document.sort')
+      .set('Authorization', authHeaderA)
+      .send({ tier: AgentPolicyTier.AUTO, enabled: false })
+      .expect(200);
+
+    const list = await request(app.getHttpServer())
+      .get('/api/agent-policy/rules')
+      .set('Authorization', authHeaderA)
+      .expect(200);
+    const listed = list.body.data.find(
+      (rule: { action_type: string }) => rule.action_type === 'document.sort',
+    );
+    expect(listed?.version).toBe(disabled.body.version);
+    expect(listed?.enabled).toBe(false);
+
+    const evaluation = await request(app.getHttpServer())
+      .post('/api/agent-policy/evaluate')
+      .set('Authorization', authHeaderA)
+      .send({ action_type: 'document.sort', context: {} })
+      .expect(200);
+
+    expect(evaluation.body.tier).toBe(AgentPolicyTier.HUMAN_ONLY);
+    expect(evaluation.body.reasons).toContain('rule_disabled_fail_closed');
+    expect(evaluation.body.rule_id).toBe(disabled.body.id);
+  });
+
   it('rejects tenant tiers looser than platform default', async () => {
     await request(app.getHttpServer())
       .put('/api/agent-policy/rules/sales_order.apply_discount')

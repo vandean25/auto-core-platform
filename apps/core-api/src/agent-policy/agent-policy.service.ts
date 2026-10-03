@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -21,6 +22,10 @@ import {
   evaluateAgentPolicy,
   parseAgentPolicyConditions,
 } from './agent-policy.evaluator.js';
+import {
+  assertConditionsAtLeastAsStrictAs,
+  mergeAgentPolicyConditions,
+} from './agent-policy-conditions.util.js';
 import { isTierAtLeastAsStrictAs } from './agent-policy-tier.util.js';
 import type {
   AgentPolicyEvaluateContext,
@@ -75,13 +80,14 @@ export class AgentPolicyService {
       throw new BadRequestException('action_type is required');
     }
 
-    const platformRule = await this.findLatestPlatformRule(normalizedAction);
-    if (!platformRule) {
+    const platformRow = await this.findLatestPlatformRow(normalizedAction);
+    if (!platformRow?.enabled) {
       throw new BadRequestException({
         code: AGENT_POLICY_ERROR_CODES.UNKNOWN_ACTION_TYPE,
         message: `Unknown action type: ${normalizedAction}`,
       });
     }
+    const platformRule = this.toResolvedRule(platformRow, 'platform');
 
     if (!isTierAtLeastAsStrictAs(body.tier, platformRule.tier)) {
       throw new UnprocessableEntityException({
@@ -90,6 +96,12 @@ export class AgentPolicyService {
           'Tenant policy tier must be at least as strict as the platform default.',
       });
     }
+
+    const conditions = mergeAgentPolicyConditions(
+      platformRule.conditions,
+      body.conditions,
+    );
+    assertConditionsAtLeastAsStrictAs(conditions, platformRule.conditions);
 
     const currentUser = await requireActiveCurrentUser(
       this.prisma,
@@ -102,42 +114,62 @@ export class AgentPolicyService {
       normalizedAction,
     );
     const nextVersion = (latestTenantRule?.version ?? 0) + 1;
-    const conditions = body.conditions ?? platformRule.conditions;
 
     const before = latestTenantRule
       ? this.serializeAuditSnapshot(latestTenantRule)
       : this.serializeAuditSnapshot(platformRule);
 
-    const created = await this.prisma.agentPolicyRule.create({
-      data: {
-        tenant_id: tenantId,
-        action_type: normalizedAction,
-        tier: body.tier,
-        conditions_json: conditions,
-        enabled: body.enabled ?? true,
-        version: nextVersion,
-        created_by: currentUser.id,
-      },
-    });
+    try {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.agentPolicyRule.create({
+          data: {
+            tenant_id: tenantId,
+            action_type: normalizedAction,
+            tier: body.tier,
+            conditions_json: conditions,
+            enabled: body.enabled ?? true,
+            version: nextVersion,
+            created_by: currentUser.id,
+          },
+        });
 
-    const resolved = this.toResolvedRule(created, 'tenant');
-    const after = this.serializeAuditSnapshot(resolved);
+        const resolved = this.toResolvedRule(row, 'tenant');
+        const after = this.serializeAuditSnapshot(resolved);
 
-    await this.auditService.recordTenantMutation({
-      entityType: AGENT_POLICY_ENTITY_TYPE,
-      entityId: created.id,
-      action: AuditLogAction.UPDATE,
-      actorUserId: currentUser.id,
-      source: AGENT_POLICY_AUDIT_SOURCE,
-      before,
-      after,
-      diff: {
-        tier: { before: before.tier, after: after.tier },
-        version: { before: before.version, after: after.version },
-      },
-    });
+        await this.auditService.recordTenantMutation(
+          {
+            entityType: AGENT_POLICY_ENTITY_TYPE,
+            entityId: row.id,
+            action: AuditLogAction.UPDATE,
+            actorUserId: currentUser.id,
+            source: AGENT_POLICY_AUDIT_SOURCE,
+            before,
+            after,
+            diff: {
+              tier: { before: before.tier, after: after.tier },
+              version: { before: before.version, after: after.version },
+            },
+          },
+          tx,
+        );
 
-    return this.toResponseDto(resolved);
+        return row;
+      });
+
+      return this.toResponseDto(this.toResolvedRule(created, 'tenant'));
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException({
+          code: AGENT_POLICY_ERROR_CODES.VERSION_CONFLICT,
+          message:
+            'A concurrent update created the same rule version. Retry the request.',
+        });
+      }
+      throw error;
+    }
   }
 
   async evaluate(
@@ -196,7 +228,7 @@ export class AgentPolicyService {
 
   private async listLatestPlatformRules(): Promise<AgentPolicyRuleRow[]> {
     const rows = await this.systemPrisma.agentPolicyRule.findMany({
-      where: { tenant_id: null, enabled: true },
+      where: { tenant_id: null },
       orderBy: [{ action_type: 'asc' }, { version: 'desc' }],
     });
 
@@ -215,7 +247,7 @@ export class AgentPolicyService {
     tenantId: string,
   ): Promise<AgentPolicyRuleRow[]> {
     const rows = await this.prisma.agentPolicyRule.findMany({
-      where: { tenant_id: tenantId, enabled: true },
+      where: { tenant_id: tenantId },
       orderBy: [{ action_type: 'asc' }, { version: 'desc' }],
     });
 
@@ -231,11 +263,17 @@ export class AgentPolicyService {
   private async findLatestPlatformRule(
     actionType: string,
   ): Promise<ResolvedAgentPolicyRule | null> {
-    const row = await this.systemPrisma.agentPolicyRule.findFirst({
-      where: { tenant_id: null, action_type: actionType, enabled: true },
+    const row = await this.findLatestPlatformRow(actionType);
+    return row ? this.toResolvedRule(row, 'platform') : null;
+  }
+
+  private async findLatestPlatformRow(
+    actionType: string,
+  ): Promise<AgentPolicyRuleRow | null> {
+    return this.systemPrisma.agentPolicyRule.findFirst({
+      where: { tenant_id: null, action_type: actionType },
       orderBy: { version: 'desc' },
     });
-    return row ? this.toResolvedRule(row, 'platform') : null;
   }
 
   private async findLatestTenantRule(
@@ -243,7 +281,7 @@ export class AgentPolicyService {
     actionType: string,
   ): Promise<AgentPolicyRuleRow | null> {
     return this.prisma.agentPolicyRule.findFirst({
-      where: { tenant_id: tenantId, action_type: actionType, enabled: true },
+      where: { tenant_id: tenantId, action_type: actionType },
       orderBy: { version: 'desc' },
     });
   }

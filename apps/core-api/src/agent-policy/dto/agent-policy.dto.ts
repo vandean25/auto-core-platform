@@ -1,12 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
   IsNumber,
-  IsObject,
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { AgentPolicyTier } from '@prisma/client';
 import type { AgentPolicyConditions } from '../agent-policy.types.js';
@@ -14,6 +16,7 @@ import type { AgentPolicyConditions } from '../agent-policy.types.js';
 export class AgentPolicyConditionsDto implements AgentPolicyConditions {
   @ApiPropertyOptional({ type: Number, nullable: true })
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsNumber()
   amount_max?: number | null;
 
@@ -74,7 +77,8 @@ export class UpsertAgentPolicyRuleDto {
 
   @ApiPropertyOptional({ type: AgentPolicyConditionsDto })
   @IsOptional()
-  @IsObject()
+  @ValidateNested()
+  @Type(() => AgentPolicyConditionsDto)
   conditions?: AgentPolicyConditionsDto;
 
   @ApiPropertyOptional({ default: true })
@@ -113,7 +117,8 @@ export class AgentPolicyEvaluateRequestDto {
 
   @ApiPropertyOptional({ type: AgentPolicyEvaluateContextDto })
   @IsOptional()
-  @IsObject()
+  @ValidateNested()
+  @Type(() => AgentPolicyEvaluateContextDto)
   context?: AgentPolicyEvaluateContextDto;
 }
 

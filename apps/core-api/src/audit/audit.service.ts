@@ -45,11 +45,14 @@ export class AuditService {
     return AuditQueryBuilder.buildPaginatedResponse(records, total, pagination);
   }
 
-  async recordTenantMutation(params: RecordTenantAuditParams): Promise<void> {
+  async recordTenantMutation(
+    params: RecordTenantAuditParams,
+    client: Pick<PrismaService, 'auditLog'> = this.prisma,
+  ): Promise<void> {
     const tenantId = await this.tenantContext.getTenantId();
     const authUser = this.tenantContext.getAuthenticatedUser();
 
-    await this.prisma.auditLog.create({
+    await client.auditLog.create({
       data: {
         tenant_id: tenantId,
         entity_type: params.entityType,

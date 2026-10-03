@@ -12,6 +12,11 @@ const floorCases = [
   'customer.delete',
   'tenant_member.role_change',
   'consent.update',
+  'sales_order.delete',
+  'consent.grant',
+  'user.role_change',
+  'invoice.finalize_batch',
+  'vat.update_wording',
 ];
 
 function rule(
@@ -55,6 +60,23 @@ describe('evaluateAgentPolicy', () => {
     expect(result.reasons).toContain('unknown_action_fail_closed');
   });
 
+  it('returns HUMAN_ONLY when the latest rule version is disabled', () => {
+    const disabled = rule({
+      action_type: 'workshop_order.add_line',
+      tier: AgentPolicyTier.AUTO,
+      enabled: false,
+      id: 'rule-v2',
+      version: 2,
+    });
+
+    const result = evaluateAgentPolicy('workshop_order.add_line', {}, disabled);
+
+    expect(result.tier).toBe(AgentPolicyTier.HUMAN_ONLY);
+    expect(result.reasons).toContain('rule_disabled_fail_closed');
+    expect(result.rule_id).toBe('rule-v2');
+    expect(result.rule_version).toBe(2);
+  });
+
   it('escalates AUTO to PROPOSE when amount exceeds threshold', () => {
     const result = evaluateAgentPolicy(
       'workshop_order.add_line',
@@ -78,6 +100,21 @@ describe('evaluateAgentPolicy', () => {
         action_type: 'workshop_order.add_line',
         tier: AgentPolicyTier.AUTO,
         conditions: {},
+      }),
+    );
+
+    expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
+    expect(result.reasons).toContain('customer_facing_requires_propose');
+  });
+
+  it('escalates to PROPOSE when rule conditions are customer-facing', () => {
+    const result = evaluateAgentPolicy(
+      'workshop_order.add_line',
+      {},
+      rule({
+        action_type: 'workshop_order.add_line',
+        tier: AgentPolicyTier.AUTO,
+        conditions: { customer_facing: true },
       }),
     );
 
