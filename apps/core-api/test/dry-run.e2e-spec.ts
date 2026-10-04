@@ -302,7 +302,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const taskId = taskRes.body.id;
 
       const linesBefore = await prismaA.workshopTaskLineItem.count({
-        where: { task_id: taskId },
+        where: { workshop_task_id: taskId },
       });
       const taskBefore = await prismaA.workshopTask.findUniqueOrThrow({
         where: { id: taskId },
@@ -350,7 +350,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
 
       // Verify DB state was NOT modified: line item count & version untouched
       const linesAfter = await prismaA.workshopTaskLineItem.count({
-        where: { task_id: taskId },
+        where: { workshop_task_id: taskId },
       });
       const taskAfter = await prismaA.workshopTask.findUniqueOrThrow({
         where: { id: taskId },
