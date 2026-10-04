@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   getE2ETestToken,
+  isAgentSupervisionEnabled,
   isE2EAuthBypassEnabled,
   isE2ETestTokenAuthEnabled,
 } from './runtime-flags'
@@ -34,4 +35,16 @@ describe('runtime-flags', () => {
     expect(isE2EAuthBypassEnabled()).toBe(true)
     expect(isE2ETestTokenAuthEnabled()).toBe(true)
   })
+
+  it('detects whether agent supervision feature flag is enabled', () => {
+    vi.stubEnv('VITE_FEATURE_AGENT_SUPERVISION', 'true')
+    expect(isAgentSupervisionEnabled()).toBe(true)
+
+    vi.stubEnv('VITE_FEATURE_AGENT_SUPERVISION', 'false')
+    expect(isAgentSupervisionEnabled()).toBe(false)
+
+    vi.stubEnv('VITE_FEATURE_AGENT_SUPERVISION', '')
+    expect(isAgentSupervisionEnabled()).toBe(false)
+  })
 })
+

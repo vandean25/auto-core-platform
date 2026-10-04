@@ -22,6 +22,7 @@ import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashb
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
 import { isKnownAppPath, APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
@@ -85,6 +86,7 @@ const HrLeavePage = lazyWithRetry(() => import('./pages/hr/HrLeavePage'))
 const MechanicQueuePage = lazyWithRetry(() => import('./pages/mechanic/MechanicQueuePage'))
 const MechanicTaskDetailPage = lazyWithRetry(() => import('./pages/mechanic/MechanicTaskDetailPage'))
 const MechanicAccessDeniedPage = lazyWithRetry(() => import('./pages/mechanic/MechanicAccessDeniedPage'))
+const AgentSupervisionPage = lazyWithRetry(() => import('./pages/agent/AgentSupervisionPage'))
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'acp:sidebar-collapsed'
 
@@ -106,6 +108,16 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.inventory} element={<InventoryList />} />
               <Route path={APP_ROUTE_PATHS.inventoryLedger} element={<InventoryLedgerPage />} />
               <Route path={APP_ROUTE_PATHS.dashboard} element={<DashboardPage />} />
+              <Route
+                path={APP_ROUTE_PATHS.agentSupervision}
+                element={
+                  isAgentSupervisionEnabled() ? (
+                    <AgentSupervisionPage />
+                  ) : (
+                    <Navigate to={APP_ROUTE_PATHS.home} replace />
+                  )
+                }
+              />
               <Route path={APP_ROUTE_PATHS.customers} element={<CustomerList />} />
               <Route path={APP_ROUTE_PATHS.customerDetail} element={<CustomerDetail />} />
               <Route path={APP_ROUTE_PATHS.vehicles} element={<VehicleList />} />
