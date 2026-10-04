@@ -304,8 +304,8 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const linesBefore = await prismaA.workshopTaskLineItem.count({
         where: { workshop_task_id: taskId },
       });
-      const taskBefore = await prismaA.workshopTask.findUniqueOrThrow({
-        where: { id: taskId },
+      const taskBefore = await prismaA.workshopTask.findFirstOrThrow({
+        where: { id: taskId, tenant_id: tenantA },
       });
       const versionBefore = taskBefore.line_items_version;
 
@@ -352,8 +352,8 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const linesAfter = await prismaA.workshopTaskLineItem.count({
         where: { workshop_task_id: taskId },
       });
-      const taskAfter = await prismaA.workshopTask.findUniqueOrThrow({
-        where: { id: taskId },
+      const taskAfter = await prismaA.workshopTask.findFirstOrThrow({
+        where: { id: taskId, tenant_id: tenantA },
       });
 
       expect(linesAfter).toBe(linesBefore);
