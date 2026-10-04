@@ -22,6 +22,7 @@ INSERT INTO tenant_restore_expected_tables (table_name)
 VALUES
   ('agent_action_logs'),
   ('agent_policy_rules'),
+  ('agent_proposals'),
   ('audit_logs'),
   ('brands'),
   ('catalog_oem_concerns'),
@@ -146,6 +147,7 @@ VALUES
   ('agent_action_logs', 'agent_action_logs', 'tenant_id,reverted_by_log_id', 'tenant_id,id', 'SET NULL', 'CASCADE'),
   ('agent_action_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('agent_policy_rules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('agent_proposals', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('attendance_events', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('audit_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
