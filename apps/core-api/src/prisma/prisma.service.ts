@@ -4,7 +4,6 @@ import {
   OnModuleInit,
   OnModuleDestroy,
   Logger,
-  forwardRef,
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
@@ -29,7 +28,7 @@ export class PrismaService
   public readonly client: PrismaClient;
 
   constructor(
-    @Inject(forwardRef(() => DashboardRealtimeService))
+    @Inject(DashboardRealtimeService)
     dashboardRealtime: DashboardRealtimeService,
   ) {
     const pool = getSharedRuntimePool();
@@ -85,13 +84,12 @@ export class PrismaService
           }
 
           const txObj = tx as Record<string | symbol, unknown>;
-          if (property in txObj || txObj[property] !== undefined) {
-            const val: unknown = Reflect.get(txObj, property, txObj);
+          const val: unknown = Reflect.get(txObj, property, txObj);
+          if (val !== undefined) {
             if (typeof val === 'function') {
-              const bound = (val as (...args: unknown[]) => unknown).bind(
+              return (val as (...args: unknown[]) => unknown).bind(
                 txObj,
               ) as unknown;
-              return bound;
             }
             return val;
           }

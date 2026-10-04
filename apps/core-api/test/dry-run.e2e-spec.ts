@@ -213,7 +213,8 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
         customerId: customer.id,
         vehicleId: vehicle.id,
         odometer: 125000,
-        description: 'Inspection and brake check',
+        fuelLevel: 75,
+        notes: 'Inspection and brake check',
       };
 
       const res = await request(app.getHttpServer())
@@ -284,6 +285,8 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
           customerId: cust.id,
           vehicleId: veh.id,
           odometer: 85000,
+          fuelLevel: 50,
+          notes: 'Line item test order',
         })
         .expect(201);
 

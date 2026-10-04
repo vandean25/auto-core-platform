@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { PrismaService } from './prisma.service.js';
+import { PrismaModule } from './prisma.module.js';
 import { SystemPrismaService } from './system-prisma.service.js';
 import { resetSharedRuntimePool } from './shared-pg-pool.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
 describe('PrismaService', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL;
@@ -59,20 +61,43 @@ describe('PrismaService', () => {
 
     await systemPrisma.onModuleDestroy();
   });
+
+  it('routes model delegate calls to DryRunStorage transaction client when active', async () => {
+    service = await createPrismaService();
+    const mockTxCustomer = { create: jest.fn().mockResolvedValue({ id: 'mock-1' }) };
+    const mockTx = { customer: mockTxCustomer };
+
+    await DryRunStorage.run({ isDryRun: true, tx: mockTx as any }, async () => {
+      const customerDelegate = (service as any).customer;
+      expect(customerDelegate).toBe(mockTxCustomer);
+    });
+  });
+
+  it('routes calls to transaction client when transaction client is a Proxy without has trap', async () => {
+    service = await createPrismaService();
+    const mockTxCustomer = { create: jest.fn().mockResolvedValue({ id: 'proxy-1' }) };
+    const rawTarget = {};
+    const mockTxProxy = new Proxy(rawTarget, {
+      get(t, prop) {
+        if (prop === 'customer') return mockTxCustomer;
+        return undefined;
+      },
+    });
+
+    await DryRunStorage.run({ isDryRun: true, tx: mockTxProxy as any }, async () => {
+      const customerDelegate = (service as any).customer;
+      expect(customerDelegate).toBe(mockTxCustomer);
+    });
+  });
 });
 
 async function createPrismaService(): Promise<PrismaService> {
   const module: TestingModule = await Test.createTestingModule({
-    providers: [
-      PrismaService,
-      {
-        provide: DashboardRealtimeService,
-        useValue: {
-          emitEntityUpdated: jest.fn(),
-        },
-      },
-    ],
-  }).compile();
+    imports: [PrismaModule],
+  })
+    .overrideProvider(DashboardRealtimeService)
+    .useValue({ emitEntityUpdated: jest.fn() })
+    .compile();
 
   return module.get(PrismaService);
 }
