@@ -79,7 +79,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const customersBefore = await prismaA.customer.count({
         where: { tenant_id: tenantA },
       });
-      const auditBefore = await prisma.auditLog.count({
+      const auditBefore = await prismaA.auditLog.count({
         where: { tenant_id: tenantA },
       });
 
@@ -114,7 +114,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const customersAfter = await prismaA.customer.count({
         where: { tenant_id: tenantA },
       });
-      const auditAfter = await prisma.auditLog.count({
+      const auditAfter = await prismaA.auditLog.count({
         where: { tenant_id: tenantA },
       });
 
@@ -126,7 +126,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const vehiclesBefore = await prismaA.vehicle.count({
         where: { tenant_id: tenantA },
       });
-      const auditBefore = await prisma.auditLog.count({
+      const auditBefore = await prismaA.auditLog.count({
         where: { tenant_id: tenantA },
       });
 
@@ -159,7 +159,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const vehiclesAfter = await prismaA.vehicle.count({
         where: { tenant_id: tenantA },
       });
-      const auditAfter = await prisma.auditLog.count({
+      const auditAfter = await prismaA.auditLog.count({
         where: { tenant_id: tenantA },
       });
 
@@ -195,11 +195,11 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const tasksBefore = await prismaA.workshopTask.count({
         where: { tenant_id: tenantA },
       });
-      const auditBefore = await prisma.auditLog.count({
+      const auditBefore = await prismaA.auditLog.count({
         where: { tenant_id: tenantA },
       });
 
-      const financeSettingsBefore = await prisma.financeSettings.findFirst({
+      const financeSettingsBefore = await prismaA.financeSettings.findFirst({
         where: { tenant_id: tenantA },
       });
       const seqBefore = financeSettingsBefore?.next_workshop_order_number ?? 1;
@@ -237,10 +237,10 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       const tasksAfter = await prismaA.workshopTask.count({
         where: { tenant_id: tenantA },
       });
-      const auditAfter = await prisma.auditLog.count({
+      const auditAfter = await prismaA.auditLog.count({
         where: { tenant_id: tenantA },
       });
-      const financeSettingsAfter = await prisma.financeSettings.findFirst({
+      const financeSettingsAfter = await prismaA.financeSettings.findFirst({
         where: { tenant_id: tenantA },
       });
       const seqAfter = financeSettingsAfter?.next_workshop_order_number ?? 1;
