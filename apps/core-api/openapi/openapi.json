@@ -10918,6 +10918,164 @@
         ]
       }
     },
+    "/api/agent-proposals": {
+      "get": {
+        "description": "Returns agent proposals for the authenticated tenant with lazy expiration handling.",
+        "operationId": "AgentProposalController_listProposals",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of items to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by proposal status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "EXPIRED",
+                "EXECUTED",
+                "FAILED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR/SALES)",
+        "tags": [
+          "Agent Proposals"
+        ]
+      },
+      "post": {
+        "description": "Creates a new agent proposal for the current tenant in PENDING status.",
+        "operationId": "AgentProposalController_createProposal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an agent proposal (seeding/testing)",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/approve": {
+      "post": {
+        "description": "Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.",
+        "operationId": "AgentProposalController_approveProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Approve and execute an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/reject": {
+      "post": {
+        "description": "Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.",
+        "operationId": "AgentProposalController_rejectProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectAgentProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reject an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
     "/api/mcp": {
       "get": {
         "operationId": "McpController_handleMcp_get",
@@ -23764,6 +23922,142 @@
           "reasons",
           "rule_id",
           "rule_version"
+        ]
+      },
+      "AgentProposalResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "EXPIRED",
+              "EXECUTED",
+              "FAILED"
+            ]
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "preview_json": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "decided_by": {
+            "type": "object",
+            "nullable": true
+          },
+          "decided_at": {
+            "type": "object",
+            "nullable": true
+          },
+          "reason": {
+            "type": "object",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "trace_id",
+          "action_type",
+          "tier",
+          "status",
+          "payload_json",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AgentProposalListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentProposalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "RejectAgentProposalDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Reason for rejecting the proposal",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateAgentProposalDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "preview_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "Optional correlation trace ID (UUID)"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ],
+            "default": "PROPOSE"
+          }
+        },
+        "required": [
+          "action_type",
+          "payload_json"
         ]
       }
     }
