@@ -68,7 +68,7 @@ export class PrismaService
                 const callback = arg as (
                   txClient: Prisma.TransactionClient,
                 ) => unknown;
-                return callback(tx);
+                return Promise.resolve().then(() => callback(tx));
               }
               if (Array.isArray(arg)) {
                 return Promise.all(arg);
