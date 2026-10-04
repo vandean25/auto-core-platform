@@ -6,6 +6,8 @@ import type {
   DashboardEntityType,
 } from '../dashboard-realtime/dashboard-events.types.js';
 import { toPrismaDelegateKey } from './prisma-delegate.js';
+import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
 const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PURCHASE_ORDER: true,
@@ -72,6 +74,32 @@ export function emitRealtimeForOperation(
   result: unknown,
   actionOverride?: DashboardEntityAction,
 ) {
+  if (SideEffectGuard.isDryRun()) {
+    const collector = DryRunStorage.getCollector();
+    if (collector) {
+      const entityId = extractEntityId(result);
+      if (entityId) {
+        const action = actionOverride ?? operationToAction(operation);
+        const op =
+          action === 'CREATED'
+            ? 'create'
+            : action === 'DELETED'
+              ? 'delete'
+              : action === 'UPDATED'
+                ? 'update'
+                : undefined;
+        if (op) {
+          collector.recordChange({
+            entity: model,
+            id: entityId,
+            op,
+          });
+        }
+      }
+    }
+    return;
+  }
+
   const type = modelNameToEntityType(model);
   const action = actionOverride ?? operationToAction(operation);
   const tenantId = getTenantIdFromContext();
