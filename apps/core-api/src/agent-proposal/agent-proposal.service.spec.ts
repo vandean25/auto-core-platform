@@ -4,10 +4,6 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
-import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
-import type { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
-import type { TenantContextService } from '../common/services/tenant-context.service.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
 import { AgentProposalService } from './agent-proposal.service.js';
 
 describe('AgentProposalService', () => {
@@ -95,31 +91,117 @@ describe('AgentProposalService', () => {
   });
 
   describe('listProposals', () => {
-    it('lazily expires pending proposals past expiration and returns proposals', () => {
-      return (async () => {
-        const proposal = createMockProposal();
-        mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
-        mockPrisma.agentProposal.findMany.mockResolvedValue([proposal]);
+    it('lazily expires pending proposals past expiration and returns proposals', async () => {
+      const proposal = createMockProposal();
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.agentProposal.findMany.mockResolvedValue([proposal]);
 
-        const result = await service.listProposals({});
+      const result = await service.listProposals({});
 
-        expect(mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith({
-          where: {
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+          expires_at: { lt: expect.any(Date) },
+        },
+        data: { status: AgentProposalStatus.EXPIRED },
+      });
+
+      expect(mockPrisma.agentProposal.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 50,
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].id).toBe(proposalId);
+    });
+
+    it('filters proposals by status and enforces tenant isolation', async () => {
+      const pendingProposal = createMockProposal({
+        status: AgentProposalStatus.PENDING,
+      });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+      mockPrisma.agentProposal.findMany.mockResolvedValue([pendingProposal]);
+
+      const result = await service.listProposals({
+        status: AgentProposalStatus.PENDING,
+        limit: 15,
+      });
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
             tenant_id: tenantId,
-            status: AgentProposalStatus.PENDING,
-            expires_at: { lt: expect.any(Date) },
-          },
-          data: { status: AgentProposalStatus.EXPIRED },
-        });
+          }),
+        }),
+      );
 
-        expect(result.data).toHaveLength(1);
-        expect(result.data[0].id).toBe(proposalId);
-      })();
+      expect(mockPrisma.agentProposal.findMany).toHaveBeenCalledWith({
+        where: {
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 15,
+      });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].status).toBe(AgentProposalStatus.PENDING);
+    });
+  });
+
+  describe('getProposalById', () => {
+    it('returns proposal for the current tenant', async () => {
+      const proposal = createMockProposal();
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      const result = await service.getProposalById(proposalId);
+
+      expect(mockPrisma.agentProposal.findFirst).toHaveBeenCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+      });
+      expect(result.id).toBe(proposalId);
+    });
+
+    it('throws NotFoundException when proposal does not exist or belongs to another tenant', async () => {
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(null);
+
+      await expect(service.getProposalById(proposalId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('lazily marks PENDING proposal as EXPIRED when past expires_at', async () => {
+      const expiredProposal = createMockProposal({
+        status: AgentProposalStatus.PENDING,
+        expires_at: new Date(Date.now() - 1000 * 60),
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(expiredProposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.getProposalById(proposalId);
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
+        data: { status: AgentProposalStatus.EXPIRED },
+      });
+      expect(result.status).toBe(AgentProposalStatus.EXPIRED);
     });
   });
 
   describe('rejectProposal', () => {
-    it('successfully transitions to REJECTED and records audit log', async () => {
+    it('saves reason, transitions to REJECTED, logs via AE2, and does NOT dispatch action payload', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst
         .mockResolvedValueOnce(proposal)
@@ -150,15 +232,21 @@ describe('AgentProposalService', () => {
         },
       });
 
-      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
-        expect.objectContaining({
-          traceId,
-          actorType: 'USER',
-          onBehalfOfUserId: userId,
-          actionType: 'workshop_order.add_line',
-          status: 'REJECTED',
-        }),
-      );
+      expect(mockAgentActionLog.record).toHaveBeenCalledTimes(1);
+      expect(mockAgentActionLog.record).toHaveBeenCalledWith({
+        traceId,
+        actorType: 'USER',
+        onBehalfOfUserId: userId,
+        actionType: 'workshop_order.add_line',
+        tier: 'PROPOSE',
+        status: 'REJECTED',
+        inputSummary: { proposalId: proposal.id, reason: 'Too expensive' },
+        resultSummary: { rejectedBy: userId, reason: 'Too expensive' },
+      });
+
+      // Verify no work/dispatch callback was passed to record
+      const recordCalls = mockAgentActionLog.record.mock.calls;
+      expect(recordCalls[0][1]).toBeUndefined();
 
       expect(result.status).toBe(AgentProposalStatus.REJECTED);
       expect(result.reason).toBe('Too expensive');
@@ -177,6 +265,21 @@ describe('AgentProposalService', () => {
       expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
     });
 
+    it('returns existing proposal idempotently even after expiration if already REJECTED', async () => {
+      const expiredProposal = createMockProposal({
+        status: AgentProposalStatus.REJECTED,
+        reason: 'Already rejected earlier',
+        expires_at: new Date(Date.now() - 1000 * 60 * 60), // expired 1 hour ago
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(expiredProposal);
+
+      const result = await service.rejectProposal(proposalId);
+
+      expect(result.status).toBe(AgentProposalStatus.REJECTED);
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictException if already APPROVED or EXECUTED', async () => {
       const proposal = createMockProposal({
         status: AgentProposalStatus.APPROVED,
@@ -188,7 +291,18 @@ describe('AgentProposalService', () => {
       );
     });
 
-    it('throws UnprocessableEntityException if expired', async () => {
+    it('throws ConflictException if status is FAILED', async () => {
+      const proposal = createMockProposal({
+        status: AgentProposalStatus.FAILED,
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      await expect(service.rejectProposal(proposalId)).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('throws UnprocessableEntityException if expired while PENDING', async () => {
       const proposal = createMockProposal({
         expires_at: new Date(Date.now() - 1000), // past
       });
@@ -198,6 +312,36 @@ describe('AgentProposalService', () => {
       await expect(service.rejectProposal(proposalId)).rejects.toThrow(
         UnprocessableEntityException,
       );
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
+        data: { status: AgentProposalStatus.EXPIRED },
+      });
+    });
+
+    it('handles concurrent rejection idempotency when reload returns REJECTED', async () => {
+      const pendingProposal = createMockProposal({
+        status: AgentProposalStatus.PENDING,
+      });
+      const rejectedProposal = createMockProposal({
+        status: AgentProposalStatus.REJECTED,
+        reason: 'Concurrent rejection',
+      });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(pendingProposal)
+        .mockResolvedValueOnce(rejectedProposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.rejectProposal(proposalId, {
+        reason: 'My rejection',
+      });
+
+      expect(result.status).toBe(AgentProposalStatus.REJECTED);
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
     });
   });
 
@@ -262,21 +406,118 @@ describe('AgentProposalService', () => {
       expect(result.status).toBe(AgentProposalStatus.EXECUTED);
     });
 
-    it('rejects approval if policy re-evaluation results in HUMAN_ONLY', async () => {
+    it('refuses approval when policy re-evaluation returns HUMAN_ONLY with clear message', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
       mockAgentPolicyService.evaluate.mockResolvedValue({
         tier: AgentPolicyTier.HUMAN_ONLY,
-        reasons: ['rule_disabled_fail_closed'],
+        reasons: ['rule_disabled_fail_closed', 'sensitive_operation'],
         rule_id: 'rule-1',
         rule_version: 2,
       });
 
       await expect(service.approveProposal(proposalId)).rejects.toThrow(
-        UnprocessableEntityException,
+        new UnprocessableEntityException(
+          'Action requires human execution or exceeds policy limits: rule_disabled_fail_closed, sensitive_operation',
+        ),
       );
 
       expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+    });
+
+    it('refuses approval when context amount_eur exceeds updated condition threshold', async () => {
+      const proposal = createMockProposal({
+        payload_json: { amount_eur: 500 },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockAgentPolicyService.evaluate.mockResolvedValue({
+        tier: AgentPolicyTier.HUMAN_ONLY,
+        reasons: ['amount_eur_exceeds_threshold'],
+        rule_id: 'rule-2',
+        rule_version: 1,
+      });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        new UnprocessableEntityException(
+          'Action requires human execution or exceeds policy limits: amount_eur_exceeds_threshold',
+        ),
+      );
+
+      expect(mockAgentPolicyService.evaluate).toHaveBeenCalledWith(
+        {
+          action_type: 'workshop_order.add_line',
+          context: { amount_eur: 500 },
+        },
+        { skipAdminCheck: true },
+      );
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+    });
+
+    it('handles concurrent double-approve race condition idempotently when reload returns EXECUTED (payload dispatched once)', async () => {
+      const pendingProposal = createMockProposal({
+        status: AgentProposalStatus.PENDING,
+      });
+      const executedProposal = createMockProposal({
+        status: AgentProposalStatus.EXECUTED,
+        decided_by: 'concurrent-user',
+        decided_at: new Date(),
+      });
+
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(pendingProposal)
+        .mockResolvedValueOnce(executedProposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.approveProposal(proposalId);
+
+      expect(result.status).toBe(AgentProposalStatus.EXECUTED);
+      // Payload execution and logging were NOT dispatched by the concurrent caller
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+    });
+
+    it('handles concurrent double-approve race condition idempotently when reload returns APPROVED', async () => {
+      const pendingProposal = createMockProposal({
+        status: AgentProposalStatus.PENDING,
+      });
+      const approvedProposal = createMockProposal({
+        status: AgentProposalStatus.APPROVED,
+        decided_by: 'concurrent-user',
+        decided_at: new Date(),
+      });
+
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(pendingProposal)
+        .mockResolvedValueOnce(approvedProposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.approveProposal(proposalId);
+
+      expect(result.status).toBe(AgentProposalStatus.APPROVED);
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException on concurrent race condition if reload returns unexpected status', async () => {
+      const pendingProposal = createMockProposal({
+        status: AgentProposalStatus.PENDING,
+      });
+      const rejectedProposal = createMockProposal({
+        status: AgentProposalStatus.REJECTED,
+        decided_by: 'concurrent-user',
+        decided_at: new Date(),
+      });
+
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(pendingProposal)
+        .mockResolvedValueOnce(rejectedProposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        new ConflictException(
+          'Proposal state conflict: current status is REJECTED',
+        ),
+      );
       expect(mockAgentActionLog.record).not.toHaveBeenCalled();
     });
 
@@ -290,6 +531,49 @@ describe('AgentProposalService', () => {
 
       expect(result.status).toBe(AgentProposalStatus.EXECUTED);
       expect(mockAgentPolicyService.evaluate).not.toHaveBeenCalled();
+    });
+
+    it('returns already EXECUTED proposal idempotently even after expiration without throwing 422', async () => {
+      const expiredExecutedProposal = createMockProposal({
+        status: AgentProposalStatus.EXECUTED,
+        expires_at: new Date(Date.now() - 1000 * 60 * 60), // expired 1 hour ago
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(
+        expiredExecutedProposal,
+      );
+
+      const result = await service.approveProposal(proposalId);
+
+      expect(result.status).toBe(AgentProposalStatus.EXECUTED);
+      expect(mockAgentPolicyService.evaluate).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('returns already APPROVED proposal idempotently even after expiration without throwing 422', async () => {
+      const expiredApprovedProposal = createMockProposal({
+        status: AgentProposalStatus.APPROVED,
+        expires_at: new Date(Date.now() - 1000 * 60 * 60),
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(
+        expiredApprovedProposal,
+      );
+
+      const result = await service.approveProposal(proposalId);
+
+      expect(result.status).toBe(AgentProposalStatus.APPROVED);
+      expect(mockAgentPolicyService.evaluate).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws ConflictException if status is REJECTED or FAILED', async () => {
+      const proposal = createMockProposal({
+        status: AgentProposalStatus.REJECTED,
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('marks as FAILED and rethrows if payload execution fails', async () => {
@@ -310,7 +594,7 @@ describe('AgentProposalService', () => {
       });
     });
 
-    it('throws UnprocessableEntityException if expired', async () => {
+    it('throws UnprocessableEntityException if expired while PENDING', async () => {
       const proposal = createMockProposal({
         expires_at: new Date(Date.now() - 5000),
       });

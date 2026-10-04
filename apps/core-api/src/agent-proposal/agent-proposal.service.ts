@@ -119,7 +119,8 @@ export class AgentProposalService {
 
     if (
       proposal.status === AgentProposalStatus.EXPIRED ||
-      proposal.expires_at < new Date()
+      (proposal.status === AgentProposalStatus.PENDING &&
+        proposal.expires_at < new Date())
     ) {
       if (proposal.status === AgentProposalStatus.PENDING) {
         await this.prisma.agentProposal.updateMany({
@@ -216,7 +217,8 @@ export class AgentProposalService {
 
     if (
       proposal.status === AgentProposalStatus.EXPIRED ||
-      proposal.expires_at < new Date()
+      (proposal.status === AgentProposalStatus.PENDING &&
+        proposal.expires_at < new Date())
     ) {
       if (proposal.status === AgentProposalStatus.PENDING) {
         await this.prisma.agentProposal.updateMany({

@@ -7,7 +7,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AgentProposalAuthorization } from './agent-proposal.authorization.js';
 import { AgentProposalService } from './agent-proposal.service.js';
 import {
@@ -76,7 +81,7 @@ export class AgentProposalController {
     description:
       'Creates a new agent proposal for the current tenant in PENDING status.',
   })
-  @ApiOkResponse({ type: AgentProposalResponseDto })
+  @ApiCreatedResponse({ type: AgentProposalResponseDto })
   createProposal(
     @Body() body: CreateAgentProposalDto,
   ): Promise<AgentProposalResponseDto> {
