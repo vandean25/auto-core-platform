@@ -2,7 +2,10 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
+import {
+  createGlobalValidationPipe,
+  GlobalExceptionFilter,
+} from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
@@ -37,7 +40,9 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
 
     prisma = app.get(PrismaService);
