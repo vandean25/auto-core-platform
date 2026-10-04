@@ -184,8 +184,11 @@ export class AgentPolicyService {
 
   async evaluate(
     body: AgentPolicyEvaluateRequestDto,
+    options?: { skipAdminCheck?: boolean },
   ): Promise<AgentPolicyEvaluationResult> {
-    assertTenantAdmin(this.tenantContext);
+    if (!options?.skipAdminCheck) {
+      assertTenantAdmin(this.tenantContext);
+    }
     const tenantId = await this.tenantContext.getTenantId();
     const actionType = body.action_type.trim();
     const context: AgentPolicyEvaluateContext = body.context ?? {};
