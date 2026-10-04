@@ -35,7 +35,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command:
-      'cross-env VITE_E2E_SKIP_AUTH=true VITE_APP_VERSION=v1.0.0-e2e vite --port 5174 --strictPort',
+      'cross-env VITE_E2E_SKIP_AUTH=true VITE_FEATURE_AGENT_SUPERVISION=true VITE_APP_VERSION=v1.0.0-e2e vite --port 5174 --strictPort',
     url: 'http://localhost:5174',
     reuseExistingServer: !process.env.CI,
     cwd: './',

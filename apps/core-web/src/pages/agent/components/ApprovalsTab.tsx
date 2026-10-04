@@ -206,7 +206,7 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                         {new Date(proposal.created_at).toLocaleString()}
                       </span>
                       {proposal.expires_at && isPending && (
-                        <span className="text-amber-600">
+                        <span className="text-amber-800">
                           {getCopy(t.expiresAt, language)}:{' '}
                           {new Date(proposal.expires_at).toLocaleDateString()}
                         </span>
@@ -230,7 +230,7 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                           size="sm"
                           onClick={() => handleApprove(proposal)}
                           disabled={isActionPending}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
                           data-testid={`approve-btn-${proposal.id}`}
                         >
                           <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
