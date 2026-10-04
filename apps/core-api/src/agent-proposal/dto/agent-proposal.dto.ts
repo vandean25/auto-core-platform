@@ -99,20 +99,20 @@ export class AgentProposalResponseDto {
   @ApiProperty({ type: 'object', additionalProperties: true })
   payload_json!: Record<string, unknown>;
 
-  @ApiPropertyOptional({
-    type: 'object',
+  @ApiProperty({
+    type: Object,
     additionalProperties: true,
     nullable: true,
   })
   preview_json!: Record<string, unknown> | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   decided_by!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   decided_at!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   reason!: string | null;
 
   @ApiProperty()

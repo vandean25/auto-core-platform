@@ -7200,12 +7200,12 @@ export interface components {
             payload_json: {
                 [key: string]: unknown;
             };
-            preview_json?: {
+            preview_json: {
                 [key: string]: unknown;
             } | null;
-            decided_by?: Record<string, never> | null;
-            decided_at?: Record<string, never> | null;
-            reason?: Record<string, never> | null;
+            decided_by: string | null;
+            decided_at: string | null;
+            reason: string | null;
             expires_at: string;
             created_at: string;
             updated_at: string;
