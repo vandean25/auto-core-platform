@@ -8612,8 +8612,14 @@ export interface operations {
     };
     CustomerController_create: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
+                dry_run?: boolean;
+            };
+            header?: {
+                /** @description Present and set to true when dry_run was active. */
+                "X-Dry-Run"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9398,8 +9404,14 @@ export interface operations {
     };
     WorkshopController_create: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
+                dry_run?: boolean;
+            };
+            header?: {
+                /** @description Present and set to true when dry_run was active. */
+                "X-Dry-Run"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -9633,8 +9645,14 @@ export interface operations {
     };
     WorkshopController_replaceTaskLineItems: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
+                dry_run?: boolean;
+            };
+            header?: {
+                /** @description Present and set to true when dry_run was active. */
+                "X-Dry-Run"?: string;
+            };
             path: {
                 orderId: string;
                 taskId: string;
@@ -11556,8 +11574,14 @@ export interface operations {
     };
     VehicleController_create: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                /** @description Simulate the state changes of this operation within a rolled-back transaction without persisting data. */
+                dry_run?: boolean;
+            };
+            header?: {
+                /** @description Present and set to true when dry_run was active. */
+                "X-Dry-Run"?: string;
+            };
             path?: never;
             cookie?: never;
         };

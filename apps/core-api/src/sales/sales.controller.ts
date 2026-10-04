@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOkResponse } from '@nestjs/swagger';
 import { SalesService } from './sales.service.js';
 import { CreateInvoiceDto } from './dto/create-invoice.dto.js';
 import { InvoiceResponseDto } from './dto/invoice-response.dto.js';
+import { DryRunRefused } from '../dry-run/dry-run.decorators.js';
 
 @Controller('sales')
 export class SalesController {
@@ -26,6 +27,9 @@ export class SalesController {
   }
 
   @Put('invoices/:id/finalize')
+  @DryRunRefused(
+    'Invoice finalization consumes numbering sequences and creates irreversible legal tax records',
+  )
   @ApiOkResponse({ type: InvoiceResponseDto })
   finalize(@Param('id') id: string) {
     return this.salesService.finalize(id);
