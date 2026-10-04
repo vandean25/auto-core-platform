@@ -74,8 +74,15 @@ const statusClassMap: Record<string, string> = {
   ALL_SEASON: 'border-violet-200 bg-violet-100 text-violet-700',
   CHECK_IN: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   CHECK_OUT: 'border-sky-200 bg-sky-100 text-sky-700',
-  MOVED: 'border-indigo-200 bg-indigo-100 text-indigo-700',
   INSPECTED: 'border-slate-200 bg-slate-100 text-slate-700',
+  // Agent supervision statuses & tiers
+  PENDING: 'border-amber-200 bg-amber-100 text-amber-700',
+  EXECUTED: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  FAILED: 'border-rose-200 bg-rose-100 text-rose-700',
+  EXPIRED: 'border-slate-200 bg-slate-100 text-slate-600',
+  AUTO: 'border-emerald-200 bg-emerald-100 text-emerald-700',
+  PROPOSE: 'border-amber-200 bg-amber-100 text-amber-700',
+  HUMAN_ONLY: 'border-purple-200 bg-purple-100 text-purple-700',
 }
 
 export function formatStatusLabel(status: string) {
