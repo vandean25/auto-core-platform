@@ -18,6 +18,7 @@ import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { requireActiveCurrentUser } from '../site/site.authorization.js';
 import { assertSupervisorAccess } from './agent-proposal.authorization.js';
 import type {
@@ -35,6 +36,7 @@ export class AgentProposalService {
     private readonly tenantContext: TenantContextService,
     private readonly agentPolicyService: AgentPolicyService,
     private readonly agentActionLog: AgentActionLogService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async listProposals(
@@ -269,7 +271,10 @@ export class AgentProposalService {
       );
     }
 
-    const policyContext = this.extractPolicyContext(proposal.payload_json);
+    const policyContext = this.extractPolicyContext(
+      proposal.payload_json,
+      proposal.action_type,
+    );
     const evalResult = await this.agentPolicyService.evaluate(
       {
         action_type: proposal.action_type,
@@ -404,28 +409,61 @@ export class AgentProposalService {
     return this.toResponseDto(created);
   }
 
-  private extractPolicyContext(payload: unknown): AgentPolicyEvaluateContext {
+  resolveLineItemFinancials(record: Record<string, unknown>): {
+    unitPrice: number;
+    totalAmount: number;
+    quantity: number;
+  } {
+    return resolveLineItemFinancials(record);
+  }
+
+  private extractPolicyContext(
+    payload: unknown,
+    actionType?: string,
+  ): AgentPolicyEvaluateContext {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return {};
     }
     const record = payload as Record<string, unknown>;
     const context: AgentPolicyEvaluateContext = {};
 
-    let amountEur: number | undefined;
-    if (typeof record.amount_eur === 'number') {
-      amountEur = record.amount_eur;
-    } else if (typeof record.amountEur === 'number') {
-      amountEur = record.amountEur;
-    } else if (typeof record.amount === 'number') {
-      amountEur = record.amount;
-    } else if (typeof record.amount_cents === 'number') {
-      amountEur = record.amount_cents / 100;
-    } else if (typeof record.amountCents === 'number') {
-      amountEur = record.amountCents / 100;
-    }
+    if (actionType === 'workshop_order.add_line') {
+      const financials = resolveLineItemFinancials(record);
+      if (financials.totalAmount > 0) {
+        context.amount_eur = financials.totalAmount;
+      }
+    } else {
+      let amountEur: number | undefined;
+      if (
+        typeof record.amount_eur === 'number' &&
+        Number.isFinite(record.amount_eur)
+      ) {
+        amountEur = record.amount_eur;
+      } else if (
+        typeof record.amountEur === 'number' &&
+        Number.isFinite(record.amountEur)
+      ) {
+        amountEur = record.amountEur;
+      } else if (
+        typeof record.amount === 'number' &&
+        Number.isFinite(record.amount)
+      ) {
+        amountEur = record.amount;
+      } else if (
+        typeof record.amount_cents === 'number' &&
+        Number.isFinite(record.amount_cents)
+      ) {
+        amountEur = record.amount_cents / 100;
+      } else if (
+        typeof record.amountCents === 'number' &&
+        Number.isFinite(record.amountCents)
+      ) {
+        amountEur = record.amountCents / 100;
+      }
 
-    if (typeof amountEur === 'number') {
-      context.amount_eur = amountEur;
+      if (typeof amountEur === 'number') {
+        context.amount_eur = amountEur;
+      }
     }
 
     const customerFacing =
@@ -459,7 +497,7 @@ export class AgentProposalService {
       typeof record.context === 'object' &&
       !Array.isArray(record.context)
     ) {
-      const nested = this.extractPolicyContext(record.context);
+      const nested = this.extractPolicyContext(record.context, actionType);
       return { ...nested, ...context };
     }
 
@@ -489,15 +527,21 @@ export class AgentProposalService {
           );
         }
 
-        const siteId =
+        const callerSiteId = await this.siteContext.getSiteId();
+        const payloadSiteId =
           (record.site_id as string | undefined) ??
           (record.siteId as string | undefined);
+        if (payloadSiteId && payloadSiteId !== callerSiteId) {
+          throw new BadRequestException(
+            `Action payload site (${payloadSiteId}) does not match caller authorized site (${callerSiteId})`,
+          );
+        }
 
         const order = await this.prisma.workshopOrder.findFirst({
           where: {
             id: orderId,
             tenant_id: tenantId,
-            ...(siteId ? { site_id: siteId } : {}),
+            site_id: callerSiteId,
           },
           include: {
             tasks: {
@@ -545,26 +589,10 @@ export class AgentProposalService {
           typeof record.description === 'string'
             ? record.description
             : 'Proposed line item';
-        const quantity = new Prisma.Decimal(
-          typeof record.quantity === 'number' ? record.quantity : 1,
-        );
 
-        let unitPrice: Prisma.Decimal;
-        if (typeof record.unit_price === 'number') {
-          unitPrice = new Prisma.Decimal(record.unit_price);
-        } else if (typeof record.unitPrice === 'number') {
-          unitPrice = new Prisma.Decimal(record.unitPrice);
-        } else if (typeof record.amount_eur === 'number') {
-          unitPrice = new Prisma.Decimal(record.amount_eur);
-        } else if (typeof record.amountEur === 'number') {
-          unitPrice = new Prisma.Decimal(record.amountEur);
-        } else if (typeof record.amount_cents === 'number') {
-          unitPrice = new Prisma.Decimal(record.amount_cents / 100);
-        } else if (typeof record.amountCents === 'number') {
-          unitPrice = new Prisma.Decimal(record.amountCents / 100);
-        } else {
-          unitPrice = new Prisma.Decimal(0);
-        }
+        const financials = resolveLineItemFinancials(record);
+        const quantity = new Prisma.Decimal(financials.quantity);
+        const unitPrice = new Prisma.Decimal(financials.unitPrice);
 
         const lineItem = await this.prisma.workshopTaskLineItem.create({
           data: {
@@ -584,6 +612,7 @@ export class AgentProposalService {
           entityType: 'WorkshopTaskLineItem',
           entityId: lineItem.id,
           orderId: order.id,
+          siteId: callerSiteId,
           taskId: targetTask.id,
           lineItem,
         };
@@ -663,4 +692,111 @@ export class AgentProposalService {
       updated_at: proposal.updatedAt.toISOString(),
     };
   }
+}
+
+export interface LineItemFinancials {
+  unitPrice: number;
+  totalAmount: number;
+  quantity: number;
+}
+
+export function resolveLineItemFinancials(
+  record: Record<string, unknown>,
+): LineItemFinancials {
+  const quantity =
+    typeof record.quantity === 'number' &&
+    Number.isFinite(record.quantity) &&
+    record.quantity > 0
+      ? record.quantity
+      : 1;
+
+  let unitPriceFromPayload: number | undefined;
+  if (
+    typeof record.unit_price === 'number' &&
+    Number.isFinite(record.unit_price)
+  ) {
+    unitPriceFromPayload = record.unit_price;
+  } else if (
+    typeof record.unitPrice === 'number' &&
+    Number.isFinite(record.unitPrice)
+  ) {
+    unitPriceFromPayload = record.unitPrice;
+  } else if (
+    typeof record.unit_price_cents === 'number' &&
+    Number.isFinite(record.unit_price_cents)
+  ) {
+    unitPriceFromPayload = record.unit_price_cents / 100;
+  } else if (
+    typeof record.unitPriceCents === 'number' &&
+    Number.isFinite(record.unitPriceCents)
+  ) {
+    unitPriceFromPayload = record.unitPriceCents / 100;
+  }
+
+  let totalAmountFromPayload: number | undefined;
+  if (
+    typeof record.amount_eur === 'number' &&
+    Number.isFinite(record.amount_eur)
+  ) {
+    totalAmountFromPayload = record.amount_eur;
+  } else if (
+    typeof record.amountEur === 'number' &&
+    Number.isFinite(record.amountEur)
+  ) {
+    totalAmountFromPayload = record.amountEur;
+  } else if (
+    typeof record.amount === 'number' &&
+    Number.isFinite(record.amount)
+  ) {
+    totalAmountFromPayload = record.amount;
+  } else if (
+    typeof record.amount_cents === 'number' &&
+    Number.isFinite(record.amount_cents)
+  ) {
+    totalAmountFromPayload = record.amount_cents / 100;
+  } else if (
+    typeof record.amountCents === 'number' &&
+    Number.isFinite(record.amountCents)
+  ) {
+    totalAmountFromPayload = record.amountCents / 100;
+  }
+
+  if (
+    unitPriceFromPayload !== undefined &&
+    totalAmountFromPayload !== undefined
+  ) {
+    const expectedTotal = unitPriceFromPayload * quantity;
+    if (Math.abs(expectedTotal - totalAmountFromPayload) > 0.01) {
+      throw new BadRequestException(
+        `Payload amount (${totalAmountFromPayload}) contradicts unit_price (${unitPriceFromPayload}) * quantity (${quantity}) = ${expectedTotal}`,
+      );
+    }
+    return {
+      unitPrice: unitPriceFromPayload,
+      totalAmount: totalAmountFromPayload,
+      quantity,
+    };
+  }
+
+  if (unitPriceFromPayload !== undefined) {
+    return {
+      unitPrice: unitPriceFromPayload,
+      totalAmount: unitPriceFromPayload * quantity,
+      quantity,
+    };
+  }
+
+  if (totalAmountFromPayload !== undefined) {
+    return {
+      unitPrice: totalAmountFromPayload / quantity,
+      totalAmount: totalAmountFromPayload,
+      quantity,
+    };
+  }
+
+  return {
+    unitPrice: 0,
+    totalAmount: 0,
+    quantity,
+  };
 }

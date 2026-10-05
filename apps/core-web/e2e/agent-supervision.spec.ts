@@ -144,9 +144,10 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await expect(page.getByTestId('approve-btn-prop-1')).toBeVisible()
     await expect(page.getByTestId('reject-btn-prop-1')).toBeVisible()
 
-    // CRITICAL SAFETY GUARD: HUMAN_ONLY has no approve button, shows "Do this manually"
+    // CRITICAL SAFETY GUARD: HUMAN_ONLY has no approve button, shows "Do this manually", but has reject button
     await expect(page.getByTestId('proposal-card-prop-2')).toBeVisible()
     await expect(page.getByTestId('approve-btn-prop-2')).not.toBeVisible()
+    await expect(page.getByTestId('reject-btn-prop-2')).toBeVisible()
     await expect(page.getByText('Do this manually')).toBeVisible()
 
     // Axe a11y audit on Approvals view

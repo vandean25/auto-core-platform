@@ -17,6 +17,7 @@ describe('AgentProposalService', () => {
   let mockTenantContext: any;
   let mockAgentPolicyService: any;
   let mockAgentActionLog: any;
+  let mockSiteContext: any;
 
   beforeEach(() => {
     mockTenantContext = {
@@ -27,6 +28,10 @@ describe('AgentProposalService', () => {
         tenantId,
         role: 'ADMIN',
       }),
+    };
+
+    mockSiteContext = {
+      getSiteId: jest.fn().mockResolvedValue('site-1'),
     };
 
     mockPrisma = {
@@ -85,6 +90,7 @@ describe('AgentProposalService', () => {
       mockTenantContext,
       mockAgentPolicyService,
       mockAgentActionLog,
+      mockSiteContext,
     );
   });
 
@@ -733,7 +739,7 @@ describe('AgentProposalService', () => {
       const result = await service.approveProposal(proposalId);
 
       expect(mockPrisma.workshopOrder.findFirst).toHaveBeenCalledWith({
-        where: { id: 'wo-1', tenant_id: tenantId },
+        where: { id: 'wo-1', tenant_id: tenantId, site_id: 'site-1' },
         include: {
           tasks: {
             orderBy: { createdAt: 'asc' },
@@ -834,6 +840,80 @@ describe('AgentProposalService', () => {
           reason: 'Workshop order non-existent-order not found',
         },
       });
+    });
+
+    it('rejects workshop_order.add_line when payload site_id does not match caller authorized site', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          site_id: 'other-site-999',
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Action payload site (other-site-999) does not match caller authorized site (site-1)',
+      );
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason:
+            'Action payload site (other-site-999) does not match caller authorized site (site-1)',
+        },
+      });
+    });
+
+    it('rejects workshop_order.add_line when payload amount contradicts unit_price * quantity', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: 600,
+          quantity: 1,
+          amount_eur: 50,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Payload amount (50) contradicts unit_price (600) * quantity (1) = 600',
+      );
+    });
+
+    it('evaluates policy with unit_price * quantity when amount_eur is omitted', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: 300,
+          quantity: 2,
+        },
+      });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+          decided_at: new Date(),
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.approveProposal(proposalId);
+
+      expect(mockAgentPolicyService.evaluate).toHaveBeenCalledWith(
+        {
+          action_type: 'workshop_order.add_line',
+          context: {
+            amount_eur: 600,
+          },
+        },
+        { skipAdminCheck: true },
+      );
     });
   });
 

@@ -217,27 +217,29 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                   {/* Actions column */}
                   <div className="flex items-center gap-2">
                     {/* CRITICAL SAFETY GUARD: If HUMAN_ONLY, NEVER render Approve button! */}
-                    {isHumanOnly ? (
-                      <div className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
-                        <HandMetal className="h-4 w-4" aria-hidden="true" />
-                        <span>{getCopy(t.doManually, language)}</span>
-                      </div>
-                    ) : isPending ? (
+                    {isPending ? (
                       <>
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleApprove(proposal)}
-                          disabled={isActionPending}
-                          className="bg-emerald-700 hover:bg-emerald-800 text-white"
-                          data-testid={`approve-btn-${proposal.id}`}
-                        >
-                          <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                          {isActionPending
-                            ? getCopy(t.approving, language)
-                            : getCopy(t.approve, language)}
-                        </Button>
+                        {isHumanOnly ? (
+                          <div className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
+                            <HandMetal className="h-4 w-4" aria-hidden="true" />
+                            <span>{getCopy(t.doManually, language)}</span>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleApprove(proposal)}
+                            disabled={isActionPending}
+                            className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                            data-testid={`approve-btn-${proposal.id}`}
+                          >
+                            <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                            {isActionPending
+                              ? getCopy(t.approving, language)
+                              : getCopy(t.approve, language)}
+                          </Button>
+                        )}
                         <Button
                           type="button"
                           variant="outline"
@@ -251,6 +253,11 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                           {getCopy(t.reject, language)}
                         </Button>
                       </>
+                    ) : isHumanOnly ? (
+                      <div className="flex items-center gap-1.5 rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700">
+                        <HandMetal className="h-4 w-4" aria-hidden="true" />
+                        <span>{getCopy(t.doManually, language)}</span>
+                      </div>
                     ) : null}
                   </div>
                 </div>

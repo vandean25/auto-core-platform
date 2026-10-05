@@ -9888,7 +9888,7 @@
             }
           }
         },
-        "summary": "List agent action logs (OWNER/ADMIN)",
+        "summary": "List agent action logs (OWNER/ADMIN/ADVISOR)",
         "tags": [
           "Agent Actions"
         ]
@@ -9920,7 +9920,7 @@
             }
           }
         },
-        "summary": "Get agent action trace detail (OWNER/ADMIN)",
+        "summary": "Get agent action trace detail (OWNER/ADMIN/ADVISOR)",
         "tags": [
           "Agent Actions"
         ]

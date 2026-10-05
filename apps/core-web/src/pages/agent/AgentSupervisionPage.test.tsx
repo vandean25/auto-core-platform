@@ -275,9 +275,9 @@ describe('AgentSupervisionPage', () => {
     expect(screen.getByTestId('approve-btn-prop-1')).toBeInTheDocument()
     expect(screen.getByTestId('reject-btn-prop-1')).toBeInTheDocument()
 
-    // For prop-2 (HUMAN_ONLY): Approve button MUST NOT EXIST
+    // For prop-2 (HUMAN_ONLY): Approve button MUST NOT EXIST, but Reject button MUST EXIST
     expect(screen.queryByTestId('approve-btn-prop-2')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('reject-btn-prop-2')).not.toBeInTheDocument()
+    expect(screen.getByTestId('reject-btn-prop-2')).toBeInTheDocument()
     expect(screen.getByText('Do this manually')).toBeInTheDocument()
     expect(
       screen.getByText(/This action is classified as HUMAN_ONLY and cannot be executed automatically/i),
@@ -370,13 +370,23 @@ describe('AgentSupervisionPage', () => {
     expect(startDateInput).toBeInTheDocument()
     expect(endDateInput).toBeInTheDocument()
 
+    // Verify REJECTED option is available in status select
+    const statusSelect = screen.getByTestId('filter-status-select')
+    expect(statusSelect).toBeInTheDocument()
+    fireEvent.change(statusSelect, { target: { value: 'REJECTED' } })
+    expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        status: 'REJECTED',
+      }),
+    )
+
     fireEvent.change(startDateInput, { target: { value: '2026-10-01' } })
     fireEvent.change(endDateInput, { target: { value: '2026-10-04' } })
 
     expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        startDate: '2026-10-01T00:00:00.000Z',
-        endDate: '2026-10-04T23:59:59.999Z',
+        startDate: new Date(2026, 9, 1, 0, 0, 0, 0).toISOString(),
+        endDate: new Date(2026, 9, 4, 23, 59, 59, 999).toISOString(),
       }),
     )
   })

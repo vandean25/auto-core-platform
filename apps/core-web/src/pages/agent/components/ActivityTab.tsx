@@ -21,6 +21,16 @@ interface ActivityTabProps {
   onSelectTraceId: (traceId: string) => void
 }
 
+export function toLocalStartOfDayIso(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day, 0, 0, 0, 0).toISOString()
+}
+
+export function toLocalEndOfDayIso(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString()
+}
+
 export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabProps) {
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [tierFilter, setTierFilter] = useState<string>('ALL')
@@ -40,8 +50,8 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
     status: statusFilter !== 'ALL' ? (statusFilter as AgentActionStatus) : undefined,
     tier: tierFilter !== 'ALL' ? (tierFilter as AgentActionTier) : undefined,
     agentId: agentSearch.trim() || undefined,
-    startDate: startDate ? `${startDate}T00:00:00.000Z` : undefined,
-    endDate: endDate ? `${endDate}T23:59:59.999Z` : undefined,
+    startDate: startDate ? toLocalStartOfDayIso(startDate) : undefined,
+    endDate: endDate ? toLocalEndOfDayIso(endDate) : undefined,
     limit: 50,
   })
 
@@ -80,6 +90,7 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
               <option value="ALL">{getCopy(t.filters.allStatuses, language)}</option>
               <option value="EXECUTED">EXECUTED</option>
               <option value="FAILED">FAILED</option>
+              <option value="REJECTED">REJECTED</option>
             </select>
           </div>
 

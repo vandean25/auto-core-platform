@@ -2938,7 +2938,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List agent action logs (OWNER/ADMIN)
+         * List agent action logs (OWNER/ADMIN/ADVISOR)
          * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
          */
         get: operations["AgentActionLogController_findAll"];
@@ -2958,7 +2958,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get agent action trace detail (OWNER/ADMIN)
+         * Get agent action trace detail (OWNER/ADMIN/ADVISOR)
          * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
          */
         get: operations["AgentActionLogController_findByTraceId"];
