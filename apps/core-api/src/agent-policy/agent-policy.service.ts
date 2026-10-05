@@ -193,6 +193,20 @@ export class AgentPolicyService {
     return evaluateAgentPolicy(actionType, context, rule);
   }
 
+  /**
+   * Evaluates an action for the active tenant without the ADMIN assertion so
+   * agent-facing callers (e.g. the MCP write pipeline) can resolve the
+   * effective tier on behalf of the token's user and tenant.
+   */
+  async evaluateAction(
+    actionType: string,
+    context: AgentPolicyEvaluateContext = {},
+  ): Promise<AgentPolicyEvaluationResult> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const rule = await this.resolveEffectiveRule(tenantId, actionType);
+    return evaluateAgentPolicy(actionType, context, rule);
+  }
+
   private async loadEffectiveRules(
     tenantId: string,
   ): Promise<ResolvedAgentPolicyRule[]> {
