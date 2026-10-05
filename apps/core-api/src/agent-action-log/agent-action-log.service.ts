@@ -67,9 +67,15 @@ export class AgentActionLogService {
           ? workError
           : 'Agent action work failed'
       : undefined;
+    const resolvedResultSummary =
+      typeof parsed.resultSummary === 'function'
+        ? (parsed.resultSummary as (result: T | undefined) => unknown)(
+            workResult,
+          )
+        : parsed.resultSummary;
     const resultForSummary = failureMessage
       ? { error: failureMessage }
-      : parsed.resultSummary;
+      : resolvedResultSummary;
 
     const created = await this.prisma.agentActionLog.create({
       data: {

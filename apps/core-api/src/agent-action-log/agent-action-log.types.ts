@@ -7,6 +7,7 @@ export const AGENT_ACTION_STATUSES = [
   'APPROVED',
   'REJECTED',
   'EXECUTED',
+  'REFUSED',
   'FAILED',
   'DRY_RUN',
 ] as const;
