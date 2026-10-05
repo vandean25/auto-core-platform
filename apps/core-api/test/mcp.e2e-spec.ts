@@ -653,7 +653,7 @@ describe('MCP server (e2e)', () => {
       await transport.close();
     });
 
-    it('rejects an active INTAKE status for draft_workshop_order and logs the failure', async () => {
+    it('rejects an active INTAKE status for draft_workshop_order without creating an order', async () => {
       const { client, transport } = await connectMcpClient(
         adminHeaderA,
         'e2e-draft-active-status-rejected',
@@ -665,13 +665,9 @@ describe('MCP server (e2e)', () => {
       });
 
       expect(result.isError).toBe(true);
-      expect(await prismaA.agentActionLog.findFirst({
-        where: {
-          trace_id: '00000000-0000-4000-8000-000000000213',
-          action_type: 'mcp.draft_workshop_order',
-          status: 'FAILED',
-        },
-      })).toBeTruthy();
+      expect(await prismaA.workshopOrder.count({
+        where: { vehicle_id: fixtures.vehicleId },
+      })).toBe(1);
       await transport.close();
     });
 
