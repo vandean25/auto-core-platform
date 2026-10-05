@@ -844,6 +844,8 @@ describe('MCP server (e2e)', () => {
           vehicle_id: tenantBVehicle.id,
           site_id: tenantBSiteId,
           staging_location_id: tenantBStaging.id,
+          odometer: 1000,
+          fuel_level: 50,
           status: 'INTAKE',
         },
       });
@@ -960,6 +962,8 @@ describe('MCP server (e2e)', () => {
           vehicle_id: fixtures.vehicleId,
           site_id: otherSite.id,
           staging_location_id: stagingLocation.id,
+          odometer: 1000,
+          fuel_level: 50,
           status: 'INTAKE',
         },
       });
