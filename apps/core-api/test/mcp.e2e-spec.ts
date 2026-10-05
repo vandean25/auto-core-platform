@@ -61,6 +61,7 @@ describe('MCP server (e2e)', () => {
   let prismaA: PrismaService;
   let tenantAUserId: string;
   let fixtures: TenantFixtures;
+  let workshopBayId: string;
 
   const mcpBaseUrl = () =>
     `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}/api/mcp`;
@@ -234,6 +235,24 @@ describe('MCP server (e2e)', () => {
     return { customerId: customer.id, vehicleId: vehicle.id };
   }
 
+  function scheduledBooking(startHourUtc = 10): {
+    bay_id: string;
+    scheduled_start_at: string;
+    scheduled_end_at: string;
+  } {
+    const start = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    while (start.getUTCDay() === 0 || start.getUTCDay() === 6) {
+      start.setUTCDate(start.getUTCDate() + 1);
+    }
+    start.setUTCHours(startHourUtc, 0, 0, 0);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    return {
+      bay_id: workshopBayId,
+      scheduled_start_at: start.toISOString(),
+      scheduled_end_at: end.toISOString(),
+    };
+  }
+
    beforeAll(async () => {
      jest.setTimeout(120000);
      previousMcpFlag = process.env.MCP_SERVER_ENABLED;
@@ -277,6 +296,16 @@ describe('MCP server (e2e)', () => {
     tenantAUserId = tenantAUser.id;
 
     fixtures = await seedTenantAFixtures();
+    const siteId = await resolveTestMainSiteId(prisma, tenantA);
+    const bay = await prismaA.bay.create({
+      data: {
+        name: `MCP test bay ${Date.now()}`,
+        is_active: true,
+        sort_order: 1,
+        site_id: siteId,
+      },
+    });
+    workshopBayId = bay.id;
   });
 
   afterAll(async () => {
@@ -557,6 +586,7 @@ describe('MCP server (e2e)', () => {
           vehicle_id: draftVehicle.vehicleId,
           purpose: 'CUSTOMER_REPAIR',
           status: 'SCHEDULED',
+          ...scheduledBooking(12),
           odometer: 1000,
           fuel_level: 50,
           notes: 'MCP draft test',
@@ -603,7 +633,7 @@ describe('MCP server (e2e)', () => {
       await transport.close();
     });
 
-    it('HUMAN_ONLY refuse for a write (insert a temporary tenant HUMAN_ONLY policy row for workshop_order.create if needed) → nothing written + REFUSED log', async () => {
+    it('HUMAN_ONLY refuses a write without creating an order and records a REFUSED log', async () => {
       await setPolicyTier('workshop_order.create', 'HUMAN_ONLY');
       const draftVehicle = await createDraftVehicle('draft-human');
 
@@ -614,43 +644,43 @@ describe('MCP server (e2e)', () => {
       );
 
       // Act
-      const result = await client.callTool({
-        name: 'draft_workshop_order',
-        arguments: {
-          customer_id: draftVehicle.customerId,
-          vehicle_id: draftVehicle.vehicleId,
-          purpose: 'CUSTOMER_REPAIR',
-          status: 'SCHEDULED',
-          odometer: 1000,
-          fuel_level: 50,
-          notes: 'MCP human-only test',
-        },
-      });
+      try {
+        const result = await client.callTool({
+          name: 'draft_workshop_order',
+          arguments: {
+            customer_id: draftVehicle.customerId,
+            vehicle_id: draftVehicle.vehicleId,
+            purpose: 'CUSTOMER_REPAIR',
+            status: 'SCHEDULED',
+            ...scheduledBooking(),
+            odometer: 1000,
+            fuel_level: 50,
+            notes: 'MCP human-only test',
+          },
+        });
 
-      // Assert: the tool should return an error (ForbiddenException turned into MCP error?)
-      expect(result.isError).toBe(true);
-      // Ensure no workshop order was created beyond the initial fixture
-      const orders = await prismaA.workshopOrder.count({
-        where: {
-          customer_id: draftVehicle.customerId,
-          vehicle_id: draftVehicle.vehicleId,
-          notes: 'MCP human-only test',
-        },
-      });
-      expect(orders).toBe(0);
+        expect(result.isError).toBe(true);
+        const orders = await prismaA.workshopOrder.count({
+          where: {
+            customer_id: draftVehicle.customerId,
+            vehicle_id: draftVehicle.vehicleId,
+            notes: 'MCP human-only test',
+          },
+        });
+        expect(orders).toBe(0);
 
-      // Check for REFUSED agent action log
-      const log = await prismaA.agentActionLog.findFirst({
-        where: {
-          trace_id: '00000000-0000-4000-8000-000000000202',
-          action_type: 'mcp.draft_workshop_order',
-        },
-      });
-      expect(log).toBeTruthy();
-      expect(log?.tier).toBe('HUMAN_ONLY');
-      expect(log?.status).toBe('REFUSED');
-
-      await transport.close();
+        const log = await prismaA.agentActionLog.findFirst({
+          where: {
+            trace_id: '00000000-0000-4000-8000-000000000202',
+            action_type: 'mcp.draft_workshop_order',
+          },
+        });
+        expect(log).toBeTruthy();
+        expect(log?.tier).toBe('HUMAN_ONLY');
+        expect(log?.status).toBe('REFUSED');
+      } finally {
+        await transport.close();
+      }
     });
 
     it('rejects an active INTAKE status for draft_workshop_order without creating an order', async () => {
@@ -931,8 +961,8 @@ describe('MCP server (e2e)', () => {
         arguments: { reservation_id: tenantBReservation.id },
       });
       expect(releaseResult.isError).toBe(true);
-      expect(await prismaB.partsReservation.findUnique({
-        where: { id: tenantBReservation.id },
+      expect(await prismaB.partsReservation.findFirst({
+        where: { tenant_id: tenantB, id: tenantBReservation.id },
         select: { status: true },
       })).toMatchObject({ status: 'OPEN' });
       await writeTransport.close();
@@ -1029,6 +1059,12 @@ describe('MCP server (e2e)', () => {
       });
 
       try {
+        const ordersBefore = await prismaA.workshopOrder.count({
+          where: {
+            customer_id: fixtures.customerId,
+            vehicle_id: fixtures.vehicleId,
+          },
+        });
         await request(app.getHttpServer())
           .post('/api/mcp')
           .set('Authorization', techHeaderA)
@@ -1049,14 +1085,13 @@ describe('MCP server (e2e)', () => {
             },
           })
           .expect(403);
-        expect(
-          await prismaA.workshopOrder.count({
-            where: {
-              customer_id: fixtures.customerId,
-              vehicle_id: fixtures.vehicleId,
-            },
-          }),
-        ).toBe(1);
+        const ordersAfter = await prismaA.workshopOrder.count({
+          where: {
+            customer_id: fixtures.customerId,
+            vehicle_id: fixtures.vehicleId,
+          },
+        });
+        expect(ordersAfter).toBe(ordersBefore);
       } finally {
         await runWithTenantContext(tenantA, async () => {
           await prisma.tenantMember.update({
