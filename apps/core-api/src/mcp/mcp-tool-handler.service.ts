@@ -1,25 +1,45 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { z } from 'zod';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
+import { MCP_WRITE_POLICY_ACTION_TYPES } from '../agent-policy/agent-policy.constants.js';
+import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { CatalogService } from '../catalog/catalog.service.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
+import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { VehicleService } from '../vehicle/vehicle.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
-import type { McpReadToolName } from './mcp.constants.js';
+import type {
+  McpReadToolName,
+  McpToolName,
+  McpWriteToolName,
+} from './mcp.constants.js';
+import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
+import type { McpWriteExecution } from './mcp-write-pipeline.service.js';
 import {
   capMcpToolPayload,
   clampMcpPage,
   clampMcpPageSize,
 } from './mcp-output.util.js';
 import {
+  draftWorkshopOrderInputSchema,
   getCustomerInputSchema,
   getStockLevelInputSchema,
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
   listWorkshopOrdersInputSchema,
   mcpToolInputSchemas,
+  mcpWriteToolInputSchemas,
+  proposeLineItemInputSchema,
+  releaseReservationInputSchema,
+  reservePartInputSchema,
   searchCustomersInputSchema,
   searchPartsInputSchema,
   searchVehiclesInputSchema,
@@ -31,6 +51,11 @@ export type McpToolCallContext = {
   onBehalfOfUserId: string;
 };
 
+type DraftWorkshopOrderInput = z.infer<typeof draftWorkshopOrderInputSchema>;
+type ReservePartInput = z.infer<typeof reservePartInputSchema>;
+type ReleaseReservationInput = z.infer<typeof releaseReservationInputSchema>;
+type ProposeLineItemInput = z.infer<typeof proposeLineItemInputSchema>;
+
 @Injectable()
 export class McpToolHandlerService {
   constructor(
@@ -40,15 +65,21 @@ export class McpToolHandlerService {
     private readonly workshopIntakeService: WorkshopIntakeService,
     private readonly catalogService: CatalogService,
     private readonly inventoryService: InventoryService,
+    private readonly partsRequisitionService: PartsRequisitionService,
+    private readonly writePipeline: McpWritePipelineService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
   ) {}
 
   async executeTool(
-    toolName: McpReadToolName,
+    toolName: McpToolName,
     rawArgs: unknown,
     context: McpToolCallContext,
   ): Promise<unknown> {
+    if (isWriteTool(toolName)) {
+      return this.executeWriteTool(toolName, rawArgs, context);
+    }
+
     const schema = mcpToolInputSchemas[toolName];
     const actionType = `mcp.${toolName}`;
     const record = await this.agentActionLog.record(
@@ -72,6 +103,183 @@ export class McpToolHandlerService {
 
   resolveAgentId(clientName: string | undefined): string {
     return formatMcpAgentId(clientName ?? 'unknown');
+  }
+
+  private async executeWriteTool(
+    toolName: McpWriteToolName,
+    rawArgs: unknown,
+    context: McpToolCallContext,
+  ): Promise<unknown> {
+    const schema = mcpWriteToolInputSchemas[toolName];
+    const parsed = schema.parse(rawArgs ?? {});
+    const result = await this.writePipeline.run(
+      this.buildWriteExecution(toolName),
+      parsed,
+      context,
+    );
+    return capMcpToolPayload(result);
+  }
+
+  private buildWriteExecution(toolName: McpWriteToolName): McpWriteExecution {
+    switch (toolName) {
+      case 'draft_workshop_order':
+        return {
+          toolName,
+          policyActionType: MCP_WRITE_POLICY_ACTION_TYPES.draft_workshop_order,
+          buildPolicyContext: () => ({}),
+          execute: (input) =>
+            this.executeDraftWorkshopOrder(input as DraftWorkshopOrderInput),
+          buildResultSummary: (result) => ({
+            workshop_order_id: (result as { id: string }).id,
+          }),
+        };
+      case 'reserve_part':
+        return {
+          toolName,
+          policyActionType: MCP_WRITE_POLICY_ACTION_TYPES.reserve_part,
+          buildPolicyContext: (input) =>
+            this.buildReservePartPolicyContext(input as ReservePartInput),
+          execute: (input) =>
+            this.executeReservePart(input as ReservePartInput),
+          buildResultSummary: (result) => ({
+            reservation_id: (result as { id: string }).id,
+          }),
+        };
+      case 'release_reservation':
+        return {
+          toolName,
+          policyActionType: MCP_WRITE_POLICY_ACTION_TYPES.release_reservation,
+          buildPolicyContext: () => ({}),
+          execute: (input) =>
+            this.executeReleaseReservation(input as ReleaseReservationInput),
+          buildResultSummary: (result) => ({
+            reservation_id: (result as { id: string }).id,
+          }),
+        };
+      case 'propose_line_item':
+        return {
+          toolName,
+          policyActionType: MCP_WRITE_POLICY_ACTION_TYPES.propose_line_item,
+          buildPolicyContext: (input) =>
+            this.buildProposeLineItemPolicyContext(
+              input as ProposeLineItemInput,
+            ),
+          execute: (input) =>
+            this.executeProposeLineItem(input as ProposeLineItemInput),
+          buildResultSummary: (result) => ({
+            line_item_id: (result as { id: string }).id,
+          }),
+        };
+    }
+  }
+
+  private async executeDraftWorkshopOrder(
+    input: DraftWorkshopOrderInput,
+  ): Promise<unknown> {
+    return this.workshopIntakeService.create({
+      customerId: input.customer_id,
+      vehicleId: input.vehicle_id,
+      purpose: input.purpose,
+      status: input.status,
+      bayId: input.bay_id,
+      mechanicId: input.mechanic_id,
+      scheduledStartAt: input.scheduled_start_at,
+      scheduledEndAt: input.scheduled_end_at,
+      odometer: input.odometer,
+      fuelLevel: input.fuel_level,
+      reportedIssue: input.reported_issue,
+      notes: input.notes,
+    });
+  }
+
+  private async buildReservePartPolicyContext(
+    input: ReservePartInput,
+  ): Promise<AgentPolicyEvaluateContext> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const line = await this.prisma.workshopTaskLineItem.findFirst({
+      where: { id: input.workshop_task_line_item_id, tenant_id: tenantId },
+      select: { unit_price: true },
+    });
+    if (!line) {
+      return {};
+    }
+    const amountCents = new Prisma.Decimal(input.quantity)
+      .mul(line.unit_price)
+      .mul(100)
+      .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+      .toNumber();
+    return { amount_eur: amountCents / 100 };
+  }
+
+  private async executeReservePart(input: ReservePartInput): Promise<unknown> {
+    return this.partsRequisitionService.createOnHandReservation({
+      workshopTaskLineItemId: input.workshop_task_line_item_id,
+      quantity: input.quantity,
+      locationId: input.location_id,
+    });
+  }
+
+  private async executeReleaseReservation(
+    input: ReleaseReservationInput,
+  ): Promise<unknown> {
+    return this.partsRequisitionService.releaseReservation(
+      input.reservation_id,
+      input.return_location_id !== undefined
+        ? { returnLocationId: input.return_location_id }
+        : {},
+    );
+  }
+
+  private buildProposeLineItemPolicyContext(
+    input: ProposeLineItemInput,
+  ): AgentPolicyEvaluateContext {
+    const amountCents = Math.round(
+      input.line_item.quantity * input.line_item.unit_price_cents,
+    );
+    return { amount_eur: amountCents / 100 };
+  }
+
+  private async executeProposeLineItem(
+    input: ProposeLineItemInput,
+  ): Promise<unknown> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const task = await this.prisma.workshopTask.findFirst({
+      where: {
+        id: input.workshop_task_id,
+        tenant_id: tenantId,
+        workshop_order_id: input.workshop_order_id,
+        workshop_order: { tenant_id: tenantId },
+      },
+      select: { id: true, line_items_version: true },
+    });
+    if (!task) {
+      throw new NotFoundException(
+        'Workshop task not found for the active tenant',
+      );
+    }
+    if (task.line_items_version !== input.expected_line_items_version) {
+      throw new ConflictException(
+        'Workshop task line items changed; please reload and retry',
+      );
+    }
+
+    const created = await this.prisma.workshopTaskLineItem.create({
+      data: {
+        tenant_id: tenantId,
+        workshop_task_id: task.id,
+        type: input.line_item.type,
+        part_execution_status:
+          input.line_item.type === 'PART' ? 'PENDING_PICK' : null,
+        item_no: input.line_item.item_no,
+        description: input.line_item.description,
+        quantity: new Prisma.Decimal(input.line_item.quantity),
+        unit_price: new Prisma.Decimal(input.line_item.unit_price_cents / 100),
+        labor_operation_id: input.line_item.labor_operation_id ?? null,
+      },
+      select: { id: true },
+    });
+
+    return { id: created.id };
   }
 
   private async runTool(
@@ -227,4 +435,15 @@ export class McpToolHandlerService {
       ...availability,
     };
   }
+}
+
+const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
+  'draft_workshop_order',
+  'reserve_part',
+  'release_reservation',
+  'propose_line_item',
+]);
+
+function isWriteTool(toolName: McpToolName): toolName is McpWriteToolName {
+  return MCP_WRITE_TOOL_NAME_SET.has(toolName);
 }

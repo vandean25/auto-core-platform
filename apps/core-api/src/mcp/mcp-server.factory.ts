@@ -1,22 +1,26 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
-  MCP_READ_TOOL_NAMES,
+  MCP_TOOL_NAMES,
   MCP_SERVER_IMPLEMENTATION,
-  type McpReadToolName,
+  type McpToolName,
 } from './mcp.constants.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import {
+  draftWorkshopOrderInputSchema,
   getCustomerInputSchema,
   getStockLevelBaseSchema,
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
   listWorkshopOrdersInputSchema,
+  proposeLineItemInputSchema,
+  releaseReservationInputSchema,
+  reservePartInputSchema,
   searchCustomersInputSchema,
   searchPartsInputSchema,
   searchVehiclesInputSchema,
 } from './mcp-tool-schemas.js';
 
-const TOOL_DESCRIPTIONS: Record<McpReadToolName, string> = {
+const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   search_customers: 'Search customers (tenant-scoped, paged)',
   get_customer: 'Get a customer by id',
   search_vehicles: 'Search vehicles (tenant-scoped, paged)',
@@ -26,6 +30,14 @@ const TOOL_DESCRIPTIONS: Record<McpReadToolName, string> = {
   search_parts:
     'Search parts by query; optional workshop_order_id uses workshop catalog context',
   get_stock_level: 'Stock levels for a catalog item id or SKU (active site)',
+  draft_workshop_order:
+    'Create a DRAFT/SCHEDULED workshop order (policy-checked, dry-run preview, logged)',
+  reserve_part:
+    'Create an on-hand parts reservation (reversible; counter-tool: release_reservation)',
+  release_reservation:
+    'Release a parts reservation (counter-tool of reserve_part)',
+  propose_line_item:
+    'Propose a workshop task line item (never executes; records a pending proposal)',
 };
 
 const TOOL_INPUT_SCHEMAS = {
@@ -37,7 +49,11 @@ const TOOL_INPUT_SCHEMAS = {
   get_workshop_order: getWorkshopOrderInputSchema.shape,
   search_parts: searchPartsInputSchema.shape,
   get_stock_level: getStockLevelBaseSchema.shape,
-} satisfies Record<McpReadToolName, Record<string, unknown>>;
+  draft_workshop_order: draftWorkshopOrderInputSchema.shape,
+  reserve_part: reservePartInputSchema.shape,
+  release_reservation: releaseReservationInputSchema.shape,
+  propose_line_item: proposeLineItemInputSchema.shape,
+} satisfies Record<McpToolName, Record<string, unknown>>;
 
 export type McpServerSessionContext = {
   agentId: string;
@@ -52,7 +68,7 @@ export function createMcpServer(
     capabilities: { tools: {} },
   });
 
-  for (const toolName of MCP_READ_TOOL_NAMES) {
+  for (const toolName of MCP_TOOL_NAMES) {
     server.registerTool(
       toolName,
       {
