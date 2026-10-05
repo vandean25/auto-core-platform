@@ -342,8 +342,9 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       expect(res.body.would_change).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            entity: 'WorkshopTaskLineItem',
-            op: 'create',
+            entity: 'WorkshopTask',
+            id: taskId,
+            op: 'update',
           }),
         ]),
       );
