@@ -2,7 +2,7 @@
 
 ## Summary
 
-Exposes Auto Core Platform data to MCP clients over **Streamable HTTP** at `/api/mcp`, authenticated with the same Firebase/JWT session as the REST API. Every tool call is recorded in `agent_action_logs` (AE2) with tier **AUTO** and a trace ID from `X-Trace-Id`.
+Exposes Auto Core Platform data to MCP clients over **Streamable HTTP** at `/api/mcp`, authenticated with the same Firebase/JWT session as the REST API. Every tool call is recorded in `agent_action_logs` (AE2) with its applicable policy tier and a trace ID from `X-Trace-Id`. Write-tool outcomes can be executed, proposed for human approval, or refused by policy.
 
 Includes both read-only tools (phase 1) and write tools (phase 2) with policy evaluation and dry-run capabilities.
 
