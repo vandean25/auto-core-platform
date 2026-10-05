@@ -9,6 +9,7 @@ import { Storage } from '@google-cloud/storage';
 import { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { resolvePdfStorageBucket } from './pdf-bucket.js';
+import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
 
 export type PdfArchiveIdentityMetadata = {
   tenant_id: string;
@@ -61,6 +62,7 @@ export class PdfStorage {
     body: Buffer;
     contentType: string;
   }): Promise<{ bucket: string; key: string; etag: string | null }> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
     return Sentry.startSpan(
       { name: 'Upload PDF to GCS', op: 'pdf.storage.upload' },
       async (span) => {
@@ -103,6 +105,7 @@ export class PdfStorage {
     contentType: string;
     customMetadata: PdfArchiveIdentityMetadata;
   }): Promise<ImmutablePdfArchive> {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucketName = this.getBucketName();
     const file = this.storage.bucket(bucketName).file(params.key);
     const sha256 = hashPdfBytes(params.body);

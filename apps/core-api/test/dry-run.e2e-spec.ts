@@ -13,6 +13,11 @@ import {
   DryRunSideEffectBlockedException,
 } from '../src/dry-run/side-effect-guard.js';
 import { DryRunStorage } from '../src/dry-run/dry-run.storage.js';
+import { CloudTasksService } from '../src/common/services/cloud-tasks.service.js';
+import { DashboardGateway } from '../src/dashboard-realtime/dashboard.gateway.js';
+import { DashboardRealtimeService } from '../src/dashboard-realtime/dashboard-realtime.service.js';
+import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { DocumentBrandingAssetStorage } from '../src/document-branding/document-branding-asset-storage.js';
 import {
   createTenantAwarePrisma,
   createTestAuthToken,
@@ -346,8 +351,18 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
             id: taskId,
             op: 'update',
           }),
+          expect.objectContaining({
+            entity: 'WorkshopTaskLineItem',
+            id: expect.any(String),
+            op: 'create',
+          }),
         ]),
       );
+      const createdLineItems = res.body.would_change.filter(
+        (c: { entity: string; op: string }) =>
+          c.entity === 'WorkshopTaskLineItem' && c.op === 'create',
+      );
+      expect(createdLineItems).toHaveLength(2);
 
       // Verify DB state was NOT modified: line item count & version untouched
       const linesAfter = await prismaA.workshopTaskLineItem.count({
@@ -389,6 +404,75 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
         expect(() => SideEffectGuard.assertAllowed('PERSISTED_AUDIT')).toThrow(
           DryRunSideEffectBlockedException,
         );
+      });
+    });
+
+    it('fails loudly when attempting real outbound ports during dry run', async () => {
+      const cloudTasks = app.get(CloudTasksService);
+      const dashboardGateway = app.get(DashboardGateway);
+      const dashboardRealtime = app.get(DashboardRealtimeService);
+      const pdfStorage = app.get(PdfStorage);
+      const brandingStorage = app.get(DocumentBrandingAssetStorage);
+
+      await DryRunStorage.run({ isDryRun: true }, async () => {
+        await expect(
+          cloudTasks.enqueuePdfGeneration({
+            kind: 'invoice',
+            resourceId: 'res-1',
+            targetBaseUrl: 'http://localhost:3000',
+            tenantId: tenantA,
+          }),
+        ).rejects.toThrow(DryRunSideEffectBlockedException);
+
+        await expect(
+          cloudTasks.enqueueDocumentBrandingAssetValidation({
+            assetId: 'asset-1',
+            tenantId: tenantA,
+            targetBaseUrl: 'http://localhost:3000',
+          }),
+        ).rejects.toThrow(DryRunSideEffectBlockedException);
+
+        await expect(
+          cloudTasks.enqueueDocumentBrandingExtraction({
+            extractionId: 'ext-1',
+            legalEntityId: 'le-1',
+            tenantId: tenantA,
+            expectedAttemptCount: 1,
+            targetBaseUrl: 'http://localhost:3000',
+          }),
+        ).rejects.toThrow(DryRunSideEffectBlockedException);
+
+        expect(() =>
+          dashboardGateway.emitEntityUpdated(tenantA, {
+            type: 'CUSTOMER',
+            action: 'CREATED',
+            entityId: 'cust-1',
+          }),
+        ).toThrow(DryRunSideEffectBlockedException);
+
+        expect(() =>
+          dashboardRealtime.emitEntityUpdated(tenantA, {
+            type: 'CUSTOMER',
+            action: 'CREATED',
+            entityId: 'cust-1',
+          }),
+        ).toThrow(DryRunSideEffectBlockedException);
+
+        await expect(
+          pdfStorage.uploadPdf({
+            key: 'test.pdf',
+            body: Buffer.from('test'),
+            contentType: 'application/pdf',
+          }),
+        ).rejects.toThrow(DryRunSideEffectBlockedException);
+
+        await expect(
+          brandingStorage.storeImmutable({
+            objectKey: 'test.png',
+            bytes: Buffer.from('test'),
+            contentType: 'image/png',
+          }),
+        ).rejects.toThrow(DryRunSideEffectBlockedException);
       });
     });
   });

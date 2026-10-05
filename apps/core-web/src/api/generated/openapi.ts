@@ -3702,7 +3702,32 @@ export interface components {
         };
         /** @enum {string} */
         InvoiceStatus: "DRAFT" | "FINALIZED" | "ISSUED" | "PAID" | "CANCELLED";
+        WouldChangeItemDto: {
+            /**
+             * @description The entity/model name that would change
+             * @example Customer
+             */
+            entity: string;
+            /**
+             * @description The ID of the record that would change
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            id: string;
+            /**
+             * @description The operation that would occur
+             * @example create
+             * @enum {string}
+             */
+            op: "create" | "update" | "delete";
+        };
         CustomerResponseDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";
@@ -3743,6 +3768,13 @@ export interface components {
             last_inspected_on: string | null;
         };
         VehicleResponseDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
             id: string;
             make: string;
             model: string;
@@ -4411,6 +4443,13 @@ export interface components {
             phone?: string;
         };
         VehicleListItemDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
             id: string;
             make: string;
             model: string;
@@ -4530,6 +4569,13 @@ export interface components {
             vehiclePlate: string | null;
         };
         WorkshopOrderResponseDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
             id: string;
             order_number: string;
             /** @enum {string} */
@@ -4672,6 +4718,13 @@ export interface components {
             items: components["schemas"]["ReplaceWorkshopTaskLineItemDto"][];
         };
         WorkshopSearchVehicleDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
             id: string;
             make: string;
             model: string;
@@ -4702,6 +4755,13 @@ export interface components {
             pickerl_due?: components["schemas"]["PickerlDueDto"];
         };
         WorkshopSearchCustomerDto: {
+            /**
+             * @description Indicates whether the request was executed in dry-run mode
+             * @example true
+             */
+            dry_run?: boolean;
+            /** @description List of changes that would occur if executed without dry_run */
+            would_change?: components["schemas"]["WouldChangeItemDto"][];
             id: string;
             /** @enum {string} */
             type: "PRIVATE" | "COMPANY";

@@ -127,6 +127,30 @@ export function createDashboardRealtimeExtension(
           emitRealtimeForOperation(dashboardRealtime, model, 'create', result);
           return result;
         },
+        async createMany({ model, args, query }) {
+          const result = await query(args);
+          if (SideEffectGuard.isDryRun()) {
+            const collector = DryRunStorage.getCollector();
+            if (collector) {
+              const records = Array.isArray(args.data)
+                ? args.data
+                : args.data
+                  ? [args.data]
+                  : [];
+              for (const record of records) {
+                const entityId = extractEntityId(record);
+                if (entityId) {
+                  collector.recordChange({
+                    entity: model,
+                    id: entityId,
+                    op: 'create',
+                  });
+                }
+              }
+            }
+          }
+          return result;
+        },
         async update({ model, args, query }) {
           const result = await query(args);
           emitRealtimeForOperation(dashboardRealtime, model, 'update', result);

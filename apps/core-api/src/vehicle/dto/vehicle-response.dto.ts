@@ -1,9 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js';
+import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 import { PickerlDueDto } from './pickerl-due.dto.js';
 
-export class VehicleResponseDto {
+export class VehicleResponseDto extends DryRunMetaDto {
   @ApiProperty()
   id!: string;
 

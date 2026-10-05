@@ -20,6 +20,7 @@ import { Public } from '../common/decorators/public.decorator.js';
 import { resolveCorsOrigins } from '../common/http/cors-origins.js';
 import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   AuthClaimsUpdatedPayload,
@@ -294,6 +295,7 @@ export class DashboardGateway
     tenantId: string,
     payload: DashboardEntityUpdatedPayload,
   ): void {
+    SideEffectGuard.assertAllowed('NOTIFICATION');
     if (
       !this.ensureServer(DASHBOARD_ENTITY_UPDATED_EVENT, {
         entityType: payload.type,
@@ -320,6 +322,7 @@ export class DashboardGateway
     firebaseUid: string,
     payload: AuthClaimsUpdatedPayload,
   ): void {
+    SideEffectGuard.assertAllowed('NOTIFICATION');
     if (!this.authService) {
       return;
     }
@@ -332,6 +335,7 @@ export class DashboardGateway
     firebaseUid: string,
     payload: SiteContextUpdatedPayload,
   ): Promise<void> {
+    SideEffectGuard.assertAllowed('NOTIFICATION');
     if (!this.ensureServer(SITE_CONTEXT_UPDATED_EVENT)) {
       return;
     }
@@ -354,6 +358,7 @@ export class DashboardGateway
     firebaseUid: string,
     payload: SiteAccessScopeUpdatedPayload,
   ): void {
+    SideEffectGuard.assertAllowed('NOTIFICATION');
     if (!this.authService) {
       return;
     }
@@ -364,6 +369,7 @@ export class DashboardGateway
     tenantId: string,
     input: EmitStockTransferUpdatedInput,
   ): void {
+    SideEffectGuard.assertAllowed('NOTIFICATION');
     if (!this.ensureServer(STOCK_TRANSFER_UPDATED_EVENT)) {
       return;
     }

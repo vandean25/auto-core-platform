@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DashboardGateway } from './dashboard.gateway.js';
 import { DASHBOARD_GATEWAY_TOKEN } from './dashboard-realtime.tokens.js';
+import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import type {
   AuthClaimsUpdatedPayload,
   DashboardEntityUpdatedPayload,
@@ -21,6 +22,7 @@ export class DashboardRealtimeService {
     tenantId: string,
     input: EmitDashboardEntityUpdatedInput,
   ): void {
+    SideEffectGuard.assertAllowed('NOTIFICATION');
     const payload: DashboardEntityUpdatedPayload = {
       ...input,
       timestamp: new Date().toISOString(),

@@ -12225,9 +12225,51 @@
           "CANCELLED"
         ]
       },
+      "WouldChangeItemDto": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string",
+            "description": "The entity/model name that would change",
+            "example": "Customer"
+          },
+          "id": {
+            "type": "string",
+            "description": "The ID of the record that would change",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete"
+            ],
+            "description": "The operation that would occur",
+            "example": "create"
+          }
+        },
+        "required": [
+          "entity",
+          "id",
+          "op"
+        ]
+      },
       "CustomerResponseDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -12359,6 +12401,18 @@
       "VehicleResponseDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -14884,6 +14938,18 @@
       "VehicleListItemDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15332,6 +15398,18 @@
       "WorkshopOrderResponseDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15822,6 +15900,18 @@
       "WorkshopSearchVehicleDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15933,6 +16023,18 @@
       "WorkshopSearchCustomerDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },

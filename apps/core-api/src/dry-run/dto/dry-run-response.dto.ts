@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { WouldChangeItem } from '../dry-run.types.js';
 
 export class WouldChangeItemDto implements WouldChangeItem {
@@ -23,15 +23,15 @@ export class WouldChangeItemDto implements WouldChangeItem {
 }
 
 export class DryRunMetaDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Indicates whether the request was executed in dry-run mode',
     example: true,
   })
-  dry_run!: boolean;
+  dry_run?: boolean;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     type: [WouldChangeItemDto],
     description: 'List of changes that would occur if executed without dry_run',
   })
-  would_change!: WouldChangeItemDto[];
+  would_change?: WouldChangeItemDto[];
 }
