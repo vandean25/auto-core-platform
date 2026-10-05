@@ -6,7 +6,10 @@ import type { AgentActionRecordInput } from '../agent-action-log/agent-action-lo
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
 import type { WouldChangeItem } from '../dry-run/dry-run.types.js';
-import type { McpWriteToolName } from './mcp.constants.js';
+import {
+  MCP_AGENT_FACING_CODES,
+  type McpWriteToolName,
+} from './mcp.constants.js';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -103,7 +106,7 @@ export class McpWritePipelineService {
         onBehalfOfUserId: context.onBehalfOfUserId,
         actionType,
         tier,
-        status: 'REFUSED',
+        status: MCP_AGENT_FACING_CODES.refusedLogStatus,
         inputSummary,
         resultSummary: {
           reasons,
@@ -134,7 +137,7 @@ export class McpWritePipelineService {
       return {
         tool: execution.toolName,
         tier,
-        status: 'needs_human_approval',
+        status: MCP_AGENT_FACING_CODES.needsHumanApprovalStatus,
         would_change: wouldChange,
         proposal,
         trace_id: record.traceId,
@@ -159,7 +162,7 @@ export class McpWritePipelineService {
     return {
       tool: execution.toolName,
       tier,
-      status: 'executed',
+      status: MCP_AGENT_FACING_CODES.executedStatus,
       would_change: wouldChange,
       result: record.workResult,
       trace_id: record.traceId,

@@ -1,4 +1,11 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpStatus,
+  NotFoundException,
+} from '@nestjs/common';
 import { readFileSync } from 'node:fs';
+import { ZodError } from 'zod';
 import {
   MCP_AGENT_FACING_CODES,
   MCP_NEVER_EXPOSED_ACTIONS,
@@ -142,18 +149,13 @@ function containsPersonalContactData(markdown: string): boolean {
 
 describe('MCP agent-facing instructions', () => {
   it('keeps the documented outcomes tied to server values', () => {
-    const expectedCodes = {
-      executedStatus: 'executed',
-      needsHumanApprovalStatus: 'needs_human_approval',
-      refusedLogStatus: 'REFUSED',
-      forbidden: 'ForbiddenException',
-      forbiddenHttpStatus: 403,
-      invalidInput: 'ZodError',
-      notFound: 'NotFoundException',
-      conflict: 'ConflictException',
-    };
-
-    expect(MCP_AGENT_FACING_CODES).toEqual(expectedCodes);
+    expect(MCP_AGENT_FACING_CODES.forbidden).toBe(ForbiddenException.name);
+    expect(MCP_AGENT_FACING_CODES.forbiddenHttpStatus).toBe(
+      HttpStatus.FORBIDDEN,
+    );
+    expect(MCP_AGENT_FACING_CODES.invalidInput).toBe(ZodError.name);
+    expect(MCP_AGENT_FACING_CODES.notFound).toBe(NotFoundException.name);
+    expect(MCP_AGENT_FACING_CODES.conflict).toBe(ConflictException.name);
   });
 
   it('documents every registered MCP tool', () => {

@@ -1,3 +1,11 @@
+import {
+  ConflictException,
+  ForbiddenException,
+  HttpStatus,
+  NotFoundException,
+} from '@nestjs/common';
+import { ZodError } from 'zod';
+
 export const MCP_SERVER_IMPLEMENTATION = {
   name: 'auto-core-platform-mcp',
   version: '1.0.0',
@@ -48,11 +56,11 @@ export const MCP_AGENT_FACING_CODES = {
   executedStatus: 'executed',
   needsHumanApprovalStatus: 'needs_human_approval',
   refusedLogStatus: 'REFUSED',
-  forbidden: 'ForbiddenException',
-  forbiddenHttpStatus: 403,
-  invalidInput: 'ZodError',
-  notFound: 'NotFoundException',
-  conflict: 'ConflictException',
+  forbidden: ForbiddenException.name,
+  forbiddenHttpStatus: HttpStatus.FORBIDDEN,
+  invalidInput: ZodError.name,
+  notFound: NotFoundException.name,
+  conflict: ConflictException.name,
 } as const;
 
 /**
