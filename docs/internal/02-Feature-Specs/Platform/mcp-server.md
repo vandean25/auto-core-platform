@@ -49,7 +49,7 @@ Outputs are page-limited (max 25 rows) and JSON size-capped before returning to 
 
 Write tools follow a shared pipeline: policy evaluation → DryRunService preview (would_change) → execution with outcomes:
 - **AUTO**: Execute immediately, log as EXECUTED
-- **PROPOSE**: Requires human approval, log as PROPOSED  
+- **PROPOSE**: Requires human approval, log as PROPOSED
 - **HUMAN_ONLY**: Execution refused, log as REFUSED
 
 Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO.

@@ -117,18 +117,7 @@ export class McpToolHandlerService {
     try {
       parsed = schema.parse(rawArgs ?? {});
     } catch (error) {
-      await this.agentActionLog.record({
-        actorType: 'AGENT',
-        agentId: context.agentId,
-        onBehalfOfUserId: context.onBehalfOfUserId,
-        actionType: `mcp.${toolName}`,
-        tier: 'PROPOSE',
-        status: 'FAILED',
-        inputSummary: { tool: toolName, args: rawArgs },
-        resultSummary: {
-          error: error instanceof Error ? error.message : 'Invalid input',
-        },
-      });
+      await this.logWriteInputFailure(toolName, rawArgs, context, error);
       throw error;
     }
     const result = await this.writePipeline.run(
@@ -137,6 +126,45 @@ export class McpToolHandlerService {
       context,
     );
     return capMcpToolPayload(result);
+  }
+
+  async recordInvalidWriteArguments(
+    toolName: string,
+    rawArgs: unknown,
+    context: McpToolCallContext,
+  ): Promise<void> {
+    if (
+      !Object.prototype.hasOwnProperty.call(mcpWriteToolInputSchemas, toolName)
+    ) {
+      return;
+    }
+
+    const writeToolName = toolName as McpWriteToolName;
+    try {
+      mcpWriteToolInputSchemas[writeToolName].parse(rawArgs ?? {});
+    } catch (error) {
+      await this.logWriteInputFailure(writeToolName, rawArgs, context, error);
+    }
+  }
+
+  private async logWriteInputFailure(
+    toolName: McpWriteToolName,
+    rawArgs: unknown,
+    context: McpToolCallContext,
+    error: unknown,
+  ): Promise<void> {
+    await this.agentActionLog.record({
+      actorType: 'AGENT',
+      agentId: context.agentId,
+      onBehalfOfUserId: context.onBehalfOfUserId,
+      actionType: `mcp.${toolName}`,
+      tier: 'PROPOSE',
+      status: 'FAILED',
+      inputSummary: { tool: toolName, args: rawArgs },
+      resultSummary: {
+        error: error instanceof Error ? error.message : 'Invalid input',
+      },
+    });
   }
 
   private buildWriteExecution(toolName: McpWriteToolName): McpWriteExecution {

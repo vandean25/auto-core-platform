@@ -138,6 +138,7 @@ export class McpSessionService implements OnModuleInit, OnModuleDestroy {
 
     session.context.onBehalfOfUserId = user.userId;
     session.lastActiveMs = Date.now();
+    await this.recordInvalidWriteArguments(body, session.context);
     await session.transport.handleRequest(req, res, body);
   }
 
@@ -160,4 +161,32 @@ export class McpSessionService implements OnModuleInit, OnModuleDestroy {
   ): boolean {
     return session.ownerUserId === userId && session.ownerTenantId === tenantId;
   }
+
+  private async recordInvalidWriteArguments(
+    body: unknown,
+    context: McpServerSessionContext,
+  ): Promise<void> {
+    const requests = Array.isArray(body) ? body : [body];
+    const invalidWriteArgumentChecks = requests.flatMap((requestBody) => {
+      if (!isRecord(requestBody) || requestBody.method !== 'tools/call') {
+        return [];
+      }
+      const params = requestBody.params;
+      if (!isRecord(params) || typeof params.name !== 'string') {
+        return [];
+      }
+      return [
+        this.toolHandler.recordInvalidWriteArguments(
+          params.name,
+          params.arguments,
+          context,
+        ),
+      ];
+    });
+    await Promise.all(invalidWriteArgumentChecks);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

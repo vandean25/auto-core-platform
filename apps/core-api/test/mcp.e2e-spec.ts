@@ -668,6 +668,13 @@ describe('MCP server (e2e)', () => {
       expect(await prismaA.workshopOrder.count({
         where: { vehicle_id: fixtures.vehicleId },
       })).toBe(1);
+      expect(await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000213',
+          action_type: 'mcp.draft_workshop_order',
+          status: 'FAILED',
+        },
+      })).toBeTruthy();
       await transport.close();
     });
 
