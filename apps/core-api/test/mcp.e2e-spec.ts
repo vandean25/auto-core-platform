@@ -646,7 +646,7 @@ describe('MCP server (e2e)', () => {
         'e2e-initial-stock',
         '00000000-0000-4000-8000-000000000206',
       );
-      let initialStock = null;
+      let initialStock: number;
       {
         const stockResult = await stockClient.callTool({
           name: 'get_stock_level',
