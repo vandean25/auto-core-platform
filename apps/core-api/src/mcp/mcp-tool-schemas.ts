@@ -76,7 +76,7 @@ export const draftWorkshopOrderInputSchema = z.object({
   customer_id: uuidSchema.optional(),
   vehicle_id: uuidSchema,
   purpose: workshopOrderPurposeSchema.optional(),
-  status: workshopOrderDraftStatusSchema.optional(),
+  status: workshopOrderDraftStatusSchema,
   bay_id: uuidSchema.optional(),
   mechanic_id: uuidSchema.optional(),
   scheduled_start_at: z.string().optional(),

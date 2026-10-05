@@ -206,7 +206,10 @@ export class McpToolHandlerService {
         return {
           toolName,
           policyActionType: MCP_WRITE_POLICY_ACTION_TYPES.release_reservation,
-          buildPolicyContext: () => ({}),
+          buildPolicyContext: (input) =>
+            this.buildReleaseReservationPolicyContext(
+              input as ReleaseReservationInput,
+            ),
           execute: (input) =>
             this.executeReleaseReservation(input as ReleaseReservationInput),
           buildResultSummary: (result) => ({
@@ -277,6 +280,45 @@ export class McpToolHandlerService {
       .mul(100)
       .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
       .toNumber();
+    return { amount_eur: amountCents / 100 };
+  }
+
+  private async buildReleaseReservationPolicyContext(
+    input: ReleaseReservationInput,
+  ): Promise<AgentPolicyEvaluateContext> {
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const reservation = await this.prisma.partsReservation.findFirst({
+      where: {
+        id: input.reservation_id,
+        tenant_id: tenantId,
+        workshop_task_line_item: {
+          workshop_task: { workshop_order: { site_id: siteId } },
+        },
+      },
+      select: {
+        quantity: true,
+        quantity_consumed: true,
+        quantity_returned: true,
+        workshop_task_line_item: { select: { unit_price: true } },
+      },
+    });
+    if (!reservation) {
+      return {};
+    }
+
+    const releasableQuantity = new Prisma.Decimal(reservation.quantity)
+      .sub(reservation.quantity_consumed)
+      .sub(reservation.quantity_returned);
+    const amountCents = releasableQuantity.gt(0)
+      ? releasableQuantity
+          .mul(reservation.workshop_task_line_item.unit_price)
+          .mul(100)
+          .toDecimalPlaces(0, Prisma.Decimal.ROUND_HALF_UP)
+          .toNumber()
+      : 0;
     return { amount_eur: amountCents / 100 };
   }
 

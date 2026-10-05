@@ -204,11 +204,12 @@ describe('MCP server (e2e)', () => {
   async function setPolicyTier(
     actionType: string,
     tier: 'AUTO' | 'PROPOSE' | 'HUMAN_ONLY',
+    conditions?: { amount_max?: number | null },
   ): Promise<void> {
     await request(app.getHttpServer())
       .put(`/api/agent-policy/rules/${actionType}`)
       .set('Authorization', adminHeaderA)
-      .send({ tier, enabled: true })
+      .send({ tier, enabled: true, conditions })
       .expect(200);
   }
 
@@ -708,9 +709,42 @@ describe('MCP server (e2e)', () => {
       await transport.close();
     });
 
+    it('requires an explicit SCHEDULED status for draft_workshop_order', async () => {
+      await setPolicyTier('workshop_order.create', 'AUTO');
+      const draftVehicle = await createDraftVehicle('draft-missing-status');
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-draft-workshop-order-missing-status',
+        '00000000-0000-4000-8000-000000000214',
+      );
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          odometer: 1000,
+          fuel_level: 50,
+          notes: 'MCP missing status test',
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(await prismaA.workshopOrder.count({
+        where: { vehicle_id: draftVehicle.vehicleId },
+      })).toBe(0);
+      expect(await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000214',
+          action_type: 'mcp.draft_workshop_order',
+          status: 'FAILED',
+        },
+      })).toBeTruthy();
+      await transport.close();
+    });
+
     it('reserve_part then release_reservation round-trip restores state', async () => {
       await setPolicyTier('inventory.part_reserve', 'AUTO');
-      await setPolicyTier('inventory.part_release', 'AUTO');
+      await setPolicyTier('inventory.part_release', 'AUTO', { amount_max: 1 });
 
       // Get initial stock level for the fixture SKU
       const { client: stockClient, transport: stockTransport } = await connectMcpClient(
@@ -800,6 +834,27 @@ describe('MCP server (e2e)', () => {
         },
       });
       expect(releaseResult.isError).not.toBe(true);
+      expect(toolPayloadText(releaseResult)).toContain('needs_human_approval');
+      const reservationAfterProposedRelease = await prismaA.partsReservation.findFirst({
+        where: { id: reservationId },
+        select: { status: true },
+      });
+      expect(reservationAfterProposedRelease?.status).toBe('OPEN');
+
+      await setPolicyTier('inventory.part_release', 'AUTO');
+      const { client: approvedReleaseClient, transport: approvedReleaseTransport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-release-reservation-approved',
+        '00000000-0000-4000-8000-000000000215',
+      );
+      const approvedReleaseResult = await approvedReleaseClient.callTool({
+        name: 'release_reservation',
+        arguments: {
+          reservation_id: reservationId,
+          return_location_id: fixtures.locationId,
+        },
+      });
+      expect(approvedReleaseResult.isError).not.toBe(true);
 
       // Check stock after release: should be initialStock
       const { client: stockAfterReleaseClient, transport: stockAfterReleaseTransport } = await connectMcpClient(
@@ -837,11 +892,19 @@ describe('MCP server (e2e)', () => {
         },
       });
       expect(releaseLog).toBeTruthy();
-      expect(releaseLog?.status).toBe('EXECUTED');
+      expect(releaseLog?.status).toBe('PROPOSED');
+      const approvedReleaseLog = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000215',
+          action_type: 'mcp.release_reservation',
+        },
+      });
+      expect(approvedReleaseLog?.status).toBe('EXECUTED');
 
       // Cleanup transports
       await reserveTransport.close();
       await releaseTransport.close();
+      await approvedReleaseTransport.close();
       await stockAfterReleaseTransport.close();
     });
 
