@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
-import { LoanerBookingStatus } from '@prisma/client';
+import { LoanerBookingStatus, Prisma } from '@prisma/client';
 import { LOANER_BOOKING_OVERLAP } from './loaner.constants.js';
 import { getLoanerNow, setLoanerNowForTests } from './loaner-clock.js';
 import { LoanerVehiclesService } from './loaner-vehicles.service.js';
@@ -53,6 +53,21 @@ describe('LoanerVehiclesService', () => {
       };
       expect(response.code).toBe(LOANER_BOOKING_OVERLAP);
     }
+  });
+
+  it('maps booking transaction conflicts to the overlap response', () => {
+    const error = new Prisma.PrismaClientKnownRequestError(
+      'Transaction failed due to a write conflict or a deadlock.',
+      {
+        code: 'P2034',
+        clientVersion: '7.10.0',
+        meta: { modelName: 'LoanerBooking' },
+      },
+    );
+
+    expect(() => service.rethrowLoanerBookingCreateError(error)).toThrow(
+      ConflictException,
+    );
   });
 
   it('lists overdue bookings against injected clock', async () => {

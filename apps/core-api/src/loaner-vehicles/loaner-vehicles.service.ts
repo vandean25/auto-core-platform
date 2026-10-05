@@ -328,7 +328,7 @@ export class LoanerVehiclesService {
       });
       return mapLoanerBooking(created);
     } catch (error) {
-      this.rethrowLoanerConstraintIfNeeded(error);
+      this.rethrowLoanerBookingCreateError(error);
       throw error;
     }
   }
@@ -690,6 +690,18 @@ export class LoanerVehiclesService {
     if (this.isLoanerVehicleOnLoanError(error)) {
       throw loanerVehicleOnLoanException();
     }
+  }
+
+  /** @internal exposed for unit tests */
+  rethrowLoanerBookingCreateError(error: unknown): void {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034' &&
+      error.meta?.modelName === 'LoanerBooking'
+    ) {
+      throw loanerOverlapException();
+    }
+    this.rethrowLoanerConstraintIfNeeded(error);
   }
 
   /** @internal exposed for unit tests */

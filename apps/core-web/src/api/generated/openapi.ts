@@ -6861,7 +6861,7 @@ export interface components {
             /** @enum {string} */
             tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
             /** @enum {string} */
-            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED" | "DRY_RUN";
+            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN";
             inputSummary?: {
                 [key: string]: unknown;
             };
@@ -13359,7 +13359,7 @@ export interface operations {
                 /** @description Start of created_at range (ISO-8601) */
                 startDate?: string;
                 /** @description Filter by action status */
-                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "FAILED" | "DRY_RUN";
+                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN";
                 /** @description Filter by policy tier */
                 tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
                 /** @description Filter by trace ID */
