@@ -313,6 +313,9 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
         where: { id: taskId, tenant_id: tenantA },
       });
       const versionBefore = taskBefore.line_items_version;
+      const auditBefore = await prismaA.auditLog.count({
+        where: { tenant_id: tenantA },
+      });
 
       const patchPayload = {
         expectedLineItemsVersion: versionBefore,
@@ -344,6 +347,35 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
 
       expect(res.headers['x-dry-run']).toBe('true');
       expect(res.body.dry_run).toBe(true);
+
+      // Verify regular order response fields and proposed line items are present
+      expect(res.body.id).toBe(orderId);
+      expect(res.body.order_number).toBeDefined();
+      expect(res.body.status).toBeDefined();
+      const targetTask = res.body.tasks?.find(
+        (t: { id: string }) => t.id === taskId,
+      );
+      expect(targetTask).toBeDefined();
+      expect(targetTask.lineItemsVersion).toBe(versionBefore + 1);
+      expect(targetTask.lineItems).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'PART',
+            itemNo: 'OIL-5W30',
+            description: 'Synthetic Engine Oil 5W30',
+            qty: 4.5,
+            unitPrice: 22.5,
+          }),
+          expect.objectContaining({
+            type: 'LABOR',
+            itemNo: 'LAB-OIL',
+            description: 'Oil replacement labor',
+            qty: 1,
+            unitPrice: 85,
+          }),
+        ]),
+      );
+
       expect(res.body.would_change).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -364,16 +396,20 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
       );
       expect(createdLineItems).toHaveLength(2);
 
-      // Verify DB state was NOT modified: line item count & version untouched
+      // Verify DB state was NOT modified: line item count & version untouched, and AuditLog parity
       const linesAfter = await prismaA.workshopTaskLineItem.count({
         where: { workshop_task_id: taskId },
       });
       const taskAfter = await prismaA.workshopTask.findFirstOrThrow({
         where: { id: taskId, tenant_id: tenantA },
       });
+      const auditAfter = await prismaA.auditLog.count({
+        where: { tenant_id: tenantA },
+      });
 
       expect(linesAfter).toBe(linesBefore);
       expect(taskAfter.line_items_version).toBe(versionBefore);
+      expect(auditAfter).toBe(auditBefore);
     });
   });
 
