@@ -43,6 +43,22 @@ describe('AgentProposalService', () => {
       tenantMember: {
         findFirst: jest.fn().mockResolvedValue({ id: 'tm-1' }),
       },
+      workshopOrder: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'wo-1',
+          tasks: [{ id: 'task-1' }],
+        }),
+      },
+      workshopTask: {
+        create: jest.fn().mockResolvedValue({ id: 'task-1' }),
+      },
+      workshopTaskLineItem: {
+        create: jest.fn().mockResolvedValue({ id: 'line-1' }),
+      },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+        update: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+      },
     };
 
     mockAgentPolicyService = {
@@ -77,7 +93,7 @@ describe('AgentProposalService', () => {
     tenant_id: tenantId,
     trace_id: traceId,
     action_type: 'workshop_order.add_line',
-    payload_json: { amount_eur: 50 },
+    payload_json: { order_id: 'wo-1', amount_eur: 50 },
     preview_json: null,
     tier: AgentPolicyTier.PROPOSE,
     status: AgentProposalStatus.PENDING,
@@ -223,6 +239,7 @@ describe('AgentProposalService', () => {
           id: proposalId,
           tenant_id: tenantId,
           status: AgentProposalStatus.PENDING,
+          expires_at: { gt: expect.any(Date) },
         },
         data: {
           status: AgentProposalStatus.REJECTED,
@@ -375,6 +392,7 @@ describe('AgentProposalService', () => {
             id: proposalId,
             tenant_id: tenantId,
             status: AgentProposalStatus.PENDING,
+            expires_at: { gt: expect.any(Date) },
           },
           data: {
             status: AgentProposalStatus.APPROVED,
@@ -590,7 +608,10 @@ describe('AgentProposalService', () => {
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
         where: { id: proposalId, tenant_id: tenantId },
-        data: { status: AgentProposalStatus.FAILED },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: 'Dispatch failure',
+        },
       });
     });
 
@@ -604,6 +625,215 @@ describe('AgentProposalService', () => {
       await expect(service.approveProposal(proposalId)).rejects.toThrow(
         UnprocessableEntityException,
       );
+    });
+
+    it('normalizes amount_cents and amountCents to amount_eur by dividing by 100 in extractPolicyContext', async () => {
+      const proposal = createMockProposal({
+        payload_json: { order_id: 'wo-1', amount_cents: 25000 },
+      });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+          decided_at: new Date(),
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.approveProposal(proposalId);
+
+      expect(mockAgentPolicyService.evaluate).toHaveBeenCalledWith(
+        {
+          action_type: 'workshop_order.add_line',
+          context: { amount_eur: 250 },
+        },
+        { skipAdminCheck: true },
+      );
+    });
+
+    it('refuses approval when payload amount_cents exceeds policy conditions threshold', async () => {
+      const proposal = createMockProposal({
+        payload_json: { order_id: 'wo-1', amount_cents: 60000 }, // 600 EUR
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockAgentPolicyService.evaluate.mockResolvedValue({
+        tier: AgentPolicyTier.HUMAN_ONLY,
+        reasons: ['amount_above_threshold'],
+        rule_id: 'rule-cents',
+        rule_version: 1,
+      });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        new UnprocessableEntityException(
+          'Action requires human execution or exceeds policy limits: amount_above_threshold',
+        ),
+      );
+
+      expect(mockAgentPolicyService.evaluate).toHaveBeenCalledWith(
+        {
+          action_type: 'workshop_order.add_line',
+          context: { amount_eur: 600 },
+        },
+        { skipAdminCheck: true },
+      );
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('throws UnprocessableEntityException when CAS updateMany returns 0 because proposal expired during policy evaluation', async () => {
+      const proposal = createMockProposal({
+        expires_at: new Date(Date.now() + 1000), // initially valid
+      });
+      const expiredProposal = createMockProposal({
+        expires_at: new Date(Date.now() - 1000), // now expired
+      });
+
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce(expiredProposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 0 }); // CAS lock returned 0
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        new UnprocessableEntityException('Proposal has expired'),
+      );
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
+        data: { status: AgentProposalStatus.EXPIRED },
+      });
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+    });
+
+    it('dispatches workshop_order.add_line domain action, creates WorkshopTaskLineItem, and marks EXECUTED', async () => {
+      const proposal = createMockProposal({
+        payload_json: {
+          order_id: 'wo-1',
+          task_id: 'task-1',
+          type: 'PART',
+          item_no: 'OIL-FILTER-01',
+          description: 'Engine Oil Filter',
+          quantity: 2,
+          unit_price: 15.5,
+        },
+      });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+          decided_at: new Date(),
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.approveProposal(proposalId);
+
+      expect(mockPrisma.workshopOrder.findFirst).toHaveBeenCalledWith({
+        where: { id: 'wo-1', tenant_id: tenantId },
+        include: {
+          tasks: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+
+      expect(mockPrisma.workshopTaskLineItem.create).toHaveBeenCalledWith({
+        data: {
+          tenant_id: tenantId,
+          workshop_task_id: 'task-1',
+          type: 'PART',
+          item_no: 'OIL-FILTER-01',
+          description: 'Engine Oil Filter',
+          quantity: expect.any(Prisma.Decimal),
+          unit_price: expect.any(Prisma.Decimal),
+        },
+      });
+
+      expect(result.status).toBe(AgentProposalStatus.EXECUTED);
+    });
+
+    it('dispatches customer.update domain action, updates Customer, and marks EXECUTED', async () => {
+      const proposal = createMockProposal({
+        action_type: 'customer.update',
+        payload_json: {
+          customer_id: 'cust-1',
+          first_name: 'Jane',
+          phone: '+49123456789',
+        },
+      });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+          decided_at: new Date(),
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.approveProposal(proposalId);
+
+      expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
+        where: { id: 'cust-1', tenant_id: tenantId },
+      });
+
+      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+        where: { id: 'cust-1' },
+        data: {
+          first_name: 'Jane',
+          phone: '+49123456789',
+        },
+      });
+
+      expect(result.status).toBe(AgentProposalStatus.EXECUTED);
+    });
+
+    it('fails closed with BadRequestException for unsupported action types, marks proposal FAILED and logs failure', async () => {
+      const proposal = createMockProposal({
+        action_type: 'unsupported.action_type',
+        payload_json: { some_param: 123 },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Unsupported action type for automatic execution: unsupported.action_type',
+      );
+
+      // Proposal must be marked FAILED with reason, NOT EXECUTED
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: 'Unsupported action type for automatic execution: unsupported.action_type',
+        },
+      });
+    });
+
+    it('marks proposal FAILED with reason when domain execution fails (e.g. order not found)', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: { order_id: 'non-existent-order' },
+      });
+      mockPrisma.workshopOrder.findFirst.mockResolvedValueOnce(null);
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Workshop order non-existent-order not found',
+      );
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: 'Workshop order non-existent-order not found',
+        },
+      });
     });
   });
 

@@ -358,6 +358,29 @@ describe('AgentSupervisionPage', () => {
     })
   })
 
+  it('updates Activity tab date range filters and passes startDate and endDate to useAgentActions', () => {
+    render(<AgentSupervisionPage />)
+
+    const activityTab = screen.getByTestId('tab-activity')
+    fireEvent.click(activityTab)
+
+    const startDateInput = screen.getByTestId('filter-start-date-input')
+    const endDateInput = screen.getByTestId('filter-end-date-input')
+
+    expect(startDateInput).toBeInTheDocument()
+    expect(endDateInput).toBeInTheDocument()
+
+    fireEvent.change(startDateInput, { target: { value: '2026-10-01' } })
+    fireEvent.change(endDateInput, { target: { value: '2026-10-04' } })
+
+    expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        startDate: '2026-10-01T00:00:00.000Z',
+        endDate: '2026-10-04T23:59:59.999Z',
+      }),
+    )
+  })
+
   it('renders empty states when there are no proposals or activity records', () => {
     vi.mocked(useAgentProposals).mockReturnValue({
       data: { data: [] },

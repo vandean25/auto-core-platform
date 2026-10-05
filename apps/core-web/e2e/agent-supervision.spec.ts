@@ -153,7 +153,7 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await expectNoCriticalA11yViolations(page)
   })
 
-  test('switches tabs to Activity view and passes axe a11y', async ({ page }) => {
+  test('switches tabs to Activity view, exercises date filters, and passes axe a11y', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Agent Supervision')
     await corePage.navigate('/agent/supervision')
 
@@ -164,6 +164,14 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await expect(page.getByTestId('activity-tab')).toBeVisible()
     await expect(page.getByTestId('activity-table')).toBeVisible()
     await expect(page.getByTestId('activity-row-log-1')).toBeVisible()
+
+    // Date range filters are present and usable
+    const startDateInput = page.getByTestId('filter-start-date-input')
+    const endDateInput = page.getByTestId('filter-end-date-input')
+    await expect(startDateInput).toBeVisible()
+    await expect(endDateInput).toBeVisible()
+    await startDateInput.fill('2026-10-01')
+    await endDateInput.fill('2026-10-04')
 
     // Axe a11y audit on Activity view
     await expectNoCriticalA11yViolations(page)

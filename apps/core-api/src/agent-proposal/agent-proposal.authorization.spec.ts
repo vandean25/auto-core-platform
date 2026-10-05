@@ -16,8 +16,8 @@ describe('AgentProposalAuthorization', () => {
       getAuthenticatedUser: jest.fn().mockReturnValue(user),
     }) as unknown as TenantContextService;
 
-  it('allows OWNER, ADMIN, ADVISOR, and SALES roles', () => {
-    for (const role of ['OWNER', 'ADMIN', 'ADVISOR', 'SALES']) {
+  it('allows OWNER, ADMIN, and ADVISOR roles', () => {
+    for (const role of ['OWNER', 'ADMIN', 'ADVISOR']) {
       const tenantContext = createMockTenantContext({
         userId: 'u-1',
         email: 'user@example.com',
@@ -32,17 +32,19 @@ describe('AgentProposalAuthorization', () => {
     }
   });
 
-  it('rejects TECH role with ForbiddenException', () => {
-    const tenantContext = createMockTenantContext({
-      userId: 'u-tech',
-      email: 'tech@example.com',
-      tenantId: 't-1',
-      role: 'TECH',
-    });
+  it('rejects SALES and TECH roles with ForbiddenException', () => {
+    for (const role of ['SALES', 'TECH']) {
+      const tenantContext = createMockTenantContext({
+        userId: `u-${role.toLowerCase()}`,
+        email: `${role.toLowerCase()}@example.com`,
+        tenantId: 't-1',
+        role,
+      });
 
-    expect(() => assertSupervisorAccess(tenantContext)).toThrow(
-      ForbiddenException,
-    );
+      expect(() => assertSupervisorAccess(tenantContext)).toThrow(
+        ForbiddenException,
+      );
+    }
   });
 
   it('rejects unauthenticated or missing tenant membership', () => {

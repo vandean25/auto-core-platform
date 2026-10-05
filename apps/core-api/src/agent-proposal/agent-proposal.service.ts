@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -8,6 +9,7 @@ import {
   AgentPolicyTier,
   AgentProposalStatus,
   Prisma,
+  WorkshopLineItemType,
   type AgentProposal,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -158,6 +160,7 @@ export class AgentProposalService {
         id: proposal.id,
         tenant_id: tenantId,
         status: AgentProposalStatus.PENDING,
+        expires_at: { gt: now },
       },
       data: {
         status: AgentProposalStatus.REJECTED,
@@ -173,6 +176,23 @@ export class AgentProposalService {
       });
       if (!reloaded) {
         throw new NotFoundException('Proposal not found');
+      }
+      if (
+        reloaded.status === AgentProposalStatus.EXPIRED ||
+        (reloaded.status === AgentProposalStatus.PENDING &&
+          reloaded.expires_at <= now)
+      ) {
+        if (reloaded.status === AgentProposalStatus.PENDING) {
+          await this.prisma.agentProposal.updateMany({
+            where: {
+              id: proposal.id,
+              tenant_id: tenantId,
+              status: AgentProposalStatus.PENDING,
+            },
+            data: { status: AgentProposalStatus.EXPIRED },
+          });
+        }
+        throw new UnprocessableEntityException('Proposal has expired');
       }
       if (reloaded.status === AgentProposalStatus.REJECTED) {
         return this.toResponseDto(reloaded);
@@ -271,6 +291,7 @@ export class AgentProposalService {
         id: proposal.id,
         tenant_id: tenantId,
         status: AgentProposalStatus.PENDING,
+        expires_at: { gt: now },
       },
       data: {
         status: AgentProposalStatus.APPROVED,
@@ -285,6 +306,23 @@ export class AgentProposalService {
       });
       if (!reloaded) {
         throw new NotFoundException('Proposal not found');
+      }
+      if (
+        reloaded.status === AgentProposalStatus.EXPIRED ||
+        (reloaded.status === AgentProposalStatus.PENDING &&
+          reloaded.expires_at <= now)
+      ) {
+        if (reloaded.status === AgentProposalStatus.PENDING) {
+          await this.prisma.agentProposal.updateMany({
+            where: {
+              id: proposal.id,
+              tenant_id: tenantId,
+              status: AgentProposalStatus.PENDING,
+            },
+            data: { status: AgentProposalStatus.EXPIRED },
+          });
+        }
+        throw new UnprocessableEntityException('Proposal has expired');
       }
       if (
         reloaded.status === AgentProposalStatus.APPROVED ||
@@ -333,7 +371,10 @@ export class AgentProposalService {
     } catch (error) {
       await this.prisma.agentProposal.updateMany({
         where: { id: proposal.id, tenant_id: tenantId },
-        data: { status: AgentProposalStatus.FAILED },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: error instanceof Error ? error.message : 'Execution failed',
+        },
       });
       throw error;
     }
@@ -370,16 +411,21 @@ export class AgentProposalService {
     const record = payload as Record<string, unknown>;
     const context: AgentPolicyEvaluateContext = {};
 
-    const amount =
-      typeof record.amount_eur === 'number'
-        ? record.amount_eur
-        : typeof record.amountEur === 'number'
-          ? record.amountEur
-          : typeof record.amount === 'number'
-            ? record.amount
-            : undefined;
-    if (typeof amount === 'number') {
-      context.amount_eur = amount;
+    let amountEur: number | undefined;
+    if (typeof record.amount_eur === 'number') {
+      amountEur = record.amount_eur;
+    } else if (typeof record.amountEur === 'number') {
+      amountEur = record.amountEur;
+    } else if (typeof record.amount === 'number') {
+      amountEur = record.amount;
+    } else if (typeof record.amount_cents === 'number') {
+      amountEur = record.amount_cents / 100;
+    } else if (typeof record.amountCents === 'number') {
+      amountEur = record.amountCents / 100;
+    }
+
+    if (typeof amountEur === 'number') {
+      context.amount_eur = amountEur;
     }
 
     const customerFacing =
@@ -420,18 +466,178 @@ export class AgentProposalService {
     return context;
   }
 
-  private dispatchActionPayload(
+  private async dispatchActionPayload(
     actionType: string,
     payload: unknown,
     tenantId: string,
   ): Promise<Record<string, unknown>> {
-    return Promise.resolve({
-      actionType,
-      executedAt: new Date().toISOString(),
-      tenantId,
-      status: 'SUCCESS',
-      payload,
-    });
+    const record =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : {};
+
+    switch (actionType) {
+      case 'workshop_order.add_line': {
+        const orderId =
+          (record.order_id as string | undefined) ??
+          (record.orderId as string | undefined) ??
+          (record.workshop_order_id as string | undefined) ??
+          (record.workshopOrderId as string | undefined);
+        if (!orderId) {
+          throw new BadRequestException(
+            'workshop_order.add_line payload requires order_id',
+          );
+        }
+
+        const siteId =
+          (record.site_id as string | undefined) ??
+          (record.siteId as string | undefined);
+
+        const order = await this.prisma.workshopOrder.findFirst({
+          where: {
+            id: orderId,
+            tenant_id: tenantId,
+            ...(siteId ? { site_id: siteId } : {}),
+          },
+          include: {
+            tasks: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        });
+        if (!order) {
+          throw new NotFoundException(`Workshop order ${orderId} not found`);
+        }
+
+        const taskId =
+          (record.task_id as string | undefined) ??
+          (record.taskId as string | undefined);
+        let targetTask = taskId
+          ? order.tasks?.find((t) => t.id === taskId)
+          : order.tasks?.[0];
+
+        if (!targetTask) {
+          if (taskId) {
+            throw new NotFoundException(
+              `Workshop task ${taskId} not found on order ${orderId}`,
+            );
+          }
+          targetTask = await this.prisma.workshopTask.create({
+            data: {
+              tenant_id: tenantId,
+              workshop_order_id: order.id,
+              title: 'General Service',
+            },
+          });
+        }
+
+        const type =
+          record.type === 'LABOR'
+            ? WorkshopLineItemType.LABOR
+            : WorkshopLineItemType.PART;
+        const itemNo =
+          typeof record.item_no === 'string'
+            ? record.item_no
+            : typeof record.itemNo === 'string'
+              ? record.itemNo
+              : 'MISC';
+        const description =
+          typeof record.description === 'string'
+            ? record.description
+            : 'Proposed line item';
+        const quantity = new Prisma.Decimal(
+          typeof record.quantity === 'number' ? record.quantity : 1,
+        );
+
+        let unitPrice: Prisma.Decimal;
+        if (typeof record.unit_price === 'number') {
+          unitPrice = new Prisma.Decimal(record.unit_price);
+        } else if (typeof record.unitPrice === 'number') {
+          unitPrice = new Prisma.Decimal(record.unitPrice);
+        } else if (typeof record.amount_eur === 'number') {
+          unitPrice = new Prisma.Decimal(record.amount_eur);
+        } else if (typeof record.amountEur === 'number') {
+          unitPrice = new Prisma.Decimal(record.amountEur);
+        } else if (typeof record.amount_cents === 'number') {
+          unitPrice = new Prisma.Decimal(record.amount_cents / 100);
+        } else if (typeof record.amountCents === 'number') {
+          unitPrice = new Prisma.Decimal(record.amountCents / 100);
+        } else {
+          unitPrice = new Prisma.Decimal(0);
+        }
+
+        const lineItem = await this.prisma.workshopTaskLineItem.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_task_id: targetTask.id,
+            type,
+            item_no: itemNo,
+            description,
+            quantity,
+            unit_price: unitPrice,
+          },
+        });
+
+        return {
+          actionType,
+          status: 'SUCCESS',
+          entityType: 'WorkshopTaskLineItem',
+          entityId: lineItem.id,
+          orderId: order.id,
+          taskId: targetTask.id,
+          lineItem,
+        };
+      }
+
+      case 'customer.update': {
+        const customerId =
+          (record.customer_id as string | undefined) ??
+          (record.customerId as string | undefined);
+        if (!customerId) {
+          throw new BadRequestException(
+            'customer.update payload requires customer_id',
+          );
+        }
+
+        const customer = await this.prisma.customer.findFirst({
+          where: { id: customerId, tenant_id: tenantId },
+        });
+        if (!customer) {
+          throw new NotFoundException(`Customer ${customerId} not found`);
+        }
+
+        const updateData: Prisma.CustomerUpdateInput = {};
+        if (typeof record.first_name === 'string') {
+          updateData.first_name = record.first_name;
+        }
+        if (typeof record.last_name === 'string') {
+          updateData.last_name = record.last_name;
+        }
+        if (typeof record.email === 'string') {
+          updateData.email = record.email;
+        }
+        if (typeof record.phone === 'string') {
+          updateData.phone = record.phone;
+        }
+
+        const updatedCustomer = await this.prisma.customer.update({
+          where: { id: customer.id },
+          data: updateData,
+        });
+
+        return {
+          actionType,
+          status: 'SUCCESS',
+          entityType: 'Customer',
+          entityId: updatedCustomer.id,
+        };
+      }
+
+      default:
+        throw new BadRequestException(
+          `Unsupported action type for automatic execution: ${actionType}`,
+        );
+    }
   }
 
   private toResponseDto(proposal: AgentProposal): AgentProposalResponseDto {

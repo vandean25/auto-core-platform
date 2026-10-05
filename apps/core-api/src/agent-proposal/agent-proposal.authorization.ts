@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 
-export const SUPERVISOR_ROLES = new Set(['OWNER', 'ADMIN', 'ADVISOR', 'SALES']);
+export const SUPERVISOR_ROLES = new Set(['OWNER', 'ADMIN', 'ADVISOR']);
 
 export function assertSupervisorAccess(
   tenantContext: TenantContextService,
@@ -14,7 +14,7 @@ export function assertSupervisorAccess(
   const role = 'role' in user ? user.role : undefined;
   if (!role || !SUPERVISOR_ROLES.has(role)) {
     throw new ForbiddenException(
-      'Supervision access is restricted to OWNER, ADMIN, and ADVISOR / SALES roles only.',
+      'Supervision access is restricted to OWNER, ADMIN, and ADVISOR roles only.',
     );
   }
 }

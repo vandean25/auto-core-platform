@@ -72,7 +72,8 @@ const coreModules: SidebarModule[] = [
     label: 'Agent Supervision',
     to: '/agent/supervision',
     icon: Bot,
-    isVisible: (context) => isAgentSupervisionEnabled() && context.activeRole !== 'TECH',
+    isVisible: (context) =>
+      isAgentSupervisionEnabled() && ['OWNER', 'ADMIN', 'ADVISOR'].includes(context.activeRole ?? ''),
     isActive: (pathname) => pathname.startsWith('/agent/supervision'),
   },
   {

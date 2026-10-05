@@ -55,7 +55,7 @@ The Agent Supervision feature (AE6) provides a human-in-the-loop review queue fo
 
 ## API Endpoints (`/api/agent-proposals`)
 
-Authorization: Accessible to `OWNER`, `ADMIN`, `ADVISOR`, and `SALES`. Forbidden for `TECH` (`403 Forbidden`).
+Authorization: Accessible to `OWNER`, `ADMIN`, and `ADVISOR`. Forbidden for `SALES` and `TECH` (`403 Forbidden`).
 
 | Method | Endpoint | Description |
 |---|---|---|

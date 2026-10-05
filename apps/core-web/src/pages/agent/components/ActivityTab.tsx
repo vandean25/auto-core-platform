@@ -25,6 +25,8 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [tierFilter, setTierFilter] = useState<string>('ALL')
   const [agentSearch, setAgentSearch] = useState<string>('')
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
 
   const t = SUPERVISION_COPY.activity
   const common = SUPERVISION_COPY.common
@@ -38,6 +40,8 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
     status: statusFilter !== 'ALL' ? (statusFilter as AgentActionStatus) : undefined,
     tier: tierFilter !== 'ALL' ? (tierFilter as AgentActionTier) : undefined,
     agentId: agentSearch.trim() || undefined,
+    startDate: startDate ? `${startDate}T00:00:00.000Z` : undefined,
+    endDate: endDate ? `${endDate}T23:59:59.999Z` : undefined,
     limit: 50,
   })
 
@@ -96,6 +100,35 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
               <option value="PROPOSE">PROPOSE</option>
               <option value="HUMAN_ONLY">HUMAN_ONLY</option>
             </select>
+          </div>
+
+          {/* Date range filters */}
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="activity-start-date" className="text-xs text-slate-500 font-medium">
+              {getCopy(t.filters.startDateLabel, language)}:
+            </label>
+            <Input
+              id="activity-start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="h-9 w-36 text-xs"
+              data-testid="filter-start-date-input"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="activity-end-date" className="text-xs text-slate-500 font-medium">
+              {getCopy(t.filters.endDateLabel, language)}:
+            </label>
+            <Input
+              id="activity-end-date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="h-9 w-36 text-xs"
+              data-testid="filter-end-date-input"
+            />
           </div>
         </div>
 

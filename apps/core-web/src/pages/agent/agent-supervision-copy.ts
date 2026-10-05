@@ -194,6 +194,14 @@ export const SUPERVISION_COPY = {
         en: 'Filter by agent name...',
         de: 'Nach Agenten filtern...',
       },
+      startDateLabel: {
+        en: 'From',
+        de: 'Von',
+      },
+      endDateLabel: {
+        en: 'To',
+        de: 'Bis',
+      },
     },
     columns: {
       time: {
