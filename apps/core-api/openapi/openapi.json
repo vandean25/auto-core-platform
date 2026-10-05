@@ -10965,7 +10965,7 @@
             }
           }
         },
-        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR/SALES)",
+        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR)",
         "tags": [
           "Agent Proposals"
         ]

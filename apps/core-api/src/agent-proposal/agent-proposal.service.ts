@@ -21,6 +21,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { requireActiveCurrentUser } from '../site/site.authorization.js';
 import { assertSupervisorAccess } from './agent-proposal.authorization.js';
+import { assertOrderEditable } from '../workshop/workshop-order.helpers.js';
+import { incrementTaskLineItemsVersion } from '../workshop/workshop-task-line-items.helpers.js';
 import type {
   AgentProposalListResponseDto,
   AgentProposalResponseDto,
@@ -429,9 +431,7 @@ export class AgentProposalService {
 
     if (actionType === 'workshop_order.add_line') {
       const financials = resolveLineItemFinancials(record);
-      if (financials.totalAmount > 0) {
-        context.amount_eur = financials.totalAmount;
-      }
+      context.amount_eur = financials.totalAmount;
     } else {
       let amountEur: number | undefined;
       if (
@@ -462,6 +462,9 @@ export class AgentProposalService {
       }
 
       if (typeof amountEur === 'number') {
+        if (amountEur < 0) {
+          throw new BadRequestException('Amount cannot be negative');
+        }
         context.amount_eur = amountEur;
       }
     }
@@ -537,85 +540,110 @@ export class AgentProposalService {
           );
         }
 
-        const order = await this.prisma.workshopOrder.findFirst({
-          where: {
-            id: orderId,
-            tenant_id: tenantId,
-            site_id: callerSiteId,
-          },
-          include: {
-            tasks: {
-              orderBy: { createdAt: 'asc' },
-            },
-          },
-        });
-        if (!order) {
-          throw new NotFoundException(`Workshop order ${orderId} not found`);
-        }
-
-        const taskId =
-          (record.task_id as string | undefined) ??
-          (record.taskId as string | undefined);
-        let targetTask = taskId
-          ? order.tasks?.find((t) => t.id === taskId)
-          : order.tasks?.[0];
-
-        if (!targetTask) {
-          if (taskId) {
-            throw new NotFoundException(
-              `Workshop task ${taskId} not found on order ${orderId}`,
-            );
-          }
-          targetTask = await this.prisma.workshopTask.create({
-            data: {
+        return this.prisma.$transaction(async (tx) => {
+          const order = await tx.workshopOrder.findFirst({
+            where: {
+              id: orderId,
               tenant_id: tenantId,
-              workshop_order_id: order.id,
-              title: 'General Service',
+              site_id: callerSiteId,
+            },
+            include: {
+              tasks: {
+                orderBy: { createdAt: 'asc' },
+              },
             },
           });
-        }
+          if (!order) {
+            throw new NotFoundException(`Workshop order ${orderId} not found`);
+          }
 
-        const type =
-          record.type === 'LABOR'
-            ? WorkshopLineItemType.LABOR
-            : WorkshopLineItemType.PART;
-        const itemNo =
-          typeof record.item_no === 'string'
-            ? record.item_no
-            : typeof record.itemNo === 'string'
-              ? record.itemNo
-              : 'MISC';
-        const description =
-          typeof record.description === 'string'
-            ? record.description
-            : 'Proposed line item';
+          assertOrderEditable(order);
 
-        const financials = resolveLineItemFinancials(record);
-        const quantity = new Prisma.Decimal(financials.quantity);
-        const unitPrice = new Prisma.Decimal(financials.unitPrice);
+          const taskId =
+            (record.task_id as string | undefined) ??
+            (record.taskId as string | undefined);
+          let targetTask = taskId
+            ? order.tasks?.find((t) => t.id === taskId)
+            : order.tasks?.[0];
 
-        const lineItem = await this.prisma.workshopTaskLineItem.create({
-          data: {
-            tenant_id: tenantId,
-            workshop_task_id: targetTask.id,
-            type,
-            item_no: itemNo,
-            description,
-            quantity,
-            unit_price: unitPrice,
-          },
+          if (!targetTask) {
+            if (taskId) {
+              throw new NotFoundException(
+                `Workshop task ${taskId} not found on order ${orderId}`,
+              );
+            }
+            targetTask = await tx.workshopTask.create({
+              data: {
+                tenant_id: tenantId,
+                workshop_order_id: order.id,
+                title: 'General Service',
+              },
+            });
+          }
+
+          let expectedVersion = targetTask.line_items_version;
+          if (
+            typeof record.expected_line_items_version === 'number' &&
+            Number.isFinite(record.expected_line_items_version)
+          ) {
+            expectedVersion = record.expected_line_items_version;
+          } else if (
+            typeof record.expectedLineItemsVersion === 'number' &&
+            Number.isFinite(record.expectedLineItemsVersion)
+          ) {
+            expectedVersion = record.expectedLineItemsVersion;
+          }
+
+          await incrementTaskLineItemsVersion({
+            tx,
+            tenantId,
+            siteId: callerSiteId,
+            taskId: targetTask.id,
+            expectedLineItemsVersion: expectedVersion,
+          });
+
+          const type =
+            record.type === 'LABOR'
+              ? WorkshopLineItemType.LABOR
+              : WorkshopLineItemType.PART;
+          const itemNo =
+            typeof record.item_no === 'string'
+              ? record.item_no
+              : typeof record.itemNo === 'string'
+                ? record.itemNo
+                : 'MISC';
+          const description =
+            typeof record.description === 'string'
+              ? record.description
+              : 'Proposed line item';
+
+          const financials = resolveLineItemFinancials(record);
+          const quantity = new Prisma.Decimal(financials.quantity);
+          const unitPrice = new Prisma.Decimal(financials.unitPrice);
+
+          const lineItem = await tx.workshopTaskLineItem.create({
+            data: {
+              tenant_id: tenantId,
+              workshop_task_id: targetTask.id,
+              type,
+              item_no: itemNo,
+              description,
+              quantity,
+              unit_price: unitPrice,
+            },
+          });
+
+          return {
+            actionType,
+            status: 'SUCCESS',
+            entityType: 'WorkshopTaskLineItem',
+            entityId: lineItem.id,
+            orderId: order.id,
+            siteId: callerSiteId,
+            taskId: targetTask.id,
+            lineItem,
+          };
         });
-
-        return {
-          actionType,
-          status: 'SUCCESS',
-          entityType: 'WorkshopTaskLineItem',
-          entityId: lineItem.id,
-          orderId: order.id,
-          siteId: callerSiteId,
-          taskId: targetTask.id,
-          lineItem,
-        };
       }
 
       case 'customer.update': {
@@ -649,16 +677,24 @@ export class AgentProposalService {
           updateData.phone = record.phone;
         }
 
-        const updatedCustomer = await this.prisma.customer.update({
-          where: { id: customer.id },
+        const updateResult = await this.prisma.customer.updateMany({
+          where: { id: customer.id, tenant_id: tenantId },
           data: updateData,
+        });
+        if (updateResult.count === 0) {
+          throw new NotFoundException(`Customer ${customerId} not found`);
+        }
+
+        const updatedCustomer = await this.prisma.customer.findFirst({
+          where: { id: customer.id, tenant_id: tenantId },
         });
 
         return {
           actionType,
           status: 'SUCCESS',
           entityType: 'Customer',
-          entityId: updatedCustomer.id,
+          entityId: updatedCustomer!.id,
+          customer: updatedCustomer,
         };
       }
 
@@ -703,61 +739,127 @@ export interface LineItemFinancials {
 export function resolveLineItemFinancials(
   record: Record<string, unknown>,
 ): LineItemFinancials {
-  const quantity =
-    typeof record.quantity === 'number' &&
-    Number.isFinite(record.quantity) &&
-    record.quantity > 0
-      ? record.quantity
-      : 1;
+  let quantity = 1;
+  if (record.quantity !== undefined) {
+    if (
+      typeof record.quantity !== 'number' ||
+      !Number.isFinite(record.quantity) ||
+      record.quantity <= 0
+    ) {
+      throw new BadRequestException(
+        'Line item quantity must be a positive number',
+      );
+    }
+    quantity = record.quantity;
+  }
 
   let unitPriceFromPayload: number | undefined;
-  if (
-    typeof record.unit_price === 'number' &&
-    Number.isFinite(record.unit_price)
-  ) {
+  if (record.unit_price !== undefined) {
+    if (
+      typeof record.unit_price !== 'number' ||
+      !Number.isFinite(record.unit_price)
+    ) {
+      throw new BadRequestException(
+        'Line item unit_price must be a valid number',
+      );
+    }
+    if (record.unit_price < 0) {
+      throw new BadRequestException('Line item unit_price cannot be negative');
+    }
     unitPriceFromPayload = record.unit_price;
-  } else if (
-    typeof record.unitPrice === 'number' &&
-    Number.isFinite(record.unitPrice)
-  ) {
+  } else if (record.unitPrice !== undefined) {
+    if (
+      typeof record.unitPrice !== 'number' ||
+      !Number.isFinite(record.unitPrice)
+    ) {
+      throw new BadRequestException(
+        'Line item unit_price must be a valid number',
+      );
+    }
+    if (record.unitPrice < 0) {
+      throw new BadRequestException('Line item unit_price cannot be negative');
+    }
     unitPriceFromPayload = record.unitPrice;
-  } else if (
-    typeof record.unit_price_cents === 'number' &&
-    Number.isFinite(record.unit_price_cents)
-  ) {
+  } else if (record.unit_price_cents !== undefined) {
+    if (
+      typeof record.unit_price_cents !== 'number' ||
+      !Number.isFinite(record.unit_price_cents)
+    ) {
+      throw new BadRequestException(
+        'Line item unit_price must be a valid number',
+      );
+    }
+    if (record.unit_price_cents < 0) {
+      throw new BadRequestException('Line item unit_price cannot be negative');
+    }
     unitPriceFromPayload = record.unit_price_cents / 100;
-  } else if (
-    typeof record.unitPriceCents === 'number' &&
-    Number.isFinite(record.unitPriceCents)
-  ) {
+  } else if (record.unitPriceCents !== undefined) {
+    if (
+      typeof record.unitPriceCents !== 'number' ||
+      !Number.isFinite(record.unitPriceCents)
+    ) {
+      throw new BadRequestException(
+        'Line item unit_price must be a valid number',
+      );
+    }
+    if (record.unitPriceCents < 0) {
+      throw new BadRequestException('Line item unit_price cannot be negative');
+    }
     unitPriceFromPayload = record.unitPriceCents / 100;
   }
 
   let totalAmountFromPayload: number | undefined;
-  if (
-    typeof record.amount_eur === 'number' &&
-    Number.isFinite(record.amount_eur)
-  ) {
+  if (record.amount_eur !== undefined) {
+    if (
+      typeof record.amount_eur !== 'number' ||
+      !Number.isFinite(record.amount_eur)
+    ) {
+      throw new BadRequestException('Line item amount must be a valid number');
+    }
+    if (record.amount_eur < 0) {
+      throw new BadRequestException('Line item amount cannot be negative');
+    }
     totalAmountFromPayload = record.amount_eur;
-  } else if (
-    typeof record.amountEur === 'number' &&
-    Number.isFinite(record.amountEur)
-  ) {
+  } else if (record.amountEur !== undefined) {
+    if (
+      typeof record.amountEur !== 'number' ||
+      !Number.isFinite(record.amountEur)
+    ) {
+      throw new BadRequestException('Line item amount must be a valid number');
+    }
+    if (record.amountEur < 0) {
+      throw new BadRequestException('Line item amount cannot be negative');
+    }
     totalAmountFromPayload = record.amountEur;
-  } else if (
-    typeof record.amount === 'number' &&
-    Number.isFinite(record.amount)
-  ) {
+  } else if (record.amount !== undefined) {
+    if (typeof record.amount !== 'number' || !Number.isFinite(record.amount)) {
+      throw new BadRequestException('Line item amount must be a valid number');
+    }
+    if (record.amount < 0) {
+      throw new BadRequestException('Line item amount cannot be negative');
+    }
     totalAmountFromPayload = record.amount;
-  } else if (
-    typeof record.amount_cents === 'number' &&
-    Number.isFinite(record.amount_cents)
-  ) {
+  } else if (record.amount_cents !== undefined) {
+    if (
+      typeof record.amount_cents !== 'number' ||
+      !Number.isFinite(record.amount_cents)
+    ) {
+      throw new BadRequestException('Line item amount must be a valid number');
+    }
+    if (record.amount_cents < 0) {
+      throw new BadRequestException('Line item amount cannot be negative');
+    }
     totalAmountFromPayload = record.amount_cents / 100;
-  } else if (
-    typeof record.amountCents === 'number' &&
-    Number.isFinite(record.amountCents)
-  ) {
+  } else if (record.amountCents !== undefined) {
+    if (
+      typeof record.amountCents !== 'number' ||
+      !Number.isFinite(record.amountCents)
+    ) {
+      throw new BadRequestException('Line item amount must be a valid number');
+    }
+    if (record.amountCents < 0) {
+      throw new BadRequestException('Line item amount cannot be negative');
+    }
     totalAmountFromPayload = record.amountCents / 100;
   }
 

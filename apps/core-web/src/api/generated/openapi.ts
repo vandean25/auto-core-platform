@@ -3346,7 +3346,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List agent proposals (OWNER/ADMIN/ADVISOR/SALES)
+         * List agent proposals (OWNER/ADMIN/ADVISOR)
          * @description Returns agent proposals for the authenticated tenant with lazy expiration handling.
          */
         get: operations["AgentProposalController_listProposals"];

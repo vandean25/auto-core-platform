@@ -1,9 +1,16 @@
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
+import {
+  AgentPolicyTier,
+  AgentProposalStatus,
+  Prisma,
+  WorkshopOrderPurpose,
+  WorkshopOrderStatus,
+} from '@prisma/client';
 import { AgentProposalService } from './agent-proposal.service.js';
 
 describe('AgentProposalService', () => {
@@ -35,6 +42,9 @@ describe('AgentProposalService', () => {
     };
 
     mockPrisma = {
+      $transaction: jest.fn().mockImplementation(async (callback) => {
+        return callback(mockPrisma);
+      }),
       agentProposal: {
         updateMany: jest.fn(),
         findMany: jest.fn(),
@@ -51,18 +61,23 @@ describe('AgentProposalService', () => {
       workshopOrder: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'wo-1',
-          tasks: [{ id: 'task-1' }],
+          status: 'IN_PROGRESS',
+          purpose: null,
+          tasks: [{ id: 'task-1', line_items_version: 0 }],
         }),
       },
       workshopTask: {
-        create: jest.fn().mockResolvedValue({ id: 'task-1' }),
+        create: jest
+          .fn()
+          .mockResolvedValue({ id: 'task-1', line_items_version: 0 }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
       workshopTaskLineItem: {
         create: jest.fn().mockResolvedValue({ id: 'line-1' }),
       },
       customer: {
         findFirst: jest.fn().mockResolvedValue({ id: 'cust-1' }),
-        update: jest.fn().mockResolvedValue({ id: 'cust-1' }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
 
@@ -391,22 +406,19 @@ describe('AgentProposalService', () => {
         { skipAdminCheck: true },
       );
 
-      expect(mockPrisma.agentProposal.updateMany).toHaveBeenNthCalledWith(
-        1,
-        {
-          where: {
-            id: proposalId,
-            tenant_id: tenantId,
-            status: AgentProposalStatus.PENDING,
-            expires_at: { gt: expect.any(Date) },
-          },
-          data: {
-            status: AgentProposalStatus.APPROVED,
-            decided_by: userId,
-            decided_at: expect.any(Date),
-          },
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenNthCalledWith(1, {
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+          expires_at: { gt: expect.any(Date) },
         },
-      );
+        data: {
+          status: AgentProposalStatus.APPROVED,
+          decided_by: userId,
+          decided_at: expect.any(Date),
+        },
+      });
 
       expect(mockAgentActionLog.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -419,13 +431,10 @@ describe('AgentProposalService', () => {
         expect.any(Function),
       );
 
-      expect(mockPrisma.agentProposal.updateMany).toHaveBeenNthCalledWith(
-        2,
-        {
-          where: { id: proposalId, tenant_id: tenantId },
-          data: { status: AgentProposalStatus.EXECUTED },
-        },
-      );
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: proposalId, tenant_id: tenantId },
+        data: { status: AgentProposalStatus.EXECUTED },
+      });
 
       expect(result.status).toBe(AgentProposalStatus.EXECUTED);
     });
@@ -787,8 +796,8 @@ describe('AgentProposalService', () => {
         where: { id: 'cust-1', tenant_id: tenantId },
       });
 
-      expect(mockPrisma.customer.update).toHaveBeenCalledWith({
-        where: { id: 'cust-1' },
+      expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({
+        where: { id: 'cust-1', tenant_id: tenantId },
         data: {
           first_name: 'Jane',
           phone: '+49123456789',
@@ -815,7 +824,8 @@ describe('AgentProposalService', () => {
         where: { id: proposalId, tenant_id: tenantId },
         data: {
           status: AgentProposalStatus.FAILED,
-          reason: 'Unsupported action type for automatic execution: unsupported.action_type',
+          reason:
+            'Unsupported action type for automatic execution: unsupported.action_type',
         },
       });
     });
@@ -914,6 +924,276 @@ describe('AgentProposalService', () => {
         },
         { skipAdminCheck: true },
       );
+    });
+
+    it('rejects workshop_order.add_line when unit_price is negative', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: -100,
+          quantity: 1,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Line item unit_price cannot be negative',
+      );
+    });
+
+    it('rejects workshop_order.add_line when amount_eur is negative', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          amount_eur: -50,
+          quantity: 1,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Line item amount cannot be negative',
+      );
+    });
+
+    it('rejects workshop_order.add_line when quantity is zero or negative', async () => {
+      const zeroQtyProposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: 50,
+          quantity: 0,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(zeroQtyProposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Line item quantity must be a positive number',
+      );
+
+      const negativeQtyProposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: 50,
+          quantity: -2,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(negativeQtyProposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Line item quantity must be a positive number',
+      );
+    });
+
+    it('rejects workshop_order.add_line when workshop order is already invoiced', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: 50,
+          quantity: 1,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.workshopOrder.findFirst.mockResolvedValueOnce({
+        id: 'wo-1',
+        status: WorkshopOrderStatus.INVOICED,
+        purpose: null,
+        tasks: [{ id: 'task-1', line_items_version: 0 }],
+      });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Workshop order is already invoiced',
+      );
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: 'Workshop order is already invoiced',
+        },
+      });
+    });
+
+    it('rejects workshop_order.add_line when stock-prep order is completed', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          unit_price: 50,
+          quantity: 1,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.workshopOrder.findFirst.mockResolvedValueOnce({
+        id: 'wo-1',
+        status: WorkshopOrderStatus.COMPLETED,
+        purpose: WorkshopOrderPurpose.STOCK_PREP,
+        tasks: [{ id: 'task-1', line_items_version: 0 }],
+      });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Completed stock-prep orders cannot be edited',
+      );
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: 'Completed stock-prep orders cannot be edited',
+        },
+      });
+    });
+
+    it('throws ConflictException when task line_items_version CAS fails', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          task_id: 'task-1',
+          expected_line_items_version: 2,
+          unit_price: 50,
+          quantity: 1,
+        },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.workshopTask.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Workshop task line items changed; please reload and retry',
+      );
+
+      expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'task-1',
+          tenant_id: tenantId,
+          workshop_order: { site_id: 'site-1' },
+          line_items_version: 2,
+        },
+        data: { line_items_version: { increment: 1 } },
+      });
+
+      expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
+        where: { id: proposalId, tenant_id: tenantId },
+        data: {
+          status: AgentProposalStatus.FAILED,
+          reason: 'Workshop task line items changed; please reload and retry',
+        },
+      });
+    });
+
+    it('uses targetTask.line_items_version when expected_line_items_version is omitted', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'wo-1',
+          task_id: 'task-1',
+          unit_price: 50,
+          quantity: 1,
+        },
+      });
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+          decided_by: userId,
+          decided_at: new Date(),
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.workshopOrder.findFirst.mockResolvedValueOnce({
+        id: 'wo-1',
+        status: WorkshopOrderStatus.IN_PROGRESS,
+        purpose: null,
+        tasks: [{ id: 'task-1', line_items_version: 4 }],
+      });
+
+      await service.approveProposal(proposalId);
+
+      expect(mockPrisma.workshopTask.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'task-1',
+          tenant_id: tenantId,
+          workshop_order: { site_id: 'site-1' },
+          line_items_version: 4,
+        },
+        data: { line_items_version: { increment: 1 } },
+      });
+    });
+  });
+
+  describe('resolveLineItemFinancials', () => {
+    it('throws BadRequestException for negative unit_price', () => {
+      expect(() =>
+        service.resolveLineItemFinancials({ unit_price: -1 }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException for negative amount', () => {
+      expect(() =>
+        service.resolveLineItemFinancials({ amount_eur: -10 }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException for nonpositive quantity', () => {
+      expect(() => service.resolveLineItemFinancials({ quantity: 0 })).toThrow(
+        BadRequestException,
+      );
+      expect(() => service.resolveLineItemFinancials({ quantity: -3 })).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('correctly calculates total from unit_price and quantity', () => {
+      const result = service.resolveLineItemFinancials({
+        unit_price: 25,
+        quantity: 4,
+      });
+      expect(result).toEqual({
+        unitPrice: 25,
+        totalAmount: 100,
+        quantity: 4,
+      });
+    });
+
+    it('correctly calculates unit_price from amount and quantity', () => {
+      const result = service.resolveLineItemFinancials({
+        amount_eur: 150,
+        quantity: 3,
+      });
+      expect(result).toEqual({
+        unitPrice: 50,
+        totalAmount: 150,
+        quantity: 3,
+      });
+    });
+
+    it('reconciles matching unit_price and amount', () => {
+      const result = service.resolveLineItemFinancials({
+        unit_price: 20,
+        amount_eur: 40,
+        quantity: 2,
+      });
+      expect(result).toEqual({
+        unitPrice: 20,
+        totalAmount: 40,
+        quantity: 2,
+      });
+    });
+
+    it('defaults to 0 amount and 1 quantity when empty', () => {
+      const result = service.resolveLineItemFinancials({});
+      expect(result).toEqual({
+        unitPrice: 0,
+        totalAmount: 0,
+        quantity: 1,
+      });
     });
   });
 
