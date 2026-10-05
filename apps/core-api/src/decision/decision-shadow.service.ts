@@ -65,7 +65,7 @@ export class DecisionShadowService {
         choices: params.choices,
       });
       if (suggestion) {
-        suggestionJson = suggestion as Prisma.InputJsonValue;
+        suggestionJson = suggestion;
         provider = suggestion.provider;
         model = suggestion.model;
         latencyMs = suggestion.latency_ms;
