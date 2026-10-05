@@ -3,8 +3,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const outDir = join(__dirname, '../test/fixtures/agent-eval');
+const here = dirname(fileURLToPath(import.meta.url));
+const outDir = join(here, '../test/fixtures/agent-eval');
 
 const FIRST_NAMES = ['Max', 'Erika', 'Hans', 'Lieschen', 'Fritz', 'Greta'];
 const LAST_NAMES = ['Mustermann', 'Musterfrau', 'Beispiel', 'Probe', 'Testmann'];

@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { createDecisionProvider } from '../src/decision/decision-provider.factory.js';
 import type { DecisionUseCase } from '../src/decision/decision.constants.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const fixturePath = join(__dirname, '../test/fixtures/agent-eval/labeled-examples.jsonl');
+const here = dirname(fileURLToPath(import.meta.url));
+const fixturePath = join(here, '../test/fixtures/agent-eval/labeled-examples.jsonl');
 
 type EvalExample = {
   id: string;
