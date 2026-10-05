@@ -43,6 +43,18 @@ export const MCP_TOOL_NAMES = [
 
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 
+/** Existing MCP write outcomes and errors that agent-facing docs may name. */
+export const MCP_AGENT_FACING_CODES = {
+  executedStatus: 'executed',
+  needsHumanApprovalStatus: 'needs_human_approval',
+  refusedLogStatus: 'REFUSED',
+  forbidden: 'ForbiddenException',
+  forbiddenHttpStatus: 403,
+  invalidInput: 'ZodError',
+  notFound: 'NotFoundException',
+  conflict: 'ConflictException',
+} as const;
+
 /**
  * Capabilities that must never be exposed as MCP tools. Each value mirrors a
  * policy action type (or category) that the agent policy floor already keeps

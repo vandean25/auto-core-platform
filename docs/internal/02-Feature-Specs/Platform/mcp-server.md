@@ -2,7 +2,9 @@
 
 ## Summary
 
-Exposes Auto Core Platform data to MCP clients over **Streamable HTTP** at `/api/mcp`, authenticated with the same Firebase/JWT session as the REST API. Every tool call is recorded in `agent_action_logs` (AE2) with its applicable policy tier and a trace ID from `X-Trace-Id`. Write-tool outcomes can be executed, proposed for human approval, or refused by policy.
+Exposes Auto Core Platform data to MCP clients over **Streamable HTTP** at `/api/mcp`, authenticated with the same Firebase/JWT session as the REST API. Every tool call is recorded in `agent_action_logs` (AE2) with its applicable policy tier and trace ID. The HTTP middleware accepts `X-Trace-Id` or generates one, echoes it in the response header, and successful write results also include `trace_id`.
+
+Agent-facing usage rules and recipes are maintained in [the MCP AGENTS.md](../../../../apps/core-api/src/mcp/AGENTS.md). Its tool and never-exposed action tables are checked against the registered MCP constants by Jest.
 
 Includes both read-only tools (phase 1) and write tools (phase 2) with policy evaluation and dry-run capabilities.
 
@@ -43,16 +45,17 @@ Outputs are page-limited (max 25 rows) and JSON size-capped before returning to 
 | Tool | Default Tier | Reversibility | Counter-tool |
 |------|--------------|---------------|--------------|
 | `draft_workshop_order` | AUTO | Reversible through the workshop order cancellation workflow | Manual workshop order cancellation |
-| `reserve_part` | AUTO | Reversible via `release_reservation` | `release_reservation` |
+| `reserve_part` | AUTO up to the policy amount limit; otherwise PROPOSE | Reversible via `release_reservation` | `release_reservation` |
 | `release_reservation` | AUTO | Reversible via `reserve_part` (subject to stock availability) | `reserve_part` |
 | `propose_line_item` | PROPOSE | Preview only; the proposed line item is rolled back and not persisted | Not applicable |
 
-Write tools follow a shared pipeline: policy evaluation → DryRunService preview (would_change) → execution with outcomes:
+Write tools follow a shared pipeline: policy evaluation → DryRunService rollback preview (`would_change`) → outcome by evaluated tier:
 - **AUTO**: Execute immediately, log as EXECUTED
 - **PROPOSE**: Requires human approval, log as PROPOSED
 - **HUMAN_ONLY**: Execution refused, log as REFUSED
 
 Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO.
+The MCP write schemas do not accept a `dry_run` argument. AUTO calls proceed to execution after the internal preview; PROPOSE calls return `needs_human_approval` without executing the proposed action. Current platform defaults are not Off for every write tool; tenant policy can make a rule stricter, not looser than its platform floor.
 
 ## Never-exposed actions
 
@@ -76,7 +79,7 @@ These align with the `MCP_NEVER_EXPOSED_ACTIONS` constant in the MCP implementat
 1. Start API with `MCP_SERVER_ENABLED=true` and a normal dev `.env`.
 2. Sign in via the web app (or use a test JWT in `NODE_ENV=test`).
 3. Point an MCP client at Streamable HTTP URL `http://127.0.0.1:3000/api/mcp` with header `Authorization: Bearer <token>`.
-4. Optional: pass `X-Trace-Id: <uuid>` to correlate with `GET /api/agent-actions/:traceId`.
+4. Optionally send a UUID in `X-Trace-Id`; otherwise the server generates one. The response echoes `X-Trace-Id`, and successful write results include `trace_id`. An authorized caller can use it with `GET /api/agent-actions/:traceId`.
 
 Example Cursor / MCP config fragment:
 
