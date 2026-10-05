@@ -12,6 +12,7 @@ import {
 } from '../pdf/pdf-task-payload.js';
 import { signDocumentBrandingUploadTask } from '../../document-branding/document-branding-upload-task.js';
 import { signDocumentBrandingExtractionTask } from '../../document-branding/document-branding-extraction-task.js';
+import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
 
 const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,
@@ -257,6 +258,7 @@ export class CloudTasksService {
     delaySeconds?: number;
     tenantId: string;
   }): Promise<{ taskId: string }> {
+    SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
     return Sentry.startSpan(
       { name: 'Enqueue PDF generation task', op: 'cloudtasks.enqueue' },
       async (span) => {
@@ -315,6 +317,7 @@ export class CloudTasksService {
     tenantId: string;
     targetBaseUrl: string;
   }): Promise<{ taskId: string }> {
+    SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
     if (!this.isEnabled()) {
       throw new InternalServerErrorException(
         'Cloud Tasks is not enabled or not configured',
@@ -388,6 +391,7 @@ export class CloudTasksService {
     targetBaseUrl: string;
     delaySeconds?: number;
   }): Promise<{ taskId: string }> {
+    SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
     if (!this.isEnabled()) {
       throw new InternalServerErrorException(
         'Cloud Tasks is not enabled or not configured',

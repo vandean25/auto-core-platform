@@ -1,5 +1,6 @@
 import { InternalServerErrorException, Injectable } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
+import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 
 @Injectable()
 export class DocumentBrandingAssetStorage {
@@ -10,6 +11,7 @@ export class DocumentBrandingAssetStorage {
     bytes: Buffer;
     contentType: string;
   }) {
+    SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucketName = process.env.DOCUMENT_BRANDING_BUCKET?.trim();
     if (!bucketName) {
       throw new InternalServerErrorException(

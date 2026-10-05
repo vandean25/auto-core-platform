@@ -22,6 +22,7 @@ import { InvoicesService } from './invoices.service.js';
 import { CreateDraftInvoiceDto } from './dto/create-draft-invoice.dto.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import { InvoicePdfService } from './invoice-pdf.service.js';
+import { DryRunRefused } from '../dry-run/dry-run.decorators.js';
 
 interface InvoicePdfPayload {
   filename: string;
@@ -76,6 +77,9 @@ export class InvoicesController {
   }
 
   @Patch(':id/issue')
+  @DryRunRefused(
+    'Invoice finalization consumes numbering sequences and creates irreversible legal tax records',
+  )
   @ApiOkResponse({ type: InvoiceResponseDto })
   issue(@Param('id') id: string) {
     return this.invoicesService.issueInvoice(id);

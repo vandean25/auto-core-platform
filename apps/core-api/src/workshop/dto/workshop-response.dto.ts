@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { LoanerBookingStatus } from '@prisma/client';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
+import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 
 export class WorkshopCustomerSummaryDto {
   @ApiProperty()
@@ -164,7 +165,7 @@ export class WorkshopOrderLoanerBookingSummaryDto {
   vehiclePlate!: string | null;
 }
 
-export class WorkshopOrderResponseDto {
+export class WorkshopOrderResponseDto extends DryRunMetaDto {
   @ApiProperty()
   id!: string;
 

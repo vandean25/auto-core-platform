@@ -275,6 +275,7 @@ jobs:
       - name: Run unit tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npm test --workspace=core-api -- --ci --runInBand
 
       - name: Install backend Playwright browser

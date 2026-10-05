@@ -31,6 +31,7 @@ import {
   UpdateCreditNoteDto,
   VoidCreditNoteDto,
 } from './dto/credit-note.dto.js';
+import { DryRunRefused } from '../dry-run/dry-run.decorators.js';
 
 interface CreditNotePdfPayload {
   filename: string;
@@ -112,6 +113,9 @@ export class CreditNotesController {
   }
 
   @Post(':id/finalize')
+  @DryRunRefused(
+    'Credit note finalization consumes numbering sequences and creates irreversible legal tax records',
+  )
   @ApiCreatedResponse({ type: CreditNoteResponseDto })
   finalize(@Param('id') id: string, @Body() dto: FinalizeCreditNoteDto) {
     return this.creditNotesService.finalize(id, dto);

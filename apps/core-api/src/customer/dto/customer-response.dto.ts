@@ -1,8 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CustomerType } from '@prisma/client';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
+import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 
-export class CustomerResponseDto {
+export class CustomerResponseDto extends DryRunMetaDto {
   @ApiProperty()
   id!: string;
 

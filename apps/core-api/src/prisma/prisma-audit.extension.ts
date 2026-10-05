@@ -11,6 +11,8 @@ import {
 } from '../common/services/tenant-context.storage.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.js';
 import { resolvePrismaModelDelegate } from './prisma-delegate.js';
+import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
 const logger = new Logger('PrismaAuditExtension');
 
@@ -441,6 +443,19 @@ async function writeAuditLog(
   actor: AuditActorContext,
   payload: AuditRecordPayload,
 ): Promise<void> {
+  if (SideEffectGuard.isDryRun()) {
+    const collector = DryRunStorage.getCollector();
+    if (collector && payload.entityId) {
+      const op = payload.action === 'DELETE' ? 'delete' : 'update';
+      collector.recordChange({
+        entity: payload.model,
+        id: payload.entityId,
+        op,
+      });
+    }
+    return;
+  }
+
   if (typeof delegate?.create === 'function') {
     await delegate.create({
       data: buildAuditLogData(actor, payload),
@@ -540,7 +555,10 @@ async function createUpdateManyAuditRecords(
   beforeRows: unknown[],
   afterMap: Map<string, unknown>,
 ): Promise<void> {
-  if (typeof batchCtx.auditLogDelegate?.create !== 'function') {
+  if (
+    !SideEffectGuard.isDryRun() &&
+    typeof batchCtx.auditLogDelegate?.create !== 'function'
+  ) {
     return;
   }
 
@@ -561,7 +579,10 @@ async function createDeleteManyAuditRecords(
   batchCtx: AuditBatchContext,
   beforeRows: unknown[],
 ): Promise<void> {
-  if (typeof batchCtx.auditLogDelegate?.create !== 'function') {
+  if (
+    !SideEffectGuard.isDryRun() &&
+    typeof batchCtx.auditLogDelegate?.create !== 'function'
+  ) {
     return;
   }
 
