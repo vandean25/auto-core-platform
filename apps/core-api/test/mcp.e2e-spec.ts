@@ -566,10 +566,11 @@ describe('MCP server (e2e)', () => {
       // Assert
       expect(result.isError).not.toBe(true);
       const payload = toolPayloadText(result);
-      expect(payload).toContain('workshop_order_id');
-      const { result: createdOrder } = JSON.parse(payload) as {
+      const executedResult = JSON.parse(payload) as {
+        status: string;
         result: { id: string };
       };
+      expect(executedResult.status).toBe('executed');
 
       // Retrieve the created order from the database
       const orders = await prismaA.workshopOrder.findMany({
@@ -582,7 +583,7 @@ describe('MCP server (e2e)', () => {
       });
       expect(orders.length).toBe(1);
       const order = orders[0];
-      expect(order.id).toBe(createdOrder.id);
+      expect(order.id).toBe(executedResult.result.id);
       expect(order.status).toBe('INTAKE');
 
       // Check for EXECUTED agent action log
@@ -695,7 +696,9 @@ describe('MCP server (e2e)', () => {
         },
       });
       expect(reserveLog).toBeTruthy();
-      const reservationId = (reserveLog?.result_summary as { reservation_id: string })?.reservation_id;
+      const reservationId = (
+        reserveLog?.result_summary_json as { reservation_id: string }
+      )?.reservation_id;
       expect(reservationId).toBeDefined();
       if (!reservationId) {
         throw new Error('reserve_part did not log a reservation id');
