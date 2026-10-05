@@ -42,10 +42,10 @@ Outputs are page-limited (max 25 rows) and JSON size-capped before returning to 
 
 | Tool | Default Tier | Reversibility | Counter-tool |
 |------|--------------|---------------|--------------|
-| `draft_workshop_order` | AUTO | Fully reversible via workshop order cancellation | `get_workshop_order` |
+| `draft_workshop_order` | AUTO | Reversible through the workshop order cancellation workflow | Manual workshop order cancellation |
 | `reserve_part` | AUTO | Reversible via `release_reservation` | `release_reservation` |
 | `release_reservation` | AUTO | Reversible via `reserve_part` (subject to stock availability) | `reserve_part` |
-| `propose_line_item` | PROPOSE | Reversible via workshop order line item removal | `get_workshop_order` |
+| `propose_line_item` | PROPOSE | Preview only; the proposed line item is rolled back and not persisted | Not applicable |
 
 Write tools follow a shared pipeline: policy evaluation → DryRunService preview (would_change) → execution with outcomes:
 - **AUTO**: Execute immediately, log as EXECUTED

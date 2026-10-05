@@ -43,6 +43,9 @@ export class AgentActionLogService {
   async record<T>(
     input: AgentActionRecordInput,
     work?: () => Promise<T>,
+    metadataFromResult?: (
+      result: T | undefined,
+    ) => Partial<AgentActionRecordInput>,
   ): Promise<AgentActionRecordResult<T>> {
     const parsed = agentActionRecordInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
@@ -76,6 +79,9 @@ export class AgentActionLogService {
     const resultForSummary = failureMessage
       ? { error: failureMessage }
       : resolvedResultSummary;
+    const resultMetadata = workError
+      ? {}
+      : (metadataFromResult?.(workResult) ?? {});
 
     const created = await this.prisma.agentActionLog.create({
       data: {
@@ -94,9 +100,9 @@ export class AgentActionLogService {
         result_summary_json: redactAgentActionSummary(
           resultForSummary,
         ) as Prisma.InputJsonValue,
-        entity_type: parsed.entityType ?? null,
-        entity_id: parsed.entityId ?? null,
-        reversible: parsed.reversible ?? false,
+        entity_type: resultMetadata.entityType ?? parsed.entityType ?? null,
+        entity_id: resultMetadata.entityId ?? parsed.entityId ?? null,
+        reversible: resultMetadata.reversible ?? parsed.reversible ?? false,
         reverted_by_log_id: parsed.revertedByLogId ?? null,
       },
     });

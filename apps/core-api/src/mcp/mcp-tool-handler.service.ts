@@ -14,6 +14,7 @@ import { InventoryService } from '../inventory/inventory.service.js';
 import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import { VehicleService } from '../vehicle/vehicle.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
 import type {
@@ -69,6 +70,7 @@ export class McpToolHandlerService {
     private readonly writePipeline: McpWritePipelineService,
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async executeTool(
@@ -111,7 +113,24 @@ export class McpToolHandlerService {
     context: McpToolCallContext,
   ): Promise<unknown> {
     const schema = mcpWriteToolInputSchemas[toolName];
-    const parsed = schema.parse(rawArgs ?? {});
+    let parsed: unknown;
+    try {
+      parsed = schema.parse(rawArgs ?? {});
+    } catch (error) {
+      await this.agentActionLog.record({
+        actorType: 'AGENT',
+        agentId: context.agentId,
+        onBehalfOfUserId: context.onBehalfOfUserId,
+        actionType: `mcp.${toolName}`,
+        tier: 'PROPOSE',
+        status: 'FAILED',
+        inputSummary: { tool: toolName, args: rawArgs },
+        resultSummary: {
+          error: error instanceof Error ? error.message : 'Invalid input',
+        },
+      });
+      throw error;
+    }
     const result = await this.writePipeline.run(
       this.buildWriteExecution(toolName),
       parsed,
@@ -132,6 +151,11 @@ export class McpToolHandlerService {
           buildResultSummary: (result) => ({
             workshop_order_id: (result as { id: string }).id,
           }),
+          buildLogMetadata: (result) => ({
+            entityType: 'WorkshopOrder',
+            entityId: (result as { id: string }).id,
+            reversible: true,
+          }),
         };
       case 'reserve_part':
         return {
@@ -144,6 +168,11 @@ export class McpToolHandlerService {
           buildResultSummary: (result) => ({
             reservation_id: (result as { id: string }).id,
           }),
+          buildLogMetadata: (result) => ({
+            entityType: 'PartsReservation',
+            entityId: (result as { id: string }).id,
+            reversible: true,
+          }),
         };
       case 'release_reservation':
         return {
@@ -154,6 +183,11 @@ export class McpToolHandlerService {
             this.executeReleaseReservation(input as ReleaseReservationInput),
           buildResultSummary: (result) => ({
             reservation_id: (result as { id: string }).id,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'PartsReservation',
+            entityId: (result as { id: string }).id,
+            reversible: true,
           }),
         };
       case 'propose_line_item':
@@ -195,9 +229,16 @@ export class McpToolHandlerService {
   private async buildReservePartPolicyContext(
     input: ReservePartInput,
   ): Promise<AgentPolicyEvaluateContext> {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
     const line = await this.prisma.workshopTaskLineItem.findFirst({
-      where: { id: input.workshop_task_line_item_id, tenant_id: tenantId },
+      where: {
+        id: input.workshop_task_line_item_id,
+        tenant_id: tenantId,
+        workshop_task: { workshop_order: { site_id: siteId } },
+      },
       select: { unit_price: true },
     });
     if (!line) {
@@ -242,13 +283,16 @@ export class McpToolHandlerService {
   private async executeProposeLineItem(
     input: ProposeLineItemInput,
   ): Promise<unknown> {
-    const tenantId = await this.tenantContext.getTenantId();
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
     const task = await this.prisma.workshopTask.findFirst({
       where: {
         id: input.workshop_task_id,
         tenant_id: tenantId,
         workshop_order_id: input.workshop_order_id,
-        workshop_order: { tenant_id: tenantId },
+        workshop_order: { tenant_id: tenantId, site_id: siteId },
       },
       select: { id: true, line_items_version: true },
     });

@@ -209,6 +209,7 @@ describe('McpWritePipelineService', () => {
           status: 'EXECUTED',
         }),
         expect.any(Function),
+        undefined,
       );
       expect(execution.execute).toHaveBeenCalledTimes(2);
     });
@@ -281,5 +282,27 @@ describe('McpWritePipelineService', () => {
       );
       expect(execution.execute).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('records a failed action when the rollback preview fails', async () => {
+    const execution = createMockExecution('draft_workshop_order');
+    const input = { customer_id: 'cust-1', vehicle_id: 'veh-1', purpose: 'REPAIR' };
+    const failure = new Error('preview rejected');
+
+    mockAgentPolicy.evaluateAction.mockResolvedValue(
+      createMockEvaluation(AgentPolicyTier.AUTO),
+    );
+    mockDryRun.executeInRollbackTransaction.mockRejectedValue(failure);
+    mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-failed' } as any);
+
+    await expect(service.run(execution, input, mockContext)).rejects.toBe(failure);
+    expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'mcp.draft_workshop_order',
+        tier: AgentPolicyTier.AUTO,
+        status: 'FAILED',
+      }),
+    );
+    expect(execution.execute).toHaveBeenCalledTimes(0);
   });
 });

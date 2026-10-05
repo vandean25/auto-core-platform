@@ -70,7 +70,7 @@ export const mcpToolInputSchemas: Record<
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);
-const workshopOrderDraftStatusSchema = z.enum(['SCHEDULED', 'INTAKE']);
+const workshopOrderDraftStatusSchema = z.literal('SCHEDULED');
 
 export const draftWorkshopOrderInputSchema = z.object({
   customer_id: uuidSchema.optional(),

@@ -539,7 +539,7 @@ describe('MCP server (e2e)', () => {
 
       await transport.close();
     });
-    it('draft_workshop_order AUTO → creates an intake order + EXECUTED log with traceId', async () => {
+    it('draft_workshop_order AUTO → creates a scheduled order + EXECUTED log with traceId', async () => {
       await setPolicyTier('workshop_order.create', 'AUTO');
       const draftVehicle = await createDraftVehicle('draft-auto');
 
@@ -556,7 +556,7 @@ describe('MCP server (e2e)', () => {
           customer_id: draftVehicle.customerId,
           vehicle_id: draftVehicle.vehicleId,
           purpose: 'CUSTOMER_REPAIR',
-          status: 'INTAKE',
+          status: 'SCHEDULED',
           odometer: 1000,
           fuel_level: 50,
           notes: 'MCP draft test',
@@ -584,7 +584,7 @@ describe('MCP server (e2e)', () => {
       expect(orders.length).toBe(1);
       const order = orders[0];
       expect(order.id).toBe(executedResult.result.id);
-      expect(order.status).toBe('INTAKE');
+      expect(order.status).toBe('SCHEDULED');
 
       // Check for EXECUTED agent action log
       const log = await prismaA.agentActionLog.findFirst({
@@ -596,6 +596,9 @@ describe('MCP server (e2e)', () => {
       expect(log).toBeTruthy();
       expect(log?.tier).toBe('AUTO');
       expect(log?.status).toBe('EXECUTED');
+      expect(log?.entity_type).toBe('WorkshopOrder');
+      expect(log?.entity_id).toBe(order.id);
+      expect(log?.reversible).toBe(true);
 
       await transport.close();
     });
@@ -617,7 +620,7 @@ describe('MCP server (e2e)', () => {
           customer_id: draftVehicle.customerId,
           vehicle_id: draftVehicle.vehicleId,
           purpose: 'CUSTOMER_REPAIR',
-          status: 'INTAKE',
+          status: 'SCHEDULED',
           odometer: 1000,
           fuel_level: 50,
           notes: 'MCP human-only test',
@@ -647,6 +650,28 @@ describe('MCP server (e2e)', () => {
       expect(log?.tier).toBe('HUMAN_ONLY');
       expect(log?.status).toBe('REFUSED');
 
+      await transport.close();
+    });
+
+    it('rejects an active INTAKE status for draft_workshop_order and logs the failure', async () => {
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-draft-active-status-rejected',
+        '00000000-0000-4000-8000-000000000213',
+      );
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: { vehicle_id: fixtures.vehicleId, status: 'INTAKE' },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000213',
+          action_type: 'mcp.draft_workshop_order',
+          status: 'FAILED',
+        },
+      })).toBeTruthy();
       await transport.close();
     });
 
@@ -696,6 +721,8 @@ describe('MCP server (e2e)', () => {
         },
       });
       expect(reserveLog).toBeTruthy();
+      expect(reserveLog?.entity_type).toBe('PartsReservation');
+      expect(reserveLog?.reversible).toBe(true);
       const reservationId = (
         reserveLog?.result_summary_json as { reservation_id: string }
       )?.reservation_id;
@@ -786,6 +813,8 @@ describe('MCP server (e2e)', () => {
     });
 
     it('cross-tenant: tenant A token cannot use tenant B vehicle/line/reservation IDs', async () => {
+      await setPolicyTier('inventory.part_reserve', 'AUTO');
+      await setPolicyTier('inventory.part_release', 'AUTO');
       const prismaB = createTenantAwarePrisma(prisma, tenantB);
       const tenantBCustomer = await prismaB.customer.create({
         data: {
@@ -800,7 +829,48 @@ describe('MCP server (e2e)', () => {
           model: 'CrossTenant',
           year: 2021,
           vin: `CROSS-TENANT-${Date.now()}`,
-          customer_id: fixtures.customerId,
+          customer_id: tenantBCustomer.id,
+        },
+      });
+      const tenantBSiteId = await resolveTestMainSiteId(prisma, tenantB);
+      const tenantBStaging = await prismaB.storageLocation.create({
+        data: {
+          site_id: tenantBSiteId,
+          code: `CROSS-TENANT-STAGING-${Date.now()}`,
+          name: 'Cross-tenant staging',
+          type: 'staging_tote',
+        },
+      });
+      const tenantBOrder = await prismaB.workshopOrder.create({
+        data: {
+          order_number: `CROSS-TENANT-${Date.now()}`,
+          customer_id: tenantBCustomer.id,
+          vehicle_id: tenantBVehicle.id,
+          site_id: tenantBSiteId,
+          staging_location_id: tenantBStaging.id,
+          status: 'INTAKE',
+        },
+      });
+      const tenantBTask = await prismaB.workshopTask.create({
+        data: { workshop_order_id: tenantBOrder.id, title: 'Foreign task' },
+      });
+      const tenantBLine = await prismaB.workshopTaskLineItem.create({
+        data: {
+          workshop_task_id: tenantBTask.id,
+          type: 'PART',
+          part_execution_status: 'PENDING_PICK',
+          item_no: 'FOREIGN-PART',
+          description: 'Foreign part',
+          quantity: 1,
+          unit_price: 1,
+        },
+      });
+      const tenantBReservation = await prismaB.partsReservation.create({
+        data: {
+          tenant_id: tenantB,
+          workshop_task_line_item_id: tenantBLine.id,
+          kind: 'ON_HAND',
+          quantity: 1,
         },
       });
 
@@ -818,7 +888,7 @@ describe('MCP server (e2e)', () => {
           customer_id: tenantBCustomer.id,
           vehicle_id: tenantBVehicle.id,
           purpose: 'CUSTOMER_REPAIR',
-          status: 'INTAKE',
+          status: 'SCHEDULED',
           odometer: 1000,
           fuel_level: 50,
         },
@@ -836,9 +906,108 @@ describe('MCP server (e2e)', () => {
 
       await transport.close();
 
-      // Cleanup: delete the customer and vehicle we created in tenant B
-      await prismaB.customer.delete({ where: { id: tenantBCustomer.id } });
-      await prismaB.vehicle.delete({ where: { id: tenantBVehicle.id } });
+      const { client: writeClient, transport: writeTransport } =
+        await connectMcpClient(
+          adminHeaderA,
+          'e2e-cross-tenant-write-ids',
+          '00000000-0000-4000-8000-000000000214',
+        );
+      const reserveResult = await writeClient.callTool({
+        name: 'reserve_part',
+        arguments: {
+          workshop_task_line_item_id: tenantBLine.id,
+          quantity: 1,
+          location_id: fixtures.locationId,
+        },
+      });
+      expect(reserveResult.isError).toBe(true);
+      const releaseResult = await writeClient.callTool({
+        name: 'release_reservation',
+        arguments: { reservation_id: tenantBReservation.id },
+      });
+      expect(releaseResult.isError).toBe(true);
+      expect(await prismaB.partsReservation.findUnique({
+        where: { id: tenantBReservation.id },
+        select: { status: true },
+      })).toMatchObject({ status: 'OPEN' });
+      await writeTransport.close();
+
+    });
+
+    it('propose_line_item cannot access a task at another site in the same tenant', async () => {
+      const mainSite = await prismaA.site.findFirstOrThrow({
+        where: { id: await resolveTestMainSiteId(prisma, tenantA) },
+        select: { legal_entity_id: true },
+      });
+      const otherSite = await prismaA.site.create({
+        data: {
+          legal_entity_id: mainSite.legal_entity_id,
+          code: `MCP-OTHER-${Date.now()}`,
+          name: 'MCP other site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+        },
+      });
+      const stagingLocation = await prismaA.storageLocation.create({
+        data: {
+          site_id: otherSite.id,
+          code: `MCP-OTHER-STAGING-${Date.now()}`,
+          name: 'MCP other staging',
+          type: 'staging_tote',
+        },
+      });
+      const otherSiteOrder = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `MCP-OTHER-${Date.now()}`,
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          site_id: otherSite.id,
+          staging_location_id: stagingLocation.id,
+          status: 'INTAKE',
+        },
+      });
+      const otherSiteTask = await prismaA.workshopTask.create({
+        data: {
+          workshop_order_id: otherSiteOrder.id,
+          title: 'Other site task',
+          status: 'NOT_STARTED',
+        },
+      });
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-cross-site-proposal',
+        '00000000-0000-4000-8000-000000000212',
+      );
+
+      const result = await client.callTool({
+        name: 'propose_line_item',
+        arguments: {
+          workshop_order_id: otherSiteOrder.id,
+          workshop_task_id: otherSiteTask.id,
+          expected_line_items_version: 0,
+          line_item: {
+            type: 'LABOR',
+            item_no: 'SITE-ISOLATION',
+            description: 'Site isolation check',
+            quantity: 1,
+            unit_price_cents: 1000,
+          },
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(await prismaA.workshopTaskLineItem.count({
+        where: { workshop_task_id: otherSiteTask.id },
+      })).toBe(0);
+      expect(await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000212',
+          action_type: 'mcp.propose_line_item',
+          status: 'FAILED',
+        },
+      })).toBeTruthy();
+      await transport.close();
     });
 
     it('TECH role rejected on write tools', async () => {
@@ -866,7 +1035,7 @@ describe('MCP server (e2e)', () => {
                 customer_id: fixtures.customerId,
                 vehicle_id: fixtures.vehicleId,
                 purpose: 'CUSTOMER_REPAIR',
-                status: 'INTAKE',
+                status: 'SCHEDULED',
                 odometer: 1000,
                 fuel_level: 50,
               },
