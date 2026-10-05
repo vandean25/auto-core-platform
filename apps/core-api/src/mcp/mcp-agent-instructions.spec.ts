@@ -47,6 +47,14 @@ const PERSONAL_CONTACT_PATTERNS = [
   /\b\+?\d[\d .()/-]{7,}\d\b/,
 ];
 
+const NAME_LIKE_PATTERN =
+  /(?:^|[^\p{L}\p{N}_])((?:\p{Lu}\p{Ll}[\p{L}\p{M}'’.-]*)(?:[ \t]+\p{Lu}\p{Ll}[\p{L}\p{M}'’.-]*)+)/gu;
+const APPROVED_PRODUCT_OR_FICTIONAL_NAMES = new Set([
+  'Model Context Protocol',
+  'Musterwerkstatt Nord',
+  'Werkstatt Donau',
+]);
+
 function readMarkdownTableNames(
   markdown: string,
   headingPattern: RegExp,
@@ -145,6 +153,11 @@ function findForbiddenGuidance(markdown: string): string[] {
 
 function containsPersonalContactData(markdown: string): boolean {
   return PERSONAL_CONTACT_PATTERNS.some((pattern) => pattern.test(markdown));
+}
+
+function findUnapprovedNameLikeData(markdown: string): string[] {
+  return Array.from(markdown.matchAll(NAME_LIKE_PATTERN), (match) => match[1])
+    .filter((name) => !APPROVED_PRODUCT_OR_FICTIONAL_NAMES.has(name));
 }
 
 describe('MCP agent-facing instructions', () => {
@@ -336,6 +349,21 @@ describe('MCP agent-facing instructions', () => {
     );
 
     expect(containsPersonalContactData(instructions)).toBe(false);
+  });
+
+  it('contains no unapproved name-like customer data', () => {
+    const instructions = readFileSync(
+      new URL('./AGENTS.md', import.meta.url),
+      'utf8',
+    );
+
+    expect(findUnapprovedNameLikeData(instructions)).toEqual([]);
+  });
+
+  it('detects a new name-like value without storing a customer name', () => {
+    expect(findUnapprovedNameLikeData('Musterkunde Beispiel')).toContain(
+      'Musterkunde Beispiel',
+    );
   });
 
   it.each(['contact customer@example.invalid', 'call +43 660 123 4567'])(

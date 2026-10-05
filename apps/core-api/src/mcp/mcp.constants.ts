@@ -56,6 +56,7 @@ export const MCP_AGENT_FACING_CODES = {
   executedStatus: 'executed',
   needsHumanApprovalStatus: 'needs_human_approval',
   refusedLogStatus: 'REFUSED',
+  notPermitted: 'not_permitted',
   forbidden: ForbiddenException.name,
   forbiddenHttpStatus: HttpStatus.FORBIDDEN,
   invalidInput: ZodError.name,

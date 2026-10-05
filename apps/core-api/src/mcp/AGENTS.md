@@ -27,12 +27,12 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
-| `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | AUTO                                                  |
-| `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | AUTO up to the policy amount limit; otherwise PROPOSE |
-| `release_reservation`  | Release a parts reservation                                  | Write  | AUTO                                                  |
-| `propose_line_item`    | Propose a part or labor line on a workshop task              | Write  | PROPOSE                                               |
+| `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | Off by default; AUTO when enabled                     |
+| `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | Off by default; AUTO up to the amount limit, else PROPOSE |
+| `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |
+| `propose_line_item`    | Propose a part or labor line on a workshop task              | Write  | Off by default; PROPOSE when enabled                  |
 
-The table shows current platform defaults; tenant policy and conditions can make a write more restrictive. Tenant policy cannot loosen a stricter platform rule. `propose_line_item` is clamped to `PROPOSE`. Write tools are therefore not all Off by default in the current server configuration. Do not infer permission from this table: the server evaluates every write call.
+Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item` is clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask first` to `PROPOSE`, and `Off` to disabled / `HUMAN_ONLY`. When a tool is Off or the server returns `HUMAN_ONLY`, stop. Never find another route to perform the action.
 
@@ -42,24 +42,25 @@ List and search tools accept `page` and `page_size`; the server defaults to page
 
 ## Outcomes and errors
 
-The tool call may return an MCP tool error (`isError: true`) without a stable application error-code field. Use the actual outcome or exception below; do not translate it into a made-up code.
+Policy refusals return an MCP tool error with the code `not_permitted`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
 
 | Server value           | Meaning and response                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `executed`             | A write ran. Report it as done only when the returned result confirms it.                                                       |
 | `needs_human_approval` | The action was stored as a proposal and was not executed. Tell the user it awaits human approval; do not retry or call it done. |
 | `REFUSED`              | The action log records a refusal. Stop and tell the user.                                                                       |
+| `not_permitted`        | A disabled or human-only action was refused with HTTP 403. Stop and tell the user; do not retry through another tool or route. |
 | `ForbiddenException`   | A policy refusal or access denial. Stop and tell the user; do not retry through another tool or route.                          |
 | `403`                  | HTTP status used by `ForbiddenException`. The MCP tool result is an error; inspect its message and stop.                        |
 | `ZodError`             | Arguments did not match the tool schema. Report the validation failure and ask for corrected input if needed.                   |
 | `NotFoundException`    | The requested record or related entity was not found in the authorized scope. Report that result; do not guess an ID.           |
 | `ConflictException`    | The record changed or conflicts with the request. Reload current data before asking whether to retry.                           |
 
-There is no MCP error-code enum. Unknown tools are not registered, and invalid arguments are rejected by closed schemas. A missing tool is not permission to guess a substitute.
+Unknown tools are not registered, and invalid arguments are rejected by closed schemas. A missing tool is not permission to guess a substitute.
 
 ## Preview and writes
 
-The MCP write pipeline evaluates policy, runs a rollback-transaction preview, and then follows the evaluated tier. It returns `would_change`; `AUTO` proceeds to a real write, `PROPOSE` returns `needs_human_approval` without executing the action, and `HUMAN_ONLY` refuses it. MCP tools do not accept a `dry_run` argument, so an AUTO write call is not a preview-only call. Never present preview output as completed work. Relay the returned status and what was or was not executed exactly.
+The MCP write pipeline evaluates policy before doing any work. Disabled actions and `HUMAN_ONLY` return `not_permitted` without previewing or executing the action. Enabled `AUTO` and `PROPOSE` actions run a rollback-transaction preview and return `would_change`; `AUTO` then proceeds to a real write, while `PROPOSE` returns `needs_human_approval` without executing the action. MCP tools do not accept a `dry_run` argument, so an AUTO write call is not a preview-only call. Never present preview output as completed work. Relay the returned status and what was or was not executed exactly.
 
 ## Trace IDs
 
@@ -108,7 +109,7 @@ All names and records below are fictional German examples.
 ### Estimate draft
 
 1. Read the vehicle and workshop order with `get_vehicle` and `get_workshop_order` (AUTO).
-2. There is no estimate-creation tool. For an existing workshop task, `propose_line_item` can submit a part or labor line for policy review; it is PROPOSE and returns `needs_human_approval` without executing the line change. The tool performs its preview internally; it has no preview-only argument. Do not claim an estimate was created or sent.
+2. There is no estimate-creation tool. For an existing workshop task, a tenant admin must first enable `propose_line_item`; when enabled, it is PROPOSE and returns `needs_human_approval` without executing the line change. If it is Off, the call returns `not_permitted`. The tool performs its preview internally; it has no preview-only argument. Do not claim an estimate was created or sent.
 
 ### Parts reorder
 

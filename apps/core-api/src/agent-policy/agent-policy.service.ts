@@ -81,7 +81,7 @@ export class AgentPolicyService {
     }
 
     const platformRow = await this.findLatestPlatformRow(normalizedAction);
-    if (!platformRow?.enabled) {
+    if (!platformRow) {
       throw new BadRequestException({
         code: AGENT_POLICY_ERROR_CODES.UNKNOWN_ACTION_TYPE,
         message: `Unknown action type: ${normalizedAction}`,

@@ -44,18 +44,17 @@ Outputs are page-limited (max 25 rows) and JSON size-capped before returning to 
 
 | Tool | Default Tier | Reversibility | Counter-tool |
 |------|--------------|---------------|--------------|
-| `draft_workshop_order` | AUTO | Reversible through the workshop order cancellation workflow | Manual workshop order cancellation |
-| `reserve_part` | AUTO up to the policy amount limit; otherwise PROPOSE | Reversible via `release_reservation` | `release_reservation` |
-| `release_reservation` | AUTO | Reversible via `reserve_part` (subject to stock availability) | `reserve_part` |
-| `propose_line_item` | PROPOSE | Preview only; the proposed line item is rolled back and not persisted | Not applicable |
+| `draft_workshop_order` | Off by default; AUTO when enabled | Reversible through the workshop order cancellation workflow | Manual workshop order cancellation |
+| `reserve_part` | Off by default; AUTO up to the policy amount limit, otherwise PROPOSE | Reversible via `release_reservation` | `release_reservation` |
+| `release_reservation` | Off by default; AUTO when enabled | Reversible via `reserve_part` (subject to stock availability) | `reserve_part` |
+| `propose_line_item` | Off by default; PROPOSE when enabled | Preview only; the proposed line item is rolled back and not persisted | Not applicable |
 
-Write tools follow a shared pipeline: policy evaluation → DryRunService rollback preview (`would_change`) → outcome by evaluated tier:
+Write tools follow a shared pipeline: policy evaluation → immediate refusal for disabled / HUMAN_ONLY actions → DryRunService rollback preview (`would_change`) for enabled actions → outcome by evaluated tier:
 - **AUTO**: Execute immediately, log as EXECUTED
 - **PROPOSE**: Requires human approval, log as PROPOSED
-- **HUMAN_ONLY**: Execution refused, log as REFUSED
+- **HUMAN_ONLY**: Return `not_permitted` (HTTP 403) without preview or execution, log as REFUSED
 
-Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO.
-The MCP write schemas do not accept a `dry_run` argument. AUTO calls proceed to execution after the internal preview; PROPOSE calls return `needs_human_approval` without executing the proposed action. Current platform defaults are not Off for every write tool; tenant policy can make a rule stricter, not looser than its platform floor.
+Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO. All MCP write rules start disabled in the platform policy table; a tenant admin must enable each rule before the write can proceed. Disabled rules fail closed with `not_permitted` (HTTP 403). The MCP write schemas do not accept a `dry_run` argument. Enabled AUTO calls proceed to execution after the internal preview; PROPOSE calls return `needs_human_approval` without executing the proposed action. Tenant policy can be stricter than the platform floor, never looser.
 
 ## Never-exposed actions
 
