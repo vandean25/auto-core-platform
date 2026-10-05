@@ -55,7 +55,13 @@ export class McpWritePipelineService {
       execution.policyActionType,
       policyContext,
     );
-    const tier = evaluation.tier;
+    let tier = evaluation.tier;
+
+    if (execution.toolName === 'propose_line_item') {
+      if (tier === AgentPolicyTier.AUTO) {
+        tier = AgentPolicyTier.PROPOSE;
+      }
+    }
 
     const { result: preview, wouldChange } =
       await this.dryRun.executeInRollbackTransaction(() =>
