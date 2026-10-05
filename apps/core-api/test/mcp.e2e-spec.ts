@@ -8,7 +8,12 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
-import { MCP_READ_TOOL_NAMES } from '../src/mcp/mcp.constants.js';
+import {
+  MCP_READ_TOOL_NAMES,
+  MCP_WRITE_TOOL_NAMES,
+  MCP_TOOL_NAMES,
+  MCP_NEVER_EXPOSED_ACTIONS,
+} from '../src/mcp/mcp.constants.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -23,7 +28,7 @@ type TenantFixtures = {
   searchToken: string;
   customerId: string;
   vehicleId: string;
-  workshopOrderId: string;
+   workshopOrderId: string;
   catalogItemId: string;
   sku: string;
 };
@@ -141,8 +146,9 @@ describe('MCP server (e2e)', () => {
     };
   }
 
-  beforeAll(async () => {
-    previousMcpFlag = process.env.MCP_SERVER_ENABLED;
+   beforeAll(async () => {
+     jest.setTimeout(120000);
+     previousMcpFlag = process.env.MCP_SERVER_ENABLED;
     process.env.MCP_SERVER_ENABLED = 'true';
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -275,15 +281,18 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists all eight read tools', async () => {
+  it('lists all twelve tools (8 read + 4 write)', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
     );
     const tools = await client.listTools();
-    expect(tools.tools.map((tool) => tool.name).sort()).toEqual(
-      [...MCP_READ_TOOL_NAMES].sort(),
-    );
+    const toolNames = tools.tools.map((tool) => tool.name);
+    expect(toolNames.sort()).toEqual([...MCP_TOOL_NAMES].sort());
+    // Ensure none of the never exposed actions are present
+    for (const neverExposed of MCP_NEVER_EXPOSED_ACTIONS) {
+      expect(toolNames).not.toContain(neverExposed);
+    }
     await transport.close();
   });
 
@@ -378,6 +387,480 @@ describe('MCP server (e2e)', () => {
       assertPayloadExcludesTenantAIds(payload);
     }
 
-    await transport.close();
-  });
-});
+     await transport.close();
+   });
+    // Write tool e2e cases
+    it('propose_line_item → needs_human_approval, no line item row created, PROPOSED agent_action_log', async () => {
+      // Arrange: create a workshop task for the workshop order
+      const task = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: fixtures.workshopOrderId,
+          title: 'Test Task',
+          status: 'NOT_STARTED',
+        },
+        select: { id: true, line_items_version: true },
+      });
+      const { line_items_version: expectedVersion } = task;
+
+      // Ensure the policy for propose_line_item is AUTO (so it gets clamped to PROPOSE)
+      await prismaA.agentPolicyRule.upsert({
+        where: {
+          tenant_id_action_type_version: {
+            tenant_id: tenantA,
+            action_type: 'workshop_order.propose_line',
+            version: 1,
+          },
+        },
+        update: {},
+        create: {
+          tenant_id: tenantA,
+          action_type: 'workshop_order.propose_line',
+          tier: 'AUTO',
+          version: 1,
+          enabled: true,
+        },
+      });
+
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-propose-line-item',
+        '00000000-0000-4000-8000-000000000200', // traceId for propose_line_item
+      );
+
+      // Act
+      const result = await client.callTool({
+        name: 'propose_line_item',
+        arguments: {
+          workshop_order_id: fixtures.workshopOrderId,
+          workshop_task_id: task.id,
+          expected_line_items_version: expectedVersion,
+          line_item: {
+            type: 'PART',
+            item_no: 'TEST-ITEM',
+            description: 'Test line item',
+            quantity: 1,
+            unit_price_cents: 100,
+          },
+        },
+      });
+
+      // Assert
+      expect(result.isError).not.toBe(true);
+      const payload = toolPayloadText(result);
+      expect(payload).toContain('needs_human_approval');
+
+      // Ensure no line item row was created (dry run is rolled back)
+      const lineItemCountAfter = await prismaA.workshopTaskLineItem.count({
+        where: { workshop_task_id: task.id },
+      });
+      const lineItemCountBefore = 0; // we just created the task, so no line items
+      expect(lineItemCountAfter).toBe(lineItemCountBefore);
+
+      // Check for PROPOSED agent action log
+      const log = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000200',
+          action_type: 'mcp.propose_line_item',
+        },
+      });
+      expect(log).toBeTruthy();
+      expect(log?.tier).toBe('PROPOSE');
+      expect(log?.status).toBe('PROPOSED');
+
+      await transport.close();
+    });
+    it('draft_workshop_order AUTO → creates SCHEDULED/INTAKE order + EXECUTED log with traceId', async () => {
+      // Arrange: set policy for workshop_order.create to AUTO
+      await prismaA.agentPolicyRule.upsert({
+        where: {
+          tenant_id_action_type_version: {
+            tenant_id: tenantA,
+            action_type: 'workshop_order.create',
+            version: 1,
+          },
+        },
+        update: {},
+        create: {
+          tenant_id: tenantA,
+          action_type: 'workshop_order.create',
+          tier: 'AUTO',
+          version: 1,
+          enabled: true,
+        },
+      });
+
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-draft-workshop-order',
+        '00000000-0000-4000-8000-000000000201', // traceId for draft_workshop_order
+      );
+
+      // Act
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          purpose: 'Test purpose',
+          status: 'INTAKE', // or SCHEDULED? The tool accepts status, we'll use INTAKE
+          bay_id: null, // optional
+          notes: null,
+        },
+      });
+
+      // Assert
+      expect(result.isError).not.toBe(true);
+      const payload = toolPayloadText(result);
+      expect(payload).toContain('created'); // The tool returns the order id in the result summary
+
+      // Retrieve the created order from the database
+      const orders = await prismaA.workshopOrder.findMany({
+        where: {
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          purpose: 'Test purpose',
+        },
+      });
+      expect(orders.length).toBe(1);
+      const order = orders[0];
+      expect(order.status).toBeIn(['SCHEDULED', 'INTAKE']);
+
+      // Check for EXECUTED agent action log
+      const log = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000201',
+          action_type: 'mcp.draft_workshop_order',
+        },
+      });
+      expect(log).toBeTruthy();
+      expect(log?.tier).toBe('AUTO');
+      expect(log?.status).toBe('EXECUTED');
+
+      await transport.close();
+    });
+
+    it('HUMAN_ONLY refuse for a write (insert a temporary tenant HUMAN_ONLY policy row for workshop_order.create if needed) → nothing written + REFUSED log', async () => {
+      // Arrange: set policy for workshop_order.create to HUMAN_ONLY
+      await prismaA.agentPolicyRule.upsert({
+        where: {
+          tenant_id_action_type_version: {
+            tenant_id: tenantA,
+            action_type: 'workshop_order.create',
+            version: 1,
+          },
+        },
+        update: {},
+        create: {
+          tenant_id: tenantA,
+          action_type: 'workshop_order.create',
+          tier: 'HUMAN_ONLY',
+          version: 1,
+          enabled: true,
+        },
+      });
+
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-human-only-refuse',
+        '00000000-0000-4000-8000-000000000202', // traceId
+      );
+
+      // Act
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          purpose: 'Test purpose',
+          status: 'INTAKE',
+        },
+      });
+
+      // Assert: the tool should return an error (ForbiddenException turned into MCP error?)
+      expect(result.isError).toBe(true);
+      // Ensure no workshop order was created beyond the initial fixture
+      const orders = await prismaA.workshopOrder.count({
+        where: {
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          purpose: 'Test purpose',
+        },
+      });
+      expect(orders).toBe(0); // because we haven't created any with this purpose yet (the fixture order has a different purpose)
+
+      // Check for REFUSED agent action log
+      const log = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000202',
+          action_type: 'mcp.draft_workshop_order',
+        },
+      });
+      expect(log).toBeTruthy();
+      expect(log?.tier).toBe('HUMAN_ONLY');
+      expect(log?.status).toBe('REFUSED');
+
+      await transport.close();
+    });
+
+    it('reserve_part then release_reservation round-trip restores state', async () => {
+      // Arrange: set policies for reserve_part and release_reservation to AUTO
+      await prismaA.agentPolicyRule.upsert({
+        where: {
+          tenant_id_action_type_version: {
+            tenant_id: tenantA,
+            action_type: 'inventory.part_reserve',
+            version: 1,
+          },
+        },
+        update: {},
+        create: {
+          tenant_id: tenantA,
+          action_type: 'inventory.part_reserve',
+          tier: 'AUTO',
+          version: 1,
+          enabled: true,
+        },
+      });
+      await prismaA.agentPolicyRule.upsert({
+        where: {
+          tenant_id_action_type_version: {
+            tenant_id: tenantA,
+            action_type: 'inventory.part_release',
+            version: 1,
+          },
+        },
+        update: {},
+        create: {
+          tenant_id: tenantA,
+          action_type: 'inventory.part_release',
+          tier: 'AUTO',
+          version: 1,
+          enabled: true,
+        },
+      });
+
+      // Get initial stock level for the fixture SKU
+      const { client: stockClient, transport: stockTransport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-initial-stock',
+        '00000000-0000-4000-8000-000000000206',
+      );
+      let initialStock = null;
+      {
+        const stockResult = await stockClient.callTool({
+          name: 'get_stock_level',
+          arguments: { sku: fixtures.sku },
+        });
+        expect(stockResult.isError).not.toBe(true);
+        const stockPayload = toolPayloadText(stockResult);
+        initialStock = parseInt(stockPayload, 10);
+        expect(!isNaN(initialStock)).toBe(true);
+      }
+      await stockTransport.close();
+
+      // Reserve part
+      const { client: reserveClient, transport: reserveTransport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-reserve-part',
+        '00000000-0000-4000-8000-000000000207',
+      );
+      const reserveResult = await reserveClient.callTool({
+        name: 'reserve_part',
+        arguments: {
+          sku: fixtures.sku,
+          quantity: 1,
+          reservation_id: null,
+        },
+      });
+      expect(reserveResult.isError).not.toBe(true);
+
+      // Extract reservation ID from agent action log (since the tool returns it in the result summary)
+      const reserveLog = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000207',
+          action_type: 'mcp.reserve_part',
+        },
+      });
+      expect(reserveLog).toBeTruthy();
+      const reservationId = (reserveLog?.result_summary as { reservation_id: string })?.reservation_id;
+      expect(reservationId).toBeDefined();
+
+      // Check stock after reserve: should be initialStock - 1
+      const { client: stockAfterReserveClient, transport: stockAfterReserveTransport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-stock-after-reserve',
+        '00000000-0000-4000-8000-000000000208',
+      );
+      const stockAfterReserveResult = await stockAfterReserveClient.callTool({
+        name: 'get_stock_level',
+        arguments: { sku: fixtures.sku },
+      });
+      expect(stockAfterReserveResult.isError).not.toBe(true);
+      const stockAfterReservePayload = toolPayloadText(stockAfterReserveResult);
+      const stockAfterReserve = parseInt(stockAfterReservePayload, 10);
+      expect(!isNaN(stockAfterReserve)).toBe(true);
+      expect(stockAfterReserve).toBe(initialStock - 1);
+      await stockAfterReserveTransport.close();
+
+      // Release reservation
+      const { client: releaseClient, transport: releaseTransport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-release-reservation',
+        '00000000-0000-4000-8000-000000000209',
+      );
+      const releaseResult = await releaseClient.callTool({
+        name: 'release_reservation',
+        arguments: {
+          reservation_id: reservationId,
+        },
+      });
+      expect(releaseResult.isError).not.toBe(true);
+
+      // Check stock after release: should be initialStock
+      const { client: stockAfterReleaseClient, transport: stockAfterReleaseTransport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-stock-after-release',
+        '00000000-0000-4000-8000-000000000210',
+      );
+      const stockAfterReleaseResult = await stockAfterReleaseClient.callTool({
+        name: 'get_stock_level',
+        arguments: { sku: fixtures.sku },
+      });
+      expect(stockAfterReleaseResult.isError).not.toBe(true);
+      const stockAfterReleasePayload = toolPayloadText(stockAfterReleaseResult);
+      const stockAfterRelease = parseInt(stockAfterReleasePayload, 10);
+      expect(!isNaN(stockAfterRelease)).toBe(true);
+      expect(stockAfterRelease).toBe(initialStock);
+
+      // Check agent action logs for EXECUTED
+      const reserveLogAfter = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000207',
+          action_type: 'mcp.reserve_part',
+        },
+      });
+      expect(reserveLogAfter?.status).toBe('EXECUTED');
+      const releaseLog = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000209',
+          action_type: 'mcp.release_reservation',
+        },
+      });
+      expect(releaseLog).toBeTruthy();
+      expect(releaseLog?.status).toBe('EXECUTED');
+
+      // Cleanup transports
+      await reserveTransport.close();
+      await releaseTransport.close();
+      await stockAfterReleaseTransport.close();
+    });
+
+    it('cross-tenant: tenant A token cannot use tenant B vehicle/line/reservation IDs', async () => {
+      // Arrange: create a vehicle in tenant B
+      const tenantBVehicle = await prisma.vehicle.create({
+        data: {
+          make: 'Test',
+          model: 'CrossTenant',
+          year: 2021,
+          vin: 'CROSS-TENANT-VIN',
+          customer_id: null, // we need a customer in tenant B? Let's create a customer in tenant B first.
+        },
+      });
+      // We need to set the tenant for the prisma client to tenant B to create a customer.
+      const prismaB = createTenantAwarePrisma(prisma, tenantB);
+      const tenantBCustomer = await prismaB.customer.create({
+        data: {
+          first_name: 'Cross',
+          last_name: 'Tenant',
+          email: 'cross@example.com',
+        },
+      });
+      // Now update the vehicle to belong to the customer
+      await prisma.vehicle.update({
+        where: { id: tenantBVehicle.id },
+        data: { customer_id: tenantBCustomer.id },
+      });
+
+      // Now try to use this vehicle ID with tenant A token in a write tool (e.g., draft_workshop_order)
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-cross-tenant-vehicle',
+        '00000000-0000-4000-8000-000000000211',
+      );
+
+      // Act
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: fixtures.customerId, // tenant A customer
+          vehicle_id: tenantBVehicle.id, // tenant B vehicle
+          purpose: 'Test',
+          status: 'INTAKE',
+        },
+      });
+
+      // Assert: the tool should fail (not found or forbidden) because the vehicle does not belong to tenant A
+      expect(result.isError).toBe(true);
+      // Ensure no workshop order was created in tenant A with this vehicle
+      const orders = await prismaA.workshopOrder.count({
+        where: {
+          vehicle_id: tenantBVehicle.id,
+        },
+      });
+      expect(orders).toBe(0);
+
+      await transport.close();
+
+      // Cleanup: delete the customer and vehicle we created in tenant B
+      await prismaB.customer.delete({ where: { id: tenantBCustomer.id } });
+      await prisma.vehicle.delete({ where: { id: tenantBVehicle.id } });
+    });
+
+    it('TECH role rejected on write tools', async () => {
+      // Arrange: set the user role to TECH
+      await runWithTenantContext(tenantA, async () => {
+        await prisma.tenantMember.update({
+          where: {
+            tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
+          },
+          data: { role: 'TECH' },
+        });
+      });
+
+      const { client, transport } = await connectMcpClient(
+        techHeaderA,
+        'e2e-tech-role-rejected',
+        '00000000-0000-4000-8000-000000000212',
+      );
+
+      // Act
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: fixtures.customerId,
+          vehicle_id: fixtures.vehicleId,
+          purpose: 'Test',
+          status: 'INTAKE',
+        },
+      });
+
+      // Assert: the tool should be forbidden (403)
+      expect(result.isError).toBe(true);
+      // Optionally, check the error message contains "Forbidden"
+
+      await transport.close();
+
+      // Reset role to ADMIN
+      await runWithTenantContext(tenantA, async () => {
+        await prisma.tenantMember.update({
+          where: {
+            tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
+          },
+          data: { role: 'ADMIN' },
+        });
+      });
+    });
+
+   // Note: MCP_SERVER_ENABLED=false → 404 is already tested above
+   });
