@@ -174,6 +174,11 @@ describe('VehicleStockReportsService', () => {
 
     const pageQuery = prisma.vehicleSale.findMany.mock.calls[0][0];
     expect(pageQuery).toMatchObject({ skip: 10, take: 10 });
+    expect(pageQuery.orderBy).toEqual([
+      { invoice: { date: 'desc' } },
+      { createdAt: 'desc' },
+      { id: 'asc' },
+    ]);
     expect(pageQuery.where).toMatchObject({
       tenant_id: 'tenant-1',
       site_id: 'site-1',

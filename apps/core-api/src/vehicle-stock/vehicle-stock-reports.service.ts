@@ -292,7 +292,11 @@ export class VehicleStockReportsService {
             select: { id: true, make: true, model: true, year: true },
           },
         },
-        orderBy: [{ invoice: { date: 'desc' } }, { createdAt: 'desc' }],
+        orderBy: [
+          { invoice: { date: 'desc' } },
+          { createdAt: 'desc' },
+          { id: 'asc' },
+        ],
         skip,
         take: limit,
       }),

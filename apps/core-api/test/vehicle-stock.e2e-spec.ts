@@ -1417,6 +1417,13 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(ageResponse.body.summary).toEqual({
       over_90_count: expect.any(Number),
       over_90_cost_basis: expect.any(String),
+      bucket_counts: {
+        '0_30': expect.any(Number),
+        '31_60': expect.any(Number),
+        '61_90': expect.any(Number),
+        '91_180': expect.any(Number),
+        over_180: expect.any(Number),
+      },
     });
 
     const otherTenantResponse = await request(app.getHttpServer())
