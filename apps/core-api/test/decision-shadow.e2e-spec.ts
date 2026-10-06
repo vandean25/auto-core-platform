@@ -86,7 +86,14 @@ describe('Decision shadow mode (e2e)', () => {
 
   it('returns 201 when shadow provider fails', async () => {
     process.env.DECISION_SHADOW_ENABLED = 'true';
-    decide.mockRejectedValue(new Error('provider down'));
+    let notifyProviderCalled!: () => void;
+    const providerCalled = new Promise<void>((resolve) => {
+      notifyProviderCalled = resolve;
+    });
+    decide.mockImplementation(() => {
+      notifyProviderCalled();
+      return Promise.reject(new Error('provider down'));
+    });
 
     await createTenantAwarePrisma(prisma, tenant.tenantId).customer.create({
       data: {
@@ -112,6 +119,7 @@ describe('Decision shadow mode (e2e)', () => {
       )
       .expect(201);
 
+    await providerCalled;
     expect(decide).toHaveBeenCalled();
   });
 });
