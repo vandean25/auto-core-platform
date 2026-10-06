@@ -6982,6 +6982,109 @@
         ]
       }
     },
+    "/api/vehicles/nova/calculate": {
+      "post": {
+        "operationId": "VehicleController_calculateNova",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/NovaCalculateRequestDto"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "vehicleId": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        },
+                        "required": [
+                          "vehicleId"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/NovaCalculateRequestDto"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "emissionCycle": {
+                            "type": "string",
+                            "enum": [
+                              "WLTP",
+                              "NEDC"
+                            ]
+                          },
+                          "driveType": {
+                            "type": "string",
+                            "enum": [
+                              "BEV",
+                              "FCEV",
+                              "PHEV",
+                              "ICE",
+                              "OTHER"
+                            ]
+                          },
+                          "taxableEventDate": {
+                            "type": "string",
+                            "format": "date"
+                          }
+                        },
+                        "required": [
+                          "emissionCycle",
+                          "driveType",
+                          "taxableEventDate"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovaCalculateResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Vehicle was not found"
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NovaCalculationErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Calculate a NoVA preview for vehicle inputs",
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
     "/api/vehicles/pickerl-due": {
       "get": {
         "operationId": "VehicleController_findPickerlDue",
@@ -19694,6 +19797,136 @@
         },
         "required": [
           "groups"
+        ]
+      },
+      "NovaCalculateRequestDto": {
+        "type": "object",
+        "properties": {
+          "vehicleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "netPriceEuro": {
+            "type": "number",
+            "minimum": 0
+          },
+          "co2GramsPerKm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "emissionCycle": {
+            "type": "string",
+            "enum": [
+              "WLTP",
+              "NEDC"
+            ]
+          },
+          "driveType": {
+            "type": "string",
+            "enum": [
+              "BEV",
+              "FCEV",
+              "PHEV",
+              "ICE",
+              "OTHER"
+            ]
+          },
+          "taxableEventDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "firstRegistrationDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "vehicleClass": {
+            "type": "string",
+            "enum": [
+              "passenger_z3",
+              "n1_legacy_z6",
+              "motorcycle_z1_z2"
+            ]
+          },
+          "ratedPowerKw": {
+            "type": "number",
+            "minimum": 0
+          },
+          "displacementCc": {
+            "type": "number",
+            "minimum": 0
+          },
+          "isCamperSA": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "netPriceEuro"
+        ]
+      },
+      "NovaCalculateResponseDto": {
+        "type": "object",
+        "properties": {
+          "novaAmountEuro": {
+            "type": "number"
+          },
+          "appliedRuleIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tariffVersionId": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hasUnverifiedRules": {
+            "type": "boolean"
+          },
+          "ratePercentApplied": {
+            "type": "number"
+          },
+          "effectiveCo2GramsPerKm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "novaAmountEuro",
+          "appliedRuleIds",
+          "tariffVersionId",
+          "warnings",
+          "hasUnverifiedRules",
+          "ratePercentApplied",
+          "effectiveCo2GramsPerKm"
+        ]
+      },
+      "NovaCalculationErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "MISSING_CO2",
+              "INVALID_CO2",
+              "INVALID_ISO_DATE",
+              "INVALID_NEDC_CYCLE",
+              "TARIFF_CLASS_MISMATCH",
+              "UNKNOWN_TARIFF_VERSION",
+              "INVALID_NET_PRICE"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
         ]
       },
       "PickerlDuePaginatedResponseDto": {

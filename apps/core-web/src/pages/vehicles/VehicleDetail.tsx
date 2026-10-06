@@ -37,6 +37,7 @@ import type {
 } from '@/api/types'
 import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { VehicleRegulatorySection } from '@/components/vehicles/VehicleRegulatorySection'
+import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 import { VehiclePickerlSection } from '@/components/vehicles/VehiclePickerlSection'
 import type { components } from '@/api/generated/openapi'
 import type {
@@ -390,6 +391,19 @@ export default function VehicleDetail() {
                   />
                 </div>
               )}
+            />
+
+            <NovaPreviewPanel
+              vehicleId={vehicle.id}
+              firstRegistrationDate={
+                typeof vehicle.first_registration_date === 'string'
+                  ? vehicle.first_registration_date.slice(0, 10)
+                  : vehicle.first_registration_date ?? null
+              }
+              co2Wltp={vehicle.co2_wltp_g_km ?? null}
+              co2Nedc={vehicle.co2_nedc_g_km ?? null}
+              typenscheinNo={vehicle.typenschein_no ?? null}
+              novaClass={vehicle.nova_class ?? null}
             />
 
             <div className='pt-3 border-t'>

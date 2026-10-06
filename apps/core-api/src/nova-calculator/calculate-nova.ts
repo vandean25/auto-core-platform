@@ -13,7 +13,7 @@ const CAMPER_SA_MIN_RATE_PERCENT = 16;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseIsoDateField(value: string, fieldName: string): string {
-  const day = value.slice(0, 10);
+  const day = value;
   if (!ISO_DATE.test(day)) {
     throw new NovaCalculationError(
       'INVALID_ISO_DATE',
@@ -33,6 +33,10 @@ function parseIsoDateField(value: string, fieldName: string): string {
     );
   }
   return day;
+}
+
+export function validateNovaIsoDate(value: string, fieldName: string): string {
+  return parseIsoDateField(value, fieldName);
 }
 
 function assertNetPrice(netPriceEuro: number): void {

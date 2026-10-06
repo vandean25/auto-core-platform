@@ -2127,6 +2127,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicles/nova/calculate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Calculate a NoVA preview for vehicle inputs */
+        post: operations["VehicleController_calculateNova"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles/pickerl-due": {
         parameters: {
             query?: never;
@@ -5887,6 +5904,39 @@ export interface components {
         };
         CatalogAssemblyGroupsResponseDto: {
             groups: components["schemas"]["CatalogAssemblyGroupNodeDto"][];
+        };
+        NovaCalculateRequestDto: {
+            /** Format: uuid */
+            vehicleId?: string;
+            netPriceEuro: number;
+            co2GramsPerKm?: number;
+            /** @enum {string} */
+            emissionCycle?: "WLTP" | "NEDC";
+            /** @enum {string} */
+            driveType?: "BEV" | "FCEV" | "PHEV" | "ICE" | "OTHER";
+            /** Format: date */
+            taxableEventDate?: string;
+            /** Format: date */
+            firstRegistrationDate?: string | null;
+            /** @enum {string} */
+            vehicleClass?: "passenger_z3" | "n1_legacy_z6" | "motorcycle_z1_z2";
+            ratedPowerKw?: number;
+            displacementCc?: number;
+            isCamperSA?: boolean;
+        };
+        NovaCalculateResponseDto: {
+            novaAmountEuro: number;
+            appliedRuleIds: string[];
+            tariffVersionId: string;
+            warnings: string[];
+            hasUnverifiedRules: boolean;
+            ratePercentApplied: number;
+            effectiveCo2GramsPerKm: number;
+        };
+        NovaCalculationErrorResponseDto: {
+            /** @enum {string} */
+            code: "MISSING_CO2" | "INVALID_CO2" | "INVALID_ISO_DATE" | "INVALID_NEDC_CYCLE" | "TARIFF_CLASS_MISMATCH" | "UNKNOWN_TARIFF_VERSION" | "INVALID_NET_PRICE";
+            message: string;
         };
         PickerlDuePaginatedResponseDto: {
             data: components["schemas"]["VehicleResponseDto"][];
@@ -11675,6 +11725,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogAssemblyGroupsResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleController_calculateNova: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": (components["schemas"]["NovaCalculateRequestDto"] & {
+                    /** Format: uuid */
+                    vehicleId: string;
+                }) | (components["schemas"]["NovaCalculateRequestDto"] & {
+                    /** @enum {string} */
+                    emissionCycle: "WLTP" | "NEDC";
+                    /** @enum {string} */
+                    driveType: "BEV" | "FCEV" | "PHEV" | "ICE" | "OTHER";
+                    /** Format: date */
+                    taxableEventDate: string;
+                });
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovaCalculateResponseDto"];
+                };
+            };
+            /** @description Vehicle was not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NovaCalculationErrorResponseDto"];
                 };
             };
         };

@@ -9,12 +9,14 @@ import {
 } from './vehicle-identity.provider.js';
 import { VehicleIdentityService } from './vehicle-identity.service.js';
 import { VehicleService } from './vehicle.service.js';
+import { NovaCalculationService } from './nova-calculation.service.js';
 
 @Module({
   imports: [PrismaModule],
   controllers: [VehicleController, VehicleInspectionRecordController],
   providers: [
     VehicleService,
+    NovaCalculationService,
     VehicleInspectionRecordService,
     VehicleIdentityService,
     SandboxVehicleIdentityProvider,

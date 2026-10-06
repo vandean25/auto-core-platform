@@ -397,14 +397,15 @@ describe('Vehicle stock trading (e2e)', () => {
     });
     const vehicleId = received.vehicle_id as string;
 
+    const salePayload = {
+      vehicle_id: vehicleId,
+      customer_id: buyerId,
+      sale_price: 12000,
+    };
     const saleRes = await request(app.getHttpServer())
       .post('/api/vehicle-sales')
       .set('Authorization', `Bearer ${authToken}`)
-      .send({
-        vehicle_id: vehicleId,
-        customer_id: buyerId,
-        sale_price: 12000,
-      })
+      .send(salePayload)
       .expect(201);
 
     const preview = await request(app.getHttpServer())
@@ -412,6 +413,33 @@ describe('Vehicle stock trading (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(Number(preview.body.margin_vat_preview)).toBe(333.33);
+
+    const draftSaleBeforeNova = await prisma.vehicleSale.findFirstOrThrow({
+      where: { id: saleRes.body.id },
+      select: { vehicle_id: true, customer_id: true, sale_price: true, status: true },
+    });
+    await request(app.getHttpServer())
+      .post('/api/vehicles/nova/calculate')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        co2GramsPerKm: 150,
+        emissionCycle: 'WLTP',
+        netPriceEuro: 10000,
+        driveType: 'ICE',
+        taxableEventDate: '2026-10-06',
+        vehicleClass: 'passenger_z3',
+      })
+      .expect(200);
+    const draftSaleAfterNova = await prisma.vehicleSale.findFirstOrThrow({
+      where: { id: saleRes.body.id },
+      select: { vehicle_id: true, customer_id: true, sale_price: true, status: true },
+    });
+    expect(JSON.stringify(draftSaleAfterNova)).toBe(
+      JSON.stringify(draftSaleBeforeNova),
+    );
+    expect(JSON.stringify(salePayload)).toBe(
+      '{"vehicle_id":"' + vehicleId + '","customer_id":"' + buyerId + '","sale_price":12000}',
+    );
 
     const logo = hasConfirmedProfile
       ? await createReadyDocumentBrandLogo(
@@ -486,8 +514,59 @@ describe('Vehicle stock trading (e2e)', () => {
     }
     const committedInvoice = await prisma.invoice.findFirstOrThrow({
       where: { id: finalized.body.invoice.id },
-      select: { snapshot: true },
+      select: {
+        snapshot: true,
+        tax_mode: true,
+        total_net: true,
+        total_tax: true,
+        total_gross: true,
+        items: {
+          select: {
+            description: true,
+            quantity: true,
+            unit_price: true,
+            tax_rate: true,
+            line_total: true,
+            revenue_group_name: true,
+          },
+        },
+      },
     });
+    expect(
+      JSON.stringify({
+        tax_mode: committedInvoice.tax_mode,
+        total_net: committedInvoice.total_net.toFixed(2),
+        total_tax: committedInvoice.total_tax.toFixed(2),
+        total_gross: committedInvoice.total_gross.toFixed(2),
+        items: committedInvoice.items.map((item) => ({
+          description: item.description,
+          quantity: item.quantity.toString(),
+          unit_price: item.unit_price.toFixed(2),
+          tax_rate: item.tax_rate.toFixed(2),
+          line_total: item.line_total.toFixed(2),
+          revenue_group_name: item.revenue_group_name,
+        })),
+      }),
+    ).toBe(
+      JSON.stringify({
+        tax_mode: 'MARGIN_SCHEME',
+        total_net: '11666.67',
+        total_tax: '333.33',
+        total_gross: '12000.00',
+        items: [
+          {
+            description: `2018 Volkswagen Golf VIN ${vin(
+              hasConfirmedProfile ? 'SALE02' : 'SALE01',
+            )}`,
+            quantity: '1',
+            unit_price: '12000.00',
+            tax_rate: '20.00',
+            line_total: '12000.00',
+            revenue_group_name: 'Vehicle used (margin)',
+          },
+        ],
+      }),
+    );
     const snapshot = committedInvoice.snapshot as {
       schema_version: number;
       snapshot_created_at: string;
