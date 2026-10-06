@@ -139,9 +139,14 @@ export default function VehicleStockReportsPage() {
         <>
           <div className="flex flex-wrap gap-2" aria-label="Standzeitfilter">
             <Button size="sm" variant={bucket === 'ALL' ? 'default' : 'outline'} onClick={() => { setBucket('ALL'); setPage(1) }}>Alle</Button>
-            {AGE_BUCKETS.map((item) => (
-              <Button key={item.value} size="sm" variant={bucket === item.value ? 'default' : 'outline'} onClick={() => { setBucket(item.value); setPage(1) }}>{item.label}</Button>
-            ))}
+            {AGE_BUCKETS.map((item) => {
+              const count = item.value === 'over_90'
+                ? ageReport.data?.summary.over_90_count ?? 0
+                : ageReport.data?.summary.bucket_counts[item.value] ?? 0
+              return (
+                <Button key={item.value} size="sm" variant={bucket === item.value ? 'default' : 'outline'} onClick={() => { setBucket(item.value); setPage(1) }}>{item.label} ({count})</Button>
+              )
+            })}
             <Select value={inventoryRole} onValueChange={(value) => { setInventoryRole(value); setPage(1) }}>
               <SelectTrigger className="w-44" aria-label="Bestandsrolle"><SelectValue placeholder="Bestandsrolle" /></SelectTrigger>
               <SelectContent>
@@ -182,7 +187,7 @@ export default function VehicleStockReportsPage() {
           </div>
           <Card><CardContent className="flex gap-8 py-4 text-sm">
             <span>Verkäufe: <strong>{marginReport.data?.totals.count ?? 0}</strong></span>
-            <span>Rohertrag gesamt: <strong>{formatMoney(marginReport.data?.totals.gross_margin_total ?? '0.00')}</strong></span>
+            <span>Rohertrag gesamt ({marginReport.data?.totals.gross_margin_known_count ?? 0}/{marginReport.data?.totals.count ?? 0} bekannt): <strong>{formatMoney(marginReport.data?.totals.gross_margin_total ?? '0.00')}</strong></span>
             <span>Rohertrag Ø: <strong>{formatMoney(marginReport.data?.totals.gross_margin_average ?? null)}</strong></span>
           </CardContent></Card>
           <ReportTable

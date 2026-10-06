@@ -5055,6 +5055,8 @@ export interface components {
         };
         VehicleStockMarginRoleTotalsDto: {
             count: number;
+            gross_margin_known_count: number;
+            gross_margin_unknown_count: number;
             gross_margin_total: string;
             gross_margin_average: string | null;
             gross_margin_percent_average: string | null;
@@ -5095,6 +5097,9 @@ export interface components {
         VehicleStockAgeReportSummaryDto: {
             over_90_count: number;
             over_90_cost_basis: string;
+            bucket_counts: {
+                [key: string]: number;
+            };
         };
         VehicleStockAgeReportResponseDto: {
             data: components["schemas"]["VehicleStockAgeReportRowDto"][];
@@ -5120,6 +5125,8 @@ export interface components {
         };
         VehicleStockMarginReportTotalsDto: {
             count: number;
+            gross_margin_known_count: number;
+            gross_margin_unknown_count: number;
             gross_margin_total: string;
             gross_margin_average: string | null;
             by_inventory_role: {

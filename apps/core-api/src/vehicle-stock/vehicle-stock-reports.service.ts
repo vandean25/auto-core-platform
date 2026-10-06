@@ -83,13 +83,11 @@ function stockDateFilter(bucket?: string): Prisma.VehicleWhereInput {
 function validatePeriod(from: string, to: string) {
   const start = new Date(`${from}T00:00:00.000Z`);
   const end = new Date(`${to}T23:59:59.999Z`);
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(from) ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(to) ||
-    Number.isNaN(start.valueOf()) ||
-    Number.isNaN(end.valueOf()) ||
-    start > end
-  ) {
+  const isCalendarDate = (value: string, date: Date) =>
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    !Number.isNaN(date.valueOf()) &&
+    date.toISOString().slice(0, 10) === value;
+  if (!isCalendarDate(from, start) || !isCalendarDate(to, end) || start > end) {
     throw new BadRequestException(
       'from and to must be valid ISO dates with from <= to',
     );
@@ -136,7 +134,7 @@ export class VehicleStockReportsService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const { page, limit, skip } = pageWindow(params.page, params.limit);
-    const where: Prisma.VehicleWhereInput = {
+    const baseWhere: Prisma.VehicleWhereInput = {
       tenant_id: tenantId,
       site_id: siteId,
       inventory_role: { in: [...DEALER_ROLES] },
@@ -145,16 +143,23 @@ export class VehicleStockReportsService {
         ? { inventory_role: params.inventory_role }
         : {}),
       ...(params.stock_status ? { stock_status: params.stock_status } : {}),
+    };
+    const where: Prisma.VehicleWhereInput = {
+      ...baseWhere,
       ...stockDateFilter(params.bucket),
     };
     const agedWhere: Prisma.VehicleWhereInput = {
-      tenant_id: tenantId,
-      site_id: siteId,
-      inventory_role: { in: [...DEALER_ROLES] },
-      stock_status: { not: VehicleStockStatus.SOLD },
+      ...baseWhere,
       stock_received_at: { lt: dateAtDayOffset(90) },
     };
-    const [vehicles, total, summary] = await Promise.all([
+    const bucketNames = [
+      '0_30',
+      '31_60',
+      '61_90',
+      '91_180',
+      'over_180',
+    ] as const;
+    const [vehicles, total, summary, bucketCountEntries] = await Promise.all([
       this.prisma.vehicle.findMany({
         where,
         include: {
@@ -183,7 +188,22 @@ export class VehicleStockReportsService {
         _count: { id: true },
         _sum: { stock_cost_basis: true },
       }),
+      Promise.all(
+        bucketNames.map(
+          async (bucket) =>
+            [
+              bucket,
+              await this.prisma.vehicle.count({
+                where: { ...baseWhere, ...stockDateFilter(bucket) },
+              }),
+            ] as const,
+        ),
+      ),
     ]);
+    const bucketCounts = Object.fromEntries(bucketCountEntries) as Record<
+      (typeof bucketNames)[number],
+      number
+    >;
     const asOf = new Date();
     return {
       data: vehicles.map((vehicle) => {
@@ -210,6 +230,7 @@ export class VehicleStockReportsService {
       summary: {
         over_90_count: summary._count.id,
         over_90_cost_basis: asDecimal(summary._sum.stock_cost_basis).toFixed(2),
+        bucket_counts: bucketCounts,
       },
     };
   }
@@ -245,42 +266,59 @@ export class VehicleStockReportsService {
         is: { ...saleRelationWhere, cost_basis_snapshot: { not: null } },
       },
     };
-    const [sales, count, saleTotals, invoiceTotals, invoiceTotalsWithSnapshot] =
-      await Promise.all([
-        this.prisma.vehicleSale.findMany({
-          where: saleWhere,
-          include: {
-            invoice: {
-              select: { date: true, total_net: true, tax_mode: true },
-            },
-            vehicle: {
-              select: { id: true, make: true, model: true, year: true },
-            },
+    const knownSnapshotWhere: Prisma.VehicleSaleWhereInput = {
+      ...saleWhere,
+      cost_basis_snapshot: { not: null },
+    };
+    const [
+      sales,
+      count,
+      knownSnapshotCount,
+      saleTotals,
+      invoiceTotals,
+      invoiceTotalsWithSnapshot,
+    ] = await Promise.all([
+      this.prisma.vehicleSale.findMany({
+        where: saleWhere,
+        include: {
+          invoice: {
+            select: { date: true, total_net: true, tax_mode: true },
           },
-          orderBy: [{ invoice: { date: 'desc' } }, { createdAt: 'desc' }],
-          skip,
-          take: limit,
-        }),
-        this.prisma.vehicleSale.count({ where: saleWhere }),
-        this.prisma.vehicleSale.aggregate({
-          where: saleWhere,
-          _sum: { cost_basis_snapshot: true },
-          _avg: { cost_basis_snapshot: true, days_to_sell_snapshot: true },
-        }),
-        this.prisma.invoice.aggregate({
-          where: {
-            ...invoiceWhere,
-            vehicle_sale: { is: saleRelationWhere },
+          vehicle: {
+            select: { id: true, make: true, model: true, year: true },
           },
-          _sum: { total_net: true },
-          _avg: { total_net: true },
-        }),
-        this.prisma.invoice.aggregate({
-          where: invoiceWithSnapshotWhere,
-          _sum: { total_net: true },
-          _avg: { total_net: true },
-        }),
-      ]);
+        },
+        orderBy: [{ invoice: { date: 'desc' } }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.vehicleSale.count({ where: saleWhere }),
+      this.prisma.vehicleSale.count({
+        where: {
+          ...knownSnapshotWhere,
+          tenant_id: tenantId,
+          site_id: siteId,
+        },
+      }),
+      this.prisma.vehicleSale.aggregate({
+        where: saleWhere,
+        _sum: { cost_basis_snapshot: true },
+        _avg: { cost_basis_snapshot: true, days_to_sell_snapshot: true },
+      }),
+      this.prisma.invoice.aggregate({
+        where: {
+          ...invoiceWhere,
+          vehicle_sale: { is: saleRelationWhere },
+        },
+        _sum: { total_net: true },
+        _avg: { total_net: true },
+      }),
+      this.prisma.invoice.aggregate({
+        where: invoiceWithSnapshotWhere,
+        _sum: { total_net: true },
+        _avg: { total_net: true },
+      }),
+    ]);
     const costTotal = asDecimal(saleTotals._sum.cost_basis_snapshot);
     const netTotal = asDecimal(invoiceTotalsWithSnapshot._sum.total_net);
     const grossMarginTotal = netTotal.sub(costTotal);
@@ -299,6 +337,8 @@ export class VehicleStockReportsService {
         saleTotals._avg.cost_basis_snapshot?.toFixed(2) ?? null,
       days_to_sell_average:
         saleTotals._avg.days_to_sell_snapshot?.toFixed(2) ?? null,
+      gross_margin_known_count: knownSnapshotCount,
+      gross_margin_unknown_count: count - knownSnapshotCount,
     };
     return {
       data: sales.map((sale) => {
@@ -327,6 +367,8 @@ export class VehicleStockReportsService {
       meta: paginationMeta(count, page, limit),
       totals: {
         count,
+        gross_margin_known_count: summary.gross_margin_known_count,
+        gross_margin_unknown_count: summary.gross_margin_unknown_count,
         gross_margin_total: summary.gross_margin_total,
         gross_margin_average: summary.gross_margin_average,
         by_inventory_role: {
@@ -342,6 +384,8 @@ export class VehicleStockReportsService {
 function emptyRoleTotals() {
   return {
     count: 0,
+    gross_margin_known_count: 0,
+    gross_margin_unknown_count: 0,
     gross_margin_total: '0.00',
     gross_margin_average: null,
     gross_margin_percent_average: null,

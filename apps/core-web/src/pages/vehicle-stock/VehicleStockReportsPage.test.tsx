@@ -34,7 +34,11 @@ describe('VehicleStockReportsPage', () => {
           cost_basis: '12345.60', asking_price: '15000.00', location: 'Halle 1',
         }],
         meta: { total: 1, page: 1, limit: 25, pageSize: 25, totalPages: 1, pageCount: 1 },
-        summary: { over_90_count: 1, over_90_cost_basis: '12345.60' },
+        summary: {
+          over_90_count: 1,
+          over_90_cost_basis: '12345.60',
+          bucket_counts: { '0_30': 3, '31_60': 2, '61_90': 1, '91_180': 4, over_180: 5 },
+        },
       },
       isLoading: false,
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockAgeReport>)
@@ -52,6 +56,8 @@ describe('VehicleStockReportsPage', () => {
     renderPage()
     expect(screen.getByText('Audi A4 (2020)')).toBeInTheDocument()
     expect(screen.getByText('W-123AB')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '0–30 Tage (3)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Über 180 Tage (5)' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /CSV exportieren/i }))
 
@@ -74,7 +80,10 @@ describe('VehicleStockReportsPage', () => {
           gross_margin_percent: '-5.00', days_to_sell: 40, margin_taxed: true,
         }],
         meta: { total: 1, page: 1, limit: 25, pageSize: 25, totalPages: 1, pageCount: 1 },
-        totals: { count: 1, gross_margin_total: '-500.00', gross_margin_average: '-500.00', by_inventory_role: {} },
+        totals: {
+          count: 1, gross_margin_total: '-500.00', gross_margin_average: '-500.00',
+          gross_margin_known_count: 1, gross_margin_unknown_count: 0, by_inventory_role: {},
+        },
       },
       isLoading: false,
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockMarginReport>)
@@ -94,5 +103,22 @@ describe('VehicleStockReportsPage', () => {
       expect(csv).toContain('Rechnungsdatum;Verkaufsnummer;Marke')
       expect(csv).toContain('5.10.2026;VS-1;Audi;A4;2020;Gebraucht;9500,00;10000,00;-500,00;-5,00;40;Marge')
     })
+  })
+
+  it('shows how many sales have a known cost basis in margin totals', () => {
+    vi.mocked(vehicleStockApi.useVehicleStockMarginReport).mockReturnValue({
+      data: {
+        data: [],
+        meta: { total: 2, page: 1, limit: 25, pageSize: 25, totalPages: 1, pageCount: 1 },
+        totals: {
+          count: 2, gross_margin_total: '1666.67', gross_margin_average: '1666.67',
+          gross_margin_known_count: 1, gross_margin_unknown_count: 1, by_inventory_role: {},
+        },
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockMarginReport>)
+    renderPage()
+    fireEvent.click(screen.getByRole('tab', { name: 'Rohertrag' }))
+    expect(screen.getByText('Rohertrag gesamt (1/2 bekannt):')).toBeInTheDocument()
   })
 })

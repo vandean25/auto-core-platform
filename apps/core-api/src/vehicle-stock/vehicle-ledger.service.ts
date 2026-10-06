@@ -63,6 +63,7 @@ export class VehicleLedgerService {
         id: true,
         site_id: true,
         inventory_role: true,
+        stock_status: true,
         stock_received_at: true,
       },
     });

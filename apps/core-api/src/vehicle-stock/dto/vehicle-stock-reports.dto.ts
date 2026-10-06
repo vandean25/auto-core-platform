@@ -136,6 +136,11 @@ export class VehicleStockMarginReportRowDto {
 export class VehicleStockAgeReportSummaryDto {
   @ApiProperty() over_90_count!: number;
   @ApiProperty() over_90_cost_basis!: string;
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'number' } })
+  bucket_counts!: Record<
+    '0_30' | '31_60' | '61_90' | '91_180' | 'over_180',
+    number
+  >;
 }
 
 export class VehicleStockAgeReportResponseDto {
@@ -149,6 +154,8 @@ export class VehicleStockAgeReportResponseDto {
 
 export class VehicleStockMarginRoleTotalsDto {
   @ApiProperty() count!: number;
+  @ApiProperty() gross_margin_known_count!: number;
+  @ApiProperty() gross_margin_unknown_count!: number;
   @ApiProperty() gross_margin_total!: string;
   @ApiProperty({ type: String, nullable: true }) gross_margin_average!:
     string | null;
@@ -166,6 +173,8 @@ export class VehicleStockMarginRoleTotalsDto {
 
 export class VehicleStockMarginReportTotalsDto {
   @ApiProperty() count!: number;
+  @ApiProperty() gross_margin_known_count!: number;
+  @ApiProperty() gross_margin_unknown_count!: number;
   @ApiProperty() gross_margin_total!: string;
   @ApiProperty({ type: String, nullable: true }) gross_margin_average!:
     string | null;

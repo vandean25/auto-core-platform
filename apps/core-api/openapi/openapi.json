@@ -17100,6 +17100,12 @@
           "count": {
             "type": "number"
           },
+          "gross_margin_known_count": {
+            "type": "number"
+          },
+          "gross_margin_unknown_count": {
+            "type": "number"
+          },
           "gross_margin_total": {
             "type": "string"
           },
@@ -17132,6 +17138,8 @@
         },
         "required": [
           "count",
+          "gross_margin_known_count",
+          "gross_margin_unknown_count",
           "gross_margin_total",
           "gross_margin_average",
           "gross_margin_percent_average",
@@ -17273,11 +17281,18 @@
           },
           "over_90_cost_basis": {
             "type": "string"
+          },
+          "bucket_counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            }
           }
         },
         "required": [
           "over_90_count",
-          "over_90_cost_basis"
+          "over_90_cost_basis",
+          "bucket_counts"
         ]
       },
       "VehicleStockAgeReportResponseDto": {
@@ -17380,6 +17395,12 @@
           "count": {
             "type": "number"
           },
+          "gross_margin_known_count": {
+            "type": "number"
+          },
+          "gross_margin_unknown_count": {
+            "type": "number"
+          },
           "gross_margin_total": {
             "type": "string"
           },
@@ -17396,6 +17417,8 @@
         },
         "required": [
           "count",
+          "gross_margin_known_count",
+          "gross_margin_unknown_count",
           "gross_margin_total",
           "gross_margin_average",
           "by_inventory_role"
