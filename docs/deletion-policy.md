@@ -39,6 +39,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | AuditLog | No | Business audit ledger record; never deleted through ordinary APIs. |
 | AgentActionLog | No | Append-only agent action trace ledger; no update/delete API. |
 | DecisionShadowLog | No | Append-only shadow decision log; no update/delete API. |
+| AgentProposal | No | Retained for audit; soft status change via rejection/approval lifecycle. Never hard-deleted through ordinary APIs; tenant-scoped purge only on tenant deletion. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
 | Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
 | Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, `VehicleLedgerEntry`, or `LoanerVehicle` fleet entry. |

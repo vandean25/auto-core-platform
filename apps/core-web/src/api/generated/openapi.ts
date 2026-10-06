@@ -2938,7 +2938,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List agent action logs (OWNER/ADMIN)
+         * List agent action logs (OWNER/ADMIN/ADVISOR)
          * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
          */
         get: operations["AgentActionLogController_findAll"];
@@ -2958,7 +2958,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get agent action trace detail (OWNER/ADMIN)
+         * Get agent action trace detail (OWNER/ADMIN/ADVISOR)
          * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
          */
         get: operations["AgentActionLogController_findByTraceId"];
@@ -3332,6 +3332,70 @@ export interface paths {
         put?: never;
         /** Evaluate policy tier for an action (OWNER/ADMIN, dry-run) */
         post: operations["AgentPolicyController_evaluate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent proposals (OWNER/ADMIN/ADVISOR)
+         * @description Returns agent proposals for the authenticated tenant with lazy expiration handling.
+         */
+        get: operations["AgentProposalController_listProposals"];
+        put?: never;
+        /**
+         * Create an agent proposal (seeding/testing)
+         * @description Creates a new agent proposal for the current tenant in PENDING status.
+         */
+        post: operations["AgentProposalController_createProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve and execute an agent proposal
+         * @description Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.
+         */
+        post: operations["AgentProposalController_approveProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject an agent proposal
+         * @description Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.
+         */
+        post: operations["AgentProposalController_rejectProposal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6878,7 +6942,7 @@ export interface components {
         AgentActionLogListResponseDto: {
             data: components["schemas"]["AgentActionLogResponseDto"][];
             /** @description Cursor for the next page when more results exist */
-            nextCursor?: Record<string, never> | null;
+            nextCursor?: string | null;
         };
         AgentActionTraceDetailResponseDto: {
             logs: components["schemas"]["AgentActionLogResponseDto"][];
@@ -7123,6 +7187,58 @@ export interface components {
             reasons: string[];
             rule_id: Record<string, never> | null;
             rule_version: Record<string, never> | null;
+        };
+        AgentProposalEffectiveSummaryDto: {
+            target_type: string | null;
+            target_id: string | null;
+            amount_eur: number | null;
+        };
+        AgentProposalResponseDto: {
+            id: string;
+            tenant_id: string;
+            trace_id: string;
+            action_type: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            payload_json: {
+                [key: string]: unknown;
+            };
+            effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
+            preview_json: {
+                [key: string]: unknown;
+            } | null;
+            decided_by: string | null;
+            decided_at: string | null;
+            reason: string | null;
+            expires_at: string;
+            created_at: string;
+            updated_at: string;
+        };
+        AgentProposalListResponseDto: {
+            data: components["schemas"]["AgentProposalResponseDto"][];
+        };
+        RejectAgentProposalDto: {
+            /** @description Reason for rejecting the proposal */
+            reason?: string;
+        };
+        CreateAgentProposalDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            payload_json: {
+                [key: string]: unknown;
+            };
+            preview_json?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional correlation trace ID (UUID) */
+            trace_id?: string;
+            /**
+             * @default PROPOSE
+             * @enum {string}
+             */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
         };
     };
     responses: never;
@@ -14012,6 +14128,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentPolicyEvaluationResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_listProposals: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of items to return */
+                limit?: number;
+                /** @description Filter by proposal status */
+                status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_createProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAgentProposalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_approveProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_rejectProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectAgentProposalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
                 };
             };
         };

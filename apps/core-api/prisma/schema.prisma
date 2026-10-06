@@ -125,6 +125,7 @@ model Tenant {
   externalIdMappings            ExternalIdMapping[]
   importMappingProfiles         ImportMappingProfile[]
   agentPolicyRules              AgentPolicyRule[]
+  agentProposals                AgentProposal[]
 
   @@map("tenants")
 }
@@ -152,6 +153,38 @@ model AgentPolicyRule {
   @@unique([tenant_id, action_type, version])
   @@index([tenant_id, action_type])
   @@map("agent_policy_rules")
+}
+
+enum AgentProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  EXECUTED
+  FAILED
+}
+
+model AgentProposal {
+  id           String              @id @default(uuid())
+  tenant_id    String
+  tenant       Tenant              @relation(fields: [tenant_id], references: [id])
+  trace_id     String              @db.Uuid
+  action_type  String
+  payload_json Json
+  preview_json Json?
+  tier         AgentPolicyTier     @default(PROPOSE)
+  status       AgentProposalStatus @default(PENDING)
+  decided_by   String?
+  decided_at   DateTime?
+  reason       String?
+  expires_at   DateTime            @default(dbgenerated("(now() + '7 days'::interval)"))
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, status, createdAt])
+  @@index([tenant_id, trace_id])
+  @@map("agent_proposals")
 }
 
 model User {

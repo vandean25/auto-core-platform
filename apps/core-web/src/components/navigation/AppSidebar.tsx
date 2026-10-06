@@ -6,6 +6,7 @@ import type { MeSite } from '@/api/sites'
 import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
 import { SiteSwitcher } from '@/components/navigation/SiteSwitcher'
 import {
+  Bot,
   Building2,
   Car,
   ChevronsLeft,
@@ -32,6 +33,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
+import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 
 type SidebarAccessContext = {
   userEmail: string | null
@@ -64,6 +66,15 @@ const coreModules: SidebarModule[] = [
     icon: Building2,
     isVisible: (context) => context.platformRole === 'SUPER_ADMIN',
     isActive: (pathname) => pathname.startsWith('/platform/tenants'),
+  },
+  {
+    id: 'agent-supervision',
+    label: 'Agent Supervision',
+    to: '/agent/supervision',
+    icon: Bot,
+    isVisible: (context) =>
+      isAgentSupervisionEnabled() && ['OWNER', 'ADMIN', 'ADVISOR'].includes(context.activeRole ?? ''),
+    isActive: (pathname) => pathname.startsWith('/agent/supervision'),
   },
   {
     id: 'customers',

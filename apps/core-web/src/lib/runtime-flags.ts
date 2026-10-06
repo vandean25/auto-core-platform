@@ -19,3 +19,7 @@ export function getE2ETestToken() {
 
   return import.meta.env.VITE_E2E_TEST_TOKEN.trim()
 }
+
+export function isAgentSupervisionEnabled() {
+  return import.meta.env.VITE_FEATURE_AGENT_SUPERVISION === 'true'
+}

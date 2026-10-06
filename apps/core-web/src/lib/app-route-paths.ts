@@ -58,6 +58,7 @@ export const APP_ROUTE_PATHS = {
   workshopOrderDetail: '/workshop/orders/:id',
   tyreStorage: '/workshop/tyre-storage',
   tyreStorageDetail: '/workshop/tyre-storage/:id',
+  agentSupervision: '/agent/supervision',
 } as const
 
 export const MECHANIC_ROUTE_PATHS = {

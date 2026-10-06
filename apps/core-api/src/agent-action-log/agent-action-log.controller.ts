@@ -18,7 +18,7 @@ export class AgentActionLogController {
 
   @Get()
   @ApiOperation({
-    summary: 'List agent action logs (OWNER/ADMIN)',
+    summary: 'List agent action logs (OWNER/ADMIN/ADVISOR)',
     description:
       'Returns cursor-paginated agent action log rows for the authenticated tenant.',
   })
@@ -26,13 +26,13 @@ export class AgentActionLogController {
   findAll(
     @Query() query: QueryAgentActionsDto,
   ): Promise<AgentActionLogListResponseDto> {
-    this.authorization.assertOwnerAdmin();
+    this.authorization.assertSupervisorOrAdmin();
     return this.agentActionLogService.findAll(query);
   }
 
   @Get(':traceId')
   @ApiOperation({
-    summary: 'Get agent action trace detail (OWNER/ADMIN)',
+    summary: 'Get agent action trace detail (OWNER/ADMIN/ADVISOR)',
     description:
       'Returns all log rows for a trace ID plus audit entries correlated on the same trace.',
   })
@@ -40,7 +40,7 @@ export class AgentActionLogController {
   findByTraceId(
     @Param('traceId') traceId: string,
   ): Promise<AgentActionTraceDetailResponseDto> {
-    this.authorization.assertOwnerAdmin();
+    this.authorization.assertSupervisorOrAdmin();
     return this.agentActionLogService.findByTraceId(traceId);
   }
 }

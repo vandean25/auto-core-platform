@@ -64,6 +64,7 @@ export class AgentActionLogListResponseDto {
   data!: AgentActionLogResponseDto[];
 
   @ApiPropertyOptional({
+    type: String,
     description: 'Cursor for the next page when more results exist',
     nullable: true,
   })
