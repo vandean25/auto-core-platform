@@ -1,8 +1,20 @@
-# Legacy DMS CSV import (backend)
+# Legacy DMS CSV import
 
 ## Summary
 
-OWNER/ADMIN tenants can upload legacy DMS CSV exports for **customers** and **vehicles**, run a synchronous **dry-run**, review per-row actions, and **apply** results idempotently. External IDs from the source system are stored in `external_id_mappings` for reconciliation.
+OWNER/ADMIN tenants can use **Settings → Data import** to upload legacy DMS CSV exports for **customers** and **vehicles**, map columns, run a synchronous **dry-run**, review per-row actions, and **apply** results idempotently. External IDs from the source system are stored in `external_id_mappings` for reconciliation.
+
+## Settings UI
+
+The shipped five-step wizard is available to users who can manage team settings:
+
+1. Choose the entity and source system.
+2. Upload a CSV and review the detected headers and preview rows.
+3. Map CSV columns to import fields, or load and save a mapping profile for the entity and source system.
+4. Run a dry-run, then filter and review the resulting rows by action or errors.
+5. Apply the dry-run after reviewing the result.
+
+The wizard can download entity templates and error-row CSVs. Marketing-consent columns are ignored by the import engine and reported as warnings.
 
 ## API (`/api/imports`)
 
@@ -27,7 +39,6 @@ OWNER/ADMIN tenants can upload legacy DMS CSV exports for **customers** and **ve
 
 - `first_registration_date` vehicle mapping after AUT-375 merges to `main`
 - Import job row retention cleanup (default retention constant: 180 days)
-- Mapping UI (AUT-382)
 
 ## Release notes
 
