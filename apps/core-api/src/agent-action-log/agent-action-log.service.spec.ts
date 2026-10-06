@@ -101,6 +101,51 @@ describe('AgentActionLogService', () => {
     );
   });
 
+  it('persists reversible entity metadata derived from successful work', async () => {
+    const traceId = '00000000-0000-4000-8000-00000000dd04';
+
+    await TenantContextStorage.run(async () => {
+      TenantContextStorage.setUser({
+        userId: 'user-1',
+        email: 'admin@example.com',
+        tenantId: 'tenant-1',
+        role: 'ADMIN',
+      });
+      TenantContextStorage.setRequestMeta({
+        requestId: 'req-1',
+        traceId,
+        source: 'API',
+      });
+
+      await service.record(
+        {
+          actorType: 'AGENT',
+          agentId: 'mcp:test',
+          actionType: 'mcp.reserve_part',
+          tier: 'AUTO',
+          status: 'EXECUTED',
+          traceId,
+        },
+        async () => ({ id: 'reservation-1' }),
+        (result) => ({
+          entityType: 'PartsReservation',
+          entityId: result?.id,
+          reversible: true,
+        }),
+      );
+    });
+
+    expect(prisma.agentActionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          entity_type: 'PartsReservation',
+          entity_id: 'reservation-1',
+          reversible: true,
+        }),
+      }),
+    );
+  });
+
   it('persists FAILED when work throws and then rethrows', async () => {
     const traceId = '00000000-0000-4000-8000-00000000cc03';
 

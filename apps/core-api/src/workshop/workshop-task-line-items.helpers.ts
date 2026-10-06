@@ -3,6 +3,7 @@ import {
   ConflictException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   PartsReservationStatus,
   Prisma,
@@ -436,6 +437,7 @@ export function buildNewTaskLineItemRecord(
 ): Prisma.WorkshopTaskLineItemCreateManyInput {
   const isLabor = item.type === WorkshopLineItemType.LABOR;
   return {
+    id: item.id ?? randomUUID(),
     tenant_id: tenantId,
     workshop_task_id: taskId,
     type: isLabor ? WorkshopLineItemType.LABOR : WorkshopLineItemType.PART,

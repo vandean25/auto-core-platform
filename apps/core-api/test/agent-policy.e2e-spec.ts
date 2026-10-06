@@ -67,6 +67,45 @@ describe('Agent policy (e2e)', () => {
     expect(addLine?.source).toBe('platform');
   });
 
+  it('keeps MCP writes Off until a tenant admin enables a rule', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/agent-policy/rules')
+      .set('Authorization', authHeaderA)
+      .expect(200);
+
+    const mcpWriteActions = [
+      'workshop_order.create',
+      'inventory.part_reserve',
+      'inventory.part_release',
+      'workshop_order.propose_line',
+    ];
+    for (const actionType of mcpWriteActions) {
+      const rule = response.body.data.find(
+        (candidate: { action_type: string }) =>
+          candidate.action_type === actionType,
+      );
+      expect(rule).toMatchObject({
+        action_type: actionType,
+        enabled: false,
+        source: 'platform',
+      });
+    }
+
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/workshop_order.create')
+      .set('Authorization', authHeaderA)
+      .send({ tier: AgentPolicyTier.AUTO, enabled: true })
+      .expect(200);
+
+    const evaluation = await request(app.getHttpServer())
+      .post('/api/agent-policy/evaluate')
+      .set('Authorization', authHeaderA)
+      .send({ action_type: 'workshop_order.create', context: {} })
+      .expect(200);
+
+    expect(evaluation.body.tier).toBe(AgentPolicyTier.AUTO);
+  });
+
   it('allows stricter partial conditions and evaluates against merged caps', async () => {
     await request(app.getHttpServer())
       .put('/api/agent-policy/rules/workshop_order.add_line')
@@ -215,6 +254,12 @@ describe('Agent policy (e2e)', () => {
   });
 
   it('evaluates amount escalation and hard floor', async () => {
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/inventory.part_reserve')
+      .set('Authorization', authHeaderA)
+      .send({ tier: AgentPolicyTier.AUTO, enabled: true })
+      .expect(200);
+
     const escalated = await request(app.getHttpServer())
       .post('/api/agent-policy/evaluate')
       .set('Authorization', authHeaderA)

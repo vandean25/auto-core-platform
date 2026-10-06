@@ -27,6 +27,7 @@ import {
   GenerateAccountingExportDto,
   PreviewAccountingExportDto,
 } from './dto/accounting-export.dto.js';
+import { DryRunRefused } from '../../dry-run/dry-run.decorators.js';
 
 @Controller('finance/accounting-exports')
 export class AccountingExportController {
@@ -42,6 +43,9 @@ export class AccountingExportController {
   }
 
   @Post()
+  @DryRunRefused(
+    'Accounting exports produce immutable exported financial bundles',
+  )
   @ApiCreatedResponse({ type: AccountingExportCreatedResponseDto })
   generate(@Body() dto: GenerateAccountingExportDto) {
     return this.accountingExportService.generate(dto);

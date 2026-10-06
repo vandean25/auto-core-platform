@@ -25,6 +25,7 @@ import {
   VehiclePaginatedResponseDto,
   VehicleResponseDto,
 } from './dto/vehicle-response.dto.js';
+import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
 @Controller('vehicles')
 export class VehicleController {
@@ -102,6 +103,7 @@ export class VehicleController {
   }
 
   @Post()
+  @DryRunSupported()
   @ApiCreatedResponse({ type: VehicleResponseDto })
   create(@Body() createVehicleDto: CreateVehicleDto) {
     return this.vehicleService.create(createVehicleDto);

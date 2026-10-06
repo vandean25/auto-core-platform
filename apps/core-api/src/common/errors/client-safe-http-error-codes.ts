@@ -6,6 +6,7 @@
 export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'INVOICE_BRANDING_WRITER_DISABLED',
   'BRAND_EXTRACTION_UNAVAILABLE',
+  'DRY_RUN_NOT_SUPPORTED',
 ]);
 
 export function isClientSafeOperationalHttpError(

@@ -17,6 +17,10 @@ A multi-tenant workshop operations platform: parts inventory, procurement, sales
 | **Finance** | Fiscal lock date, sequential numbering, and revenue groups |
 | **Auth/tenancy** | Firebase Auth, JWT guard, row-level `tenant_id` isolation, tenant members, and platform admin |
 
+## ACP MCP server
+
+The authenticated ACP MCP server exposes scoped workshop, customer, vehicle, parts, and stock tools. See the [agent-facing MCP instructions](apps/core-api/src/mcp/AGENTS.md) for the live tool catalog, policy outcomes, trace IDs, and safe-use recipes.
+
 ## Project Structure
 
 ```

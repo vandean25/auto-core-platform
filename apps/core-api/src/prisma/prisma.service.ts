@@ -4,9 +4,8 @@ import {
   OnModuleInit,
   OnModuleDestroy,
   Logger,
-  forwardRef,
 } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
@@ -17,6 +16,7 @@ import {
   getSharedRuntimePool,
   releaseSharedRuntimePool,
 } from './shared-pg-pool.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
 
 @Injectable()
 export class PrismaService
@@ -28,7 +28,7 @@ export class PrismaService
   public readonly client: PrismaClient;
 
   constructor(
-    @Inject(forwardRef(() => DashboardRealtimeService))
+    @Inject(DashboardRealtimeService)
     dashboardRealtime: DashboardRealtimeService,
   ) {
     const pool = getSharedRuntimePool();
@@ -57,6 +57,42 @@ export class PrismaService
           property === 'connectWithRetry'
         ) {
           return Reflect.get(target, property, receiver);
+        }
+
+        const tx = DryRunStorage.getTransactionClient();
+        if (tx) {
+          if (property === '$transaction') {
+            return (arg: unknown, ...rest: unknown[]): unknown => {
+              if (typeof arg === 'function') {
+                const callback = arg as (
+                  txClient: Prisma.TransactionClient,
+                ) => unknown;
+                return Promise.resolve().then(() => callback(tx));
+              }
+              if (Array.isArray(arg)) {
+                return Promise.all(arg);
+              }
+              const txObj = tx as Record<string, unknown>;
+              if (typeof txObj.$transaction === 'function') {
+                const nestedTx = txObj.$transaction as (
+                  ...args: unknown[]
+                ) => unknown;
+                return nestedTx(arg, ...rest);
+              }
+              return arg;
+            };
+          }
+
+          const txObj = tx as Record<string | symbol, unknown>;
+          const val: unknown = Reflect.get(txObj, property, txObj);
+          if (val !== undefined) {
+            if (typeof val === 'function') {
+              return (val as (...args: unknown[]) => unknown).bind(
+                txObj,
+              ) as unknown;
+            }
+            return val;
+          }
         }
 
         return Reflect.get(target.client, property, target.client) as unknown;

@@ -81,7 +81,7 @@ export class AgentPolicyService {
     }
 
     const platformRow = await this.findLatestPlatformRow(normalizedAction);
-    if (!platformRow?.enabled) {
+    if (!platformRow) {
       throw new BadRequestException({
         code: AGENT_POLICY_ERROR_CODES.UNKNOWN_ACTION_TYPE,
         message: `Unknown action type: ${normalizedAction}`,
@@ -189,6 +189,20 @@ export class AgentPolicyService {
     const tenantId = await this.tenantContext.getTenantId();
     const actionType = body.action_type.trim();
     const context: AgentPolicyEvaluateContext = body.context ?? {};
+    const rule = await this.resolveEffectiveRule(tenantId, actionType);
+    return evaluateAgentPolicy(actionType, context, rule);
+  }
+
+  /**
+   * Evaluates an action for the active tenant without the ADMIN assertion so
+   * agent-facing callers (e.g. the MCP write pipeline) can resolve the
+   * effective tier on behalf of the token's user and tenant.
+   */
+  async evaluateAction(
+    actionType: string,
+    context: AgentPolicyEvaluateContext = {},
+  ): Promise<AgentPolicyEvaluationResult> {
+    const tenantId = await this.tenantContext.getTenantId();
     const rule = await this.resolveEffectiveRule(tenantId, actionType);
     return evaluateAgentPolicy(actionType, context, rule);
   }

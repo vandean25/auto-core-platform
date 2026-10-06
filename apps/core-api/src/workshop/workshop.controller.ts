@@ -58,6 +58,7 @@ import * as invoice from './workshop-invoice.service.js';
 import * as pdf from './workshop-pdf.service.js';
 import * as pick from './workshop-pick-parts.service.js';
 import * as task from './workshop-task.service.js';
+import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
 function parsePositiveInteger(value?: string): number | undefined {
   if (value === undefined) {
@@ -184,6 +185,7 @@ export class WorkshopController {
   }
 
   @Post('orders')
+  @DryRunSupported()
   @ApiCreatedResponse({ type: WorkshopOrderResponseDto })
   create(@Body() createWorkshopOrderDto: CreateWorkshopOrderDto) {
     this.logAction('create');
@@ -287,6 +289,7 @@ export class WorkshopController {
   }
 
   @Patch('orders/:orderId/tasks/:taskId/line-items')
+  @DryRunSupported()
   @ApiOkResponse({ type: WorkshopOrderResponseDto })
   replaceTaskLineItems(
     @Param('orderId') orderId: string,

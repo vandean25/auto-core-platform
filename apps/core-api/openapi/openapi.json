@@ -2444,7 +2444,26 @@
     "/api/customers": {
       "post": {
         "operationId": "CustomerController_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "dry_run",
+            "required": false,
+            "in": "query",
+            "description": "Simulate the state changes of this operation within a rolled-back transaction without persisting data.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "X-Dry-Run",
+            "in": "header",
+            "description": "Present and set to true when dry_run was active.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -3676,7 +3695,26 @@
     "/api/workshop/orders": {
       "post": {
         "operationId": "WorkshopController_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "dry_run",
+            "required": false,
+            "in": "query",
+            "description": "Simulate the state changes of this operation within a rolled-back transaction without persisting data.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "X-Dry-Run",
+            "in": "header",
+            "description": "Present and set to true when dry_run was active.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -4131,6 +4169,15 @@
         "operationId": "WorkshopController_replaceTaskLineItems",
         "parameters": [
           {
+            "name": "dry_run",
+            "required": false,
+            "in": "query",
+            "description": "Simulate the state changes of this operation within a rolled-back transaction without persisting data.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "orderId",
             "required": true,
             "in": "path",
@@ -4142,6 +4189,15 @@
             "name": "taskId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Dry-Run",
+            "in": "header",
+            "description": "Present and set to true when dry_run was active.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -7104,7 +7160,26 @@
       },
       "post": {
         "operationId": "VehicleController_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "dry_run",
+            "required": false,
+            "in": "query",
+            "description": "Simulate the state changes of this operation within a rolled-back transaction without persisting data.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "X-Dry-Run",
+            "in": "header",
+            "description": "Present and set to true when dry_run was active.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -9771,6 +9846,7 @@
                 "APPROVED",
                 "REJECTED",
                 "EXECUTED",
+                "REFUSED",
                 "FAILED",
                 "DRY_RUN"
               ]
@@ -12150,9 +12226,51 @@
           "CANCELLED"
         ]
       },
+      "WouldChangeItemDto": {
+        "type": "object",
+        "properties": {
+          "entity": {
+            "type": "string",
+            "description": "The entity/model name that would change",
+            "example": "Customer"
+          },
+          "id": {
+            "type": "string",
+            "description": "The ID of the record that would change",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "delete"
+            ],
+            "description": "The operation that would occur",
+            "example": "create"
+          }
+        },
+        "required": [
+          "entity",
+          "id",
+          "op"
+        ]
+      },
       "CustomerResponseDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -12284,6 +12402,18 @@
       "VehicleResponseDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -14809,6 +14939,18 @@
       "VehicleListItemDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15257,6 +15399,18 @@
       "WorkshopOrderResponseDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15747,6 +15901,18 @@
       "WorkshopSearchVehicleDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -15858,6 +16024,18 @@
       "WorkshopSearchCustomerDto": {
         "type": "object",
         "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "description": "Indicates whether the request was executed in dry-run mode",
+            "example": true
+          },
+          "would_change": {
+            "description": "List of changes that would occur if executed without dry_run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WouldChangeItemDto"
+            }
+          },
           "id": {
             "type": "string"
           },
@@ -22561,6 +22739,7 @@
               "APPROVED",
               "REJECTED",
               "EXECUTED",
+              "REFUSED",
               "FAILED",
               "DRY_RUN"
             ]

@@ -19,12 +19,14 @@ import {
   QueryBuilder,
   type QueryParams,
 } from '../common/utils/query-builder.js';
+import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
 @Controller('customers')
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 
   @Post()
+  @DryRunSupported()
   @ApiCreatedResponse({ type: CustomerResponseDto })
   create(@Body() createCustomerDto: CreateCustomerDto) {
     return this.customerService.create(createCustomerDto);

@@ -53,6 +53,7 @@ import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { DecisionModule } from './decision/decision.module.js';
+import { DryRunModule } from './dry-run/dry-run.module.js';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { DecisionModule } from './decision/decision.module.js';
     forwardRef(() => PrismaModule),
     EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot([AUTH_THROTTLER_OPTIONS]),
+    DryRunModule,
     InventoryModule,
     PurchaseModule,
     VendorModule,
