@@ -40,6 +40,13 @@ export function classifyDocumentTextHeuristic(text: string): DocumentSortType {
   return 'Sonstiges';
 }
 
+export function extractDocumentSortSignals(text: string): DocumentSortType[] {
+  const normalized = text.trim();
+  return RULES.filter((rule) =>
+    rule.patterns.some((pattern) => pattern.test(normalized)),
+  ).map((rule) => rule.type);
+}
+
 export function documentSortChoices(): DocumentSortType[] {
   return [...DOCUMENT_SORT_TYPES];
 }

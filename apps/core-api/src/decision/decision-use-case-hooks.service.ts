@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { createHmac, randomBytes } from 'node:crypto';
 import type { Customer } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -9,16 +10,17 @@ import { DecisionShadowService } from './decision-shadow.service.js';
 import {
   classifyDocumentTextHeuristic,
   documentSortChoices,
+  extractDocumentSortSignals,
 } from './document-sort.heuristic.js';
 import type { DryRunRowResult } from '../import/import.types.js';
 import { customerNameKey } from '../import/customer-import.logic.js';
 import type { NormalizedCustomerRow } from '../import/import.types.js';
-import { pickCustomerAuditSnapshot } from '../import/import-audit.util.js';
+
+const MAX_SHADOW_ROWS_PER_IMPORT = 50;
 
 export type ImportRowMatchingCandidate = {
   id: string;
-  label: string;
-  snapshot: Record<string, unknown>;
+  customer: Customer;
 };
 
 @Injectable()
@@ -34,6 +36,7 @@ export class DecisionUseCaseHooksService {
     row: DryRunRowResult;
     normalizedRow: NormalizedCustomerRow;
     customers: Customer[];
+    identitySalt: Buffer;
   }): void {
     const ambiguous = params.row.warnings.some(
       (warning) => warning.code === 'IMPORT_POSSIBLE_DUPLICATE',
@@ -48,23 +51,73 @@ export class DecisionUseCaseHooksService {
       return;
     }
 
-    const choiceIds = candidates.map((candidate) => candidate.id);
+    const candidateChoices = candidates.map(
+      (_candidate, index) => `choice_${index + 1}`,
+    );
+    const createChoice = 'create_new';
+    const selectedCandidateIndex = candidates.findIndex(
+      (candidate) => candidate.id === params.row.entity_id,
+    );
     const actualChoice =
-      params.row.entity_id ??
-      (params.row.action === 'CREATE' ? '__create_new__' : choiceIds[0]);
+      selectedCandidateIndex >= 0
+        ? candidateChoices[selectedCandidateIndex]
+        : params.row.action === 'CREATE'
+          ? createChoice
+          : candidateChoices[0];
 
     this.shadow.scheduleShadow({
       tenantId: params.tenantId,
       traceId: this.shadow.resolveTraceId(params.traceId),
       useCase: DECISION_USE_CASES.IMPORT_ROW_MATCHING,
       input: {
-        row: redactCustomerRow(params.normalizedRow),
-        candidates: candidates.map((candidate) => ({
-          id: candidate.id,
-          label: candidate.label,
+        row: {
+          type: params.normalizedRow.type,
+          identity_fingerprints: {
+            name: hashIdentity('name', nameKey, params.identitySalt),
+            email: hashOptionalIdentity(
+              'email',
+              params.normalizedRow.email,
+              params.identitySalt,
+            ),
+            phone: hashOptionalIdentity(
+              'phone',
+              params.normalizedRow.phone,
+              params.identitySalt,
+            ),
+            vat: hashOptionalIdentity(
+              'vat',
+              params.normalizedRow.vat_id,
+              params.identitySalt,
+            ),
+          },
+        },
+        candidates: candidates.map((candidate, index) => ({
+          choice: candidateChoices[index],
+          identity_fingerprints: {
+            name: hashIdentity(
+              'name',
+              customerNameKeyFromRecord(candidate.customer),
+              params.identitySalt,
+            ),
+            email: hashOptionalIdentity(
+              'email',
+              candidate.customer.email,
+              params.identitySalt,
+            ),
+            phone: hashOptionalIdentity(
+              'phone',
+              candidate.customer.phone,
+              params.identitySalt,
+            ),
+            vat: hashOptionalIdentity(
+              'vat',
+              candidate.customer.vat_id,
+              params.identitySalt,
+            ),
+          },
         })),
       },
-      choices: [...choiceIds, '__create_new__'],
+      choices: [...candidateChoices, createChoice],
       actualOutcome: {
         choice: actualChoice,
         source: 'import_dry_run',
@@ -86,7 +139,7 @@ export class DecisionUseCaseHooksService {
       tenantId: params.tenantId,
       traceId: this.shadow.resolveTraceId(params.traceId),
       useCase: DECISION_USE_CASES.DOCUMENT_SORT,
-      input: { text: trimmed.slice(0, 8_000) },
+      input: { signals: extractDocumentSortSignals(trimmed) },
       choices: documentSortChoices(),
       actualOutcome: {
         choice: actualType,
@@ -104,11 +157,24 @@ export class DecisionUseCaseHooksService {
     traceId: string | undefined,
     rows: DryRunRowResult[],
   ): Promise<void> {
+    if (!this.shadow.isShadowEnabled()) {
+      return;
+    }
+    const ambiguousRows = rows
+      .filter(
+        (row) =>
+          row.normalized !== null &&
+          row.warnings.some(
+            (warning) => warning.code === 'IMPORT_POSSIBLE_DUPLICATE',
+          ),
+      )
+      .slice(0, MAX_SHADOW_ROWS_PER_IMPORT);
+    if (ambiguousRows.length === 0) {
+      return;
+    }
     const customers = await this.loadCustomers(tenantId);
-    for (const row of rows) {
-      if (!row.normalized) {
-        continue;
-      }
+    const identitySalt = randomBytes(32);
+    for (const row of ambiguousRows) {
       const normalizedRow = row.normalized as NormalizedCustomerRow;
       this.scheduleImportRowMatchingForDryRun({
         tenantId,
@@ -116,6 +182,7 @@ export class DecisionUseCaseHooksService {
         row,
         normalizedRow,
         customers,
+        identitySalt,
       });
     }
   }
@@ -136,9 +203,26 @@ function buildCustomerCandidates(
     .slice(0, 5);
   return matches.map((customer) => ({
     id: customer.id,
-    label: formatCustomerLabel(customer),
-    snapshot: pickCustomerAuditSnapshot(customer),
+    customer,
   }));
+}
+
+function hashIdentity(field: string, identity: string, salt: Buffer): string {
+  return createHmac('sha256', salt)
+    .update(field)
+    .update('\0')
+    .update(identity)
+    .digest('hex');
+}
+
+function hashOptionalIdentity(
+  field: string,
+  identity: string | null,
+  salt: Buffer,
+): string | null {
+  return identity?.trim()
+    ? hashIdentity(field, identity.trim().toLowerCase(), salt)
+    : null;
 }
 
 function customerNameKeyFromRecord(customer: Customer): string {
@@ -146,28 +230,4 @@ function customerNameKeyFromRecord(customer: Customer): string {
     return `company:${customer.company_name.trim().toLowerCase()}`;
   }
   return `person:${customer.first_name.trim().toLowerCase()}|${customer.last_name.trim().toLowerCase()}`;
-}
-
-function formatCustomerLabel(customer: Customer): string {
-  if (customer.type === 'COMPANY' && customer.company_name) {
-    return customer.company_name;
-  }
-  return `${customer.first_name} ${customer.last_name}`.trim();
-}
-
-function redactCustomerRow(
-  row: NormalizedCustomerRow,
-): Record<string, unknown> {
-  return {
-    external_id: row.external_id,
-    type: row.type,
-    company_name: row.company_name,
-    first_name: row.first_name,
-    last_name: row.last_name,
-    email: row.email,
-    phone: row.phone,
-    vat_id: row.vat_id,
-    address_city: row.address_city,
-    address_country: row.address_country,
-  };
 }
