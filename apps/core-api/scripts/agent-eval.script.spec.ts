@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -6,33 +7,48 @@ import { fileURLToPath } from 'node:url';
 const tsxCliPath = fileURLToPath(import.meta.resolve('tsx/cli'));
 
 describe('agent-eval script', () => {
-  const resultsDir = join(process.cwd(), 'agent-eval-results');
-
-  afterEach(() => {
-    rmSync(resultsDir, { recursive: true, force: true });
-  });
-
-  it('writes results JSON using the noop provider', () => {
-    process.env.DECISION_PROVIDER = 'noop';
-    execFileSync(
-      process.execPath,
-      [tsxCliPath, 'scripts/agent-eval.ts'],
-      {
-        cwd: process.cwd(),
-        env: process.env,
-        stdio: 'pipe',
-      },
-    );
-    const resultFiles = readdirSync(resultsDir);
-    expect(resultFiles.length).toBeGreaterThan(0);
-    const payload = JSON.parse(
-      readFileSync(join(resultsDir, resultFiles[0]), 'utf8'),
-    ) as {
-      provider: string;
-      results: Array<{ suggestion: string | null; label: string }>;
-    };
-    expect(payload.provider).toBe('noop');
-    expect(payload.results.length).toBeGreaterThan(0);
-    expect(payload.results[0].suggestion).toBeNull();
+  it('writes stable rules results without using an environment-selected Jev provider', () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), 'agent-eval-'));
+    const outputPath = join(tempDirectory, 'rules-results.json');
+    try {
+      execFileSync(
+        process.execPath,
+        [
+          tsxCliPath,
+          'scripts/agent-eval.ts',
+          '--mode=rules',
+          `--output=${outputPath}`,
+        ],
+        {
+          cwd: process.cwd(),
+          env: {
+            ...process.env,
+            DECISION_PROVIDER: 'openrouter-jev',
+            OPENROUTER_API_KEY: 'test-value-only',
+          },
+          stdio: 'pipe',
+        },
+      );
+      const payload = JSON.parse(readFileSync(outputPath, 'utf8')) as {
+        dataset_hash: string;
+        mode: string;
+        run: number;
+        provider: string;
+        results: Array<{
+          suggestion: string | null;
+          label: string;
+          rechecked_correct: boolean;
+        }>;
+      };
+      expect(payload.mode).toBe('rules');
+      expect(payload.run).toBe(1);
+      expect(payload.provider).toBe('rules');
+      expect(payload.dataset_hash).toMatch(/^[a-f0-9]{64}$/);
+      expect(payload.results.length).toBe(200);
+      expect(payload.results[0].suggestion).toBe('__create_new__');
+      expect(payload.results[0].rechecked_correct).toBe(true);
+    } finally {
+      rmSync(tempDirectory, { recursive: true, force: true });
+    }
   });
 });

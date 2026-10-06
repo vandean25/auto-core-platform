@@ -15,6 +15,9 @@ export type DecisionResult = {
   latency_ms: number;
   provider: string;
   model: string;
+  input_tokens?: number;
+  estimated_input_tokens?: number;
+  output_tokens?: number;
 };
 
 export type DecisionActualOutcome = {

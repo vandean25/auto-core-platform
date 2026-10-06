@@ -96,8 +96,6 @@ export class OpenRouterJevClient {
       );
     }
 
-    assertInputSizeWithinLimit(input);
-
     const criteria = buildChoiceCriteria(input.choices);
     const body = {
       model: this.modelId,
@@ -114,6 +112,12 @@ export class OpenRouterJevClient {
         context: input.context ?? {},
       },
     };
+    const billedInput = {
+      question: body.questions[DECISION_QUESTION_KEY],
+      state: body.state,
+    };
+    const estimated_input_tokens = estimateInputTokens(billedInput);
+    assertInputSizeWithinLimit(estimated_input_tokens);
 
     const started = Date.now();
     const response = await this.postWithRetry(body);
@@ -123,6 +127,7 @@ export class OpenRouterJevClient {
     const raw_ref =
       extractResponseId(payload) ??
       createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+    const usage = extractUsage(payload);
 
     return {
       choice,
@@ -132,6 +137,9 @@ export class OpenRouterJevClient {
       model: extractResponseModel(payload) ?? this.modelId,
       rationale: extractChoiceRationale(payload),
       confidence: extractChoiceConfidence(payload),
+      input_tokens: usage?.inputTokens,
+      estimated_input_tokens,
+      output_tokens: usage?.outputTokens,
     };
   }
 
@@ -192,16 +200,15 @@ function buildChoiceCriteria(choices: string[]): Record<string, string> {
   return criteria;
 }
 
-function assertInputSizeWithinLimit(input: DecisionChoiceInput): void {
-  const serialized = JSON.stringify({
-    useCase: input.useCase,
-    input: input.input,
-    choices: input.choices,
-    context: input.context ?? {},
-  });
-  const estimatedTokens = Math.ceil(
-    serialized.length / DECISION_CHARS_PER_TOKEN_ESTIMATE,
-  );
+function estimateInputTokens(billedInput: {
+  question: unknown;
+  state: unknown;
+}): number {
+  const serialized = JSON.stringify(billedInput);
+  return Math.ceil(serialized.length / DECISION_CHARS_PER_TOKEN_ESTIMATE);
+}
+
+function assertInputSizeWithinLimit(estimatedTokens: number): void {
   if (estimatedTokens > DECISION_MAX_INPUT_TOKEN_ESTIMATE) {
     throw new OpenRouterJevInputTooLargeError();
   }
@@ -272,6 +279,29 @@ function extractChoiceConfidence(payload: unknown): number | undefined {
   }
   const confidence = (entry as { confidence?: unknown }).confidence;
   return typeof confidence === 'number' ? confidence : undefined;
+}
+
+function extractUsage(
+  payload: unknown,
+): { inputTokens?: number; outputTokens?: number } | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+  const usage = (payload as { usage?: unknown }).usage;
+  if (!usage || typeof usage !== 'object') {
+    return undefined;
+  }
+  const record = usage as { inputTokens?: unknown; outputTokens?: unknown };
+  return {
+    inputTokens: nonNegativeNumber(record.inputTokens),
+    outputTokens: nonNegativeNumber(record.outputTokens),
+  };
+}
+
+function nonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
 }
 
 function normalizeSecret(value: string | undefined): string | undefined {
