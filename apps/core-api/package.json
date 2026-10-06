@@ -44,7 +44,7 @@
     "seed": "node --loader ts-node/esm prisma/seed.ts"
   },
   "dependencies": {
-    "@fontsource/noto-sans": "5.2.7",
+    "@fontsource/noto-sans": "5.3.0",
     "@google-cloud/speech": "^8.0.1",
     "@google-cloud/storage": "^8.0.0",
     "@google-cloud/tasks": "^7.0.0",
