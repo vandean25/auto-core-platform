@@ -6,14 +6,14 @@ This evaluation uses the 200-row synthetic AE4 fixture set. The offline rules co
 
 The fixture contains 12 adversarial false-completion examples per run. Each has an explicit synthetic claim that a match or completion exists while its expected label disagrees. Results include one rules baseline run, three Jev-only runs, and three rules + Jev runs. Each result is re-checked against the fixture label and choices; none of the provider calls returned an execution error.
 
-The report generator derives all tables from JSON stored under a directory named with the fixture SHA-256. Jev table rows aggregate the three runs (N=300 per use case); run-to-run accuracy and false-completion outcomes are summarized separately below. Input-token cost uses $0.042 per million tokens; output tokens are free. Confidence 0.80 is the threshold used for confident-auto precision and recall.
+The report generator derives all tables from JSON stored under a directory named with the fixture SHA-256. Jev table rows aggregate the three runs (N=300 per use case); run-to-run accuracy and false-completion outcomes are generated from the same result JSON. Input-token cost uses $0.042 per million tokens; output tokens are free. When provider usage is missing, serialized decision input is estimated at about four characters per token and the cost is marked `(est.)`. Confidence 0.80 is the threshold used for confident-auto precision and recall.
 
 ## Results
 
 <!-- AGENT-EVAL-TABLES:START -->
 Dataset SHA-256: `e0454fcc80688e21b18f7c4e2777cba2abfff2ad2897ba88bbd6f90095a84379`.
 
-Confident auto uses confidence ≥ 0.80. Precision is the correct share of confident suggestions; recall is the share of all correct examples that were confidently suggested. “Wrong Jev suggestions rules would catch” counts incorrect Jev choices where the rules choice is correct and has confidence ≥ 0.80. Cost uses input tokens at $0.042 per million; output tokens are free.
+Confident auto uses confidence ≥ 0.80. Precision is the correct share of confident suggestions; recall is the share of all correct examples that were confidently suggested. “Wrong Jev suggestions rules would catch” counts incorrect Jev choices where the rules choice is correct and has confidence ≥ 0.80. Cost uses input tokens at $0.042 per million; output tokens are free. When provider usage is missing, serialized decision input is estimated at about four characters per token and the cost is marked (est.).
 
 ### Import row matching
 
@@ -24,16 +24,16 @@ Confident auto uses confidence ≥ 0.80. Precision is the correct share of confi
 | Rules only | ambiguous | 31 | 100.0% | 100.0% / 87.1% | — | 0.0 / 0.0 | $0.000000 |
 | Rules only | adversarial | 37 | 100.0% | 100.0% / 73.0% | — | 0.0 / 0.1 | $0.000000 |
 | Rules only | false-completion | 6 | 100.0% | — / 0.0% | — | 0.0 / 0.5 | $0.000000 |
-| Jev only | all | 300 | 81.7% | 100.0% / 99.2% | 0 | 266.0 / 350.1 | n/a |
-| Jev only | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 263.0 / 346.0 | n/a |
-| Jev only | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 266.0 / 332.8 | n/a |
-| Jev only | adversarial | 111 | 74.8% | 100.0% / 97.6% | 0 | 269.0 / 371.0 | n/a |
-| Jev only | false-completion | 18 | 0.0% | — / — | 0 | 265.0 / 390.7 | n/a |
-| Rules + Jev | all | 300 | 81.0% | 100.0% / 100.0% | 0 | 0.0 / 306.1 | n/a |
-| Rules + Jev | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 0.0 / 287.0 | n/a |
-| Rules + Jev | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 0.0 / 277.4 | n/a |
-| Rules + Jev | adversarial | 111 | 73.0% | 100.0% / 100.0% | 0 | 0.1 / 328.5 | n/a |
-| Rules + Jev | false-completion | 18 | 0.0% | — / — | 0 | 270.0 / 375.2 | n/a |
+| Jev only | all | 300 | 81.7% | 100.0% / 99.2% | 0 | 266.0 / 350.1 | $0.001705 (est.) |
+| Jev only | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 263.0 / 346.0 | $0.000546 (est.) |
+| Jev only | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 266.0 / 332.8 | $0.000529 (est.) |
+| Jev only | adversarial | 111 | 74.8% | 100.0% / 97.6% | 0 | 269.0 / 371.0 | $0.000630 (est.) |
+| Jev only | false-completion | 18 | 0.0% | — / — | 0 | 265.0 / 390.7 | $0.000102 (est.) |
+| Rules + Jev | all | 300 | 81.0% | 100.0% / 100.0% | 0 | 0.0 / 306.1 | $0.000321 (est.) |
+| Rules + Jev | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 0.0 / 287.0 | $0.000085 (est.) |
+| Rules + Jev | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 0.0 / 277.4 | $0.000068 (est.) |
+| Rules + Jev | adversarial | 111 | 73.0% | 100.0% / 100.0% | 0 | 0.1 / 328.5 | $0.000168 (est.) |
+| Rules + Jev | false-completion | 18 | 0.0% | — / — | 0 | 270.0 / 375.2 | $0.000102 (est.) |
 
 ### Document sorting
 
@@ -44,30 +44,30 @@ Confident auto uses confidence ≥ 0.80. Precision is the correct share of confi
 | Rules only | ambiguous | 32 | 90.6% | 100.0% / 75.9% | — | 0.0 / 0.0 | $0.000000 |
 | Rules only | adversarial | 37 | 13.5% | — / 0.0% | — | 0.0 / 0.0 | $0.000000 |
 | Rules only | false-completion | 6 | 0.0% | — / — | — | 0.0 / 0.2 | $0.000000 |
-| Jev only | all | 300 | 81.3% | 99.5% / 80.7% | 0 | 262.5 / 345.1 | n/a |
-| Jev only | easy | 93 | 100.0% | 100.0% / 83.9% | 0 | 262.0 / 359.0 | n/a |
-| Jev only | ambiguous | 96 | 100.0% | 100.0% / 84.4% | 0 | 259.0 / 332.0 | n/a |
-| Jev only | adversarial | 111 | 49.5% | 97.4% / 69.1% | 0 | 267.0 / 329.0 | n/a |
-| Jev only | false-completion | 18 | 61.1% | 75.0% / 27.3% | 0 | 260.5 / 326.6 | n/a |
-| Rules + Jev | all | 300 | 82.3% | 98.7% / 89.9% | 0 | 237.0 / 331.1 | n/a |
-| Rules + Jev | easy | 93 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 286.2 | n/a |
-| Rules + Jev | ambiguous | 96 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 295.3 | n/a |
-| Rules + Jev | adversarial | 111 | 52.3% | 91.7% / 56.9% | 0 | 269.0 / 354.0 | n/a |
-| Rules + Jev | false-completion | 18 | 66.7% | 50.0% / 25.0% | 0 | 273.5 / 352.7 | n/a |
-<!-- AGENT-EVAL-TABLES:END -->
+| Jev only | all | 300 | 81.3% | 99.5% / 80.7% | 0 | 262.5 / 345.1 | $0.000643 (est.) |
+| Jev only | easy | 93 | 100.0% | 100.0% / 83.9% | 0 | 262.0 / 359.0 | $0.000187 (est.) |
+| Jev only | ambiguous | 96 | 100.0% | 100.0% / 84.4% | 0 | 259.0 / 332.0 | $0.000192 (est.) |
+| Jev only | adversarial | 111 | 49.5% | 97.4% / 69.1% | 0 | 267.0 / 329.0 | $0.000264 (est.) |
+| Jev only | false-completion | 18 | 61.1% | 75.0% / 27.3% | 0 | 260.5 / 326.6 | $0.000043 (est.) |
+| Rules + Jev | all | 300 | 82.3% | 98.7% / 89.9% | 0 | 237.0 / 331.1 | $0.000382 (est.) |
+| Rules + Jev | easy | 93 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 286.2 | $0.000059 (est.) |
+| Rules + Jev | ambiguous | 96 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 295.3 | $0.000059 (est.) |
+| Rules + Jev | adversarial | 111 | 52.3% | 91.7% / 56.9% | 0 | 269.0 / 354.0 | $0.000264 (est.) |
+| Rules + Jev | false-completion | 18 | 66.7% | 50.0% / 25.0% | 0 | 273.5 / 352.7 | $0.000043 (est.) |
 
 ### Three-run stability and false-completion check
 
-Accuracy and confident-auto precision are shown for runs 1/2/3. The spread is the highest minus lowest run accuracy. Each run contains 12 false-completion examples across the two use cases.
+Accuracy and spread are reported per use case. False-completion counts show incorrect suggestions over the tagged examples in each run: per-use-case denominators are /6 and combined denominators are /12.
 
-| Configuration | Use case | Accuracy by run | Accuracy spread | Confident-auto precision by run | Incorrect false-completion suggestions across both use cases by run |
-| --- | --- | --- | ---: | --- | --- |
-| Jev only | Import matching | 81% / 82% / 82% | 1 pp | 100% / 100% / 100% | 6/12 / 6/12 / 6/12 |
-| Jev only | Document sorting | 82% / 81% / 81% | 1 pp | 100% / 98.5% / 100% | 8/12 / 8/12 / 9/12 |
-| Rules + Jev | Import matching | 81% / 81% / 81% | 0 pp | 100% / 100% / 100% | 6/12 / 6/12 / 6/12 |
-| Rules + Jev | Document sorting | 82% / 82% / 83% | 1 pp | 98.6% / 98.7% / 98.7% | 8/12 / 8/12 / 8/12 |
-
-The confident-auto precision and run-spread checks pass these thresholds. The false-completion check fails in every run: Jev-only produced 6–9 incorrect suggestions out of 12, and rules + Jev produced 8/12 each run.
+| Configuration | Use case | Run 1 accuracy | Run 2 accuracy | Run 3 accuracy | Accuracy spread | False-completion incorrect / run |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Jev only | Import row matching | 81.0% | 82.0% | 82.0% | 1.0 pp | 6/6 / 6/6 / 6/6 |
+| Jev only | Document sorting | 82.0% | 81.0% | 81.0% | 1.0 pp | 2/6 / 2/6 / 3/6 |
+| Jev only | Both use cases | — | — | — | — | 8/12 / 8/12 / 9/12 |
+| Rules + Jev | Import row matching | 81.0% | 81.0% | 81.0% | 0.0 pp | 6/6 / 6/6 / 6/6 |
+| Rules + Jev | Document sorting | 82.0% | 82.0% | 83.0% | 1.0 pp | 2/6 / 2/6 / 2/6 |
+| Rules + Jev | Both use cases | — | — | — | — | 8/12 / 8/12 / 8/12 |
+<!-- AGENT-EVAL-TABLES:END -->
 
 ## Ten notable rules failures
 
@@ -113,4 +113,4 @@ The `agent-eval` command defaults to offline rules mode. Jev runs require `OPENR
 
 ## Caveats and follow-up
 
-The dataset is synthetic and small, so these numbers do not establish production performance. The OpenRouter Decisions API is alpha. These responses did not include input or output token counts, so the Jev cost estimate is unavailable. Verified-decision replay fingerprints are not included in this change; add that read-only CI replay as a separate follow-up, keeping it separate from the AE2 agent action log.
+The dataset is synthetic and small, so these numbers do not establish production performance. The OpenRouter Decisions API is alpha. These responses did not include input or output token counts; reported costs therefore use the serialized-input estimate and are marked `(est.)`. Verified-decision replay fingerprints are not included in this change; add that read-only CI replay as a separate follow-up, keeping it separate from the AE2 agent action log.

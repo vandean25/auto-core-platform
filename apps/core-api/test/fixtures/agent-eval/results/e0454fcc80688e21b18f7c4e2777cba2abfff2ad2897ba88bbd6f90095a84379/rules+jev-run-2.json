@@ -26,7 +26,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 141
     },
     {
       "id": "import-001",
@@ -46,7 +47,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-002",
@@ -66,7 +68,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-003",
@@ -86,7 +89,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-004",
@@ -106,7 +110,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-005",
@@ -126,7 +131,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 129
     },
     {
       "id": "import-006",
@@ -146,7 +152,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-007",
@@ -166,7 +173,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-008",
@@ -186,7 +194,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-009",
@@ -206,7 +215,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-010",
@@ -226,7 +236,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-011",
@@ -246,7 +257,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-012",
@@ -266,7 +278,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 139
     },
     {
       "id": "import-013",
@@ -286,7 +299,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-014",
@@ -306,7 +320,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-015",
@@ -326,7 +341,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-016",
@@ -346,7 +362,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-017",
@@ -368,7 +385,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 128
     },
     {
       "id": "import-018",
@@ -388,7 +406,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-019",
@@ -408,7 +427,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 125
     },
     {
       "id": "import-020",
@@ -428,7 +448,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-021",
@@ -448,7 +469,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-022",
@@ -468,7 +490,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-023",
@@ -488,7 +511,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-024",
@@ -508,7 +532,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-025",
@@ -528,7 +553,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-026",
@@ -548,7 +574,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 141
     },
     {
       "id": "import-027",
@@ -568,7 +595,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-028",
@@ -588,7 +616,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-029",
@@ -608,7 +637,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-030",
@@ -628,7 +658,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-031",
@@ -648,7 +679,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-032",
@@ -668,7 +700,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-033",
@@ -688,7 +721,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 131
     },
     {
       "id": "import-034",
@@ -710,7 +744,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 143
     },
     {
       "id": "import-035",
@@ -730,7 +765,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-036",
@@ -750,7 +786,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-037",
@@ -770,7 +807,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-038",
@@ -790,7 +828,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-039",
@@ -810,7 +849,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-040",
@@ -830,7 +870,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 144
     },
     {
       "id": "import-041",
@@ -850,7 +891,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-042",
@@ -870,7 +912,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-043",
@@ -890,7 +933,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-044",
@@ -910,7 +954,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-045",
@@ -930,7 +975,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-046",
@@ -950,7 +996,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-047",
@@ -970,7 +1017,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 122
     },
     {
       "id": "import-048",
@@ -990,7 +1038,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-049",
@@ -1010,7 +1059,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-050",
@@ -1030,7 +1080,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-051",
@@ -1052,7 +1103,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 125
     },
     {
       "id": "import-052",
@@ -1072,7 +1124,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-053",
@@ -1092,7 +1145,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-054",
@@ -1112,7 +1166,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 141
     },
     {
       "id": "import-055",
@@ -1132,7 +1187,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-056",
@@ -1152,7 +1208,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-057",
@@ -1172,7 +1229,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-058",
@@ -1192,7 +1250,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-059",
@@ -1212,7 +1271,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-060",
@@ -1232,7 +1292,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-061",
@@ -1252,7 +1313,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 129
     },
     {
       "id": "import-062",
@@ -1272,7 +1334,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-063",
@@ -1292,7 +1355,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-064",
@@ -1312,7 +1376,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-065",
@@ -1332,7 +1397,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-066",
@@ -1352,7 +1418,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-067",
@@ -1372,7 +1439,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-068",
@@ -1394,7 +1462,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 142
     },
     {
       "id": "import-069",
@@ -1414,7 +1483,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-070",
@@ -1434,7 +1504,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-071",
@@ -1454,7 +1525,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-072",
@@ -1474,7 +1546,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-073",
@@ -1494,7 +1567,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-074",
@@ -1514,7 +1588,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-075",
@@ -1534,7 +1609,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 126
     },
     {
       "id": "import-076",
@@ -1554,7 +1630,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-077",
@@ -1574,7 +1651,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-078",
@@ -1594,7 +1672,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-079",
@@ -1614,7 +1693,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-080",
@@ -1634,7 +1714,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-081",
@@ -1654,7 +1735,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-082",
@@ -1674,7 +1756,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 139
     },
     {
       "id": "import-083",
@@ -1694,7 +1777,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-084",
@@ -1714,7 +1798,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-085",
@@ -1736,7 +1821,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 130
     },
     {
       "id": "import-086",
@@ -1756,7 +1842,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-087",
@@ -1776,7 +1863,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-088",
@@ -1796,7 +1884,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-089",
@@ -1816,7 +1905,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 130
     },
     {
       "id": "import-090",
@@ -1836,7 +1926,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-091",
@@ -1856,7 +1947,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-092",
@@ -1876,7 +1968,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-093",
@@ -1896,7 +1989,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-094",
@@ -1916,7 +2010,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-095",
@@ -1936,7 +2031,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-096",
@@ -1956,7 +2052,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 141
     },
     {
       "id": "import-097",
@@ -1976,7 +2073,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-098",
@@ -1996,7 +2094,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "import-099",
@@ -2016,7 +2115,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-000",
@@ -2038,7 +2138,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-001",
@@ -2058,7 +2159,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 56
     },
     {
       "id": "doc-002",
@@ -2078,7 +2180,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-003",
@@ -2098,7 +2201,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-004",
@@ -2118,7 +2222,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 54
     },
     {
       "id": "doc-005",
@@ -2138,7 +2243,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-006",
@@ -2158,7 +2264,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-007",
@@ -2178,7 +2285,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-008",
@@ -2198,7 +2306,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-009",
@@ -2218,7 +2327,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     },
     {
       "id": "doc-010",
@@ -2238,7 +2348,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-011",
@@ -2258,7 +2369,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-012",
@@ -2278,7 +2390,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-013",
@@ -2298,7 +2411,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-014",
@@ -2318,7 +2432,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 45
     },
     {
       "id": "doc-015",
@@ -2338,7 +2453,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-016",
@@ -2358,7 +2474,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-017",
@@ -2380,7 +2497,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-018",
@@ -2400,7 +2518,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-019",
@@ -2420,7 +2539,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-020",
@@ -2440,7 +2560,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-021",
@@ -2460,7 +2581,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-022",
@@ -2480,7 +2602,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-023",
@@ -2500,7 +2623,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-024",
@@ -2520,7 +2644,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 45
     },
     {
       "id": "doc-025",
@@ -2540,7 +2665,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-026",
@@ -2560,7 +2686,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-027",
@@ -2580,7 +2707,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-028",
@@ -2600,7 +2728,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-029",
@@ -2620,7 +2749,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     },
     {
       "id": "doc-030",
@@ -2640,7 +2770,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-031",
@@ -2660,7 +2791,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 56
     },
     {
       "id": "doc-032",
@@ -2680,7 +2812,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-033",
@@ -2700,7 +2833,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-034",
@@ -2722,7 +2856,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 54
     },
     {
       "id": "doc-035",
@@ -2742,7 +2877,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-036",
@@ -2762,7 +2898,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-037",
@@ -2782,7 +2919,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-038",
@@ -2802,7 +2940,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-039",
@@ -2822,7 +2961,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     },
     {
       "id": "doc-040",
@@ -2842,7 +2982,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-041",
@@ -2862,7 +3003,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-042",
@@ -2882,7 +3024,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-043",
@@ -2902,7 +3045,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-044",
@@ -2922,7 +3066,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 45
     },
     {
       "id": "doc-045",
@@ -2942,7 +3087,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-046",
@@ -2962,7 +3108,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-047",
@@ -2982,7 +3129,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-048",
@@ -3002,7 +3150,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-049",
@@ -3022,7 +3171,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-050",
@@ -3042,7 +3192,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-051",
@@ -3064,7 +3215,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 56
     },
     {
       "id": "doc-052",
@@ -3084,7 +3236,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-053",
@@ -3104,7 +3257,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-054",
@@ -3124,7 +3278,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 45
     },
     {
       "id": "doc-055",
@@ -3144,7 +3299,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-056",
@@ -3164,7 +3320,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-057",
@@ -3184,7 +3341,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-058",
@@ -3204,7 +3362,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-059",
@@ -3224,7 +3383,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     },
     {
       "id": "doc-060",
@@ -3244,7 +3404,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-061",
@@ -3264,7 +3425,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 56
     },
     {
       "id": "doc-062",
@@ -3284,7 +3446,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-063",
@@ -3304,7 +3467,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-064",
@@ -3324,7 +3488,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 54
     },
     {
       "id": "doc-065",
@@ -3344,7 +3509,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-066",
@@ -3364,7 +3530,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-067",
@@ -3384,7 +3551,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-068",
@@ -3406,7 +3574,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-069",
@@ -3426,7 +3595,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     },
     {
       "id": "doc-070",
@@ -3446,7 +3616,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-071",
@@ -3466,7 +3637,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-072",
@@ -3486,7 +3658,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-073",
@@ -3506,7 +3679,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-074",
@@ -3526,7 +3700,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 45
     },
     {
       "id": "doc-075",
@@ -3546,7 +3721,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-076",
@@ -3566,7 +3742,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-077",
@@ -3586,7 +3763,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-078",
@@ -3606,7 +3784,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-079",
@@ -3626,7 +3805,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-080",
@@ -3646,7 +3826,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-081",
@@ -3666,7 +3847,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-082",
@@ -3686,7 +3868,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-083",
@@ -3706,7 +3889,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-084",
@@ -3726,7 +3910,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 45
     },
     {
       "id": "doc-085",
@@ -3748,7 +3933,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 58
     },
     {
       "id": "doc-086",
@@ -3768,7 +3954,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-087",
@@ -3788,7 +3975,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-088",
@@ -3808,7 +3996,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 59
     },
     {
       "id": "doc-089",
@@ -3828,7 +4017,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     },
     {
       "id": "doc-090",
@@ -3848,7 +4038,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-091",
@@ -3868,7 +4059,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 56
     },
     {
       "id": "doc-092",
@@ -3888,7 +4080,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-093",
@@ -3908,7 +4101,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-094",
@@ -3928,7 +4122,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 54
     },
     {
       "id": "doc-095",
@@ -3948,7 +4143,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 49
     },
     {
       "id": "doc-096",
@@ -3968,7 +4164,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-097",
@@ -3988,7 +4185,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 55
     },
     {
       "id": "doc-098",
@@ -4008,7 +4206,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "rules",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": null
     },
     {
       "id": "doc-099",
@@ -4028,7 +4227,8 @@
       "input_tokens": null,
       "output_tokens": null,
       "provider": "openrouter-jev",
-      "error": null
+      "error": null,
+      "estimated_input_tokens": 46
     }
   ]
 }

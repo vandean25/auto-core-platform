@@ -69,6 +69,7 @@ describe('agent evaluation runner', () => {
       raw_ref: 'mock-ref',
       input_tokens: 25,
       output_tokens: 0,
+      estimated_input_tokens: 24,
     });
     const provider: DecisionProvider = { providerId: 'mock-jev', decide };
     const examples = [
@@ -92,6 +93,7 @@ describe('agent evaluation runner', () => {
       rechecked_correct: false,
       input_tokens: 25,
       output_tokens: 0,
+      estimated_input_tokens: 24,
       tags: ['false_completion'],
     });
   });

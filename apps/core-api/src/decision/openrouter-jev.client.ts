@@ -96,7 +96,8 @@ export class OpenRouterJevClient {
       );
     }
 
-    assertInputSizeWithinLimit(input);
+    const estimated_input_tokens = estimateInputTokens(input);
+    assertInputSizeWithinLimit(estimated_input_tokens);
 
     const criteria = buildChoiceCriteria(input.choices);
     const body = {
@@ -134,6 +135,7 @@ export class OpenRouterJevClient {
       rationale: extractChoiceRationale(payload),
       confidence: extractChoiceConfidence(payload),
       input_tokens: usage?.inputTokens,
+      estimated_input_tokens,
       output_tokens: usage?.outputTokens,
     };
   }
@@ -195,16 +197,17 @@ function buildChoiceCriteria(choices: string[]): Record<string, string> {
   return criteria;
 }
 
-function assertInputSizeWithinLimit(input: DecisionChoiceInput): void {
+function estimateInputTokens(input: DecisionChoiceInput): number {
   const serialized = JSON.stringify({
     useCase: input.useCase,
     input: input.input,
     choices: input.choices,
     context: input.context ?? {},
   });
-  const estimatedTokens = Math.ceil(
-    serialized.length / DECISION_CHARS_PER_TOKEN_ESTIMATE,
-  );
+  return Math.ceil(serialized.length / DECISION_CHARS_PER_TOKEN_ESTIMATE);
+}
+
+function assertInputSizeWithinLimit(estimatedTokens: number): void {
   if (estimatedTokens > DECISION_MAX_INPUT_TOKEN_ESTIMATE) {
     throw new OpenRouterJevInputTooLargeError();
   }

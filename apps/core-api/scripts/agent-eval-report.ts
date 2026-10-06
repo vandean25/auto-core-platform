@@ -60,7 +60,7 @@ export type CommittedReportInputs = {
 
 export function loadCommittedReportInputs(): CommittedReportInputs {
   const datasetHash = createHash('sha256')
-    .update(readFileSync(fixturePath))
+    .update(readFileSync(fixturePath, 'utf8').replace(/\r\n/g, '\n'))
     .digest('hex');
   const resultDirectory = join(resultsRoot, datasetHash);
   const resultGroups: AgentEvalResultGroup = {
@@ -96,7 +96,7 @@ export function renderReportTables(
   const output = [
     `Dataset SHA-256: \`${datasetHash}\`.`,
     '',
-    `Confident auto uses confidence ≥ ${CONFIDENT_AUTO_THRESHOLD.toFixed(2)}. Precision is the correct share of confident suggestions; recall is the share of all correct examples that were confidently suggested. “Wrong Jev suggestions rules would catch” counts incorrect Jev choices where the rules choice is correct and has confidence ≥ ${CONFIDENT_AUTO_THRESHOLD.toFixed(2)}. Cost uses input tokens at $0.042 per million; output tokens are free.`,
+    `Confident auto uses confidence ≥ ${CONFIDENT_AUTO_THRESHOLD.toFixed(2)}. Precision is the correct share of confident suggestions; recall is the share of all correct examples that were confidently suggested. “Wrong Jev suggestions rules would catch” counts incorrect Jev choices where the rules choice is correct and has confidence ≥ ${CONFIDENT_AUTO_THRESHOLD.toFixed(2)}. Cost uses input tokens at $0.042 per million; output tokens are free. When provider usage is missing, serialized decision input is estimated at about four characters per token and the cost is marked (est.).`,
   ];
 
   for (const useCase of USE_CASES) {
@@ -123,10 +123,40 @@ export function renderReportTables(
           resultGroups.rules.flatMap((document) => document.results),
         );
         output.push(
-          `| ${configuration.label} | ${difficulty.label} | ${rows.length} | ${percentage(metrics.accuracy)} | ${percentage(metrics.precision)} / ${percentage(metrics.recall)} | ${metrics.caughtWrongJevSuggestions} | ${metricPair(metrics.p50, metrics.p95)} | ${formatCost(metrics.inputCost)} |`,
+          `| ${configuration.label} | ${difficulty.label} | ${rows.length} | ${percentage(metrics.accuracy)} | ${percentage(metrics.precision)} / ${percentage(metrics.recall)} | ${metrics.caughtWrongJevSuggestions} | ${metricPair(metrics.p50, metrics.p95)} | ${formatCost(metrics.inputCost, metrics.inputCostEstimated)} |`,
         );
       }
     }
+  }
+
+  output.push(
+    '',
+    '### Three-run stability and false-completion check',
+    '',
+    'Accuracy and spread are reported per use case. False-completion counts show incorrect suggestions over the tagged examples in each run: per-use-case denominators are /6 and combined denominators are /12.',
+    '',
+    '| Configuration | Use case | Run 1 accuracy | Run 2 accuracy | Run 3 accuracy | Accuracy spread | False-completion incorrect / run |',
+    '| --- | --- | ---: | ---: | ---: | ---: | --- |',
+  );
+  for (const configuration of CONFIGURATIONS.filter(({ mode }) => mode !== 'rules')) {
+    const documents = [...resultGroups[configuration.mode]].sort(
+      (left, right) => left.run - right.run,
+    );
+    for (const useCase of USE_CASES) {
+      const runRows = documents.slice(0, 3).map((document) =>
+        document.results.filter((row) => row.use_case === useCase.key),
+      );
+      const runAccuracyCells = [0, 1, 2].map((index) =>
+        percentage(accuracy(runRows[index] ?? [])),
+      );
+      output.push(
+        `| ${configuration.label} | ${useCase.label} | ${runAccuracyCells.join(' | ')} | ${accuracySpread(runRows)} | ${runRows.map((rows) => formatFalseCompletionCount(rows)).join(' / ') || '—'} |`,
+      );
+    }
+    const runRows = documents.slice(0, 3).map((document) => document.results);
+    output.push(
+      `| ${configuration.label} | Both use cases | — | — | — | — | ${runRows.map((rows) => formatFalseCompletionCount(rows)).join(' / ') || '—'} |`,
+    );
   }
 
   return output.join('\n');
@@ -163,6 +193,7 @@ type Metrics = {
   p50: number | null;
   p95: number | null;
   inputCost: number | null;
+  inputCostEstimated: boolean;
 };
 
 function calculateMetrics(
@@ -180,14 +211,27 @@ function calculateMetrics(
     .filter((latency): latency is number =>
       typeof latency === 'number' && Number.isFinite(latency),
     );
-  const tokens = rows.map((row) => row.input_tokens);
+  const providerRows = rows.filter((row) => row.provider !== 'rules');
+  const tokenCounts = providerRows.map((row) => {
+    if (isValidTokenCount(row.input_tokens)) {
+      return { count: row.input_tokens, estimated: false };
+    }
+    if (isValidTokenCount(row.estimated_input_tokens)) {
+      return { count: row.estimated_input_tokens, estimated: true };
+    }
+    return null;
+  });
+  const inputCostEstimated = tokenCounts.some((count) => count?.estimated);
   const inputCost =
     mode === 'rules'
       ? 0
-      : tokens.every((value) => typeof value === 'number')
-        ? (tokens.reduce((sum, value) => sum + (value ?? 0), 0) * 0.042) /
-          1_000_000
-        : null;
+      : tokenCounts.length === 0
+        ? 0
+        : tokenCounts.every((count) => count !== null)
+          ? (tokenCounts.reduce((sum, count) => sum + (count?.count ?? 0), 0) *
+              0.042) /
+            1_000_000
+          : null;
 
   return {
     accuracy: correctRows.length / rows.length,
@@ -206,6 +250,7 @@ function calculateMetrics(
     p50: percentile(latencies, 0.5),
     p95: percentile(latencies, 0.95),
     inputCost,
+    inputCostEstimated,
   };
 }
 
@@ -262,8 +307,34 @@ function metricPair(p50: number | null, p95: number | null): string {
   return `${p50.toFixed(1)} / ${p95.toFixed(1)}`;
 }
 
-function formatCost(value: number | null): string {
-  return value === null ? 'n/a' : `$${value.toFixed(6)}`;
+function formatCost(value: number | null, estimated = false): string {
+  if (value === null) {
+    return 'n/a';
+  }
+  return `$${value.toFixed(6)}${estimated ? ' (est.)' : ''}`;
+}
+
+function isValidTokenCount(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function accuracy(rows: AgentEvalResultRow[]): number | null {
+  return rows.length === 0
+    ? null
+    : rows.filter((row) => row.rechecked_correct).length / rows.length;
+}
+
+function accuracySpread(runs: AgentEvalResultRow[][]): string {
+  const values = runs.map(accuracy).filter((value): value is number => value !== null);
+  return values.length === 0
+    ? '—'
+    : `${((Math.max(...values) - Math.min(...values)) * 100).toFixed(1)} pp`;
+}
+
+function formatFalseCompletionCount(rows: AgentEvalResultRow[]): string {
+  const taggedRows = rows.filter((row) => row.tags.includes('false_completion'));
+  const incorrectCount = taggedRows.filter((row) => !row.rechecked_correct).length;
+  return `${incorrectCount}/${taggedRows.length}`;
 }
 
 function isAgentEvalMode(value: string): value is AgentEvalMode {

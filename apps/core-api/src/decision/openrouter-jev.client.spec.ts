@@ -5,7 +5,10 @@ import {
   OpenRouterJevMalformedResponseError,
   OpenRouterJevTimeoutError,
 } from './openrouter-jev.client.js';
-import { DECISION_USE_CASES } from './decision.constants.js';
+import {
+  DECISION_CHARS_PER_TOKEN_ESTIMATE,
+  DECISION_USE_CASES,
+} from './decision.constants.js';
 
 describe('OpenRouterJevClient', () => {
   const baseInput = {
@@ -36,6 +39,36 @@ describe('OpenRouterJevClient', () => {
     expect(result.input_tokens).toBe(10);
     expect(result.output_tokens).toBe(0);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('estimates serialized input tokens when provider usage is absent', async () => {
+    const fetchImpl = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        answers: { choice: { type: 'choice', choice: 'Rechnung' } },
+      }),
+    });
+    const client = new OpenRouterJevClient({
+      apiKey: 'test-key',
+      timeoutMs: 1000,
+      fetchImpl,
+    });
+
+    const result = await client.decide(baseInput);
+    const serializedInput = JSON.stringify({
+      useCase: baseInput.useCase,
+      input: baseInput.input,
+      choices: baseInput.choices,
+      context: {},
+    });
+
+    expect(result).toMatchObject({
+      input_tokens: undefined,
+      estimated_input_tokens: Math.ceil(
+        serializedInput.length / DECISION_CHARS_PER_TOKEN_ESTIMATE,
+      ),
+    });
   });
 
   it('retries once on 5xx', async () => {

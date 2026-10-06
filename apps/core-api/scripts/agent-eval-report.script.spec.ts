@@ -50,6 +50,59 @@ describe('agent-eval report generator', () => {
     );
   });
 
+  it('uses the serialized-input estimate when provider usage is absent', () => {
+    const jev = Object.assign(resultRow(), {
+      estimated_input_tokens: 25,
+      provider: 'openrouter-jev',
+    });
+    const groups: AgentEvalResultGroup = {
+      rules: [],
+      jev: [resultDocument('jev', [jev])],
+      'rules+jev': [],
+    };
+
+    const tables = renderReportTables(groups, 'c'.repeat(64));
+
+    expect(tables).toContain('$0.000001 (est.)');
+  });
+
+  it('generates run-level false-completion counts with per-case denominators', () => {
+    const groups: AgentEvalResultGroup = {
+      rules: [],
+      jev: [
+        resultDocument('jev', [
+          falseCompletionRow('import-1-1', 'import_row_matching', false),
+          falseCompletionRow('import-1-2', 'import_row_matching', true),
+          falseCompletionRow('doc-1-1', 'document_sort', true),
+          falseCompletionRow('doc-1-2', 'document_sort', true),
+        ], 1),
+        resultDocument('jev', [
+          falseCompletionRow('import-2-1', 'import_row_matching', true),
+          falseCompletionRow('import-2-2', 'import_row_matching', true),
+          falseCompletionRow('doc-2-1', 'document_sort', false),
+          falseCompletionRow('doc-2-2', 'document_sort', true),
+        ], 2),
+        resultDocument('jev', [
+          falseCompletionRow('import-3-1', 'import_row_matching', false),
+          falseCompletionRow('import-3-2', 'import_row_matching', true),
+          falseCompletionRow('doc-3-1', 'document_sort', false),
+          falseCompletionRow('doc-3-2', 'document_sort', true),
+        ], 3),
+      ],
+      'rules+jev': [],
+    };
+
+    const tables = renderReportTables(groups, 'd'.repeat(64));
+
+    expect(tables).toContain('### Three-run stability and false-completion check');
+    expect(tables).toContain(
+      '| Jev only | Import row matching | 50.0% | 100.0% | 50.0% | 50.0 pp | 1/2 / 0/2 / 1/2 |',
+    );
+    expect(tables).toContain(
+      '| Jev only | Both use cases | — | — | — | — | 1/4 / 1/4 / 2/4 |',
+    );
+  });
+
   it('reproduces the committed report tables from committed results JSON', () => {
     const inputs = loadCommittedReportInputs();
     const expectedTables = renderReportTables(
@@ -65,15 +118,31 @@ describe('agent-eval report generator', () => {
 function resultDocument(
   mode: AgentEvalResultDocument['mode'],
   results: AgentEvalResultRow[],
+  run = 1,
 ): AgentEvalResultDocument {
   return {
     dataset_hash: 'a'.repeat(64),
     mode,
-    run: 1,
+    run,
     provider: mode,
     example_count: results.length,
     confident_auto_threshold: 0.8,
     results,
+  };
+}
+
+function falseCompletionRow(
+  id: string,
+  useCase: AgentEvalResultRow['use_case'],
+  recheckedCorrect: boolean,
+): AgentEvalResultRow {
+  return {
+    ...resultRow(),
+    id,
+    use_case: useCase,
+    rechecked_correct: recheckedCorrect,
+    correct: recheckedCorrect,
+    tags: ['false_completion'],
   };
 }
 
@@ -95,6 +164,7 @@ function resultRow(): AgentEvalResultRow {
     latency_ms: 0,
     input_tokens: null,
     output_tokens: null,
+    estimated_input_tokens: null,
     provider: 'rules',
     error: null,
   };

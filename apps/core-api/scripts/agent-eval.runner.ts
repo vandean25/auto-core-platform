@@ -29,6 +29,7 @@ export type AgentEvalResultRow = {
   tags: string[];
   latency_ms: number | null;
   input_tokens: number | null;
+  estimated_input_tokens: number | null;
   output_tokens: number | null;
   provider: string;
   error: string | null;
@@ -98,6 +99,8 @@ async function evaluateExample(
     tags: example.tags ?? [],
     latency_ms: decision.result?.latency_ms ?? (shouldAskJev ? null : ruleLatencyMs),
     input_tokens: decision.result?.input_tokens ?? null,
+    estimated_input_tokens:
+      decision.result?.estimated_input_tokens ?? null,
     output_tokens: decision.result?.output_tokens ?? null,
     provider: resultProvider(mode, decision.result),
     error: decision.error,
