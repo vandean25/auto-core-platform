@@ -109,7 +109,15 @@ describe('McpWritePipelineService', () => {
       }));
       mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-123' } as any);
 
-      await expect(service.run(execution, input, mockContext)).rejects.toThrow(ForbiddenException);
+      const error = await service
+        .run(execution, input, mockContext)
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect((error as ForbiddenException).getStatus()).toBe(403);
+      expect((error as ForbiddenException).getResponse()).toMatchObject({
+        code: 'not_permitted',
+      });
 
       expect(mockAgentActionLog.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -117,7 +125,8 @@ describe('McpWritePipelineService', () => {
           status: 'REFUSED',
         }),
       );
-      expect(execution.execute).toHaveBeenCalledTimes(1);
+      expect(mockDryRun.executeInRollbackTransaction).not.toHaveBeenCalled();
+      expect(execution.execute).not.toHaveBeenCalled();
     });
 
     it('does not clamp tier for other tools like draft_workshop_order', async () => {
@@ -276,11 +285,11 @@ describe('McpWritePipelineService', () => {
           status: 'REFUSED',
           resultSummary: expect.objectContaining({
             reasons: expect.any(Array),
-            would_change: expect.any(Array),
           }),
         }),
       );
-      expect(execution.execute).toHaveBeenCalledTimes(1);
+      expect(mockDryRun.executeInRollbackTransaction).not.toHaveBeenCalled();
+      expect(execution.execute).not.toHaveBeenCalled();
     });
   });
 

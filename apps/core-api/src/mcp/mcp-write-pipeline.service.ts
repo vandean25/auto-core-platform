@@ -6,7 +6,10 @@ import type { AgentActionRecordInput } from '../agent-action-log/agent-action-lo
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
 import type { WouldChangeItem } from '../dry-run/dry-run.types.js';
-import type { McpWriteToolName } from './mcp.constants.js';
+import {
+  MCP_AGENT_FACING_CODES,
+  type McpWriteToolName,
+} from './mcp.constants.js';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -58,6 +61,23 @@ export class McpWritePipelineService {
     let wouldChange: WouldChangeItem[];
     let preview: unknown;
     let reasons: string[] = [];
+
+    const recordFailure = async (error: unknown) => {
+      await this.agentActionLog.record({
+        actorType: 'AGENT',
+        agentId: context.agentId,
+        onBehalfOfUserId: context.onBehalfOfUserId,
+        actionType,
+        tier,
+        status: 'FAILED',
+        inputSummary,
+        resultSummary: {
+          reasons,
+          error: error instanceof Error ? error.message : 'Write tool failed',
+        },
+      });
+    };
+
     try {
       const policyContext = await execution.buildPolicyContext(input);
       const evaluation = await this.agentPolicy.evaluateAction(
@@ -73,26 +93,8 @@ export class McpWritePipelineService {
       ) {
         tier = AgentPolicyTier.PROPOSE;
       }
-
-      const previewResult = await this.dryRun.executeInRollbackTransaction(() =>
-        execution.execute(input),
-      );
-      preview = previewResult.result;
-      wouldChange = previewResult.wouldChange;
     } catch (error) {
-      await this.agentActionLog.record({
-        actorType: 'AGENT',
-        agentId: context.agentId,
-        onBehalfOfUserId: context.onBehalfOfUserId,
-        actionType,
-        tier,
-        status: 'FAILED',
-        inputSummary,
-        resultSummary: {
-          reasons,
-          error: error instanceof Error ? error.message : 'Write tool failed',
-        },
-      });
+      await recordFailure(error);
       throw error;
     }
 
@@ -103,16 +105,25 @@ export class McpWritePipelineService {
         onBehalfOfUserId: context.onBehalfOfUserId,
         actionType,
         tier,
-        status: 'REFUSED',
+        status: MCP_AGENT_FACING_CODES.refusedLogStatus,
         inputSummary,
-        resultSummary: {
-          reasons,
-          would_change: wouldChange,
-        },
+        resultSummary: { reasons },
       });
-      throw new ForbiddenException(
-        `Action ${execution.policyActionType} requires human approval and was refused.`,
+      throw new ForbiddenException({
+        code: MCP_AGENT_FACING_CODES.notPermitted,
+        message: `${MCP_AGENT_FACING_CODES.notPermitted}: Action ${execution.policyActionType} requires human approval and was refused.`,
+      });
+    }
+
+    try {
+      const previewResult = await this.dryRun.executeInRollbackTransaction(() =>
+        execution.execute(input),
       );
+      preview = previewResult.result;
+      wouldChange = previewResult.wouldChange;
+    } catch (error) {
+      await recordFailure(error);
+      throw error;
     }
 
     if (tier === AgentPolicyTier.PROPOSE) {
@@ -134,7 +145,7 @@ export class McpWritePipelineService {
       return {
         tool: execution.toolName,
         tier,
-        status: 'needs_human_approval',
+        status: MCP_AGENT_FACING_CODES.needsHumanApprovalStatus,
         would_change: wouldChange,
         proposal,
         trace_id: record.traceId,
@@ -159,7 +170,7 @@ export class McpWritePipelineService {
     return {
       tool: execution.toolName,
       tier,
-      status: 'executed',
+      status: MCP_AGENT_FACING_CODES.executedStatus,
       would_change: wouldChange,
       result: record.workResult,
       trace_id: record.traceId,

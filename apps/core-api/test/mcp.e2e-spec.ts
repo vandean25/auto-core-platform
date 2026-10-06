@@ -509,6 +509,7 @@ describe('MCP server (e2e)', () => {
    });
     // Write tool e2e cases
     it('propose_line_item PROPOSE → needs_human_approval, no line item row created, PROPOSED agent_action_log', async () => {
+      await setPolicyTier('workshop_order.propose_line', 'PROPOSE');
       // Arrange: create a workshop task for the workshop order
       const task = await prismaA.workshopTask.create({
         data: {
@@ -634,8 +635,12 @@ describe('MCP server (e2e)', () => {
       await transport.close();
     });
 
-    it('HUMAN_ONLY refuses a write without creating an order and records a REFUSED log', async () => {
-      await setPolicyTier('workshop_order.create', 'HUMAN_ONLY');
+    it('disabled write policy refuses without creating an order and records a REFUSED log', async () => {
+      await request(app.getHttpServer())
+        .put('/api/agent-policy/rules/workshop_order.create')
+        .set('Authorization', adminHeaderA)
+        .send({ tier: 'AUTO', enabled: false })
+        .expect(200);
       const draftVehicle = await createDraftVehicle('draft-human');
 
       const { client, transport } = await connectMcpClient(
@@ -661,6 +666,7 @@ describe('MCP server (e2e)', () => {
         });
 
         expect(result.isError).toBe(true);
+        expect(toolPayloadText(result)).toContain('not_permitted');
         const orders = await prismaA.workshopOrder.count({
           where: {
             customer_id: draftVehicle.customerId,
@@ -685,6 +691,7 @@ describe('MCP server (e2e)', () => {
     });
 
     it('rejects an active INTAKE status for draft_workshop_order without creating an order', async () => {
+      await setPolicyTier('workshop_order.create', 'AUTO');
       const { client, transport } = await connectMcpClient(
         adminHeaderA,
         'e2e-draft-active-status-rejected',
@@ -1033,6 +1040,7 @@ describe('MCP server (e2e)', () => {
     });
 
     it('propose_line_item cannot access a task at another site in the same tenant', async () => {
+      await setPolicyTier('workshop_order.propose_line', 'PROPOSE');
       const mainSite = await prismaA.site.findFirstOrThrow({
         where: { id: await resolveTestMainSiteId(prisma, tenantA) },
         select: { legal_entity_id: true },
