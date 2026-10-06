@@ -16,6 +16,7 @@ import {
 import type { Customer } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
+import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
 
@@ -154,15 +155,27 @@ export default function VehicleSalePage() {
           <span className="text-slate-500">Buyer</span>
           <CustomerSearch value={customer} onChange={setCustomer} />
         </div>
-        <label className="space-y-1 text-sm">
-          <span className="text-slate-500">Sale price (gross)</span>
-          <Input
-            disabled={!isDraft}
-            type="number"
-            value={salePrice}
-            onChange={(event) => setSalePrice(event.target.value)}
-          />
-        </label>
+        <div className="space-y-4">
+          <label className="space-y-1 text-sm">
+            <span className="text-slate-500">Sale price (gross)</span>
+            <Input
+              disabled={!isDraft}
+              type="number"
+              value={salePrice}
+              onChange={(event) => setSalePrice(event.target.value)}
+            />
+          </label>
+          {vehicle ? (
+            <NovaPreviewPanel
+              vehicleId={vehicle.id}
+              firstRegistrationDate={vehicle.first_registration_date ?? null}
+              co2Wltp={vehicle.co2_wltp_g_km ?? null}
+              co2Nedc={vehicle.co2_nedc_g_km ?? null}
+              typenscheinNo={vehicle.typenschein_no ?? null}
+              novaClass={vehicle.nova_class ?? null}
+            />
+          ) : null}
+        </div>
       </div>
 
       <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">

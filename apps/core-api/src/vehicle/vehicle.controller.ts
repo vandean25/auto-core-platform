@@ -16,7 +16,17 @@ import {
   Query,
   Header,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiCreatedResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiExtraModels,
+  getSchemaPath,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiQuery,
+  ApiUnprocessableEntityResponse,
+  ApiOperation,
+} from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service.js';
 import { VehicleIdentityService } from './vehicle-identity.service.js';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
@@ -26,13 +36,64 @@ import {
   VehicleResponseDto,
 } from './dto/vehicle-response.dto.js';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
+import { NovaCalculationService } from './nova-calculation.service.js';
+import {
+  NovaCalculateRequestDto,
+  NovaCalculateResponseDto,
+  NovaCalculationErrorResponseDto,
+} from './dto/nova-calculate.dto.js';
 
 @Controller('vehicles')
 export class VehicleController {
   constructor(
     private readonly vehicleService: VehicleService,
     private readonly vehicleIdentityService: VehicleIdentityService,
+    private readonly novaCalculationService: NovaCalculationService,
   ) {}
+
+  @Post('nova/calculate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Calculate a NoVA preview for vehicle inputs' })
+  @ApiExtraModels(NovaCalculateRequestDto)
+  @ApiBody({
+    schema: {
+      anyOf: [
+        {
+          allOf: [
+            { $ref: getSchemaPath(NovaCalculateRequestDto) },
+            {
+              type: 'object',
+              properties: { vehicleId: { type: 'string', format: 'uuid' } },
+              required: ['vehicleId'],
+            },
+          ],
+        },
+        {
+          allOf: [
+            { $ref: getSchemaPath(NovaCalculateRequestDto) },
+            {
+              type: 'object',
+              properties: {
+                emissionCycle: { type: 'string', enum: ['WLTP', 'NEDC'] },
+                driveType: {
+                  type: 'string',
+                  enum: ['BEV', 'FCEV', 'PHEV', 'ICE', 'OTHER'],
+                },
+                taxableEventDate: { type: 'string', format: 'date' },
+              },
+              required: ['emissionCycle', 'driveType', 'taxableEventDate'],
+            },
+          ],
+        },
+      ],
+    },
+  })
+  @ApiOkResponse({ type: NovaCalculateResponseDto })
+  @ApiUnprocessableEntityResponse({ type: NovaCalculationErrorResponseDto })
+  @ApiNotFoundResponse({ description: 'Vehicle was not found' })
+  calculateNova(@Body() request: NovaCalculateRequestDto) {
+    return this.novaCalculationService.calculate(request);
+  }
 
   @Get('pickerl-due')
   @ApiOkResponse({ type: PickerlDuePaginatedResponseDto })

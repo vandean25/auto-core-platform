@@ -44,10 +44,14 @@ tags:
 
 | Follow-up | Description |
 |-----------|-------------|
-| **API endpoint** | REST/OpenAPI `POST /vehicles/nova/calculate` |
-| **Vehicle UI** | NoVA preview on vehicle stock / sale flows |
+| **API endpoint** | Complete in AUT-405: REST/OpenAPI `POST /vehicles/nova/calculate` |
+| **Vehicle UI** | Complete in AUT-405: NoVA preview on vehicle detail and vehicle sale |
 | **Invoice lines** | Snapshot NoVA on `InvoiceItem` |
 | **NOVA 1 export** | FinanzOnline / NOVA 1 filing payload |
+
+## Calculate endpoint (AUT-405)
+
+`POST /api/vehicles/nova/calculate` is tenant-authenticated and read-only. Send the engine inputs directly with `netPriceEuro`, or send `vehicleId` and `netPriceEuro`; vehicle mode fills missing CO₂, cycle, drive type, class, first-registration date, and power from the tenant-owned vehicle. An omitted taxable event date defaults to the current `Europe/Vienna` calendar date, while an explicit value takes precedence. Any explicit engine fields take precedence over vehicle values. Dealer-stock vehicles must have a lot on the active site; customer vehicles remain tenant-scoped. The response contains `novaAmountEuro`, `appliedRuleIds`, `tariffVersionId`, `warnings`, `hasUnverifiedRules`, `ratePercentApplied`, and `effectiveCo2GramsPerKm`. Engine calculation errors return HTTP 422 with their stable `NovaCalculationErrorCode`; an unknown, unauthorized-site, or other-tenant vehicle returns 404.
 
 ---
 

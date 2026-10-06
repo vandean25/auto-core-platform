@@ -172,6 +172,15 @@ describe('calculateNova', () => {
     expect(row?.id).toBe('at-m1-2024');
   });
 
+  it('rejects trailing text after an ISO taxable event date', () => {
+    expect(() =>
+      calculateNova(
+        { ...baseInput, taxableEventDate: '2025-03-01junk', co2GramsPerKm: 120 },
+        T,
+      ),
+    ).toThrow(expect.objectContaining({ code: 'INVALID_ISO_DATE' }));
+  });
+
   it('resolves 2025 H2 from July', () => {
     const row = resolveTariffVersion('passenger_z3', '2025-08-01');
     expect(row?.id).toBe('at-m1-2025-h2');
