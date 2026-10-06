@@ -20,8 +20,19 @@ const MAX_SHADOW_ROWS_PER_IMPORT = 50;
 
 export type ImportRowMatchingCandidate = {
   id: string;
-  customer: Customer;
+  identity: CustomerIdentity;
 };
+
+type CustomerIdentity = Pick<
+  NormalizedCustomerRow,
+  | 'type'
+  | 'company_name'
+  | 'first_name'
+  | 'last_name'
+  | 'email'
+  | 'phone'
+  | 'vat_id'
+>;
 
 @Injectable()
 export class DecisionUseCaseHooksService {
@@ -37,6 +48,7 @@ export class DecisionUseCaseHooksService {
     normalizedRow: NormalizedCustomerRow;
     customers: Customer[];
     identitySalt: Buffer;
+    sameFileRows: DryRunRowResult[];
   }): void {
     const ambiguous = params.row.warnings.some(
       (warning) => warning.code === 'IMPORT_POSSIBLE_DUPLICATE',
@@ -46,8 +58,11 @@ export class DecisionUseCaseHooksService {
     }
 
     const nameKey = customerNameKey(params.normalizedRow);
-    const candidates = buildCustomerCandidates(nameKey, params.customers);
-    if (candidates.length < 1) {
+    const candidates = [
+      ...buildCustomerCandidates(nameKey, params.customers),
+      ...buildSameFileCandidates(nameKey, params.sameFileRows),
+    ].slice(0, 5);
+    if (candidates.length === 0) {
       return;
     }
 
@@ -72,49 +87,17 @@ export class DecisionUseCaseHooksService {
       input: {
         row: {
           type: params.normalizedRow.type,
-          identity_fingerprints: {
-            name: hashIdentity('name', nameKey, params.identitySalt),
-            email: hashOptionalIdentity(
-              'email',
-              params.normalizedRow.email,
-              params.identitySalt,
-            ),
-            phone: hashOptionalIdentity(
-              'phone',
-              params.normalizedRow.phone,
-              params.identitySalt,
-            ),
-            vat: hashOptionalIdentity(
-              'vat',
-              params.normalizedRow.vat_id,
-              params.identitySalt,
-            ),
-          },
+          match_features: buildMatchFeatures(
+            params.normalizedRow,
+            params.identitySalt,
+          ),
         },
         candidates: candidates.map((candidate, index) => ({
           choice: candidateChoices[index],
-          identity_fingerprints: {
-            name: hashIdentity(
-              'name',
-              customerNameKeyFromRecord(candidate.customer),
-              params.identitySalt,
-            ),
-            email: hashOptionalIdentity(
-              'email',
-              candidate.customer.email,
-              params.identitySalt,
-            ),
-            phone: hashOptionalIdentity(
-              'phone',
-              candidate.customer.phone,
-              params.identitySalt,
-            ),
-            vat: hashOptionalIdentity(
-              'vat',
-              candidate.customer.vat_id,
-              params.identitySalt,
-            ),
-          },
+          match_features: buildMatchFeatures(
+            candidate.identity,
+            params.identitySalt,
+          ),
         })),
       },
       choices: [...candidateChoices, createChoice],
@@ -183,6 +166,12 @@ export class DecisionUseCaseHooksService {
         normalizedRow,
         customers,
         identitySalt,
+        sameFileRows: rows.filter(
+          (candidate) =>
+            candidate.row_no < row.row_no &&
+            candidate.action === 'CREATE' &&
+            candidate.normalized !== null,
+        ),
       });
     }
   }
@@ -203,7 +192,37 @@ function buildCustomerCandidates(
     .slice(0, 5);
   return matches.map((customer) => ({
     id: customer.id,
-    customer,
+    identity: customer,
+  }));
+}
+
+function buildSameFileCandidates(
+  nameKey: string,
+  rows: DryRunRowResult[],
+): ImportRowMatchingCandidate[] {
+  return rows
+    .filter((row) => {
+      const normalized = row.normalized as NormalizedCustomerRow | null;
+      return normalized !== null && customerNameKey(normalized) === nameKey;
+    })
+    .map((row) => ({
+      id: `import-row-${row.row_no}`,
+      identity: row.normalized as NormalizedCustomerRow,
+    }));
+}
+
+function buildMatchFeatures(
+  identity: CustomerIdentity,
+  salt: Buffer,
+): Array<{ kind: string; token: string | null }> {
+  return [
+    { kind: 'name', value: customerNameKeyFromRecord(identity) },
+    { kind: 'email', value: identity.email },
+    { kind: 'phone', value: identity.phone },
+    { kind: 'vat', value: identity.vat_id },
+  ].map(({ kind, value }) => ({
+    kind,
+    token: hashOptionalIdentity(kind, value, salt),
   }));
 }
 
@@ -225,7 +244,7 @@ function hashOptionalIdentity(
     : null;
 }
 
-function customerNameKeyFromRecord(customer: Customer): string {
+function customerNameKeyFromRecord(customer: CustomerIdentity): string {
   if (customer.type === 'COMPANY' && customer.company_name) {
     return `company:${customer.company_name.trim().toLowerCase()}`;
   }

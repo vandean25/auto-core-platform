@@ -90,7 +90,11 @@ describe('DecisionShadowService', () => {
       traceId: '00000000-0000-4000-8000-00000000aa01',
       useCase: DECISION_USE_CASES.IMPORT_ROW_MATCHING,
       input: {
-        row: { first_name: 'Synthetic First', email: 'person@example.org' },
+        row: {
+          first_name: 'Synthetic First',
+          email: 'person@example.org',
+          match_features: [{ kind: 'email', token: 'opaque-email-hash' }],
+        },
         candidates: [{ id: 'customer-123', label: 'Synthetic Last' }],
       },
       choices: ['customer-123', '__create_new__'],
@@ -102,7 +106,11 @@ describe('DecisionShadowService', () => {
     expect(decide).toHaveBeenCalledWith(
       expect.objectContaining({
         input: {
-          row: { first_name: '[REDACTED]', email: '[REDACTED]' },
+          row: {
+            first_name: '[REDACTED]',
+            email: '[REDACTED]',
+            match_features: [{ kind: 'email', token: 'opaque-email-hash' }],
+          },
           candidates: [{ id: 'choice_1', label: '[REDACTED]' }],
         },
         choices: ['choice_1', 'choice_2'],

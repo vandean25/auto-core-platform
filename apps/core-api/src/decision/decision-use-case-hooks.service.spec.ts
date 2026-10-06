@@ -84,6 +84,44 @@ describe('DecisionUseCaseHooksService', () => {
     expect(scheduled.actualOutcome.choice).toBe('choice_1');
   });
 
+  it('includes prior same-file creates when no stored customer matches', async () => {
+    isShadowEnabled.mockReturnValue(true);
+    findMany.mockResolvedValue([]);
+    const service = buildService();
+    const priorRow = {
+      ...ambiguousCustomerRow(1),
+      action: 'CREATE',
+      entity_id: null,
+      warnings: [],
+    };
+    const duplicateRow = {
+      ...ambiguousCustomerRow(2),
+      action: 'CREATE',
+      entity_id: null,
+    };
+
+    await service.scheduleCustomerImportDryRunShadows('tenant-1', undefined, [
+      priorRow,
+      duplicateRow,
+    ]);
+
+    expect(scheduleShadow).toHaveBeenCalledTimes(1);
+    expect(scheduleShadow.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        choices: ['choice_1', 'create_new'],
+        actualOutcome: expect.objectContaining({ choice: 'create_new' }),
+        input: expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              choice: 'choice_1',
+              match_features: expect.any(Array),
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it('sends document sort signals instead of extracted text', () => {
     const service = buildService();
 
