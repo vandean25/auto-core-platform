@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
 } from './tenant-test-utils.js';
@@ -87,7 +88,7 @@ describe('Decision shadow mode (e2e)', () => {
     process.env.DECISION_SHADOW_ENABLED = 'true';
     decide.mockRejectedValue(new Error('provider down'));
 
-    await prisma.customer.create({
+    await createTenantAwarePrisma(prisma, tenant.tenantId).customer.create({
       data: {
         tenant_id: tenant.tenantId,
         first_name: 'Erika',
