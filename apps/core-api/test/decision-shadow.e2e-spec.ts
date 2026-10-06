@@ -87,6 +87,15 @@ describe('Decision shadow mode (e2e)', () => {
     process.env.DECISION_SHADOW_ENABLED = 'true';
     decide.mockRejectedValue(new Error('provider down'));
 
+    await prisma.customer.create({
+      data: {
+        tenant_id: tenant.tenantId,
+        first_name: 'Erika',
+        last_name: 'Mustermann',
+        email: 'existing-erika@example.org',
+      },
+    });
+
     await request(app.getHttpServer())
       .post('/imports')
       .set('Authorization', authHeader)
