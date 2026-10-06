@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hashAgentEvalDataset } from './agent-eval.dataset.js';
 import { createDecisionProvider } from '../src/decision/decision-provider.factory.js';
 import type {
   AgentEvalExampleInput,
@@ -46,7 +46,7 @@ async function main(args = process.argv.slice(2), env = process.env) {
   }
 
   const rawDataset = readFileSync(fixturePath, 'utf8');
-  const datasetHash = createHash('sha256').update(rawDataset).digest('hex');
+  const datasetHash = hashAgentEvalDataset(rawDataset);
   const examples = parseExamples(rawDataset);
   const provider =
     options.mode === 'rules'

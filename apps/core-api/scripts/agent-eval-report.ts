@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { hashAgentEvalDataset } from './agent-eval.dataset.js';
 import type {
   AgentEvalMode,
   AgentEvalResultRow,
@@ -59,9 +59,7 @@ export type CommittedReportInputs = {
 };
 
 export function loadCommittedReportInputs(): CommittedReportInputs {
-  const datasetHash = createHash('sha256')
-    .update(readFileSync(fixturePath, 'utf8').replace(/\r\n/g, '\n'))
-    .digest('hex');
+  const datasetHash = hashAgentEvalDataset(readFileSync(fixturePath, 'utf8'));
   const resultDirectory = join(resultsRoot, datasetHash);
   const resultGroups: AgentEvalResultGroup = {
     rules: [],
