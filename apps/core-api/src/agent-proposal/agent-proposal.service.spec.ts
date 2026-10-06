@@ -12,6 +12,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { AgentProposalService } from './agent-proposal.service.js';
+import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 
 describe('AgentProposalService', () => {
   const tenantId = '00000000-0000-0000-0000-000000000001';
@@ -25,6 +26,10 @@ describe('AgentProposalService', () => {
   let mockAgentPolicyService: any;
   let mockAgentActionLog: any;
   let mockSiteContext: any;
+  let mockDryRun: any;
+  let mockPendingActionExecutors: any;
+  let mockWorkshopIntake: any;
+  let mockPartsRequisition: any;
 
   beforeEach(() => {
     mockTenantContext = {
@@ -40,6 +45,12 @@ describe('AgentProposalService', () => {
     mockSiteContext = {
       getSiteId: jest.fn().mockResolvedValue('site-1'),
     };
+    mockWorkshopIntake = { create: jest.fn().mockResolvedValue({ id: 'order-1' }) };
+    mockPartsRequisition = {
+      createOnHandReservation: jest.fn().mockResolvedValue({ id: 'reservation-1' }),
+      releaseReservation: jest.fn().mockResolvedValue({ id: 'reservation-1' }),
+    };
+    mockDryRun = { executeInRollbackTransaction: jest.fn() };
 
     mockPrisma = {
       $transaction: jest.fn().mockImplementation(async (callback) => {
@@ -110,12 +121,21 @@ describe('AgentProposalService', () => {
       }),
     };
 
+    mockPendingActionExecutors = new PendingActionExecutorService(
+      mockPrisma,
+      mockTenantContext,
+      mockSiteContext,
+      mockWorkshopIntake,
+      mockPartsRequisition,
+    );
     service = new AgentProposalService(
       mockPrisma,
       mockTenantContext,
       mockAgentPolicyService,
       mockAgentActionLog,
       mockSiteContext,
+      mockDryRun,
+      mockPendingActionExecutors,
     );
   });
 
@@ -141,7 +161,103 @@ describe('AgentProposalService', () => {
     ...overrides,
   });
 
+  describe('submitPendingAction', () => {
+    it('simulates and persists a PROPOSE action without accepting client policy metadata', async () => {
+      const payload = {
+        order_id: 'wo-1',
+        amount_eur: 50,
+        description: 'Fabricated brake inspection',
+      };
+      mockDryRun.executeInRollbackTransaction.mockResolvedValue({
+        result: { entityId: 'line-preview' },
+        wouldChange: [{ type: 'create', entity: 'WorkshopTaskLineItem' }],
+      });
+      mockPrisma.agentProposal.create.mockResolvedValue(createMockProposal({
+        payload_json: payload,
+        preview_json: { result: { entityId: 'line-preview' }, would_change: [] },
+      }));
+
+      await service.submitPendingAction({
+        action_type: 'workshop_order.add_line',
+        payload_json: payload,
+      });
+
+      expect(mockAgentPolicyService.evaluate).toHaveBeenCalledWith(
+        expect.objectContaining({ action_type: 'workshop_order.add_line' }),
+        { skipAdminCheck: true },
+      );
+      expect(mockDryRun.executeInRollbackTransaction).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.agentProposal.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          tenant_id: tenantId,
+          action_type: 'workshop_order.add_line',
+          payload_json: payload,
+          tier: AgentPolicyTier.PROPOSE,
+          status: AgentProposalStatus.PENDING,
+          trace_id: expect.any(String),
+        }),
+      });
+    });
+
+    it('does not persist actions that current policy marks HUMAN_ONLY', async () => {
+      mockAgentPolicyService.evaluate.mockResolvedValue({
+        tier: AgentPolicyTier.HUMAN_ONLY,
+        reasons: ['human_only'],
+      });
+
+      await expect(service.submitPendingAction({
+        action_type: 'workshop_order.add_line',
+        payload_json: { order_id: 'wo-1' },
+      })).rejects.toThrow(UnprocessableEntityException);
+
+      expect(mockDryRun.executeInRollbackTransaction).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.create).not.toHaveBeenCalled();
+    });
+
+    it('stores the server-resolved site for workshop-order creation', async () => {
+      mockDryRun.executeInRollbackTransaction.mockResolvedValue({
+        result: { id: 'order-preview', site_id: 'site-1' },
+        wouldChange: [{ type: 'create', entity: 'WorkshopOrder' }],
+      });
+      mockPrisma.agentProposal.create.mockResolvedValue(
+        createMockProposal({
+          action_type: 'workshop_order.create',
+          preview_json: {
+            execution_context: { site_id: 'site-1' },
+          },
+        }),
+      );
+
+      await service.submitPendingAction({
+        action_type: 'workshop_order.create',
+        payload_json: {
+          vehicle_id: '00000000-0000-4000-8000-000000000002',
+          status: 'SCHEDULED',
+        },
+      });
+
+      expect(mockPrisma.agentProposal.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          preview_json: expect.objectContaining({
+            execution_context: { site_id: 'site-1' },
+          }),
+        }),
+      });
+    });
+  });
+
   describe('listProposals', () => {
+    it('returns the originating agent for a pending MCP proposal', async () => {
+      mockPrisma.agentProposal.findMany.mockResolvedValue([
+        createMockProposal({ created_by_agent: 'agent-fixture-1' }),
+      ]);
+
+      const result = await service.listProposals({});
+      const response = result.data[0] as unknown as Record<string, unknown>;
+
+      expect(response.created_by_agent).toBe('agent-fixture-1');
+    });
+
     it('lazily expires pending proposals past expiration and returns proposals', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
@@ -239,6 +355,29 @@ describe('AgentProposalService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].status).toBe(AgentProposalStatus.PENDING);
+    });
+  });
+
+  describe('batchApplyProposals', () => {
+    it('returns independent outcomes when one proposal fails', async () => {
+      jest.spyOn(service, 'approveProposal').mockImplementation(async (id) => {
+        if (id === 'bad-id') throw new ConflictException('already claimed');
+        return createMockProposal({ id }) as any;
+      });
+
+      const result = await service.batchApplyProposals({
+        ids: ['good-id', 'bad-id'],
+      });
+
+      expect(result.results).toEqual([
+        expect.objectContaining({ id: 'good-id', status: 'applied' }),
+        expect.objectContaining({
+          id: 'bad-id',
+          status: 'failed',
+          error: 'already claimed',
+        }),
+      ]);
+      expect(service.approveProposal).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -434,6 +573,24 @@ describe('AgentProposalService', () => {
   });
 
   describe('approveProposal', () => {
+    it('refuses workshop-order apply when the active site differs from the simulation site', async () => {
+      mockSiteContext.getSiteId.mockResolvedValue('site-2');
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(
+        createMockProposal({
+          action_type: 'workshop_order.create',
+          preview_json: {
+            execution_context: { site_id: 'site-1' },
+          },
+        }),
+      );
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Select the site where this action was simulated before applying it',
+      );
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+      expect(mockWorkshopIntake.create).not.toHaveBeenCalled();
+    });
+
     it('re-evaluates policy, atomically locks, executes payload, logs action, and marks EXECUTED', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst
@@ -887,12 +1044,17 @@ describe('AgentProposalService', () => {
         where: { id: 'wo-1', tenant_id: tenantId, site_id: 'site-1' },
         include: {
           tasks: {
+            where: {
+              tenant_id: tenantId,
+              workshop_order: { tenant_id: tenantId, site_id: 'site-1' },
+            },
             orderBy: { createdAt: 'asc' },
           },
         },
       });
 
-      expect(mockPrisma.workshopTaskLineItem.create).toHaveBeenCalledWith({
+      const lineItemCreate = mockPrisma.workshopTaskLineItem.create.mock.calls[0][0];
+      expect(lineItemCreate).toMatchObject({
         data: {
           tenant_id: tenantId,
           workshop_task_id: 'task-1',
@@ -901,7 +1063,10 @@ describe('AgentProposalService', () => {
           description: 'Engine Oil Filter',
           quantity: expect.any(Prisma.Decimal),
           unit_price: expect.any(Prisma.Decimal),
+          part_execution_status: 'PENDING_PICK',
+          labor_operation_id: null,
         },
+        select: { id: true },
       });
 
       expect(result.status).toBe(AgentProposalStatus.EXECUTED);
@@ -930,6 +1095,7 @@ describe('AgentProposalService', () => {
 
       expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
         where: { id: 'cust-1', tenant_id: tenantId },
+        select: { id: true },
       });
 
       expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({

@@ -172,6 +172,7 @@ model AgentProposal {
   action_type  String
   payload_json Json
   preview_json Json?
+  created_by_agent String?
   tier         AgentPolicyTier     @default(PROPOSE)
   status       AgentProposalStatus @default(PENDING)
   decided_by   String?

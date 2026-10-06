@@ -13,6 +13,8 @@ describe('AgentProposalController', () => {
       approveProposal: jest.fn().mockResolvedValue({ id: 'p-1', status: 'EXECUTED' }),
       rejectProposal: jest.fn().mockResolvedValue({ id: 'p-1', status: 'REJECTED' }),
       createProposal: jest.fn().mockResolvedValue({ id: 'p-1', status: 'PENDING' }),
+      submitPendingAction: jest.fn().mockResolvedValue({ id: 'p-1', status: 'PENDING' }),
+      batchApplyProposals: jest.fn().mockResolvedValue({ results: [] }),
     };
 
     mockAuth = {
@@ -49,5 +51,24 @@ describe('AgentProposalController', () => {
     expect(mockAuth.assertSupervisor).toHaveBeenCalled();
     expect(mockService.createProposal).toHaveBeenCalledWith(body);
     expect(result.status).toBe('PENDING');
+  });
+
+  it('delegates apply to service after asserting supervisor access', async () => {
+    await controller.applyProposal('p-1');
+    expect(mockAuth.assertSupervisor).toHaveBeenCalled();
+    expect(mockService.approveProposal).toHaveBeenCalledWith('p-1');
+  });
+
+  it('delegates batch apply to service after asserting supervisor access', async () => {
+    const body = { ids: ['p-1', 'p-2'] };
+    await controller.batchApplyProposals(body);
+    expect(mockAuth.assertSupervisor).toHaveBeenCalled();
+    expect(mockService.batchApplyProposals).toHaveBeenCalledWith(body);
+  });
+
+  it('delegates REST pending submission to service', async () => {
+    const body = { action_type: 'workshop_order.add_line', payload_json: {} };
+    await controller.submitPendingAction(body);
+    expect(mockService.submitPendingAction).toHaveBeenCalledWith(body);
   });
 });

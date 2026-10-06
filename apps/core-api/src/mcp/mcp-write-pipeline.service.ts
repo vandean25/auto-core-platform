@@ -1,6 +1,12 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { AgentPolicyTier } from '@prisma/client';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
+import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import type { AgentActionRecordInput } from '../agent-action-log/agent-action-log.types.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
@@ -22,7 +28,11 @@ export type McpWriteExecution = {
   buildPolicyContext: (
     input: unknown,
   ) => AgentPolicyEvaluateContext | Promise<AgentPolicyEvaluateContext>;
-  execute: (input: unknown) => Promise<unknown>;
+  buildExecutionContext?: () => Promise<Record<string, unknown>>;
+  execute: (
+    input: unknown,
+    executionContext?: Record<string, unknown>,
+  ) => Promise<unknown>;
   buildResultSummary: (result: unknown) => unknown;
   buildLogMetadata?: (
     result: unknown,
@@ -32,10 +42,11 @@ export type McpWriteExecution = {
 export type McpWriteToolResult = {
   tool: McpWriteToolName;
   tier: AgentPolicyTier;
-  status: 'executed' | 'needs_human_approval';
+  status: 'executed' | 'needs_approval';
   would_change: WouldChangeItem[];
   result?: unknown;
   proposal?: unknown;
+  pending_action_id?: string;
   trace_id?: string;
 };
 
@@ -47,6 +58,7 @@ export class McpWritePipelineService {
     private readonly agentPolicy: AgentPolicyService,
     private readonly dryRun: DryRunService,
     private readonly agentActionLog: AgentActionLogService,
+    private readonly agentProposals: AgentProposalService,
   ) {}
 
   async run(
@@ -60,6 +72,7 @@ export class McpWritePipelineService {
     let tier: AgentPolicyTier = AgentPolicyTier.PROPOSE;
     let wouldChange: WouldChangeItem[];
     let preview: unknown;
+    let executionContext: Record<string, unknown> | undefined;
     let reasons: string[] = [];
 
     const recordFailure = async (error: unknown) => {
@@ -116,23 +129,37 @@ export class McpWritePipelineService {
     }
 
     try {
+      executionContext =
+        tier === AgentPolicyTier.PROPOSE
+          ? await execution.buildExecutionContext?.()
+          : undefined;
       const previewResult = await this.dryRun.executeInRollbackTransaction(() =>
-        execution.execute(input),
+        execution.execute(input, executionContext),
       );
       preview = previewResult.result;
       wouldChange = previewResult.wouldChange;
+      if (executionContext?.site_id !== undefined) {
+        const appliedContext = await execution.buildExecutionContext?.();
+        if (appliedContext?.site_id !== executionContext.site_id) {
+          throw new ConflictException(
+            'The active site changed while the pending action was simulated',
+          );
+        }
+      }
     } catch (error) {
       await recordFailure(error);
       throw error;
     }
 
     if (tier === AgentPolicyTier.PROPOSE) {
+      const traceId = randomUUID();
       const proposal = {
         payload: input,
         would_change: wouldChange,
         preview,
       };
       const record = await this.agentActionLog.record({
+        traceId,
         actorType: 'AGENT',
         agentId: context.agentId,
         onBehalfOfUserId: context.onBehalfOfUserId,
@@ -142,12 +169,24 @@ export class McpWritePipelineService {
         inputSummary,
         resultSummary: proposal,
       });
+      const pendingAction = await this.agentProposals.persistPendingAction({
+        action_type: execution.policyActionType,
+        payload_json: input,
+        preview_json: {
+          ...proposal,
+          ...(executionContext ? { execution_context: executionContext } : {}),
+        },
+        tier,
+        trace_id: record.traceId,
+        created_by_agent: context.agentId,
+      });
       return {
         tool: execution.toolName,
         tier,
-        status: MCP_AGENT_FACING_CODES.needsHumanApprovalStatus,
+        status: MCP_AGENT_FACING_CODES.needsApprovalStatus,
         would_change: wouldChange,
         proposal,
+        pending_action_id: pendingAction.id,
         trace_id: record.traceId,
       };
     }

@@ -53,6 +53,7 @@ const mockProposal: AgentProposal = {
     amount_eur: null,
   },
   preview_json: { description: 'Brake pads' },
+  created_by_agent: null,
   decided_by: null,
   decided_at: null,
   reason: null,

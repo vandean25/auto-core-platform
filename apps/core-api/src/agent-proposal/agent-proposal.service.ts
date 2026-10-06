@@ -9,7 +9,6 @@ import {
   AgentPolicyTier,
   AgentProposalStatus,
   Prisma,
-  WorkshopLineItemType,
   type AgentProposal,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -19,16 +18,20 @@ import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.ty
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { DryRunService } from '../dry-run/dry-run.service.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 import { requireActiveCurrentUser } from '../site/site.authorization.js';
 import { assertSupervisorAccess } from './agent-proposal.authorization.js';
-import { assertOrderEditable } from '../workshop/workshop-order.helpers.js';
-import { incrementTaskLineItemsVersion } from '../workshop/workshop-task-line-items.helpers.js';
 import type {
+  BatchApplyAgentProposalsDto,
+  BatchApplyAgentProposalsResponseDto,
   AgentProposalListResponseDto,
   AgentProposalResponseDto,
   CreateAgentProposalDto,
   QueryAgentProposalsDto,
   RejectAgentProposalDto,
+  SubmitPendingAgentActionDto,
 } from './dto/agent-proposal.dto.js';
 
 @Injectable()
@@ -39,6 +42,8 @@ export class AgentProposalService {
     private readonly agentPolicyService: AgentPolicyService,
     private readonly agentActionLog: AgentActionLogService,
     private readonly siteContext: SiteContextService,
+    private readonly dryRun: DryRunService,
+    private readonly pendingActionExecutors: PendingActionExecutorService,
   ) {}
 
   async listProposals(
@@ -180,7 +185,9 @@ export class AgentProposalService {
         {
           traceId: proposal.trace_id,
           actorType: 'USER',
-          agentId: this.getOriginatingAgentId(proposal.payload_json),
+          agentId:
+            proposal.created_by_agent ??
+            this.getOriginatingAgentId(proposal.payload_json),
           onBehalfOfUserId: currentUser.id,
           actionType: proposal.action_type,
           tier: 'PROPOSE',
@@ -282,10 +289,50 @@ export class AgentProposalService {
       );
     }
 
-    const policyContext = this.extractPolicyContext(
-      proposal.payload_json,
-      proposal.action_type,
-    );
+    let executor: ReturnType<PendingActionExecutorService['resolve']>;
+    try {
+      executor = this.pendingActionExecutors.resolve(proposal.action_type);
+    } catch (error) {
+      await this.prisma.$transaction(async (tx) => {
+        const failed = await tx.agentProposal.updateMany({
+          where: {
+            id: proposal.id,
+            tenant_id: tenantId,
+            status: AgentProposalStatus.PENDING,
+          },
+          data: {
+            status: AgentProposalStatus.FAILED,
+            reason:
+              error instanceof Error ? error.message : 'Unsupported action',
+          },
+        });
+        if (failed.count === 0) return;
+        await this.agentActionLog.recordInTransaction(
+          {
+            traceId: proposal.trace_id,
+            actorType: 'USER',
+            agentId:
+              proposal.created_by_agent ??
+              this.getOriginatingAgentId(proposal.payload_json),
+            onBehalfOfUserId: currentUser.id,
+            actionType: proposal.action_type,
+            tier: 'PROPOSE',
+            status: 'FAILED',
+            inputSummary: { proposalId: proposal.id },
+            resultSummary: {
+              error:
+                error instanceof Error ? error.message : 'Unsupported action',
+            },
+          },
+          tx,
+        );
+      });
+      throw error;
+    }
+    const policyContext =
+      proposal.action_type === 'workshop_order.add_line'
+        ? this.extractPolicyContext(proposal.payload_json, proposal.action_type)
+        : await executor.buildPolicyContext(proposal.payload_json);
     const evalResult = await this.agentPolicyService.evaluate(
       {
         action_type: proposal.action_type,
@@ -299,6 +346,30 @@ export class AgentProposalService {
         'Action requires human execution or exceeds policy limits: ' +
           evalResult.reasons.join(', '),
       );
+    }
+
+    if (proposal.action_type === 'workshop_order.create') {
+      const preview = proposal.preview_json;
+      const executionContext =
+        preview && typeof preview === 'object' && !Array.isArray(preview)
+          ? (preview as Record<string, unknown>).execution_context
+          : undefined;
+      const intendedSiteId =
+        executionContext &&
+        typeof executionContext === 'object' &&
+        !Array.isArray(executionContext) &&
+        typeof (executionContext as Record<string, unknown>).site_id ===
+          'string'
+          ? (executionContext as Record<string, string>).site_id
+          : undefined;
+      if (
+        !intendedSiteId ||
+        (await this.siteContext.getSiteId()) !== intendedSiteId
+      ) {
+        throw new UnprocessableEntityException(
+          'Select the site where this action was simulated before applying it',
+        );
+      }
     }
 
     const now = new Date();
@@ -325,7 +396,9 @@ export class AgentProposalService {
           {
             traceId: proposal.trace_id,
             actorType: 'USER',
-            agentId: this.getOriginatingAgentId(proposal.payload_json),
+            agentId:
+              proposal.created_by_agent ??
+              this.getOriginatingAgentId(proposal.payload_json),
             onBehalfOfUserId: currentUser.id,
             actionType: proposal.action_type,
             tier: 'PROPOSE',
@@ -342,11 +415,18 @@ export class AgentProposalService {
           },
           tx,
           () =>
-            this.dispatchActionPayload(
-              proposal.action_type,
-              proposal.payload_json,
-              tenantId,
-              tx,
+            DryRunStorage.run({ isDryRun: false, tx }, () =>
+              executor.execute(
+                proposal.payload_json,
+                proposal.action_type === 'workshop_order.create'
+                  ? {
+                      site_id: (
+                        (proposal.preview_json as Record<string, unknown>)
+                          .execution_context as Record<string, unknown>
+                      ).site_id,
+                    }
+                  : undefined,
+              ),
             ),
         );
 
@@ -417,7 +497,9 @@ export class AgentProposalService {
               {
                 traceId: proposal.trace_id,
                 actorType: 'USER',
-                agentId: this.getOriginatingAgentId(proposal.payload_json),
+                agentId:
+                  proposal.created_by_agent ??
+                  this.getOriginatingAgentId(proposal.payload_json),
                 onBehalfOfUserId: currentUser.id,
                 actionType: proposal.action_type,
                 tier: 'PROPOSE',
@@ -438,6 +520,27 @@ export class AgentProposalService {
       }
       throw error;
     }
+  }
+
+  async batchApplyProposals(
+    dto: BatchApplyAgentProposalsDto,
+  ): Promise<BatchApplyAgentProposalsResponseDto> {
+    assertSupervisorAccess(this.tenantContext);
+    const results = await Promise.all(
+      dto.ids.map(async (id) => {
+        try {
+          const proposal = await this.approveProposal(id);
+          return { id, status: 'applied' as const, proposal };
+        } catch (error) {
+          return {
+            id,
+            status: 'failed' as const,
+            error: error instanceof Error ? error.message : 'Apply failed',
+          };
+        }
+      }),
+    );
+    return { results };
   }
 
   async createProposal(
@@ -464,6 +567,93 @@ export class AgentProposalService {
     return this.toResponseDto(created);
   }
 
+  async persistPendingAction(input: {
+    action_type: string;
+    payload_json: unknown;
+    preview_json: unknown;
+    tier: AgentPolicyTier;
+    trace_id: string;
+    created_by_agent?: string;
+  }): Promise<AgentProposalResponseDto> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const created = await this.prisma.agentProposal.create({
+      data: {
+        tenant_id: tenantId,
+        trace_id: input.trace_id,
+        action_type: input.action_type,
+        payload_json: input.payload_json as Prisma.InputJsonValue,
+        preview_json: input.preview_json as Prisma.InputJsonValue,
+        tier: input.tier,
+        status: AgentProposalStatus.PENDING,
+        created_by_agent: input.created_by_agent ?? null,
+      },
+    });
+    return this.toResponseDto(created);
+  }
+
+  async submitPendingAction(
+    dto: SubmitPendingAgentActionDto,
+  ): Promise<AgentProposalResponseDto> {
+    const actionType = dto.action_type;
+    const executor = this.pendingActionExecutors.resolve(actionType);
+    const policyContext =
+      actionType === 'workshop_order.add_line'
+        ? this.extractPolicyContext(dto.payload_json, actionType)
+        : await executor.buildPolicyContext(dto.payload_json);
+    const evaluation = await this.agentPolicyService.evaluate(
+      { action_type: actionType, context: policyContext },
+      { skipAdminCheck: true },
+    );
+    if (evaluation.tier !== AgentPolicyTier.PROPOSE) {
+      throw new UnprocessableEntityException(
+        'Only actions currently evaluated as PROPOSE can be submitted for approval',
+      );
+    }
+
+    const intendedSiteId =
+      actionType === 'workshop_order.create'
+        ? await this.siteContext.getSiteId()
+        : undefined;
+    const executionContext = intendedSiteId
+      ? { site_id: intendedSiteId }
+      : undefined;
+    const simulation = await this.dryRun.executeInRollbackTransaction(() =>
+      executor.execute(dto.payload_json, executionContext),
+    );
+    if (
+      intendedSiteId &&
+      (await this.siteContext.getSiteId()) !== intendedSiteId
+    ) {
+      throw new UnprocessableEntityException(
+        'The active site changed while the pending action was simulated',
+      );
+    }
+    const traceId = randomUUID();
+    await this.agentActionLog.record({
+      traceId,
+      actorType: 'USER',
+      onBehalfOfUserId: this.tenantContext.getAuthenticatedUser()?.userId,
+      actionType,
+      tier: AgentPolicyTier.PROPOSE,
+      status: 'PROPOSED',
+      inputSummary: { payload: dto.payload_json },
+      resultSummary: { would_change: simulation.wouldChange },
+    });
+    return this.persistPendingAction({
+      action_type: actionType,
+      payload_json: dto.payload_json,
+      preview_json: {
+        result: simulation.result,
+        would_change: simulation.wouldChange,
+        ...(intendedSiteId
+          ? { execution_context: { site_id: intendedSiteId } }
+          : {}),
+      },
+      tier: AgentPolicyTier.PROPOSE,
+      trace_id: traceId,
+    });
+  }
+
   resolveLineItemFinancials(record: Record<string, unknown>): {
     unitPrice: number;
     totalAmount: number;
@@ -480,10 +670,19 @@ export class AgentProposalService {
       return {};
     }
     const record = payload as Record<string, unknown>;
+    const policyRecord =
+      record.line_item &&
+      typeof record.line_item === 'object' &&
+      !Array.isArray(record.line_item)
+        ? { ...record, ...(record.line_item as Record<string, unknown>) }
+        : record;
     const context: AgentPolicyEvaluateContext = {};
 
-    if (actionType === 'workshop_order.add_line') {
-      const financials = resolveLineItemFinancials(record);
+    if (
+      actionType === 'workshop_order.add_line' ||
+      actionType === 'workshop_order.propose_line'
+    ) {
+      const financials = resolveLineItemFinancials(policyRecord);
       context.amount_eur = financials.totalAmount;
     } else {
       let amountEur: number | undefined;
@@ -560,217 +759,6 @@ export class AgentProposalService {
     return context;
   }
 
-  private async dispatchActionPayload(
-    actionType: string,
-    payload: unknown,
-    tenantId: string,
-    tx: Prisma.TransactionClient,
-  ): Promise<Record<string, unknown>> {
-    const record =
-      payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>)
-        : {};
-
-    switch (actionType) {
-      case 'workshop_order.add_line': {
-        const orderId =
-          (record.order_id as string | undefined) ??
-          (record.orderId as string | undefined) ??
-          (record.workshop_order_id as string | undefined) ??
-          (record.workshopOrderId as string | undefined);
-        if (!orderId) {
-          throw new BadRequestException(
-            'workshop_order.add_line payload requires order_id',
-          );
-        }
-
-        const callerSiteId = await this.siteContext.getSiteId();
-        const payloadSiteId =
-          (record.site_id as string | undefined) ??
-          (record.siteId as string | undefined);
-        if (payloadSiteId && payloadSiteId !== callerSiteId) {
-          throw new BadRequestException(
-            `Action payload site (${payloadSiteId}) does not match caller authorized site (${callerSiteId})`,
-          );
-        }
-
-        const siteLock = await tx.site.updateMany({
-          where: {
-            id: callerSiteId,
-            tenant_id: tenantId,
-            is_active: true,
-          },
-          data: { is_active: true },
-        });
-        if (siteLock.count !== 1) {
-          throw new UnprocessableEntityException(
-            'The active site is no longer available',
-          );
-        }
-
-        const order = await tx.workshopOrder.findFirst({
-          where: {
-            id: orderId,
-            tenant_id: tenantId,
-            site_id: callerSiteId,
-          },
-          include: {
-            tasks: {
-              orderBy: { createdAt: 'asc' },
-            },
-          },
-        });
-        if (!order) {
-          throw new NotFoundException(`Workshop order ${orderId} not found`);
-        }
-
-        assertOrderEditable(order);
-
-        const taskId =
-          (record.task_id as string | undefined) ??
-          (record.taskId as string | undefined);
-        let targetTask = taskId
-          ? order.tasks?.find((t) => t.id === taskId)
-          : order.tasks?.[0];
-
-        if (!targetTask) {
-          if (taskId) {
-            throw new NotFoundException(
-              `Workshop task ${taskId} not found on order ${orderId}`,
-            );
-          }
-          targetTask = await tx.workshopTask.create({
-            data: {
-              tenant_id: tenantId,
-              workshop_order_id: order.id,
-              title: 'General Service',
-            },
-          });
-        }
-
-        let expectedVersion = targetTask.line_items_version;
-        if (
-          typeof record.expected_line_items_version === 'number' &&
-          Number.isFinite(record.expected_line_items_version)
-        ) {
-          expectedVersion = record.expected_line_items_version;
-        } else if (
-          typeof record.expectedLineItemsVersion === 'number' &&
-          Number.isFinite(record.expectedLineItemsVersion)
-        ) {
-          expectedVersion = record.expectedLineItemsVersion;
-        }
-
-        await incrementTaskLineItemsVersion({
-          tx,
-          tenantId,
-          siteId: callerSiteId,
-          taskId: targetTask.id,
-          expectedLineItemsVersion: expectedVersion,
-        });
-
-        const type =
-          record.type === 'LABOR'
-            ? WorkshopLineItemType.LABOR
-            : WorkshopLineItemType.PART;
-        const itemNo =
-          typeof record.item_no === 'string'
-            ? record.item_no
-            : typeof record.itemNo === 'string'
-              ? record.itemNo
-              : 'MISC';
-        const description =
-          typeof record.description === 'string'
-            ? record.description
-            : 'Proposed line item';
-
-        const financials = resolveLineItemFinancials(record);
-        const quantity = new Prisma.Decimal(financials.quantity);
-        const unitPrice = new Prisma.Decimal(financials.unitPrice);
-
-        const lineItem = await tx.workshopTaskLineItem.create({
-          data: {
-            tenant_id: tenantId,
-            workshop_task_id: targetTask.id,
-            type,
-            item_no: itemNo,
-            description,
-            quantity,
-            unit_price: unitPrice,
-          },
-        });
-
-        return {
-          actionType,
-          status: 'SUCCESS',
-          entityType: 'WorkshopTaskLineItem',
-          entityId: lineItem.id,
-          orderId: order.id,
-          siteId: callerSiteId,
-          taskId: targetTask.id,
-          lineItem,
-        };
-      }
-
-      case 'customer.update': {
-        const customerId =
-          (record.customer_id as string | undefined) ??
-          (record.customerId as string | undefined);
-        if (!customerId) {
-          throw new BadRequestException(
-            'customer.update payload requires customer_id',
-          );
-        }
-
-        const customer = await tx.customer.findFirst({
-          where: { id: customerId, tenant_id: tenantId },
-        });
-        if (!customer) {
-          throw new NotFoundException(`Customer ${customerId} not found`);
-        }
-
-        const updateData: Prisma.CustomerUpdateInput = {};
-        if (typeof record.first_name === 'string') {
-          updateData.first_name = record.first_name;
-        }
-        if (typeof record.last_name === 'string') {
-          updateData.last_name = record.last_name;
-        }
-        if (typeof record.email === 'string') {
-          updateData.email = record.email;
-        }
-        if (typeof record.phone === 'string') {
-          updateData.phone = record.phone;
-        }
-
-        const updateResult = await tx.customer.updateMany({
-          where: { id: customer.id, tenant_id: tenantId },
-          data: updateData,
-        });
-        if (updateResult.count === 0) {
-          throw new NotFoundException(`Customer ${customerId} not found`);
-        }
-
-        const updatedCustomer = await tx.customer.findFirst({
-          where: { id: customer.id, tenant_id: tenantId },
-        });
-
-        return {
-          actionType,
-          status: 'SUCCESS',
-          entityType: 'Customer',
-          entityId: updatedCustomer!.id,
-          customer: updatedCustomer,
-        };
-      }
-
-      default:
-        throw new BadRequestException(
-          `Unsupported action type for automatic execution: ${actionType}`,
-        );
-    }
-  }
-
   private getOriginatingAgentId(payload: unknown): string | undefined {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       return undefined;
@@ -799,13 +787,15 @@ export class AgentProposalService {
     const targetType =
       actionType === 'customer.update'
         ? 'Customer'
-        : actionType === 'workshop_order.add_line'
+        : actionType === 'workshop_order.add_line' ||
+            actionType === 'workshop_order.propose_line'
           ? 'WorkshopOrder'
           : firstString(['entity_type', 'entityType']);
     const targetId =
       actionType === 'customer.update'
         ? firstString(['customer_id', 'customerId'])
-        : actionType === 'workshop_order.add_line'
+        : actionType === 'workshop_order.add_line' ||
+            actionType === 'workshop_order.propose_line'
           ? firstString([
               'order_id',
               'orderId',
@@ -846,6 +836,7 @@ export class AgentProposalService {
         string,
         unknown
       > | null,
+      created_by_agent: proposal.created_by_agent,
       decided_by: proposal.decided_by,
       decided_at: proposal.decided_at
         ? proposal.decided_at.toISOString()
