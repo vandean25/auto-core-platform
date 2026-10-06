@@ -52,6 +52,7 @@ import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 import { McpModule } from './mcp/mcp.module.js';
+import { DecisionModule } from './decision/decision.module.js';
 import { DryRunModule } from './dry-run/dry-run.module.js';
 
 @Module({
@@ -90,6 +91,7 @@ import { DryRunModule } from './dry-run/dry-run.module.js';
     SettingsModule,
     AuditModule,
     AgentActionLogModule,
+    DecisionModule,
     HrModule,
     PartsRequisitionModule,
     DocumentBrandingModule,

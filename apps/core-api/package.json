@@ -36,7 +36,9 @@
     "db:seed:platform-admin": "tsx scripts/seed-platform-admin.ts",
     "db:seed:tenant-member": "tsx scripts/seed-tenant-member.ts",
     "db:baseline": "tsx scripts/baseline-prisma-migrations.ts",
-    "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api"
+    "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api",
+    "agent-eval": "tsx scripts/agent-eval.ts",
+    "agent-eval:fixtures": "node scripts/generate-agent-eval-fixtures.mjs"
   },
   "prisma": {
     "seed": "node --loader ts-node/esm prisma/seed.ts"

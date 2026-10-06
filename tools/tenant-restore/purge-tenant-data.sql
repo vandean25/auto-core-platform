@@ -27,6 +27,7 @@ VALUES
   ('catalog_oem_concerns'),
   ('credit_note_sequences'),
   ('customers'),
+  ('decision_shadow_logs'),
   ('document_brand_quota_events'),
   ('document_brand_quota_locks'),
   ('employees'),
@@ -170,6 +171,7 @@ VALUES
   ('credit_notes', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('credit_notes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('customers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('decision_shadow_logs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('document_brand_assets', 'document_brand_assets', 'tenant_id,legal_entity_id,source_asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_assets', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('document_brand_assets', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -721,6 +723,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_quota_locks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_quota_events"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."decision_shadow_logs"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."customers"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

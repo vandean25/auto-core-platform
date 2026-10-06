@@ -46,6 +46,8 @@ import {
   pickCustomerAuditSnapshot,
   pickVehicleAuditSnapshot,
 } from './import-audit.util.js';
+import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
 
 class ApplyRowStaleError extends Error {
   constructor() {
@@ -75,6 +77,8 @@ export class ImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly decisionHooks: DecisionUseCaseHooksService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async createDryRunFromUpload(params: {
@@ -166,6 +170,20 @@ export class ImportService {
     });
 
     await this.writeImportJobAudit(tenantId, currentUser.id, job.id, 'created');
+
+    if (params.entityType === ImportEntityType.CUSTOMER) {
+      void this.decisionHooks
+        .scheduleCustomerImportDryRunShadows(
+          tenantId,
+          this.requestContext.getTraceId(),
+          dryRunRows,
+        )
+        .catch((error) => {
+          this.logger.debug(
+            `Decision import shadow scheduling failed: ${String(error)}`,
+          );
+        });
+    }
 
     return this.serializeJob(job, totals);
   }

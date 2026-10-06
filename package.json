@@ -22,6 +22,7 @@
     "repowise:dead-code": "uvx --from repowise==0.49.0 repowise dead-code",
     "repowise:serve": "uvx --from repowise==0.49.0 repowise serve --port 7338",
     "repowise:update": "uvx --from repowise==0.49.0 repowise update",
+    "agent-eval": "npm run agent-eval --workspace=core-api",
     "ci": "npm run lint && npm test && npm run build",
     "test:e2e:fullstack": "npm run test:e2e:fullstack --workspace=core-web"
   },

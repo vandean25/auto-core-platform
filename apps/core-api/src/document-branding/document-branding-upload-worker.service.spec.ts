@@ -62,6 +62,10 @@ describe('DocumentBrandingUploadWorkerService', () => {
       prisma,
       storage,
       pdfParser,
+      {
+        scheduleDocumentSortForText: jest.fn(),
+      } as never,
+      { getTraceId: () => undefined } as never,
     );
   });
 
