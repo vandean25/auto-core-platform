@@ -1,6 +1,9 @@
 import { mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const tsxCliPath = fileURLToPath(import.meta.resolve('tsx/cli'));
 
 describe('agent-eval script', () => {
   const resultsDir = join(process.cwd(), 'agent-eval-results');
@@ -11,11 +14,15 @@ describe('agent-eval script', () => {
 
   it('writes results JSON using the noop provider', () => {
     process.env.DECISION_PROVIDER = 'noop';
-    execFileSync('npx', ['tsx', 'scripts/agent-eval.ts'], {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: 'pipe',
-    });
+    execFileSync(
+      process.execPath,
+      [tsxCliPath, 'scripts/agent-eval.ts'],
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        stdio: 'pipe',
+      },
+    );
     const resultFiles = readdirSync(resultsDir);
     expect(resultFiles.length).toBeGreaterThan(0);
     const payload = JSON.parse(
