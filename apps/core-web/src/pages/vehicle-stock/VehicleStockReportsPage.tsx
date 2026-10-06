@@ -18,8 +18,19 @@ const AGE_BUCKETS = [
   { value: 'over_90', label: 'Über 90 Tage' },
 ] as const
 
+function startsWithFormula(value: string): boolean {
+  for (const character of value) {
+    const code = character.charCodeAt(0)
+    const isLeadingSpaceOrControl =
+      /\s/.test(character) || code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0xfeff
+    if (isLeadingSpaceOrControl) continue
+    return '=+-@'.includes(character)
+  }
+  return false
+}
+
 function safeCsvField(value: string): string {
-  const protectedValue = /^[=+\-@]/.test(value) ? `'${value}` : value
+  const protectedValue = startsWithFormula(value) ? `'${value}` : value
   return /[;"\r\n]/.test(protectedValue)
     ? `"${protectedValue.replaceAll('"', '""')}"`
     : protectedValue
@@ -32,7 +43,7 @@ function csvAmount(value: string | null): string {
 export function serializeStockAgeCsv(rows: VehicleStockAgeReportRow[]): string {
   const header = ['Marke', 'Modell', 'Baujahr', 'FIN', 'Kennzeichen', 'Bestandsrolle', 'Status', 'Standzeit (Tage)', 'Kostenbasis (EUR)', 'Angebotspreis (EUR)', 'Standort']
   const body = rows.map((row) => [
-    row.make, row.model, String(row.year), row.vin ?? '', row.plate ?? '', row.inventory_role,
+    row.make, row.model, String(row.year), row.vin ?? '', row.plate ?? '', formatRole(row.inventory_role),
     row.stock_status ?? '', row.days_in_stock === null ? '' : String(row.days_in_stock),
     csvAmount(row.cost_basis), csvAmount(row.asking_price), row.location ?? '',
   ])
@@ -43,10 +54,10 @@ export function serializeMarginCsv(rows: VehicleStockMarginReportRow[]): string 
   const header = ['Rechnungsdatum', 'Verkaufsnummer', 'Marke', 'Modell', 'Baujahr', 'Bestandsrolle', 'Nettoverkaufspreis (EUR)', 'Kostenbasis (EUR)', 'Rohertrag (EUR)', 'Rohertrag (%)', 'Standzeit bis Verkauf (Tage)', 'Margenbesteuerung']
   const body = rows.map((row) => [
     new Date(row.invoice_date).toLocaleDateString('de-AT'), row.sale_number, row.make, row.model,
-    String(row.year), row.inventory_role, csvAmount(row.sale_price),
+    String(row.year), formatRole(row.inventory_role), csvAmount(row.sale_price),
     csvAmount(row.cost_basis_snapshot), csvAmount(row.gross_margin_eur),
     csvAmount(row.gross_margin_percent), row.days_to_sell === null ? '' : String(row.days_to_sell),
-    row.margin_taxed ? 'Ja' : 'Nein',
+    formatTaxMode(row.margin_taxed),
   ])
   return [header, ...body].map((line) => line.map(safeCsvField).join(';')).join('\r\n')
 }
@@ -57,6 +68,10 @@ function downloadCsv(content: string, filename: string) {
 
 function formatRole(role: string) {
   return ({ USED: 'Gebraucht', NEW: 'Neu', DEMO: 'Vorführwagen' } as Record<string, string>)[role] ?? role
+}
+
+function formatTaxMode(marginTaxed: boolean) {
+  return marginTaxed ? 'Marge' : 'Standard'
 }
 
 function formatMoney(value: string | null) {

@@ -11,10 +11,18 @@ import {
   WorkshopOrderPurpose,
   WorkshopPartLineExecutionStatus,
   TransactionType,
+  VehicleInventoryRole,
+  type VehicleLedgerEntry,
 } from '@prisma/client';
 import { FinanceService } from '../finance/finance.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+
+const DEALER_INVENTORY_ROLES = new Set<VehicleInventoryRole>([
+  VehicleInventoryRole.USED,
+  VehicleInventoryRole.NEW,
+  VehicleInventoryRole.DEMO,
+]);
 
 export type VehicleLedgerAppendInput = {
   vehicleId: string;
@@ -35,21 +43,34 @@ export class VehicleLedgerService {
     private readonly tenantContext: TenantContextService,
   ) {}
 
-  async append(input: VehicleLedgerAppendInput, tx?: Prisma.TransactionClient) {
+  async append(
+    input: VehicleLedgerAppendInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<VehicleLedgerEntry> {
+    if (!tx) {
+      return this.prisma.$transaction((transaction) =>
+        this.append(input, transaction),
+      );
+    }
     const tenantId = await this.tenantContext.getTenantId();
     const postingDate = input.postingDate ?? new Date();
     await this.financeService.validateTransactionDate(postingDate, tx);
 
-    const db = tx ?? this.prisma;
+    const db = tx;
     const vehicle = await db.vehicle.findFirst({
       where: { id: input.vehicleId, tenant_id: tenantId },
-      select: { id: true },
+      select: {
+        id: true,
+        site_id: true,
+        inventory_role: true,
+        stock_received_at: true,
+      },
     });
     if (!vehicle) {
       throw new NotFoundException(`Vehicle ${input.vehicleId} not found`);
     }
 
-    return db.vehicleLedgerEntry.create({
+    const entry = await db.vehicleLedgerEntry.create({
       data: {
         tenant_id: tenantId,
         vehicle_id: input.vehicleId,
@@ -62,6 +83,31 @@ export class VehicleLedgerService {
         notes: input.notes,
       },
     });
+    if (
+      (input.entryType === VehicleLedgerEntryType.WORKSHOP_COST ||
+        input.entryType === VehicleLedgerEntryType.ADJUSTMENT) &&
+      DEALER_INVENTORY_ROLES.has(vehicle.inventory_role) &&
+      vehicle.stock_received_at &&
+      vehicle.site_id
+    ) {
+      await db.vehicle.updateMany({
+        where: {
+          id: input.vehicleId,
+          tenant_id: tenantId,
+          site_id: vehicle.site_id,
+          inventory_role: {
+            in: [
+              VehicleInventoryRole.USED,
+              VehicleInventoryRole.NEW,
+              VehicleInventoryRole.DEMO,
+            ],
+          },
+          stock_received_at: { not: null },
+        },
+        data: { stock_cost_basis: { increment: input.amount } },
+      });
+    }
+    return entry;
   }
 
   async listForVehicle(vehicleId: string, tx?: Prisma.TransactionClient) {

@@ -51,6 +51,8 @@ export async function seedVehicleStockAgeDemo(
           location_id: showroom.id,
           inventory_role: role,
           stock_status: VehicleStockStatus.IN_STOCK,
+          stock_received_at: stockInDate,
+          stock_cost_basis: purchasePrice,
           tax_scheme:
             role === VehicleInventoryRole.USED
               ? VehicleTaxScheme.MARGIN

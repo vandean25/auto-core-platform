@@ -7,8 +7,9 @@ import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
 describe('VehicleStockReportsService', () => {
   let service: VehicleStockReportsService;
   const prisma = {
-    vehicle: { findMany: jest.fn() },
-    vehicleSale: { findMany: jest.fn() },
+    vehicle: { findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
+    vehicleSale: { findMany: jest.fn(), count: jest.fn(), aggregate: jest.fn() },
+    invoice: { aggregate: jest.fn() },
   };
   const tenantContext = { getTenantId: jest.fn().mockResolvedValue('tenant-1') };
   const siteContext = { getSiteId: jest.fn().mockResolvedValue('site-1') };
@@ -22,109 +23,142 @@ describe('VehicleStockReportsService', () => {
     );
   });
 
-  it('keeps missing stock-in vehicles and includes workshop and adjustment costs', async () => {
-    const oldPostingDate = new Date();
-    oldPostingDate.setDate(oldPostingDate.getDate() - 100);
+  it('pages stock age in Prisma and aggregates aged stock by the current cycle snapshot', async () => {
+    const stockReceivedAt = new Date('2026-07-01T00:00:00Z');
     prisma.vehicle.findMany.mockResolvedValue([
       {
-        id: 'vehicle-1',
-        make: 'Audi',
-        model: 'A4',
-        year: 2020,
-        vin: null,
-        plate: null,
-        inventory_role: 'USED',
-        stock_status: 'IN_STOCK',
-        location: { name: 'Halle 1' },
-        purchases: [],
-        sales: [],
-        ledger_entries: [
-          { entry_type: 'PURCHASE', amount: new Prisma.Decimal('10000'), posting_date: oldPostingDate },
-          { entry_type: 'WORKSHOP_COST', amount: new Prisma.Decimal('250'), posting_date: new Date('2026-10-02T00:00:00Z') },
-          { entry_type: 'ADJUSTMENT', amount: new Prisma.Decimal('50'), posting_date: new Date('2026-10-03T00:00:00Z') },
-        ],
+        id: 'vehicle-1', make: 'Audi', model: 'A4', year: 2020,
+        vin: null, plate: null, inventory_role: 'USED', stock_status: 'IN_STOCK',
+        stock_received_at: stockReceivedAt, stock_cost_basis: new Prisma.Decimal('10300'),
+        location: { name: 'Halle 1' }, sales: [],
       },
       {
         id: 'vehicle-2', make: 'VW', model: 'Golf', year: 2019,
-        inventory_role: 'USED', stock_status: 'IN_STOCK', location: null,
-        purchases: [], sales: [], ledger_entries: [], vin: null, plate: null,
+        vin: null, plate: null, inventory_role: 'USED', stock_status: 'IN_STOCK',
+        stock_received_at: null, stock_cost_basis: null, location: null, sales: [],
       },
     ]);
+    prisma.vehicle.count.mockResolvedValue(2);
+    prisma.vehicle.aggregate.mockResolvedValue({
+      _count: { id: 1 },
+      _sum: { stock_cost_basis: new Prisma.Decimal('10300') },
+    });
 
-    const report = await service.stockAge({});
+    const report = await service.stockAge({
+      page: 2,
+      limit: 10,
+      bucket: 'over_90',
+      inventory_role: 'USED',
+      stock_status: 'IN_STOCK',
+    });
 
     expect(report.data[0].cost_basis).toBe('10300.00');
     expect(report.data[1].days_in_stock).toBeNull();
     expect(report.data[1].missing_stock_in_date).toBe(true);
     expect(report.summary.over_90_count).toBe(1);
     expect(report.summary.over_90_cost_basis).toBe('10300.00');
-    expect(prisma.vehicle.findMany.mock.calls[0][0].where).toMatchObject({
-      tenant_id: 'tenant-1', site_id: 'site-1',
-      inventory_role: { in: ['USED', 'NEW', 'DEMO'] },
+    expect(report.meta).toMatchObject({ total: 2, page: 2, limit: 10 });
+    const pageQuery = prisma.vehicle.findMany.mock.calls[0][0];
+    expect(pageQuery).toMatchObject({ skip: 10, take: 10 });
+    expect(pageQuery.where).toMatchObject({
+      tenant_id: 'tenant-1',
+      site_id: 'site-1',
+      inventory_role: 'USED',
+      stock_status: 'IN_STOCK',
     });
+    expect(pageQuery.where.stock_received_at.lt).toBeInstanceOf(Date);
+    expect(prisma.vehicle.count).toHaveBeenCalledWith({ where: pageQuery.where });
+    expect(prisma.vehicle.aggregate.mock.calls[0][0].where.stock_received_at.lt).toBeInstanceOf(Date);
   });
 
-  it('uses finalized invoice period, excludes cancelled sales and cancelling credit notes, and reports snapshot margin', async () => {
-    prisma.vehicleSale.findMany.mockResolvedValue([
-      {
-        id: 'sale-1',
-        sale_number: 'VS-1',
-        vehicle_id: 'vehicle-1',
-        sale_price: new Prisma.Decimal('12000.00'),
-        cost_basis_snapshot: new Prisma.Decimal('10000.00'),
-        margin_vat_snapshot: new Prisma.Decimal('333.33'),
-        status: 'INVOICED',
-        createdAt: new Date('2026-10-04T00:00:00Z'),
-        invoice: { date: new Date('2026-10-05T00:00:00Z'), tax_mode: 'MARGIN_SCHEME' },
-        vehicle: {
-          id: 'vehicle-1', make: 'Audi', model: 'A4', year: 2020,
-          inventory_role: 'USED',
-          purchases: [{ received_at: new Date('2026-10-01T00:00:00Z') }],
-          ledger_entries: [{ posting_date: new Date('2026-09-01T00:00:00Z') }],
-        },
+  it('uses invoice net for margin and pages without requiring the vehicle current site', async () => {
+    prisma.vehicleSale.findMany.mockResolvedValue([{
+      id: 'sale-1', sale_number: 'VS-1', vehicle_id: 'vehicle-1',
+      cost_basis_snapshot: new Prisma.Decimal('10000.00'),
+      days_to_sell_snapshot: 4,
+      invoice: {
+        date: new Date('2026-10-05T00:00:00Z'),
+        total_net: new Prisma.Decimal('11666.67'),
+        tax_mode: 'MARGIN_SCHEME',
       },
-    ]);
+      vehicle: { id: 'vehicle-1', make: 'Audi', model: 'A4', year: 2020 },
+    }]);
+    prisma.vehicleSale.count.mockResolvedValue(1);
+    prisma.vehicleSale.aggregate.mockResolvedValue({
+      _sum: { cost_basis_snapshot: new Prisma.Decimal('10000') },
+      _avg: {
+        cost_basis_snapshot: new Prisma.Decimal('10000'),
+        days_to_sell_snapshot: new Prisma.Decimal('4'),
+      },
+    });
+    prisma.invoice.aggregate
+      .mockResolvedValueOnce({
+        _sum: { total_net: new Prisma.Decimal('11666.67') },
+        _avg: { total_net: new Prisma.Decimal('11666.67') },
+      })
+      .mockResolvedValueOnce({
+        _sum: { total_net: new Prisma.Decimal('11666.67') },
+        _avg: { total_net: new Prisma.Decimal('11666.67') },
+      });
 
-    const report = await service.margin({ from: '2026-10-01', to: '2026-10-31' });
+    const report = await service.margin({
+      from: '2026-10-01', to: '2026-10-31', page: 2, limit: 10,
+    });
 
-    expect(report.data[0].gross_margin_eur).toBe('2000.00');
-    expect(report.data[0].gross_margin_percent).toBe('16.67');
+    expect(report.data[0].sale_price).toBe('11666.67');
+    expect(report.data[0].gross_margin_eur).toBe('1666.67');
+    expect(report.data[0].gross_margin_percent).toBe('14.29');
     expect(report.data[0].days_to_sell).toBe(4);
     expect(report.data[0].margin_taxed).toBe(true);
-    expect(report.totals.by_inventory_role.USED.gross_margin_average).toBe('2000.00');
-    expect(report.totals.by_inventory_role.USED.sale_price_average).toBe('12000.00');
-    const query = prisma.vehicleSale.findMany.mock.calls[0][0];
-    expect(query.where.status).toBe('INVOICED');
-    expect(query.where.invoice.credit_notes).toEqual({
-      none: { tenant_id: 'tenant-1', status: 'FINALIZED' },
+    expect(report.totals.by_inventory_role.USED.gross_margin_average).toBe('1666.67');
+    expect(report.totals.by_inventory_role.USED.sale_price_average).toBe('11666.67');
+
+    const pageQuery = prisma.vehicleSale.findMany.mock.calls[0][0];
+    expect(pageQuery).toMatchObject({ skip: 10, take: 10 });
+    expect(pageQuery.where).toMatchObject({
+      tenant_id: 'tenant-1',
+      site_id: 'site-1',
+      status: 'INVOICED',
+      vehicle: { tenant_id: 'tenant-1' },
     });
-    expect(query.where.tenant_id).toBe('tenant-1');
-    expect(query.where.site_id).toBe('site-1');
-    expect(query.include.vehicle.select.ledger_entries.select).toEqual({
-      posting_date: true,
+    expect(pageQuery.where.invoice.is).toMatchObject({
+      tenant_id: 'tenant-1',
+      site_id: 'site-1',
+      status: 'FINALIZED',
+      credit_notes: { none: { tenant_id: 'tenant-1', status: 'FINALIZED' } },
     });
-    expect(query.include).not.toHaveProperty('ledger_entries');
+    expect(pageQuery.where.vehicle).not.toHaveProperty('site_id');
+    expect(prisma.vehicleSale.count).toHaveBeenCalledWith({ where: pageQuery.where });
   });
 
-  it('flags standard-tax invoices separately from margin-taxed invoices', async () => {
-    prisma.vehicleSale.findMany.mockResolvedValue([
-      {
-        id: 'sale-2', sale_number: 'VS-2', vehicle_id: 'vehicle-2',
-        sale_price: new Prisma.Decimal('10000'),
-        cost_basis_snapshot: new Prisma.Decimal('8000'),
-        margin_vat_snapshot: new Prisma.Decimal('0'),
-        createdAt: new Date(),
-        invoice: { date: new Date('2026-10-05T00:00:00Z'), tax_mode: 'STANDARD' },
-        vehicle: {
-          id: 'vehicle-2', make: 'VW', model: 'Golf', year: 2022,
-          inventory_role: 'USED', purchases: [], ledger_entries: [],
-        },
+  it('reports standard-tax invoices as not margin taxed and preserves missing margin values', async () => {
+    prisma.vehicleSale.findMany.mockResolvedValue([{
+      id: 'sale-2', sale_number: 'VS-2', vehicle_id: 'vehicle-2',
+      cost_basis_snapshot: null, days_to_sell_snapshot: null,
+      invoice: {
+        date: new Date('2026-10-05T00:00:00Z'),
+        total_net: new Prisma.Decimal('10000'),
+        tax_mode: 'STANDARD',
       },
-    ]);
+      vehicle: { id: 'vehicle-2', make: 'VW', model: 'Golf', year: 2022 },
+    }]);
+    prisma.vehicleSale.count.mockResolvedValue(1);
+    prisma.vehicleSale.aggregate.mockResolvedValue({
+      _sum: { cost_basis_snapshot: null },
+      _avg: { cost_basis_snapshot: null, days_to_sell_snapshot: null },
+    });
+    prisma.invoice.aggregate
+      .mockResolvedValueOnce({
+        _sum: { total_net: new Prisma.Decimal('10000') },
+        _avg: { total_net: new Prisma.Decimal('10000') },
+      })
+      .mockResolvedValueOnce({ _sum: { total_net: null }, _avg: { total_net: null } });
 
     const report = await service.margin({ from: '2026-10-01', to: '2026-10-31' });
 
     expect(report.data[0].margin_taxed).toBe(false);
+    expect(report.data[0].gross_margin_eur).toBeNull();
     expect(report.data[0].days_to_sell).toBeNull();
+    expect(report.totals.gross_margin_total).toBe('0.00');
   });
 });
