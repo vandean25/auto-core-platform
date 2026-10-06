@@ -5,6 +5,7 @@ import { AgentActionLogService } from '../agent-action-log/agent-action-log.serv
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import type { AgentPolicyEvaluationResult } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
+import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 
@@ -13,6 +14,7 @@ describe('McpWritePipelineService', () => {
   let mockAgentPolicy: jest.Mocked<AgentPolicyService>;
   let mockDryRun: jest.Mocked<DryRunService>;
   let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
+  let mockAgentProposals: jest.Mocked<AgentProposalService>;
 
   const mockContext: McpWriteToolContext = {
     agentId: 'test-agent',
@@ -26,8 +28,8 @@ describe('McpWritePipelineService', () => {
     const policyActionMap: Record<string, string> = {
       propose_line_item: 'workshop_order.propose_line',
       draft_workshop_order: 'workshop_order.create',
-      reserve_part: 'workshop_task.reserve_part',
-      release_reservation: 'workshop_task.release_reservation',
+      reserve_part: 'inventory.part_reserve',
+      release_reservation: 'inventory.part_release',
     };
     return {
       toolName,
@@ -50,6 +52,9 @@ describe('McpWritePipelineService', () => {
     mockAgentPolicy = { evaluateAction: jest.fn() } as jest.Mocked<AgentPolicyService>;
     mockDryRun = { executeInRollbackTransaction: jest.fn() } as jest.Mocked<DryRunService>;
     mockAgentActionLog = { record: jest.fn() } as jest.Mocked<AgentActionLogService>;
+    mockAgentProposals = {
+      persistPendingAction: jest.fn().mockResolvedValue({ id: 'proposal-1' }),
+    } as jest.Mocked<AgentProposalService>;
   };
 
   beforeEach(async () => {
@@ -61,6 +66,7 @@ describe('McpWritePipelineService', () => {
         { provide: AgentPolicyService, useValue: mockAgentPolicy },
         { provide: DryRunService, useValue: mockDryRun },
         { provide: AgentActionLogService, useValue: mockAgentActionLog },
+        { provide: AgentProposalService, useValue: mockAgentProposals },
       ],
     }).compile();
 
@@ -83,7 +89,16 @@ describe('McpWritePipelineService', () => {
 
       expect(mockAgentPolicy.evaluateAction).toHaveBeenCalledWith('workshop_order.propose_line', {});
       expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
-      expect(result.status).toBe('needs_human_approval');
+      expect(result.status).toBe('needs_approval');
+      expect(result.pending_action_id).toBe('proposal-1');
+      expect(mockAgentProposals.persistPendingAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action_type: 'workshop_order.propose_line',
+          payload_json: input,
+          created_by_agent: mockContext.agentId,
+          trace_id: expect.any(String),
+        }),
+      );
       expect(result.proposal).toBeDefined();
       expect(mockAgentActionLog.record).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -225,8 +240,11 @@ describe('McpWritePipelineService', () => {
   });
 
   describe('PROPOSE tier (explicit)', () => {
-    it('does not execute for real, returns needs_human_approval, logs PROPOSED with payload', async () => {
+    it('does not execute for real, returns needs_approval, logs PROPOSED with payload', async () => {
       const execution = createMockExecution('draft_workshop_order');
+      execution.buildExecutionContext = jest
+        .fn()
+        .mockResolvedValue({ site_id: 'site-preview' });
       const input = { customer_id: 'cust-1', vehicle_id: 'veh-1', purpose: 'REPAIR' };
       const traceId = 'trace-propose-789';
 
@@ -240,13 +258,20 @@ describe('McpWritePipelineService', () => {
       const result = await service.run(execution, input, mockContext);
 
       expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
-      expect(result.status).toBe('needs_human_approval');
+      expect(result.status).toBe('needs_approval');
       expect(result.proposal).toEqual({
         payload: input,
         would_change: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
         preview: { id: 'created-id' },
       });
       expect(result.trace_id).toBe(traceId);
+      expect(mockAgentProposals.persistPendingAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          preview_json: expect.objectContaining({
+            execution_context: { site_id: 'site-preview' },
+          }),
+        }),
+      );
       expect(mockAgentActionLog.record).toHaveBeenCalledWith(
         expect.objectContaining({
           actionType: 'mcp.draft_workshop_order',

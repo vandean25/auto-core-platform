@@ -2,12 +2,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEnum,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  ArrayMaxSize,
+  ArrayMinSize,
   Max,
   MaxLength,
   Min,
@@ -48,6 +51,34 @@ export class RejectAgentProposalDto {
   reason?: string;
 }
 
+export class BatchApplyAgentProposalsDto {
+  @ApiProperty({ type: [String], format: 'uuid', minItems: 1, maxItems: 100 })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsUUID('all', { each: true })
+  ids!: string[];
+}
+
+export class BatchApplyAgentProposalResultDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: ['applied', 'failed'] })
+  status!: 'applied' | 'failed';
+
+  @ApiPropertyOptional({ type: String })
+  error?: string;
+
+  @ApiPropertyOptional({ type: Object })
+  proposal?: object;
+}
+
+export class BatchApplyAgentProposalsResponseDto {
+  @ApiProperty({ type: [BatchApplyAgentProposalResultDto] })
+  results!: BatchApplyAgentProposalResultDto[];
+}
+
 export class CreateAgentProposalDto {
   @ApiProperty({ example: 'workshop_order.add_line' })
   @IsString()
@@ -75,6 +106,17 @@ export class CreateAgentProposalDto {
   @IsOptional()
   @IsEnum(AgentPolicyTier)
   tier?: AgentPolicyTier;
+}
+
+export class SubmitPendingAgentActionDto {
+  @ApiProperty({ example: 'workshop_order.add_line' })
+  @IsString()
+  @IsNotEmpty()
+  action_type!: string;
+
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  @IsObject()
+  payload_json!: Record<string, unknown>;
 }
 
 export class AgentProposalEffectiveSummaryDto {
@@ -119,6 +161,9 @@ export class AgentProposalResponseDto {
     nullable: true,
   })
   preview_json!: Record<string, unknown> | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  created_by_agent!: string | null;
 
   @ApiProperty({ type: String, nullable: true })
   decided_by!: string | null;

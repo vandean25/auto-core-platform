@@ -56,7 +56,7 @@ Write tools follow a shared pipeline: policy evaluation → immediate refusal fo
 - **PROPOSE**: Requires human approval, log as PROPOSED
 - **HUMAN_ONLY**: Return `not_permitted` (HTTP 403) without preview or execution, log as REFUSED
 
-Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO. All MCP write rules start disabled in the platform policy table; a tenant admin must enable each rule before the write can proceed. Disabled rules fail closed with `not_permitted` (HTTP 403). The MCP write schemas do not accept a `dry_run` argument. Enabled AUTO calls proceed to execution after the internal preview; PROPOSE calls return `needs_human_approval` without executing the proposed action. Tenant policy can be stricter than the platform floor, never looser.
+Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO. All MCP write rules start disabled in the platform policy table; a tenant admin must enable each rule before the write can proceed. Disabled rules fail closed with `not_permitted` (HTTP 403). The MCP write schemas do not accept a `dry_run` argument. Enabled AUTO calls proceed to execution after the internal preview; PROPOSE calls return `needs_approval` with a pending action ID and do not execute the proposed action. Tenant policy can be stricter than the platform floor, never looser.
 
 ## Never-exposed actions
 

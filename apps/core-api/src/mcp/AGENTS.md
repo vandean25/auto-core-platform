@@ -49,7 +49,7 @@ Policy refusals return an MCP tool error with the code `not_permitted`. Other MC
 | Server value           | Meaning and response                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `executed`             | A write ran. Report it as done only when the returned result confirms it.                                                       |
-| `needs_human_approval` | The action was stored as a proposal and was not executed. Tell the user it awaits human approval; do not retry or call it done. |
+| `needs_approval` | The action was stored as a pending proposal and was not executed. Use `pending_action_id`; tell the user it awaits human approval and do not claim completion. |
 | `REFUSED`              | The action log records a refusal. Stop and tell the user.                                                                       |
 | `not_permitted`        | A disabled or human-only action was refused with HTTP 403. Stop and tell the user; do not retry through another tool or route. |
 | `ForbiddenException`   | A policy refusal or access denial. Stop and tell the user; do not retry through another tool or route.                          |
@@ -58,11 +58,13 @@ Policy refusals return an MCP tool error with the code `not_permitted`. Other MC
 | `NotFoundException`    | The requested record or related entity was not found in the authorized scope. Report that result; do not guess an ID.           |
 | `ConflictException`    | The record changed or conflicts with the request. Reload current data before asking whether to retry.                           |
 
+For pending action persistence, `needs_approval` responses, and apply semantics, see [implementation details](../../../../docs/internal/02-Feature-Specs/Platform/pending-actions.md).
+
 Unknown tools are not registered, and invalid arguments are rejected by closed schemas. A missing tool is not permission to guess a substitute.
 
 ## Preview and writes
 
-The MCP write pipeline evaluates policy before doing any work. Disabled actions and `HUMAN_ONLY` return `not_permitted` without previewing or executing the action. Enabled `AUTO` and `PROPOSE` actions run a rollback-transaction preview and return `would_change`; `AUTO` then proceeds to a real write, while `PROPOSE` returns `needs_human_approval` without executing the action. MCP tools do not accept a `dry_run` argument, so an AUTO write call is not a preview-only call. Never present preview output as completed work. Relay the returned status and what was or was not executed exactly.
+The MCP write pipeline evaluates policy before doing any work. Disabled actions and `HUMAN_ONLY` return `not_permitted` without previewing or executing the action. Enabled `AUTO` and `PROPOSE` actions run a rollback-transaction preview and return `would_change`; `AUTO` then proceeds to a real write, while `PROPOSE` returns `needs_approval` with a `pending_action_id` and does not execute the action. MCP tools do not accept a `dry_run` argument, so an AUTO write call is not a preview-only call. Never present preview output as completed work. Relay the returned status and what was or was not executed exactly.
 
 ## Trace IDs
 
@@ -111,7 +113,7 @@ All names and records below are fictional German examples.
 ### Estimate draft
 
 1. Read the vehicle and workshop order with `get_vehicle` and `get_workshop_order` (AUTO).
-2. There is no estimate-creation tool. For an existing workshop task, a tenant admin must first enable `propose_line_item`; when enabled, it is PROPOSE and returns `needs_human_approval` without executing the line change. If it is Off, the call returns `not_permitted`. The tool performs its preview internally; it has no preview-only argument. Do not claim an estimate was created or sent.
+2. There is no estimate-creation tool. For an existing workshop task, a tenant admin must first enable `propose_line_item`; when enabled, it is PROPOSE and returns `needs_approval` without executing the line change. If it is Off, the call returns `not_permitted`. The tool performs its preview internally; it has no preview-only argument. Do not claim an estimate was created or sent.
 
 ### Parts reorder
 

@@ -56,7 +56,7 @@ export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
 /** Existing MCP write outcomes and errors that agent-facing docs may name. */
 export const MCP_AGENT_FACING_CODES = {
   executedStatus: 'executed',
-  needsHumanApprovalStatus: 'needs_human_approval',
+  needsApprovalStatus: 'needs_approval',
   refusedLogStatus: 'REFUSED',
   notPermitted: 'not_permitted',
   forbidden: ForbiddenException.name,

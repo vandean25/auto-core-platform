@@ -368,9 +368,16 @@ export async function executeCreateWorkshopOrder(
   },
   dto: CreateWorkshopOrderDto,
   generateOrderNumber: (tx: Prisma.TransactionClient) => Promise<string>,
+  expectedSiteId?: string,
 ): Promise<WorkshopOrderWithRelations> {
   const tenantId = await services.tenantContext.getTenantId();
-  const siteId = await services.siteContext.getSiteId();
+  const activeSiteId = await services.siteContext.getSiteId();
+  if (expectedSiteId && activeSiteId !== expectedSiteId) {
+    throw new UnprocessableEntityException(
+      'Select the site where this action was simulated before applying it',
+    );
+  }
+  const siteId = expectedSiteId ?? activeSiteId;
   const purpose = dto.purpose ?? WorkshopOrderPurpose.CUSTOMER_REPAIR;
   const isScheduled = dto.status === WorkshopOrderStatus.SCHEDULED;
 

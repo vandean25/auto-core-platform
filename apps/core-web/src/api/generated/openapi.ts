@@ -3433,6 +3433,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent-proposals/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply and execute a pending agent action
+         * @description Re-evaluates current policy and atomically applies one pending action.
+         */
+        post: operations["AgentProposalController_applyProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/batch-apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply pending agent actions independently by ID
+         * @description Applies each proposal in its own transaction and returns an outcome per ID.
+         */
+        post: operations["AgentProposalController_batchApplyProposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent-proposals/{id}/reject": {
         parameters: {
             query?: never;
@@ -3447,6 +3487,26 @@ export interface paths {
          * @description Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.
          */
         post: operations["AgentProposalController_rejectProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate and submit a pending agent action
+         * @description Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.
+         */
+        post: operations["AgentProposalController_submitPendingAction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7378,6 +7438,7 @@ export interface components {
             preview_json: {
                 [key: string]: unknown;
             } | null;
+            created_by_agent: string | null;
             decided_by: string | null;
             decided_at: string | null;
             reason: string | null;
@@ -7387,6 +7448,19 @@ export interface components {
         };
         AgentProposalListResponseDto: {
             data: components["schemas"]["AgentProposalResponseDto"][];
+        };
+        BatchApplyAgentProposalsDto: {
+            ids: string[];
+        };
+        BatchApplyAgentProposalResultDto: {
+            id: string;
+            /** @enum {string} */
+            status: "applied" | "failed";
+            error?: string;
+            proposal?: Record<string, never>;
+        };
+        BatchApplyAgentProposalsResponseDto: {
+            results: components["schemas"]["BatchApplyAgentProposalResultDto"][];
         };
         RejectAgentProposalDto: {
             /** @description Reason for rejecting the proposal */
@@ -7408,6 +7482,13 @@ export interface components {
              * @enum {string}
              */
             tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+        };
+        SubmitPendingAgentActionDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            payload_json: {
+                [key: string]: unknown;
+            };
         };
     };
     responses: never;
@@ -14468,6 +14549,50 @@ export interface operations {
             };
         };
     };
+    AgentProposalController_applyProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_batchApplyProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchApplyAgentProposalsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchApplyAgentProposalsResponseDto"];
+                };
+            };
+        };
+    };
     AgentProposalController_rejectProposal: {
         parameters: {
             query?: never;
@@ -14484,6 +14609,29 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_submitPendingAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPendingAgentActionDto"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

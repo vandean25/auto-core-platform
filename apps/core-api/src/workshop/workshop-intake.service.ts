@@ -75,6 +75,16 @@ export class WorkshopIntakeService {
     return normalizeWorkshopOrder(order);
   }
 
+  async createAtSite(dto: CreateWorkshopOrderDto, siteId: string) {
+    const order = await executeCreateWorkshopOrder(
+      this.getServices(),
+      dto,
+      (tx) => this.generateOrderNumber(tx),
+      siteId,
+    );
+    return normalizeWorkshopOrder(order);
+  }
+
   async findAll(params: {
     search?: string;
     page?: number;
