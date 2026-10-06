@@ -34,10 +34,14 @@ function pageWindow(page?: number, limit?: number) {
     limit && limit > 0 ? Math.floor(limit) : DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
   );
+  const skip = (safePage - 1) * safeLimit;
+  if (!Number.isSafeInteger(skip)) {
+    throw new BadRequestException('page is too large for a safe report offset');
+  }
   return {
     page: safePage,
     limit: safeLimit,
-    skip: (safePage - 1) * safeLimit,
+    skip,
   };
 }
 

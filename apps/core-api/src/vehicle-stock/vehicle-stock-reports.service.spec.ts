@@ -242,4 +242,15 @@ describe('VehicleStockReportsService', () => {
     ).rejects.toThrow('from and to must be valid ISO dates with from <= to');
     expect(prisma.vehicleSale.findMany).not.toHaveBeenCalled();
   });
+
+  it('rejects a page that would overflow the Prisma skip offset', async () => {
+    await expect(
+      service.margin({
+        from: '2026-10-01',
+        to: '2026-10-31',
+        page: Number.MAX_VALUE,
+      }),
+    ).rejects.toThrow('page is too large for a safe report offset');
+    expect(prisma.vehicleSale.findMany).not.toHaveBeenCalled();
+  });
 });

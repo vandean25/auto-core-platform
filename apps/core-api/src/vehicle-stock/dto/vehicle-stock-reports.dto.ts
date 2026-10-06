@@ -12,6 +12,8 @@ import {
 } from 'class-validator';
 import type { VehicleStockAgeBucket } from '../vehicle-stock-reports.math.js';
 
+const MAX_REPORT_PAGE = Math.floor(Number.MAX_SAFE_INTEGER / 100) + 1;
+
 export class VehicleStockAgeReportQueryDto {
   @ApiPropertyOptional({ enum: ['USED', 'NEW', 'DEMO'] })
   @IsOptional()
@@ -37,11 +39,12 @@ export class VehicleStockAgeReportQueryDto {
   })
   bucket?: VehicleStockAgeBucket | 'over_90';
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_REPORT_PAGE, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_REPORT_PAGE)
   page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 25 })
@@ -62,11 +65,12 @@ export class VehicleStockMarginReportQueryDto {
   @IsDateString()
   to!: string;
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: MAX_REPORT_PAGE, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(MAX_REPORT_PAGE)
   page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 25 })

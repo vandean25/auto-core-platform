@@ -4841,6 +4841,7 @@
             "in": "query",
             "schema": {
               "minimum": 1,
+              "maximum": 90071992547410,
               "default": 1,
               "type": "number"
             }
@@ -4907,6 +4908,7 @@
             "in": "query",
             "schema": {
               "minimum": 1,
+              "maximum": 90071992547410,
               "default": 1,
               "type": "number"
             }
