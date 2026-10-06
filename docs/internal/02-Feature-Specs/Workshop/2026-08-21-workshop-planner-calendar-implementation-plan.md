@@ -6,7 +6,7 @@
 
 **Architecture:** Occupancy is the `WorkshopOrder` itself (`scheduled_start_at` / `scheduled_end_at` + existing `bay_id`). Hours and holidays are owned by the active `Site` (`timezone`, `slot_minutes`, `holiday_country_iso`, `holiday_subdivision_code`, seven site-scoped `WorkshopOpeningHour` rows, and site-scoped `WorkshopHoliday` rows). Public holidays are copied from OpenHolidays API into `WorkshopHoliday`; `GET /planner` never calls the vendor. New Nest services stay under 1500 lines; do not grow `workshop-intake.service.ts` with planner/settings/holiday code.
 
-**Tech Stack:** Prisma 6 / PostgreSQL, NestJS, class-validator, Jest e2e, React 19, Vite, Vitest, TanStack Query, Tailwind v4, shadcn Sheet/Alert/Card, `@dnd-kit/core` (already on the board). No FullCalendar. No `HttpModule` today — OpenHolidays uses injectable `fetch` with a 3s timeout.
+**Tech Stack:** Prisma 7 / PostgreSQL, NestJS, class-validator, Jest e2e, React 19, Vite, Vitest, TanStack Query, Tailwind v4, shadcn Sheet/Alert/Card, `@dnd-kit/core` (already on the board). No FullCalendar. No `HttpModule` today — OpenHolidays uses injectable `fetch` with a 3s timeout.
 
 **Spec:** `docs/internal/02-Feature-Specs/Workshop/2026-08-21-workshop-planner-calendar.md`
 
