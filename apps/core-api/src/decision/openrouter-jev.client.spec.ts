@@ -33,6 +33,8 @@ describe('OpenRouterJevClient', () => {
     const result = await client.decide(baseInput);
     expect(result.choice).toBe('Rechnung');
     expect(result.raw_ref).toBe('resp-1');
+    expect(result.input_tokens).toBe(10);
+    expect(result.output_tokens).toBe(0);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 

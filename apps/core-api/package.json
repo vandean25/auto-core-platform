@@ -38,6 +38,7 @@
     "db:baseline": "tsx scripts/baseline-prisma-migrations.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api",
     "agent-eval": "tsx scripts/agent-eval.ts",
+    "agent-eval:report": "tsx scripts/agent-eval-report.ts",
     "agent-eval:fixtures": "node scripts/generate-agent-eval-fixtures.mjs"
   },
   "prisma": {

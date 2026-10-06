@@ -37,6 +37,31 @@ describe('agent-eval fixture hygiene', () => {
     expect(difficulties.has('adversarial')).toBe(true);
   });
 
+  it('includes false-completion examples whose tempting choice disagrees with the label', () => {
+    const examples = lines.map((line) =>
+      JSON.parse(line) as {
+        choices: string[];
+        difficulty: string;
+        label: string;
+        tags?: string[];
+        completion_claim?: { done: boolean; choice: string };
+      },
+    );
+    const falseCompletions = examples.filter((example) =>
+      example.tags?.includes('false_completion'),
+    );
+
+    expect(falseCompletions.length).toBeGreaterThan(0);
+    expect(
+      falseCompletions.every(
+        (example) =>
+          example.difficulty === 'adversarial' &&
+          example.completion_claim?.done === true &&
+          example.completion_claim.choice !== example.label,
+      ),
+    ).toBe(true);
+  });
+
   it('avoids real-looking contact data and secret patterns', () => {
     const body = lines.join('\n');
     expect(SK_KEY.test(body)).toBe(false);

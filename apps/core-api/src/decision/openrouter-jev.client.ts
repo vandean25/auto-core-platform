@@ -123,6 +123,7 @@ export class OpenRouterJevClient {
     const raw_ref =
       extractResponseId(payload) ??
       createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+    const usage = extractUsage(payload);
 
     return {
       choice,
@@ -132,6 +133,8 @@ export class OpenRouterJevClient {
       model: extractResponseModel(payload) ?? this.modelId,
       rationale: extractChoiceRationale(payload),
       confidence: extractChoiceConfidence(payload),
+      input_tokens: usage?.inputTokens,
+      output_tokens: usage?.outputTokens,
     };
   }
 
@@ -272,6 +275,29 @@ function extractChoiceConfidence(payload: unknown): number | undefined {
   }
   const confidence = (entry as { confidence?: unknown }).confidence;
   return typeof confidence === 'number' ? confidence : undefined;
+}
+
+function extractUsage(
+  payload: unknown,
+): { inputTokens?: number; outputTokens?: number } | undefined {
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+  const usage = (payload as { usage?: unknown }).usage;
+  if (!usage || typeof usage !== 'object') {
+    return undefined;
+  }
+  const record = usage as { inputTokens?: unknown; outputTokens?: unknown };
+  return {
+    inputTokens: nonNegativeNumber(record.inputTokens),
+    outputTokens: nonNegativeNumber(record.outputTokens),
+  };
+}
+
+function nonNegativeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
 }
 
 function normalizeSecret(value: string | undefined): string | undefined {
