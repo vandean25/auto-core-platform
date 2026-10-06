@@ -77,6 +77,17 @@ export class CreateAgentProposalDto {
   tier?: AgentPolicyTier;
 }
 
+export class AgentProposalEffectiveSummaryDto {
+  @ApiProperty({ type: String, nullable: true })
+  target_type!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  target_id!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true })
+  amount_eur!: number | null;
+}
+
 export class AgentProposalResponseDto {
   @ApiProperty()
   id!: string;
@@ -98,6 +109,9 @@ export class AgentProposalResponseDto {
 
   @ApiProperty({ type: 'object', additionalProperties: true })
   payload_json!: Record<string, unknown>;
+
+  @ApiProperty({ type: AgentProposalEffectiveSummaryDto })
+  effective_summary!: AgentProposalEffectiveSummaryDto;
 
   @ApiProperty({
     type: Object,

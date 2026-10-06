@@ -6942,7 +6942,7 @@ export interface components {
         AgentActionLogListResponseDto: {
             data: components["schemas"]["AgentActionLogResponseDto"][];
             /** @description Cursor for the next page when more results exist */
-            nextCursor?: Record<string, never> | null;
+            nextCursor?: string | null;
         };
         AgentActionTraceDetailResponseDto: {
             logs: components["schemas"]["AgentActionLogResponseDto"][];
@@ -7188,6 +7188,11 @@ export interface components {
             rule_id: Record<string, never> | null;
             rule_version: Record<string, never> | null;
         };
+        AgentProposalEffectiveSummaryDto: {
+            target_type: string | null;
+            target_id: string | null;
+            amount_eur: number | null;
+        };
         AgentProposalResponseDto: {
             id: string;
             tenant_id: string;
@@ -7200,6 +7205,7 @@ export interface components {
             payload_json: {
                 [key: string]: unknown;
             };
+            effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
             preview_json: {
                 [key: string]: unknown;
             } | null;

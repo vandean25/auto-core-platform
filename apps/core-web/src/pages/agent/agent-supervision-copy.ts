@@ -73,6 +73,22 @@ export const SUPERVISION_COPY = {
       en: 'Context / Target',
       de: 'Kontext / Ziel',
     },
+    target: {
+      en: 'Target',
+      de: 'Ziel',
+    },
+    amount: {
+      en: 'Amount',
+      de: 'Betrag',
+    },
+    previewDiff: {
+      en: 'Preview / Diff',
+      de: 'Vorschau / Differenz',
+    },
+    payloadJson: {
+      en: 'Payload JSON',
+      de: 'Nutzlast-JSON',
+    },
     traceId: {
       en: 'Trace ID',
       de: 'Trace-ID',
@@ -240,6 +256,14 @@ export const SUPERVISION_COPY = {
     emptyStateDesc: {
       en: 'No agent action records match the selected filters.',
       de: 'Keine Agenten-Aktivitäten entsprechen den gewählten Filtern.',
+    },
+    loadMore: {
+      en: 'Load more',
+      de: 'Mehr laden',
+    },
+    loadingMore: {
+      en: 'Loading more…',
+      de: 'Weitere Einträge werden geladen…',
     },
     viewAudit: {
       en: 'View correlated audit logs',

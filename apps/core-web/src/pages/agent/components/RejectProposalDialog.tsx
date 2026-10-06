@@ -16,7 +16,7 @@ import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 interface RejectProposalDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onConfirm: (reason?: string) => Promise<void> | void
+  onConfirm: (reason?: string) => Promise<boolean | void> | boolean | void
   isPending?: boolean
   language?: Language
 }
@@ -32,7 +32,8 @@ export function RejectProposalDialog({
   const t = SUPERVISION_COPY.rejectDialog
 
   const handleConfirm = async () => {
-    await onConfirm(reason.trim() || undefined)
+    const confirmed = await onConfirm(reason.trim() || undefined)
+    if (confirmed === false) return
     setReason('')
     onOpenChange(false)
   }
@@ -42,11 +43,15 @@ export function RejectProposalDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{getCopy(t.title, language)}</DialogTitle>
-          <DialogDescription>{getCopy(t.description, language)}</DialogDescription>
+          <DialogDescription>
+            {getCopy(t.description, language)}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2 py-3">
-          <Label htmlFor="reject-reason">{getCopy(t.reasonLabel, language)}</Label>
+          <Label htmlFor="reject-reason">
+            {getCopy(t.reasonLabel, language)}
+          </Label>
           <Input
             id="reject-reason"
             value={reason}
@@ -72,7 +77,9 @@ export function RejectProposalDialog({
             disabled={isPending}
             data-testid="confirm-reject-btn"
           >
-            {isPending ? getCopy(SUPERVISION_COPY.approvals.rejecting, language) : getCopy(t.confirm, language)}
+            {isPending
+              ? getCopy(SUPERVISION_COPY.approvals.rejecting, language)
+              : getCopy(t.confirm, language)}
           </Button>
         </DialogFooter>
       </DialogContent>

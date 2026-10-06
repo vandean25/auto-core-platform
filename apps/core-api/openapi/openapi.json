@@ -22952,7 +22952,7 @@
             }
           },
           "nextCursor": {
-            "type": "object",
+            "type": "string",
             "description": "Cursor for the next page when more results exist",
             "nullable": true
           }
@@ -23924,6 +23924,28 @@
           "rule_version"
         ]
       },
+      "AgentProposalEffectiveSummaryDto": {
+        "type": "object",
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "target_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount_eur": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "target_type",
+          "target_id",
+          "amount_eur"
+        ]
+      },
       "AgentProposalResponseDto": {
         "type": "object",
         "properties": {
@@ -23962,6 +23984,9 @@
             "type": "object",
             "additionalProperties": true
           },
+          "effective_summary": {
+            "$ref": "#/components/schemas/AgentProposalEffectiveSummaryDto"
+          },
           "preview_json": {
             "type": "object",
             "additionalProperties": true,
@@ -23997,6 +24022,7 @@
           "tier",
           "status",
           "payload_json",
+          "effective_summary",
           "preview_json",
           "decided_by",
           "decided_at",

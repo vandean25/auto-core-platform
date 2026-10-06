@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   useAgentProposals,
@@ -45,7 +51,13 @@ vi.mock('@/components/ui/tabs', async () => {
     )
   }
 
-  function TabsList({ className, children }: { className?: string; children: React.ReactNode }) {
+  function TabsList({
+    className,
+    children,
+  }: {
+    className?: string
+    children: React.ReactNode
+  }) {
     return (
       <div role="tablist" className={className}>
         {children}
@@ -106,8 +118,6 @@ vi.mock('@/components/ui/tabs', async () => {
     TabsContent,
   }
 })
-
-
 const mockProposals = [
   {
     id: 'prop-1',
@@ -121,6 +131,11 @@ const mockProposals = [
       entity_type: 'SalesOrder',
       entity_id: 'so-123',
       amount_cents: 15000,
+    },
+    effective_summary: {
+      target_type: 'SalesOrder',
+      target_id: 'so-123',
+      amount_eur: 150,
     },
     preview_json: {
       diff: '- 150.00 EUR discount',
@@ -144,6 +159,11 @@ const mockProposals = [
       entity_type: 'Customer',
       entity_id: 'cust-456',
       amount_cents: 50000,
+    },
+    effective_summary: {
+      target_type: 'Customer',
+      target_id: 'cust-456',
+      amount_eur: 500,
     },
     preview_json: null,
     decided_by: null,
@@ -219,9 +239,12 @@ describe('AgentSupervisionPage', () => {
     } as unknown as ReturnType<typeof useRejectAgentProposal>)
 
     vi.mocked(useAgentActions).mockReturnValue({
-      data: { data: mockLogs },
+      data: { pages: [{ data: mockLogs, nextCursor: null }] },
       isLoading: false,
       isError: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
       refetch: mockRefetchActions,
     } as unknown as ReturnType<typeof useAgentActions>)
 
@@ -235,28 +258,44 @@ describe('AgentSupervisionPage', () => {
   it('renders persistent safety banner and header', () => {
     render(<AgentSupervisionPage />)
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Agent Supervision' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
+    ).toBeInTheDocument()
     expect(screen.getByTestId('agent-safety-banner')).toBeInTheDocument()
-    expect(screen.getByText(/Agent supervision active: proposed agent actions require supervisor approval/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Agent supervision active: proposed agent actions require supervisor approval/i,
+      ),
+    ).toBeInTheDocument()
   })
 
   it('toggles language between English and German', () => {
     render(<AgentSupervisionPage />)
 
     // Initially English
-    expect(screen.getByRole('heading', { level: 1, name: 'Agent Supervision' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
+    ).toBeInTheDocument()
     const toggleBtn = screen.getByTestId('toggle-language-btn')
     expect(toggleBtn).toHaveTextContent('DE (Deutsch)')
 
     // Switch to German
     fireEvent.click(toggleBtn)
-    expect(screen.getByRole('heading', { level: 1, name: 'Agenten-Überwachung' })).toBeInTheDocument()
-    expect(screen.getByText(/Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Agenten-Überwachung' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        /Agenten-Überwachung aktiv: Vorgeschlagene Aktionen erfordern eine Genehmigung/i,
+      ),
+    ).toBeInTheDocument()
     expect(toggleBtn).toHaveTextContent('EN (English)')
 
     // Switch back to English
     fireEvent.click(toggleBtn)
-    expect(screen.getByRole('heading', { level: 1, name: 'Agent Supervision' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
+    ).toBeInTheDocument()
   })
 
   it('renders proposal cards with details and amounts in Approvals tab', () => {
@@ -266,6 +305,63 @@ describe('AgentSupervisionPage', () => {
     expect(screen.getByText('sales-agent')).toBeInTheDocument()
     expect(screen.getByText('payment.refund_customer')).toBeInTheDocument()
     expect(screen.getByText('billing-agent')).toBeInTheDocument()
+  })
+
+  it('renders canonical customer and line-item targets and effective EUR totals', () => {
+    vi.mocked(useAgentProposals).mockReturnValue({
+      data: {
+        data: [
+          {
+            ...mockProposals[0],
+            id: 'customer-proposal',
+            action_type: 'customer.update',
+            payload_json: { customer_id: 'customer-123', amount_eur: 125 },
+            effective_summary: {
+              target_type: 'Customer',
+              target_id: 'customer-123',
+              amount_eur: 125,
+            },
+          },
+          {
+            ...mockProposals[0],
+            id: 'line-proposal',
+            action_type: 'workshop_order.add_line',
+            payload_json: {
+              order_id: 'order-456',
+              unit_price: 25,
+              quantity: 4,
+            },
+            effective_summary: {
+              target_type: 'WorkshopOrder',
+              target_id: 'order-456',
+              amount_eur: 100,
+            },
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: mockRefetchProposals,
+    } as unknown as ReturnType<typeof useAgentProposals>)
+
+    render(<AgentSupervisionPage />)
+
+    expect(screen.getByText('Customer (customer)')).toBeInTheDocument()
+    expect(screen.getByText('WorkshopOrder (order-45)')).toBeInTheDocument()
+    expect(screen.getByText(/125\.00/)).toBeInTheDocument()
+    expect(screen.getByText(/100\.00/)).toBeInTheDocument()
+  })
+
+  it('localizes approval detail labels in German', () => {
+    render(<AgentSupervisionPage />)
+
+    fireEvent.click(screen.getByTestId('toggle-language-btn'))
+    fireEvent.click(screen.getByTestId('toggle-preview-prop-1'))
+
+    expect(screen.getAllByText(/Ziel:/)).toHaveLength(2)
+    expect(screen.getAllByText(/Betrag:/)).toHaveLength(2)
+    expect(screen.getByText('Vorschau / Differenz:')).toBeInTheDocument()
+    expect(screen.getByText('Nutzlast-JSON:')).toBeInTheDocument()
   })
 
   it('CRITICAL SAFETY GUARD: suppresses Approve button for HUMAN_ONLY proposals and displays "Do this manually"', () => {
@@ -280,7 +376,9 @@ describe('AgentSupervisionPage', () => {
     expect(screen.getByTestId('reject-btn-prop-2')).toBeInTheDocument()
     expect(screen.getByText('Do this manually')).toBeInTheDocument()
     expect(
-      screen.getByText(/This action is classified as HUMAN_ONLY and cannot be executed automatically/i),
+      screen.getByText(
+        /This action is classified as HUMAN_ONLY and cannot be executed automatically/i,
+      ),
     ).toBeInTheDocument()
   })
 
@@ -302,11 +400,15 @@ describe('AgentSupervisionPage', () => {
     fireEvent.click(rejectBtn)
 
     // Dialog opens
-    expect(screen.getByRole('heading', { name: 'Reject Agent Proposal' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Reject Agent Proposal' }),
+    ).toBeInTheDocument()
 
     // Type optional reason
     const reasonInput = screen.getByLabelText(/Reason \(optional\)/i)
-    fireEvent.change(reasonInput, { target: { value: 'Discount exceeds allowed range' } })
+    fireEvent.change(reasonInput, {
+      target: { value: 'Discount exceeds allowed range' },
+    })
 
     // Confirm rejection
     const confirmBtn = screen.getByTestId('confirm-reject-btn')
@@ -320,6 +422,56 @@ describe('AgentSupervisionPage', () => {
     })
   })
 
+  it.each([
+    ['HTTP rejection', Object.assign(new Error('Forbidden'), { status: 403 })],
+    ['network rejection', new Error('Network error')],
+  ])(
+    'keeps the rejection dialog and reason after a %s',
+    async (_label, error) => {
+      mockMutateReject.mockRejectedValueOnce(error)
+      render(<AgentSupervisionPage />)
+
+      fireEvent.click(screen.getByTestId('reject-btn-prop-1'))
+      const reasonInput = screen.getByLabelText(/Reason \(optional\)/i)
+      fireEvent.change(reasonInput, {
+        target: { value: 'Needs a second look' },
+      })
+      fireEvent.click(screen.getByTestId('confirm-reject-btn'))
+
+      await waitFor(() =>
+        expect(reasonInput).toHaveValue('Needs a second look'),
+      )
+      expect(
+        screen.getByRole('heading', { name: 'Reject Agent Proposal' }),
+      ).toBeInTheDocument()
+    },
+  )
+
+  it('loads the next activity page when more records are available', () => {
+    const fetchNextPage = vi.fn()
+    vi.mocked(useAgentActions).mockReturnValue({
+      data: {
+        pages: [
+          {
+            data: mockLogs,
+            nextCursor: 'older-page-cursor',
+          },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      hasNextPage: true,
+      isFetchingNextPage: false,
+      fetchNextPage,
+      refetch: mockRefetchActions,
+    } as unknown as ReturnType<typeof useAgentActions>)
+
+    render(<AgentSupervisionPage />)
+    fireEvent.click(screen.getByTestId('tab-activity'))
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(1)
+  })
   it('toggles preview / payload expandable panel', () => {
     render(<AgentSupervisionPage />)
 
@@ -352,8 +504,12 @@ describe('AgentSupervisionPage', () => {
 
     // Modal opens
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Trace Audit & Correlation' })).toBeInTheDocument()
-      expect(screen.getByText(/Correlated System Audit Logs/i)).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: 'Trace Audit & Correlation' }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText(/Correlated System Audit Logs/i),
+      ).toBeInTheDocument()
       expect(screen.getByText(/supervisor@example.com/)).toBeInTheDocument()
     })
   })

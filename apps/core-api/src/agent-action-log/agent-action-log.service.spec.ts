@@ -25,7 +25,9 @@ describe('AgentActionLogService', () => {
   };
 
   const requestContext = {
-    getTraceId: jest.fn().mockReturnValue('00000000-0000-4000-8000-00000000aa01'),
+    getTraceId: jest
+      .fn()
+      .mockReturnValue('00000000-0000-4000-8000-00000000aa01'),
   };
 
   const expectAppendOnlyRecord = () => {
@@ -188,5 +190,110 @@ describe('AgentActionLogService', () => {
         }),
       }),
     );
+  });
+
+  it('writes a decision log through the supplied transaction with agent attribution', async () => {
+    const transaction = {
+      agentActionLog: {
+        create: jest.fn().mockResolvedValue({
+          id: 'decision-log-1',
+          trace_id: '00000000-0000-4000-8000-00000000aa01',
+        }),
+      },
+    } as any;
+
+    await service.recordInTransaction(
+      {
+        traceId: '00000000-0000-4000-8000-00000000aa01',
+        actorType: 'USER',
+        agentId: 'workshop-agent',
+        onBehalfOfUserId: 'supervisor-1',
+        actionType: 'workshop_order.add_line',
+        tier: 'PROPOSE',
+        status: 'REJECTED',
+      },
+      transaction,
+    );
+
+    expect(transaction.agentActionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          agent_id: 'workshop-agent',
+          status: 'REJECTED',
+        }),
+      }),
+    );
+    expect(prisma.agentActionLog.create).not.toHaveBeenCalled();
+  });
+
+  it('runs transactional work with the proposal trace attached to audit context', async () => {
+    const traceId = '00000000-0000-4000-8000-00000000ee05';
+    const transaction = {
+      agentActionLog: {
+        create: jest.fn().mockResolvedValue({ id: 'decision-log-2' }),
+      },
+    } as any;
+    let observedAuditTrace: string | undefined;
+
+    await TenantContextStorage.run(async () => {
+      TenantContextStorage.setRequestMeta({
+        requestId: 'req-transaction',
+        traceId: '00000000-0000-4000-8000-00000000ff06',
+        source: 'API',
+      });
+
+      await service.recordInTransaction(
+        {
+          traceId,
+          actorType: 'USER',
+          agentId: 'workshop-agent',
+          actionType: 'workshop_order.add_line',
+          tier: 'PROPOSE',
+          status: 'EXECUTED',
+        },
+        transaction,
+        async () => {
+          observedAuditTrace =
+            TenantContextStorage.getRequestMeta()?.auditCorrelationId;
+          return { entityId: 'line-1' };
+        },
+      );
+    });
+
+    expect(observedAuditTrace).toBe(traceId);
+    expect(transaction.agentActionLog.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns decision entries when filtering by their originating agent', async () => {
+    prisma.agentActionLog.findMany.mockResolvedValue([
+      {
+        id: 'decision-log-1',
+        tenant_id: 'tenant-1',
+        trace_id: '00000000-0000-4000-8000-00000000aa01',
+        parent_trace_id: null,
+        actor_type: 'USER',
+        agent_id: 'workshop-agent',
+        on_behalf_of_user_id: 'supervisor-1',
+        action_type: 'workshop_order.add_line',
+        tier: 'PROPOSE',
+        status: 'REJECTED',
+        input_summary_json: {},
+        result_summary_json: {},
+        entity_type: null,
+        entity_id: null,
+        reversible: false,
+        reverted_by_log_id: null,
+        created_at: new Date('2026-10-06T00:00:00.000Z'),
+      },
+    ]);
+
+    const result = await service.findAll({ agentId: 'workshop-agent' });
+
+    expect(prisma.agentActionLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tenant_id: 'tenant-1', agent_id: 'workshop-agent' },
+      }),
+    );
+    expect(result.data[0]?.agentId).toBe('workshop-agent');
   });
 });

@@ -31,7 +31,10 @@ export function toLocalEndOfDayIso(dateStr: string): string {
   return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString()
 }
 
-export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabProps) {
+export function ActivityTab({
+  language = 'en',
+  onSelectTraceId,
+}: ActivityTabProps) {
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [tierFilter, setTierFilter] = useState<string>('ALL')
   const [agentSearch, setAgentSearch] = useState<string>('')
@@ -46,8 +49,12 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
     isLoading,
     isError,
     refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useAgentActions({
-    status: statusFilter !== 'ALL' ? (statusFilter as AgentActionStatus) : undefined,
+    status:
+      statusFilter !== 'ALL' ? (statusFilter as AgentActionStatus) : undefined,
     tier: tierFilter !== 'ALL' ? (tierFilter as AgentActionTier) : undefined,
     agentId: agentSearch.trim() || undefined,
     startDate: startDate ? toLocalStartOfDayIso(startDate) : undefined,
@@ -55,7 +62,7 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
     limit: 50,
   })
 
-  const logs = logsData?.data ?? []
+  const logs = logsData?.pages.flatMap((page) => page.data) ?? []
 
   return (
     <div className="space-y-6" data-testid="activity-tab">
@@ -64,7 +71,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
         <div className="flex flex-wrap items-center gap-3">
           {/* Agent search */}
           <div className="relative w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+            <Search
+              className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"
+              aria-hidden="true"
+            />
             <Input
               type="text"
               placeholder={getCopy(t.filters.agentPlaceholder, language)}
@@ -77,7 +87,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
 
           {/* Status selector */}
           <div className="flex items-center gap-1.5">
-            <label htmlFor="activity-status-select" className="text-xs text-slate-500 font-medium">
+            <label
+              htmlFor="activity-status-select"
+              className="text-xs text-slate-500 font-medium"
+            >
               {getCopy(t.filters.statusLabel, language)}:
             </label>
             <select
@@ -87,7 +100,9 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
               className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none"
               data-testid="filter-status-select"
             >
-              <option value="ALL">{getCopy(t.filters.allStatuses, language)}</option>
+              <option value="ALL">
+                {getCopy(t.filters.allStatuses, language)}
+              </option>
               <option value="EXECUTED">EXECUTED</option>
               <option value="FAILED">FAILED</option>
               <option value="REJECTED">REJECTED</option>
@@ -96,7 +111,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
 
           {/* Tier selector */}
           <div className="flex items-center gap-1.5">
-            <label htmlFor="activity-tier-select" className="text-xs text-slate-500 font-medium">
+            <label
+              htmlFor="activity-tier-select"
+              className="text-xs text-slate-500 font-medium"
+            >
               {getCopy(t.filters.tierLabel, language)}:
             </label>
             <select
@@ -106,7 +124,9 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
               className="h-9 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-sm focus:border-slate-500 focus:outline-none"
               data-testid="filter-tier-select"
             >
-              <option value="ALL">{getCopy(t.filters.allTiers, language)}</option>
+              <option value="ALL">
+                {getCopy(t.filters.allTiers, language)}
+              </option>
               <option value="AUTO">AUTO</option>
               <option value="PROPOSE">PROPOSE</option>
               <option value="HUMAN_ONLY">HUMAN_ONLY</option>
@@ -115,7 +135,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
 
           {/* Date range filters */}
           <div className="flex items-center gap-1.5">
-            <label htmlFor="activity-start-date" className="text-xs text-slate-500 font-medium">
+            <label
+              htmlFor="activity-start-date"
+              className="text-xs text-slate-500 font-medium"
+            >
               {getCopy(t.filters.startDateLabel, language)}:
             </label>
             <Input
@@ -129,7 +152,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
           </div>
 
           <div className="flex items-center gap-1.5">
-            <label htmlFor="activity-end-date" className="text-xs text-slate-500 font-medium">
+            <label
+              htmlFor="activity-end-date"
+              className="text-xs text-slate-500 font-medium"
+            >
               {getCopy(t.filters.endDateLabel, language)}:
             </label>
             <Input
@@ -159,7 +185,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
       {/* Loading state */}
       {isLoading && (
         <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-          <RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400" aria-hidden="true" />
+          <RefreshCw
+            className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
+            aria-hidden="true"
+          />
           {getCopy(common.loading, language)}
         </div>
       )}
@@ -167,7 +196,9 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
       {/* Error state */}
       {isError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="text-sm font-medium text-rose-800">{getCopy(common.error, language)}</p>
+          <p className="text-sm font-medium text-rose-800">
+            {getCopy(common.error, language)}
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -186,9 +217,16 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
           className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
           data-testid="activity-empty-state"
         >
-          <Inbox className="mx-auto mb-3 h-10 w-10 text-slate-400" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-slate-800">{getCopy(t.emptyState, language)}</h3>
-          <p className="mt-1 text-sm text-slate-500">{getCopy(t.emptyStateDesc, language)}</p>
+          <Inbox
+            className="mx-auto mb-3 h-10 w-10 text-slate-400"
+            aria-hidden="true"
+          />
+          <h3 className="text-base font-semibold text-slate-800">
+            {getCopy(t.emptyState, language)}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {getCopy(t.emptyStateDesc, language)}
+          </p>
         </div>
       )}
 
@@ -209,8 +247,12 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
             </TableHeader>
             <TableBody>
               {logs.map((log) => {
-                const agentName = typeof log.agentId === 'string' ? log.agentId : 'agent'
-                const approver = typeof log.onBehalfOfUserId === 'string' ? log.onBehalfOfUserId : null
+                const agentName =
+                  typeof log.agentId === 'string' ? log.agentId : 'agent'
+                const approver =
+                  typeof log.onBehalfOfUserId === 'string'
+                    ? log.onBehalfOfUserId
+                    : null
 
                 return (
                   <TableRow key={log.id} data-testid={`activity-row-${log.id}`}>
@@ -241,7 +283,10 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
                           data-testid={`activity-trace-btn-${log.id}`}
                         >
                           <span>{log.traceId.slice(0, 12)}...</span>
-                          <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          <ExternalLink
+                            className="h-3 w-3"
+                            aria-hidden="true"
+                          />
                         </button>
                       ) : (
                         <span className="text-slate-400 text-xs">—</span>
@@ -252,6 +297,21 @@ export function ActivityTab({ language = 'en', onSelectTraceId }: ActivityTabPro
               })}
             </TableBody>
           </Table>
+          {hasNextPage && (
+            <div className="flex justify-center border-t border-slate-100 p-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage
+                  ? getCopy(t.loadingMore, language)
+                  : getCopy(t.loadMore, language)}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

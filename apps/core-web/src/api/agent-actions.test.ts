@@ -52,7 +52,11 @@ describe('agent-actions api hooks', () => {
         { status: 'EXECUTED', limit: 20 },
       ])
       expect(agentActionKeys.details()).toEqual(['agent-actions', 'detail'])
-      expect(agentActionKeys.detail('trace-123')).toEqual(['agent-actions', 'detail', 'trace-123'])
+      expect(agentActionKeys.detail('trace-123')).toEqual([
+        'agent-actions',
+        'detail',
+        'trace-123',
+      ])
     })
   })
 
@@ -87,7 +91,7 @@ describe('agent-actions api hooks', () => {
       })
 
       expect(fetchWithAuth).toHaveBeenCalledWith('/api/agent-actions')
-      expect(result.current.data).toEqual(mockData)
+      expect(result.current.data?.pages).toEqual([mockData])
     })
 
     it('fetches agent actions with filters including fromDate and toDate mapped to startDate and endDate', async () => {
@@ -125,7 +129,7 @@ describe('agent-actions api hooks', () => {
       const expectedUrl =
         '/api/agent-actions?traceId=trace-abc&agentId=agent-1&status=EXECUTED&tier=AUTO&entityType=WorkshopOrder&entityId=wo-1&startDate=2026-10-01T00%3A00%3A00.000Z&endDate=2026-10-04T23%3A59%3A59.000Z&limit=25&cursor=cursor-token'
       expect(fetchWithAuth).toHaveBeenCalledWith(expectedUrl)
-      expect(result.current.data).toEqual(mockData)
+      expect(result.current.data?.pages).toEqual([mockData])
     })
 
     it('handles error response from server', async () => {
@@ -180,7 +184,10 @@ describe('agent-actions api hooks', () => {
       const queryClient = createQueryClient()
       const wrapper = createWrapper(queryClient)
 
-      const { result } = renderHook(() => useAgentActionTraceDetail('trace-xyz'), { wrapper })
+      const { result } = renderHook(
+        () => useAgentActionTraceDetail('trace-xyz'),
+        { wrapper },
+      )
 
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true)
@@ -198,7 +205,10 @@ describe('agent-actions api hooks', () => {
       const queryClient = createQueryClient()
       const wrapper = createWrapper(queryClient)
 
-      const { result } = renderHook(() => useAgentActionTraceDetail('trace-err'), { wrapper })
+      const { result } = renderHook(
+        () => useAgentActionTraceDetail('trace-err'),
+        { wrapper },
+      )
 
       await waitFor(() => {
         expect(result.current.isError).toBe(true)

@@ -117,6 +117,51 @@ export class AgentActionLogService {
     return { id: created.id, traceId, workResult };
   }
 
+  async recordInTransaction<T = never>(
+    input: AgentActionRecordInput,
+    transaction: Prisma.TransactionClient,
+    work?: () => Promise<T>,
+  ): Promise<AgentActionRecordResult<T>> {
+    const parsed = agentActionRecordInputSchema.parse(input);
+    const tenantId = await this.tenantContext.getTenantId();
+    const traceId = parsed.traceId ?? this.requireTraceId();
+    const workResult = work
+      ? await runWithAgentAuditTrace(traceId, work)
+      : undefined;
+    const resultSummary =
+      typeof parsed.resultSummary === 'function'
+        ? (parsed.resultSummary as (result: T | undefined) => unknown)(
+            workResult,
+          )
+        : parsed.resultSummary;
+
+    const created = await transaction.agentActionLog.create({
+      data: {
+        tenant_id: tenantId,
+        trace_id: traceId,
+        parent_trace_id: parsed.parentTraceId ?? null,
+        actor_type: parsed.actorType,
+        agent_id: parsed.agentId ?? null,
+        on_behalf_of_user_id: parsed.onBehalfOfUserId ?? null,
+        action_type: parsed.actionType,
+        tier: parsed.tier,
+        status: parsed.status,
+        input_summary_json: redactAgentActionSummary(
+          parsed.inputSummary,
+        ) as Prisma.InputJsonValue,
+        result_summary_json: redactAgentActionSummary(
+          resultSummary,
+        ) as Prisma.InputJsonValue,
+        entity_type: parsed.entityType ?? null,
+        entity_id: parsed.entityId ?? null,
+        reversible: parsed.reversible ?? false,
+        reverted_by_log_id: parsed.revertedByLogId ?? null,
+      },
+    });
+
+    return { id: created.id, traceId, workResult };
+  }
+
   async findAll(
     query: QueryAgentActionsDto,
   ): Promise<AgentActionLogListResponseDto> {

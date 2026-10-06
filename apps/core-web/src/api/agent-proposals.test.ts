@@ -47,6 +47,11 @@ const mockProposal: AgentProposal = {
   tier: 'PROPOSE',
   status: 'PENDING',
   payload_json: { order_id: 'wo-1' },
+  effective_summary: {
+    target_type: 'WorkshopOrder',
+    target_id: 'wo-1',
+    amount_eur: null,
+  },
   preview_json: { description: 'Brake pads' },
   decided_by: null,
   decided_at: null,
@@ -71,7 +76,11 @@ describe('agent-proposals api hooks', () => {
         { status: 'PENDING', limit: 10 },
       ])
       expect(agentProposalKeys.details()).toEqual(['agent-proposals', 'detail'])
-      expect(agentProposalKeys.detail('prop-123')).toEqual(['agent-proposals', 'detail', 'prop-123'])
+      expect(agentProposalKeys.detail('prop-123')).toEqual([
+        'agent-proposals',
+        'detail',
+        'prop-123',
+      ])
     })
   })
 
@@ -81,7 +90,9 @@ describe('agent-proposals api hooks', () => {
         data: [mockProposal],
       }
 
-      vi.mocked(fetchWithAuth).mockResolvedValue(createJsonResponse(mockResponse))
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(mockResponse),
+      )
 
       const queryClient = createQueryClient()
       const wrapper = createWrapper(queryClient)
@@ -101,7 +112,9 @@ describe('agent-proposals api hooks', () => {
         data: [mockProposal],
       }
 
-      vi.mocked(fetchWithAuth).mockResolvedValue(createJsonResponse(mockResponse))
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(mockResponse),
+      )
 
       const queryClient = createQueryClient()
       const wrapper = createWrapper(queryClient)
@@ -115,13 +128,18 @@ describe('agent-proposals api hooks', () => {
         expect(result.current.isSuccess).toBe(true)
       })
 
-      expect(fetchWithAuth).toHaveBeenCalledWith('/api/agent-proposals?status=PENDING&limit=20')
+      expect(fetchWithAuth).toHaveBeenCalledWith(
+        '/api/agent-proposals?status=PENDING&limit=20',
+      )
       expect(result.current.data).toEqual(mockResponse)
     })
 
     it('handles query error', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
-        createJsonResponse({ message: 'Unauthorized supervisor access' }, false),
+        createJsonResponse(
+          { message: 'Unauthorized supervisor access' },
+          false,
+        ),
       )
 
       const queryClient = createQueryClient()
@@ -133,7 +151,9 @@ describe('agent-proposals api hooks', () => {
         expect(result.current.isError).toBe(true)
       })
 
-      expect(result.current.error?.message).toBe('Unauthorized supervisor access')
+      expect(result.current.error?.message).toBe(
+        'Unauthorized supervisor access',
+      )
     })
   })
 
@@ -146,32 +166,48 @@ describe('agent-proposals api hooks', () => {
         decided_at: '2026-10-04T12:05:00.000Z',
       }
 
-      vi.mocked(fetchWithAuth).mockResolvedValue(createJsonResponse(approvedProposal))
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(approvedProposal),
+      )
 
       const queryClient = createQueryClient()
       const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
       const wrapper = createWrapper(queryClient)
 
-      const { result } = renderHook(() => useApproveAgentProposal(), { wrapper })
+      const { result } = renderHook(() => useApproveAgentProposal(), {
+        wrapper,
+      })
 
       await result.current.mutateAsync('prop-1')
 
-      expect(fetchWithAuth).toHaveBeenCalledWith('/api/agent-proposals/prop-1/approve', {
-        method: 'POST',
+      expect(fetchWithAuth).toHaveBeenCalledWith(
+        '/api/agent-proposals/prop-1/approve',
+        {
+          method: 'POST',
+        },
+      )
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: agentProposalKeys.all,
       })
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentProposalKeys.all })
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentActionKeys.all })
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: agentActionKeys.all,
+      })
     })
 
     it('handles approve failure', async () => {
       vi.mocked(fetchWithAuth).mockResolvedValue(
-        createJsonResponse({ message: 'Action requires human execution' }, false),
+        createJsonResponse(
+          { message: 'Action requires human execution' },
+          false,
+        ),
       )
 
       const queryClient = createQueryClient()
       const wrapper = createWrapper(queryClient)
 
-      const { result } = renderHook(() => useApproveAgentProposal(), { wrapper })
+      const { result } = renderHook(() => useApproveAgentProposal(), {
+        wrapper,
+      })
 
       await expect(result.current.mutateAsync('prop-1')).rejects.toThrow(
         'Action requires human execution',
@@ -189,7 +225,9 @@ describe('agent-proposals api hooks', () => {
         reason: 'Customer cancelled requested repair',
       }
 
-      vi.mocked(fetchWithAuth).mockResolvedValue(createJsonResponse(rejectedProposal))
+      vi.mocked(fetchWithAuth).mockResolvedValue(
+        createJsonResponse(rejectedProposal),
+      )
 
       const queryClient = createQueryClient()
       const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
@@ -202,13 +240,22 @@ describe('agent-proposals api hooks', () => {
         reason: 'Customer cancelled requested repair',
       })
 
-      expect(fetchWithAuth).toHaveBeenCalledWith('/api/agent-proposals/prop-1/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: 'Customer cancelled requested repair' }),
+      expect(fetchWithAuth).toHaveBeenCalledWith(
+        '/api/agent-proposals/prop-1/reject',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason: 'Customer cancelled requested repair',
+          }),
+        },
+      )
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: agentProposalKeys.all,
       })
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentProposalKeys.all })
-      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: agentActionKeys.all })
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: agentActionKeys.all,
+      })
     })
 
     it('handles reject failure', async () => {

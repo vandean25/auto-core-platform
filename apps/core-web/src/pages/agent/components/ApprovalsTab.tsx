@@ -28,10 +28,14 @@ interface ApprovalsTabProps {
   onSelectTraceId?: (traceId: string) => void
 }
 
-export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabProps) {
+export function ApprovalsTab({
+  language = 'en',
+  onSelectTraceId,
+}: ApprovalsTabProps) {
   const [pendingOnly, setPendingOnly] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [rejectingProposal, setRejectingProposal] = useState<AgentProposal | null>(null)
+  const [rejectingProposal, setRejectingProposal] =
+    useState<AgentProposal | null>(null)
 
   const t = SUPERVISION_COPY.approvals
   const common = SUPERVISION_COPY.common
@@ -56,25 +60,29 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
       await approveMutation.mutateAsync(proposal.id)
       toast.success(getCopy(t.approveSuccess, language))
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : getCopy(t.approveError, language)
+      const msg =
+        err instanceof Error ? err.message : getCopy(t.approveError, language)
       toast.error(msg)
     }
   }
 
   const handleConfirmReject = async (reason?: string) => {
-    if (!rejectingProposal) return
+    if (!rejectingProposal) return false
     try {
       await rejectMutation.mutateAsync({ id: rejectingProposal.id, reason })
       toast.success(getCopy(t.rejectSuccess, language))
+      return true
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : getCopy(t.rejectError, language)
+      const msg =
+        err instanceof Error ? err.message : getCopy(t.rejectError, language)
       toast.error(msg)
+      return false
     }
   }
 
-  const formatAmount = (cents: number | null | undefined) => {
-    if (cents === null || cents === undefined) return null
-    return (cents / 100).toLocaleString(language === 'de' ? 'de-DE' : 'en-US', {
+  const formatAmount = (amountEur: number | null | undefined) => {
+    if (amountEur === null || amountEur === undefined) return null
+    return amountEur.toLocaleString(language === 'de' ? 'de-DE' : 'en-US', {
       style: 'currency',
       currency: 'EUR',
     })
@@ -121,7 +129,10 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
       {/* Loading state */}
       {isLoading && (
         <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">
-          <RefreshCw className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400" aria-hidden="true" />
+          <RefreshCw
+            className="mx-auto mb-3 h-6 w-6 animate-spin text-slate-400"
+            aria-hidden="true"
+          />
           {getCopy(common.loading, language)}
         </div>
       )}
@@ -129,7 +140,9 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
       {/* Error state */}
       {isError && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="text-sm font-medium text-rose-800">{getCopy(common.error, language)}</p>
+          <p className="text-sm font-medium text-rose-800">
+            {getCopy(common.error, language)}
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -148,9 +161,16 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
           className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
           data-testid="approvals-empty-state"
         >
-          <Inbox className="mx-auto mb-3 h-10 w-10 text-slate-400" aria-hidden="true" />
-          <h3 className="text-base font-semibold text-slate-800">{getCopy(t.emptyState, language)}</h3>
-          <p className="mt-1 text-sm text-slate-500">{getCopy(t.emptyStateDesc, language)}</p>
+          <Inbox
+            className="mx-auto mb-3 h-10 w-10 text-slate-400"
+            aria-hidden="true"
+          />
+          <h3 className="text-base font-semibold text-slate-800">
+            {getCopy(t.emptyState, language)}
+          </h3>
+          <p className="mt-1 text-sm text-slate-500">
+            {getCopy(t.emptyStateDesc, language)}
+          </p>
         </div>
       )}
 
@@ -162,14 +182,32 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
             const isHumanOnly = proposal.tier === 'HUMAN_ONLY'
             const isPending = proposal.status === 'PENDING'
             const isActionPending =
-              approveMutation.isPending && approveMutation.variables === proposal.id
+              approveMutation.isPending &&
+              approveMutation.variables === proposal.id
 
-            const payload = (proposal.payload_json ?? {}) as Record<string, unknown>
-            const agentId = typeof payload.agent_id === 'string' ? payload.agent_id : 'agent'
-            const entityType = typeof payload.entity_type === 'string' ? payload.entity_type : undefined
-            const entityId = typeof payload.entity_id === 'string' ? payload.entity_id : undefined
-            const amountCents = typeof payload.amount_cents === 'number' ? payload.amount_cents : undefined
-            const amountFormatted = formatAmount(amountCents)
+            const payload = (proposal.payload_json ?? {}) as Record<
+              string,
+              unknown
+            >
+            const agentId =
+              typeof payload.agent_id === 'string' ? payload.agent_id : 'agent'
+            const summary = proposal.effective_summary
+            const entityType =
+              summary?.target_type ??
+              (typeof payload.entity_type === 'string'
+                ? payload.entity_type
+                : undefined)
+            const entityId =
+              summary?.target_id ??
+              (typeof payload.entity_id === 'string'
+                ? payload.entity_id
+                : undefined)
+            const amountEur =
+              summary?.amount_eur ??
+              (typeof payload.amount_cents === 'number'
+                ? payload.amount_cents / 100
+                : undefined)
+            const amountFormatted = formatAmount(amountEur)
 
             return (
               <div
@@ -194,7 +232,7 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                       </span>
                       {entityType && (
                         <span>
-                          Target:{' '}
+                          {getCopy(t.target, language)}:{' '}
                           <strong className="text-slate-700">
                             {entityType}
                             {entityId ? ` (${entityId.slice(0, 8)})` : ''}
@@ -202,7 +240,10 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                         </span>
                       )}
                       <span>
-                        <Clock className="inline mr-1 h-3 w-3" aria-hidden="true" />
+                        <Clock
+                          className="inline mr-1 h-3 w-3"
+                          aria-hidden="true"
+                        />
                         {new Date(proposal.created_at).toLocaleString()}
                       </span>
                       {proposal.expires_at && isPending && (
@@ -234,7 +275,10 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                             className="bg-emerald-700 hover:bg-emerald-800 text-white"
                             data-testid={`approve-btn-${proposal.id}`}
                           >
-                            <CheckCircle2 className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                            <CheckCircle2
+                              className="mr-1.5 h-4 w-4"
+                              aria-hidden="true"
+                            />
                             {isActionPending
                               ? getCopy(t.approving, language)
                               : getCopy(t.approve, language)}
@@ -249,7 +293,10 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                           className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
                           data-testid={`reject-btn-${proposal.id}`}
                         >
-                          <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                          <XCircle
+                            className="mr-1.5 h-4 w-4"
+                            aria-hidden="true"
+                          />
                           {getCopy(t.reject, language)}
                         </Button>
                       </>
@@ -265,7 +312,9 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                 {/* Human-only advisory banner */}
                 {isHumanOnly && (
                   <div className="rounded-md border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
-                    <p className="leading-relaxed">{getCopy(t.humanOnlyNotice, language)}</p>
+                    <p className="leading-relaxed">
+                      {getCopy(t.humanOnlyNotice, language)}
+                    </p>
                   </div>
                 )}
 
@@ -274,7 +323,10 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                   <div className="flex items-center gap-4">
                     {amountFormatted && (
                       <span className="font-semibold text-slate-900">
-                        Amount: <span className="font-mono text-emerald-700">{amountFormatted}</span>
+                        {getCopy(t.amount, language)}:{' '}
+                        <span className="font-mono text-emerald-700">
+                          {amountFormatted}
+                        </span>
                       </span>
                     )}
                     {proposal.trace_id && onSelectTraceId && (
@@ -295,18 +347,26 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={() => setExpandedId(isExpanded ? null : proposal.id)}
+                    onClick={() =>
+                      setExpandedId(isExpanded ? null : proposal.id)
+                    }
                     className="h-7 text-xs text-slate-500"
                     data-testid={`toggle-preview-${proposal.id}`}
                   >
                     {isExpanded ? (
                       <>
-                        <ChevronUp className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                        <ChevronUp
+                          className="mr-1 h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
                         {getCopy(t.hidePreview, language)}
                       </>
                     ) : (
                       <>
-                        <ChevronDown className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                        <ChevronDown
+                          className="mr-1 h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
                         {getCopy(t.showPreview, language)}
                       </>
                     )}
@@ -322,16 +382,20 @@ export function ApprovalsTab({ language = 'en', onSelectTraceId }: ApprovalsTabP
                     {proposal.preview_json ? (
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                          Preview / Diff:
+                          {getCopy(t.previewDiff, language)}:
                         </div>
-                        <pre>{JSON.stringify(proposal.preview_json, null, 2)}</pre>
+                        <pre>
+                          {JSON.stringify(proposal.preview_json, null, 2)}
+                        </pre>
                       </div>
                     ) : null}
                     <div>
                       <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
-                        Payload JSON:
+                        {getCopy(t.payloadJson, language)}:
                       </div>
-                      <pre>{JSON.stringify(proposal.payload_json, null, 2)}</pre>
+                      <pre>
+                        {JSON.stringify(proposal.payload_json, null, 2)}
+                      </pre>
                     </div>
                   </div>
                 )}

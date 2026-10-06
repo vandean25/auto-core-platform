@@ -1,10 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 
 export type AgentActionLog = components['schemas']['AgentActionLogResponseDto']
-export type AgentActionLogListResponse = components['schemas']['AgentActionLogListResponseDto']
-export type AgentActionTraceDetailResponse = components['schemas']['AgentActionTraceDetailResponseDto']
+export type AgentActionLogListResponse =
+  components['schemas']['AgentActionLogListResponseDto']
+export type AgentActionTraceDetailResponse =
+  components['schemas']['AgentActionTraceDetailResponseDto']
 
 export type AgentActionStatus = AgentActionLog['status']
 export type AgentActionTier = AgentActionLog['tier']
@@ -28,20 +30,26 @@ export type AgentActionFilters = {
 export const agentActionKeys = {
   all: ['agent-actions'] as const,
   lists: () => [...agentActionKeys.all, 'list'] as const,
-  list: (filters: Record<string, unknown> = {}) => [...agentActionKeys.lists(), filters] as const,
+  list: (filters: Record<string, unknown> = {}) =>
+    [...agentActionKeys.lists(), filters] as const,
   details: () => [...agentActionKeys.all, 'detail'] as const,
   detail: (traceId: string) => [...agentActionKeys.details(), traceId] as const,
 }
 
-async function getErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
-  const payload = (await response.json().catch(() => undefined)) as { message?: string } | undefined
+async function getErrorMessage(
+  response: Response,
+  fallbackMessage: string,
+): Promise<string> {
+  const payload = (await response.json().catch(() => undefined)) as
+    { message?: string } | undefined
   return payload?.message || fallbackMessage
 }
 
 export function useAgentActions(filters: AgentActionFilters = {}) {
-  return useQuery<AgentActionLogListResponse>({
+  return useInfiniteQuery({
     queryKey: agentActionKeys.list(filters),
-    queryFn: async () => {
+    initialPageParam: filters.cursor,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams()
 
       if (filters.traceId) params.append('traceId', filters.traceId)
@@ -57,19 +65,24 @@ export function useAgentActions(filters: AgentActionFilters = {}) {
       const endDate = filters.endDate ?? filters.toDate
       if (endDate) params.append('endDate', endDate)
 
-      if (filters.limit !== undefined) params.append('limit', String(filters.limit))
-      if (filters.cursor) params.append('cursor', filters.cursor)
+      if (filters.limit !== undefined)
+        params.append('limit', String(filters.limit))
+      if (pageParam) params.append('cursor', pageParam)
 
       const query = params.toString()
       const url = query ? `/api/agent-actions?${query}` : '/api/agent-actions'
       const response = await fetchWithAuth(url)
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch agent actions'))
+        throw new Error(
+          await getErrorMessage(response, 'Failed to fetch agent actions'),
+        )
       }
 
       return response.json()
     },
+    getNextPageParam: (lastPage: AgentActionLogListResponse) =>
+      lastPage.nextCursor ?? undefined,
   })
 }
 
@@ -80,7 +93,12 @@ export function useAgentActionTraceDetail(traceId: string) {
       const response = await fetchWithAuth(`/api/agent-actions/${traceId}`)
 
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to fetch agent action trace detail'))
+        throw new Error(
+          await getErrorMessage(
+            response,
+            'Failed to fetch agent action trace detail',
+          ),
+        )
       }
 
       return response.json()

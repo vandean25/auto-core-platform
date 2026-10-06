@@ -159,68 +159,71 @@ export class AgentProposalService {
     }
 
     const now = new Date();
-    const updated = await this.prisma.agentProposal.updateMany({
-      where: {
-        id: proposal.id,
-        tenant_id: tenantId,
-        status: AgentProposalStatus.PENDING,
-        expires_at: { gt: now },
-      },
-      data: {
-        status: AgentProposalStatus.REJECTED,
-        decided_by: currentUser.id,
-        decided_at: now,
-        reason: dto?.reason ?? null,
-      },
-    });
+    const rejectedProposal = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.agentProposal.updateMany({
+        where: {
+          id: proposal.id,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+          expires_at: { gt: now },
+        },
+        data: {
+          status: AgentProposalStatus.REJECTED,
+          decided_by: currentUser.id,
+          decided_at: now,
+          reason: dto?.reason ?? null,
+        },
+      });
+      if (updated.count === 0) return null;
 
-    if (updated.count === 0) {
-      const reloaded = await this.prisma.agentProposal.findFirst({
+      await this.agentActionLog.recordInTransaction(
+        {
+          traceId: proposal.trace_id,
+          actorType: 'USER',
+          agentId: this.getOriginatingAgentId(proposal.payload_json),
+          onBehalfOfUserId: currentUser.id,
+          actionType: proposal.action_type,
+          tier: 'PROPOSE',
+          status: 'REJECTED',
+          inputSummary: { proposalId: proposal.id, reason: dto?.reason },
+          resultSummary: { rejectedBy: currentUser.id, reason: dto?.reason },
+        },
+        tx,
+      );
+
+      return tx.agentProposal.findFirst({
         where: { id: proposal.id, tenant_id: tenantId },
       });
-      if (!reloaded) {
-        throw new NotFoundException('Proposal not found');
-      }
-      if (
-        reloaded.status === AgentProposalStatus.EXPIRED ||
-        (reloaded.status === AgentProposalStatus.PENDING &&
-          reloaded.expires_at <= now)
-      ) {
-        if (reloaded.status === AgentProposalStatus.PENDING) {
-          await this.prisma.agentProposal.updateMany({
-            where: {
-              id: proposal.id,
-              tenant_id: tenantId,
-              status: AgentProposalStatus.PENDING,
-            },
-            data: { status: AgentProposalStatus.EXPIRED },
-          });
-        }
-        throw new UnprocessableEntityException('Proposal has expired');
-      }
-      if (reloaded.status === AgentProposalStatus.REJECTED) {
-        return this.toResponseDto(reloaded);
-      }
-      throw new ConflictException(
-        `Proposal state conflict: current status is ${reloaded.status}`,
-      );
-    }
-
-    await this.agentActionLog.record({
-      traceId: proposal.trace_id,
-      actorType: 'USER',
-      onBehalfOfUserId: currentUser.id,
-      actionType: proposal.action_type,
-      tier: 'PROPOSE',
-      status: 'REJECTED',
-      inputSummary: { proposalId: proposal.id, reason: dto?.reason },
-      resultSummary: { rejectedBy: currentUser.id, reason: dto?.reason },
     });
+    if (rejectedProposal) return this.toResponseDto(rejectedProposal);
 
-    const finalProposal = await this.prisma.agentProposal.findFirst({
+    const reloaded = await this.prisma.agentProposal.findFirst({
       where: { id: proposal.id, tenant_id: tenantId },
     });
-    return this.toResponseDto(finalProposal!);
+    if (!reloaded) throw new NotFoundException('Proposal not found');
+    if (
+      reloaded.status === AgentProposalStatus.EXPIRED ||
+      (reloaded.status === AgentProposalStatus.PENDING &&
+        reloaded.expires_at <= now)
+    ) {
+      if (reloaded.status === AgentProposalStatus.PENDING) {
+        await this.prisma.agentProposal.updateMany({
+          where: {
+            id: proposal.id,
+            tenant_id: tenantId,
+            status: AgentProposalStatus.PENDING,
+          },
+          data: { status: AgentProposalStatus.EXPIRED },
+        });
+      }
+      throw new UnprocessableEntityException('Proposal has expired');
+    }
+    if (reloaded.status === AgentProposalStatus.REJECTED) {
+      return this.toResponseDto(reloaded);
+    }
+    throw new ConflictException(
+      `Proposal state conflict: current status is ${reloaded.status}`,
+    );
   }
 
   async approveProposal(id: string): Promise<AgentProposalResponseDto> {
@@ -273,6 +276,12 @@ export class AgentProposalService {
       );
     }
 
+    if (proposal.tier === AgentPolicyTier.HUMAN_ONLY) {
+      throw new UnprocessableEntityException(
+        'HUMAN_ONLY proposals must be performed manually',
+      );
+    }
+
     const policyContext = this.extractPolicyContext(
       proposal.payload_json,
       proposal.action_type,
@@ -293,42 +302,89 @@ export class AgentProposalService {
     }
 
     const now = new Date();
-    const updated = await this.prisma.agentProposal.updateMany({
-      where: {
-        id: proposal.id,
-        tenant_id: tenantId,
-        status: AgentProposalStatus.PENDING,
-        expires_at: { gt: now },
-      },
-      data: {
-        status: AgentProposalStatus.APPROVED,
-        decided_by: currentUser.id,
-        decided_at: now,
-      },
-    });
+    let claimed = false;
+    try {
+      const outcome = await this.prisma.$transaction(async (tx) => {
+        const updated = await tx.agentProposal.updateMany({
+          where: {
+            id: proposal.id,
+            tenant_id: tenantId,
+            status: AgentProposalStatus.PENDING,
+            expires_at: { gt: now },
+          },
+          data: {
+            status: AgentProposalStatus.APPROVED,
+            decided_by: currentUser.id,
+            decided_at: now,
+          },
+        });
+        if (updated.count === 0) return { claimed: false as const };
+        claimed = true;
 
-    if (updated.count === 0) {
+        await this.agentActionLog.recordInTransaction(
+          {
+            traceId: proposal.trace_id,
+            actorType: 'USER',
+            agentId: this.getOriginatingAgentId(proposal.payload_json),
+            onBehalfOfUserId: currentUser.id,
+            actionType: proposal.action_type,
+            tier: 'PROPOSE',
+            status: 'EXECUTED',
+            inputSummary: {
+              proposalId: proposal.id,
+              payload: proposal.payload_json,
+            },
+            resultSummary: (result?: Record<string, unknown>) => ({
+              approvedBy: currentUser.id,
+              executed: true,
+              entityId: result?.entityId,
+            }),
+          },
+          tx,
+          () =>
+            this.dispatchActionPayload(
+              proposal.action_type,
+              proposal.payload_json,
+              tenantId,
+              tx,
+            ),
+        );
+
+        await tx.agentProposal.updateMany({
+          where: {
+            id: proposal.id,
+            tenant_id: tenantId,
+            status: AgentProposalStatus.APPROVED,
+          },
+          data: { status: AgentProposalStatus.EXECUTED },
+        });
+        const executedProposal = await tx.agentProposal.findFirst({
+          where: { id: proposal.id, tenant_id: tenantId },
+        });
+        if (!executedProposal) {
+          throw new NotFoundException('Proposal not found');
+        }
+        return { claimed: true as const, proposal: executedProposal };
+      });
+
+      if (outcome.claimed) return this.toResponseDto(outcome.proposal);
+
       const reloaded = await this.prisma.agentProposal.findFirst({
         where: { id: proposal.id, tenant_id: tenantId },
       });
-      if (!reloaded) {
-        throw new NotFoundException('Proposal not found');
-      }
+      if (!reloaded) throw new NotFoundException('Proposal not found');
       if (
-        reloaded.status === AgentProposalStatus.EXPIRED ||
-        (reloaded.status === AgentProposalStatus.PENDING &&
-          reloaded.expires_at <= now)
+        reloaded.status === AgentProposalStatus.PENDING &&
+        reloaded.expires_at <= now
       ) {
-        if (reloaded.status === AgentProposalStatus.PENDING) {
-          await this.prisma.agentProposal.updateMany({
-            where: {
-              id: proposal.id,
-              tenant_id: tenantId,
-              status: AgentProposalStatus.PENDING,
-            },
-            data: { status: AgentProposalStatus.EXPIRED },
-          });
-        }
+        await this.prisma.agentProposal.updateMany({
+          where: {
+            id: proposal.id,
+            tenant_id: tenantId,
+            status: AgentProposalStatus.PENDING,
+          },
+          data: { status: AgentProposalStatus.EXPIRED },
+        });
         throw new UnprocessableEntityException('Proposal has expired');
       }
       if (
@@ -340,49 +396,46 @@ export class AgentProposalService {
       throw new ConflictException(
         `Proposal state conflict: current status is ${reloaded.status}`,
       );
-    }
-
-    try {
-      await this.agentActionLog.record(
-        {
-          traceId: proposal.trace_id,
-          actorType: 'USER',
-          onBehalfOfUserId: currentUser.id,
-          actionType: proposal.action_type,
-          tier: 'PROPOSE',
-          status: 'EXECUTED',
-          inputSummary: {
-            proposalId: proposal.id,
-            payload: proposal.payload_json,
-          },
-          resultSummary: { approvedBy: currentUser.id, executed: true },
-        },
-        async () => {
-          return this.dispatchActionPayload(
-            proposal.action_type,
-            proposal.payload_json,
-            tenantId,
-          );
-        },
-      );
-
-      await this.prisma.agentProposal.updateMany({
-        where: { id: proposal.id, tenant_id: tenantId },
-        data: { status: AgentProposalStatus.EXECUTED },
-      });
-
-      const executedProposal = await this.prisma.agentProposal.findFirst({
-        where: { id: proposal.id, tenant_id: tenantId },
-      });
-      return this.toResponseDto(executedProposal!);
     } catch (error) {
-      await this.prisma.agentProposal.updateMany({
-        where: { id: proposal.id, tenant_id: tenantId },
-        data: {
-          status: AgentProposalStatus.FAILED,
-          reason: error instanceof Error ? error.message : 'Execution failed',
-        },
-      });
+      if (claimed) {
+        try {
+          await this.prisma.$transaction(async (tx) => {
+            const failed = await tx.agentProposal.updateMany({
+              where: {
+                id: proposal.id,
+                tenant_id: tenantId,
+                status: AgentProposalStatus.PENDING,
+              },
+              data: {
+                status: AgentProposalStatus.FAILED,
+                reason:
+                  error instanceof Error ? error.message : 'Execution failed',
+              },
+            });
+            if (failed.count === 0) return;
+            await this.agentActionLog.recordInTransaction(
+              {
+                traceId: proposal.trace_id,
+                actorType: 'USER',
+                agentId: this.getOriginatingAgentId(proposal.payload_json),
+                onBehalfOfUserId: currentUser.id,
+                actionType: proposal.action_type,
+                tier: 'PROPOSE',
+                status: 'FAILED',
+                inputSummary: { proposalId: proposal.id },
+                resultSummary: {
+                  approvedBy: currentUser.id,
+                  error:
+                    error instanceof Error ? error.message : 'Execution failed',
+                },
+              },
+              tx,
+            );
+          });
+        } catch {
+          // The failed state remains recoverable as PENDING if audit persistence is unavailable.
+        }
+      }
       throw error;
     }
   }
@@ -511,6 +564,7 @@ export class AgentProposalService {
     actionType: string,
     payload: unknown,
     tenantId: string,
+    tx: Prisma.TransactionClient,
   ): Promise<Record<string, unknown>> {
     const record =
       payload && typeof payload === 'object' && !Array.isArray(payload)
@@ -540,110 +594,122 @@ export class AgentProposalService {
           );
         }
 
-        return this.prisma.$transaction(async (tx) => {
-          const order = await tx.workshopOrder.findFirst({
-            where: {
-              id: orderId,
-              tenant_id: tenantId,
-              site_id: callerSiteId,
+        const siteLock = await tx.site.updateMany({
+          where: {
+            id: callerSiteId,
+            tenant_id: tenantId,
+            is_active: true,
+          },
+          data: { is_active: true },
+        });
+        if (siteLock.count !== 1) {
+          throw new UnprocessableEntityException(
+            'The active site is no longer available',
+          );
+        }
+
+        const order = await tx.workshopOrder.findFirst({
+          where: {
+            id: orderId,
+            tenant_id: tenantId,
+            site_id: callerSiteId,
+          },
+          include: {
+            tasks: {
+              orderBy: { createdAt: 'asc' },
             },
-            include: {
-              tasks: {
-                orderBy: { createdAt: 'asc' },
-              },
-            },
-          });
-          if (!order) {
-            throw new NotFoundException(`Workshop order ${orderId} not found`);
+          },
+        });
+        if (!order) {
+          throw new NotFoundException(`Workshop order ${orderId} not found`);
+        }
+
+        assertOrderEditable(order);
+
+        const taskId =
+          (record.task_id as string | undefined) ??
+          (record.taskId as string | undefined);
+        let targetTask = taskId
+          ? order.tasks?.find((t) => t.id === taskId)
+          : order.tasks?.[0];
+
+        if (!targetTask) {
+          if (taskId) {
+            throw new NotFoundException(
+              `Workshop task ${taskId} not found on order ${orderId}`,
+            );
           }
-
-          assertOrderEditable(order);
-
-          const taskId =
-            (record.task_id as string | undefined) ??
-            (record.taskId as string | undefined);
-          let targetTask = taskId
-            ? order.tasks?.find((t) => t.id === taskId)
-            : order.tasks?.[0];
-
-          if (!targetTask) {
-            if (taskId) {
-              throw new NotFoundException(
-                `Workshop task ${taskId} not found on order ${orderId}`,
-              );
-            }
-            targetTask = await tx.workshopTask.create({
-              data: {
-                tenant_id: tenantId,
-                workshop_order_id: order.id,
-                title: 'General Service',
-              },
-            });
-          }
-
-          let expectedVersion = targetTask.line_items_version;
-          if (
-            typeof record.expected_line_items_version === 'number' &&
-            Number.isFinite(record.expected_line_items_version)
-          ) {
-            expectedVersion = record.expected_line_items_version;
-          } else if (
-            typeof record.expectedLineItemsVersion === 'number' &&
-            Number.isFinite(record.expectedLineItemsVersion)
-          ) {
-            expectedVersion = record.expectedLineItemsVersion;
-          }
-
-          await incrementTaskLineItemsVersion({
-            tx,
-            tenantId,
-            siteId: callerSiteId,
-            taskId: targetTask.id,
-            expectedLineItemsVersion: expectedVersion,
-          });
-
-          const type =
-            record.type === 'LABOR'
-              ? WorkshopLineItemType.LABOR
-              : WorkshopLineItemType.PART;
-          const itemNo =
-            typeof record.item_no === 'string'
-              ? record.item_no
-              : typeof record.itemNo === 'string'
-                ? record.itemNo
-                : 'MISC';
-          const description =
-            typeof record.description === 'string'
-              ? record.description
-              : 'Proposed line item';
-
-          const financials = resolveLineItemFinancials(record);
-          const quantity = new Prisma.Decimal(financials.quantity);
-          const unitPrice = new Prisma.Decimal(financials.unitPrice);
-
-          const lineItem = await tx.workshopTaskLineItem.create({
+          targetTask = await tx.workshopTask.create({
             data: {
               tenant_id: tenantId,
-              workshop_task_id: targetTask.id,
-              type,
-              item_no: itemNo,
-              description,
-              quantity,
-              unit_price: unitPrice,
+              workshop_order_id: order.id,
+              title: 'General Service',
             },
           });
+        }
 
-          return {
-            actionType,
-            status: 'SUCCESS',
-            entityType: 'WorkshopTaskLineItem',
-            entityId: lineItem.id,
-            orderId: order.id,
-            siteId: callerSiteId,
-            taskId: targetTask.id,
-            lineItem,
-          };
+        let expectedVersion = targetTask.line_items_version;
+        if (
+          typeof record.expected_line_items_version === 'number' &&
+          Number.isFinite(record.expected_line_items_version)
+        ) {
+          expectedVersion = record.expected_line_items_version;
+        } else if (
+          typeof record.expectedLineItemsVersion === 'number' &&
+          Number.isFinite(record.expectedLineItemsVersion)
+        ) {
+          expectedVersion = record.expectedLineItemsVersion;
+        }
+
+        await incrementTaskLineItemsVersion({
+          tx,
+          tenantId,
+          siteId: callerSiteId,
+          taskId: targetTask.id,
+          expectedLineItemsVersion: expectedVersion,
         });
+
+        const type =
+          record.type === 'LABOR'
+            ? WorkshopLineItemType.LABOR
+            : WorkshopLineItemType.PART;
+        const itemNo =
+          typeof record.item_no === 'string'
+            ? record.item_no
+            : typeof record.itemNo === 'string'
+              ? record.itemNo
+              : 'MISC';
+        const description =
+          typeof record.description === 'string'
+            ? record.description
+            : 'Proposed line item';
+
+        const financials = resolveLineItemFinancials(record);
+        const quantity = new Prisma.Decimal(financials.quantity);
+        const unitPrice = new Prisma.Decimal(financials.unitPrice);
+
+        const lineItem = await tx.workshopTaskLineItem.create({
+          data: {
+            tenant_id: tenantId,
+            workshop_task_id: targetTask.id,
+            type,
+            item_no: itemNo,
+            description,
+            quantity,
+            unit_price: unitPrice,
+          },
+        });
+
+        return {
+          actionType,
+          status: 'SUCCESS',
+          entityType: 'WorkshopTaskLineItem',
+          entityId: lineItem.id,
+          orderId: order.id,
+          siteId: callerSiteId,
+          taskId: targetTask.id,
+          lineItem,
+        };
       }
 
       case 'customer.update': {
@@ -656,7 +722,7 @@ export class AgentProposalService {
           );
         }
 
-        const customer = await this.prisma.customer.findFirst({
+        const customer = await tx.customer.findFirst({
           where: { id: customerId, tenant_id: tenantId },
         });
         if (!customer) {
@@ -677,7 +743,7 @@ export class AgentProposalService {
           updateData.phone = record.phone;
         }
 
-        const updateResult = await this.prisma.customer.updateMany({
+        const updateResult = await tx.customer.updateMany({
           where: { id: customer.id, tenant_id: tenantId },
           data: updateData,
         });
@@ -685,7 +751,7 @@ export class AgentProposalService {
           throw new NotFoundException(`Customer ${customerId} not found`);
         }
 
-        const updatedCustomer = await this.prisma.customer.findFirst({
+        const updatedCustomer = await tx.customer.findFirst({
           where: { id: customer.id, tenant_id: tenantId },
         });
 
@@ -705,6 +771,64 @@ export class AgentProposalService {
     }
   }
 
+  private getOriginatingAgentId(payload: unknown): string | undefined {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return undefined;
+    }
+    const record = payload as Record<string, unknown>;
+    const agentId = record.agent_id ?? record.agentId;
+    return typeof agentId === 'string' && agentId.length > 0
+      ? agentId
+      : undefined;
+  }
+
+  private buildEffectiveSummary(
+    actionType: string,
+    payload: Record<string, unknown>,
+  ): {
+    target_type: string | null;
+    target_id: string | null;
+    amount_eur: number | null;
+  } {
+    const firstString = (keys: string[]) => {
+      for (const key of keys) {
+        if (typeof payload[key] === 'string') return payload[key];
+      }
+      return null;
+    };
+    const targetType =
+      actionType === 'customer.update'
+        ? 'Customer'
+        : actionType === 'workshop_order.add_line'
+          ? 'WorkshopOrder'
+          : firstString(['entity_type', 'entityType']);
+    const targetId =
+      actionType === 'customer.update'
+        ? firstString(['customer_id', 'customerId'])
+        : actionType === 'workshop_order.add_line'
+          ? firstString([
+              'order_id',
+              'orderId',
+              'workshop_order_id',
+              'workshopOrderId',
+            ])
+          : firstString(['entity_id', 'entityId']);
+
+    let amountEur: number | null = null;
+    try {
+      const amount = this.extractPolicyContext(payload, actionType).amount_eur;
+      if (typeof amount === 'number') amountEur = amount;
+    } catch {
+      amountEur = null;
+    }
+
+    return {
+      target_type: targetType,
+      target_id: targetId,
+      amount_eur: amountEur,
+    };
+  }
+
   private toResponseDto(proposal: AgentProposal): AgentProposalResponseDto {
     return {
       id: proposal.id,
@@ -714,6 +838,10 @@ export class AgentProposalService {
       tier: proposal.tier,
       status: proposal.status,
       payload_json: (proposal.payload_json ?? {}) as Record<string, unknown>,
+      effective_summary: this.buildEffectiveSummary(
+        proposal.action_type,
+        (proposal.payload_json ?? {}) as Record<string, unknown>,
+      ),
       preview_json: (proposal.preview_json ?? null) as Record<
         string,
         unknown

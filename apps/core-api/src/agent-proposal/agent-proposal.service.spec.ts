@@ -58,6 +58,9 @@ describe('AgentProposalService', () => {
       tenantMember: {
         findFirst: jest.fn().mockResolvedValue({ id: 'tm-1' }),
       },
+      site: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
       workshopOrder: {
         findFirst: jest.fn().mockResolvedValue({
           id: 'wo-1',
@@ -91,6 +94,13 @@ describe('AgentProposalService', () => {
     };
 
     mockAgentActionLog = {
+      recordInTransaction: jest
+        .fn()
+        .mockImplementation(async (_input, _transaction, work) => ({
+          id: 'log-1',
+          traceId,
+          workResult: work ? await work() : undefined,
+        })),
       record: jest.fn().mockImplementation(async (_input, work) => {
         let workResult;
         if (work) {
@@ -114,7 +124,11 @@ describe('AgentProposalService', () => {
     tenant_id: tenantId,
     trace_id: traceId,
     action_type: 'workshop_order.add_line',
-    payload_json: { order_id: 'wo-1', amount_eur: 50 },
+    payload_json: {
+      agent_id: 'workshop-agent',
+      order_id: 'wo-1',
+      amount_eur: 50,
+    },
     preview_json: null,
     tier: AgentPolicyTier.PROPOSE,
     status: AgentProposalStatus.PENDING,
@@ -156,6 +170,40 @@ describe('AgentProposalService', () => {
 
       expect(result.data).toHaveLength(1);
       expect(result.data[0].id).toBe(proposalId);
+    });
+
+    it('returns effective target and amount for executor payload forms', async () => {
+      mockPrisma.agentProposal.findMany.mockResolvedValue([
+        createMockProposal({
+          action_type: 'customer.update',
+          payload_json: { customer_id: 'customer-123', amount_eur: 125 },
+        }),
+        createMockProposal({
+          id: 'line-proposal',
+          payload_json: {
+            order_id: 'order-456',
+            unit_price: 25,
+            quantity: 4,
+          },
+        }),
+      ]);
+
+      const result = await service.listProposals({});
+
+      expect(
+        result.data.map(({ effective_summary }) => effective_summary),
+      ).toEqual([
+        {
+          target_type: 'Customer',
+          target_id: 'customer-123',
+          amount_eur: 125,
+        },
+        {
+          target_type: 'WorkshopOrder',
+          target_id: 'order-456',
+          amount_eur: 100,
+        },
+      ]);
     });
 
     it('filters proposals by status and enforces tenant isolation', async () => {
@@ -270,21 +318,23 @@ describe('AgentProposalService', () => {
         },
       });
 
-      expect(mockAgentActionLog.record).toHaveBeenCalledTimes(1);
-      expect(mockAgentActionLog.record).toHaveBeenCalledWith({
-        traceId,
-        actorType: 'USER',
-        onBehalfOfUserId: userId,
-        actionType: 'workshop_order.add_line',
-        tier: 'PROPOSE',
-        status: 'REJECTED',
-        inputSummary: { proposalId: proposal.id, reason: 'Too expensive' },
-        resultSummary: { rejectedBy: userId, reason: 'Too expensive' },
-      });
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledTimes(1);
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledWith(
+        {
+          traceId,
+          actorType: 'USER',
+          agentId: 'workshop-agent',
+          onBehalfOfUserId: userId,
+          actionType: 'workshop_order.add_line',
+          tier: 'PROPOSE',
+          status: 'REJECTED',
+          inputSummary: { proposalId: proposal.id, reason: 'Too expensive' },
+          resultSummary: { rejectedBy: userId, reason: 'Too expensive' },
+        },
+        mockPrisma,
+      );
 
-      // Verify no work/dispatch callback was passed to record
-      const recordCalls = mockAgentActionLog.record.mock.calls;
-      expect(recordCalls[0][1]).toBeUndefined();
+      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
 
       expect(result.status).toBe(AgentProposalStatus.REJECTED);
       expect(result.reason).toBe('Too expensive');
@@ -315,7 +365,7 @@ describe('AgentProposalService', () => {
 
       expect(result.status).toBe(AgentProposalStatus.REJECTED);
       expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException if already APPROVED or EXECUTED', async () => {
@@ -379,7 +429,7 @@ describe('AgentProposalService', () => {
       });
 
       expect(result.status).toBe(AgentProposalStatus.REJECTED);
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
   });
 
@@ -420,25 +470,92 @@ describe('AgentProposalService', () => {
         },
       });
 
-      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           traceId,
           actorType: 'USER',
+          agentId: 'workshop-agent',
           onBehalfOfUserId: userId,
           actionType: 'workshop_order.add_line',
           status: 'EXECUTED',
         }),
+        mockPrisma,
         expect.any(Function),
       );
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenNthCalledWith(2, {
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.APPROVED,
+        },
         data: { status: AgentProposalStatus.EXECUTED },
       });
 
       expect(result.status).toBe(AgentProposalStatus.EXECUTED);
     });
 
+    it('records the originating agent on approval decisions', async () => {
+      const proposal = createMockProposal();
+      mockPrisma.agentProposal.findFirst
+        .mockResolvedValueOnce(proposal)
+        .mockResolvedValueOnce({
+          ...proposal,
+          status: AgentProposalStatus.EXECUTED,
+        });
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.approveProposal(proposalId);
+
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ agentId: 'workshop-agent' }),
+        mockPrisma,
+        expect.any(Function),
+      );
+    });
+
+    it('rechecks and locks the active site before writing a workshop line', async () => {
+      const proposal = createMockProposal();
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.site.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+
+      expect(mockPrisma.site.updateMany).toHaveBeenCalledWith({
+        where: { id: 'site-1', tenant_id: tenantId, is_active: true },
+        data: { is_active: true },
+      });
+      expect(mockPrisma.workshopTaskLineItem.create).not.toHaveBeenCalled();
+    });
+
+    it('rolls back execution when the action log cannot be persisted', async () => {
+      const proposal = createMockProposal();
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_input, _transaction, work) => {
+          if (work) await work();
+          throw new Error('Audit storage unavailable');
+        },
+      );
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Audit storage unavailable',
+      );
+
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalled();
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: AgentProposalStatus.EXECUTED,
+          }),
+        }),
+      );
+    });
     it('refuses approval when policy re-evaluation returns HUMAN_ONLY with clear message', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
@@ -456,7 +573,22 @@ describe('AgentProposalService', () => {
       );
 
       expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses approval for stored HUMAN_ONLY proposals even if policy now allows them', async () => {
+      const proposal = createMockProposal({
+        tier: AgentPolicyTier.HUMAN_ONLY,
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        UnprocessableEntityException,
+      );
+
+      expect(mockAgentPolicyService.evaluate).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('refuses approval when context amount_eur exceeds updated condition threshold', async () => {
@@ -485,7 +617,7 @@ describe('AgentProposalService', () => {
         { skipAdminCheck: true },
       );
       expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('handles concurrent double-approve race condition idempotently when reload returns EXECUTED (payload dispatched once)', async () => {
@@ -507,7 +639,7 @@ describe('AgentProposalService', () => {
 
       expect(result.status).toBe(AgentProposalStatus.EXECUTED);
       // Payload execution and logging were NOT dispatched by the concurrent caller
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('handles concurrent double-approve race condition idempotently when reload returns APPROVED', async () => {
@@ -528,7 +660,7 @@ describe('AgentProposalService', () => {
       const result = await service.approveProposal(proposalId);
 
       expect(result.status).toBe(AgentProposalStatus.APPROVED);
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('throws ConflictException on concurrent race condition if reload returns unexpected status', async () => {
@@ -551,7 +683,7 @@ describe('AgentProposalService', () => {
           'Proposal state conflict: current status is REJECTED',
         ),
       );
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('returns existing proposal idempotently if already APPROVED or EXECUTED', async () => {
@@ -613,7 +745,7 @@ describe('AgentProposalService', () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
       mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
-      mockAgentActionLog.record.mockRejectedValue(
+      mockPrisma.workshopOrder.findFirst.mockRejectedValueOnce(
         new Error('Dispatch failure'),
       );
 
@@ -622,7 +754,11 @@ describe('AgentProposalService', () => {
       );
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason: 'Dispatch failure',
@@ -720,7 +856,7 @@ describe('AgentProposalService', () => {
         },
         data: { status: AgentProposalStatus.EXPIRED },
       });
-      expect(mockAgentActionLog.record).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
     });
 
     it('dispatches workshop_order.add_line domain action, creates WorkshopTaskLineItem, and marks EXECUTED', async () => {
@@ -821,7 +957,11 @@ describe('AgentProposalService', () => {
 
       // Proposal must be marked FAILED with reason, NOT EXECUTED
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason:
@@ -844,7 +984,11 @@ describe('AgentProposalService', () => {
       );
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason: 'Workshop order non-existent-order not found',
@@ -868,7 +1012,11 @@ describe('AgentProposalService', () => {
       );
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason:
@@ -1011,7 +1159,11 @@ describe('AgentProposalService', () => {
       );
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason: 'Workshop order is already invoiced',
@@ -1042,7 +1194,11 @@ describe('AgentProposalService', () => {
       );
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason: 'Completed stock-prep orders cannot be edited',
@@ -1080,7 +1236,11 @@ describe('AgentProposalService', () => {
       });
 
       expect(mockPrisma.agentProposal.updateMany).toHaveBeenLastCalledWith({
-        where: { id: proposalId, tenant_id: tenantId },
+        where: {
+          id: proposalId,
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+        },
         data: {
           status: AgentProposalStatus.FAILED,
           reason: 'Workshop task line items changed; please reload and retry',
