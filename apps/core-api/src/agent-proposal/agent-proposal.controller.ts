@@ -16,11 +16,14 @@ import {
 import { AgentProposalAuthorization } from './agent-proposal.authorization.js';
 import { AgentProposalService } from './agent-proposal.service.js';
 import {
+  BatchApplyAgentProposalsDto,
+  BatchApplyAgentProposalsResponseDto,
   AgentProposalListResponseDto,
   AgentProposalResponseDto,
   CreateAgentProposalDto,
   QueryAgentProposalsDto,
   RejectAgentProposalDto,
+  SubmitPendingAgentActionDto,
 } from './dto/agent-proposal.dto.js';
 
 @ApiTags('Agent Proposals')
@@ -58,6 +61,34 @@ export class AgentProposalController {
     return this.agentProposalService.approveProposal(id);
   }
 
+  @Post(':id/apply')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Apply and execute a pending agent action',
+    description:
+      'Re-evaluates current policy and atomically applies one pending action.',
+  })
+  @ApiOkResponse({ type: AgentProposalResponseDto })
+  applyProposal(@Param('id') id: string): Promise<AgentProposalResponseDto> {
+    this.authorization.assertSupervisor();
+    return this.agentProposalService.approveProposal(id);
+  }
+
+  @Post('batch-apply')
+  @HttpCode(200)
+  @ApiOperation({
+    summary: 'Apply pending agent actions independently by ID',
+    description:
+      'Applies each proposal in its own transaction and returns an outcome per ID.',
+  })
+  @ApiOkResponse({ type: BatchApplyAgentProposalsResponseDto })
+  batchApplyProposals(
+    @Body() body: BatchApplyAgentProposalsDto,
+  ): Promise<BatchApplyAgentProposalsResponseDto> {
+    this.authorization.assertSupervisor();
+    return this.agentProposalService.batchApplyProposals(body);
+  }
+
   @Post(':id/reject')
   @HttpCode(200)
   @ApiOperation({
@@ -87,5 +118,19 @@ export class AgentProposalController {
   ): Promise<AgentProposalResponseDto> {
     this.authorization.assertSupervisor();
     return this.agentProposalService.createProposal(body);
+  }
+
+  @Post('submit')
+  @HttpCode(201)
+  @ApiOperation({
+    summary: 'Simulate and submit a pending agent action',
+    description:
+      'Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.',
+  })
+  @ApiCreatedResponse({ type: AgentProposalResponseDto })
+  submitPendingAction(
+    @Body() body: SubmitPendingAgentActionDto,
+  ): Promise<AgentProposalResponseDto> {
+    return this.agentProposalService.submitPendingAction(body);
   }
 }

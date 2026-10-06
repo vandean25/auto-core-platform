@@ -11034,6 +11034,71 @@
         ]
       }
     },
+    "/api/agent-proposals/{id}/apply": {
+      "post": {
+        "description": "Re-evaluates current policy and atomically applies one pending action.",
+        "operationId": "AgentProposalController_applyProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply and execute a pending agent action",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/batch-apply": {
+      "post": {
+        "description": "Applies each proposal in its own transaction and returns an outcome per ID.",
+        "operationId": "AgentProposalController_batchApplyProposals",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchApplyAgentProposalsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchApplyAgentProposalsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply pending agent actions independently by ID",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
     "/api/agent-proposals/{id}/reject": {
       "post": {
         "description": "Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.",
@@ -11071,6 +11136,39 @@
           }
         },
         "summary": "Reject an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/submit": {
+      "post": {
+        "description": "Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.",
+        "operationId": "AgentProposalController_submitPendingAction",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPendingAgentActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Simulate and submit a pending agent action",
         "tags": [
           "Agent Proposals"
         ]
@@ -23992,6 +24090,10 @@
             "additionalProperties": true,
             "nullable": true
           },
+          "created_by_agent": {
+            "type": "string",
+            "nullable": true
+          },
           "decided_by": {
             "type": "string",
             "nullable": true
@@ -24024,6 +24126,7 @@
           "payload_json",
           "effective_summary",
           "preview_json",
+          "created_by_agent",
           "decided_by",
           "decided_at",
           "reason",
@@ -24044,6 +24147,62 @@
         },
         "required": [
           "data"
+        ]
+      },
+      "BatchApplyAgentProposalsDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "BatchApplyAgentProposalResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "proposal": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "BatchApplyAgentProposalsResponseDto": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchApplyAgentProposalResultDto"
+            }
+          }
+        },
+        "required": [
+          "results"
         ]
       },
       "RejectAgentProposalDto": {
@@ -24083,6 +24242,23 @@
               "HUMAN_ONLY"
             ],
             "default": "PROPOSE"
+          }
+        },
+        "required": [
+          "action_type",
+          "payload_json"
+        ]
+      },
+      "SubmitPendingAgentActionDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [

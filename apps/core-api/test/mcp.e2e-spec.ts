@@ -508,7 +508,7 @@ describe('MCP server (e2e)', () => {
      await transport.close();
    });
     // Write tool e2e cases
-    it('propose_line_item PROPOSE → needs_human_approval, no line item row created, PROPOSED agent_action_log', async () => {
+    it('propose_line_item PROPOSE → needs_approval with a pending ID and no line item row', async () => {
       await setPolicyTier('workshop_order.propose_line', 'PROPOSE');
       // Arrange: create a workshop task for the workshop order
       const task = await prismaA.workshopTask.create({
@@ -547,8 +547,12 @@ describe('MCP server (e2e)', () => {
 
       // Assert
       expect(result.isError).not.toBe(true);
-      const payload = toolPayloadText(result);
-      expect(payload).toContain('needs_human_approval');
+      const payload = JSON.parse(toolPayloadText(result)) as {
+        status: string;
+        trace_id: string;
+      };
+      expect(payload.status).toBe('needs_approval');
+      expect(payload.trace_id).toBeTruthy();
 
       // Ensure no line item row was created (dry run is rolled back)
       const lineItemCountAfter = await prismaA.workshopTaskLineItem.count({
@@ -560,7 +564,7 @@ describe('MCP server (e2e)', () => {
       // Check for PROPOSED agent action log
       const log = await prismaA.agentActionLog.findFirst({
         where: {
-          trace_id: '00000000-0000-4000-8000-000000000200',
+          trace_id: payload.trace_id,
           action_type: 'mcp.propose_line_item',
         },
       });
@@ -570,6 +574,184 @@ describe('MCP server (e2e)', () => {
 
       await transport.close();
     });
+
+    it('applies a proposed MCP workshop order at the site where it was simulated', async () => {
+      await setPolicyTier('workshop_order.create', 'PROPOSE');
+      const draftVehicle = await createDraftVehicle('draft-propose');
+      const siteId = await resolveTestMainSiteId(prisma, tenantA);
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-draft-workshop-order-propose',
+        '00000000-0000-4000-8000-000000000216',
+      );
+
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          purpose: 'CUSTOMER_REPAIR',
+          status: 'SCHEDULED',
+          ...scheduledBooking(13),
+          odometer: 1000,
+          fuel_level: 50,
+        },
+      });
+      const payload = JSON.parse(toolPayloadText(result)) as {
+        status: string;
+        pending_action_id: string;
+      };
+      expect(payload.status).toBe('needs_approval');
+      expect(payload.pending_action_id).toBeTruthy();
+      expect(
+        await prismaA.workshopOrder.count({
+          where: { vehicle_id: draftVehicle.vehicleId },
+        }),
+      ).toBe(0);
+
+      const applied = await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${payload.pending_action_id}/apply`)
+        .set('Authorization', adminHeaderA)
+        .expect(200);
+      expect(applied.body.status).toBe('EXECUTED');
+      expect(
+        await prismaA.workshopOrder.findFirst({
+          where: {
+            tenant_id: tenantA,
+            site_id: siteId,
+            vehicle_id: draftVehicle.vehicleId,
+          },
+        }),
+      ).toBeTruthy();
+
+      await transport.close();
+    });
+
+    it('applies a pending action once, enforces tenant and supervisor access, and reports batch partial failure', async () => {
+      await setPolicyTier('workshop_order.propose_line', 'PROPOSE');
+
+      const submitPendingLine = async (title: string) => {
+        const task = await prismaA.workshopTask.create({
+          data: {
+            tenant_id: tenantA,
+            workshop_order_id: fixtures.workshopOrderId,
+            title,
+            status: 'NOT_STARTED',
+          },
+          select: { id: true, line_items_version: true },
+        });
+        const response = await request(app.getHttpServer())
+          .post('/api/agent-proposals/submit')
+          .set('Authorization', adminHeaderA)
+          .send({
+            action_type: 'workshop_order.propose_line',
+            payload_json: {
+              workshop_order_id: fixtures.workshopOrderId,
+              workshop_task_id: task.id,
+              expected_line_items_version: task.line_items_version,
+              line_item: {
+                type: 'PART',
+                item_no: `FABRICATED-${title}`,
+                description: 'Fabricated pending-action test part',
+                quantity: 1,
+                unit_price_cents: 100,
+              },
+            },
+          })
+          .expect(201);
+        expect(response.body.status).toBe('PENDING');
+        const lineCount = await prismaA.workshopTaskLineItem.count({
+          where: { workshop_task_id: task.id },
+        });
+        expect(lineCount).toBe(0);
+        return { taskId: task.id, proposal: response.body };
+      };
+
+      const pending = await submitPendingLine('Pending Apply E2E');
+      await runWithTenantContext(tenantA, async () => {
+        await prisma.tenantMember.update({
+          where: {
+            tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
+          },
+          data: { role: 'TECH' },
+        });
+      });
+      try {
+        await request(app.getHttpServer())
+          .post(`/api/agent-proposals/${pending.proposal.id}/apply`)
+          .set('Authorization', techHeaderA)
+          .expect(403);
+      } finally {
+        await runWithTenantContext(tenantA, async () => {
+          await prisma.tenantMember.update({
+            where: {
+              tenant_id_user_id: {
+                tenant_id: tenantA,
+                user_id: tenantAUserId,
+              },
+            },
+            data: { role: 'ADMIN' },
+          });
+        });
+      }
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${pending.proposal.id}/apply`)
+        .set('Authorization', adminHeaderB)
+        .expect(404);
+
+      const concurrentApply = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/api/agent-proposals/${pending.proposal.id}/apply`)
+          .set('Authorization', adminHeaderA),
+        request(app.getHttpServer())
+          .post(`/api/agent-proposals/${pending.proposal.id}/apply`)
+          .set('Authorization', adminHeaderA),
+      ]);
+      expect(concurrentApply.map((response) => response.status)).toEqual([
+        200,
+        200,
+      ]);
+      expect(concurrentApply.map((response) => response.body.status)).toEqual([
+        'EXECUTED',
+        'EXECUTED',
+      ]);
+      expect(
+        await prismaA.workshopTaskLineItem.count({
+          where: { workshop_task_id: pending.taskId },
+        }),
+      ).toBe(1);
+
+      const batchPending = await submitPendingLine('Pending Batch E2E');
+      const batchResponse = await request(app.getHttpServer())
+        .post('/api/agent-proposals/batch-apply')
+        .set('Authorization', adminHeaderA)
+        .send({
+          ids: [
+            batchPending.proposal.id,
+            '99999999-9999-4999-8999-999999999999',
+          ],
+        })
+        .expect(200);
+      expect(batchResponse.body.results).toMatchObject([
+        { id: batchPending.proposal.id, status: 'applied' },
+        { id: '99999999-9999-4999-8999-999999999999', status: 'failed' },
+      ]);
+      expect(
+        await prismaA.workshopTaskLineItem.count({
+          where: { workshop_task_id: batchPending.taskId },
+        }),
+      ).toBe(1);
+
+      const appliedLogs = await prismaA.agentActionLog.count({
+        where: {
+          trace_id: pending.proposal.trace_id,
+          action_type: 'workshop_order.propose_line',
+          status: 'EXECUTED',
+        },
+      });
+      expect(appliedLogs).toBe(1);
+    });
+
     it('draft_workshop_order AUTO → creates a scheduled order + EXECUTED log with traceId', async () => {
       await setPolicyTier('workshop_order.create', 'AUTO');
       const draftVehicle = await createDraftVehicle('draft-auto');
@@ -841,7 +1023,11 @@ describe('MCP server (e2e)', () => {
         },
       });
       expect(releaseResult.isError).not.toBe(true);
-      expect(toolPayloadText(releaseResult)).toContain('needs_human_approval');
+      const proposedRelease = JSON.parse(toolPayloadText(releaseResult)) as {
+        status: string;
+        trace_id: string;
+      };
+      expect(proposedRelease.status).toBe('needs_approval');
       const reservationAfterProposedRelease = await prismaA.partsReservation.findFirst({
         where: { id: reservationId },
         select: { status: true },
@@ -894,7 +1080,7 @@ describe('MCP server (e2e)', () => {
       expect(reserveLogAfter?.status).toBe('EXECUTED');
       const releaseLog = await prismaA.agentActionLog.findFirst({
         where: {
-          trace_id: '00000000-0000-4000-8000-000000000209',
+          trace_id: proposedRelease.trace_id,
           action_type: 'mcp.release_reservation',
         },
       });
