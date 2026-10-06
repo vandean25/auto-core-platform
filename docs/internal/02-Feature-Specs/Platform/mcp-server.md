@@ -37,6 +37,8 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_workshop_order` | AUTO | Workshop order by id (active site) |
 | `search_parts` | AUTO | Inventory search; optional `workshop_order_id` uses workshop catalog search |
 | `get_stock_level` | AUTO | Stock for `sku` or `catalog_item_id` (active site) |
+| `get_vehicle_stock_age_report` | AUTO | Paged vehicle stock age and current cost basis (active site) |
+| `get_vehicle_stock_margin_report` | AUTO | Paged invoiced vehicle margin report for a date period (active site) |
 
 Outputs are page-limited (max 25 rows) and JSON size-capped before returning to the client. Summaries written to the action log are redacted per AE2.
 

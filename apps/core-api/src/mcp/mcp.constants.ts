@@ -31,6 +31,8 @@ export const MCP_READ_TOOL_NAMES = [
   'get_workshop_order',
   'search_parts',
   'get_stock_level',
+  'get_vehicle_stock_age_report',
+  'get_vehicle_stock_margin_report',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];

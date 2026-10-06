@@ -1397,4 +1397,44 @@ describe('Vehicle stock trading (e2e)', () => {
       })
       .expect(409);
   });
+
+  it('exposes paginated reports only to the active tenant and site', async () => {
+    const created = await createAndReceive({
+      vin: vin('AGE-REPORT'),
+      sellerType: 'VENDOR',
+      price: 14500,
+    });
+    const vehicleId = created.received.vehicle.id;
+    const ageResponse = await request(app.getHttpServer())
+      .get('/api/vehicle-stock/reports/stock-age?page=1&limit=100')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    expect(ageResponse.body.meta).toMatchObject({ page: 1, limit: 100 });
+    expect(ageResponse.body.data).toContainEqual(
+      expect.objectContaining({ id: vehicleId, days_in_stock: expect.any(Number) }),
+    );
+    expect(ageResponse.body.summary).toEqual({
+      over_90_count: expect.any(Number),
+      over_90_cost_basis: expect.any(String),
+    });
+
+    const otherTenantResponse = await request(app.getHttpServer())
+      .get('/api/vehicle-stock/reports/stock-age')
+      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .expect(200);
+    expect(otherTenantResponse.body.data).not.toContainEqual(
+      expect.objectContaining({ id: vehicleId }),
+    );
+
+    const marginResponse = await request(app.getHttpServer())
+      .get('/api/vehicle-stock/reports/margin?from=2026-01-01&to=2026-12-31&page=1&limit=10')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(marginResponse.body).toMatchObject({
+      data: expect.any(Array),
+      meta: { page: 1, limit: 10 },
+      totals: { count: expect.any(Number), by_inventory_role: expect.any(Object) },
+    });
+  });
 });

@@ -133,6 +133,7 @@ Not applicable — Dashboard consumes existing endpoints only.
 | `DashboardWidgetCard` | `src/features/dashboard-widgets/` | Individual widget card with list/metric/donut rendering. |
 | `WidgetConfigDialog` | `src/features/dashboard-widgets/` | Dialog for adding and configuring widgets (source, type, fields). |
 | `RealtimeDashboardSyncProvider` | `src/features/realtime/` | WebSocket connection provider that invalidates query caches on entity events. |
+| `AgedStockDashboardWidget` | `src/components/vehicles/` | Shows active-site vehicle count and current cost basis for dealer stock older than 90 days; opens the filtered stock-age report. |
 
 ---
 

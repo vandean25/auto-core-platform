@@ -4791,6 +4791,154 @@
         ]
       }
     },
+    "/api/vehicle-stock/reports/stock-age": {
+      "get": {
+        "operationId": "VehicleStockController_stockAgeReport",
+        "parameters": [
+          {
+            "name": "bucket",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "0_30",
+                "31_60",
+                "61_90",
+                "91_180",
+                "over_180",
+                "over_90"
+              ]
+            }
+          },
+          {
+            "name": "inventory_role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "USED",
+                "NEW",
+                "DEMO"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "stock_status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "IN_STOCK",
+                "RESERVED",
+                "IN_PREP"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated stock age report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleStockAgeReportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List dealer stock vehicles by days in stock",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
+    "/api/vehicle-stock/reports/margin": {
+      "get": {
+        "operationId": "VehicleStockController_marginReport",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated vehicle margin report and totals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VehicleStockMarginReportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List invoiced vehicle margins for a date period",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/vehicle-stock/{vehicleId}": {
       "get": {
         "operationId": "VehicleStockController_detail",
@@ -16945,6 +17093,335 @@
             "description": "Expected site ID for optimistic concurrency checks"
           }
         }
+      },
+      "VehicleStockMarginRoleTotalsDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "gross_margin_total": {
+            "type": "string"
+          },
+          "gross_margin_average": {
+            "type": "string",
+            "nullable": true
+          },
+          "gross_margin_percent_average": {
+            "type": "string",
+            "nullable": true
+          },
+          "sale_price_total": {
+            "type": "string"
+          },
+          "sale_price_average": {
+            "type": "string",
+            "nullable": true
+          },
+          "cost_basis_total": {
+            "type": "string"
+          },
+          "cost_basis_average": {
+            "type": "string",
+            "nullable": true
+          },
+          "days_to_sell_average": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "count",
+          "gross_margin_total",
+          "gross_margin_average",
+          "gross_margin_percent_average",
+          "sale_price_total",
+          "sale_price_average",
+          "cost_basis_total",
+          "cost_basis_average",
+          "days_to_sell_average"
+        ]
+      },
+      "VehicleStockAgeReportRowDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "inventory_role": {
+            "type": "string",
+            "enum": [
+              "USED",
+              "NEW",
+              "DEMO"
+            ]
+          },
+          "stock_status": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "RESERVED",
+              "IN_PREP"
+            ],
+            "nullable": true
+          },
+          "days_in_stock": {
+            "type": "number",
+            "nullable": true
+          },
+          "missing_stock_in_date": {
+            "type": "boolean"
+          },
+          "stock_in_date": {
+            "type": "string",
+            "nullable": true
+          },
+          "age_bucket": {
+            "type": "string",
+            "enum": [
+              "0_30",
+              "31_60",
+              "61_90",
+              "91_180",
+              "over_180"
+            ],
+            "nullable": true
+          },
+          "cost_basis": {
+            "type": "string"
+          },
+          "asking_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year",
+          "vin",
+          "plate",
+          "inventory_role",
+          "stock_status",
+          "days_in_stock",
+          "missing_stock_in_date",
+          "stock_in_date",
+          "age_bucket",
+          "cost_basis",
+          "asking_price",
+          "location"
+        ]
+      },
+      "VehicleStockReportPaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          },
+          "pageCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "pageSize",
+          "totalPages",
+          "pageCount"
+        ]
+      },
+      "VehicleStockAgeReportSummaryDto": {
+        "type": "object",
+        "properties": {
+          "over_90_count": {
+            "type": "number"
+          },
+          "over_90_cost_basis": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "over_90_count",
+          "over_90_cost_basis"
+        ]
+      },
+      "VehicleStockAgeReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleStockAgeReportRowDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/VehicleStockReportPaginationMetaDto"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/VehicleStockAgeReportSummaryDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta",
+          "summary"
+        ]
+      },
+      "VehicleStockMarginReportRowDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sale_number": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "inventory_role": {
+            "type": "string",
+            "enum": [
+              "USED",
+              "NEW",
+              "DEMO"
+            ]
+          },
+          "invoice_date": {
+            "type": "string"
+          },
+          "sale_price": {
+            "type": "string"
+          },
+          "cost_basis_snapshot": {
+            "type": "string",
+            "nullable": true
+          },
+          "gross_margin_eur": {
+            "type": "string",
+            "nullable": true
+          },
+          "gross_margin_percent": {
+            "type": "string",
+            "nullable": true
+          },
+          "days_to_sell": {
+            "type": "number",
+            "nullable": true
+          },
+          "margin_taxed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sale_number",
+          "vehicle_id",
+          "make",
+          "model",
+          "year",
+          "inventory_role",
+          "invoice_date",
+          "sale_price",
+          "cost_basis_snapshot",
+          "gross_margin_eur",
+          "gross_margin_percent",
+          "days_to_sell",
+          "margin_taxed"
+        ]
+      },
+      "VehicleStockMarginReportTotalsDto": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "number"
+          },
+          "gross_margin_total": {
+            "type": "string"
+          },
+          "gross_margin_average": {
+            "type": "string",
+            "nullable": true
+          },
+          "by_inventory_role": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VehicleStockMarginRoleTotalsDto"
+            }
+          }
+        },
+        "required": [
+          "count",
+          "gross_margin_total",
+          "gross_margin_average",
+          "by_inventory_role"
+        ]
+      },
+      "VehicleStockMarginReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VehicleStockMarginReportRowDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/VehicleStockReportPaginationMetaDto"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/VehicleStockMarginReportTotalsDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta",
+          "totals"
+        ]
       },
       "PatchVehicleStockDto": {
         "type": "object",

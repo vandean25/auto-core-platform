@@ -406,3 +406,15 @@ Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the country-specific margin-
 | Project | [Used Vehicle Trading](https://linear.app/auto-core-platform/project/used-vehicle-trading-85bd7ec3553f) |
 | Milestone | M1 Used buy-stock-sell |
 | Issues | AUT-119, AUT-120, AUT-121, AUT-122, AUT-123, AUT-124, AUT-125, AUT-126 |
+
+## Stock Age and Margin Reports (E12)
+
+The read-only Reports view at `/vehicle-stock/reports` exposes:
+
+- `GET /api/vehicle-stock/reports/stock-age`: active-site dealer vehicles in `USED`, `NEW`, or `DEMO` roles except sold stock, with elapsed days, current ledger cost basis, draft asking price when present, status, and lot. Stock-in uses completed purchase `received_at`, falling back to the earliest `PURCHASE` ledger posting date. A missing date remains visible and is marked explicitly.
+- `GET /api/vehicle-stock/reports/margin?from=YYYY-MM-DD&to=YYYY-MM-DD`: finalized invoices attached to `INVOICED` vehicle sales in the period, excluding cancelled sales and invoices with finalized credit notes. Historical margin uses `VehicleSale.cost_basis_snapshot`; it never recalculates from later ledger entries.
+- Age buckets are 0–30, 31–60, 61–90, 91–180, and over 180 days. The reports are paginated and tenant/site scoped. `over_90` is an additional combined filter for the dashboard link.
+- CSV export contains the currently visible page, uses German headers, semicolon fields, decimal commas, and formula-injection protection.
+- Money calculations use Decimal and round only at report output. The margin percentage is gross margin divided by net sale price.
+- The aged-stock dashboard summary counts vehicles older than 90 days and sums their current cost basis.
+- ACP MCP exposes both report queries as read-only tools in the caller's authenticated active-site context.

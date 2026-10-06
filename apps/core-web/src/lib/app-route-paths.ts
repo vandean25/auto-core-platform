@@ -14,6 +14,7 @@ export const APP_ROUTE_PATHS = {
   vehiclePickerlDue: '/vehicles/pickerl-due',
   vehicleStockAlias: '/vehicles/stock',
   vehicleStock: '/vehicle-stock',
+  vehicleStockReports: '/vehicle-stock/reports',
   vehicleStockPurchaseNew: '/vehicle-stock/purchases/new',
   vehicleStockPurchaseDetail: '/vehicle-stock/purchases/:id',
   vehicleStockSaleNew: '/vehicle-stock/sales/new',

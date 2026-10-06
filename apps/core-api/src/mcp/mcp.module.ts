@@ -9,6 +9,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
 import { VehicleModule } from '../vehicle/vehicle.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
+import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
@@ -26,6 +27,7 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
     CatalogModule,
     InventoryModule,
     PartsRequisitionModule,
+    VehicleStockModule,
   ],
   controllers: [McpController],
   providers: [

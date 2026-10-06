@@ -103,9 +103,12 @@ export default function VehicleStockList() {
           <h1 className="text-2xl font-semibold tracking-tight">Vehicle Stock</h1>
           <p className="text-slate-500">Used vehicles in dealer stock, plus draft purchases still on order.</p>
         </div>
-        <Button onClick={() => navigate('/vehicle-stock/purchases/new')}>
-          <Plus className="mr-2 h-4 w-4" /> Vehicle
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => navigate('/vehicle-stock/reports')}>Reports</Button>
+          <Button onClick={() => navigate('/vehicle-stock/purchases/new')}>
+            <Plus className="mr-2 h-4 w-4" /> Vehicle
+          </Button>
+        </div>
       </div>
 
       <DataTable

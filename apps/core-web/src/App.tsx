@@ -73,6 +73,7 @@ const CustomerDetail = lazyWithRetry(() => import('./pages/customers/CustomerDet
 const VehicleDetail = lazyWithRetry(() => import('./pages/vehicles/VehicleDetail'))
 const VehicleList = lazyWithRetry(() => import('./pages/vehicles/VehicleList'))
 const VehicleStockList = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleStockList'))
+const VehicleStockReportsPage = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleStockReportsPage'))
 const VehicleStockDetail = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleStockDetail'))
 const VehiclePurchasePage = lazyWithRetry(() => import('./pages/vehicle-stock/VehiclePurchasePage'))
 const VehicleSalePage = lazyWithRetry(() => import('./pages/vehicle-stock/VehicleSalePage'))
@@ -128,6 +129,7 @@ export function AppRoutes() {
               />
               <Route path={APP_ROUTE_PATHS.vehicleDetail} element={<VehicleDetail />} />
               <Route path={APP_ROUTE_PATHS.vehicleStock} element={<VehicleStockList />} />
+              <Route path={APP_ROUTE_PATHS.vehicleStockReports} element={<VehicleStockReportsPage />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseNew} element={<VehiclePurchasePage />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockPurchaseDetail} element={<VehiclePurchasePage />} />
               <Route path={APP_ROUTE_PATHS.vehicleStockSaleNew} element={<VehicleSalePage />} />

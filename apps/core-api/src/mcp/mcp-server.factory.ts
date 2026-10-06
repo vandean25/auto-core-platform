@@ -9,6 +9,8 @@ import {
   draftWorkshopOrderInputSchema,
   getCustomerInputSchema,
   getStockLevelBaseSchema,
+  getVehicleStockAgeReportInputSchema,
+  getVehicleStockMarginReportInputSchema,
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
   listWorkshopOrdersInputSchema,
@@ -30,6 +32,10 @@ const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   search_parts:
     'Search parts by query; optional workshop_order_id uses workshop catalog context',
   get_stock_level: 'Stock levels for a catalog item id or SKU (active site)',
+  get_vehicle_stock_age_report:
+    'Read paged dealer stock age and cost basis for the active site',
+  get_vehicle_stock_margin_report:
+    'Read paged invoiced vehicle margins for the active site and date period',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, dry-run preview, logged)',
   reserve_part:
@@ -49,6 +55,8 @@ const TOOL_INPUT_SCHEMAS = {
   get_workshop_order: getWorkshopOrderInputSchema.shape,
   search_parts: searchPartsInputSchema.shape,
   get_stock_level: getStockLevelBaseSchema.shape,
+  get_vehicle_stock_age_report: getVehicleStockAgeReportInputSchema.shape,
+  get_vehicle_stock_margin_report: getVehicleStockMarginReportInputSchema.shape,
   draft_workshop_order: draftWorkshopOrderInputSchema.shape,
   reserve_part: reservePartInputSchema.shape,
   release_reservation: releaseReservationInputSchema.shape,

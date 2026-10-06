@@ -17,6 +17,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { VehicleService } from '../vehicle/vehicle.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
+import { VehicleStockReportsService } from '../vehicle-stock/vehicle-stock-reports.service.js';
 import type {
   McpReadToolName,
   McpToolName,
@@ -33,6 +34,8 @@ import {
   draftWorkshopOrderInputSchema,
   getCustomerInputSchema,
   getStockLevelInputSchema,
+  getVehicleStockAgeReportInputSchema,
+  getVehicleStockMarginReportInputSchema,
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
   listWorkshopOrdersInputSchema,
@@ -71,6 +74,7 @@ export class McpToolHandlerService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly vehicleStockReports: VehicleStockReportsService,
   ) {}
 
   async executeTool(
@@ -419,6 +423,25 @@ export class McpToolHandlerService {
         return this.searchParts(searchPartsInputSchema.parse(parsed));
       case 'get_stock_level':
         return this.getStockLevel(getStockLevelInputSchema.parse(parsed));
+      case 'get_vehicle_stock_age_report': {
+        const input = getVehicleStockAgeReportInputSchema.parse(parsed);
+        return this.vehicleStockReports.stockAge({
+          inventory_role: input.inventory_role,
+          stock_status: input.stock_status,
+          bucket: input.bucket,
+          page: clampMcpPage(input.page),
+          limit: clampMcpPageSize(input.page_size),
+        });
+      }
+      case 'get_vehicle_stock_margin_report': {
+        const input = getVehicleStockMarginReportInputSchema.parse(parsed);
+        return this.vehicleStockReports.margin({
+          from: input.from,
+          to: input.to,
+          page: clampMcpPage(input.page),
+          limit: clampMcpPageSize(input.page_size),
+        });
+      }
     }
   }
 

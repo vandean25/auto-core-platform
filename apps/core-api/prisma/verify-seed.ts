@@ -6,7 +6,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter } as any);
+const prisma = new PrismaClient({ adapter });
 
 async function verify() {
     console.log('--- Verification Started ---');
@@ -39,7 +39,35 @@ async function verify() {
 
     console.log(`Stock for A: ${stockA ? 'Exists (Incorrect)' : 'None (Correct)'}`);
     console.log(`Stock for B: ${stockB ? 'Exists (Incorrect)' : 'None (Correct)'}`);
-    console.log(`Stock for C: ${stockC ? `Found: ${stockC.quantity_on_hand} (Correct)` : 'None (Incorrect)'}`);
+    console.log(`Stock for C: ${stockC ? `Found: ${stockC.quantity_on_hand.toString()} (Correct)` : 'None (Incorrect)'}`);
+
+    const stockVehicles = await prisma.vehicle.findMany({
+        where: {
+            inventory_role: { in: ['USED', 'NEW', 'DEMO'] },
+            stock_status: { not: null },
+        },
+        select: {
+            purchases: { where: { status: 'RECEIVED' }, select: { received_at: true } },
+            ledger_entries: { where: { entry_type: 'PURCHASE' }, orderBy: { posting_date: 'asc' }, take: 1, select: { posting_date: true } },
+        },
+    });
+    const ageBuckets = new Set<string>();
+    const today = new Date();
+    const utcToday = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    for (const vehicle of stockVehicles) {
+        const stockIn = vehicle.purchases.find((purchase) => purchase.received_at)?.received_at
+            ?? vehicle.ledger_entries[0]?.posting_date;
+        if (!stockIn) continue;
+        const utcStockIn = Date.UTC(stockIn.getUTCFullYear(), stockIn.getUTCMonth(), stockIn.getUTCDate());
+        const days = Math.floor((utcToday - utcStockIn) / 86_400_000);
+        ageBuckets.add(days <= 30 ? '0_30' : days <= 60 ? '31_60' : days <= 90 ? '61_90' : days <= 180 ? '91_180' : 'over_180');
+    }
+    const expectedAgeBuckets = ['0_30', '31_60', '61_90', '91_180', 'over_180'];
+    const missingAgeBuckets = expectedAgeBuckets.filter((bucket) => !ageBuckets.has(bucket));
+    if (missingAgeBuckets.length > 0) {
+        throw new Error(`Vehicle stock demo is missing age buckets: ${missingAgeBuckets.join(', ')}`);
+    }
+    console.log(`Vehicle stock age buckets verified: ${expectedAgeBuckets.join(', ')}`);
 
     console.log('--- Verification Finished ---');
 }
