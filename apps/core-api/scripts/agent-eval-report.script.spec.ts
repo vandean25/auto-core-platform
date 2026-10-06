@@ -71,7 +71,7 @@ describe('agent-eval report generator', () => {
       rules: [],
       jev: [
         resultDocument('jev', [
-          falseCompletionRow('import-1-1', 'import_row_matching', false),
+          { ...falseCompletionRow('import-1-1', 'import_row_matching', false), confidence: 0.5 },
           falseCompletionRow('import-1-2', 'import_row_matching', true),
           falseCompletionRow('doc-1-1', 'document_sort', true),
           falseCompletionRow('doc-1-2', 'document_sort', true),
@@ -83,7 +83,7 @@ describe('agent-eval report generator', () => {
           falseCompletionRow('doc-2-2', 'document_sort', true),
         ], 2),
         resultDocument('jev', [
-          falseCompletionRow('import-3-1', 'import_row_matching', false),
+          { ...falseCompletionRow('import-3-1', 'import_row_matching', false), confidence: 0.5 },
           falseCompletionRow('import-3-2', 'import_row_matching', true),
           falseCompletionRow('doc-3-1', 'document_sort', false),
           falseCompletionRow('doc-3-2', 'document_sort', true),
@@ -96,7 +96,7 @@ describe('agent-eval report generator', () => {
 
     expect(tables).toContain('### Three-run stability and false-completion check');
     expect(tables).toContain(
-      '| Jev only | Import row matching | 50.0% | 100.0% | 50.0% | 50.0 pp | 1/2 / 0/2 / 1/2 |',
+      '| Jev only | Import row matching | 100.0% | 100.0% | 100.0% | 0.0 pp | 1/2 / 0/2 / 1/2 |',
     );
     expect(tables).toContain(
       '| Jev only | Both use cases | — | — | — | — | 1/4 / 1/4 / 2/4 |',

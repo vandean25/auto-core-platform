@@ -24,16 +24,16 @@ Confident auto uses confidence ≥ 0.80. Precision is the correct share of confi
 | Rules only | ambiguous | 31 | 100.0% | 100.0% / 87.1% | — | 0.0 / 0.0 | $0.000000 |
 | Rules only | adversarial | 37 | 100.0% | 100.0% / 73.0% | — | 0.0 / 0.1 | $0.000000 |
 | Rules only | false-completion | 6 | 100.0% | — / 0.0% | — | 0.0 / 0.5 | $0.000000 |
-| Jev only | all | 300 | 81.7% | 100.0% / 99.2% | 0 | 266.0 / 350.1 | $0.001705 (est.) |
-| Jev only | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 263.0 / 346.0 | $0.000546 (est.) |
-| Jev only | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 266.0 / 332.8 | $0.000529 (est.) |
-| Jev only | adversarial | 111 | 74.8% | 100.0% / 97.6% | 0 | 269.0 / 371.0 | $0.000630 (est.) |
-| Jev only | false-completion | 18 | 0.0% | — / — | 0 | 265.0 / 390.7 | $0.000102 (est.) |
-| Rules + Jev | all | 300 | 81.0% | 100.0% / 100.0% | 0 | 0.0 / 306.1 | $0.000321 (est.) |
-| Rules + Jev | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 0.0 / 287.0 | $0.000085 (est.) |
-| Rules + Jev | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 0.0 / 277.4 | $0.000068 (est.) |
-| Rules + Jev | adversarial | 111 | 73.0% | 100.0% / 100.0% | 0 | 0.1 / 328.5 | $0.000168 (est.) |
-| Rules + Jev | false-completion | 18 | 0.0% | — / — | 0 | 270.0 / 375.2 | $0.000102 (est.) |
+| Jev only | all | 300 | 81.7% | 100.0% / 99.2% | 0 | 266.0 / 350.1 | $0.002460 (est.) |
+| Jev only | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 263.0 / 346.0 | $0.000787 (est.) |
+| Jev only | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 266.0 / 332.8 | $0.000763 (est.) |
+| Jev only | adversarial | 111 | 74.8% | 100.0% / 97.6% | 0 | 269.0 / 371.0 | $0.000910 (est.) |
+| Jev only | false-completion | 18 | 0.0% | — / — | 0 | 265.0 / 390.7 | $0.000147 (est.) |
+| Rules + Jev | all | 300 | 81.0% | 100.0% / 100.0% | 0 | 0.0 / 306.1 | $0.000464 (est.) |
+| Rules + Jev | easy | 96 | 84.4% | 100.0% / 100.0% | 0 | 0.0 / 287.0 | $0.000123 (est.) |
+| Rules + Jev | ambiguous | 93 | 87.1% | 100.0% / 100.0% | 0 | 0.0 / 277.4 | $0.000098 (est.) |
+| Rules + Jev | adversarial | 111 | 73.0% | 100.0% / 100.0% | 0 | 0.1 / 328.5 | $0.000243 (est.) |
+| Rules + Jev | false-completion | 18 | 0.0% | — / — | 0 | 270.0 / 375.2 | $0.000147 (est.) |
 
 ### Document sorting
 
@@ -44,28 +44,28 @@ Confident auto uses confidence ≥ 0.80. Precision is the correct share of confi
 | Rules only | ambiguous | 32 | 90.6% | 100.0% / 75.9% | — | 0.0 / 0.0 | $0.000000 |
 | Rules only | adversarial | 37 | 13.5% | — / 0.0% | — | 0.0 / 0.0 | $0.000000 |
 | Rules only | false-completion | 6 | 0.0% | — / — | — | 0.0 / 0.2 | $0.000000 |
-| Jev only | all | 300 | 81.3% | 99.5% / 80.7% | 0 | 262.5 / 345.1 | $0.000643 (est.) |
-| Jev only | easy | 93 | 100.0% | 100.0% / 83.9% | 0 | 262.0 / 359.0 | $0.000187 (est.) |
-| Jev only | ambiguous | 96 | 100.0% | 100.0% / 84.4% | 0 | 259.0 / 332.0 | $0.000192 (est.) |
-| Jev only | adversarial | 111 | 49.5% | 97.4% / 69.1% | 0 | 267.0 / 329.0 | $0.000264 (est.) |
-| Jev only | false-completion | 18 | 61.1% | 75.0% / 27.3% | 0 | 260.5 / 326.6 | $0.000043 (est.) |
-| Rules + Jev | all | 300 | 82.3% | 98.7% / 89.9% | 0 | 237.0 / 331.1 | $0.000382 (est.) |
-| Rules + Jev | easy | 93 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 286.2 | $0.000059 (est.) |
-| Rules + Jev | ambiguous | 96 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 295.3 | $0.000059 (est.) |
-| Rules + Jev | adversarial | 111 | 52.3% | 91.7% / 56.9% | 0 | 269.0 / 354.0 | $0.000264 (est.) |
-| Rules + Jev | false-completion | 18 | 66.7% | 50.0% / 25.0% | 0 | 273.5 / 352.7 | $0.000043 (est.) |
+| Jev only | all | 300 | 81.3% | 99.5% / 80.7% | 0 | 262.5 / 345.1 | $0.001558 (est.) |
+| Jev only | easy | 93 | 100.0% | 100.0% / 83.9% | 0 | 262.0 / 359.0 | $0.000470 (est.) |
+| Jev only | ambiguous | 96 | 100.0% | 100.0% / 84.4% | 0 | 259.0 / 332.0 | $0.000485 (est.) |
+| Jev only | adversarial | 111 | 49.5% | 97.4% / 69.1% | 0 | 267.0 / 329.0 | $0.000603 (est.) |
+| Jev only | false-completion | 18 | 61.1% | 75.0% / 27.3% | 0 | 260.5 / 326.6 | $0.000098 (est.) |
+| Rules + Jev | all | 300 | 82.3% | 98.7% / 89.9% | 0 | 237.0 / 331.1 | $0.000903 (est.) |
+| Rules + Jev | easy | 93 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 286.2 | $0.000150 (est.) |
+| Rules + Jev | ambiguous | 96 | 100.0% | 100.0% / 100.0% | 0 | 0.0 / 295.3 | $0.000150 (est.) |
+| Rules + Jev | adversarial | 111 | 52.3% | 91.7% / 56.9% | 0 | 269.0 / 354.0 | $0.000603 (est.) |
+| Rules + Jev | false-completion | 18 | 66.7% | 50.0% / 25.0% | 0 | 273.5 / 352.7 | $0.000098 (est.) |
 
 ### Three-run stability and false-completion check
 
-Accuracy and spread are reported per use case. False-completion counts show incorrect suggestions over the tagged examples in each run: per-use-case denominators are /6 and combined denominators are /12.
+Confident-auto accuracy is measured only among suggestions with confidence ≥ 0.80; spread is the highest minus lowest run value. False-completion counts show incorrect suggestions over the tagged examples in each run: per-use-case denominators are /6 and combined denominators are /12.
 
-| Configuration | Use case | Run 1 accuracy | Run 2 accuracy | Run 3 accuracy | Accuracy spread | False-completion incorrect / run |
+| Configuration | Use case | Run 1 confident-auto accuracy | Run 2 confident-auto accuracy | Run 3 confident-auto accuracy | Confident-auto accuracy spread | False-completion incorrect / run |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
-| Jev only | Import row matching | 81.0% | 82.0% | 82.0% | 1.0 pp | 6/6 / 6/6 / 6/6 |
-| Jev only | Document sorting | 82.0% | 81.0% | 81.0% | 1.0 pp | 2/6 / 2/6 / 3/6 |
+| Jev only | Import row matching | 100.0% | 100.0% | 100.0% | 0.0 pp | 6/6 / 6/6 / 6/6 |
+| Jev only | Document sorting | 100.0% | 98.5% | 100.0% | 1.5 pp | 2/6 / 2/6 / 3/6 |
 | Jev only | Both use cases | — | — | — | — | 8/12 / 8/12 / 9/12 |
-| Rules + Jev | Import row matching | 81.0% | 81.0% | 81.0% | 0.0 pp | 6/6 / 6/6 / 6/6 |
-| Rules + Jev | Document sorting | 82.0% | 82.0% | 83.0% | 1.0 pp | 2/6 / 2/6 / 2/6 |
+| Rules + Jev | Import row matching | 100.0% | 100.0% | 100.0% | 0.0 pp | 6/6 / 6/6 / 6/6 |
+| Rules + Jev | Document sorting | 98.6% | 98.7% | 98.7% | 0.0 pp | 2/6 / 2/6 / 2/6 |
 | Rules + Jev | Both use cases | — | — | — | — | 8/12 / 8/12 / 8/12 |
 <!-- AGENT-EVAL-TABLES:END -->
 

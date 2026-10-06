@@ -56,13 +56,19 @@ describe('OpenRouterJevClient', () => {
     });
 
     const result = await client.decide(baseInput);
+    const requestInit = fetchImpl.mock.calls[0][1] as RequestInit;
+    const request = JSON.parse(requestInit.body as string);
+    const question = request.questions.choice;
     const serializedInput = JSON.stringify({
-      useCase: baseInput.useCase,
-      input: baseInput.input,
-      choices: baseInput.choices,
-      context: {},
+      question,
+      state: request.state,
     });
 
+    expect(question.instructions).toContain(baseInput.useCase);
+    expect(question.criteria).toEqual({
+      Rechnung: 'Option "Rechnung"',
+      Sonstiges: 'Option "Sonstiges"',
+    });
     expect(result).toMatchObject({
       input_tokens: undefined,
       estimated_input_tokens: Math.ceil(

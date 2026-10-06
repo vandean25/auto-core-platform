@@ -133,9 +133,9 @@ export function renderReportTables(
     '',
     '### Three-run stability and false-completion check',
     '',
-    'Accuracy and spread are reported per use case. False-completion counts show incorrect suggestions over the tagged examples in each run: per-use-case denominators are /6 and combined denominators are /12.',
+    `Confident-auto accuracy is measured only among suggestions with confidence ≥ ${CONFIDENT_AUTO_THRESHOLD.toFixed(2)}; spread is the highest minus lowest run value. False-completion counts show incorrect suggestions over the tagged examples in each run: per-use-case denominators are /6 and combined denominators are /12.`,
     '',
-    '| Configuration | Use case | Run 1 accuracy | Run 2 accuracy | Run 3 accuracy | Accuracy spread | False-completion incorrect / run |',
+    '| Configuration | Use case | Run 1 confident-auto accuracy | Run 2 confident-auto accuracy | Run 3 confident-auto accuracy | Confident-auto accuracy spread | False-completion incorrect / run |',
     '| --- | --- | ---: | ---: | ---: | ---: | --- |',
   );
   for (const configuration of CONFIGURATIONS.filter(({ mode }) => mode !== 'rules')) {
@@ -147,7 +147,7 @@ export function renderReportTables(
         document.results.filter((row) => row.use_case === useCase.key),
       );
       const runAccuracyCells = [0, 1, 2].map((index) =>
-        percentage(accuracy(runRows[index] ?? [])),
+        percentage(confidentAutoAccuracy(runRows[index] ?? [])),
       );
       output.push(
         `| ${configuration.label} | ${useCase.label} | ${runAccuracyCells.join(' | ')} | ${accuracySpread(runRows)} | ${runRows.map((rows) => formatFalseCompletionCount(rows)).join(' / ') || '—'} |`,
@@ -325,10 +325,16 @@ function accuracy(rows: AgentEvalResultRow[]): number | null {
 }
 
 function accuracySpread(runs: AgentEvalResultRow[][]): string {
-  const values = runs.map(accuracy).filter((value): value is number => value !== null);
+  const values = runs
+    .map(confidentAutoAccuracy)
+    .filter((value): value is number => value !== null);
   return values.length === 0
     ? '—'
     : `${((Math.max(...values) - Math.min(...values)) * 100).toFixed(1)} pp`;
+}
+
+function confidentAutoAccuracy(rows: AgentEvalResultRow[]): number | null {
+  return accuracy(rows.filter(isConfidentAuto));
 }
 
 function formatFalseCompletionCount(rows: AgentEvalResultRow[]): string {

@@ -96,9 +96,6 @@ export class OpenRouterJevClient {
       );
     }
 
-    const estimated_input_tokens = estimateInputTokens(input);
-    assertInputSizeWithinLimit(estimated_input_tokens);
-
     const criteria = buildChoiceCriteria(input.choices);
     const body = {
       model: this.modelId,
@@ -115,6 +112,12 @@ export class OpenRouterJevClient {
         context: input.context ?? {},
       },
     };
+    const billedInput = {
+      question: body.questions[DECISION_QUESTION_KEY],
+      state: body.state,
+    };
+    const estimated_input_tokens = estimateInputTokens(billedInput);
+    assertInputSizeWithinLimit(estimated_input_tokens);
 
     const started = Date.now();
     const response = await this.postWithRetry(body);
@@ -197,13 +200,11 @@ function buildChoiceCriteria(choices: string[]): Record<string, string> {
   return criteria;
 }
 
-function estimateInputTokens(input: DecisionChoiceInput): number {
-  const serialized = JSON.stringify({
-    useCase: input.useCase,
-    input: input.input,
-    choices: input.choices,
-    context: input.context ?? {},
-  });
+function estimateInputTokens(billedInput: {
+  question: unknown;
+  state: unknown;
+}): number {
+  const serialized = JSON.stringify(billedInput);
   return Math.ceil(serialized.length / DECISION_CHARS_PER_TOKEN_ESTIMATE);
 }
 
