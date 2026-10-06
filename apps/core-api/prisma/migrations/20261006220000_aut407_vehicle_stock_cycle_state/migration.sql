@@ -60,30 +60,42 @@ WHERE vehicle."id" = active_stock."id"
 CREATE INDEX "vehicles_tenant_id_site_id_stock_received_at_idx"
   ON "vehicles"("tenant_id", "site_id", "stock_received_at");
 
+WITH sale_acquisition AS (
+  SELECT
+    sale."id" AS vehicle_sale_id,
+    invoice."date"::date AS invoice_date,
+    COALESCE(
+      (
+        SELECT purchase."received_at"
+        FROM "vehicle_purchases" purchase
+        WHERE purchase."tenant_id" = sale."tenant_id"
+          AND purchase."vehicle_id" = sale."vehicle_id"
+          AND purchase."status" = 'RECEIVED'
+          AND purchase."received_at" <= invoice."date"
+        ORDER BY purchase."received_at" DESC, purchase."createdAt" DESC
+        LIMIT 1
+      ),
+      (
+        SELECT entry."posting_date"
+        FROM "vehicle_ledger_entries" entry
+        WHERE entry."tenant_id" = sale."tenant_id"
+          AND entry."vehicle_id" = sale."vehicle_id"
+          AND entry."entry_type" = 'PURCHASE'
+          AND entry."posting_date" <= invoice."date"
+        ORDER BY entry."posting_date" DESC, entry."createdAt" DESC
+        LIMIT 1
+      )
+    )::date AS stock_received_date
+  FROM "vehicle_sales" sale
+  JOIN "invoices" invoice
+    ON invoice."tenant_id" = sale."tenant_id"
+    AND invoice."vehicle_sale_id" = sale."id"
+    AND invoice."status" = 'FINALIZED'
+)
 UPDATE "vehicle_sales" sale
-SET "days_to_sell_snapshot" = GREATEST(0, invoice."date"::date - COALESCE(
-  (
-    SELECT purchase."received_at"
-    FROM "vehicle_purchases" purchase
-    WHERE purchase."tenant_id" = sale."tenant_id"
-      AND purchase."vehicle_id" = sale."vehicle_id"
-      AND purchase."status" = 'RECEIVED'
-      AND purchase."received_at" <= invoice."date"
-    ORDER BY purchase."received_at" DESC, purchase."createdAt" DESC
-    LIMIT 1
-  ),
-  (
-    SELECT entry."posting_date"
-    FROM "vehicle_ledger_entries" entry
-    WHERE entry."tenant_id" = sale."tenant_id"
-      AND entry."vehicle_id" = sale."vehicle_id"
-      AND entry."entry_type" = 'PURCHASE'
-      AND entry."posting_date" <= invoice."date"
-    ORDER BY entry."posting_date" DESC, entry."createdAt" DESC
-    LIMIT 1
-  )
-)::date)::integer
-FROM "invoices" invoice
-WHERE invoice."tenant_id" = sale."tenant_id"
-  AND invoice."vehicle_sale_id" = sale."id"
-  AND invoice."status" = 'FINALIZED';
+SET "days_to_sell_snapshot" = CASE
+  WHEN sale_acquisition.stock_received_date IS NULL THEN NULL
+  ELSE GREATEST(0, sale_acquisition.invoice_date - sale_acquisition.stock_received_date)::integer
+END
+FROM sale_acquisition
+WHERE sale."id" = sale_acquisition.vehicle_sale_id;

@@ -42,7 +42,47 @@ describe('VehicleLedgerService', () => {
         tenant_id: 'tenant-1',
         site_id: 'site-1',
         inventory_role: { in: ['USED', 'NEW', 'DEMO'] },
-        stock_received_at: { not: null },
+        stock_status: { not: null },
+      },
+      data: { stock_cost_basis: { increment: new Prisma.Decimal('250.00') } },
+    });
+  });
+
+  it('adds preparation costs when an active legacy vehicle has no stock-in date', async () => {
+    const tx = {
+      vehicle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'vehicle-1',
+          site_id: 'site-1',
+          inventory_role: 'USED',
+          stock_status: 'IN_STOCK',
+          stock_received_at: null,
+        }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      vehicleLedgerEntry: {
+        create: jest.fn().mockResolvedValue({ id: 'entry-1' }),
+      },
+    } as unknown as Prisma.TransactionClient;
+    const service = new VehicleLedgerService(
+      {} as never,
+      { validateTransactionDate: jest.fn() } as never,
+      { getTenantId: jest.fn().mockResolvedValue('tenant-1') } as never,
+    );
+
+    await service.append({
+      vehicleId: 'vehicle-1',
+      entryType: VehicleLedgerEntryType.WORKSHOP_COST,
+      amount: new Prisma.Decimal('250.00'),
+    }, tx);
+
+    expect(tx.vehicle.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'vehicle-1',
+        tenant_id: 'tenant-1',
+        site_id: 'site-1',
+        inventory_role: { in: ['USED', 'NEW', 'DEMO'] },
+        stock_status: { not: null },
       },
       data: { stock_cost_basis: { increment: new Prisma.Decimal('250.00') } },
     });

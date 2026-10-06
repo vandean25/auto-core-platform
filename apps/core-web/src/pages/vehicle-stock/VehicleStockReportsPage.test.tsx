@@ -70,18 +70,18 @@ describe('VehicleStockReportsPage', () => {
         data: [{
           id: 'sale-1', sale_number: 'VS-1', vehicle_id: 'vehicle-1', make: 'Audi',
           model: 'A4', year: 2020, inventory_role: 'USED', invoice_date: '2026-10-05T00:00:00.000Z',
-          sale_price: '11666.67', cost_basis_snapshot: '10000.00', gross_margin_eur: '1666.67',
-          gross_margin_percent: '14.29', days_to_sell: 40, margin_taxed: true,
+          sale_price: '9500.00', cost_basis_snapshot: '10000.00', gross_margin_eur: '-500.00',
+          gross_margin_percent: '-5.00', days_to_sell: 40, margin_taxed: true,
         }],
         meta: { total: 1, page: 1, limit: 25, pageSize: 25, totalPages: 1, pageCount: 1 },
-        totals: { count: 1, gross_margin_total: '1666.67', gross_margin_average: '1666.67', by_inventory_role: {} },
+        totals: { count: 1, gross_margin_total: '-500.00', gross_margin_average: '-500.00', by_inventory_role: {} },
       },
       isLoading: false,
     } as unknown as ReturnType<typeof vehicleStockApi.useVehicleStockMarginReport>)
     renderPage()
     fireEvent.click(screen.getByRole('tab', { name: 'Rohertrag' }))
     expect(screen.getByText('VS-1')).toBeInTheDocument()
-    expect(within(screen.getByRole('table')).getAllByText((content) => content.includes('1666,67'))).toHaveLength(2)
+    expect(within(screen.getByRole('table')).getByText((content) => content.includes('-500,00'))).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('Gebraucht')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('Marge')).toBeInTheDocument()
 
@@ -92,7 +92,7 @@ describe('VehicleStockReportsPage', () => {
       const [blob] = vi.mocked(triggerBlobDownload).mock.calls[0]!
       const csv = await blob.text()
       expect(csv).toContain('Rechnungsdatum;Verkaufsnummer;Marke')
-      expect(csv).toContain('5.10.2026;VS-1;Audi;A4;2020;Gebraucht;11666,67;10000,00;1666,67;14,29;40;Marge')
+      expect(csv).toContain('5.10.2026;VS-1;Audi;A4;2020;Gebraucht;9500,00;10000,00;-500,00;-5,00;40;Marge')
     })
   })
 })

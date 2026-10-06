@@ -30,7 +30,8 @@ function startsWithFormula(value: string): boolean {
 }
 
 function safeCsvField(value: string): string {
-  const protectedValue = startsWithFormula(value) ? `'${value}` : value
+  const isLocalizedNumber = /^-?\d+(?:,\d+)?$/.test(value)
+  const protectedValue = !isLocalizedNumber && startsWithFormula(value) ? `'${value}` : value
   return /[;"\r\n]/.test(protectedValue)
     ? `"${protectedValue.replaceAll('"', '""')}"`
     : protectedValue

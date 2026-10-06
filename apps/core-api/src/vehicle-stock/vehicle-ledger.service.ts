@@ -87,7 +87,7 @@ export class VehicleLedgerService {
       (input.entryType === VehicleLedgerEntryType.WORKSHOP_COST ||
         input.entryType === VehicleLedgerEntryType.ADJUSTMENT) &&
       DEALER_INVENTORY_ROLES.has(vehicle.inventory_role) &&
-      vehicle.stock_received_at &&
+      vehicle.stock_status !== null &&
       vehicle.site_id
     ) {
       await db.vehicle.updateMany({
@@ -102,7 +102,7 @@ export class VehicleLedgerService {
               VehicleInventoryRole.DEMO,
             ],
           },
-          stock_received_at: { not: null },
+          stock_status: { not: null },
         },
         data: { stock_cost_basis: { increment: input.amount } },
       });
