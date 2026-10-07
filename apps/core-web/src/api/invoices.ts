@@ -1,5 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { downloadPdfFromGetUrl } from '@/lib/async-pdf'
+import {
+  downloadPdfFromGetUrl,
+  generateAndDownloadPdfBlob,
+} from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import { invoiceKeys } from './sales'
 import type { DiscountType, Invoice } from './types'
@@ -132,7 +135,7 @@ export function useGenerateInvoicePdf() {
 
 export type InvoicePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
 
-async function fetchInvoicePdfGenerationError(
+export async function fetchInvoicePdfGenerationError(
   invoiceId: string,
 ): Promise<string | null> {
   const response = await fetchWithAuth(`${SALES_INVOICES_API}/${invoiceId}`)
@@ -141,12 +144,6 @@ async function fetchInvoicePdfGenerationError(
   }
   const invoice = (await response.json()) as Invoice
   return invoice.pdf_generation_error ?? null
-}
-
-function shouldPollInvoicePdfAfterGeneration(
-  mode: InvoicePdfGenerationMode,
-): boolean {
-  return mode === 'enqueued' || mode === 'generated'
 }
 
 export async function downloadInvoicePdf(
@@ -171,27 +168,11 @@ export async function generateAndDownloadInvoicePdf(
     signal?: AbortSignal
   },
 ): Promise<Blob> {
-  const response = await fetchWithAuth(`${INVOICES_API}/${invoiceId}/pdf`, {
-    method: 'POST',
-    signal: options?.signal,
-  })
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({
-      message: 'Failed to generate PDF',
-    }))
-    throw new Error(payload.message || 'Failed to generate PDF')
-  }
-
-  const body = (await response.json()) as {
-    mode: InvoicePdfGenerationMode
-  }
-
-  return downloadPdfFromGetUrl(`${INVOICES_API}/${invoiceId}/pdf`, {
-    poll: shouldPollInvoicePdfAfterGeneration(body.mode),
-    pollOptions: {
-      onPoll: options?.onPoll,
-      signal: options?.signal,
-      checkGenerationFailed: () => fetchInvoicePdfGenerationError(invoiceId),
-    },
+  return generateAndDownloadPdfBlob({
+    postUrl: `${INVOICES_API}/${invoiceId}/pdf`,
+    getUrl: `${INVOICES_API}/${invoiceId}/pdf`,
+    checkGenerationFailed: () => fetchInvoicePdfGenerationError(invoiceId),
+    ...options,
   })
 }
+
