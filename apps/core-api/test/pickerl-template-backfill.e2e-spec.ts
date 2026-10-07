@@ -4,6 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
+  createTenantAwarePrisma,
   createTestTenant,
 } from './tenant-test-utils.js';
 import { AppModule } from '../src/app.module.js';
@@ -12,6 +13,7 @@ import type { INestApplication } from '@nestjs/common';
 
 describe('Pickerl template existing-tenant backfill (e2e)', () => {
   let app: INestApplication;
+  let basePrisma: PrismaService;
   let prisma: PrismaService;
   let tenantId: string;
 
@@ -22,9 +24,10 @@ describe('Pickerl template existing-tenant backfill (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PrismaService);
-    const tenant = await createTestTenant(prisma, 'pickerl-backfill');
+    basePrisma = app.get(PrismaService);
+    const tenant = await createTestTenant(basePrisma, 'pickerl-backfill');
     tenantId = tenant.tenantId;
+    prisma = createTenantAwarePrisma(basePrisma, tenantId);
 
     const migrationPath = resolve(
       process.cwd(),
@@ -33,14 +36,14 @@ describe('Pickerl template existing-tenant backfill (e2e)', () => {
     const migration = await readFile(migrationPath, 'utf8');
     for (let run = 0; run < 2; run += 1) {
       for (const statement of migration.split(';').map((part) => part.trim())) {
-        if (statement) await prisma.$executeRawUnsafe(statement);
+      if (statement) await basePrisma.$executeRawUnsafe(statement);
       }
     }
   });
 
   afterAll(async () => {
-    if (tenantId) await cleanupTestTenantGraph(prisma, tenantId);
-    await teardownTestApp(app, prisma);
+    if (tenantId) await cleanupTestTenantGraph(basePrisma, tenantId);
+    await teardownTestApp(app, basePrisma);
   });
 
   it('backfills the starting checklist for an existing tenant idempotently', async () => {
