@@ -518,6 +518,123 @@ test.describe('Credit notes UI', () => {
     });
   });
 
+  test('AUT-330 regression: print waits for POST before GET and recovers from initial 404', async ({
+    page,
+  }) => {
+    const finalizedCredit = createMockCreditNote({
+      id: CREDIT_NOTE_ID,
+      originalInvoiceId: INVOICE_ID,
+      status: 'FINALIZED',
+      creditNumber: 'CN-2026-0001',
+      version: 3,
+    });
+    let postResolved = false;
+    let postResolvedWhenFirstGetArrived: boolean | null = null;
+    let pdfGetAttempts = 0;
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/credit-notes/${CREDIT_NOTE_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ...finalizedCredit,
+            pdfGenerationError: null,
+          }),
+        });
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/sales/invoices/${INVOICE_ID}`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(finalizedInvoice),
+        });
+      },
+    );
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher(`/api/credit-notes/${CREDIT_NOTE_ID}/pdf`),
+      async (route) => {
+        if (route.request().method() === 'POST') {
+          // Delay POST resolution slightly to verify GET does not start concurrently
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          postResolved = true;
+          await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              mode: 'enqueued',
+              creditNoteId: CREDIT_NOTE_ID,
+              generatedAt: null,
+            }),
+          });
+          return;
+        }
+
+        if (route.request().method() === 'GET') {
+          pdfGetAttempts += 1;
+          if (pdfGetAttempts === 1) {
+            postResolvedWhenFirstGetArrived = postResolved;
+            expect(postResolved).toBe(true);
+            await route.fulfill({
+              status: 404,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                message: 'Credit note PDF is not generated yet',
+              }),
+            });
+            return;
+          }
+
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/pdf',
+            body: Buffer.from('%PDF-1.4 credit-note'),
+          });
+          return;
+        }
+
+        await route.continue();
+      },
+    );
+
+    await page.goto(`/finance/credit-notes/${CREDIT_NOTE_ID}`);
+
+    const printButton = page.getByRole('button', { name: 'Print' });
+    await expect(printButton).toBeVisible();
+    await expect(printButton).toBeEnabled();
+
+    await printButton.click();
+
+    // 5. Button is disabled with loading spinner while in flight
+    const generatingButton = page.getByRole('button', { name: /Generating/i });
+    await expect(generatingButton).toBeVisible();
+    await expect(generatingButton).toBeDisabled();
+    await expect(generatingButton.locator('.animate-spin')).toBeVisible();
+
+    // 4. UI displays success toast `Credit note PDF downloaded successfully`
+    await expect(
+      page.getByText('Credit note PDF downloaded successfully'),
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // 1. postResolved is true when the first GET arrives (proves POST resolves before GET starts)
+    expect(postResolvedWhenFirstGetArrived).toBe(true);
+
+    // 2. Initial GET returned 404 and 3. subsequent polling GET returned 200
+    expect(pdfGetAttempts).toBe(2);
+
+    // Button reverts to normal enabled state after generation completes
+    await expect(printButton).toBeVisible();
+    await expect(printButton).toBeEnabled();
+  });
+
   test('autosave failure blocks finalize', async ({ page }) => {
     const staleDraft = createMockCreditNote({
       id: CREDIT_NOTE_ID,

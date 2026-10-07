@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
-import { downloadPdfFromGetUrl } from '@/lib/async-pdf'
+import {
+  downloadPdfFromGetUrl,
+  generateAndDownloadPdfBlob,
+} from '@/lib/async-pdf'
 import { fetchWithAuth } from './client'
 import { invoiceKeys } from './sales'
 
@@ -246,7 +249,7 @@ export function useGenerateCreditNotePdf() {
   })
 }
 
-async function fetchCreditNotePdfGenerationError(
+export async function fetchCreditNotePdfGenerationError(
   creditNoteId: string,
 ): Promise<string | null> {
   const response = await fetchWithAuth(`${CREDIT_NOTES_API}/${creditNoteId}`)
@@ -274,12 +277,6 @@ export async function downloadCreditNotePdf(
 
 export type CreditNotePdfGenerationMode = 'cached' | 'enqueued' | 'generated'
 
-function shouldPollCreditNotePdfAfterGeneration(
-  mode: CreditNotePdfGenerationMode,
-): boolean {
-  return mode === 'enqueued' || mode === 'generated'
-}
-
 export async function generateAndDownloadCreditNotePdf(
   creditNoteId: string,
   options?: {
@@ -287,25 +284,12 @@ export async function generateAndDownloadCreditNotePdf(
     signal?: AbortSignal
   },
 ): Promise<Blob> {
-  const response = await fetchWithAuth(
-    `${CREDIT_NOTES_API}/${creditNoteId}/pdf`,
-    { method: 'POST', signal: options?.signal },
-  )
-  if (!response.ok) {
-    await parseError(response, 'Failed to generate credit note PDF')
-  }
-
-  const body = (await response.json()) as {
-    mode: CreditNotePdfGenerationMode
-  }
-
-  return downloadPdfFromGetUrl(`${CREDIT_NOTES_API}/${creditNoteId}/pdf`, {
-    poll: shouldPollCreditNotePdfAfterGeneration(body.mode),
-    pollOptions: {
-      onPoll: options?.onPoll,
-      signal: options?.signal,
-      checkGenerationFailed: () =>
-        fetchCreditNotePdfGenerationError(creditNoteId),
-    },
+  return generateAndDownloadPdfBlob({
+    postUrl: `${CREDIT_NOTES_API}/${creditNoteId}/pdf`,
+    getUrl: `${CREDIT_NOTES_API}/${creditNoteId}/pdf`,
+    checkGenerationFailed: () => fetchCreditNotePdfGenerationError(creditNoteId),
+    errorFallbackMessage: 'Failed to generate credit note PDF',
+    ...options,
   })
 }
+
