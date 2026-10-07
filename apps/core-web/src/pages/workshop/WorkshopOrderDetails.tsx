@@ -239,7 +239,11 @@ export function WorkshopOrderDetails() {
     try {
       await updateTask.mutateAsync({ orderId: order.id, taskId, status });
       const task = checkout.tasks.find((candidate) => candidate.id === taskId);
-      if (status === "DONE" && task?.title === "§57a Begutachtung") {
+      if (
+        status === "DONE" &&
+        task?.title === "§57a Begutachtung" &&
+        canManagePickerl
+      ) {
         setRecordPickerlInspectedOn(formatLocalDateInput(new Date()));
         setRecordPickerlOpen(true);
       }

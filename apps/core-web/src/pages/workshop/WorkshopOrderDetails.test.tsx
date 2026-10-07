@@ -239,6 +239,9 @@ describe("WorkshopOrderDetails Characterization", () => {
       isPending: false,
     });
     setupDefaultMocks();
+    asMock(authSessionApi.useAuthSession).mockReturnValue({
+      data: { activeRole: "SALES" },
+    });
   });
   asMock(vehicleInspectionApi.useVehicleInspectionRecords).mockReturnValue({
     data: [],
@@ -883,6 +886,28 @@ describe("WorkshopOrderDetails Characterization", () => {
       ).not.toBeInTheDocument();
     });
 
+    it("does not offer Pickerl recording to TECH when the §57a task is completed", async () => {
+      setupDefaultMocks({
+        ...baseOrder,
+        tasks: [{ ...baseOrder.tasks[0]!, title: "§57a Begutachtung" }],
+      });
+      asMock(authSessionApi.useAuthSession).mockReturnValue({
+        data: { activeRole: "TECH" },
+      });
+      asMock(workshopApi.useUpdateWorkshopTask).mockReturnValue(
+        createMutationMock({ mutateAsync: vi.fn().mockResolvedValue({}) }),
+      );
+
+      renderComponent();
+      fireEvent.click(screen.getAllByRole("checkbox")[0]!);
+
+      await waitFor(() => {
+        expect(workshopApi.useUpdateWorkshopTask).toHaveBeenCalled();
+      });
+      expect(
+        screen.queryByRole("heading", { name: "Pickerl erfasst" }),
+      ).not.toBeInTheDocument();
+    });
     it("offers the Pickerl recording dialog when the §57a task is completed", async () => {
       setupDefaultMocks({
         ...baseOrder,

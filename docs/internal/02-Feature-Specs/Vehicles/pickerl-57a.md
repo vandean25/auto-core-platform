@@ -123,4 +123,4 @@ Create/update validates: `inspected_on` not in the future; plakette due month no
 
 - Notifications, email, SMS, campaigns (Epic 7 / AUT-374).
 - ASFINAG / GIS integration.
-- Workshop inspection templates for the AUT-406 §57a workflow; see the workflow section below.
+- Vehicle-class modeling and authoritative legal checklist content; the AUT-406 preparation checklist remains editable and is not a complete legal list.
