@@ -182,12 +182,8 @@ export class VehicleStockMarginReportTotalsDto {
   @ApiProperty() gross_margin_total!: string;
   @ApiProperty({ type: String, nullable: true }) gross_margin_average!:
     string | null;
-  @ApiProperty({
-    type: 'object',
-    additionalProperties: {
-      $ref: '#/components/schemas/VehicleStockMarginRoleTotalsDto',
-    },
-  })
+  // prettier-ignore
+  @ApiProperty({ type: 'object', additionalProperties: { $ref: '#/components/schemas/VehicleStockMarginRoleTotalsDto' } })
   by_inventory_role!: Record<string, VehicleStockMarginRoleTotalsDto>;
 }
 

@@ -1404,7 +1404,7 @@ describe('Vehicle stock trading (e2e)', () => {
       sellerType: 'VENDOR',
       price: 14500,
     });
-    const vehicleId = created.received.vehicle.id;
+    const vehicleId = created.received.vehicle_id;
     const ageResponse = await request(app.getHttpServer())
       .get('/api/vehicle-stock/reports/stock-age?page=1&limit=100')
       .set('Authorization', `Bearer ${authToken}`)
