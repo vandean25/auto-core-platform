@@ -31,8 +31,10 @@ describe('Pickerl template existing-tenant backfill (e2e)', () => {
       'prisma/migrations/20261007120000_aut406_pickerl_template_existing_tenants/migration.sql',
     );
     const migration = await readFile(migrationPath, 'utf8');
-    for (const statement of migration.split(';').map((part) => part.trim())) {
-      if (statement) await prisma.$executeRawUnsafe(statement);
+    for (let run = 0; run < 2; run += 1) {
+      for (const statement of migration.split(';').map((part) => part.trim())) {
+        if (statement) await prisma.$executeRawUnsafe(statement);
+      }
     }
   });
 
