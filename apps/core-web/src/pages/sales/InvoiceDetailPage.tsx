@@ -16,9 +16,10 @@ import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { canManageCreditNotes } from '@/lib/credit-note-quantity'
 import { Printer, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { toast } from 'sonner'
-import { generateAndDownloadInvoicePdf } from '@/api/invoices'
-import { triggerBlobDownload } from '@/lib/download'
+import { fetchInvoicePdfGenerationError } from '@/api/invoices'
+import { usePdfDownload } from '@/hooks/usePdfDownload'
+
+const INVOICES_API = '/api/invoices'
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -141,8 +142,21 @@ export default function InvoiceDetailPage() {
   const { data: creditContext } = useInvoiceCreditContext(
     canManageCreditNote ? id : '',
   )
-  const [isPrinting, setIsPrinting] = useState(false)
   const [creditDialogOpen, setCreditDialogOpen] = useState(false)
+  const { download: handlePrint, isLoading: isPrinting } = usePdfDownload({
+    postUrl: () => `${INVOICES_API}/${invoice?.id}/pdf`,
+    getUrl: () => `${INVOICES_API}/${invoice?.id}/pdf`,
+    filename: () =>
+      `invoice-${invoice?.invoice_number || invoice?.id}`
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase() + '.pdf',
+    checkGenerationFailed: () =>
+      invoice ? fetchInvoicePdfGenerationError(invoice.id) : Promise.resolve(null),
+    messages: {
+      success: 'Invoice PDF downloaded successfully',
+      errorFallback: 'Fehler beim Erstellen der Rechnungs-PDF',
+    },
+  })
   
   const workshopOrderId = invoice?.workshop_order_id ?? ''
   const {
@@ -265,32 +279,6 @@ export default function InvoiceDetailPage() {
       : creditContext?.coverageStatus === 'PARTIALLY_CREDITED'
         ? 'Partially credited'
         : null
-
-  const handlePrint = async () => {
-    const toastId = toast.loading('Preparing PDF, this may take a few seconds...')
-    try {
-      setIsPrinting(true)
-      const blob = await generateAndDownloadInvoicePdf(invoice.id, {
-        onPoll: (attempt) => {
-          if (attempt === 1) {
-            toast.loading('Generating PDF in the background...', { id: toastId })
-          }
-        },
-      })
-
-      const fileName = `invoice-${invoice.invoice_number || invoice.id}`
-        .replace(/[^a-z0-9]/gi, '_')
-        .toLowerCase()
-      triggerBlobDownload(blob, `${fileName}.pdf`)
-      toast.success('Invoice PDF downloaded successfully', { id: toastId })
-    } catch (printError: unknown) {
-      toast.error(getErrorMessage(printError, 'Failed to generate PDF'), {
-        id: toastId,
-      })
-    } finally {
-      setIsPrinting(false)
-    }
-  }
 
   const renderLine = (summary: InvoiceLineSummary) => {
     const remaining = remainingByItemId.get(summary.item.id)

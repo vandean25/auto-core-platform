@@ -4,12 +4,13 @@ import { Loader2, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useInvoice } from '@/api/sales'
 import {
-  generateAndDownloadCreditNotePdf,
+  fetchCreditNotePdfGenerationError,
   useCreditNote,
   useFinalizeCreditNote,
   useUpdateCreditNoteDraft,
   useVoidCreditNote,
 } from '@/api/useCreditNotes'
+import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import {
@@ -43,8 +44,9 @@ import {
 } from '@/lib/credit-note-quantity'
 import { getErrorMessage } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
-import { triggerBlobDownload } from '@/lib/download'
 import { generateId } from '@/lib/id'
+
+const CREDIT_NOTES_API = '/api/credit-notes'
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -74,7 +76,20 @@ export default function CreditNoteDetailPage() {
   const [version, setVersion] = React.useState(1)
   const [finalizeOpen, setFinalizeOpen] = React.useState(false)
   const [voidOpen, setVoidOpen] = React.useState(false)
-  const [isPrinting, setIsPrinting] = React.useState(false)
+  const { download: handlePrint, isLoading: isPrinting } = usePdfDownload({
+    postUrl: () => `${CREDIT_NOTES_API}/${creditNote?.id}/pdf`,
+    getUrl: () => `${CREDIT_NOTES_API}/${creditNote?.id}/pdf`,
+    filename: () =>
+      `credit-note-${creditNote?.creditNumber ?? creditNote?.id}`
+        .replace(/[^a-z0-9]/gi, '_')
+        .toLowerCase() + '.pdf',
+    checkGenerationFailed: () =>
+      creditNote ? fetchCreditNotePdfGenerationError(creditNote.id) : Promise.resolve(null),
+    messages: {
+      success: 'Credit note PDF downloaded successfully',
+      errorFallback: 'Fehler beim Erstellen der Gutschrift-PDF',
+    },
+  })
   const lastSavedRef = React.useRef<string | null>(null)
   const creditNoteId = creditNote?.id
   const creditNoteStatus = creditNote?.status
@@ -254,31 +269,6 @@ export default function CreditNoteDetailPage() {
     }
   }
 
-  const handlePrint = async () => {
-    if (!creditNote) return
-    const toastId = toast.loading('Preparing PDF, this may take a few seconds...')
-    try {
-      setIsPrinting(true)
-      const blob = await generateAndDownloadCreditNotePdf(creditNote.id, {
-        onPoll: (attempt) => {
-          if (attempt === 1) {
-            toast.loading('Generating PDF in the background...', { id: toastId })
-          }
-        },
-      })
-
-      const fileName = `credit-note-${creditNote.creditNumber ?? creditNote.id}`
-        .replace(/[^a-z0-9]/gi, '_')
-        .toLowerCase()
-      triggerBlobDownload(blob, `${fileName}.pdf`)
-      toast.success('Credit note PDF downloaded successfully', { id: toastId })
-    } catch (printError: unknown) {
-      toast.error(getErrorMessage(printError, 'Failed to generate PDF'), { id: toastId })
-    } finally {
-      setIsPrinting(false)
-    }
-  }
-
   if (isLoading) {
     return <div className="p-8 text-center text-sm text-muted-foreground">Loading credit note...</div>
   }
@@ -336,7 +326,7 @@ export default function CreditNoteDetailPage() {
               ) : (
                 <Printer className="mr-2 h-4 w-4" />
               )}
-              Print
+              {isPrinting ? 'Generating...' : 'Print'}
             </Button>
           ) : null}
         </div>

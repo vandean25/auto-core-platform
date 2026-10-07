@@ -1,11 +1,28 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import InvoiceDetailPage from './InvoiceDetailPage'
 import * as salesApi from '@/api/sales'
+import * as invoicesApi from '@/api/invoices'
 import type { Invoice } from '@/api/types'
+import type { UsePdfDownloadConfig } from '@/hooks/usePdfDownload'
+
+const mockDownload = vi.fn().mockResolvedValue(true)
+let mockIsLoading = false
+let capturedPdfConfig: UsePdfDownloadConfig | undefined
+
+vi.mock('@/hooks/usePdfDownload', () => ({
+  usePdfDownload: (config?: UsePdfDownloadConfig) => {
+    capturedPdfConfig = config
+    return {
+      download: mockDownload,
+      isLoading: mockIsLoading,
+      isDownloading: mockIsLoading,
+    }
+  },
+}))
 
 vi.mock('@/api/sales')
 vi.mock('@/api/auth-session', () => ({
@@ -23,7 +40,7 @@ vi.mock('@/api/workshop', () => ({
   useWorkshopOrder: () => ({ data: undefined, isLoading: false, error: null }),
 }))
 vi.mock('@/api/invoices', () => ({
-  generateAndDownloadInvoicePdf: vi.fn(),
+  fetchInvoicePdfGenerationError: vi.fn().mockResolvedValue(null),
 }))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
@@ -106,5 +123,74 @@ describe('InvoiceDetailPage draft routing', () => {
 
     expect(screen.getByRole('heading', { name: 'RE-2026-0001' })).toBeInTheDocument()
     expect(screen.queryByText('Draft editor')).not.toBeInTheDocument()
+  })
+})
+
+describe('InvoiceDetailPage print action', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsLoading = false
+    capturedPdfConfig = undefined
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('configures usePdfDownload and triggers download when clicking Print', async () => {
+    const invoice = makeInvoice({
+      id: 'inv-123',
+      invoice_number: 'RE-2026-0042',
+      status: 'FINALIZED',
+    })
+    renderPage(invoice)
+
+    const printButton = screen.getByRole('button', { name: /print/i })
+    expect(printButton).toBeInTheDocument()
+    expect(printButton).not.toBeDisabled()
+
+    fireEvent.click(printButton)
+    expect(mockDownload).toHaveBeenCalledTimes(1)
+
+    expect(capturedPdfConfig).toBeDefined()
+    const resolvedPostUrl =
+      typeof capturedPdfConfig?.postUrl === 'function'
+        ? capturedPdfConfig.postUrl()
+        : capturedPdfConfig?.postUrl
+    const resolvedGetUrl =
+      typeof capturedPdfConfig?.getUrl === 'function'
+        ? capturedPdfConfig.getUrl()
+        : capturedPdfConfig?.getUrl
+    const resolvedFilename =
+      typeof capturedPdfConfig?.filename === 'function'
+        ? capturedPdfConfig.filename()
+        : capturedPdfConfig?.filename
+
+    expect(resolvedPostUrl).toBe('/api/invoices/inv-123/pdf')
+    expect(resolvedGetUrl).toBe('/api/invoices/inv-123/pdf')
+    expect(resolvedFilename).toBe('invoice_re_2026_0042.pdf')
+    expect(capturedPdfConfig?.messages?.success).toBe(
+      'Invoice PDF downloaded successfully',
+    )
+    expect(capturedPdfConfig?.messages?.errorFallback).toBe(
+      'Fehler beim Erstellen der Rechnungs-PDF',
+    )
+
+    await capturedPdfConfig?.checkGenerationFailed?.()
+    expect(invoicesApi.fetchInvoicePdfGenerationError).toHaveBeenCalledWith('inv-123')
+  })
+
+  it('renders disabled state with Generating... while printing', () => {
+    mockIsLoading = true
+    const invoice = makeInvoice({
+      id: 'inv-123',
+      invoice_number: 'RE-2026-0042',
+      status: 'FINALIZED',
+    })
+    renderPage(invoice)
+
+    const printButton = screen.getByRole('button', { name: /generating\.\.\./i })
+    expect(printButton).toBeInTheDocument()
+    expect(printButton).toBeDisabled()
   })
 })
