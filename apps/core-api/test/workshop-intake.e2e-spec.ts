@@ -198,6 +198,23 @@ describe('Workshop Intake Module (e2e)', () => {
     expect(firstOrder.body.tasks).toHaveLength(1);
     expect(firstOrder.body.tasks[0].title).toBe('§57a Begutachtung');
 
+    const dueListWithOpenOrder = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?status=UNKNOWN')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(
+      dueListWithOpenOrder.body.data.find(
+        (vehicle: { id: string }) => vehicle.id === pickerlVehicleId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        open_pickerl_order: {
+          id: firstOrder.body.id,
+          order_number: firstOrder.body.order_number,
+        },
+      }),
+    );
+
     const taskId = firstOrder.body.tasks[0].id as string;
     await prisma.workshopTask.updateMany({
       where: { id: taskId, tenant_id: tenantId },
@@ -229,22 +246,15 @@ describe('Workshop Intake Module (e2e)', () => {
       .send({ status: 'DONE' })
       .expect(200);
 
-    const dueListWithOpenOrder = await request(app.getHttpServer())
+    const dueListAfterOrderCompletion = await request(app.getHttpServer())
       .get('/api/vehicles/pickerl-due?status=UNKNOWN')
       .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
     expect(
-      dueListWithOpenOrder.body.data.find(
+      dueListAfterOrderCompletion.body.data.find(
         (vehicle: { id: string }) => vehicle.id === pickerlVehicleId,
       ),
-    ).toEqual(
-      expect.objectContaining({
-        open_pickerl_order: {
-          id: firstOrder.body.id,
-          order_number: firstOrder.body.order_number,
-        },
-      }),
-    );
+    ).toEqual(expect.objectContaining({ open_pickerl_order: null }));
 
     await request(app.getHttpServer())
       .post(`/api/vehicles/${pickerlVehicleId}/inspection-records`)
