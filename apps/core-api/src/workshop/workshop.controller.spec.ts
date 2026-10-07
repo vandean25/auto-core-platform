@@ -23,6 +23,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { FindAllWorkshopOrdersQueryDto } from './dto/find-all-workshop-orders-query.dto.js';
 import { PickWorkshopPartsResponseDto } from './dto/pick-workshop-parts-response.dto.js';
 import { AddWorkshopTaskLineFromCatalogResponseDto } from './dto/workshop-catalog-line-response.dto.js';
+import { WorkshopInspectionService } from './workshop-inspection.service.js';
 
 describe('WorkshopController', () => {
   let controller: WorkshopController;
@@ -46,6 +47,7 @@ describe('WorkshopController', () => {
       providers: [
         WorkshopController,
         { provide: WorkshopIntakeService, useValue: mockIntakeService },
+        { provide: WorkshopInspectionService, useValue: {} },
         { provide: WorkshopTaskService, useValue: mockTaskService },
         {
           provide: WorkshopCatalogLineService,

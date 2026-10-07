@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, WorkshopOrderStatus } from '@prisma/client';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import { CreateVehicleDto } from './dto/create-vehicle.dto.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -42,6 +42,7 @@ import {
   PickerlDueListExportQueryDto,
 } from './dto/pickerl-due-list.dto.js';
 import { csvEscape } from '../common/utils/csv-export.util.js';
+import { PICKERL_TASK_TITLE } from '../workshop/workshop-pickerl.helpers.js';
 
 interface ExistingVehicleIdentity {
   id: string;
@@ -206,9 +207,48 @@ export class VehicleService {
     const skip = (page - 1) * pageSize;
 
     const paginatedData = allData.slice(skip, skip + pageSize);
+    const vehicleIds = paginatedData.map((vehicle) => vehicle.id);
+    const [tenantId, activeSiteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.resolveSiteId(),
+    ]);
+    const openOrders =
+      vehicleIds.length === 0 || !activeSiteId
+        ? []
+        : await this.prisma.workshopOrder.findMany({
+            where: {
+              tenant_id: tenantId,
+              site_id: activeSiteId,
+              vehicle_id: { in: vehicleIds },
+              status: {
+                in: [
+                  WorkshopOrderStatus.SCHEDULED,
+                  WorkshopOrderStatus.INTAKE,
+                  WorkshopOrderStatus.IN_PROGRESS,
+                ],
+              },
+              tasks: { some: { title: PICKERL_TASK_TITLE } },
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true, order_number: true, vehicle_id: true },
+          });
+    const openOrderByVehicle = new Map<string, (typeof openOrders)[number]>();
+    for (const order of openOrders) {
+      if (!openOrderByVehicle.has(order.vehicle_id))
+        openOrderByVehicle.set(order.vehicle_id, order);
+    }
+    const data = paginatedData.map((vehicle) => {
+      const openOrder = openOrderByVehicle.get(vehicle.id);
+      return {
+        ...vehicle,
+        open_pickerl_order: openOrder
+          ? { id: openOrder.id, order_number: openOrder.order_number }
+          : null,
+      };
+    });
 
     return {
-      data: paginatedData,
+      data,
       meta: {
         total: allData.length,
         page,
@@ -216,6 +256,30 @@ export class VehicleService {
         pageCount: Math.ceil(allData.length / pageSize),
       },
     };
+  }
+
+  async findOpenPickerlWorkshopOrder(vehicleId: string) {
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    return this.prisma.workshopOrder.findFirst({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vehicle_id: vehicleId,
+        status: {
+          in: [
+            WorkshopOrderStatus.SCHEDULED,
+            WorkshopOrderStatus.INTAKE,
+            WorkshopOrderStatus.IN_PROGRESS,
+          ],
+        },
+        tasks: { some: { title: PICKERL_TASK_TITLE } },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, order_number: true },
+    });
   }
 
   async exportPickerlDueCsv(query: PickerlDueListExportQueryDto) {

@@ -48,6 +48,8 @@ import {
   WorkshopResourcesResponseDto,
   WorkshopSearchResponseDto,
   WorkshopTaskResponseDto,
+  UpdateWorkshopInspectionDto,
+  WorkshopInspectionResponseDto,
 } from './dto/index.js';
 import { InvoiceResponseDto } from '../sales/dto/invoice-response.dto.js';
 import { VehicleListItemDto } from '../vehicle/dto/vehicle-response.dto.js';
@@ -58,6 +60,7 @@ import * as invoice from './workshop-invoice.service.js';
 import * as pdf from './workshop-pdf.service.js';
 import * as pick from './workshop-pick-parts.service.js';
 import * as task from './workshop-task.service.js';
+import { WorkshopInspectionService } from './workshop-inspection.service.js';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 
 function parsePositiveInteger(value?: string): number | undefined {
@@ -169,6 +172,7 @@ export class WorkshopController {
     private readonly taskService: task.WorkshopTaskService,
     private readonly pickPartsService: pick.WorkshopPickPartsService,
     private readonly intakeService: intake.WorkshopIntakeService,
+    private readonly inspectionService: WorkshopInspectionService,
   ) {
     this.logAction('initialized');
   }
@@ -261,6 +265,33 @@ export class WorkshopController {
   ) {
     this.logAction('updateTask');
     return this.taskService.updateTask(orderId, taskId, dto);
+  }
+
+  @Get('orders/:orderId/tasks/:taskId/checklist')
+  @ApiOkResponse({
+    description: 'Task inspection checklist.',
+    type: WorkshopInspectionResponseDto,
+  })
+  getTaskChecklist(
+    @Param('orderId') orderId: string,
+    @Param('taskId') taskId: string,
+  ) {
+    this.logAction('getTaskChecklist');
+    return this.inspectionService.getTaskChecklist(orderId, taskId);
+  }
+
+  @Patch('orders/:orderId/tasks/:taskId/checklist')
+  @ApiOkResponse({
+    description: 'Updated task inspection checklist.',
+    type: WorkshopInspectionResponseDto,
+  })
+  updateTaskChecklist(
+    @Param('orderId') orderId: string,
+    @Param('taskId') taskId: string,
+    @Body() dto: UpdateWorkshopInspectionDto,
+  ) {
+    this.logAction('updateTaskChecklist');
+    return this.inspectionService.updateTaskChecklist(orderId, taskId, dto);
   }
 
   @Delete('orders/:orderId/tasks/:taskId')

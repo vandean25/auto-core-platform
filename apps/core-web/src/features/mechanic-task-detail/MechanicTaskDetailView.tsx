@@ -1,54 +1,62 @@
-import { RefreshCw } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import type { MechanicTaskDetail } from '@/api/mechanic'
-import { DiagnosticsSection } from './components/DiagnosticsSection'
-import { LaborItemsCard } from './components/LaborItemsCard'
-import { MediaSection } from './components/MediaSection'
-import { PartsSection } from './components/PartsSection'
-import { PauseTaskDialog } from './components/PauseTaskDialog'
-import { RequestPartDialog } from './components/RequestPartDialog'
-import { SwitchTaskDialog } from './components/SwitchTaskDialog'
-import { TaskHeader } from './components/TaskHeader'
-import { VehicleInfoCard } from './components/VehicleInfoCard'
-import { useDiagnosticsAutosave } from './hooks/useDiagnosticsAutosave'
-import { useMediaUpload } from './hooks/useMediaUpload'
-import { useRequestPartForm } from './hooks/useRequestPartForm'
-import { useTaskLifecycle } from './hooks/useTaskLifecycle'
-import { useVoiceNote } from './hooks/useVoiceNote'
-import { getTaskCapabilities } from './task-capabilities'
+import { RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { MechanicTaskDetail } from "@/api/mechanic";
+import { DiagnosticsSection } from "./components/DiagnosticsSection";
+import { LaborItemsCard } from "./components/LaborItemsCard";
+import { MediaSection } from "./components/MediaSection";
+import { PartsSection } from "./components/PartsSection";
+import { PauseTaskDialog } from "./components/PauseTaskDialog";
+import { RequestPartDialog } from "./components/RequestPartDialog";
+import { SwitchTaskDialog } from "./components/SwitchTaskDialog";
+import { TaskHeader } from "./components/TaskHeader";
+import { VehicleInfoCard } from "./components/VehicleInfoCard";
+import { useDiagnosticsAutosave } from "./hooks/useDiagnosticsAutosave";
+import { useMediaUpload } from "./hooks/useMediaUpload";
+import { useRequestPartForm } from "./hooks/useRequestPartForm";
+import { useTaskLifecycle } from "./hooks/useTaskLifecycle";
+import { useVoiceNote } from "./hooks/useVoiceNote";
+import { getTaskCapabilities } from "./task-capabilities";
+import { MechanicTaskInspectionChecklist } from "./components/MechanicTaskInspectionChecklist";
 
 type MechanicTaskDetailViewProps = {
-  task: MechanicTaskDetail
-  refetch: () => Promise<unknown>
-}
+  task: MechanicTaskDetail;
+  refetch: () => Promise<unknown>;
+};
 
-export function MechanicTaskDetailView({ task, refetch }: MechanicTaskDetailViewProps) {
-  const navigate = useNavigate()
+export function MechanicTaskDetailView({
+  task,
+  refetch,
+}: MechanicTaskDetailViewProps) {
+  const navigate = useNavigate();
   const capabilities = getTaskCapabilities({
     taskStatus: task.taskStatus,
     hasOpenLaborEntry: task.hasOpenLaborEntry,
-  })
+  });
   const diagnostics = useDiagnosticsAutosave({
     taskId: task.taskId,
     initialNotes: task.mechanicNotes,
-  })
+  });
   const voiceNote = useVoiceNote({
     taskId: task.taskId,
     notesValue: diagnostics.notesValue,
     onAcceptDraft: diagnostics.handleNotesChange,
-  })
-  const mediaUpload = useMediaUpload(task.taskId)
+  });
+  const mediaUpload = useMediaUpload(task.taskId);
   const lifecycle = useTaskLifecycle({
     taskId: task.taskId,
     refetch,
     cancelPendingSave: diagnostics.cancelPendingSave,
-  })
-  const partRequest = useRequestPartForm(task.taskId)
+  });
+  const partRequest = useRequestPartForm(task.taskId);
 
-  const laborItems = task.lineItems.filter((lineItem) => lineItem.type === 'LABOR')
-  const partItems = task.lineItems.filter((lineItem) => lineItem.type === 'PART')
+  const laborItems = task.lineItems.filter(
+    (lineItem) => lineItem.type === "LABOR",
+  );
+  const partItems = task.lineItems.filter(
+    (lineItem) => lineItem.type === "PART",
+  );
 
   return (
     <div className="w-full max-w-3xl mx-auto p-6 space-y-6">
@@ -64,17 +72,24 @@ export function MechanicTaskDetailView({ task, refetch }: MechanicTaskDetailView
         switchPending={lifecycle.switchTask.isPending}
         pausePending={lifecycle.pauseTask.isPending}
         completePending={lifecycle.completeTask.isPending}
-        onBack={() => navigate('/mechanic/queue')}
+        onBack={() => navigate("/mechanic/queue")}
         onStart={() => void lifecycle.handleStart()}
         onOpenSwitch={() => {
-          lifecycle.setSwitchRetrying(false)
-          lifecycle.setSwitchDialogOpen(true)
+          lifecycle.setSwitchRetrying(false);
+          lifecycle.setSwitchDialogOpen(true);
         }}
         onOpenPause={() => lifecycle.setPauseDialogOpen(true)}
         onComplete={() => void lifecycle.handleComplete()}
       />
 
       <VehicleInfoCard task={task} />
+
+      {task.taskTitle === "§57a Begutachtung" && (
+        <MechanicTaskInspectionChecklist
+          taskId={task.taskId}
+          readOnly={capabilities.isDone}
+        />
+      )}
 
       {task.reportedComplaint && (
         <Card>
@@ -115,15 +130,20 @@ export function MechanicTaskDetailView({ task, refetch }: MechanicTaskDetailView
           uploadState={mediaUpload.uploadState}
           fileInputRef={mediaUpload.fileInputRef}
           onPickFile={() => {
-            mediaUpload.setUploadState('idle')
-            mediaUpload.fileInputRef.current?.click()
+            mediaUpload.setUploadState("idle");
+            mediaUpload.fileInputRef.current?.click();
           }}
           onFileSelected={(file) => void mediaUpload.handleFileSelected(file)}
         />
       )}
 
       <div className="flex justify-center">
-        <Button variant="ghost" size="sm" onClick={() => void refetch()} className="gap-2 text-slate-500">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void refetch()}
+          className="gap-2 text-slate-500"
+        >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh task
         </Button>
@@ -133,7 +153,9 @@ export function MechanicTaskDetailView({ task, refetch }: MechanicTaskDetailView
         open={lifecycle.switchDialogOpen}
         selectedReason={lifecycle.selectedSwitchReason}
         retrying={lifecycle.switchRetrying}
-        pending={lifecycle.switchTask.isPending || lifecycle.startTask.isPending}
+        pending={
+          lifecycle.switchTask.isPending || lifecycle.startTask.isPending
+        }
         onOpenChange={lifecycle.setSwitchDialogOpen}
         onSelectReason={lifecycle.setSelectedSwitchReason}
         onConfirm={() => void lifecycle.handleSwitchConfirm()}
@@ -154,9 +176,11 @@ export function MechanicTaskDetailView({ task, refetch }: MechanicTaskDetailView
         partFormError={partRequest.partFormError}
         pending={partRequest.requestPart.isPending}
         onOpenChange={partRequest.setRequestPartOpen}
-        onFormChange={(updates) => partRequest.setPartForm((previous) => ({ ...previous, ...updates }))}
+        onFormChange={(updates) =>
+          partRequest.setPartForm((previous) => ({ ...previous, ...updates }))
+        }
         onSubmit={() => void partRequest.handleRequestPartSubmit()}
       />
     </div>
-  )
+  );
 }

@@ -1171,6 +1171,22 @@ export interface paths {
         patch: operations["WorkshopController_updateTask"];
         trace?: never;
     };
+    "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getTaskChecklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopController_updateTaskChecklist"];
+        trace?: never;
+    };
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
         parameters: {
             query?: never;
@@ -1765,6 +1781,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/mechanic/tasks/{taskId}/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["MechanicController_getTaskChecklist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["MechanicController_updateTaskChecklist"];
+        trace?: never;
+    };
     "/api/mechanic/tasks/{taskId}/start": {
         parameters: {
             query?: never;
@@ -2202,6 +2234,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["VehicleController_exportPickerlDue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{id}/pickerl-open-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleController_findOpenPickerlWorkshopOrder"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3921,6 +3969,10 @@ export interface components {
             /** Format: date-time */
             updatedAt?: string;
         };
+        OpenPickerlOrderDto: {
+            id: string;
+            order_number: string;
+        };
         /** @enum {string} */
         PickerlDueStatus: "OK" | "DUE_SOON" | "OVERDUE" | "UNKNOWN";
         PickerlWarningDto: {
@@ -3950,6 +4002,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
             model: string;
@@ -4625,6 +4678,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
             model: string;
@@ -4659,6 +4713,8 @@ export interface components {
         /** @enum {string} */
         WorkshopOrderStatus: "SCHEDULED" | "INTAKE";
         CreateWorkshopOrderDto: {
+            /** @description Adds the §57a Begutachtung task and the tenant preparation checklist. */
+            createPickerlTask?: boolean;
             /** Format: uuid */
             customerId?: string;
             /** Format: uuid */
@@ -4863,6 +4919,29 @@ export interface components {
             movedLines: components["schemas"]["PickWorkshopPartMovedLineResponseDto"][];
         };
         UpdateWorkshopTaskDto: Record<string, never>;
+        WorkshopInspectionItemResponseDto: {
+            /** Format: uuid */
+            id: string;
+            label_snapshot: string;
+            passed: boolean | null;
+            notes: string | null;
+            unit: string | null;
+        };
+        WorkshopInspectionResponseDto: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            items: components["schemas"]["WorkshopInspectionItemResponseDto"][];
+        };
+        UpdateWorkshopInspectionItemDto: {
+            /** Format: uuid */
+            id: string;
+            passed?: boolean | null;
+            notes?: string | null;
+        };
+        UpdateWorkshopInspectionDto: {
+            items: components["schemas"]["UpdateWorkshopInspectionItemDto"][];
+        };
         ReplaceWorkshopTaskLineItemDto: {
             /**
              * Format: uuid
@@ -4900,6 +4979,7 @@ export interface components {
             dry_run?: boolean;
             /** @description List of changes that would occur if executed without dry_run */
             would_change?: components["schemas"]["WouldChangeItemDto"][];
+            open_pickerl_order?: components["schemas"]["OpenPickerlOrderDto"] | null;
             id: string;
             make: string;
             model: string;
@@ -10069,6 +10149,56 @@ export interface operations {
             };
         };
     };
+    WorkshopController_getTaskChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Task inspection checklist. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_updateTaskChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopInspectionDto"];
+            };
+        };
+        responses: {
+            /** @description Updated task inspection checklist. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
     WorkshopController_replaceTaskLineItems: {
         parameters: {
             query?: {
@@ -11160,6 +11290,52 @@ export interface operations {
             };
         };
     };
+    MechanicController_getTaskChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
+    MechanicController_updateTaskChecklist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopInspectionDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopInspectionResponseDto"];
+                };
+            };
+        };
+    };
     MechanicController_startTask: {
         parameters: {
             query?: never;
@@ -12069,6 +12245,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    VehicleController_findOpenPickerlWorkshopOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenPickerlOrderDto"] | null;
+                };
             };
         };
     };

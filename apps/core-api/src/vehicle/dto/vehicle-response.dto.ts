@@ -4,7 +4,22 @@ import { CustomerResponseDto } from '../../customer/dto/customer-response.dto.js
 import { DryRunMetaDto } from '../../dry-run/dto/dry-run-response.dto.js';
 import { PickerlDueDto } from './pickerl-due.dto.js';
 
+export class OpenPickerlOrderDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  order_number!: string;
+}
+
 export class VehicleResponseDto extends DryRunMetaDto {
+  @ApiProperty({
+    type: () => OpenPickerlOrderDto,
+    required: false,
+    nullable: true,
+  })
+  open_pickerl_order?: { id: string; order_number: string } | null;
+
   @ApiProperty()
   id!: string;
 

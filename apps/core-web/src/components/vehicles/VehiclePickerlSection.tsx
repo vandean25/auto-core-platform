@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { components } from '@/api/generated/openapi'
+import { useOpenPickerlWorkshopOrder } from '@/api/vehicles'
 import { useAuthSession } from '@/api/auth-session'
 import { useVehicleInspectionRecords } from '@/api/vehicle-inspection-records'
 import { canRecordVehicleInspection } from '@/components/vehicles/vehicle-pickerl-permissions'
@@ -14,6 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { RecordPickerlDialog } from './RecordPickerlDialog'
+import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 
 type PickerlDue = components['schemas']['PickerlDueDto']
 
@@ -35,9 +38,12 @@ export function VehiclePickerlSection({
   pickerlDue,
 }: VehiclePickerlSectionProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [intakeOpen, setIntakeOpen] = useState(false)
+  const navigate = useNavigate()
   const sessionQuery = useAuthSession()
   const canRecord = canRecordVehicleInspection(sessionQuery.data?.activeRole)
   const { data: records = [], isLoading } = useVehicleInspectionRecords(vehicleId)
+  const openOrderQuery = useOpenPickerlWorkshopOrder(vehicleId)
   const hasNoInspectionRecordsWarning = pickerlDue?.warnings?.some(
     (warning) => warning.code === 'NO_INSPECTION_RECORDS',
   )
@@ -51,11 +57,27 @@ export function VehiclePickerlSection({
             Fälligkeit aus Erstzulassung und erfassten Begutachtungen
           </div>
         </div>
-        {canRecord ? (
-          <Button size='sm' onClick={() => setDialogOpen(true)}>
-            Pickerl erfasst
-          </Button>
-        ) : null}
+        <div className='flex gap-2'>
+          {canRecord ? (
+            <Button size='sm' onClick={() => setDialogOpen(true)}>
+              Pickerl erfasst
+            </Button>
+          ) : null}
+          {canRecord && openOrderQuery.data ? (
+            <Button size='sm' variant='outline' onClick={() => navigate(`/workshop/orders/${openOrderQuery.data?.id}`)}>
+              §57a-Auftrag öffnen
+            </Button>
+          ) : canRecord ? (
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={openOrderQuery.isLoading || openOrderQuery.isError || openOrderQuery.data !== null}
+              onClick={() => setIntakeOpen(true)}
+            >
+              {openOrderQuery.isLoading || openOrderQuery.isError ? 'Auftrag prüfen…' : '§57a-Auftrag anlegen'}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <div className='flex flex-wrap items-center gap-2 text-sm'>
@@ -127,6 +149,14 @@ export function VehiclePickerlSection({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+      {intakeOpen ? (
+        <WorkshopOrderIntakeDialog
+          open
+          onOpenChange={setIntakeOpen}
+          initialVehicleId={vehicleId}
+          pickerlMode
+        />
+      ) : null}
     </div>
   )
 }

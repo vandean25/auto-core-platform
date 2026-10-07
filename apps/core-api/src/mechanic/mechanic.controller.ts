@@ -50,6 +50,9 @@ import { MechanicExecutionService } from './mechanic-execution.service.js';
 import { MechanicIdentityService } from './mechanic-identity.service.js';
 import { MechanicMediaService } from './mechanic-media.service.js';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
+import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
+import { UpdateWorkshopInspectionDto } from '../workshop/dto/update-workshop-inspection.dto.js';
+import { WorkshopInspectionResponseDto } from '../workshop/dto/workshop-inspection-response.dto.js';
 
 @ApiTags('mechanic')
 @MechanicAccessible()
@@ -60,6 +63,7 @@ export class MechanicController {
     private readonly execution: MechanicExecutionService,
     private readonly media: MechanicMediaService,
     private readonly voiceNotes: MechanicVoiceNoteService,
+    private readonly inspections: WorkshopInspectionService,
   ) {}
 
   /**
@@ -92,6 +96,25 @@ export class MechanicController {
   ): Promise<MechanicTaskDetailDto> {
     const mechanicId = await this.identity.resolveMechanic();
     return this.execution.getMechanicTaskDetail(mechanicId, taskId);
+  }
+
+  @Get('tasks/:taskId/checklist')
+  @ApiOkResponse({ type: WorkshopInspectionResponseDto })
+  async getTaskChecklist(@Param('taskId', ParseUUIDPipe) taskId: string) {
+    const mechanicId = await this.identity.resolveMechanic();
+    const task = await this.execution.getMechanicTaskDetail(mechanicId, taskId);
+    return this.inspections.getTaskChecklist(task.orderId, taskId);
+  }
+
+  @Patch('tasks/:taskId/checklist')
+  @ApiOkResponse({ type: WorkshopInspectionResponseDto })
+  async updateTaskChecklist(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: UpdateWorkshopInspectionDto,
+  ) {
+    const mechanicId = await this.identity.resolveMechanic();
+    const task = await this.execution.getMechanicTaskDetail(mechanicId, taskId);
+    return this.inspections.updateTaskChecklist(task.orderId, taskId, dto);
   }
 
   /**

@@ -1,12 +1,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as workshopApi from '@/api/workshop'
+import * as vehiclesApi from '@/api/vehicles'
 import { toast } from 'sonner'
 import { WorkshopOrderIntakeDialog } from './WorkshopOrderIntakeDialog'
 
 const mockNavigate = vi.fn()
 
 vi.mock('@/api/workshop')
+vi.mock('@/api/vehicles')
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -62,6 +64,21 @@ describe('WorkshopOrderIntakeDialog', () => {
       mutateAsync: vi.fn().mockRejectedValue(new Error('Finance settings update failed')),
       isPending: false,
     })
+    vi.mocked(vehiclesApi.useVehicle).mockReturnValue({
+      data: {
+        id: 'vehicle-1',
+        plate: 'W-12345AB',
+        year: 2018,
+        make: 'Volkswagen',
+        model: 'Golf VII',
+        customer: {
+          id: 'customer-1',
+          first_name: 'Max',
+          last_name: 'Mustermann',
+          type: 'PRIVATE',
+        },
+      },
+    } as never)
   })
 
   afterEach(() => {
@@ -80,6 +97,35 @@ describe('WorkshopOrderIntakeDialog', () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Finance settings update failed')
+    })
+  })
+
+  it('prefills the existing vehicle and requests a §57a task', async () => {
+    const createOrder = vi.fn().mockResolvedValue({ id: 'order-1' })
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: createOrder,
+      isPending: false,
+    } as never)
+
+    render(
+      <WorkshopOrderIntakeDialog
+        open
+        onOpenChange={vi.fn()}
+        initialVehicleId='vehicle-1'
+        pickerlMode
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: '§57a-Auftrag anlegen' }))
+
+    await waitFor(() => {
+      expect(createOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          vehicleId: 'vehicle-1',
+          customerId: 'customer-1',
+          createPickerlTask: true,
+        }),
+      )
     })
   })
 })

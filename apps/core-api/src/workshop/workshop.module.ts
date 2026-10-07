@@ -22,6 +22,7 @@ import { WorkshopController } from './workshop.controller.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
+import { WorkshopInspectionService } from './workshop-inspection.service.js';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { WorkshopPlannerController } from './workshop-planner.controller.js';
   providers: [
     WorkshopIntakeService,
     WorkshopTaskService,
+    WorkshopInspectionService,
     WorkshopCatalogLineService,
     WorkshopPickPartsService,
     WorkshopBoardService,

@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsBoolean,
   IsNotEmpty,
   IsInt,
   Min,
@@ -14,6 +15,14 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { WorkshopOrderPurpose, WorkshopOrderStatus } from '@prisma/client';
 
 export class CreateWorkshopOrderDto {
+  @ApiPropertyOptional({
+    description:
+      'Adds the §57a Begutachtung task and the tenant preparation checklist.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  createPickerlTask?: boolean;
+
   @ApiPropertyOptional({ format: 'uuid' })
   @ValidateIf(
     (dto: CreateWorkshopOrderDto) =>

@@ -54,6 +54,7 @@ export function useCreateVehicleInspectionRecord(vehicleId: string) {
         queryKey: vehicleInspectionKeys.all(vehicleId),
       })
       queryClient.invalidateQueries({ queryKey: vehicleKeys.detail(vehicleId) })
+      queryClient.invalidateQueries({ queryKey: vehicleKeys.pickerlDueAll() })
     },
   })
 }

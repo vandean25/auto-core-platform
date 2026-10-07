@@ -11,6 +11,7 @@ import type { WorkshopOrder, WorkshopTask } from '@/api/types'
 import { TaskLineItemEditor } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskLineItem } from '@/components/workshop/TaskLineItemEditor'
 import type { TaskTotals } from '../hooks/useWorkshopCalculations'
+import { WorkshopTaskInspectionChecklist } from '@/components/workshop/WorkshopTaskInspectionChecklist'
 
 type WorkshopOrderWithLegacyReportedIssue = WorkshopOrder & { reported_issue?: string | null }
 
@@ -290,6 +291,14 @@ function TaskAccordionRow({
               </Button>
             </div>
           </div>
+
+          {task.title === '§57a Begutachtung' ? (
+            <WorkshopTaskInspectionChecklist
+              orderId={workshopOrderId}
+              taskId={task.id}
+              readOnly={isLocked}
+            />
+          ) : null}
 
           <TaskLineItemEditor
             workshopOrderId={workshopOrderId}

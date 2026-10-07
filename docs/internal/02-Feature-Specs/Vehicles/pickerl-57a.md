@@ -111,8 +111,16 @@ Create/update validates: `inspected_on` not in the future; plakette due month no
 - Vehicle detail: due month + status badge; UNKNOWN copy when Erstzulassung missing or no inspection captured.
 - List of inspection records; **Pickerl erfasst** opens create dialog (hidden for TECH).
 
+## AUT-406 workflow: due Pickerl to §57a workshop order
+
+- An authorized OWNER, ADMIN, or SALES user can open the existing workshop-order intake from a due-list row or the vehicle Pickerl section. The intake is prefilled with the vehicle and linked customer and creates the task **§57a Begutachtung**.
+- The API checks for a matching task on an open order at the vehicle's active site. Repeating the action returns that order so the UI opens its details instead of creating a duplicate. TECH cannot create this order path.
+- Creating the task snapshots the active tenant template `PICKERL_57A_PREP` version 1 into a task-linked `WorkshopInspection`. The checklist is an editable preparation starting point, not a complete or authoritative legal list. TECH can read it and save PASS/FAIL results and notes.
+- Completing **§57a Begutachtung** offers the existing **Pickerl erfasst** dialog with the inspection date prefilled. The user chooses whether to save; saving uses the existing inspection-record flow and recalculates the next due month.
+- No reminder, email, SMS, campaign, external database lookup, or other outbound message is part of this workflow.
+
 ## Out of scope
 
 - Notifications, email, SMS, campaigns (Epic 7 / AUT-374).
 - ASFINAG / GIS integration.
-- Workshop inspection templates (unchanged).
+- Workshop inspection templates for the AUT-406 §57a workflow; see the workflow section below.

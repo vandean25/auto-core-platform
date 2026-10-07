@@ -28,6 +28,17 @@ const LABOR_API = '/api/labor'
 const CATALOG_API = '/api/catalog'
 const PICK_LIST_SOURCE_PAGE_SIZE = 100
 
+export interface WorkshopTaskChecklist {
+  id: string
+  title: string
+  items: Array<{
+    id: string
+    label_snapshot: string
+    passed: boolean | null
+    notes: string | null
+  }>
+}
+
 type WorkshopApiError = Error & {
   status?: number
 }
@@ -39,6 +50,8 @@ export const workshopKeys = {
   pickList: () => [...workshopKeys.all, 'pick-list'] as const,
   pickListPage: (queryParams?: DataTableQueryParams) => [...workshopKeys.pickList(), queryParams] as const,
   detail: (id: string) => [...workshopKeys.all, 'order', id] as const,
+  taskChecklist: (orderId: string, taskId: string) =>
+    [...workshopKeys.all, 'taskChecklist', orderId, taskId] as const,
   order: (id: string) => workshopKeys.detail(id),
   search: (query: string) => [...workshopKeys.all, 'search', query] as const,
   planner: (from?: string, to?: string, bayId?: string) =>
@@ -51,6 +64,47 @@ export const workshopKeys = {
   holidaysAll: () => [...workshopKeys.all, 'holidays'] as const,
   boardResources: () => [...workshopKeys.all, 'board', 'resources'] as const,
   boardActive: () => [...workshopKeys.all, 'board', 'active'] as const,
+}
+
+export function useWorkshopTaskChecklist(orderId: string, taskId: string) {
+  return useQuery<WorkshopTaskChecklist>({
+    queryKey: workshopKeys.taskChecklist(orderId, taskId),
+    queryFn: async () => {
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/orders/${orderId}/tasks/${taskId}/checklist`,
+      )
+      if (!response.ok) throw await parseErrorResponse(response, 'Failed to load checklist')
+      return response.json()
+    },
+    enabled: Boolean(orderId && taskId),
+  })
+}
+
+export function useUpdateWorkshopTaskChecklist() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      orderId: string
+      taskId: string
+      items: Array<{ id: string; passed?: boolean | null; notes?: string | null }>
+    }) => {
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/orders/${payload.orderId}/tasks/${payload.taskId}/checklist`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: payload.items }),
+        },
+      )
+      if (!response.ok) throw await parseErrorResponse(response, 'Failed to save checklist')
+      return response.json() as Promise<WorkshopTaskChecklist>
+    },
+    onSuccess: (_result, payload) => {
+      queryClient.invalidateQueries({
+        queryKey: workshopKeys.taskChecklist(payload.orderId, payload.taskId),
+      })
+    },
+  })
 }
 
 export type WorkshopSettingsResponse =
