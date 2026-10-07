@@ -54,7 +54,6 @@ export async function createPickerlTaskAndInspection(
       title: template.title,
       items: {
         create: template.items.map((item) => ({
-          tenant_id: tenantId,
           inspection_template_item_id: item.id,
           label_snapshot: item.label,
           unit: item.unit,

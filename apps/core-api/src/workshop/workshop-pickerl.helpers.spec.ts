@@ -65,13 +65,11 @@ describe('workshop-pickerl.helpers', () => {
         items: {
           create: [
             {
-              tenant_id: 'tenant-1',
               inspection_template_item_id: 'item-1',
               label_snapshot: 'Beleuchtung',
               unit: null,
             },
             {
-              tenant_id: 'tenant-1',
               inspection_template_item_id: 'item-2',
               label_snapshot: 'Bremsen',
               unit: null,
