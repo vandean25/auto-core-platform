@@ -44,19 +44,23 @@ describe('Pickerl template existing-tenant backfill (e2e)', () => {
   });
 
   it('backfills the starting checklist for an existing tenant idempotently', async () => {
-    const template = await prisma.inspectionTemplate.findUniqueOrThrow({
+    const template = await prisma.inspectionTemplate.findFirst({
       where: {
-        tenant_id_code_version: {
-          tenant_id: tenantId,
-          code: 'PICKERL_57A_PREP',
-          version: 1,
-        },
+        tenant_id: tenantId,
+        code: 'PICKERL_57A_PREP',
+        version: 1,
       },
     });
 
+    if (!template) {
+      throw new Error('Pickerl template backfill did not create a template');
+    }
     await expect(
       prisma.inspectionTemplateItem.count({
-        where: { tenant_id: tenantId, inspection_template_id: template.id },
+        where: {
+          tenant_id: tenantId,
+          inspection_template_id: template.id,
+        },
       }),
     ).resolves.toBe(12);
   });
