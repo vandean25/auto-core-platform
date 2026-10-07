@@ -36,7 +36,7 @@ describe('Pickerl template existing-tenant backfill (e2e)', () => {
     const migration = await readFile(migrationPath, 'utf8');
     for (let run = 0; run < 2; run += 1) {
       for (const statement of migration.split(';').map((part) => part.trim())) {
-      if (statement) await basePrisma.$executeRawUnsafe(statement);
+        if (statement) await basePrisma.$executeRawUnsafe(statement);
       }
     }
   });
