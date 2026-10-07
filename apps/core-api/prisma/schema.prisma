@@ -1249,6 +1249,8 @@ model Vehicle {
   customer                       Customer?            @relation(fields: [customer_id], references: [id])
   inventory_role                 VehicleInventoryRole @default(CUSTOMER)
   stock_status                   VehicleStockStatus?
+  stock_received_at              DateTime?
+  stock_cost_basis               Decimal?             @db.Decimal(12, 2)
   tax_scheme                     VehicleTaxScheme?
   mileage                        Int?
   color                          String?
@@ -1281,6 +1283,7 @@ model Vehicle {
   @@unique([tenant_id, id])
   @@index([tenant_id])
   @@index([tenant_id, inventory_role, stock_status])
+  @@index([tenant_id, site_id, stock_received_at])
   @@index([tenant_id, hsn, tsn])
   @@index([tenant_id, site_id])
   @@index([make_brand_id])
@@ -1401,6 +1404,7 @@ model VehicleSale {
   sale_price           Decimal              @db.Decimal(12, 2)
   cost_basis_snapshot  Decimal?             @db.Decimal(12, 2)
   margin_vat_snapshot  Decimal?             @db.Decimal(12, 2)
+  days_to_sell_snapshot Int?
   trade_in_purchase_id String?
   invoice              Invoice?
   ledger_entries       VehicleLedgerEntry[]

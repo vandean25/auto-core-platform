@@ -27,6 +27,8 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
+| `get_vehicle_stock_age_report` | Read paged dealer stock age and cost basis for the active site | Read | AUTO |
+| `get_vehicle_stock_margin_report` | Read paged invoiced vehicle margins by invoice date for the active site | Read | AUTO |
 | `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | Off by default; AUTO when enabled                     |
 | `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | Off by default; AUTO up to the amount limit, else PROPOSE |
 | `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |

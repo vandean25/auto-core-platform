@@ -1411,6 +1411,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-stock/reports/stock-age": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List dealer stock vehicles by days in stock */
+        get: operations["VehicleStockController_stockAgeReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicle-stock/reports/margin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List invoiced vehicle margins for a date period */
+        get: operations["VehicleStockController_marginReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-stock/{vehicleId}": {
         parameters: {
             query?: never;
@@ -5078,6 +5112,91 @@ export interface components {
             siteId?: string;
             /** @description Expected site ID for optimistic concurrency checks */
             expectedSiteId?: string;
+        };
+        VehicleStockMarginRoleTotalsDto: {
+            count: number;
+            gross_margin_known_count: number;
+            gross_margin_unknown_count: number;
+            gross_margin_total: string;
+            gross_margin_average: string | null;
+            gross_margin_percent_average: string | null;
+            sale_price_total: string;
+            sale_price_average: string | null;
+            cost_basis_total: string;
+            cost_basis_average: string | null;
+            days_to_sell_average: string | null;
+        };
+        VehicleStockAgeReportRowDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            vin: string | null;
+            plate: string | null;
+            /** @enum {string} */
+            inventory_role: "USED" | "NEW" | "DEMO";
+            /** @enum {string|null} */
+            stock_status: "IN_STOCK" | "RESERVED" | "IN_PREP" | null;
+            days_in_stock: number | null;
+            missing_stock_in_date: boolean;
+            stock_in_date: string | null;
+            /** @enum {string|null} */
+            age_bucket: "0_30" | "31_60" | "61_90" | "91_180" | "over_180" | null;
+            cost_basis: string;
+            asking_price: string | null;
+            location: string | null;
+        };
+        VehicleStockReportPaginationMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            pageSize: number;
+            totalPages: number;
+            pageCount: number;
+        };
+        VehicleStockAgeReportSummaryDto: {
+            over_90_count: number;
+            over_90_cost_basis: string;
+            bucket_counts: {
+                [key: string]: number;
+            };
+        };
+        VehicleStockAgeReportResponseDto: {
+            data: components["schemas"]["VehicleStockAgeReportRowDto"][];
+            meta: components["schemas"]["VehicleStockReportPaginationMetaDto"];
+            summary: components["schemas"]["VehicleStockAgeReportSummaryDto"];
+        };
+        VehicleStockMarginReportRowDto: {
+            id: string;
+            sale_number: string;
+            vehicle_id: string;
+            make: string;
+            model: string;
+            year: number;
+            /** @enum {string} */
+            inventory_role: "USED" | "NEW" | "DEMO";
+            invoice_date: string;
+            sale_price: string;
+            cost_basis_snapshot: string | null;
+            gross_margin_eur: string | null;
+            gross_margin_percent: string | null;
+            days_to_sell: number | null;
+            margin_taxed: boolean;
+        };
+        VehicleStockMarginReportTotalsDto: {
+            count: number;
+            gross_margin_known_count: number;
+            gross_margin_unknown_count: number;
+            gross_margin_total: string;
+            gross_margin_average: string | null;
+            by_inventory_role: {
+                [key: string]: components["schemas"]["VehicleStockMarginRoleTotalsDto"];
+            };
+        };
+        VehicleStockMarginReportResponseDto: {
+            data: components["schemas"]["VehicleStockMarginReportRowDto"][];
+            meta: components["schemas"]["VehicleStockReportPaginationMetaDto"];
+            totals: components["schemas"]["VehicleStockMarginReportTotalsDto"];
         };
         PatchVehicleStockDto: {
             /**
@@ -10374,6 +10493,57 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    VehicleStockController_stockAgeReport: {
+        parameters: {
+            query?: {
+                bucket?: "0_30" | "31_60" | "61_90" | "91_180" | "over_180" | "over_90";
+                inventory_role?: "USED" | "NEW" | "DEMO";
+                limit?: number;
+                page?: number;
+                stock_status?: "IN_STOCK" | "RESERVED" | "IN_PREP";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated stock age report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleStockAgeReportResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleStockController_marginReport: {
+        parameters: {
+            query: {
+                from: string;
+                limit?: number;
+                page?: number;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated vehicle margin report and totals */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleStockMarginReportResponseDto"];
+                };
             };
         };
     };

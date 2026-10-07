@@ -9,6 +9,7 @@ import { VehicleSaleController } from './vehicle-sale.controller.js';
 import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { VehicleStockController } from './vehicle-stock.controller.js';
 import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
+import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
 
 @Module({
   imports: [PrismaModule, InvoicesModule],
@@ -23,7 +24,12 @@ import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
     VehicleSaleService,
     VehicleStockQueryService,
     VehicleStockMoveService,
+    VehicleStockReportsService,
   ],
-  exports: [VehicleLedgerService, VehicleSaleService],
+  exports: [
+    VehicleLedgerService,
+    VehicleSaleService,
+    VehicleStockReportsService,
+  ],
 })
 export class VehicleStockModule {}

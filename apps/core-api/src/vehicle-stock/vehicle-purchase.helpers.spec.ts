@@ -161,6 +161,9 @@ describe('vehicle-purchase.helpers', () => {
       key_number: 'K-99',
       registration_certificate_no: 'RC-1234',
       location_id: 'loc-1',
+      site_id: 'site-1',
+      purchase_price: new Prisma.Decimal('10000.00'),
+      received_at: new Date('2026-10-01T00:00:00Z'),
     };
 
     it('constructs stock data for new vehicle', () => {
@@ -175,6 +178,8 @@ describe('vehicle-purchase.helpers', () => {
         inventory_role: VehicleInventoryRole.USED,
         stock_status: VehicleStockStatus.IN_STOCK,
         tax_scheme: VehicleTaxScheme.MARGIN,
+        stock_received_at: basePurchase.received_at,
+        stock_cost_basis: basePurchase.purchase_price,
       });
       expect(stockData).not.toHaveProperty('identity_resolution_generation');
     });

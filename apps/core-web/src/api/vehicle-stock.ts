@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
+import type { components } from './generated/openapi'
 
 export const vehicleStockKeys = {
   all: ['vehicle-stock'] as const,
@@ -11,7 +12,30 @@ export const vehicleStockKeys = {
   purchases: () => [...vehicleStockKeys.all, 'purchases'] as const,
   purchase: (id: string) => [...vehicleStockKeys.purchases(), id] as const,
   sale: (id: string) => [...vehicleStockKeys.all, 'sales', id] as const,
+  stockAgeReport: (filters: VehicleStockAgeReportFilters) =>
+    [...vehicleStockKeys.all, 'reports', 'stock-age', filters] as const,
+  marginReport: (filters: VehicleStockMarginReportFilters) =>
+    [...vehicleStockKeys.all, 'reports', 'margin', filters] as const,
 }
+
+export type VehicleStockAgeReportRow = components['schemas']['VehicleStockAgeReportRowDto']
+export type VehicleStockAgeBucket = Exclude<VehicleStockAgeReportRow['age_bucket'], null> | 'over_90'
+export type VehicleStockAgeReportFilters = {
+  inventory_role?: string
+  stock_status?: string
+  bucket?: VehicleStockAgeBucket
+  page?: number
+  limit?: number
+}
+export type VehicleStockMarginReportFilters = {
+  from: string
+  to: string
+  page?: number
+  limit?: number
+}
+export type VehicleStockMarginReportRow = components['schemas']['VehicleStockMarginReportRowDto']
+export type VehicleStockAgeReportResponse = components['schemas']['VehicleStockAgeReportResponseDto']
+export type VehicleStockMarginReportResponse = components['schemas']['VehicleStockMarginReportResponseDto']
 
 type ApiErrorBody = {
   message?: string
@@ -20,6 +44,38 @@ type ApiErrorBody = {
 async function parseError(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => ({}))) as ApiErrorBody
   throw new Error(payload.message || fallback)
+}
+
+function reportQuery(filters: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams()
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') params.set(key, String(value))
+  })
+  return params.toString()
+}
+
+export function useVehicleStockAgeReport(filters: VehicleStockAgeReportFilters = {}) {
+  return useQuery<VehicleStockAgeReportResponse>({
+    queryKey: vehicleStockKeys.stockAgeReport(filters),
+    queryFn: async () => {
+      const query = reportQuery(filters)
+      const response = await fetchWithAuth(`/api/vehicle-stock/reports/stock-age${query ? `?${query}` : ''}`)
+      if (!response.ok) throw new Error('Failed to fetch stock age report')
+      return response.json()
+    },
+  })
+}
+
+export function useVehicleStockMarginReport(filters: VehicleStockMarginReportFilters) {
+  return useQuery<VehicleStockMarginReportResponse>({
+    queryKey: vehicleStockKeys.marginReport(filters),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/vehicle-stock/reports/margin?${reportQuery(filters)}`)
+      if (!response.ok) throw new Error('Failed to fetch vehicle margin report')
+      return response.json()
+    },
+    enabled: Boolean(filters.from && filters.to),
+  })
 }
 
 export type VehicleStockRow = {

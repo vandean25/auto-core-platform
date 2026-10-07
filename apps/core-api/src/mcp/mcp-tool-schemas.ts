@@ -55,6 +55,30 @@ export const getStockLevelInputSchema = getStockLevelBaseSchema.refine(
   },
 );
 
+const stockAgeBucketSchema = z.enum([
+  '0_30',
+  '31_60',
+  '61_90',
+  '91_180',
+  'over_180',
+  'over_90',
+]);
+
+export const getVehicleStockAgeReportInputSchema = z.object({
+  inventory_role: z.enum(['USED', 'NEW', 'DEMO']).optional(),
+  stock_status: z.enum(['IN_STOCK', 'RESERVED', 'IN_PREP']).optional(),
+  bucket: stockAgeBucketSchema.optional(),
+  page: pageSchema,
+  page_size: pageSizeSchema,
+});
+
+export const getVehicleStockMarginReportInputSchema = z.object({
+  from: z.string().date(),
+  to: z.string().date(),
+  page: pageSchema,
+  page_size: pageSizeSchema,
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -67,6 +91,8 @@ export const mcpToolInputSchemas: Record<
   get_workshop_order: getWorkshopOrderInputSchema,
   search_parts: searchPartsInputSchema,
   get_stock_level: getStockLevelInputSchema,
+  get_vehicle_stock_age_report: getVehicleStockAgeReportInputSchema,
+  get_vehicle_stock_margin_report: getVehicleStockMarginReportInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);

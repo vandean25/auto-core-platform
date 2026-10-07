@@ -146,6 +146,8 @@ describe('VehicleSaleService', () => {
   });
 
   it('preserves finalized-sale privacy and lock order', async () => {
+    const stockReceivedAt = new Date();
+    stockReceivedAt.setDate(stockReceivedAt.getDate() - 30);
     const vehicle = {
       id: vehicleId,
       make: 'Peugeot',
@@ -157,6 +159,7 @@ describe('VehicleSaleService', () => {
       identity_resolution_token: 'token-1',
       inventory_role: VehicleInventoryRole.USED,
       stock_status: VehicleStockStatus.IN_STOCK,
+      stock_received_at: stockReceivedAt,
       reserved_for_customer_id: null,
     };
     const customer = {
@@ -256,6 +259,19 @@ describe('VehicleSaleService', () => {
     ).toBeLessThan(prisma.invoiceSequence.upsert.mock.invocationCallOrder[0]);
     expect(snapshotCommit.prepareV2Snapshot).toHaveBeenCalledWith(
       expect.objectContaining({ lockInvoiceRow: false }),
+    );
+    expect(prisma.vehicleLedgerEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          posting_date: { gte: stockReceivedAt },
+          vehicle: { is: { tenant_id: tenantId, site_id: 'site-1' } },
+        }),
+      }),
+    );
+    expect(prisma.vehicleSale.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ days_to_sell_snapshot: 30 }),
+      }),
     );
   });
 

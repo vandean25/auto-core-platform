@@ -32,6 +32,7 @@ import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
+import { daysInStock } from './vehicle-stock-reports.math.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 
@@ -257,7 +258,14 @@ export class VehicleSaleService {
       );
 
       const entries = await tx.vehicleLedgerEntry.findMany({
-        where: { tenant_id: tenantId, vehicle_id: sale.vehicle_id },
+        where: {
+          tenant_id: tenantId,
+          vehicle_id: sale.vehicle_id,
+          vehicle: { is: { tenant_id: tenantId, site_id: persistedSiteId } },
+          ...(sale.vehicle.stock_received_at
+            ? { posting_date: { gte: sale.vehicle.stock_received_at } }
+            : {}),
+        },
       });
       const basis = costBasis(entries);
       const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
@@ -359,6 +367,10 @@ export class VehicleSaleService {
         data: {
           cost_basis_snapshot: basis,
           margin_vat_snapshot: vat,
+          days_to_sell_snapshot: daysInStock(
+            sale.vehicle.stock_received_at,
+            invoiceDate,
+          ),
         },
       });
 
@@ -366,11 +378,14 @@ export class VehicleSaleService {
         where: {
           id: posted.vehicle_id,
           tenant_id: tenantId,
+          site_id: persistedSiteId,
           inventory_role: VehicleInventoryRole.USED,
           stock_status: { in: SELLABLE_STATUSES },
         },
         data: {
           stock_status: null,
+          stock_received_at: null,
+          stock_cost_basis: null,
           inventory_role: VehicleInventoryRole.CUSTOMER,
           customer_id: posted.customer_id,
           reserved_for_customer_id: null,

@@ -1,6 +1,7 @@
 import { DashboardWidgetsGrid } from '@/features/dashboard-widgets/DashboardWidgetsGrid'
 import { dashboardWidgetSourcesByKey } from '@/features/dashboard-widgets/sources'
 import { PickerlDueDashboardWidget } from '@/components/vehicles/PickerlDueDashboardWidget'
+import { AgedStockDashboardWidget } from '@/components/vehicles/AgedStockDashboardWidget'
 
 export default function DashboardPage() {
   return (
@@ -16,6 +17,7 @@ export default function DashboardPage() {
         <PickerlDueDashboardWidget window={30} />
         <PickerlDueDashboardWidget window={60} />
         <PickerlDueDashboardWidget window={90} />
+        <AgedStockDashboardWidget />
       </div>
 
       <DashboardWidgetsGrid sourcesByKey={dashboardWidgetSourcesByKey} />

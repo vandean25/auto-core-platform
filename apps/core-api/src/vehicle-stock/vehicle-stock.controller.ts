@@ -7,19 +7,35 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiExtraModels,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { VehicleStockStatus } from '@prisma/client';
 import { VehicleStockQueryService } from './vehicle-stock-query.service.js';
 import { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 import { MoveVehicleSiteDto } from './dto/move-vehicle-site.dto.js';
 import { VehicleStockMoveService } from './vehicle-stock-move.service.js';
+import { VehicleStockReportsService } from './vehicle-stock-reports.service.js';
+import {
+  VehicleStockAgeReportQueryDto,
+  VehicleStockMarginReportQueryDto,
+  VehicleStockAgeReportResponseDto,
+  VehicleStockMarginReportResponseDto,
+  VehicleStockMarginRoleTotalsDto,
+} from './dto/vehicle-stock-reports.dto.js';
 
 @ApiTags('vehicle-stock')
+@ApiExtraModels(VehicleStockMarginRoleTotalsDto)
 @Controller('vehicle-stock')
 export class VehicleStockController {
   constructor(
     private readonly stock: VehicleStockQueryService,
     private readonly moves: VehicleStockMoveService,
+    private readonly reports: VehicleStockReportsService,
   ) {}
 
   @Get()
@@ -76,6 +92,36 @@ export class VehicleStockController {
             ? 'asc'
             : undefined,
     });
+  }
+
+  @Get('reports/stock-age')
+  @ApiOperation({ summary: 'List dealer stock vehicles by days in stock' })
+  @ApiOkResponse({
+    type: VehicleStockAgeReportResponseDto,
+    description: 'Paginated stock age report',
+  })
+  stockAgeReport(@Query() query: VehicleStockAgeReportQueryDto) {
+    return this.reports.stockAge(query);
+  }
+
+  @Get('reports/margin')
+  @ApiOperation({ summary: 'List invoiced vehicle margins for a date period' })
+  @ApiQuery({
+    name: 'from',
+    required: true,
+    schema: { type: 'string', format: 'date' },
+  })
+  @ApiQuery({
+    name: 'to',
+    required: true,
+    schema: { type: 'string', format: 'date' },
+  })
+  @ApiOkResponse({
+    type: VehicleStockMarginReportResponseDto,
+    description: 'Paginated vehicle margin report and totals',
+  })
+  marginReport(@Query() query: VehicleStockMarginReportQueryDto) {
+    return this.reports.margin(query);
   }
 
   @Get(':vehicleId')

@@ -173,6 +173,8 @@ export function buildLotStockPayload(
     registration_certificate_no?: string | null;
     site_id?: string | null;
     location_id?: string | null;
+    purchase_price: Prisma.Decimal;
+    received_at: Date | null;
   },
   existingVehicle?: { plate: string | null } | null,
 ) {
@@ -196,6 +198,8 @@ export function buildLotStockPayload(
     customer_id: null,
     inventory_role: VehicleInventoryRole.USED,
     stock_status: VehicleStockStatus.IN_STOCK,
+    stock_received_at: purchase.received_at,
+    stock_cost_basis: purchase.purchase_price,
     tax_scheme: VehicleTaxScheme.MARGIN,
     ...(resetIdentity
       ? { ...VEHICLE_IDENTITY_RESET, identity_resolution_token: null }

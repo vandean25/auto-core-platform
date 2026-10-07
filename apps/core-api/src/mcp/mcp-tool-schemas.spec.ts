@@ -1,6 +1,8 @@
 import {
   getCustomerInputSchema,
   getStockLevelInputSchema,
+  getVehicleStockAgeReportInputSchema,
+  getVehicleStockMarginReportInputSchema,
   searchCustomersInputSchema,
 } from './mcp-tool-schemas.js';
 
@@ -24,5 +26,21 @@ describe('MCP tool input schemas', () => {
     expect(
       getStockLevelInputSchema.parse({ sku: 'MPN-1' }),
     ).toEqual({ sku: 'MPN-1' });
+  });
+
+  it('validates stock age report filters and page size', () => {
+    expect(getVehicleStockAgeReportInputSchema.parse({
+      inventory_role: 'USED', bucket: 'over_90', page_size: 25,
+    })).toEqual({ inventory_role: 'USED', bucket: 'over_90', page_size: 25 });
+    expect(() => getVehicleStockAgeReportInputSchema.parse({ page_size: 26 })).toThrow();
+  });
+
+  it('validates ISO dates for the margin report', () => {
+    expect(getVehicleStockMarginReportInputSchema.parse({
+      from: '2026-10-01', to: '2026-10-31',
+    })).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+    expect(() => getVehicleStockMarginReportInputSchema.parse({
+      from: 'October', to: '2026-10-31',
+    })).toThrow();
   });
 });

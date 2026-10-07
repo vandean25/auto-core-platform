@@ -13,12 +13,13 @@ import {
   seedCustomersAndVehicles,
   seedDemoSiteAccess,
   seedDemoWorkshopAccountingProfile,
+  seedVehicleStockAgeDemo,
 } from '../src/prisma/fixtures/index.js';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter } as any);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   await cleanDb(prisma);
@@ -37,6 +38,7 @@ async function main() {
   const vendors = await seedVendors(prisma, foundation.defaultTenant.id, brands.allBrands);
   const customers = await seedCustomersAndVehicles(prisma, foundation.defaultTenant.id);
   await seedDemoSiteAccess(prisma, foundation);
+  await seedVehicleStockAgeDemo(prisma, foundation, inventory.showroom);
 
   console.log('Seed completed successfully!');
   console.log('✓ All inventory movements recorded as transactions');

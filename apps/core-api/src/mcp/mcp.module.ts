@@ -11,6 +11,7 @@ import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.m
 import { PendingActionExecutorModule } from '../pending-action-executor/pending-action-executor.module.js';
 import { VehicleModule } from '../vehicle/vehicle.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
+import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
@@ -29,6 +30,7 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
     CatalogModule,
     InventoryModule,
     PartsRequisitionModule,
+    VehicleStockModule,
     PendingActionExecutorModule,
   ],
   controllers: [McpController],
