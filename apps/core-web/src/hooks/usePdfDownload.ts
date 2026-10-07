@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { generateAndDownloadPdfBlob } from '@/lib/async-pdf'
+import {
+  DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
+  generateAndDownloadPdfBlob,
+} from '@/lib/async-pdf'
 import { triggerBlobDownload } from '@/lib/download'
 import { getErrorMessage, isAbortError } from '@/lib/error-utils'
 
@@ -104,7 +107,8 @@ export function usePdfDownload(config?: Partial<UsePdfDownloadConfig>): UsePdfDo
           maxIntervalMs,
           backoffMultiplier,
           timeoutMs,
-          timeoutErrorMessage: mergedMessages.timeout,
+          timeoutErrorMessage:
+            mergedMessages.timeout ?? DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
           errorFallbackMessage:
             mergedMessages.errorFallback ?? 'PDF-Erstellung fehlgeschlagen',
           checkGenerationFailed,

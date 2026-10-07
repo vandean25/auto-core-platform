@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_PDF_POLL_INTERVAL_MS,
   DEFAULT_PDF_POLL_TIMEOUT_MS,
+  DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE,
   downloadPdfFromGetUrl,
   generateAndDownloadPdfBlob,
   isPdfNotReadyHttpStatus,
@@ -154,6 +155,29 @@ describe('pollUntilPdfBlob', () => {
     const assertion = expect(promise).rejects.toThrow('Custom timeout message')
     await vi.advanceTimersByTimeAsync(3_000)
     await assertion
+  })
+
+  it('defaults timeout error message to German copy', async () => {
+    vi.useFakeTimers()
+    const fetchPdf = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ message: 'Invoice PDF is not generated yet' }),
+    })
+
+    const promise = pollUntilPdfBlob(fetchPdf, {
+      intervalMs: 1_000,
+      timeoutMs: 2_500,
+    })
+
+    const assertion = expect(promise).rejects.toThrow(
+      'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.',
+    )
+    await vi.advanceTimersByTimeAsync(3_000)
+    await assertion
+    expect(DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE).toBe(
+      'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.',
+    )
   })
 
   it('defaults DEFAULT_PDF_POLL_TIMEOUT_MS to 60_000', () => {

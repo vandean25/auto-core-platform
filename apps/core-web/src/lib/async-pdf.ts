@@ -5,7 +5,7 @@ export const DEFAULT_PDF_POLL_MAX_INTERVAL_MS = 5_000
 export const DEFAULT_PDF_POLL_BACKOFF_MULTIPLIER = 1.5
 export const DEFAULT_PDF_POLL_TIMEOUT_MS = 60_000
 export const DEFAULT_PDF_POLL_TIMEOUT_ERROR_MESSAGE =
-  'PDF generation is taking longer than expected. Please try Print again in a moment.'
+  'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.'
 
 export function isPdfNotReadyHttpStatus(status: number, message: string): boolean {
   return status === 404 && /not generated yet/i.test(message)

@@ -290,7 +290,7 @@ describe('usePdfDownload', () => {
     expect(result.current.isDownloading).toBe(false)
   })
 
-  it('timeout: repeated 404s exceed timeoutMs -> polling aborts -> error toast displayed (with German copy/message) -> isLoading = false', async () => {
+  it('timeout: repeated 404s exceed timeoutMs -> polling aborts -> default German error toast displayed -> isLoading = false', async () => {
     const postUrl = '/api/invoices/inv-timeout/pdf'
     const getUrl = '/api/invoices/inv-timeout/pdf'
     const filename = 'invoice-timeout.pdf'
@@ -310,7 +310,8 @@ describe('usePdfDownload', () => {
       } as unknown as Response
     })
 
-    const timeoutMessage = 'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.'
+    const defaultTimeoutMessage =
+      'PDF-Erstellung dauert zu lange. Bitte versuchen Sie es in Kürze erneut.'
     const { result } = renderHook(() =>
       usePdfDownload({
         postUrl,
@@ -319,9 +320,6 @@ describe('usePdfDownload', () => {
         timeoutMs: 3000,
         intervalMs: 1000,
         backoffMultiplier: 1,
-        messages: {
-          timeout: timeoutMessage,
-        },
       }),
     )
 
@@ -338,7 +336,59 @@ describe('usePdfDownload', () => {
     const success = await downloadPromise
 
     expect(success).toBe(false)
-    expect(toast.error).toHaveBeenCalledWith(timeoutMessage, { id: expect.any(String) })
+    expect(toast.error).toHaveBeenCalledWith(defaultTimeoutMessage, { id: expect.any(String) })
+    expect(triggerBlobDownload).not.toHaveBeenCalled()
+    expect(result.current.isLoading).toBe(false)
+  })
+
+  it('timeout: custom messages.timeout overrides the default German timeout copy', async () => {
+    const postUrl = '/api/invoices/inv-timeout-custom/pdf'
+    const getUrl = '/api/invoices/inv-timeout-custom/pdf'
+    const filename = 'invoice-timeout-custom.pdf'
+
+    vi.mocked(fetchWithAuth).mockImplementation(async (_url, init) => {
+      if (init?.method === 'POST') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ mode: 'enqueued' }),
+        } as unknown as Response
+      }
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({ message: 'Invoice PDF is not generated yet' }),
+      } as unknown as Response
+    })
+
+    const customTimeoutMessage = 'Benutzerdefinierte Zeitüberschreitung'
+    const { result } = renderHook(() =>
+      usePdfDownload({
+        postUrl,
+        getUrl,
+        filename,
+        timeoutMs: 3000,
+        intervalMs: 1000,
+        backoffMultiplier: 1,
+        messages: {
+          timeout: customTimeoutMessage,
+        },
+      }),
+    )
+
+    let downloadPromise: Promise<boolean> | undefined
+    act(() => {
+      downloadPromise = result.current.download()
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3500)
+    })
+
+    const success = await downloadPromise
+
+    expect(success).toBe(false)
+    expect(toast.error).toHaveBeenCalledWith(customTimeoutMessage, { id: expect.any(String) })
     expect(triggerBlobDownload).not.toHaveBeenCalled()
     expect(result.current.isLoading).toBe(false)
   })
