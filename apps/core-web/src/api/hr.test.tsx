@@ -450,6 +450,7 @@ describe('HR work schedule hooks', () => {
 
   it('creates a work schedule version with POST', async () => {
     const payload = {
+      siteId: 'site-1',
       effectiveFrom: '2026-09-01',
       days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
         weekday,

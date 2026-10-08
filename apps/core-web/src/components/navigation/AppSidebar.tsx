@@ -143,6 +143,14 @@ const coreModules: SidebarModule[] = [
     isActive: (pathname) => pathname.startsWith('/workshop/planner'),
   },
   {
+    id: 'workshop-kpi-reports',
+    label: 'Workshop KPIs',
+    to: '/workshop/reports/kpis',
+    icon: Wrench,
+    isVisible: (context) => ['OWNER', 'ADMIN', 'SALES'].includes(context.activeRole ?? ''),
+    isActive: (pathname) => pathname.startsWith('/workshop/reports'),
+  },
+  {
     id: 'workshop-loaner-vehicles',
     label: 'Ersatzfahrzeuge',
     to: '/workshop/loaner-vehicles',

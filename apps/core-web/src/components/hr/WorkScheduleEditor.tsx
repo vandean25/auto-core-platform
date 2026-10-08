@@ -6,6 +6,7 @@ import {
   useEmployeeWorkSchedule,
   useUpdateWorkSchedule,
 } from '@/api/hr'
+import { useMySites } from '@/api/sites'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -145,12 +146,19 @@ export function WorkScheduleEditor({
   const scheduleQuery = useEmployeeWorkSchedule(employeeId)
   const createSchedule = useCreateWorkSchedule(employeeId)
   const updateSchedule = useUpdateWorkSchedule(employeeId)
+  const sitesQuery = useMySites(canEdit)
   const currentVersion = scheduleQuery.data?.current
   const currentVersionId = currentVersion?.id
   const [correctionDays, setCorrectionDays] = useState<ScheduleDayFormState[]>(buildDefaultDays())
   const [newVersionDays, setNewVersionDays] = useState<ScheduleDayFormState[]>(buildDefaultDays())
   const [effectiveFrom, setEffectiveFrom] = useState('')
   const [showNewVersion, setShowNewVersion] = useState(false)
+  const [siteId, setSiteId] = useState('')
+  const [newVersionSiteId, setNewVersionSiteId] = useState('')
+
+  useEffect(() => {
+    if (!siteId && !currentVersion && sitesQuery.data?.[0]) setSiteId(sitesQuery.data[0].id)
+  }, [siteId, currentVersion, sitesQuery.data])
 
   useEffect(() => {
     if (!currentVersionId) {
@@ -167,6 +175,8 @@ export function WorkScheduleEditor({
     const mappedDays = daysFromVersion(version.days)
     setCorrectionDays(mappedDays)
     setNewVersionDays(mappedDays)
+    setSiteId(version.siteId ?? '')
+    setNewVersionSiteId(version.siteId ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when employee/version identity changes
   }, [employeeId, currentVersionId])
 
@@ -206,6 +216,7 @@ export function WorkScheduleEditor({
 
   const openNewVersionPanel = () => {
     setNewVersionDays(correctionDays)
+    setNewVersionSiteId(siteId)
     setEffectiveFrom('')
     setShowNewVersion(true)
   }
@@ -222,7 +233,7 @@ export function WorkScheduleEditor({
     try {
       await updateSchedule.mutateAsync({
         scheduleId: currentVersion.id,
-        data: { days: normalizeDaysForSubmit(correctionDays) },
+        data: { days: normalizeDaysForSubmit(correctionDays), siteId: siteId || undefined },
       })
       toast.success('Work schedule updated')
     } catch (error) {
@@ -231,6 +242,7 @@ export function WorkScheduleEditor({
   }
 
   const handleCreateVersion = async () => {
+    const versionSiteId = currentVersion ? newVersionSiteId : siteId
     const validationError = validateDays(newVersionDays)
     if (validationError) {
       toast.error(validationError)
@@ -241,10 +253,15 @@ export function WorkScheduleEditor({
       toast.error('Effective date is required for a new schedule version')
       return
     }
+    if (!versionSiteId) {
+      toast.error('A site is required for a work schedule')
+      return
+    }
 
     try {
       await createSchedule.mutateAsync({
         effectiveFrom,
+        siteId: versionSiteId,
         days: normalizeDaysForSubmit(newVersionDays),
       })
       toast.success('Work schedule version created')
@@ -285,13 +302,29 @@ export function WorkScheduleEditor({
       </div>
 
       {currentVersion ? (
+        <>
+        {canEdit ? <div className='space-y-2'>
+          <Label htmlFor='schedule-site'>Site assignment</Label>
+          <select id='schedule-site' aria-label='Site assignment' value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+            <option value=''>Select site</option>
+            {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+          </select>
+        </div> : <p className='text-sm text-slate-500'>Site: {sitesQuery.data?.find((site) => site.id === currentVersion.siteId)?.name ?? 'Not assigned'}</p>}
         <ScheduleDaysTable
           days={correctionDays}
           canEdit={canEdit}
           onChange={updateCorrectionDay}
         />
+        </>
       ) : creatingFirstVersion ? (
         <div className='space-y-4' data-testid='first-schedule-version'>
+          <div className='space-y-2'>
+            <Label htmlFor='schedule-site'>Site assignment</Label>
+            <select id='schedule-site' aria-label='Site assignment' value={siteId} onChange={(event) => setSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+              <option value=''>Select site</option>
+              {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+            </select>
+          </div>
           <div className='space-y-2'>
             <Label htmlFor='schedule-effective-from'>Effective from</Label>
             <Input
@@ -333,6 +366,13 @@ export function WorkScheduleEditor({
 
       {canEdit && showNewVersion && currentVersion ? (
         <div className='space-y-4 rounded-md border border-dashed p-4' data-testid='new-schedule-version'>
+          <div className='space-y-2'>
+            <Label htmlFor='schedule-new-version-site'>Site assignment</Label>
+            <select id='schedule-new-version-site' aria-label='New version site assignment' value={newVersionSiteId} onChange={(event) => setNewVersionSiteId(event.target.value)} className='h-10 rounded-md border px-3'>
+              <option value=''>Select site</option>
+              {(sitesQuery.data ?? []).map((site) => <option key={site.id} value={site.id}>{site.name}</option>)}
+            </select>
+          </div>
           <div className='space-y-2'>
             <Label htmlFor='schedule-new-effective-from'>Effective from</Label>
             <Input

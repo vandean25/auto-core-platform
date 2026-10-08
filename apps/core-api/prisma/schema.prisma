@@ -541,6 +541,7 @@ model Site {
   memberships              SiteMembership[]
   openingHours             WorkshopOpeningHour[]
   holidays                 WorkshopHoliday[]
+  employeeWorkSchedules   EmployeeWorkSchedule[]
   bays                     Bay[]
   storageLocations         StorageLocation[]
   workshopOrders           WorkshopOrder[]
@@ -1863,6 +1864,8 @@ model EmployeeWorkSchedule {
   tenant         Tenant                    @relation(fields: [tenant_id], references: [id])
   employee_id    String
   employee       Employee                  @relation(fields: [tenant_id, employee_id], references: [tenant_id, id], onDelete: Cascade)
+  site_id        String?
+  site           Site?                     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   effective_from DateTime                  @db.Date
   days           EmployeeWorkScheduleDay[]
   createdAt      DateTime                  @default(now())

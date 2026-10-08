@@ -1299,6 +1299,23 @@ export interface paths {
         patch: operations["WorkshopController_assignBoard"];
         trace?: never;
     };
+    "/api/reports/workshop-kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read workshop KPIs for a site and date range */
+        get: operations["WorkshopKpiReportsController_getWorkshopKpis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-purchases": {
         parameters: {
             query?: never;
@@ -5136,6 +5153,53 @@ export interface components {
             /** @description Bay ID to assign, or null to unassign */
             bayId?: string | null;
         };
+        WorkshopKpiReportRowDto: {
+            key: string;
+            mechanic_id: string | null;
+            mechanic_name: string | null;
+            period: string;
+            available_hours: string;
+            clocked_hours: string;
+            sold_hours: string;
+            labor_net_revenue: string;
+            parts_net_revenue: string;
+            utilisation_percent: string | null;
+            productivity_percent: string | null;
+            closed_orders: number;
+            average_net_revenue_per_order: string | null;
+            open_labor_entry_count: number;
+        };
+        WorkshopKpiReportMetaDto: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            timezone: string;
+            /** @enum {string} */
+            groupBy: "mechanic" | "week" | "month";
+            unassigned_mechanic_count: number;
+        };
+        WorkshopKpiSlowMoverDto: {
+            catalog_item_id: string;
+            sku: string;
+            name: string;
+            quantity_on_hand: string;
+            stock_value: string | null;
+            days_since_last_issue: number | null;
+        };
+        WorkshopKpiPartsTurnoverDto: {
+            issued_cost: string;
+            average_stock_value: string | null;
+            turnover: string | null;
+            unvalued_stock_item_count: number;
+            slow_movers: components["schemas"]["WorkshopKpiSlowMoverDto"][];
+        };
+        WorkshopKpiReportResponseDto: {
+            data: components["schemas"]["WorkshopKpiReportRowDto"][];
+            meta: components["schemas"]["WorkshopKpiReportMetaDto"];
+            totals: components["schemas"]["WorkshopKpiReportRowDto"];
+            parts_turnover: components["schemas"]["WorkshopKpiPartsTurnoverDto"];
+        };
         CreateVehiclePurchaseDto: {
             /** @enum {string} */
             seller_type: "VENDOR" | "CUSTOMER";
@@ -6583,6 +6647,8 @@ export interface components {
             id: string;
             /** Format: date */
             effectiveFrom: string;
+            /** Format: uuid */
+            siteId: string | null;
             days: components["schemas"]["EmployeeWorkScheduleDayResponseDto"][];
             /** Format: date-time */
             createdAt: string;
@@ -6608,6 +6674,11 @@ export interface components {
         CreateEmployeeWorkScheduleDto: {
             days: components["schemas"]["EmployeeWorkScheduleDayDto"][];
             /**
+             * Format: uuid
+             * @description Site this schedule version applies to.
+             */
+            siteId: string;
+            /**
              * Format: date
              * @description First date this schedule version applies.
              * @example 2026-09-01
@@ -6616,6 +6687,11 @@ export interface components {
         };
         UpdateEmployeeWorkScheduleDto: {
             days: components["schemas"]["EmployeeWorkScheduleDayDto"][];
+            /**
+             * Format: uuid
+             * @description Assign this schedule version to a site.
+             */
+            siteId?: string;
             /**
              * Format: date
              * @description Accepted for compatibility but ignored; effectiveFrom is immutable.
@@ -10374,6 +10450,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    WorkshopKpiReportsController_getWorkshopKpis: {
+        parameters: {
+            query: {
+                from: string;
+                groupBy?: "mechanic" | "week" | "month";
+                siteId: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopKpiReportResponseDto"];
+                };
             };
         };
     };

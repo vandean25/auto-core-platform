@@ -2,6 +2,7 @@ import { DashboardWidgetsGrid } from '@/features/dashboard-widgets/DashboardWidg
 import { dashboardWidgetSourcesByKey } from '@/features/dashboard-widgets/sources'
 import { PickerlDueDashboardWidget } from '@/components/vehicles/PickerlDueDashboardWidget'
 import { AgedStockDashboardWidget } from '@/components/vehicles/AgedStockDashboardWidget'
+import { WorkshopKpiDashboardWidget } from '@/components/workshop/WorkshopKpiDashboardWidget'
 
 export default function DashboardPage() {
   return (
@@ -18,6 +19,7 @@ export default function DashboardPage() {
         <PickerlDueDashboardWidget window={60} />
         <PickerlDueDashboardWidget window={90} />
         <AgedStockDashboardWidget />
+        <WorkshopKpiDashboardWidget />
       </div>
 
       <DashboardWidgetsGrid sourcesByKey={dashboardWidgetSourcesByKey} />

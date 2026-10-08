@@ -4,6 +4,13 @@ import { toast } from 'sonner'
 
 import { WorkScheduleEditor } from './WorkScheduleEditor'
 
+vi.mock('@/api/sites', () => ({
+  useMySites: () => ({ data: [
+    { id: 'site-1', name: 'Main site' },
+    { id: 'site-2', name: 'Second site' },
+  ] }),
+}))
+
 const apiMocks = vi.hoisted(() => ({
   useEmployeeWorkSchedule: vi.fn(),
   useCreateWorkSchedule: vi.fn(),
@@ -26,6 +33,7 @@ vi.mock('sonner', () => ({
 const currentVersion = {
   id: 'schedule-1',
   effectiveFrom: '2024-03-01',
+  siteId: 'site-1',
   createdAt: '2024-03-01T00:00:00.000Z',
   updatedAt: '2024-03-01T00:00:00.000Z',
   days: [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
@@ -93,7 +101,7 @@ describe('WorkScheduleEditor', () => {
     await waitFor(() => {
       expect(updateSchedule).toHaveBeenCalledWith({
         scheduleId: 'schedule-1',
-        data: { days: expectedDaysPayload },
+        data: { days: expectedDaysPayload, siteId: 'site-1' },
       })
     })
   })
@@ -117,6 +125,30 @@ describe('WorkScheduleEditor', () => {
 
     await waitFor(() => {
       expect(createSchedule).toHaveBeenCalledWith({
+        siteId: 'site-1',
+        effectiveFrom: '2026-09-01',
+        days: expectedDaysPayload,
+      })
+    })
+  })
+
+  it('posts a new schedule version with its selected site assignment', async () => {
+    const { createSchedule } = setupEditor(true)
+
+    render(<WorkScheduleEditor employeeId='employee-1' canEdit />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'New version' }))
+    fireEvent.change(screen.getByLabelText('New version site assignment'), {
+      target: { value: 'site-2' },
+    })
+    fireEvent.change(screen.getByLabelText('Effective from'), {
+      target: { value: '2026-09-01' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create version' }))
+
+    await waitFor(() => {
+      expect(createSchedule).toHaveBeenCalledWith({
+        siteId: 'site-2',
         effectiveFrom: '2026-09-01',
         days: expectedDaysPayload,
       })
@@ -277,6 +309,7 @@ describe('WorkScheduleEditor', () => {
 
     await waitFor(() => {
       expect(createSchedule).toHaveBeenCalledWith({
+        siteId: 'site-1',
         effectiveFrom: '2024-03-01',
         days: expectedDaysPayload,
       })

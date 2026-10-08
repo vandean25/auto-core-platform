@@ -111,7 +111,8 @@
               "workflows/workshop-planner",
               "workflows/workshop-board",
               "workflows/workshop-pick",
-              "workflows/mechanic"
+              "workflows/mechanic",
+              "workflows/workshop-kpis"
             ]
           },
           {

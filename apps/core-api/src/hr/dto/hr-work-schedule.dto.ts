@@ -9,6 +9,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   Min,
@@ -64,6 +65,13 @@ abstract class EmployeeWorkScheduleDaysDto {
 
 export class CreateEmployeeWorkScheduleDto extends EmployeeWorkScheduleDaysDto {
   @ApiProperty({
+    format: 'uuid',
+    description: 'Site this schedule version applies to.',
+  })
+  @IsUUID()
+  siteId!: string;
+
+  @ApiProperty({
     type: String,
     format: 'date',
     example: '2026-09-01',
@@ -75,6 +83,14 @@ export class CreateEmployeeWorkScheduleDto extends EmployeeWorkScheduleDaysDto {
 }
 
 export class UpdateEmployeeWorkScheduleDto extends EmployeeWorkScheduleDaysDto {
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Assign this schedule version to a site.',
+  })
+  @IsOptional()
+  @IsUUID()
+  siteId?: string;
+
   @ApiPropertyOptional({
     type: String,
     format: 'date',
@@ -114,6 +130,9 @@ export class EmployeeWorkScheduleVersionResponseDto {
 
   @ApiProperty({ format: 'date' })
   effectiveFrom!: string;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  siteId!: string | null;
 
   @ApiProperty({ type: [EmployeeWorkScheduleDayResponseDto] })
   days!: EmployeeWorkScheduleDayResponseDto[];

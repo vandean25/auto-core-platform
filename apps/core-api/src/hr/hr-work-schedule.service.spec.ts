@@ -1,4 +1,8 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 import { averageExpectedMinutesPerWorkday } from './hr-work-schedule.time.js';
 
@@ -11,7 +15,7 @@ const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
 }));
 
 function createPayload(effectiveFrom = '2026-09-01') {
-  return { effectiveFrom, days: scheduleDays };
+  return { effectiveFrom, siteId: 'site-1', days: scheduleDays };
 }
 
 function createSchedule(id = 'schedule-1', effectiveFrom = '2026-01-01') {
@@ -19,6 +23,7 @@ function createSchedule(id = 'schedule-1', effectiveFrom = '2026-01-01') {
     id,
     tenant_id: 'tenant-1',
     employee_id: 'employee-1',
+    site_id: 'site-1',
     effective_from: new Date(`${effectiveFrom}T00:00:00.000Z`),
     days: scheduleDays.map((day, index) => ({
       id: `day-${index + 1}`,
@@ -42,6 +47,7 @@ describe('HrWorkScheduleService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
 
     const days = service.mapOpeningHoursToScheduleDays([]);
@@ -53,6 +59,7 @@ describe('HrWorkScheduleService', () => {
 
   describe('REST API', () => {
     const prisma = {
+      site: { findFirst: jest.fn() },
       employee: { findFirst: jest.fn() },
       employeeWorkSchedule: {
         findMany: jest.fn(),
@@ -76,6 +83,9 @@ describe('HrWorkScheduleService', () => {
       getTenantId: jest.fn(),
       getAuthenticatedUser: jest.fn(),
     };
+    const siteContext = {
+      listAuthorizedSiteIds: jest.fn(),
+    };
 
     let service: HrWorkScheduleService;
 
@@ -83,6 +93,8 @@ describe('HrWorkScheduleService', () => {
       jest.clearAllMocks();
       tenantContext.getTenantId.mockResolvedValue('tenant-1');
       tenantContext.getAuthenticatedUser.mockReturnValue({ role: 'ADMIN' });
+      siteContext.listAuthorizedSiteIds.mockResolvedValue(['site-1']);
+      prisma.site.findFirst.mockResolvedValue({ id: 'site-1' });
       settingsService.getOrCreateSettings.mockResolvedValue({
         timezone: 'Europe/Vienna',
       });
@@ -91,6 +103,7 @@ describe('HrWorkScheduleService', () => {
         settingsService as never,
         identityService as never,
         tenantContext as never,
+        siteContext as never,
       );
     });
 
@@ -112,6 +125,9 @@ describe('HrWorkScheduleService', () => {
       prisma.employee.findFirst.mockResolvedValue({ id: 'employee-1' });
       prisma.$transaction.mockImplementation(async (callback) =>
         callback({
+          $queryRaw: jest.fn().mockResolvedValue([
+            { id: 'site-1', is_active: true },
+          ]),
           employeeWorkSchedule: {
             findFirst: jest.fn().mockResolvedValue(undefined),
             create: jest.fn().mockRejectedValue({
@@ -126,10 +142,64 @@ describe('HrWorkScheduleService', () => {
       ).rejects.toBeInstanceOf(ConflictException);
     });
 
+    it('stores the selected site on an effective-dated mechanic schedule', async () => {
+      prisma.employee.findFirst.mockResolvedValue({ id: 'employee-1' });
+      const create = jest.fn().mockResolvedValue(createSchedule());
+      const lockSite = jest.fn().mockResolvedValue([
+        { id: 'site-1', is_active: true },
+      ]);
+      prisma.$transaction.mockImplementation(async (callback) =>
+        callback({
+          $queryRaw: lockSite,
+          employeeWorkSchedule: {
+            findFirst: jest.fn().mockResolvedValue(null),
+            create,
+          },
+        }),
+      );
+
+      await service.createForEmployee('employee-1', {
+        ...createPayload(),
+      });
+
+      expect(lockSite).toHaveBeenCalled();
+      expect(prisma.site.findFirst).not.toHaveBeenCalled();
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ site_id: 'site-1' }) }),
+      );
+    });
+
+    it('rejects schedule assignments outside the caller authorized sites', async () => {
+      prisma.employee.findFirst.mockResolvedValue({ id: 'employee-1' });
+
+      await expect(
+        service.createForEmployee('employee-1', {
+          ...createPayload(),
+          siteId: 'site-2',
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects corrections for a site outside the caller authorized sites', async () => {
+      prisma.employeeWorkSchedule.findFirst.mockResolvedValue(createSchedule());
+
+      await expect(
+        service.updateForEmployee('employee-1', 'schedule-1', {
+          days: scheduleDays,
+          siteId: 'site-2',
+        }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
     it('rejects schedule versions that are not later than the latest version', async () => {
       prisma.employee.findFirst.mockResolvedValue({ id: 'employee-1' });
       prisma.$transaction.mockImplementation(async (callback) =>
         callback({
+          $queryRaw: jest.fn().mockResolvedValue([
+            { id: 'site-1', is_active: true },
+          ]),
           employeeWorkSchedule: {
             findFirst: jest.fn().mockResolvedValue({
               effective_from: new Date('2026-09-01T00:00:00.000Z'),
@@ -149,8 +219,12 @@ describe('HrWorkScheduleService', () => {
       prisma.employeeWorkSchedule.findFirst.mockResolvedValue(existing);
       const update = jest.fn().mockResolvedValue(existing);
       const findFirst = jest.fn().mockResolvedValue(existing);
+      const lockSite = jest.fn().mockResolvedValue([
+        { id: 'site-1', is_active: true },
+      ]);
       prisma.$transaction.mockImplementation(async (callback) =>
         callback({
+          $queryRaw: lockSite,
           employeeWorkSchedule: {
             update,
             findFirst,
@@ -165,6 +239,7 @@ describe('HrWorkScheduleService', () => {
       await service.updateForEmployee('employee-1', 'schedule-1', {
         days: scheduleDays,
         effectiveFrom: '2099-01-01',
+        siteId: 'site-1',
       });
 
       expect(update).toHaveBeenCalledWith(
@@ -180,12 +255,16 @@ describe('HrWorkScheduleService', () => {
           }),
         }),
       );
+      expect(lockSite).toHaveBeenCalled();
     });
 
     it('requires owner or admin for schedule writes', async () => {
       prisma.employee.findFirst.mockResolvedValue({ id: 'employee-1' });
       prisma.$transaction.mockImplementation(async (callback) =>
         callback({
+          $queryRaw: jest.fn().mockResolvedValue([
+            { id: 'site-1', is_active: true },
+          ]),
           employeeWorkSchedule: {
             findFirst: jest.fn().mockResolvedValue(undefined),
             create: jest.fn().mockResolvedValue(createSchedule()),
@@ -199,6 +278,9 @@ describe('HrWorkScheduleService', () => {
       prisma.employeeWorkSchedule.findFirst.mockResolvedValue(createSchedule());
       prisma.$transaction.mockImplementation(async (callback) =>
         callback({
+          $queryRaw: jest.fn().mockResolvedValue([
+            { id: 'site-1', is_active: true },
+          ]),
           employeeWorkSchedule: {
             update: jest.fn().mockResolvedValue(createSchedule()),
             findFirst: jest.fn().mockResolvedValue(createSchedule()),

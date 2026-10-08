@@ -15,6 +15,7 @@ export const APP_ROUTE_PATHS = {
   vehicleStockAlias: '/vehicles/stock',
   vehicleStock: '/vehicle-stock',
   vehicleStockReports: '/vehicle-stock/reports',
+  workshopKpiReports: '/workshop/reports/kpis',
   vehicleStockPurchaseNew: '/vehicle-stock/purchases/new',
   vehicleStockPurchaseDetail: '/vehicle-stock/purchases/:id',
   vehicleStockSaleNew: '/vehicle-stock/sales/new',

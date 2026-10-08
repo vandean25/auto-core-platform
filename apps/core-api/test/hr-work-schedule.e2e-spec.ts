@@ -33,7 +33,10 @@ describe('HR Work Schedule API (e2e)', () => {
   let salesToken: string;
   let techToken: string;
   let employeeId: string;
+  let siteId: string;
+  let unauthorizedSiteId: string;
   let foreignTenantId: string;
+  let foreignSiteId: string;
   let foreignEmployeeId: string;
   let foreignScheduleId: string;
   let realtimeService: DashboardRealtimeService;
@@ -43,7 +46,7 @@ describe('HR Work Schedule API (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom, days: scheduleDays })
+      .send({ siteId, effectiveFrom, days: scheduleDays })
       .expect(201);
 
     return response.body as { id: string };
@@ -65,9 +68,31 @@ describe('HR Work Schedule API (e2e)', () => {
     emitEntityUpdatedSpy = jest.spyOn(realtimeService, 'emitEntityUpdated');
     const tenant = await createTestTenant(prisma, 'hr-schedule');
     tenantId = tenant.tenantId;
+    siteId = await runWithTenantContext(tenantId, async () => (await prisma.site.findFirstOrThrow({ where: { tenant_id: tenantId }, select: { id: true } })).id);
+    unauthorizedSiteId = await runWithTenantContext(tenantId, async () => {
+      const mainSite = await prisma.site.findFirstOrThrow({
+        where: { tenant_id: tenantId },
+        select: { legal_entity_id: true },
+      });
+      const site = await prisma.site.create({
+        data: {
+          tenant_id: tenantId,
+          legal_entity_id: mainSite.legal_entity_id,
+          code: 'UNAUTHORIZED',
+          name: 'Unauthorized site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+          is_active: true,
+        },
+        select: { id: true },
+      });
+      return site.id;
+    });
     ownerToken = createTestAuthToken(authService, tenant);
     const foreignTenant = await createTestTenant(prisma, 'hr-schedule-foreign');
     foreignTenantId = foreignTenant.tenantId;
+    foreignSiteId = await runWithTenantContext(foreignTenantId, async () => (await prisma.site.findFirstOrThrow({ where: { tenant_id: foreignTenantId }, select: { id: true } })).id);
 
     await runWithTenantContext(tenantId, async () => {
       const salesUser = await prisma.user.create({
@@ -179,11 +204,24 @@ describe('HR Work Schedule API (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2026-09-01', days: scheduleDays })
+      .send({ siteId, effectiveFrom: '2026-09-01', days: scheduleDays })
       .expect(201);
 
     expect(response.body.effectiveFrom).toBe('2026-09-01');
+    expect(response.body.siteId).toBe(siteId);
     expect(response.body.days).toHaveLength(7);
+  });
+
+  it('rejects schedule assignments outside the caller authorized sites', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/hr/employees/${employeeId}/work-schedule`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({
+        siteId: unauthorizedSiteId,
+        effectiveFrom: '2028-05-01',
+        days: scheduleDays,
+      })
+      .expect(422);
   });
 
   it('rejects duplicate effectiveFrom for the employee', async () => {
@@ -191,7 +229,7 @@ describe('HR Work Schedule API (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2026-09-15', days: scheduleDays })
+      .send({ siteId, effectiveFrom: '2026-09-15', days: scheduleDays })
       .expect(409);
 
     expect(response.body.message).toContain('effectiveFrom');
@@ -201,7 +239,7 @@ describe('HR Work Schedule API (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${salesToken}`)
-      .send({ effectiveFrom: '2026-10-01', days: scheduleDays })
+      .send({ siteId, effectiveFrom: '2026-10-01', days: scheduleDays })
       .expect(403);
   });
 
@@ -219,7 +257,7 @@ describe('HR Work Schedule API (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2026-10-01', days: scheduleDays.slice(0, 6) })
+      .send({ siteId, effectiveFrom: '2026-10-01', days: scheduleDays.slice(0, 6) })
       .expect(400);
   });
 
@@ -228,6 +266,7 @@ describe('HR Work Schedule API (e2e)', () => {
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({
+        siteId,
         effectiveFrom: '2027-02-01',
         days: [...scheduleDays, { ...scheduleDays[0] }],
       })
@@ -264,7 +303,7 @@ describe('HR Work Schedule API (e2e)', () => {
     const response = await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ effectiveFrom: '2028-01-01', days: scheduleDays })
+      .send({ siteId, effectiveFrom: '2028-01-01', days: scheduleDays })
       .expect(201);
 
     expect(response.body.effectiveFrom).toBe('2028-01-01');
@@ -279,7 +318,7 @@ describe('HR Work Schedule API (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2028-02-01', days: invalidDays })
+      .send({ siteId, effectiveFrom: '2028-02-01', days: invalidDays })
       .expect(400);
   });
 
@@ -295,7 +334,7 @@ describe('HR Work Schedule API (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2028-03-01', days: daysWithOmittedTimes })
+      .send({ siteId, effectiveFrom: '2028-03-01', days: daysWithOmittedTimes })
       .expect(201);
   });
 
@@ -305,7 +344,7 @@ describe('HR Work Schedule API (e2e)', () => {
     const createResponse = await request(app.getHttpServer())
       .post(`/api/hr/employees/${employeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2028-04-01', days: scheduleDays })
+      .send({ siteId, effectiveFrom: '2028-04-01', days: scheduleDays })
       .expect(201);
 
     expect(emitEntityUpdatedSpy).toHaveBeenCalledWith(
@@ -346,7 +385,7 @@ describe('HR Work Schedule API (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/hr/employees/${foreignEmployeeId}/work-schedule`)
       .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ effectiveFrom: '2027-03-01', days: scheduleDays })
+      .send({ siteId: foreignSiteId, effectiveFrom: '2027-03-01', days: scheduleDays })
       .expect(404);
 
     await request(app.getHttpServer())
