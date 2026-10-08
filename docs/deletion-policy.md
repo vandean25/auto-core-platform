@@ -85,6 +85,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | TyreSet | Conditional | Hard delete only when no `TyreSetEvent` exists (FK RESTRICT; otherwise 409 — record a dispose event instead). Not inventory — no ledger impact. |
 | TyreSetEvent | No | Append-only storage ledger; never updated or deleted through the API. |
 | TyreStorageSettings | No | Tenant singleton; update in place only. |
+| VendorArticle | Conditional / Hard delete allowed | Hard delete allowed; mapping between vendor article and catalog item. Unlinking vendor article does not affect catalog item or historical documents. |
+| MarginRule | Soft-disable preferred | Soft-disable via `is_active = false` preferred. Hard delete allowed if unused. |
+| CatalogPriceHistory | No | Immutable price audit trail; never deleted through ordinary APIs. |
 
 ## ADR-0023 — Legal invoicing and accounting export
 
