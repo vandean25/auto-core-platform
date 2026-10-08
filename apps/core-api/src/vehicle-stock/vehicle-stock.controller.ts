@@ -27,6 +27,10 @@ import {
   VehicleStockMarginReportResponseDto,
   VehicleStockMarginRoleTotalsDto,
 } from './dto/vehicle-stock-reports.dto.js';
+import {
+  GewaehrleistungDueListQueryDto,
+  GewaehrleistungDueListResponseDto,
+} from './dto/gewaehrleistung-due-list.dto.js';
 
 @ApiTags('vehicle-stock')
 @ApiExtraModels(VehicleStockMarginRoleTotalsDto)
@@ -122,6 +126,15 @@ export class VehicleStockController {
   })
   marginReport(@Query() query: VehicleStockMarginReportQueryDto) {
     return this.reports.margin(query);
+  }
+
+  @Get('gewaehrleistung-due')
+  @ApiOperation({
+    summary: 'List consumer vehicle sales nearing base-period end',
+  })
+  @ApiOkResponse({ type: GewaehrleistungDueListResponseDto })
+  gewaehrleistungDue(@Query() query: GewaehrleistungDueListQueryDto) {
+    return this.stock.listGewaehrleistungDue(query);
   }
 
   @Get(':vehicleId')

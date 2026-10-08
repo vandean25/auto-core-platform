@@ -1428,6 +1428,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-sales/{id}/gewaehrleistung-correction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["VehicleSaleController_correctGewaehrleistungSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-stock": {
         parameters: {
             query?: never;
@@ -1478,6 +1494,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-stock/gewaehrleistung-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List consumer vehicle sales nearing base-period end */
+        get: operations["VehicleStockController_gewaehrleistungDue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-stock/{vehicleId}": {
         parameters: {
             query?: never;
@@ -1504,6 +1537,26 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["VehicleStockController_moveSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List tenant audit logs
+         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
+         */
+        get: operations["AuditController_findAll"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3024,26 +3077,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["CatalogProviderSettingsController_updateSettings"];
-        trace?: never;
-    };
-    "/api/audit-logs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List tenant audit logs
-         * @description Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.
-         */
-        get: operations["AuditController_findAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/agent-actions": {
@@ -5246,6 +5279,14 @@ export interface components {
             vehicle_id: string;
             customer_id: string;
             sale_price: number;
+            /** Format: date */
+            contract_concluded_at?: string;
+            /** Format: date */
+            handed_over_at?: string;
+            buyer_is_consumer?: boolean;
+            /** @default false */
+            gewaehrleistung_shortened_negotiated: boolean;
+            gewaehrleistung_note?: Record<string, never>;
         };
         PatchVehicleSaleDto: {
             customer_id?: string;
@@ -5256,6 +5297,23 @@ export interface components {
             siteId?: string;
             /** @description Expected site ID for optimistic concurrency checks */
             expectedSiteId?: string;
+            /** Format: date */
+            contract_concluded_at?: string | null;
+            /** Format: date */
+            handed_over_at?: string | null;
+            buyer_is_consumer?: boolean;
+            gewaehrleistung_shortened_negotiated?: boolean;
+            gewaehrleistung_note?: Record<string, never> | null;
+        };
+        CorrectGewaehrleistungSnapshotDto: {
+            reason: string;
+            /** Format: date */
+            contract_concluded_at?: string | null;
+            /** Format: date */
+            handed_over_at?: string | null;
+            buyer_is_consumer: boolean;
+            gewaehrleistung_shortened_negotiated: boolean;
+            gewaehrleistung_note?: Record<string, never> | null;
         };
         VehicleStockMarginRoleTotalsDto: {
             count: number;
@@ -5342,6 +5400,39 @@ export interface components {
             meta: components["schemas"]["VehicleStockReportPaginationMetaDto"];
             totals: components["schemas"]["VehicleStockMarginReportTotalsDto"];
         };
+        GewaehrleistungDueVehicleDto: {
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            vin: string | null;
+            plate: string | null;
+        };
+        GewaehrleistungDueCustomerDto: {
+            id: string;
+            first_name: string | null;
+            last_name: string | null;
+            company_name: string | null;
+        };
+        GewaehrleistungDueListItemDto: {
+            id: string;
+            sale_number: string;
+            vehicle_id: string;
+            customer_id: string;
+            /** Format: date */
+            handed_over_at: string | null;
+            /** Format: date */
+            gewaehrleistung_ends_on: string;
+            /** Format: date */
+            presumption_ends_on: string | null;
+            gewaehrleistung_rule_version: string | null;
+            vehicle: components["schemas"]["GewaehrleistungDueVehicleDto"];
+            customer: components["schemas"]["GewaehrleistungDueCustomerDto"];
+        };
+        GewaehrleistungDueListResponseDto: {
+            data: components["schemas"]["GewaehrleistungDueListItemDto"][];
+            meta: components["schemas"]["PaginationMetaDto"];
+        };
         PatchVehicleStockDto: {
             /**
              * Format: date
@@ -5373,6 +5464,89 @@ export interface components {
             toSiteId: string;
             toLocationId: string;
             expectedLocationId: string;
+        };
+        AuditLogResponseDto: {
+            /** @description Audit log unique identifier */
+            id: string;
+            /** @description Tenant identifier */
+            tenantId: string;
+            /** @description Entity model name (e.g. Customer, SalesOrder) */
+            entityType: string;
+            /** @description Target entity record ID */
+            entityId: string;
+            /**
+             * @description Mutation action type
+             * @enum {string}
+             */
+            action: "CREATE" | "UPDATE" | "DELETE";
+            /** @description User ID of the actor who performed the mutation */
+            actorUserId?: string | null;
+            /** @description Email of the actor who performed the mutation */
+            actorEmail?: string | null;
+            /** @description Role of the actor at mutation time */
+            actorRole?: string | null;
+            /**
+             * @description Actor classification type
+             * @enum {string}
+             */
+            actorType: "USER" | "SYSTEM" | "MIGRATION";
+            /** @description HTTP request correlation ID */
+            requestId?: string | null;
+            /** @description Source channel (e.g. API, JOB) */
+            source?: string | null;
+            /** @description Client IP address */
+            ipAddress?: string | null;
+            /** @description Client User-Agent header */
+            userAgent?: string | null;
+            /** @description Snapshot of entity state before mutation */
+            before?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Snapshot of entity state after mutation */
+            after?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Computed diff of changed fields */
+            diff?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description List of field names that changed */
+            changedFields?: string[] | null;
+            /** @description List of field names that were redacted */
+            redactedFields?: string[] | null;
+            /**
+             * Format: date-time
+             * @description Timestamp when mutation occurred
+             */
+            occurredAt: string;
+        };
+        AuditLogPaginationMetaDto: {
+            /**
+             * @description Total number of matching audit records
+             * @example 42
+             */
+            total: number;
+            /**
+             * @description Current page number
+             * @example 1
+             */
+            page: number;
+            /**
+             * @description Items per page
+             * @example 20
+             */
+            limit: number;
+            /**
+             * @description Total number of pages
+             * @example 3
+             */
+            totalPages: number;
+        };
+        AuditLogListResponseDto: {
+            /** @description List of audit log items */
+            data: components["schemas"]["AuditLogResponseDto"][];
+            /** @description Pagination metadata */
+            meta: components["schemas"]["AuditLogPaginationMetaDto"];
         };
         CreatePartsReservationDto: {
             /** Format: uuid */
@@ -7211,89 +7385,6 @@ export interface components {
             awMinutes?: number;
             /** @description OEM concern member-make assignments to upsert. */
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
-        };
-        AuditLogResponseDto: {
-            /** @description Audit log unique identifier */
-            id: string;
-            /** @description Tenant identifier */
-            tenantId: string;
-            /** @description Entity model name (e.g. Customer, SalesOrder) */
-            entityType: string;
-            /** @description Target entity record ID */
-            entityId: string;
-            /**
-             * @description Mutation action type
-             * @enum {string}
-             */
-            action: "CREATE" | "UPDATE" | "DELETE";
-            /** @description User ID of the actor who performed the mutation */
-            actorUserId?: string | null;
-            /** @description Email of the actor who performed the mutation */
-            actorEmail?: string | null;
-            /** @description Role of the actor at mutation time */
-            actorRole?: string | null;
-            /**
-             * @description Actor classification type
-             * @enum {string}
-             */
-            actorType: "USER" | "SYSTEM" | "MIGRATION";
-            /** @description HTTP request correlation ID */
-            requestId?: string | null;
-            /** @description Source channel (e.g. API, JOB) */
-            source?: string | null;
-            /** @description Client IP address */
-            ipAddress?: string | null;
-            /** @description Client User-Agent header */
-            userAgent?: string | null;
-            /** @description Snapshot of entity state before mutation */
-            before?: {
-                [key: string]: unknown;
-            } | null;
-            /** @description Snapshot of entity state after mutation */
-            after?: {
-                [key: string]: unknown;
-            } | null;
-            /** @description Computed diff of changed fields */
-            diff?: {
-                [key: string]: unknown;
-            } | null;
-            /** @description List of field names that changed */
-            changedFields?: string[] | null;
-            /** @description List of field names that were redacted */
-            redactedFields?: string[] | null;
-            /**
-             * Format: date-time
-             * @description Timestamp when mutation occurred
-             */
-            occurredAt: string;
-        };
-        AuditLogPaginationMetaDto: {
-            /**
-             * @description Total number of matching audit records
-             * @example 42
-             */
-            total: number;
-            /**
-             * @description Current page number
-             * @example 1
-             */
-            page: number;
-            /**
-             * @description Items per page
-             * @example 20
-             */
-            limit: number;
-            /**
-             * @description Total number of pages
-             * @example 3
-             */
-            totalPages: number;
-        };
-        AuditLogListResponseDto: {
-            /** @description List of audit log items */
-            data: components["schemas"]["AuditLogResponseDto"][];
-            /** @description Pagination metadata */
-            meta: components["schemas"]["AuditLogPaginationMetaDto"];
         };
         AgentActionLogResponseDto: {
             id: string;
@@ -10701,6 +10792,29 @@ export interface operations {
             };
         };
     };
+    VehicleSaleController_correctGewaehrleistungSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CorrectGewaehrleistungSnapshotDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     VehicleStockController_list: {
         parameters: {
             query?: {
@@ -10777,6 +10891,27 @@ export interface operations {
             };
         };
     };
+    VehicleStockController_gewaehrleistungDue: {
+        parameters: {
+            query: {
+                endsWithinDays: 30 | 60 | 90;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GewaehrleistungDueListResponseDto"];
+                };
+            };
+        };
+    };
     VehicleStockController_detail: {
         parameters: {
             query?: never;
@@ -10839,6 +10974,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AuditController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Filter by audit action (UPDATE, DELETE) */
+                action?: "CREATE" | "UPDATE" | "DELETE";
+                /** @description Filter by actor user ID */
+                actorUserId?: string;
+                /** @description End date filter (ISO string) */
+                endDate?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
+                entityType?: string;
+                /** @description Items per page */
+                limit?: number;
+                /** @description Page number */
+                page?: number;
+                /** @description Free-text search across entityId, actorEmail, and requestId */
+                search?: string;
+                /** @description Start date filter (ISO string) */
+                startDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated list of audit log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogListResponseDto"];
+                };
             };
         };
     };
@@ -14060,45 +14234,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogProviderSettingsResponseDto"];
-                };
-            };
-        };
-    };
-    AuditController_findAll: {
-        parameters: {
-            query?: {
-                /** @description Filter by audit action (UPDATE, DELETE) */
-                action?: "CREATE" | "UPDATE" | "DELETE";
-                /** @description Filter by actor user ID */
-                actorUserId?: string;
-                /** @description End date filter (ISO string) */
-                endDate?: string;
-                /** @description Filter by entity ID */
-                entityId?: string;
-                /** @description Filter by entity type (e.g. Customer, SalesOrder, Invoice) */
-                entityType?: string;
-                /** @description Items per page */
-                limit?: number;
-                /** @description Page number */
-                page?: number;
-                /** @description Free-text search across entityId, actorEmail, and requestId */
-                search?: string;
-                /** @description Start date filter (ISO string) */
-                startDate?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated list of audit log entries */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogListResponseDto"];
                 };
             };
         };

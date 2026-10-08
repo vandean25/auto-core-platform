@@ -4854,6 +4854,39 @@
         ]
       }
     },
+    "/api/vehicle-sales/{id}/gewaehrleistung-correction": {
+      "post": {
+        "operationId": "VehicleSaleController_correctGewaehrleistungSnapshot",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectGewaehrleistungSnapshotDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      }
+    },
     "/api/vehicle-stock": {
       "get": {
         "operationId": "VehicleStockController_list",
@@ -5089,6 +5122,42 @@
         ]
       }
     },
+    "/api/vehicle-stock/gewaehrleistung-due": {
+      "get": {
+        "operationId": "VehicleStockController_gewaehrleistungDue",
+        "parameters": [
+          {
+            "name": "endsWithinDays",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "enum": [
+                30,
+                60,
+                90
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GewaehrleistungDueListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List consumer vehicle sales nearing base-period end",
+        "tags": [
+          "vehicle-stock"
+        ]
+      }
+    },
     "/api/vehicle-stock/{vehicleId}": {
       "get": {
         "operationId": "VehicleStockController_detail",
@@ -5173,6 +5242,121 @@
         },
         "tags": [
           "vehicle-stock"
+        ]
+      }
+    },
+    "/api/audit-logs": {
+      "get": {
+        "description": "Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.",
+        "operationId": "AuditController_findAll",
+        "parameters": [
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "description": "Filter by audit action (UPDATE, DELETE)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "DELETE"
+              ]
+            }
+          },
+          {
+            "name": "actorUserId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by actor user ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Free-text search across entityId, actorEmail, and requestId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of audit log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List tenant audit logs",
+        "tags": [
+          "Audit Logs"
         ]
       }
     },
@@ -10150,121 +10334,6 @@
         },
         "tags": [
           "settings"
-        ]
-      }
-    },
-    "/api/audit-logs": {
-      "get": {
-        "description": "Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.",
-        "operationId": "AuditController_findAll",
-        "parameters": [
-          {
-            "name": "action",
-            "required": false,
-            "in": "query",
-            "description": "Filter by audit action (UPDATE, DELETE)",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "CREATE",
-                "UPDATE",
-                "DELETE"
-              ]
-            }
-          },
-          {
-            "name": "actorUserId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by actor user ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": false,
-            "in": "query",
-            "description": "End date filter (ISO string)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityType",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Items per page",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "Free-text search across entityId, actorEmail, and requestId",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "startDate",
-            "required": false,
-            "in": "query",
-            "description": "Start date filter (ISO string)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of audit log entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuditLogListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List tenant audit logs",
-        "tags": [
-          "Audit Logs"
         ]
       }
     },
@@ -17742,6 +17811,24 @@
           },
           "sale_price": {
             "type": "number"
+          },
+          "contract_concluded_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "handed_over_at": {
+            "type": "string",
+            "format": "date"
+          },
+          "buyer_is_consumer": {
+            "type": "boolean"
+          },
+          "gewaehrleistung_shortened_negotiated": {
+            "type": "boolean",
+            "default": false
+          },
+          "gewaehrleistung_note": {
+            "type": "object"
           }
         },
         "required": [
@@ -17770,8 +17857,62 @@
           "expectedSiteId": {
             "type": "string",
             "description": "Expected site ID for optimistic concurrency checks"
+          },
+          "contract_concluded_at": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "handed_over_at": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "buyer_is_consumer": {
+            "type": "boolean"
+          },
+          "gewaehrleistung_shortened_negotiated": {
+            "type": "boolean"
+          },
+          "gewaehrleistung_note": {
+            "type": "object",
+            "nullable": true
           }
         }
+      },
+      "CorrectGewaehrleistungSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contract_concluded_at": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "handed_over_at": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "buyer_is_consumer": {
+            "type": "boolean"
+          },
+          "gewaehrleistung_shortened_negotiated": {
+            "type": "boolean"
+          },
+          "gewaehrleistung_note": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "reason",
+          "buyer_is_consumer",
+          "gewaehrleistung_shortened_negotiated"
+        ]
       },
       "VehicleStockMarginRoleTotalsDto": {
         "type": "object",
@@ -18125,6 +18266,136 @@
           "totals"
         ]
       },
+      "GewaehrleistungDueVehicleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "vin": {
+            "type": "string",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "make",
+          "model",
+          "year",
+          "vin",
+          "plate"
+        ]
+      },
+      "GewaehrleistungDueCustomerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "first_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "company_name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "first_name",
+          "last_name",
+          "company_name"
+        ]
+      },
+      "GewaehrleistungDueListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sale_number": {
+            "type": "string"
+          },
+          "vehicle_id": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "string"
+          },
+          "handed_over_at": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "gewaehrleistung_ends_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "presumption_ends_on": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "gewaehrleistung_rule_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle": {
+            "$ref": "#/components/schemas/GewaehrleistungDueVehicleDto"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/GewaehrleistungDueCustomerDto"
+          }
+        },
+        "required": [
+          "id",
+          "sale_number",
+          "vehicle_id",
+          "customer_id",
+          "handed_over_at",
+          "gewaehrleistung_ends_on",
+          "presumption_ends_on",
+          "gewaehrleistung_rule_version",
+          "vehicle",
+          "customer"
+        ]
+      },
+      "GewaehrleistungDueListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GewaehrleistungDueListItemDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
       "PatchVehicleStockDto": {
         "type": "object",
         "properties": {
@@ -18211,6 +18482,183 @@
           "toSiteId",
           "toLocationId",
           "expectedLocationId"
+        ]
+      },
+      "AuditLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Audit log unique identifier"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "entityType": {
+            "type": "string",
+            "description": "Entity model name (e.g. Customer, SalesOrder)"
+          },
+          "entityId": {
+            "type": "string",
+            "description": "Target entity record ID"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ],
+            "description": "Mutation action type"
+          },
+          "actorUserId": {
+            "type": "string",
+            "nullable": true,
+            "description": "User ID of the actor who performed the mutation"
+          },
+          "actorEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the actor who performed the mutation"
+          },
+          "actorRole": {
+            "type": "string",
+            "nullable": true,
+            "description": "Role of the actor at mutation time"
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "SYSTEM",
+              "MIGRATION"
+            ],
+            "description": "Actor classification type"
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTTP request correlation ID"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source channel (e.g. API, JOB)"
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client IP address"
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client User-Agent header"
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Snapshot of entity state before mutation"
+          },
+          "after": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Snapshot of entity state after mutation"
+          },
+          "diff": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Computed diff of changed fields"
+          },
+          "changedFields": {
+            "nullable": true,
+            "description": "List of field names that changed",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redactedFields": {
+            "nullable": true,
+            "description": "List of field names that were redacted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when mutation occurred"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "entityType",
+          "entityId",
+          "action",
+          "actorType",
+          "occurredAt"
+        ]
+      },
+      "AuditLogPaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "example": 42,
+            "description": "Total number of matching audit records"
+          },
+          "page": {
+            "type": "number",
+            "example": 1,
+            "description": "Current page number"
+          },
+          "limit": {
+            "type": "number",
+            "example": 20,
+            "description": "Items per page"
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3,
+            "description": "Total number of pages"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "AuditLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "List of audit log items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogResponseDto"
+            }
+          },
+          "meta": {
+            "description": "Pagination metadata",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditLogPaginationMetaDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "CreatePartsReservationDto": {
@@ -24096,183 +24544,6 @@
             }
           }
         }
-      },
-      "AuditLogResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Audit log unique identifier"
-          },
-          "tenantId": {
-            "type": "string",
-            "description": "Tenant identifier"
-          },
-          "entityType": {
-            "type": "string",
-            "description": "Entity model name (e.g. Customer, SalesOrder)"
-          },
-          "entityId": {
-            "type": "string",
-            "description": "Target entity record ID"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "CREATE",
-              "UPDATE",
-              "DELETE"
-            ],
-            "description": "Mutation action type"
-          },
-          "actorUserId": {
-            "type": "string",
-            "nullable": true,
-            "description": "User ID of the actor who performed the mutation"
-          },
-          "actorEmail": {
-            "type": "string",
-            "nullable": true,
-            "description": "Email of the actor who performed the mutation"
-          },
-          "actorRole": {
-            "type": "string",
-            "nullable": true,
-            "description": "Role of the actor at mutation time"
-          },
-          "actorType": {
-            "type": "string",
-            "enum": [
-              "USER",
-              "SYSTEM",
-              "MIGRATION"
-            ],
-            "description": "Actor classification type"
-          },
-          "requestId": {
-            "type": "string",
-            "nullable": true,
-            "description": "HTTP request correlation ID"
-          },
-          "source": {
-            "type": "string",
-            "nullable": true,
-            "description": "Source channel (e.g. API, JOB)"
-          },
-          "ipAddress": {
-            "type": "string",
-            "nullable": true,
-            "description": "Client IP address"
-          },
-          "userAgent": {
-            "type": "string",
-            "nullable": true,
-            "description": "Client User-Agent header"
-          },
-          "before": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true,
-            "description": "Snapshot of entity state before mutation"
-          },
-          "after": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true,
-            "description": "Snapshot of entity state after mutation"
-          },
-          "diff": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true,
-            "description": "Computed diff of changed fields"
-          },
-          "changedFields": {
-            "nullable": true,
-            "description": "List of field names that changed",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "redactedFields": {
-            "nullable": true,
-            "description": "List of field names that were redacted",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "occurredAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp when mutation occurred"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "entityType",
-          "entityId",
-          "action",
-          "actorType",
-          "occurredAt"
-        ]
-      },
-      "AuditLogPaginationMetaDto": {
-        "type": "object",
-        "properties": {
-          "total": {
-            "type": "number",
-            "example": 42,
-            "description": "Total number of matching audit records"
-          },
-          "page": {
-            "type": "number",
-            "example": 1,
-            "description": "Current page number"
-          },
-          "limit": {
-            "type": "number",
-            "example": 20,
-            "description": "Items per page"
-          },
-          "totalPages": {
-            "type": "number",
-            "example": 3,
-            "description": "Total number of pages"
-          }
-        },
-        "required": [
-          "total",
-          "page",
-          "limit",
-          "totalPages"
-        ]
-      },
-      "AuditLogListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "description": "List of audit log items",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogResponseDto"
-            }
-          },
-          "meta": {
-            "description": "Pagination metadata",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AuditLogPaginationMetaDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "data",
-          "meta"
-        ]
       },
       "AgentActionLogResponseDto": {
         "type": "object",
