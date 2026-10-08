@@ -12,6 +12,7 @@ export const APP_ROUTE_PATHS = {
   vehicles: '/vehicles',
   vehicleDetail: '/vehicles/:id',
   vehiclePickerlDue: '/vehicles/pickerl-due',
+  vehicleGewaehrleistungDue: '/vehicles/gewaehrleistung-due',
   vehicleStockAlias: '/vehicles/stock',
   vehicleStock: '/vehicle-stock',
   vehicleStockReports: '/vehicle-stock/reports',

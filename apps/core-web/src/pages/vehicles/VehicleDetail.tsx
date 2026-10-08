@@ -4,6 +4,7 @@ import { ArrowLeft, Wrench } from 'lucide-react'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
 import { toast } from 'sonner'
 import { useVehicle, useUpdateVehicle } from '@/api/vehicles'
+import type { VehicleSale } from '@/api/vehicle-stock'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -39,6 +40,7 @@ import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
 import { VehicleRegulatorySection } from '@/components/vehicles/VehicleRegulatorySection'
 import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 import { VehiclePickerlSection } from '@/components/vehicles/VehiclePickerlSection'
+import { VehicleGewaehrleistungSection } from '@/components/vehicles/VehicleGewaehrleistungSection'
 import type { components } from '@/api/generated/openapi'
 import type {
   VehicleNovaClass,
@@ -87,6 +89,7 @@ type VehicleDetailResponse = Vehicle & {
   workshop_orders?: VehicleWorkshopOrderSummary[]
   invoices?: VehicleInvoiceSummary[]
   pickerl_due?: components['schemas']['PickerlDueDto']
+  sales?: VehicleSale[]
 }
 
 type ActiveOrderRow = {
@@ -366,6 +369,8 @@ export default function VehicleDetail() {
               vehicleId={vehicle.id}
               pickerlDue={vehicle.pickerl_due}
             />
+
+            <VehicleGewaehrleistungSection sales={vehicle.sales ?? []} />
 
             <VehicleRegulatorySection
               mode='inline'

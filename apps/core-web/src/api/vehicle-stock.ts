@@ -3,6 +3,7 @@ import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
+import { vehicleKeys } from './vehicles'
 
 export const vehicleStockKeys = {
   all: ['vehicle-stock'] as const,
@@ -17,6 +18,29 @@ export const vehicleStockKeys = {
   marginReport: (filters: VehicleStockMarginReportFilters) =>
     [...vehicleStockKeys.all, 'reports', 'margin', filters] as const,
 }
+
+export const vehicleGewaehrleistungKeys = {
+  all: ['vehicle-gewaehrleistung'] as const,
+  due: (days: 30 | 60 | 90) => ['vehicle-gewaehrleistung', 'due', days] as const,
+}
+
+type GewaehrleistungDueResponse = components['schemas']['GewaehrleistungDueListResponseDto']
+type GewaehrleistungDueRow = components['schemas']['GewaehrleistungDueListItemDto']
+type CreateVehicleSaleDto = components['schemas']['CreateVehicleSaleDto']
+type PatchVehicleSaleDto = components['schemas']['PatchVehicleSaleDto']
+
+export function useGewaehrleistungDueList(days: 30 | 60 | 90) {
+  return useQuery<GewaehrleistungDueResponse>({
+    queryKey: vehicleGewaehrleistungKeys.due(days),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/vehicle-stock/gewaehrleistung-due?endsWithinDays=${days}`)
+      if (!response.ok) throw new Error('Gewährleistungsfälligkeiten konnten nicht geladen werden')
+      return response.json() as Promise<GewaehrleistungDueResponse>
+    },
+  })
+}
+
+export type VehicleGewaehrleistungDueRow = GewaehrleistungDueRow
 
 export type VehicleStockAgeReportRow = components['schemas']['VehicleStockAgeReportRowDto']
 export type VehicleStockAgeBucket = Exclude<VehicleStockAgeReportRow['age_bucket'], null> | 'over_90'
@@ -165,13 +189,23 @@ export type VehiclePurchase = {
   } | null
 }
 
-export type VehicleSale = {
+type SaleWarrantyInputs = Partial<Pick<components['schemas']['CreateVehicleSaleDto'],
+  'contract_concluded_at' | 'handed_over_at' | 'buyer_is_consumer' | 'gewaehrleistung_shortened_negotiated'>>
+
+export type VehicleSale = SaleWarrantyInputs & {
   id: string
   sale_number: string
   status: string
   vehicle_id: string
   customer_id: string
   sale_price: string | number
+  contract_concluded_at?: string | null
+  handed_over_at?: string | null
+  buyer_is_consumer?: boolean | null
+  gewaehrleistung_shortened_negotiated?: boolean | null
+  gewaehrleistung_note?: string | null
+  gewaehrleistung_ends_on?: string | null
+  presumption_ends_on?: string | null
   cost_basis_preview?: string | number
   margin_vat_preview?: string | number
   invoice?: { id: string; invoice_number: string | null; tax_mode: string }
@@ -361,11 +395,7 @@ export function useVehicleSale(id: string) {
 export function useCreateVehicleSale() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: {
-      vehicle_id: string
-      customer_id: string
-      sale_price: number
-    }) => {
+    mutationFn: async (data: CreateVehicleSaleDto) => {
       const response = await fetchWithAuth('/api/vehicle-sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -376,6 +406,8 @@ export function useCreateVehicleSale() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
+      void queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+      void queryClient.invalidateQueries({ queryKey: vehicleGewaehrleistungKeys.all })
     },
   })
 }
@@ -383,7 +415,7 @@ export function useCreateVehicleSale() {
 export function useUpdateVehicleSale(id: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: { customer_id?: string; sale_price?: number }) => {
+    mutationFn: async (data: PatchVehicleSaleDto) => {
       const response = await fetchWithAuth(`/api/vehicle-sales/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -395,6 +427,8 @@ export function useUpdateVehicleSale(id: string) {
     onSuccess: (sale) => {
       queryClient.setQueryData(vehicleStockKeys.sale(sale.id), sale)
       void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.sale(sale.id) })
+      void queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+      void queryClient.invalidateQueries({ queryKey: vehicleGewaehrleistungKeys.all })
     },
   })
 }
@@ -411,6 +445,8 @@ export function useFinalizeVehicleSale() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
+      void queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
+      void queryClient.invalidateQueries({ queryKey: vehicleGewaehrleistungKeys.all })
     },
   })
 }

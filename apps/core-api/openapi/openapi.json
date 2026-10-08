@@ -17828,7 +17828,8 @@
             "default": false
           },
           "gewaehrleistung_note": {
-            "type": "object"
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -17875,7 +17876,7 @@
             "type": "boolean"
           },
           "gewaehrleistung_note": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         }
@@ -17904,7 +17905,7 @@
             "type": "boolean"
           },
           "gewaehrleistung_note": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         },

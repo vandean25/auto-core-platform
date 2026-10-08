@@ -33,6 +33,7 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry'
 import LoginPage from '@/pages/LoginPage'
 
 const PickerlDueList = lazyWithRetry(() => import('@/pages/vehicles/PickerlDueList'))
+const GewaehrleistungDueList = lazyWithRetry(() => import('@/pages/vehicles/GewaehrleistungDueList'))
 const NotFoundPage = lazyWithRetry(() => import('@/pages/NotFoundPage'))
 const InventoryList = lazyWithRetry(() => import('./pages/InventoryList'))
 const InventoryLedgerPage = lazyWithRetry(() => import('./pages/inventory/InventoryLedgerPage'))
@@ -124,6 +125,7 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.customerDetail} element={<CustomerDetail />} />
               <Route path={APP_ROUTE_PATHS.vehicles} element={<VehicleList />} />
               <Route path={APP_ROUTE_PATHS.vehiclePickerlDue} element={<React.Suspense fallback={<PageLoader />}><PickerlDueList /></React.Suspense>} />
+              <Route path={APP_ROUTE_PATHS.vehicleGewaehrleistungDue} element={<React.Suspense fallback={<PageLoader />}><GewaehrleistungDueList /></React.Suspense>} />
               <Route
                 path={APP_ROUTE_PATHS.vehicleStockAlias}
                 element={<Navigate to={APP_ROUTE_PATHS.vehicleStock} replace />}

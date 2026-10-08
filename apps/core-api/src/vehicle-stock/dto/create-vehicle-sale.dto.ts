@@ -50,7 +50,7 @@ export class CreateVehicleSaleDto {
   @IsBoolean()
   gewaehrleistung_shortened_negotiated?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsString()
   gewaehrleistung_note?: string | null;

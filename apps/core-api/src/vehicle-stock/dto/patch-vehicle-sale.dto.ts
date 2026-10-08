@@ -69,7 +69,7 @@ export class PatchVehicleSaleDto {
   @IsBoolean()
   gewaehrleistung_shortened_negotiated?: boolean;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   @IsOptional()
   @IsString()
   gewaehrleistung_note?: string | null;

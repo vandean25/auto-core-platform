@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
@@ -67,6 +67,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
   })
 
   afterEach(() => {
+    cleanup()
     vi.useRealTimers()
   })
 
@@ -96,10 +97,50 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     })
 
     expect(updateSale).toHaveBeenCalledTimes(1)
-    expect(JSON.stringify(updateSale.mock.calls[0][0])).toBe(
-      '{"customer_id":"buyer-1","sale_price":14500}',
-    )
+    expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
+      customer_id: 'buyer-1',
+      sale_price: 14500,
+      buyer_is_consumer: true,
+      gewaehrleistung_shortened_negotiated: false,
+    }))
     expect(createSale).not.toHaveBeenCalled()
     expect(finalizeSale).not.toHaveBeenCalled()
+  })
+
+  it('defaults a private buyer to consumer and requires explicit agreement for shortening', () => {
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const consumerCheckbox = screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })
+    const shorteningCheckbox = screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })
+    expect(consumerCheckbox).toBeChecked()
+    expect(shorteningCheckbox).not.toBeChecked()
+    expect(screen.getByText('Verlängerungen durch Reparaturen werden nicht erfasst.')).toBeInTheDocument()
+    fireEvent.click(shorteningCheckbox)
+    fireEvent.click(consumerCheckbox)
+    expect(shorteningCheckbox).toBeDisabled()
+  })
+
+  it('defaults a company buyer to B2B and disables the shortening agreement', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: {
+      ...existingSale,
+      customer: { ...existingSale.customer, type: 'COMPANY' },
+      buyer_is_consumer: null,
+    } })
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
   })
 })

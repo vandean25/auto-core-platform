@@ -35,6 +35,11 @@ export default function VehicleSalePage() {
   const finalizeSale = useFinalizeVehicleSale()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [salePrice, setSalePrice] = useState('')
+  const [contractDate, setContractDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [handoverDate, setHandoverDate] = useState('')
+  const [buyerIsConsumer, setBuyerIsConsumer] = useState(true)
+  const [shorteningNegotiated, setShorteningNegotiated] = useState(false)
+  const [warrantyNote, setWarrantyNote] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedSerialized = useRef<string | null>(null)
 
@@ -42,10 +47,20 @@ export default function VehicleSalePage() {
     if (!existing) return
     setSaleId(existing.id)
     setSalePrice(String(existing.sale_price))
+    setContractDate(existing.contract_concluded_at?.slice(0, 10) ?? '')
+    setHandoverDate(existing.handed_over_at?.slice(0, 10) ?? '')
+    setBuyerIsConsumer(existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE')
+    setShorteningNegotiated(existing.gewaehrleistung_shortened_negotiated ?? false)
+    setWarrantyNote(existing.gewaehrleistung_note ?? '')
     lastSavedSerialized.current = JSON.stringify({
       vehicle_id: existing.vehicle_id,
       customer_id: existing.customer_id,
       sale_price: Number(existing.sale_price),
+      contract_concluded_at: existing.contract_concluded_at ?? null,
+      handed_over_at: existing.handed_over_at ?? null,
+      buyer_is_consumer: existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE',
+      gewaehrleistung_shortened_negotiated: existing.gewaehrleistung_shortened_negotiated ?? false,
+      gewaehrleistung_note: existing.gewaehrleistung_note ?? null,
     })
     if (existing.customer) {
       setCustomer({
@@ -59,17 +74,30 @@ export default function VehicleSalePage() {
     }
   }, [existing])
 
+  useEffect(() => {
+    if (!customer) return
+    const isConsumer = customer.type === 'PRIVATE'
+    setBuyerIsConsumer(isConsumer)
+    if (!isConsumer) setShorteningNegotiated(false)
+  }, [customer])
+
   const isDraft = !existing || existing.status === 'DRAFT'
   const customerId = customer?.id || existing?.customer_id || ''
   const priceNumber = Number(salePrice)
 
   useEffect(() => {
     if (!isDraft || !vehicleId || !customerId || !priceNumber) return
-    const serialized = JSON.stringify({
+    const saleFacts = {
       vehicle_id: vehicleId,
       customer_id: customerId,
       sale_price: priceNumber,
-    })
+      contract_concluded_at: contractDate || null,
+      handed_over_at: handoverDate || null,
+      buyer_is_consumer: buyerIsConsumer,
+      gewaehrleistung_shortened_negotiated: buyerIsConsumer && shorteningNegotiated,
+      gewaehrleistung_note: warrantyNote || null,
+    }
+    const serialized = JSON.stringify(saleFacts)
     if (serialized === lastSavedSerialized.current) return
     const handle = window.setTimeout(() => {
       void (async () => {
@@ -77,9 +105,10 @@ export default function VehicleSalePage() {
         try {
           if (!saleId) {
             const created = await createSale({
-              vehicle_id: vehicleId,
-              customer_id: customerId,
-              sale_price: priceNumber,
+              ...saleFacts,
+              contract_concluded_at: contractDate || undefined,
+              handed_over_at: handoverDate || undefined,
+              gewaehrleistung_note: warrantyNote || null,
             })
             setSaleId(created.id)
             lastSavedSerialized.current = serialized
@@ -88,6 +117,11 @@ export default function VehicleSalePage() {
             await updateSale({
               customer_id: customerId,
               sale_price: priceNumber,
+              contract_concluded_at: contractDate || null,
+              handed_over_at: handoverDate || null,
+              buyer_is_consumer: buyerIsConsumer,
+              gewaehrleistung_shortened_negotiated: buyerIsConsumer && shorteningNegotiated,
+              gewaehrleistung_note: warrantyNote || null,
             })
             lastSavedSerialized.current = serialized
           }
@@ -99,7 +133,7 @@ export default function VehicleSalePage() {
       })()
     }, AUTO_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(handle)
-  }, [isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale])
+  }, [isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale, contractDate, handoverDate, buyerIsConsumer, shorteningNegotiated, warrantyNote])
 
   const finalize = async () => {
     if (!saleId) return
@@ -165,6 +199,33 @@ export default function VehicleSalePage() {
               onChange={(event) => setSalePrice(event.target.value)}
             />
           </label>
+          <section aria-labelledby="gewaehrleistung-form-title" className="space-y-3 rounded-lg border p-4">
+            <h2 id="gewaehrleistung-form-title" className="font-medium">Gewährleistung</h2>
+            <label className="block space-y-1 text-sm">
+              <span className="text-slate-500">Vertragsdatum</span>
+              <Input aria-label="Vertragsdatum" type="date" disabled={!isDraft} value={contractDate} onChange={(event) => setContractDate(event.target.value)} />
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-slate-500">Übergabedatum</span>
+              <Input aria-label="Übergabedatum" type="date" disabled={!isDraft} value={handoverDate} onChange={(event) => setHandoverDate(event.target.value)} />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={buyerIsConsumer} disabled={!isDraft} onChange={(event) => {
+                setBuyerIsConsumer(event.target.checked)
+                if (!event.target.checked) setShorteningNegotiated(false)
+              }} />
+              Käufer:in ist Verbraucher:in
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={shorteningNegotiated} disabled={!isDraft || !buyerIsConsumer} onChange={(event) => setShorteningNegotiated(event.target.checked)} />
+              Verkürzung wurde ausdrücklich vereinbart
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="text-slate-500">Notiz zur Gewährleistung</span>
+              <textarea aria-label="Notiz zur Gewährleistung" disabled={!isDraft} className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" value={warrantyNote} onChange={(event) => setWarrantyNote(event.target.value)} />
+            </label>
+            <p className="text-xs text-slate-500">Verlängerungen durch Reparaturen werden nicht erfasst.</p>
+          </section>
           {vehicle ? (
             <NovaPreviewPanel
               vehicleId={vehicle.id}

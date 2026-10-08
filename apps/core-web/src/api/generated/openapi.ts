@@ -5286,7 +5286,7 @@ export interface components {
             buyer_is_consumer?: boolean;
             /** @default false */
             gewaehrleistung_shortened_negotiated: boolean;
-            gewaehrleistung_note?: Record<string, never>;
+            gewaehrleistung_note?: string | null;
         };
         PatchVehicleSaleDto: {
             customer_id?: string;
@@ -5303,7 +5303,7 @@ export interface components {
             handed_over_at?: string | null;
             buyer_is_consumer?: boolean;
             gewaehrleistung_shortened_negotiated?: boolean;
-            gewaehrleistung_note?: Record<string, never> | null;
+            gewaehrleistung_note?: string | null;
         };
         CorrectGewaehrleistungSnapshotDto: {
             reason: string;
@@ -5313,7 +5313,7 @@ export interface components {
             handed_over_at?: string | null;
             buyer_is_consumer: boolean;
             gewaehrleistung_shortened_negotiated: boolean;
-            gewaehrleistung_note?: Record<string, never> | null;
+            gewaehrleistung_note?: string | null;
         };
         VehicleStockMarginRoleTotalsDto: {
             count: number;
