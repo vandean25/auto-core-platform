@@ -113,8 +113,15 @@ async function verify() {
             sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
         },
         include: {
-            vehicle: { select: { inventory_role: true, stock_status: true } },
+            vehicle: {
+                select: {
+                    inventory_role: true,
+                    stock_status: true,
+                    ledger_entries: { select: { entry_type: true, amount: true, vehicle_sale_id: true } },
+                },
+            },
             customer: { select: { type: true } },
+            invoice: { select: { status: true, tax_mode: true, vehicle_sale_id: true, items: { select: { id: true } } } },
         },
     });
     if (gewaehrleistungSales.length !== DEMO_GEWAHRLEISTUNG_SALE_NUMBERS.length) {
@@ -145,8 +152,15 @@ async function verify() {
         if (
             actual.contract === actual.handover ||
             sale.status !== 'INVOICED' ||
-            sale.vehicle.inventory_role !== 'USED' ||
-            sale.vehicle.stock_status !== 'SOLD'
+            sale.vehicle.inventory_role !== 'CUSTOMER' ||
+            sale.vehicle.stock_status !== null ||
+            !sale.invoice ||
+            sale.invoice.status !== 'FINALIZED' ||
+            sale.invoice.tax_mode !== 'MARGIN_SCHEME' ||
+            sale.invoice.vehicle_sale_id !== sale.id ||
+            sale.invoice.items.length !== 1 ||
+            !sale.vehicle.ledger_entries.some((entry) => entry.entry_type === 'PURCHASE' && entry.amount.gt(0)) ||
+            !sale.vehicle.ledger_entries.some((entry) => entry.entry_type === 'SALE' && entry.amount.lt(0) && entry.vehicle_sale_id === sale.id)
         ) {
             throw new Error(`AUT-408 demo sale ${sale.sale_number} is not a distinct sold-vehicle example`);
         }

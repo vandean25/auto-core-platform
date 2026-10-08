@@ -162,11 +162,13 @@ describe('cleanDb', () => {
   it('runs accounting profile cleaners when those tables exist', async () => {
     const executedDeletes: string[] = [];
     const mockPrisma: any = {
-      $queryRaw: jest.fn().mockResolvedValue([
-        { table_name: 'accounting_exports' },
-        { table_name: 'legal_entity_accounting_profiles' },
-        { table_name: 'legal_entities' },
-      ]),
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([
+          { table_name: 'accounting_exports' },
+          { table_name: 'legal_entity_accounting_profiles' },
+          { table_name: 'legal_entities' },
+        ]),
       accountingExport: {
         deleteMany: jest
           .fn()
@@ -184,7 +186,9 @@ describe('cleanDb', () => {
       legalEntity: {
         deleteMany: jest
           .fn()
-          .mockImplementation(async () => executedDeletes.push('legal_entities')),
+          .mockImplementation(async () =>
+            executedDeletes.push('legal_entities'),
+          ),
       },
     };
 
@@ -224,17 +228,82 @@ describe('cleanDb', () => {
     ]);
   });
 
-  it('cleans only AUT-408 demo sales before their related vehicles and customers', async () => {
+  it('cleans only AUT-408 invoice, ledger and purchase rows before demo parents', async () => {
     const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
     const saleIndex = tables.indexOf('vehicle_sales');
     const vehicleIndex = tables.indexOf('vehicles');
     const customerIndex = tables.indexOf('customers');
     const demoSaleCleaner = TABLE_CLEANERS[saleIndex];
-    const vehicleSale = { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) };
+    const invoiceCleaner = TABLE_CLEANERS[tables.indexOf('invoices')];
+    const ledgerCleaner =
+      TABLE_CLEANERS[tables.indexOf('vehicle_ledger_entries')];
+    const purchaseCleaner = TABLE_CLEANERS[tables.indexOf('vehicle_purchases')];
+    const vehicleSale = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
+    };
+    const invoice = { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) };
+    const vehicleLedgerEntry = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 6 }),
+    };
+    const vehiclePurchase = {
+      deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
+    };
+    const vehicle = {
+      findMany: jest.fn().mockResolvedValue([{ id: 'demo-v1' }]),
+    };
 
     expect(saleIndex).toBeGreaterThan(-1);
     expect(saleIndex).toBeLessThan(vehicleIndex);
     expect(saleIndex).toBeLessThan(customerIndex);
+    for (const table of [
+      'invoices',
+      'vehicle_ledger_entries',
+      'vehicle_purchases',
+    ]) {
+      const index = tables.indexOf(table);
+      expect(index).toBeGreaterThan(-1);
+      expect(index).toBeLessThan(saleIndex);
+      expect(index).toBeLessThan(vehicleIndex);
+    }
+
+    await invoiceCleaner.clean({ invoice } as any);
+    expect(invoice.deleteMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        tenant: { is: { slug: 'default-workshop' } },
+        vehicle_sale: {
+          is: {
+            sale_number: { in: ['DEMO-GW-2Y', 'DEMO-GW-1Y', 'DEMO-GW-B2B'] },
+          },
+        },
+      },
+    });
+    expect(invoice.deleteMany).toHaveBeenNthCalledWith(2);
+    await ledgerCleaner.clean({ vehicle, vehicleLedgerEntry } as any);
+    expect(vehicle.findMany).toHaveBeenCalledWith({
+      where: {
+        tenant: { is: { slug: 'default-workshop' } },
+        vin: {
+          in: ['WARRANTYDEMO00001', 'WARRANTYDEMO00002', 'WARRANTYDEMO00003'],
+        },
+      },
+      select: { id: true },
+    });
+    expect(vehicleLedgerEntry.deleteMany).toHaveBeenCalledWith({
+      where: { vehicle_id: { in: ['demo-v1'] } },
+    });
+    await purchaseCleaner.clean({ vehiclePurchase } as any);
+    expect(vehiclePurchase.deleteMany).toHaveBeenCalledWith({
+      where: {
+        tenant: { is: { slug: 'default-workshop' } },
+        purchase_number: {
+          in: [
+            'AUT408-GW-DEMO-GW-2Y',
+            'AUT408-GW-DEMO-GW-1Y',
+            'AUT408-GW-DEMO-GW-B2B',
+          ],
+        },
+      },
+    });
 
     await demoSaleCleaner.clean({ vehicleSale } as any);
 

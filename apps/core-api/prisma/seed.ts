@@ -47,6 +47,7 @@ async function main() {
     foundation,
     customers.customers,
     inventory.showroom,
+    vendors[0],
   );
 
   console.log('Seed completed successfully!');
