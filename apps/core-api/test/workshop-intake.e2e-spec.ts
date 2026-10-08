@@ -10,17 +10,23 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  resolveTestMainSiteId,
+  seedTestEmployee,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import { seedPickerlInspectionTemplate } from '../src/prisma/fixtures/pickerl-inspection-template.fixture.js';
 
 describe('Workshop Intake Module (e2e)', () => {
   let app: INestApplication;
   let authToken: string;
+  let techAuthToken: string;
   let basePrisma: PrismaService;
   let prisma: PrismaService;
   let customerId: string;
   let vehicleId: string;
   let tenantId: string;
+  let pickerlVehicleId: string;
+  let techEmployeeId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -37,6 +43,41 @@ describe('Workshop Intake Module (e2e)', () => {
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), testTenant);
+    const techIdentity = {
+      firebaseUid: `e2e-tech-${tenantId}`,
+      email: `e2e-tech-${tenantId}@example.com`,
+      tenantId,
+      role: 'TECH' as const,
+    };
+    techAuthToken = createTestAuthToken(app.get(AuthService), techIdentity);
+    const siteId = await resolveTestMainSiteId(basePrisma, tenantId);
+    const techUser = await prisma.user.create({
+      data: {
+        firebaseUid: techIdentity.firebaseUid,
+        email: techIdentity.email,
+        active_tenant_id: tenantId,
+        active_site_id: siteId,
+        memberships: {
+          create: { tenant_id: tenantId, role: 'TECH', is_active: true },
+        },
+      },
+      select: { id: true },
+    });
+    await prisma.siteMembership.create({
+      data: {
+        tenant_id: tenantId,
+        user_id: techUser.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+    const techEmployee = await seedTestEmployee(prisma, {
+      tenantId,
+      name: 'E2E Technician',
+      role: 'MECHANIC',
+      userId: techUser.id,
+    });
+    techEmployeeId = techEmployee.id;
 
     const customer = await prisma.customer.create({
       data: {
@@ -60,6 +101,19 @@ describe('Workshop Intake Module (e2e)', () => {
       },
     });
     vehicleId = vehicle.id;
+    const pickerlVehicle = await prisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'Toyota',
+        model: 'Yaris',
+        year: 2021,
+        vin: 'PICKERLVIN1234567',
+        plate: 'W-57A123',
+        first_registration_date: new Date('2021-05-01T00:00:00.000Z'),
+      },
+    });
+    pickerlVehicleId = pickerlVehicle.id;
+    await seedPickerlInspectionTemplate(prisma, tenantId);
   });
 
   afterAll(async () => {
@@ -72,7 +126,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/search (GET) - should find vehicle by VIN', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/workshop/search?q=TESTVIN')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .expect(200);
 
     expect(res.body.data.vehicles).toBeDefined();
@@ -83,7 +137,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/orders (POST) - should create workshop order', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -102,7 +156,7 @@ describe('Workshop Intake Module (e2e)', () => {
   it('/api/workshop/orders (POST) - should validate fuel level', async () => {
     await request(app.getHttpServer())
       .post('/api/workshop/orders')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         customerId,
         vehicleId,
@@ -113,10 +167,121 @@ describe('Workshop Intake Module (e2e)', () => {
       .expect(400);
   });
 
+  it('creates one §57a order, exposes its checklist, and records Pickerl after completion', async () => {
+    await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set('Authorization', `Bearer ${techAuthToken}`)
+      .send({
+        customerId,
+        vehicleId: pickerlVehicleId,
+        odometer: 18000,
+        fuelLevel: 50,
+        createPickerlTask: true,
+      })
+      .expect(403);
+
+    const createOrder = () =>
+      request(app.getHttpServer())
+        .post('/api/workshop/orders')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          customerId,
+          vehicleId: pickerlVehicleId,
+          odometer: 18000,
+          fuelLevel: 50,
+          createPickerlTask: true,
+        });
+
+    const firstOrder = await createOrder().expect(201);
+    const secondOrder = await createOrder().expect(201);
+    expect(secondOrder.body.id).toBe(firstOrder.body.id);
+    expect(firstOrder.body.tasks).toHaveLength(1);
+    expect(firstOrder.body.tasks[0].title).toBe('§57a Begutachtung');
+
+    const dueListWithOpenOrder = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?status=UNKNOWN')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(
+      dueListWithOpenOrder.body.data.find(
+        (vehicle: { id: string }) => vehicle.id === pickerlVehicleId,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        open_pickerl_order: {
+          id: firstOrder.body.id,
+          order_number: firstOrder.body.order_number,
+        },
+      }),
+    );
+
+    const taskId = firstOrder.body.tasks[0].id as string;
+    await prisma.workshopTask.updateMany({
+      where: { id: taskId, tenant_id: tenantId },
+      data: { mechanic_id: techEmployeeId },
+    });
+    const checklist = await request(app.getHttpServer())
+      .get(
+        `/api/workshop/orders/${firstOrder.body.id}/tasks/${taskId}/checklist`,
+      )
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(checklist.body.title).toContain('§57a Vorbereitung');
+    expect(checklist.body.items).toHaveLength(12);
+
+    await request(app.getHttpServer())
+      .get(`/api/mechanic/tasks/${taskId}/checklist`)
+      .set('Authorization', `Bearer ${techAuthToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/mechanic/tasks/${taskId}/checklist`)
+      .set('Authorization', `Bearer ${techAuthToken}`)
+      .send({ items: [{ id: checklist.body.items[0].id, passed: true }] })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/workshop/orders/${firstOrder.body.id}/tasks/${taskId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ status: 'DONE' })
+      .expect(200);
+
+    const dueListAfterOrderCompletion = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?status=UNKNOWN')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(
+      dueListAfterOrderCompletion.body.data.find(
+        (vehicle: { id: string }) => vehicle.id === pickerlVehicleId,
+      ),
+    ).toEqual(expect.objectContaining({ open_pickerl_order: null }));
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicles/${pickerlVehicleId}/inspection-records`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        inspection_type: 'PICKERL_57A',
+        inspected_on: '2026-10-07',
+        plaketten_valid_until_year: 2028,
+        plaketten_valid_until_month: 10,
+      })
+      .expect(201);
+
+    const dueList = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?status=OVERDUE')
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(
+      dueList.body.data.some(
+        (vehicle: { id: string }) => vehicle.id === pickerlVehicleId,
+      ),
+    ).toBe(false);
+  });
+
   it('/api/workshop/register (POST) - should register vehicle using upsert', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/workshop/register')
-        .set('Authorization', `Bearer ${authToken}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send({
         vin: 'NEWVIN123',
         plate: 'NEW-PLATE',

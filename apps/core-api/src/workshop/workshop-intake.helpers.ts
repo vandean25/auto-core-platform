@@ -29,11 +29,17 @@ import {
 } from '../site/document-retarget.helpers.js';
 import {
   findLiveOrderForVehicle,
+  LIVE_ORDER_STATUSES,
   ORDER_WITH_INVOICE_RELATIONS,
   ORDER_WITH_RELATIONS,
   pickClosestScheduledOrder,
 } from './workshop-intake-query.helpers.js';
 import { validateStockPrepVehicle } from './workshop-intake-vehicle.helpers.js';
+import {
+  assertCanCreatePickerlOrder,
+  createPickerlTaskAndInspection,
+  PICKERL_TASK_TITLE,
+} from './workshop-pickerl.helpers.js';
 
 export * from './workshop-intake-query.helpers.js';
 export * from './workshop-intake-vehicle.helpers.js';
@@ -296,6 +302,17 @@ export async function executeCreateOrder(
   if (!isScheduled) {
     const promoted = await tryPromoteScheduledOrder(tx, tenantId, siteId, dto);
     if (promoted) {
+      if (dto.createPickerlTask) {
+        await createPickerlTaskAndInspection(tx, tenantId, promoted.id);
+        return tx.workshopOrder.findFirstOrThrow({
+          where: {
+            id: promoted.id,
+            tenant_id: tenantId,
+            site_id: siteId,
+          },
+          include: ORDER_WITH_RELATIONS,
+        });
+      }
       return promoted;
     }
   }
@@ -310,7 +327,7 @@ export async function executeCreateOrder(
     : null;
 
   const orderNumber = await generateOrderNumber(tx);
-  return insertWorkshopOrder({
+  const order = await insertWorkshopOrder({
     tx,
     tenantId,
     siteId,
@@ -319,6 +336,18 @@ export async function executeCreateOrder(
     booked,
     orderNumber,
   });
+  if (dto.createPickerlTask) {
+    await createPickerlTaskAndInspection(tx, tenantId, order.id);
+    return tx.workshopOrder.findFirstOrThrow({
+      where: {
+        id: order.id,
+        tenant_id: tenantId,
+        site_id: siteId,
+      },
+      include: ORDER_WITH_RELATIONS,
+    });
+  }
+  return order;
 }
 
 async function validateCustomerPrerequisite(
@@ -371,6 +400,11 @@ export async function executeCreateWorkshopOrder(
   expectedSiteId?: string,
 ): Promise<WorkshopOrderWithRelations> {
   const tenantId = await services.tenantContext.getTenantId();
+  if (dto.createPickerlTask) {
+    assertCanCreatePickerlOrder(
+      services.tenantContext.getAuthenticatedUser()?.role,
+    );
+  }
   const activeSiteId = await services.siteContext.getSiteId();
   if (expectedSiteId && activeSiteId !== expectedSiteId) {
     throw new UnprocessableEntityException(
@@ -389,19 +423,51 @@ export async function executeCreateWorkshopOrder(
     purpose,
   );
 
-  return services.prisma.$transaction((tx) =>
-    executeCreateOrder({
-      tx,
-      tenantId,
-      siteId,
-      dto,
-      purpose,
-      vehicleId: vehicle.id,
-      isScheduled,
-      scheduleService: services.scheduleService,
-      generateOrderNumber,
-    }),
-  );
+  if (dto.createPickerlTask) {
+    const existingPickerlOrder = await services.prisma.workshopOrder.findFirst({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vehicle_id: dto.vehicleId,
+        status: { in: LIVE_ORDER_STATUSES },
+        tasks: { some: { title: PICKERL_TASK_TITLE } },
+      },
+      include: ORDER_WITH_RELATIONS,
+    });
+    if (existingPickerlOrder) return existingPickerlOrder;
+  }
+
+  try {
+    return await services.prisma.$transaction((tx) =>
+      executeCreateOrder({
+        tx,
+        tenantId,
+        siteId,
+        dto,
+        purpose,
+        vehicleId: vehicle.id,
+        isScheduled,
+        scheduleService: services.scheduleService,
+        generateOrderNumber,
+      }),
+    );
+  } catch (error) {
+    if (dto.createPickerlTask && error instanceof ConflictException) {
+      const existingPickerlOrder =
+        await services.prisma.workshopOrder.findFirst({
+          where: {
+            tenant_id: tenantId,
+            site_id: siteId,
+            vehicle_id: dto.vehicleId,
+            status: { in: LIVE_ORDER_STATUSES },
+            tasks: { some: { title: PICKERL_TASK_TITLE } },
+          },
+          include: ORDER_WITH_RELATIONS,
+        });
+      if (existingPickerlOrder) return existingPickerlOrder;
+    }
+    throw error;
+  }
 }
 
 export async function generateNextWorkshopOrderNumber(

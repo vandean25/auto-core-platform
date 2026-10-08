@@ -9,12 +9,16 @@ import { MechanicQueueResponseDto } from './dto/mechanic-queue-item.dto.js';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
 import type { SaveDiagnosticsResponseDto } from './dto/save-diagnostics.dto.js';
 import type { RequestPartResponseDto } from './dto/request-part.dto.js';
-import type { MediaUploadPolicyDto, WorkshopMediaDto } from './dto/media.dto.js';
+import type {
+  MediaUploadPolicyDto,
+  WorkshopMediaDto,
+} from './dto/media.dto.js';
 import { MechanicController } from './mechanic.controller.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import { MechanicIdentityService } from './mechanic-identity.service.js';
 import { MechanicMediaService } from './mechanic-media.service.js';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
+import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
 
 const MECHANIC_ID = '11111111-1111-1111-1111-111111111111';
 const TASK_ID = '22222222-2222-2222-2222-222222222222';
@@ -54,6 +58,10 @@ describe('MechanicController', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+  const mockInspectionService = {
+    getTaskChecklist: jest.fn(),
+    updateTaskChecklist: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -63,6 +71,7 @@ describe('MechanicController', () => {
         { provide: MechanicExecutionService, useValue: mockMechanicService },
         { provide: MechanicMediaService, useValue: mockMechanicService },
         { provide: MechanicVoiceNoteService, useValue: mockMechanicService },
+        { provide: WorkshopInspectionService, useValue: mockInspectionService },
       ],
     }).compile();
 
@@ -94,6 +103,42 @@ describe('MechanicController', () => {
       TASK_ID,
     );
     expect(result).toBe(baseDetail);
+  });
+
+  it('scopes mechanic checklist reads through the assigned task detail', async () => {
+    mockMechanicService.getMechanicTaskDetail.mockResolvedValue(baseDetail);
+    mockInspectionService.getTaskChecklist.mockResolvedValue({
+      id: 'inspection-1',
+    });
+
+    await expect(controller.getTaskChecklist(TASK_ID)).resolves.toEqual({
+      id: 'inspection-1',
+    });
+    expect(mockMechanicService.getMechanicTaskDetail).toHaveBeenCalledWith(
+      MECHANIC_ID,
+      TASK_ID,
+    );
+    expect(mockInspectionService.getTaskChecklist).toHaveBeenCalledWith(
+      'order-1',
+      TASK_ID,
+    );
+  });
+
+  it('scopes mechanic checklist updates through the assigned task detail', async () => {
+    mockMechanicService.getMechanicTaskDetail.mockResolvedValue(baseDetail);
+    mockInspectionService.updateTaskChecklist.mockResolvedValue({
+      id: 'inspection-1',
+    });
+    const payload = { items: [{ id: 'item-1', passed: true }] };
+
+    await expect(
+      controller.updateTaskChecklist(TASK_ID, payload),
+    ).resolves.toEqual({ id: 'inspection-1' });
+    expect(mockInspectionService.updateTaskChecklist).toHaveBeenCalledWith(
+      'order-1',
+      TASK_ID,
+      payload,
+    );
   });
 
   it('startTask calls resolveMechanic then startTask', async () => {
@@ -264,7 +309,9 @@ describe('MechanicController', () => {
       model: 'whisper-1',
       durationSeconds: 9.3,
     };
-    mockMechanicService.uploadVoiceNote = jest.fn().mockResolvedValue(expectedDraft);
+    mockMechanicService.uploadVoiceNote = jest
+      .fn()
+      .mockResolvedValue(expectedDraft);
 
     const fakeFile = {
       fieldname: 'audio',

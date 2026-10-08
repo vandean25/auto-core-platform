@@ -1,52 +1,116 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { components } from './generated/openapi'
-import { fetchWithAuth } from './client'
-import { createHttpError } from '@/lib/error-utils'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { components } from "./generated/openapi";
+import { fetchWithAuth } from "./client";
+import { createHttpError } from "@/lib/error-utils";
 
-export type MechanicQueueItem = components['schemas']['MechanicQueueItemDto']
-export type MechanicQueueResponse = components['schemas']['MechanicQueueResponseDto']
-export type MechanicTaskDetail = components['schemas']['MechanicTaskDetailDto']
-export type SwitchTaskPayload = components['schemas']['SwitchTaskDto']
-export type PauseTaskPayload = components['schemas']['PauseTaskDto']
-export type SaveDiagnosticsPayload = components['schemas']['SaveDiagnosticsDto']
-export type SaveDiagnosticsResponse = components['schemas']['SaveDiagnosticsResponseDto']
-export type RequestPartPayload = components['schemas']['RequestPartDto']
-export type RequestPartResponse = components['schemas']['RequestPartResponseDto']
-export type RequestMediaUploadPayload = components['schemas']['RequestMediaUploadDto']
-export type MediaUploadPolicy = components['schemas']['MediaUploadPolicyDto']
-export type CreateMediaPayload = components['schemas']['CreateMediaDto']
-export type WorkshopMedia = components['schemas']['WorkshopMediaDto']
-export type VoiceNoteDraftResponse = components['schemas']['VoiceNoteDraftResponseDto']
+export type MechanicQueueItem = components["schemas"]["MechanicQueueItemDto"];
+export type MechanicQueueResponse =
+  components["schemas"]["MechanicQueueResponseDto"];
+export type MechanicTaskDetail = components["schemas"]["MechanicTaskDetailDto"];
+export type SwitchTaskPayload = components["schemas"]["SwitchTaskDto"];
+export type PauseTaskPayload = components["schemas"]["PauseTaskDto"];
+export type SaveDiagnosticsPayload =
+  components["schemas"]["SaveDiagnosticsDto"];
+export type SaveDiagnosticsResponse =
+  components["schemas"]["SaveDiagnosticsResponseDto"];
+export type RequestPartPayload = components["schemas"]["RequestPartDto"];
+export type RequestPartResponse =
+  components["schemas"]["RequestPartResponseDto"];
+export type RequestMediaUploadPayload =
+  components["schemas"]["RequestMediaUploadDto"];
+export type MediaUploadPolicy = components["schemas"]["MediaUploadPolicyDto"];
+export type CreateMediaPayload = components["schemas"]["CreateMediaDto"];
+export type WorkshopMedia = components["schemas"]["WorkshopMediaDto"];
+export type VoiceNoteDraftResponse =
+  components["schemas"]["VoiceNoteDraftResponseDto"];
+export type MechanicTaskChecklist =
+  components["schemas"]["WorkshopInspectionResponseDto"];
 
 const voiceNoteExtensionByMimeType: Record<string, string> = {
-  'audio/webm': 'webm',
-  'audio/mp4': 'm4a',
-  'audio/mpeg': 'mp3',
-  'audio/wav': 'wav',
-  'audio/ogg': 'ogg',
-}
+  "audio/webm": "webm",
+  "audio/mp4": "m4a",
+  "audio/mpeg": "mp3",
+  "audio/wav": "wav",
+  "audio/ogg": "ogg",
+};
 
 function getVoiceNoteFilename(audio: File | Blob): string {
-  if (typeof File !== 'undefined' && audio instanceof File && audio.name && audio.name !== 'blob') {
-    return audio.name
+  if (
+    typeof File !== "undefined" &&
+    audio instanceof File &&
+    audio.name &&
+    audio.name !== "blob"
+  ) {
+    return audio.name;
   }
 
-  const extension = voiceNoteExtensionByMimeType[audio.type] ?? 'bin'
-  return `voice-note.${extension}`
+  const extension = voiceNoteExtensionByMimeType[audio.type] ?? "bin";
+  return `voice-note.${extension}`;
 }
 
 export const mechanicQueueKeys = {
-  all: ['mechanic'] as const,
-  queue: () => [...mechanicQueueKeys.all, 'queue'] as const,
-  taskDetail: (taskId: string) => [...mechanicQueueKeys.all, 'task', taskId] as const,
+  all: ["mechanic"] as const,
+  queue: () => [...mechanicQueueKeys.all, "queue"] as const,
+  taskDetail: (taskId: string) =>
+    [...mechanicQueueKeys.all, "task", taskId] as const,
+  taskChecklist: (taskId: string) =>
+    [...mechanicQueueKeys.all, "task", taskId, "checklist"] as const,
+};
+
+export function useMechanicTaskChecklist(taskId: string) {
+  return useQuery<MechanicTaskChecklist>({
+    queryKey: mechanicQueueKeys.taskChecklist(taskId),
+    queryFn: async () => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}/checklist`,
+      );
+      if (!response.ok)
+        await throwHttpError(response, "Failed to load checklist");
+      return response.json() as Promise<MechanicTaskChecklist>;
+    },
+    enabled: Boolean(taskId),
+  });
+}
+
+export function useUpdateMechanicTaskChecklist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      taskId: string;
+      items: Array<{
+        id: string;
+        passed?: boolean | null;
+        notes?: string | null;
+      }>;
+    }) => {
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(payload.taskId)}/checklist`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: payload.items }),
+        },
+      );
+      if (!response.ok)
+        await throwHttpError(response, "Failed to save checklist");
+      return response.json() as Promise<MechanicTaskChecklist>;
+    },
+    onSuccess: (_result, payload) => {
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.taskChecklist(payload.taskId),
+      });
+    },
+  });
 }
 
 /** Reads error message from a failed HTTP Response body. */
-async function getErrorMessage(response: Response, fallback: string): Promise<string> {
+async function getErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
   const payload = (await response.json().catch(() => undefined)) as
-    | { message?: string }
-    | undefined
-  return payload?.message ?? fallback
+    { message?: string } | undefined;
+  return payload?.message ?? fallback;
 }
 
 /**
@@ -54,207 +118,222 @@ async function getErrorMessage(response: Response, fallback: string): Promise<st
  * HTTP status attached. Callers can use `getErrorStatus()` from `@/lib/error-utils`
  * to extract the status and branch on specific codes (e.g. 409 Conflict).
  */
-async function throwHttpError(response: Response, fallback: string): Promise<never> {
-  const message = await getErrorMessage(response, fallback)
-  throw createHttpError(message, response.status)
+async function throwHttpError(
+  response: Response,
+  fallback: string,
+): Promise<never> {
+  const message = await getErrorMessage(response, fallback);
+  throw createHttpError(message, response.status);
 }
 
 export function useMechanicQueue() {
   return useQuery<MechanicQueueResponse>({
     queryKey: mechanicQueueKeys.queue(),
     queryFn: async () => {
-      const response = await fetchWithAuth('/api/mechanic/queue')
+      const response = await fetchWithAuth("/api/mechanic/queue");
       if (!response.ok) {
-        await throwHttpError(response, 'Failed to load mechanic queue')
+        await throwHttpError(response, "Failed to load mechanic queue");
       }
-      return response.json() as Promise<MechanicQueueResponse>
+      return response.json() as Promise<MechanicQueueResponse>;
     },
-  })
+  });
 }
 
 export function useMechanicTaskDetail(taskId: string) {
   return useQuery<MechanicTaskDetail>({
     queryKey: mechanicQueueKeys.taskDetail(taskId),
     queryFn: async () => {
-      const response = await fetchWithAuth(`/api/mechanic/tasks/${encodeURIComponent(taskId)}`)
+      const response = await fetchWithAuth(
+        `/api/mechanic/tasks/${encodeURIComponent(taskId)}`,
+      );
       if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Failed to load task detail'))
+        throw new Error(
+          await getErrorMessage(response, "Failed to load task detail"),
+        );
       }
-      return response.json() as Promise<MechanicTaskDetail>
+      return response.json() as Promise<MechanicTaskDetail>;
     },
     enabled: !!taskId,
-  })
+  });
 }
 
 export function useStartTask() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ taskId }: { taskId: string }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/start`,
-        { method: 'POST' },
-      )
+        { method: "POST" },
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to start task')
+        return throwHttpError(response, "Failed to start task");
       }
-      return response.json() as Promise<MechanicTaskDetail>
+      return response.json() as Promise<MechanicTaskDetail>;
     },
     onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.queue(),
+      });
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(taskId),
-      })
+      });
     },
-  })
+  });
 }
 
 export function useSwitchTask() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       taskId,
       payload,
     }: {
-      taskId: string
-      payload: SwitchTaskPayload
+      taskId: string;
+      payload: SwitchTaskPayload;
     }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/switch`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-      )
+      );
       if (!response.ok) {
         // Expose HTTP status so callers can implement 409 → start fallback
-        return throwHttpError(response, 'Failed to switch task')
+        return throwHttpError(response, "Failed to switch task");
       }
-      return response.json() as Promise<MechanicTaskDetail>
+      return response.json() as Promise<MechanicTaskDetail>;
     },
     onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.queue(),
+      });
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(taskId),
-      })
+      });
     },
-  })
+  });
 }
 
 export function usePauseTask() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       taskId,
       payload,
     }: {
-      taskId: string
-      payload: PauseTaskPayload
+      taskId: string;
+      payload: PauseTaskPayload;
     }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/pause`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-      )
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to pause task')
+        return throwHttpError(response, "Failed to pause task");
       }
-      return response.json() as Promise<MechanicTaskDetail>
+      return response.json() as Promise<MechanicTaskDetail>;
     },
     onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.queue(),
+      });
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(taskId),
-      })
+      });
     },
-  })
+  });
 }
 
 export function useCompleteTask() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ taskId }: { taskId: string }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/complete`,
-        { method: 'POST' },
-      )
+        { method: "POST" },
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to complete task')
+        return throwHttpError(response, "Failed to complete task");
       }
-      return response.json() as Promise<MechanicTaskDetail>
+      return response.json() as Promise<MechanicTaskDetail>;
     },
     onSuccess: (_data, { taskId }) => {
-      void queryClient.invalidateQueries({ queryKey: mechanicQueueKeys.queue() })
+      void queryClient.invalidateQueries({
+        queryKey: mechanicQueueKeys.queue(),
+      });
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(taskId),
-      })
+      });
     },
-  })
+  });
 }
 
 export function useSaveDiagnostics() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       taskId,
       payload,
     }: {
-      taskId: string
-      payload: SaveDiagnosticsPayload
+      taskId: string;
+      payload: SaveDiagnosticsPayload;
     }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/diagnostics`,
         {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-      )
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to save diagnostics')
+        return throwHttpError(response, "Failed to save diagnostics");
       }
-      return response.json() as Promise<SaveDiagnosticsResponse>
+      return response.json() as Promise<SaveDiagnosticsResponse>;
     },
     onSuccess: (_data, { taskId }) => {
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(taskId),
-      })
+      });
     },
-  })
+  });
 }
 
 export function useRequestPart() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       taskId,
       payload,
     }: {
-      taskId: string
-      payload: RequestPartPayload
+      taskId: string;
+      payload: RequestPartPayload;
     }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/parts`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-      )
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to request part')
+        return throwHttpError(response, "Failed to request part");
       }
-      return response.json() as Promise<RequestPartResponse>
+      return response.json() as Promise<RequestPartResponse>;
     },
     onSuccess: (_data, { taskId }) => {
       void queryClient.invalidateQueries({
         queryKey: mechanicQueueKeys.taskDetail(taskId),
-      })
+      });
     },
-  })
+  });
 }
 
 export function useCreateMediaUploadPolicy() {
@@ -263,23 +342,23 @@ export function useCreateMediaUploadPolicy() {
       taskId,
       payload,
     }: {
-      taskId: string
-      payload: RequestMediaUploadPayload
+      taskId: string;
+      payload: RequestMediaUploadPayload;
     }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media/uploads`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-      )
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to get upload policy')
+        return throwHttpError(response, "Failed to get upload policy");
       }
-      return response.json() as Promise<MediaUploadPolicy>
+      return response.json() as Promise<MediaUploadPolicy>;
     },
-  })
+  });
 }
 
 export function useSaveMediaMetadata() {
@@ -288,23 +367,23 @@ export function useSaveMediaMetadata() {
       taskId,
       payload,
     }: {
-      taskId: string
-      payload: CreateMediaPayload
+      taskId: string;
+      payload: CreateMediaPayload;
     }) => {
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/media`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         },
-      )
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to save media metadata')
+        return throwHttpError(response, "Failed to save media metadata");
       }
-      return response.json() as Promise<WorkshopMedia>
+      return response.json() as Promise<WorkshopMedia>;
     },
-  })
+  });
 }
 
 /**
@@ -323,25 +402,25 @@ export function useUploadVoiceNote() {
       taskId,
       audio,
     }: {
-      taskId: string
-      audio: File | Blob
+      taskId: string;
+      audio: File | Blob;
     }) => {
       if (!audio.type) {
         throw createHttpError(
-          'Audio file must have a known MIME type (e.g. audio/webm, audio/mp4).',
+          "Audio file must have a known MIME type (e.g. audio/webm, audio/mp4).",
           422,
-        )
+        );
       }
-      const form = new FormData()
-      form.append('audio', audio, getVoiceNoteFilename(audio))
+      const form = new FormData();
+      form.append("audio", audio, getVoiceNoteFilename(audio));
       const response = await fetchWithAuth(
         `/api/mechanic/tasks/${encodeURIComponent(taskId)}/voice-notes`,
-        { method: 'POST', body: form },
-      )
+        { method: "POST", body: form },
+      );
       if (!response.ok) {
-        return throwHttpError(response, 'Failed to upload voice note')
+        return throwHttpError(response, "Failed to upload voice note");
       }
-      return response.json() as Promise<VoiceNoteDraftResponse>
+      return response.json() as Promise<VoiceNoteDraftResponse>;
     },
-  })
+  });
 }

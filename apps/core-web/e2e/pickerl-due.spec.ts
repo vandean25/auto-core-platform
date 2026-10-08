@@ -57,6 +57,57 @@ test.describe('Pickerl due list and dashboard widgets', () => {
     await expect(page.getByText('Unknown')).toBeVisible()
   })
 
+  test('opens the existing intake and posts a §57a task for a due vehicle', async ({ page }) => {
+    let postedPayload: Record<string, unknown> | undefined
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/pickerl-due'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([
+          {
+            id: 'vehicle-57a',
+            make: 'VW',
+            model: 'Golf',
+            plate: 'W-57A-1',
+            customer: { id: 'customer-57a', first_name: 'Alex', last_name: 'Test', type: 'PRIVATE' },
+            pickerl_due: { status: 'OVERDUE', due_month: '2026-01', warnings: [] },
+          },
+        ], 1)),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/vehicle-57a'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'vehicle-57a', make: 'VW', model: 'Golf', year: 2020,
+          plate: 'W-57A-1', vin: 'VIN-57A-1234567890',
+          customer: { id: 'customer-57a', first_name: 'Alex', last_name: 'Test', type: 'PRIVATE' },
+        }),
+      })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      postedPayload = route.request().postDataJSON() as Record<string, unknown>
+      await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'order-57a' }) })
+    })
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders/order-57a'), async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ id: 'order-57a', tasks: [], vehicle: { id: 'vehicle-57a' } }) })
+    })
+
+    await page.goto('/vehicles/pickerl-due')
+    await page.waitForLoadState('networkidle')
+    await page.getByRole('button', { name: '§57a-Auftrag anlegen' }).first().click()
+    await expect(page.getByRole('heading', { name: 'Create Workshop Order' })).toBeVisible()
+    await page.getByRole('button', { name: '§57a-Auftrag anlegen' }).last().click()
+
+    await expect.poll(() => postedPayload).toMatchObject({
+      vehicleId: 'vehicle-57a',
+      customerId: 'customer-57a',
+      createPickerlTask: true,
+    })
+  })
+
   test('export button downloads mocked CSV', async ({ page }) => {
     let exportRequested = false
     await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles/pickerl-due/export'), async (route) => {

@@ -14,6 +14,7 @@ import {
   seedDemoSiteAccess,
   seedDemoWorkshopAccountingProfile,
   seedVehicleStockAgeDemo,
+  seedPickerlInspectionTemplate,
 } from '../src/prisma/fixtures/index.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -26,6 +27,7 @@ async function main() {
 
   const foundation = await seedTenantFoundation(prisma);
   const finance = await seedFinance(prisma, foundation.defaultTenant.id);
+  await seedPickerlInspectionTemplate(prisma, foundation.defaultTenant.id);
   await seedDemoWorkshopAccountingProfile(
     prisma,
     foundation.defaultTenant.id,

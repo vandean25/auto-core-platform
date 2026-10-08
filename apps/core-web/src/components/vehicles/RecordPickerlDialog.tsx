@@ -16,20 +16,23 @@ import { getErrorMessage } from '@/lib/error-utils'
 type RecordPickerlDialogProps = {
   vehicleId: string
   open: boolean
+  initialInspectedOn?: string
   onOpenChange: (open: boolean) => void
 }
 
-function formatLocalDateInput(date: Date) {
+export function formatLocalDateInput(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
-function defaultFormValues() {
-  const now = new Date()
+function defaultFormValues(initialInspectedOn?: string) {
+  const now = initialInspectedOn
+    ? new Date(`${initialInspectedOn}T00:00:00`)
+    : new Date()
   return {
-    inspectedOn: formatLocalDateInput(now),
+    inspectedOn: initialInspectedOn ?? formatLocalDateInput(now),
     dueYear: String(now.getFullYear() + 2),
     dueMonth: String(now.getMonth() + 1),
     stationName: '',
@@ -40,12 +43,13 @@ function defaultFormValues() {
 export function RecordPickerlDialog({
   vehicleId,
   open,
+  initialInspectedOn,
   onOpenChange,
 }: RecordPickerlDialogProps) {
   const createRecord = useCreateVehicleInspectionRecord(vehicleId)
-  const [inspectedOn, setInspectedOn] = useState(defaultFormValues().inspectedOn)
-  const [dueYear, setDueYear] = useState(defaultFormValues().dueYear)
-  const [dueMonth, setDueMonth] = useState(defaultFormValues().dueMonth)
+  const [inspectedOn, setInspectedOn] = useState(defaultFormValues(initialInspectedOn).inspectedOn)
+  const [dueYear, setDueYear] = useState(defaultFormValues(initialInspectedOn).dueYear)
+  const [dueMonth, setDueMonth] = useState(defaultFormValues(initialInspectedOn).dueMonth)
   const [stationName, setStationName] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -53,13 +57,13 @@ export function RecordPickerlDialog({
     if (!open) {
       return
     }
-    const defaults = defaultFormValues()
+    const defaults = defaultFormValues(initialInspectedOn)
     setInspectedOn(defaults.inspectedOn)
     setDueYear(defaults.dueYear)
     setDueMonth(defaults.dueMonth)
     setStationName('')
     setNotes('')
-  }, [open])
+  }, [open, initialInspectedOn])
 
   async function handleSubmit() {
     try {

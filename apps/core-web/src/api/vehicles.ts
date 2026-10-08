@@ -5,6 +5,7 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 type PickerlDuePaginatedResponseDto = components['schemas']['PickerlDuePaginatedResponseDto']
+export type OpenPickerlWorkshopOrder = components['schemas']['OpenPickerlOrderDto']
 
 type CreateVehicleDto = components['schemas']['CreateVehicleDto']
 type UpdateVehicleDto = components['schemas']['UpdateVehicleDto']
@@ -34,6 +35,20 @@ export const vehicleKeys = {
   list: (queryParams?: DataTableQueryParams) => [...vehicleKeys.all, 'list', queryParams] as const,
   detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
   pickerlDue: (filters: string) => [...vehicleKeys.all, 'pickerlDue', { filters }] as const,
+  pickerlDueAll: () => [...vehicleKeys.all, 'pickerlDue'] as const,
+  openPickerlOrder: (vehicleId: string) => [...vehicleKeys.all, vehicleId, 'openPickerlOrder'] as const,
+}
+
+export function useOpenPickerlWorkshopOrder(vehicleId: string) {
+  return useQuery<OpenPickerlWorkshopOrder | null>({
+    queryKey: vehicleKeys.openPickerlOrder(vehicleId),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`/api/vehicles/${encodeURIComponent(vehicleId)}/pickerl-open-order`)
+      if (!response.ok) throw new Error('Failed to check for an open Pickerl order')
+      return response.json() as Promise<OpenPickerlWorkshopOrder | null>
+    },
+    enabled: Boolean(vehicleId),
+  })
 }
 
 export function useVehicles(queryParams?: DataTableQueryParams) {

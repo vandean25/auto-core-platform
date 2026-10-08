@@ -24,7 +24,7 @@ import {
  * Allowed callers:
  * - AuthSessionService — User
  * - TenantMemberService — User, TenantMember
- * - PlatformAdminService — Tenant, FinanceSettings (new-tenant bootstrap only)
+ * - PlatformAdminService — Tenant, FinanceSettings, InspectionTemplate, InspectionTemplateItem (new-tenant bootstrap only)
  * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
  * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)
  *
@@ -74,6 +74,14 @@ export class SystemPrismaService
 
   get financeSettings(): PrismaClient['financeSettings'] {
     return this.prisma.financeSettings;
+  }
+
+  get inspectionTemplate(): PrismaClient['inspectionTemplate'] {
+    return this.prisma.inspectionTemplate;
+  }
+
+  get inspectionTemplateItem(): PrismaClient['inspectionTemplateItem'] {
+    return this.prisma.inspectionTemplateItem;
   }
 
   get attendanceEvent(): PrismaClient['attendanceEvent'] {

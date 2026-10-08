@@ -7,6 +7,7 @@ import {
   UpdatePlatformTenantDto,
 } from './dto/platform-tenant.dto.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { seedPickerlInspectionTemplate } from '../prisma/fixtures/pickerl-inspection-template.fixture.js';
 
 type PlatformTenantRecord = PrismaTypes.TenantGetPayload<{
   include: {
@@ -71,6 +72,7 @@ export class PlatformAdminService {
         await tx.financeSettings.create({
           data: this.buildDefaultFinanceSettings(createdTenant.id),
         });
+        await seedPickerlInspectionTemplate(tx, createdTenant.id);
 
         return createdTenant;
       });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Customer, RegisterIntakePayload, Vehicle, WorkshopSearchResponse } from '@/api/types'
 import { useCreateWorkshopOrder, useRegisterIntake, useWorkshopSearch } from '@/api/workshop'
+import { useVehicle } from '@/api/vehicles'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,8 @@ type ExistingCustomer = Customer & { vehicles: Vehicle[] }
 interface WorkshopOrderIntakeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialVehicleId?: string
+  pickerlMode?: boolean
 }
 
 interface NewVehicleForm {
@@ -37,7 +40,12 @@ interface NewCustomerForm {
   phone: string
 }
 
-export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderIntakeDialogProps) {
+export function WorkshopOrderIntakeDialog({
+  open,
+  onOpenChange,
+  initialVehicleId,
+  pickerlMode = false,
+}: WorkshopOrderIntakeDialogProps) {
   const navigate = useNavigate()
   const createOrder = useCreateWorkshopOrder()
   const registerIntake = useRegisterIntake()
@@ -67,6 +75,15 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
   const [odometer, setOdometer] = useState('')
   const [fuelLevel, setFuelLevel] = useState('50')
   const [notes, setNotes] = useState('')
+  const initialVehicleQuery = useVehicle<ExistingVehicle>(initialVehicleId ?? '')
+
+  useEffect(() => {
+    if (!open || !initialVehicleQuery.data) return
+    setActiveTab('existing')
+    setSelectedVehicle(initialVehicleQuery.data)
+    setSearch(initialVehicleQuery.data.plate ?? '')
+    setNotes(pickerlMode ? '§57a Begutachtung' : '')
+  }, [open, initialVehicleQuery.data, pickerlMode])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 250)
@@ -147,9 +164,10 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
           odometer: Number(odometer),
           fuelLevel: Number(fuelLevel),
           reportedIssue: notes || undefined,
+          ...(pickerlMode ? { createPickerlTask: true } : {}),
         })
 
-        toast.success('Workshop order created')
+        toast.success(pickerlMode ? '§57a workshop order opened' : 'Workshop order created')
         handleDialogOpenChange(false)
         navigate(`/workshop/orders/${order.id}`)
         return
@@ -204,16 +222,20 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
         <DialogHeader>
           <DialogTitle>Create Workshop Order</DialogTitle>
           <DialogDescription>
-            Search for an existing vehicle or register a new vehicle before creating the workshop order.
+            {pickerlMode
+              ? 'Create a §57a workshop order for the selected vehicle.'
+              : 'Search for an existing vehicle or register a new vehicle before creating the workshop order.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'existing' | 'new-vehicle')}>
-            <TabsList>
-              <TabsTrigger value="existing">Search Existing</TabsTrigger>
-              <TabsTrigger value="new-vehicle">Create Vehicle</TabsTrigger>
-            </TabsList>
+            {!pickerlMode ? (
+              <TabsList>
+                <TabsTrigger value="existing">Search Existing</TabsTrigger>
+                <TabsTrigger value="new-vehicle">Create Vehicle</TabsTrigger>
+              </TabsList>
+            ) : null}
 
             <TabsContent value="existing" className="space-y-4">
               <Input
@@ -424,7 +446,11 @@ export function WorkshopOrderIntakeDialog({ open, onOpenChange }: WorkshopOrderI
                 (activeTab === 'existing' ? !canCreateFromExisting : !canCreateFromNewVehicle)
               }
             >
-              {createOrder.isPending || registerIntake.isPending ? 'Creating...' : 'Create Order'}
+              {createOrder.isPending || registerIntake.isPending
+                ? 'Creating...'
+                : pickerlMode
+                  ? '§57a-Auftrag anlegen'
+                  : 'Create Order'}
             </Button>
           </div>
         </div>

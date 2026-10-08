@@ -20,6 +20,7 @@ describe('VehicleService', () => {
       updateMany: jest.Mock;
     };
     customer: { findFirst: jest.Mock };
+    workshopOrder: { findFirst: jest.Mock; findMany: jest.Mock };
   };
   let tenantContext: { getTenantId: jest.Mock };
 
@@ -33,6 +34,7 @@ describe('VehicleService', () => {
         updateMany: jest.fn(),
       },
       customer: { findFirst: jest.fn() },
+      workshopOrder: { findFirst: jest.fn(), findMany: jest.fn() },
     };
     tenantContext = {
       getTenantId: jest.fn().mockResolvedValue(tenantId),
@@ -47,6 +49,8 @@ describe('VehicleService', () => {
           provide: SiteContextService,
           useValue: {
             listAuthorizedSiteIds: jest.fn().mockResolvedValue(['site-1']),
+            resolveSiteId: jest.fn().mockResolvedValue('site-1'),
+            getSiteId: jest.fn().mockResolvedValue('site-1'),
           },
         },
       ],
@@ -102,6 +106,25 @@ describe('VehicleService', () => {
     expect(prisma.vehicle.findFirst).toHaveBeenNthCalledWith(2, {
       where: { id: vehicleId, tenant_id: tenantId },
       include: { customer: true },
+    });
+  });
+
+  it('finds an existing Pickerl order only in the active tenant and site', async () => {
+    const existing = { id: 'order-1', order_number: 'WO-57A-1' };
+    prisma.workshopOrder.findFirst.mockResolvedValue(existing);
+
+    await expect(service.findOpenPickerlWorkshopOrder(vehicleId)).resolves.toBe(existing);
+
+    expect(prisma.workshopOrder.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenant_id: tenantId,
+        site_id: 'site-1',
+        vehicle_id: vehicleId,
+        status: { in: ['SCHEDULED', 'INTAKE', 'IN_PROGRESS'] },
+        tasks: { some: { title: '§57a Begutachtung' } },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, order_number: true },
     });
   });
 

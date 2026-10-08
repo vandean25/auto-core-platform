@@ -83,11 +83,17 @@ describe('PlatformAdminService', () => {
       _count: { memberships: 0 },
     });
     const financeSettingsCreate = jest.fn().mockResolvedValue(undefined);
+    const inspectionTemplateUpsert = jest.fn().mockResolvedValue({
+      id: 'template-2',
+    });
+    const inspectionTemplateItemUpsert = jest.fn().mockResolvedValue(undefined);
 
     mockSystemPrisma.$transaction.mockImplementation(async (callback) =>
       callback({
         tenant: { create: tenantCreate },
         financeSettings: { create: financeSettingsCreate },
+        inspectionTemplate: { upsert: inspectionTemplateUpsert },
+        inspectionTemplateItem: { upsert: inspectionTemplateItemUpsert },
       }),
     );
 
@@ -118,6 +124,17 @@ describe('PlatformAdminService', () => {
         next_workshop_order_number: 1,
       }),
     });
+    expect(inspectionTemplateUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id_code_version: {
+            tenant_id: 'tenant-2',
+            code: 'PICKERL_57A_PREP',
+            version: 1,
+          },
+        },
+      }),
+    );
     expect(result).toMatchObject({
       id: 'tenant-2',
       slug: 'north-branch',

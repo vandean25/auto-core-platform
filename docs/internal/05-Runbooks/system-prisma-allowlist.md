@@ -21,7 +21,7 @@ Calling it on a tenant model (for example `systemPrisma.customer`) silently bypa
 | `tenant`, `user`, `platformAdmin` | Global identity (no `tenant_id`) |
 | `tenantMember` | Membership join table for session + tenant-admin invites |
 | `laborEntry` | Mechanic scheduler nightly cross-tenant close only |
-| `financeSettings` | Platform-admin new-tenant bootstrap only |
+| `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem` | Platform-admin new-tenant bootstrap only; writes use the new tenant ID |
 | `attendanceEvent` | HR attendance scheduler nightly close only |
 | `agentPolicyRule` | Agent policy platform-default rows (`tenant_id` null) only |
 
@@ -35,7 +35,7 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 |---|---|
 | `AuthSessionService` | `user` |
 | `TenantMemberService` | `user`, `tenantMember` |
-| `PlatformAdminService` | `tenant`, `financeSettings` (create-tenant transaction) |
+| `PlatformAdminService` | `tenant`, `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem` (create-tenant transaction) |
 | `MechanicSchedulerService` | `laborEntry` |
 | `HrAttendanceSchedulerService` | `attendanceEvent` |
 | `AgentPolicyService` | `agentPolicyRule` (read platform defaults only) |

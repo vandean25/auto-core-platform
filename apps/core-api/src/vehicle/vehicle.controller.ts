@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -32,6 +33,7 @@ import { VehicleIdentityService } from './vehicle-identity.service.js';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import { CreateVehicleDto } from './dto/create-vehicle.dto.js';
 import {
+  OpenPickerlOrderDto,
   VehiclePaginatedResponseDto,
   VehicleResponseDto,
 } from './dto/vehicle-response.dto.js';
@@ -105,6 +107,12 @@ export class VehicleController {
   @Header('Content-Type', 'text/csv; charset=utf-8')
   exportPickerlDue(@Query() query: PickerlDueListExportQueryDto) {
     return this.vehicleService.exportPickerlDueCsv(query);
+  }
+
+  @Get(':id/pickerl-open-order')
+  @ApiOkResponse({ type: OpenPickerlOrderDto, nullable: true })
+  findOpenPickerlWorkshopOrder(@Param('id', ParseUUIDPipe) id: string) {
+    return this.vehicleService.findOpenPickerlWorkshopOrder(id);
   }
 
   @Get()

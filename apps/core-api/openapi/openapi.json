@@ -4164,6 +4164,90 @@
         ]
       }
     },
+    "/api/workshop/orders/{orderId}/tasks/{taskId}/checklist": {
+      "get": {
+        "operationId": "WorkshopController_getTaskChecklist",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task inspection checklist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopInspectionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "patch": {
+        "operationId": "WorkshopController_updateTaskChecklist",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopInspectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated task inspection checklist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopInspectionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{orderId}/tasks/{taskId}/line-items": {
       "patch": {
         "operationId": "WorkshopController_replaceTaskLineItems",
@@ -5825,6 +5909,74 @@
         ]
       }
     },
+    "/api/mechanic/tasks/{taskId}/checklist": {
+      "get": {
+        "operationId": "MechanicController_getTaskChecklist",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopInspectionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "mechanic"
+        ]
+      },
+      "patch": {
+        "operationId": "MechanicController_updateTaskChecklist",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWorkshopInspectionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopInspectionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/mechanic/tasks/{taskId}/start": {
       "post": {
         "operationId": "MechanicController_startTask",
@@ -7337,6 +7489,42 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        },
+        "tags": [
+          "Vehicle"
+        ]
+      }
+    },
+    "/api/vehicles/{id}/pickerl-open-order": {
+      "get": {
+        "operationId": "VehicleController_findOpenPickerlWorkshopOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "nullable": true,
+                  "type": "object",
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/OpenPickerlOrderDto"
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -12844,6 +13032,21 @@
           "last_name"
         ]
       },
+      "OpenPickerlOrderDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_number"
+        ]
+      },
       "PickerlDueStatus": {
         "type": "string",
         "enum": [
@@ -12922,6 +13125,15 @@
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
             }
+          },
+          "open_pickerl_order": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OpenPickerlOrderDto"
+              }
+            ]
           },
           "id": {
             "type": "string"
@@ -15460,6 +15672,15 @@
               "$ref": "#/components/schemas/WouldChangeItemDto"
             }
           },
+          "open_pickerl_order": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OpenPickerlOrderDto"
+              }
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -15584,6 +15805,10 @@
       "CreateWorkshopOrderDto": {
         "type": "object",
         "properties": {
+          "createPickerlTask": {
+            "type": "boolean",
+            "description": "Adds the §57a Begutachtung task and the tenant preparation checklist."
+          },
           "customerId": {
             "type": "string",
             "format": "uuid"
@@ -16326,6 +16551,94 @@
         "type": "object",
         "properties": {}
       },
+      "WorkshopInspectionItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label_snapshot": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label_snapshot",
+          "passed",
+          "notes",
+          "unit"
+        ]
+      },
+      "WorkshopInspectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopInspectionItemResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "items"
+        ]
+      },
+      "UpdateWorkshopInspectionItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "passed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "UpdateWorkshopInspectionDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateWorkshopInspectionItemDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
       "ReplaceWorkshopTaskLineItemDto": {
         "type": "object",
         "properties": {
@@ -16421,6 +16734,15 @@
             "items": {
               "$ref": "#/components/schemas/WouldChangeItemDto"
             }
+          },
+          "open_pickerl_order": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OpenPickerlOrderDto"
+              }
+            ]
           },
           "id": {
             "type": "string"
