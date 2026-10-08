@@ -320,6 +320,15 @@ export class VehicleSaleService {
           tenant_id: tenantId,
           site_id: { in: authorizedSiteIds },
           status: VehicleSaleStatus.INVOICED,
+          contract_concluded_at: sale.contract_concluded_at,
+          handed_over_at: sale.handed_over_at,
+          buyer_is_consumer: sale.buyer_is_consumer,
+          gewaehrleistung_shortened_negotiated:
+            sale.gewaehrleistung_shortened_negotiated,
+          gewaehrleistung_note: sale.gewaehrleistung_note,
+          gewaehrleistung_ends_on: sale.gewaehrleistung_ends_on,
+          presumption_ends_on: sale.presumption_ends_on,
+          gewaehrleistung_rule_version: sale.gewaehrleistung_rule_version,
         },
         data: { ...warrantyFacts, ...warrantySnapshot },
       });

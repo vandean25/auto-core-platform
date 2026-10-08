@@ -363,6 +363,60 @@ describe('VehicleSaleService', () => {
         prisma,
       );
     });
+
+    it('conflicts on stale correction snapshots without writing a second audit row', async () => {
+      const staleHandover = new Date('2026-10-08T00:00:00.000Z');
+      const sale = {
+        id: saleId,
+        tenant_id: tenantId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.INVOICED,
+        vehicle_id: vehicleId,
+        customer_id: customerId,
+        sale_price: new Prisma.Decimal(100),
+        contract_concluded_at: new Date('2026-10-02T00:00:00.000Z'),
+        handed_over_at: staleHandover,
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+        gewaehrleistung_note: null,
+        gewaehrleistung_ends_on: new Date('2028-10-08T00:00:00.000Z'),
+        presumption_ends_on: new Date('2027-10-08T00:00:00.000Z'),
+        gewaehrleistung_rule_version: 'at-used-vehicle-vgg-2026-10-v2',
+        vehicle: {
+          first_registration_date: new Date('2020-01-01T00:00:00.000Z'),
+        },
+      };
+      prisma.vehicleSale.findFirst.mockResolvedValue(sale);
+      prisma.vehicleSale.updateMany.mockImplementation(async ({ where }) => ({
+        count: where.handed_over_at === staleHandover ? 0 : 1,
+      }));
+
+      await expect(
+        service.correctGewaehrleistungSnapshot(saleId, {
+          reason: 'Concurrent correction',
+          handed_over_at: new Date('2026-10-10T00:00:00.000Z'),
+          buyer_is_consumer: true,
+          gewaehrleistung_shortened_negotiated: false,
+        }),
+      ).rejects.toMatchObject({ status: 409 });
+
+      expect(prisma.vehicleSale.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            contract_concluded_at: sale.contract_concluded_at,
+            handed_over_at: staleHandover,
+            buyer_is_consumer: true,
+            gewaehrleistung_shortened_negotiated: false,
+            gewaehrleistung_note: null,
+            gewaehrleistung_ends_on: sale.gewaehrleistung_ends_on,
+            presumption_ends_on: sale.presumption_ends_on,
+            gewaehrleistung_rule_version:
+              sale.gewaehrleistung_rule_version,
+          }),
+        }),
+      );
+      expect(auditService.recordTenantMutation).not.toHaveBeenCalled();
+    });
   });
 
   it('does not expose identity resolution state from a sale detail vehicle', async () => {
