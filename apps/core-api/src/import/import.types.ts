@@ -11,6 +11,7 @@ export type ImportJobOptions = {
   accept_all_price_jumps?: boolean;
   accepted_row_numbers?: number[];
   price_jump_threshold_percent?: number;
+  vendor_id?: string;
 };
 
 export type ImportJobTotals = {

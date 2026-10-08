@@ -40,6 +40,13 @@ import {
   normalizeVehicleRow,
   planVehicleDryRunRow,
 } from './vehicle-import.logic.js';
+import {
+  normalizeSupplierPriceListRow,
+  planSupplierPriceListDryRunRow,
+  type SupplierPriceListCatalogItem,
+  type SupplierPriceListMatchContext,
+} from './supplier-price-list-import.logic.js';
+import type { MarginRuleItem } from '../margin-rule/retail-from-cost.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import {
   buildImportAuditDiff,
@@ -124,6 +131,14 @@ export class ImportService {
     }
 
     const options = this.normalizeOptions(params.optionsJson);
+    if (params.entityType === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      const vendor = await this.resolveAndValidateVendor(
+        tenantId,
+        params.sourceSystem,
+        options.vendor_id,
+      );
+      options.vendor_id = vendor.id;
+    }
     const dryRunRows = await this.runDryRun(
       tenantId,
       params.entityType,
@@ -274,7 +289,7 @@ export class ImportService {
     return serializeCsv(headers, data, ';');
   }
 
-  async applyJob(jobId: string) {
+  async applyJob(jobId: string, applyOptions?: ImportJobOptions) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const currentUser = await requireActiveCurrentUser(
@@ -282,6 +297,78 @@ export class ImportService {
       this.tenantContext,
       tenantId,
     );
+
+    const existing = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: IMPORT_ERROR_CODES.JOB_NOT_FOUND,
+        message: 'Import job not found',
+      });
+    }
+    if (existing.status === ImportJobStatus.APPLYING) {
+      throw new ConflictException({
+        code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
+        message: 'Import job is already being applied',
+      });
+    }
+    if (existing.status === ImportJobStatus.APPLIED) {
+      throw new ConflictException({
+        code: IMPORT_ERROR_CODES.JOB_ALREADY_APPLIED,
+        message: 'Import job was already applied',
+      });
+    }
+    if (existing.status !== ImportJobStatus.DRY_RUN_DONE) {
+      throw new ConflictException({
+        code: IMPORT_ERROR_CODES.JOB_STALE,
+        message: 'Import job cannot be applied in its current status',
+      });
+    }
+
+    const jobOptions = (existing.options_json as ImportJobOptions) ?? {};
+    const effectiveOptions: ImportJobOptions = {
+      ...jobOptions,
+      ...(applyOptions ?? {}),
+      ...(applyOptions?.accepted_row_numbers
+        ? {
+            accepted_row_numbers: [
+              ...(jobOptions.accepted_row_numbers ?? []),
+              ...applyOptions.accepted_row_numbers,
+            ],
+          }
+        : {}),
+    };
+
+    const rows = await this.prisma.importJobRow.findMany({
+      where: { tenant_id: tenantId, import_job_id: jobId },
+      orderBy: { row_no: 'asc' },
+    });
+
+    if (existing.entity_type === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      const isAllAccepted = effectiveOptions.accept_all_price_jumps === true;
+      const acceptedRowSet = new Set(
+        effectiveOptions.accepted_row_numbers ?? [],
+      );
+
+      for (const row of rows) {
+        if (row.action === ImportRowAction.ERROR) {
+          continue;
+        }
+        const normalized = row.normalized_json as Record<
+          string,
+          unknown
+        > | null;
+        if (normalized?.price_jump_flagged === true) {
+          if (!isAllAccepted && !acceptedRowSet.has(row.row_no)) {
+            throw new BadRequestException({
+              code: IMPORT_ERROR_CODES.PRICE_JUMP_REQUIRES_ACCEPTANCE,
+              message: 'Price changes exceeding threshold must be accepted',
+            });
+          }
+        }
+      }
+    }
 
     const lock = await this.prisma.importJob.updateMany({
       where: {
@@ -293,41 +380,23 @@ export class ImportService {
     });
 
     if (lock.count === 0) {
-      const existing = await this.prisma.importJob.findFirst({
-        where: { tenant_id: tenantId, id: jobId },
-      });
-      if (!existing) {
-        throw new NotFoundException({
-          code: IMPORT_ERROR_CODES.JOB_NOT_FOUND,
-          message: 'Import job not found',
-        });
-      }
-      if (existing.status === ImportJobStatus.APPLYING) {
-        throw new ConflictException({
-          code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
-          message: 'Import job is already being applied',
-        });
-      }
-      if (existing.status === ImportJobStatus.APPLIED) {
-        throw new ConflictException({
-          code: IMPORT_ERROR_CODES.JOB_ALREADY_APPLIED,
-          message: 'Import job was already applied',
-        });
-      }
       throw new ConflictException({
-        code: IMPORT_ERROR_CODES.JOB_STALE,
-        message: 'Import job cannot be applied in its current status',
+        code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
+        message: 'Import job is already being applied',
       });
     }
 
-    const job = await this.prisma.importJob.findFirstOrThrow({
-      where: { tenant_id: tenantId, id: jobId },
-    });
+    if (existing.entity_type === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      return this.applySupplierPriceListJob(
+        tenantId,
+        existing,
+        rows,
+        currentUser.id,
+        effectiveOptions,
+      );
+    }
 
-    const rows = await this.prisma.importJobRow.findMany({
-      where: { tenant_id: tenantId, import_job_id: jobId },
-      orderBy: { row_no: 'asc' },
-    });
+    const job = existing;
 
     const totals: ImportJobTotals = {
       rows: rows.length,
@@ -447,6 +516,257 @@ export class ImportService {
     }
   }
 
+  private async applySupplierPriceListJob(
+    tenantId: string,
+    job: {
+      id: string;
+      source_system: string;
+      options_json: Prisma.JsonValue;
+    },
+    rows: Array<{
+      row_no: number;
+      action: ImportRowAction;
+      entity_id: string | null;
+      external_id: string | null;
+      normalized_json: Prisma.JsonValue;
+    }>,
+    actorUserId: string,
+    options: ImportJobOptions,
+  ) {
+    const vendor = await this.resolveAndValidateVendor(
+      tenantId,
+      job.source_system,
+      options.vendor_id,
+    );
+
+    const totals: ImportJobTotals = {
+      rows: rows.length,
+      create: 0,
+      update: 0,
+      skip: 0,
+      error: 0,
+    };
+
+    try {
+      const updatedJob = await this.prisma.$transaction(
+        async (tx) => {
+          for (const row of rows) {
+            if (row.action === ImportRowAction.ERROR) {
+              totals.error += 1;
+              continue;
+            }
+            if (row.action === ImportRowAction.SKIP) {
+              totals.skip += 1;
+              continue;
+            }
+
+            const payload = (row.normalized_json ?? {}) as Record<
+              string,
+              unknown
+            >;
+            const rawArticleNo =
+              typeof payload.supplier_article_no === 'string'
+                ? payload.supplier_article_no
+                : typeof row.external_id === 'string'
+                  ? row.external_id
+                  : '';
+            const supplierArticleNo = rawArticleNo.trim();
+            const newCost = Number(payload.cost_price);
+            const newRetail = Number(payload.retail_price);
+            const rrp = payload.rrp != null ? Number(payload.rrp) : null;
+
+            if (row.action === ImportRowAction.UPDATE) {
+              const catalogItem = await tx.catalogItem.findFirst({
+                where: { tenant_id: tenantId, id: row.entity_id! },
+              });
+              if (!catalogItem) {
+                throw new ApplyRowStaleError();
+              }
+
+              const currentCost =
+                catalogItem.cost_price != null
+                  ? Number(catalogItem.cost_price)
+                  : null;
+              const currentRetail = Number(catalogItem.retail_price);
+
+              const costChanged =
+                currentCost === null ||
+                Math.abs(newCost - currentCost) >= 0.005;
+              const retailChanged =
+                Math.abs(newRetail - currentRetail) >= 0.005;
+
+              if (costChanged || retailChanged) {
+                await tx.catalogItem.update({
+                  where: { id: catalogItem.id },
+                  data: {
+                    cost_price: newCost,
+                    retail_price: newRetail,
+                  },
+                });
+
+                await tx.catalogPriceHistory.create({
+                  data: {
+                    tenant_id: tenantId,
+                    catalog_item_id: catalogItem.id,
+                    old_cost: currentCost,
+                    new_cost: newCost,
+                    old_retail: currentRetail,
+                    new_retail: newRetail,
+                    import_job_id: job.id,
+                  },
+                });
+              }
+
+              await tx.vendorArticle.upsert({
+                where: {
+                  tenant_id_vendor_id_vendor_article_no: {
+                    tenant_id: tenantId,
+                    vendor_id: vendor.id,
+                    vendor_article_no: supplierArticleNo,
+                  },
+                },
+                create: {
+                  tenant_id: tenantId,
+                  vendor_id: vendor.id,
+                  catalog_item_id: catalogItem.id,
+                  vendor_article_no: supplierArticleNo,
+                  last_cost: newCost,
+                  last_rrp: rrp,
+                },
+                update: {
+                  catalog_item_id: catalogItem.id,
+                  last_cost: newCost,
+                  last_rrp: rrp,
+                },
+              });
+
+              totals.update += 1;
+            } else if (row.action === ImportRowAction.CREATE) {
+              const description =
+                typeof payload.description === 'string'
+                  ? payload.description.trim()
+                  : supplierArticleNo;
+              const unit =
+                typeof payload.unit === 'string' && payload.unit.trim()
+                  ? payload.unit.trim()
+                  : 'pcs';
+              const ean =
+                typeof payload.ean === 'string' && payload.ean.trim()
+                  ? payload.ean.trim()
+                  : null;
+
+              const createdItem = await tx.catalogItem.create({
+                data: {
+                  tenant_id: tenantId,
+                  sku: supplierArticleNo,
+                  name: description,
+                  cost_price: newCost,
+                  retail_price: newRetail,
+                  unit,
+                  brand_id:
+                    payload.brand_id != null ? Number(payload.brand_id) : null,
+                  ean,
+                  source_system: job.source_system,
+                },
+              });
+
+              await tx.vendorArticle.upsert({
+                where: {
+                  tenant_id_vendor_id_vendor_article_no: {
+                    tenant_id: tenantId,
+                    vendor_id: vendor.id,
+                    vendor_article_no: supplierArticleNo,
+                  },
+                },
+                create: {
+                  tenant_id: tenantId,
+                  vendor_id: vendor.id,
+                  catalog_item_id: createdItem.id,
+                  vendor_article_no: supplierArticleNo,
+                  last_cost: newCost,
+                  last_rrp: rrp,
+                },
+                update: {
+                  catalog_item_id: createdItem.id,
+                  last_cost: newCost,
+                  last_rrp: rrp,
+                },
+              });
+
+              await tx.catalogPriceHistory.create({
+                data: {
+                  tenant_id: tenantId,
+                  catalog_item_id: createdItem.id,
+                  old_cost: null,
+                  new_cost: newCost,
+                  old_retail: null,
+                  new_retail: newRetail,
+                  import_job_id: job.id,
+                },
+              });
+
+              await tx.importJobRow.update({
+                where: {
+                  tenant_id_import_job_id_row_no: {
+                    tenant_id: tenantId,
+                    import_job_id: job.id,
+                    row_no: row.row_no,
+                  },
+                },
+                data: {
+                  entity_id: createdItem.id,
+                },
+              });
+
+              totals.create += 1;
+            }
+          }
+
+          const appliedJob = await tx.importJob.update({
+            where: { id: job.id },
+            data: {
+              status: ImportJobStatus.APPLIED,
+              appliedAt: new Date(),
+              totals_json: totals,
+              options_json: options,
+            },
+          });
+
+          const authUser = this.tenantContext.getAuthenticatedUser();
+          await tx.auditLog.create({
+            data: {
+              tenant_id: tenantId,
+              entity_type: 'ImportJob',
+              entity_id: job.id,
+              action: AuditLogAction.UPDATE,
+              actor_user_id: actorUserId,
+              actor_email: authUser?.email ?? null,
+              actor_role: authUser?.role ?? null,
+              actor_type: AuditActorType.USER,
+              source: IMPORT_SOURCE,
+              after: {
+                event: 'import_job.applied',
+                importJobId: job.id,
+                totals,
+              },
+            },
+          });
+
+          return appliedJob;
+        },
+        { timeout: 60000, maxWait: 10000 },
+      );
+
+      return this.serializeJob(updatedJob, totals);
+    } catch (error) {
+      await this.prisma.importJob.update({
+        where: { id: job.id },
+        data: { status: ImportJobStatus.FAILED, totals_json: totals },
+      });
+      throw error;
+    }
+  }
+
   getTemplate(entityType: ImportEntityType) {
     assertTenantAdmin(this.tenantContext);
     const template = getImportTemplate(entityType);
@@ -457,12 +777,31 @@ export class ImportService {
     };
   }
 
-  private normalizeOptions(options: ImportJobOptions): ImportJobOptions {
+  private normalizeOptions(options?: ImportJobOptions): ImportJobOptions {
+    if (!options) {
+      return {};
+    }
     return {
       update_existing: options.update_existing === true,
       fill_empty_only: options.fill_empty_only === true,
       allow_missing_vin: options.allow_missing_vin === true,
       invalid_vat_as_error: options.invalid_vat_as_error === true,
+      create_new_catalog_items: options.create_new_catalog_items === true,
+      accept_all_price_jumps: options.accept_all_price_jumps === true,
+      accepted_row_numbers: Array.isArray(options.accepted_row_numbers)
+        ? options.accepted_row_numbers
+            .map((n) => Number(n))
+            .filter((n) => Number.isFinite(n))
+        : undefined,
+      price_jump_threshold_percent:
+        typeof options.price_jump_threshold_percent === 'number' &&
+        Number.isFinite(options.price_jump_threshold_percent)
+          ? options.price_jump_threshold_percent
+          : undefined,
+      vendor_id:
+        typeof options.vendor_id === 'string' && options.vendor_id.trim()
+          ? options.vendor_id.trim()
+          : undefined,
     };
   }
 
@@ -483,7 +822,16 @@ export class ImportService {
         parsed,
       );
     }
-    return this.runVehicleDryRun(
+    if (entityType === ImportEntityType.VEHICLE) {
+      return this.runVehicleDryRun(
+        tenantId,
+        sourceSystem,
+        mapping,
+        options,
+        parsed,
+      );
+    }
+    return this.runSupplierPriceListDryRun(
       tenantId,
       sourceSystem,
       mapping,
@@ -652,6 +1000,233 @@ export class ImportService {
           rowNo,
           normalized.row,
           context,
+          options,
+          normalized.warnings,
+        ),
+      );
+    }
+    return results;
+  }
+
+  private async resolveAndValidateVendor(
+    tenantId: string,
+    sourceSystem: string,
+    vendorIdOption?: string,
+  ): Promise<{ id: string; name: string }> {
+    const candidate = vendorIdOption?.trim() || sourceSystem?.trim();
+    if (!candidate) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
+        message: 'Valid vendor is required for supplier price list import',
+      });
+    }
+
+    let vendor = await this.prisma.vendor.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: candidate,
+      },
+      select: { id: true, name: true },
+    });
+
+    if (!vendor) {
+      vendor = await this.prisma.vendor.findFirst({
+        where: {
+          tenant_id: tenantId,
+          OR: [{ name: candidate }, { account_number: candidate }],
+        },
+        select: { id: true, name: true },
+      });
+    }
+
+    if (!vendor) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
+        message: 'Valid vendor is required for supplier price list import',
+      });
+    }
+
+    return vendor;
+  }
+
+  private async runSupplierPriceListDryRun(
+    tenantId: string,
+    sourceSystem: string,
+    mapping: Record<string, string>,
+    options: ImportJobOptions,
+    parsed: ReturnType<typeof parseCsvFile>,
+  ): Promise<DryRunRowResult[]> {
+    const vendor = await this.resolveAndValidateVendor(
+      tenantId,
+      sourceSystem,
+      options.vendor_id,
+    );
+
+    const [marginRules, brands, financeSettings, catalogItems, vendorArticles] =
+      await Promise.all([
+        this.prisma.marginRule.findMany({
+          where: { tenant_id: tenantId, is_active: true },
+          orderBy: { priority: 'asc' },
+        }),
+        this.prisma.brand.findMany({
+          where: { tenant_id: tenantId },
+          select: { id: true, name: true, normalized_name: true },
+        }),
+        this.prisma.financeSettings.findFirst({
+          where: { tenant_id: tenantId },
+          select: { price_jump_threshold_percent: true },
+        }),
+        this.prisma.catalogItem.findMany({
+          where: { tenant_id: tenantId },
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            cost_price: true,
+            retail_price: true,
+            ean: true,
+            brand_id: true,
+            revenue_group_id: true,
+          },
+        }),
+        this.prisma.vendorArticle.findMany({
+          where: { tenant_id: tenantId, vendor_id: vendor.id },
+          include: {
+            catalog_item: {
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                cost_price: true,
+                retail_price: true,
+                ean: true,
+                brand_id: true,
+                revenue_group_id: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+    const catalogItemBySku = new Map<string, SupplierPriceListCatalogItem>();
+    const catalogItemByEan = new Map<string, SupplierPriceListCatalogItem>();
+    const catalogItemById = new Map<string, SupplierPriceListCatalogItem>();
+
+    for (const item of catalogItems) {
+      const dto: SupplierPriceListCatalogItem = {
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        cost_price: item.cost_price != null ? Number(item.cost_price) : null,
+        retail_price: Number(item.retail_price),
+        ean: item.ean,
+        brand_id: item.brand_id,
+        revenue_group_id: item.revenue_group_id,
+      };
+      catalogItemById.set(item.id, dto);
+      const sku = item.sku.trim();
+      catalogItemBySku.set(sku, dto);
+      catalogItemBySku.set(sku.toUpperCase(), dto);
+      if (item.ean && item.ean.trim().length > 0) {
+        catalogItemByEan.set(item.ean.trim(), dto);
+      }
+    }
+
+    const catalogItemByVendorArticleNo = new Map<
+      string,
+      SupplierPriceListCatalogItem
+    >();
+    for (const va of vendorArticles) {
+      const itemDto =
+        catalogItemById.get(va.catalog_item_id) ??
+        (va.catalog_item
+          ? {
+              id: va.catalog_item.id,
+              sku: va.catalog_item.sku,
+              name: va.catalog_item.name,
+              cost_price:
+                va.catalog_item.cost_price != null
+                  ? Number(va.catalog_item.cost_price)
+                  : null,
+              retail_price: Number(va.catalog_item.retail_price),
+              ean: va.catalog_item.ean,
+              brand_id: va.catalog_item.brand_id,
+              revenue_group_id: va.catalog_item.revenue_group_id,
+            }
+          : null);
+      if (itemDto) {
+        const artNo = va.vendor_article_no.trim();
+        catalogItemByVendorArticleNo.set(artNo, itemDto);
+        catalogItemByVendorArticleNo.set(artNo.toUpperCase(), itemDto);
+      }
+    }
+
+    const brandByName = new Map<string, { id: number; name: string }>();
+    for (const b of brands) {
+      const entry = { id: b.id, name: b.name };
+      brandByName.set(b.name.trim().toLowerCase(), entry);
+      if (b.normalized_name) {
+        brandByName.set(b.normalized_name.trim().toLowerCase(), entry);
+      }
+    }
+
+    const marginRuleItems: MarginRuleItem[] = marginRules.map((r) => ({
+      id: r.id,
+      priority: r.priority,
+      brand_id: r.brand_id,
+      revenue_group_id: r.revenue_group_id,
+      cost_min: r.cost_min != null ? Number(r.cost_min) : null,
+      cost_max: r.cost_max != null ? Number(r.cost_max) : null,
+      markup_percent:
+        r.markup_percent != null ? Number(r.markup_percent) : null,
+      use_supplier_rrp: r.use_supplier_rrp,
+      rounding: r.rounding,
+      is_active: r.is_active,
+    }));
+
+    const priceJumpThresholdPercent =
+      options.price_jump_threshold_percent ??
+      (financeSettings?.price_jump_threshold_percent != null
+        ? Number(financeSettings.price_jump_threshold_percent)
+        : 20);
+
+    const matchContext: SupplierPriceListMatchContext = {
+      catalogItemByEan,
+      catalogItemByVendorArticleNo,
+      catalogItemBySku,
+      catalogItemById,
+      brandByName,
+      marginRules: marginRuleItems,
+      priceJumpThresholdPercent,
+      articleNoSeenInFile: new Map<string, number>(),
+    };
+
+    const results: DryRunRowResult[] = [];
+    for (let index = 0; index < parsed.rows.length; index += 1) {
+      const rowNo = index + 1;
+      const record = rowToRecord(parsed.headers, parsed.rows[index]);
+      const normalized = normalizeSupplierPriceListRow(
+        record,
+        mapping,
+        options,
+      );
+      if (!normalized.row) {
+        results.push({
+          row_no: rowNo,
+          external_id: record[mapping.supplier_article_no ?? ''] ?? null,
+          action: ImportRowAction.ERROR,
+          entity_id: null,
+          errors: normalized.issues,
+          warnings: normalized.warnings,
+          normalized: null,
+        });
+        continue;
+      }
+      results.push(
+        planSupplierPriceListDryRunRow(
+          rowNo,
+          normalized.row,
+          matchContext,
           options,
           normalized.warnings,
         ),
