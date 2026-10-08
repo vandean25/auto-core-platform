@@ -124,6 +124,14 @@ describe('HR Work Schedule API (e2e)', () => {
         userId: adminUser.id,
         role: 'ADMIN',
       });
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: adminUser.id,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
       adminToken = authService.createTestToken({
         sub: adminUser.firebaseUid,
         email: adminUser.email,
