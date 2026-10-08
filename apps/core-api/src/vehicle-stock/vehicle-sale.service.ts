@@ -14,6 +14,7 @@ import {
   VehicleStockStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
+  AuditLogAction,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -33,6 +34,11 @@ import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
 import { daysInStock } from './vehicle-stock-reports.math.js';
+import { AuditService } from '../audit/audit.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
+import { computeGewaehrleistung } from './gewaehrleistung/compute-gewaehrleistung.js';
+import { resolveGewaehrleistungRuleSet } from './gewaehrleistung/gewaehrleistung-rule-sets.js';
+import type { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 
@@ -51,12 +57,18 @@ export class VehicleSaleService {
     private readonly siteContext: SiteContextService,
     private readonly ledger: VehicleLedgerService,
     private readonly snapshotCommit: InvoiceSnapshotCommitService,
+    private readonly auditService: AuditService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async create(dto: CreateVehicleSaleDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    await this.assertSellable(tenantId, dto.vehicle_id, dto.customer_id);
+    const buyer = await this.assertSellable(
+      tenantId,
+      dto.vehicle_id,
+      dto.customer_id,
+    );
 
     // Verify vehicle's lot belongs to the active site
     const vehicle = await this.prisma.vehicle.findFirst({
@@ -69,6 +81,18 @@ export class VehicleSaleService {
       );
     }
 
+    const warrantyFacts = {
+      contract_concluded_at: dto.contract_concluded_at ?? null,
+      handed_over_at: dto.handed_over_at ?? null,
+      buyer_is_consumer: dto.buyer_is_consumer ?? buyer.type === 'PRIVATE',
+      gewaehrleistung_shortened_negotiated:
+        dto.gewaehrleistung_shortened_negotiated ?? false,
+      gewaehrleistung_note: dto.gewaehrleistung_note ?? null,
+    };
+    const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+      warrantyFacts,
+      vehicle.first_registration_date,
+    );
     const saleNumber = await this.nextSaleNumber(tenantId);
     return this.prisma.$transaction(async (tx) => {
       await lockSitesAndAssertActive(tx, tenantId, [siteId]);
@@ -81,6 +105,8 @@ export class VehicleSaleService {
           vehicle_id: dto.vehicle_id,
           customer_id: dto.customer_id,
           sale_price: new Prisma.Decimal(dto.sale_price),
+          ...warrantyFacts,
+          ...warrantySnapshot,
         },
       });
     });
@@ -163,6 +189,31 @@ export class VehicleSaleService {
       await this.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
     }
 
+    const warrantyFacts = {
+      contract_concluded_at:
+        dto.contract_concluded_at !== undefined
+          ? dto.contract_concluded_at
+          : sale.contract_concluded_at,
+      handed_over_at:
+        dto.handed_over_at !== undefined
+          ? dto.handed_over_at
+          : sale.handed_over_at,
+      buyer_is_consumer:
+        dto.buyer_is_consumer ?? sale.buyer_is_consumer ?? false,
+      gewaehrleistung_shortened_negotiated:
+        dto.gewaehrleistung_shortened_negotiated ??
+        sale.gewaehrleistung_shortened_negotiated ??
+        false,
+      gewaehrleistung_note:
+        dto.gewaehrleistung_note !== undefined
+          ? dto.gewaehrleistung_note
+          : sale.gewaehrleistung_note,
+    };
+    const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+      warrantyFacts,
+      sale.vehicle?.first_registration_date ?? null,
+    );
+
     await this.prisma.$transaction(async (tx) => {
       if (isRetargeting) {
         await lockSitesAndAssertActive(
@@ -178,6 +229,8 @@ export class VehicleSaleService {
           dto.sale_price !== undefined
             ? new Prisma.Decimal(dto.sale_price)
             : undefined,
+        ...warrantyFacts,
+        ...warrantySnapshot,
       };
       if (isRetargeting) {
         updateData.site_id = targetSiteId;
@@ -201,6 +254,106 @@ export class VehicleSaleService {
       }
     });
 
+    return this.findOne(id);
+  }
+
+  async correctGewaehrleistungSnapshot(
+    id: string,
+    dto: CorrectGewaehrleistungSnapshotDto,
+  ) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    await this.prisma.$transaction(async (tx) => {
+      const sale = await tx.vehicleSale.findFirst({
+        where: {
+          id,
+          tenant_id: tenantId,
+          site_id: { in: authorizedSiteIds },
+          status: VehicleSaleStatus.INVOICED,
+        },
+        include: { vehicle: true },
+      });
+      if (!sale) {
+        throw new NotFoundException(`Vehicle sale ${id} not found`);
+      }
+
+      const warrantyFacts = {
+        contract_concluded_at:
+          dto.contract_concluded_at !== undefined
+            ? dto.contract_concluded_at
+            : sale.contract_concluded_at,
+        handed_over_at:
+          dto.handed_over_at !== undefined
+            ? dto.handed_over_at
+            : sale.handed_over_at,
+        buyer_is_consumer: dto.buyer_is_consumer,
+        gewaehrleistung_shortened_negotiated:
+          dto.gewaehrleistung_shortened_negotiated,
+        gewaehrleistung_note:
+          dto.gewaehrleistung_note !== undefined
+            ? dto.gewaehrleistung_note
+            : sale.gewaehrleistung_note,
+      };
+      const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+        warrantyFacts,
+        sale.vehicle.first_registration_date,
+      );
+      const before = {
+        input: this.toGewaehrleistungInput(sale),
+        snapshot: this.toGewaehrleistungSnapshot(sale),
+        reason: null,
+      };
+      const after = {
+        input: warrantyFacts,
+        snapshot: warrantySnapshot,
+        reason: dto.reason.trim(),
+      };
+      if (!after.reason) {
+        throw new UnprocessableEntityException(
+          'Ein Korrekturgrund ist erforderlich.',
+        );
+      }
+
+      const updated = await tx.vehicleSale.updateMany({
+        where: {
+          id,
+          tenant_id: tenantId,
+          site_id: { in: authorizedSiteIds },
+          status: VehicleSaleStatus.INVOICED,
+        },
+        data: { ...warrantyFacts, ...warrantySnapshot },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException(
+          'Vehicle sale state or site changed concurrently. Please refresh.',
+        );
+      }
+
+      const authUser = this.tenantContext.getAuthenticatedUser();
+      const actor = authUser?.userId
+        ? await tx.user.findFirst({
+            where: {
+              firebaseUid: authUser.userId,
+              active_tenant_id: tenantId,
+            },
+            select: { id: true },
+          })
+        : null;
+
+      await this.auditService.recordTenantMutation(
+        {
+          entityType: 'VehicleSale',
+          entityId: sale.id,
+          action: AuditLogAction.UPDATE,
+          actorUserId: actor?.id,
+          source: this.requestContext.getSource() ?? 'API',
+          before,
+          after,
+          diff: { reason: after.reason },
+        },
+        tx,
+      );
+    });
     return this.findOne(id);
   }
 
@@ -483,6 +636,66 @@ export class VehicleSaleService {
     if (!buyer) {
       throw new NotFoundException(`Customer ${buyerId} not found`);
     }
+    return buyer;
+  }
+
+  private computeGewaehrleistungSnapshot(
+    input: {
+      contract_concluded_at: Date | null;
+      handed_over_at: Date | null;
+      buyer_is_consumer: boolean;
+      gewaehrleistung_shortened_negotiated: boolean;
+    },
+    firstRegistrationDate: Date | null,
+  ) {
+    const ruleSet =
+      input.contract_concluded_at && input.handed_over_at
+        ? resolveGewaehrleistungRuleSet(input.contract_concluded_at)
+        : null;
+    const result = computeGewaehrleistung({
+      contractConcludedAt: input.contract_concluded_at,
+      handedOverAt: input.handed_over_at,
+      buyerIsConsumer: input.buyer_is_consumer,
+      shortenedNegotiated: input.gewaehrleistung_shortened_negotiated,
+      firstRegistrationDate,
+    });
+    if (result.error) {
+      throw new UnprocessableEntityException(result.error);
+    }
+    return {
+      gewaehrleistung_ends_on: result.baseEndsOn,
+      presumption_ends_on: result.presumptionEndsOn,
+      gewaehrleistung_rule_version: ruleSet?.id ?? result.ruleVersion,
+    };
+  }
+
+  private toGewaehrleistungInput(sale: {
+    contract_concluded_at: Date | null;
+    handed_over_at: Date | null;
+    buyer_is_consumer: boolean | null;
+    gewaehrleistung_shortened_negotiated: boolean | null;
+    gewaehrleistung_note: string | null;
+  }) {
+    return {
+      contract_concluded_at: sale.contract_concluded_at,
+      handed_over_at: sale.handed_over_at,
+      buyer_is_consumer: sale.buyer_is_consumer,
+      gewaehrleistung_shortened_negotiated:
+        sale.gewaehrleistung_shortened_negotiated,
+      gewaehrleistung_note: sale.gewaehrleistung_note,
+    };
+  }
+
+  private toGewaehrleistungSnapshot(sale: {
+    gewaehrleistung_ends_on: Date | null;
+    presumption_ends_on: Date | null;
+    gewaehrleistung_rule_version: string | null;
+  }) {
+    return {
+      gewaehrleistung_ends_on: sale.gewaehrleistung_ends_on,
+      presumption_ends_on: sale.presumption_ends_on,
+      gewaehrleistung_rule_version: sale.gewaehrleistung_rule_version,
+    };
   }
 
   private async nextSaleNumber(tenantId: string) {

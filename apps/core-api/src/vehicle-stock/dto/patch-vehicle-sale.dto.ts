@@ -1,5 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsUUID, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsDate,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PatchVehicleSaleDto {
@@ -35,4 +44,33 @@ export class PatchVehicleSaleDto {
   @IsOptional()
   @IsUUID()
   expectedSiteId?: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @Type(() => Date)
+  @IsOptional()
+  @ValidateIf((_, value) => value != null)
+  @IsDate()
+  contract_concluded_at?: Date | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @Type(() => Date)
+  @IsOptional()
+  @ValidateIf((_, value) => value != null)
+  @IsDate()
+  handed_over_at?: Date | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  buyer_is_consumer?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  gewaehrleistung_shortened_negotiated?: boolean;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  gewaehrleistung_note?: string | null;
 }

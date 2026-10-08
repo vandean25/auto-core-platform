@@ -153,6 +153,120 @@ describe('Vehicle stock trading (e2e)', () => {
     return { purchase: createRes.body, received: receiveRes.body };
   }
 
+  it('captures, refreshes, protects, and audits Gewaehrleistung sale snapshots', async () => {
+    const { received } = await createAndReceive({
+      vin: vin('GEWAEHRLEISTUNG'),
+      sellerType: 'VENDOR',
+    });
+    const created = await request(app.getHttpServer())
+      .post('/api/vehicle-sales')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vehicle_id: received.vehicle_id,
+        customer_id: buyerId,
+        sale_price: 12000,
+        contract_concluded_at: '2026-10-02',
+        handed_over_at: '2026-10-08',
+      })
+      .expect(201);
+
+    expect(created.body).toMatchObject({
+      buyer_is_consumer: true,
+      gewaehrleistung_shortened_negotiated: false,
+      gewaehrleistung_ends_on: '2028-10-08T00:00:00.000Z',
+      presumption_ends_on: '2027-10-08T00:00:00.000Z',
+      gewaehrleistung_rule_version: 'at-used-vehicle-vgg-2026-10-v2',
+    });
+
+    const patched = await request(app.getHttpServer())
+      .patch(`/api/vehicle-sales/${created.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ handed_over_at: '2026-10-10' })
+      .expect(200);
+    expect(patched.body.gewaehrleistung_ends_on).toBe('2028-10-10T00:00:00.000Z');
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${created.body.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-sales/${created.body.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ handed_over_at: '2026-10-11' })
+      .expect(422);
+
+    await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${created.body.id}/gewaehrleistung-correction`)
+      .set('Authorization', `Bearer ${otherAuthToken}`)
+      .send({
+        reason: 'Cross-tenant access check',
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+      })
+      .expect(404);
+
+    const persisted = await prisma.vehicleSale.findFirstOrThrow({
+      where: { id: created.body.id },
+      select: { site_id: true },
+    });
+    await prisma.siteMembership.updateMany({
+      where: { site_id: persisted.site_id },
+      data: { is_active: false },
+    });
+    try {
+      await request(app.getHttpServer())
+        .post(`/api/vehicle-sales/${created.body.id}/gewaehrleistung-correction`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          reason: 'Cross-site access check',
+          buyer_is_consumer: true,
+          gewaehrleistung_shortened_negotiated: false,
+        })
+        .expect(404);
+    } finally {
+      await prisma.siteMembership.updateMany({
+        where: { site_id: persisted.site_id },
+        data: { is_active: true },
+      });
+    }
+
+    const corrected = await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${created.body.id}/gewaehrleistung-correction`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        reason: 'Übergabedatum wurde berichtigt',
+        handed_over_at: '2026-10-11',
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+      })
+      .expect(201);
+    expect(corrected.body.gewaehrleistung_ends_on).toBe('2028-10-11T00:00:00.000Z');
+
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: {
+        tenant_id: tenantId,
+        entity_type: 'VehicleSale',
+        entity_id: created.body.id,
+      },
+      orderBy: { occurred_at: 'desc' },
+    });
+    const actor = await prisma.user.findFirstOrThrow({
+      where: { active_tenant_id: tenantId },
+      select: { id: true },
+    });
+    expect(audit).toMatchObject({
+      action: 'UPDATE',
+      actor_user_id: actor.id,
+      source: 'API',
+      before: expect.objectContaining({ snapshot: expect.any(Object) }),
+      after: expect.objectContaining({
+        reason: 'Übergabedatum wurde berichtigt',
+        snapshot: expect.any(Object),
+      }),
+    });
+  });
+
   async function createAdditionalLotSite(options: {
     code: string;
     isActive?: boolean;

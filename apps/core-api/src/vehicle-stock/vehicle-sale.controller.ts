@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { VehicleSaleService } from './vehicle-sale.service.js';
 import { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
+import { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
 
 @ApiTags('vehicle-sales')
 @Controller('vehicle-sales')
@@ -27,5 +28,13 @@ export class VehicleSaleController {
   @Post(':id/finalize')
   finalize(@Param('id') id: string) {
     return this.sales.finalize(id);
+  }
+
+  @Post(':id/gewaehrleistung-correction')
+  correctGewaehrleistungSnapshot(
+    @Param('id') id: string,
+    @Body() dto: CorrectGewaehrleistungSnapshotDto,
+  ) {
+    return this.sales.correctGewaehrleistungSnapshot(id, dto);
   }
 }
