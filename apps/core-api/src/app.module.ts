@@ -55,6 +55,7 @@ import { AgentProposalModule } from './agent-proposal/agent-proposal.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { DecisionModule } from './decision/decision.module.js';
 import { DryRunModule } from './dry-run/dry-run.module.js';
+import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
 
 @Module({
   imports: [
@@ -98,6 +99,7 @@ import { DryRunModule } from './dry-run/dry-run.module.js';
     DocumentBrandingModule,
     ImportModule,
     TyreStorageModule,
+    MarginRuleModule,
     AgentPolicyModule,
     AgentProposalModule,
     McpModule,
