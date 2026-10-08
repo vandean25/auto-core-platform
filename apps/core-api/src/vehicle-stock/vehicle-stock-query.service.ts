@@ -475,7 +475,10 @@ export class VehicleStockQueryService {
         },
         location: true,
         purchases: { orderBy: { createdAt: 'desc' } },
-        sales: { orderBy: { createdAt: 'desc' } },
+        sales: {
+          where: { tenant_id: tenantId, site_id: siteId },
+          orderBy: { createdAt: 'desc' },
+        },
         ledger_entries: { orderBy: { createdAt: 'asc' } },
         workshop_orders: {
           where: { site_id: siteId, purpose: 'STOCK_PREP' },

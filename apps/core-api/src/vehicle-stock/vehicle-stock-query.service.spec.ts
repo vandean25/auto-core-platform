@@ -175,6 +175,25 @@ describe('VehicleStockQueryService', () => {
       );
     });
 
+    it('limits nested sales to the current tenant and active site', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue({
+        id: 'vehicle-1',
+        ledger_entries: [],
+      });
+
+      await service.detail('vehicle-1');
+
+      expect(prisma.vehicle.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.objectContaining({
+            sales: expect.objectContaining({
+              where: { tenant_id: tenantId, site_id: 'site-1' },
+            }),
+          }),
+        }),
+      );
+    });
+
     it('limits stock detail lookup to the active site lot', async () => {
       prisma.vehicle.findFirst.mockResolvedValue(null);
 
