@@ -2,7 +2,7 @@
 title: "Gewährleistung tracker on sold vehicles (AUT-408)"
 date: "2026-10-08"
 module: "Vehicle"
-status: implemented-pending-legal-review
+status: implemented-legal-confirmed-pending-backend-e2e
 linear-project: "Austria Market Roadmap"
 linear-milestone: "E4"
 tags:
@@ -37,7 +37,7 @@ The engine is a pure, time-independent, versioned function, following the Picker
 | Missing handover | No computed snapshots. |
 | Leap-day handover | Calendar-year addition is deterministic and covered by unit tests. |
 
-Every computed record stores rule source and version. Initial source set: WKO, “Verkauf von Gebrauchtwagen”, and RIS BGBl I 175/2021 (GRUG 2022). Current rule text and applicability require Legal Researcher confirmation before merge.
+Every computed record stores rule source and version. Initial source set: WKO, “Verkauf von Gebrauchtwagen”, and RIS BGBl I 175/2021 (GRUG 2022). The user confirmed the legal review on 2026-10-08.
 
 ### Implemented calculation decisions
 
@@ -168,8 +168,10 @@ Validation errors use stable machine codes and German user-facing messages for m
 ### Contract and CI
 
 - [x] Regenerate OpenAPI and frontend types; `npm --prefix apps/core-api run openapi:check` passes.
-- [ ] `npm run ci` (Windows run is blocked by a pre-existing LF/CRLF assertion; the parallel run also timed out two PDF parser tests. Serial backend run passed 326/327 suites, with only the newline assertion failing; all 853 frontend tests pass.)
+- [x] `npm run ci` passed on Windows (backend unit: 327 suites / 3,060 tests; frontend unit: 150 files / 853 tests; lint and builds passed).
 - [x] `npm --prefix apps/core-api run openapi:check`
+- [x] `npm run test:e2e --workspace=core-web` (112 passed, 4 skipped).
+- [ ] Backend E2E is blocked by Node heap exhaustion (6 GB and 8 GB serial runs); no final Jest summary was produced.
 
 ## Impact Analysis
 
