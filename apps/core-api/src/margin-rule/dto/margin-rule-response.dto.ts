@@ -34,13 +34,13 @@ export class MarginRuleResponseDto {
   @ApiProperty({ example: 0 })
   priority!: number;
 
-  @ApiPropertyOptional({ example: 1, nullable: true })
+  @ApiPropertyOptional({ type: Number, example: 1, nullable: true })
   brand_id!: number | null;
 
   @ApiPropertyOptional({ type: () => MarginRuleBrandDto, nullable: true })
   brand?: MarginRuleBrandDto | null;
 
-  @ApiPropertyOptional({ example: 1, nullable: true })
+  @ApiPropertyOptional({ type: Number, example: 1, nullable: true })
   revenue_group_id!: number | null;
 
   @ApiPropertyOptional({
@@ -49,13 +49,13 @@ export class MarginRuleResponseDto {
   })
   revenue_group?: MarginRuleRevenueGroupDto | null;
 
-  @ApiPropertyOptional({ example: 10.0, nullable: true })
+  @ApiPropertyOptional({ type: Number, example: 10.0, nullable: true })
   cost_min!: number | null;
 
-  @ApiPropertyOptional({ example: 100.0, nullable: true })
+  @ApiPropertyOptional({ type: Number, example: 100.0, nullable: true })
   cost_max!: number | null;
 
-  @ApiPropertyOptional({ example: 35.0, nullable: true })
+  @ApiPropertyOptional({ type: Number, example: 35.0, nullable: true })
   markup_percent!: number | null;
 
   @ApiProperty({ example: false })

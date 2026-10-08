@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 
-export type ImportEntityType = components['schemas']['ImportEntityType']
+export type ImportEntityType =
+  | components['schemas']['ImportEntityType']
+  | 'SUPPLIER_PRICE_LIST'
 export type ImportJob = components['schemas']['ImportJobResponseDto']
 export type ImportJobRow = components['schemas']['ImportJobRowDto']
 export type ImportTemplate = components['schemas']['ImportTemplateResponseDto']
@@ -25,6 +27,11 @@ export type ImportWizardOptions = {
   fill_empty_only?: boolean
   allow_missing_vin?: boolean
   invalid_vat_as_error?: boolean
+  create_new_catalog_items?: boolean
+  accept_all_price_jumps?: boolean
+  accepted_row_numbers?: number[]
+  price_jump_threshold_percent?: number
+  vendor_id?: string
 }
 
 export const IMPORT_ROWS_PAGE_LIMIT = 200
@@ -175,11 +182,26 @@ export function useImportJobRows(
   })
 }
 
+export type ApplyImportJobPayload =
+  | string
+  | {
+      jobId: string
+      options?: {
+        accept_all_price_jumps?: boolean
+        accepted_row_numbers?: number[]
+      }
+    }
+
 export function useApplyImportJob() {
   return useMutation({
-    mutationFn: async (jobId: string) => {
+    mutationFn: async (payload: ApplyImportJobPayload) => {
+      const jobId = typeof payload === 'string' ? payload : payload.jobId
+      const options = typeof payload === 'string' ? undefined : payload.options
+
       const response = await fetchWithAuth(`/api/imports/${jobId}/apply`, {
         method: 'POST',
+        headers: options ? { 'Content-Type': 'application/json' } : undefined,
+        body: options ? JSON.stringify(options) : undefined,
       })
       if (!response.ok) {
         throw new Error(await readErrorMessage(response, 'Failed to apply import'))

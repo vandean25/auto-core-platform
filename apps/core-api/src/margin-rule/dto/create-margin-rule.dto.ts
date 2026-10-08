@@ -22,8 +22,8 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Rule priority (lowest number evaluated first)',
+    type: Number,
     example: 0,
-    default: 0,
   })
   @IsOptional()
   @IsInt()
@@ -32,6 +32,7 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Optional Brand ID to scope this rule to',
+    type: Number,
     example: 1,
     nullable: true,
   })
@@ -41,6 +42,7 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Optional Revenue Group ID to scope this rule to',
+    type: Number,
     example: 1,
     nullable: true,
   })
@@ -50,6 +52,7 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Minimum cost price for rule to apply',
+    type: Number,
     example: 0,
     nullable: true,
   })
@@ -60,6 +63,7 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Maximum cost price for rule to apply',
+    type: Number,
     example: 100,
     nullable: true,
   })
@@ -70,6 +74,7 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Markup percentage to add to cost',
+    type: Number,
     example: 30.0,
     nullable: true,
   })
@@ -80,8 +85,8 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Whether to use supplier recommended retail price (UVP)',
+    type: Boolean,
     example: false,
-    default: false,
   })
   @IsOptional()
   @IsBoolean()
@@ -90,8 +95,8 @@ export class CreateMarginRuleDto {
   @ApiPropertyOptional({
     description: 'Price rounding strategy',
     enum: MarginRoundingStrategy,
+    enumName: 'MarginRoundingStrategy',
     example: MarginRoundingStrategy.NONE,
-    default: MarginRoundingStrategy.NONE,
   })
   @IsOptional()
   @IsEnum(MarginRoundingStrategy)
@@ -99,8 +104,8 @@ export class CreateMarginRuleDto {
 
   @ApiPropertyOptional({
     description: 'Whether the rule is active',
+    type: Boolean,
     example: true,
-    default: true,
   })
   @IsOptional()
   @IsBoolean()

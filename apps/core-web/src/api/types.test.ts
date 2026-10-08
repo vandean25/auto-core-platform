@@ -23,6 +23,11 @@ import type {
   Vendor,
   WorkshopPickPartsPayload,
   WorkshopPickPartsResponse,
+  MarginRule,
+  PriceJumpThreshold,
+  CreateMarginRulePayload,
+  UpdateMarginRulePayload,
+  UpdatePriceJumpThresholdPayload,
 } from './types'
 import type { components } from './generated/openapi'
 
@@ -66,6 +71,16 @@ export type OpenApiAliasChecks = [
   ExpectTrue<Equal<WorkshopPickPartsPayload, Schemas['PickWorkshopPartsDto']>>,
   ExpectTrue<
     Equal<WorkshopPickPartsResponse, Schemas['PickWorkshopPartsResponseDto']>
+  >,
+  ExpectTrue<Equal<MarginRule, Schemas['MarginRuleResponseDto']>>,
+  ExpectTrue<Equal<PriceJumpThreshold, Schemas['PriceJumpThresholdResponseDto']>>,
+  ExpectTrue<Equal<CreateMarginRulePayload, Schemas['CreateMarginRuleDto']>>,
+  ExpectTrue<Equal<UpdateMarginRulePayload, Schemas['UpdateMarginRuleDto']>>,
+  ExpectTrue<
+    Equal<
+      UpdatePriceJumpThresholdPayload,
+      Schemas['UpdatePriceJumpThresholdDto']
+    >
   >,
 ]
 

@@ -139,3 +139,23 @@ export type CatalogAssemblyGroupNode = OpenApiSchemas['CatalogAssemblyGroupNodeD
 
 export type CreateWorkshopOrderPayload = OpenApiSchemas['CreateWorkshopOrderDto']
 export type RegisterIntakePayload = OpenApiSchemas['RegisterIntakeDto']
+
+export type MarginRule = OpenApiSchemas['MarginRuleResponseDto']
+export type MarginRoundingStrategy = MarginRule['rounding']
+export type CreateMarginRulePayload = OpenApiSchemas['CreateMarginRuleDto']
+export type UpdateMarginRulePayload = OpenApiSchemas['UpdateMarginRuleDto']
+export type PriceJumpThreshold = OpenApiSchemas['PriceJumpThresholdResponseDto']
+export type UpdatePriceJumpThresholdPayload =
+  OpenApiSchemas['UpdatePriceJumpThresholdDto']
+
+export interface VendorArticle {
+  id: string
+  tenant_id: string
+  vendor_id: string
+  catalog_item_id: string
+  vendor_article_no: string
+  last_cost?: number | string | null
+  last_rrp?: number | string | null
+  createdAt?: string
+  updatedAt?: string
+}
