@@ -1495,6 +1495,39 @@
         ]
       }
     },
+    "/api/vendors/{id}/articles": {
+      "get": {
+        "operationId": "VendorController_getArticles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VendorArticleResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor"
+        ]
+      }
+    },
     "/api/sales/invoices": {
       "post": {
         "operationId": "SalesController_createDraft",
@@ -13210,6 +13243,83 @@
       "UpdateVendorDto": {
         "type": "object",
         "properties": {}
+      },
+      "VendorArticleCatalogItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "item-uuid"
+          },
+          "sku": {
+            "type": "string",
+            "example": "0204114532"
+          },
+          "name": {
+            "type": "string",
+            "example": "Brake Pad Set"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name"
+        ]
+      },
+      "VendorArticleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "article-uuid"
+          },
+          "tenant_id": {
+            "type": "string",
+            "example": "tenant-uuid"
+          },
+          "vendor_id": {
+            "type": "string",
+            "example": "vendor-uuid"
+          },
+          "catalog_item_id": {
+            "type": "string",
+            "example": "item-uuid"
+          },
+          "vendor_article_no": {
+            "type": "string",
+            "example": "BOS-0204114532"
+          },
+          "last_cost": {
+            "type": "object",
+            "nullable": true,
+            "example": 45.5
+          },
+          "last_rrp": {
+            "type": "object",
+            "nullable": true,
+            "example": 89.9
+          },
+          "catalog_item": {
+            "$ref": "#/components/schemas/VendorArticleCatalogItemDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "vendor_id",
+          "catalog_item_id",
+          "vendor_article_no",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "CreateInvoiceItemDto": {
         "type": "object",

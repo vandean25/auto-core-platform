@@ -436,6 +436,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vendors/{id}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VendorController_getArticles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sales/invoices": {
         parameters: {
             query?: never;
@@ -4011,6 +4027,35 @@ export interface components {
         };
         CreateVendorDto: Record<string, never>;
         UpdateVendorDto: Record<string, never>;
+        VendorArticleCatalogItemDto: {
+            /** @example item-uuid */
+            id: string;
+            /** @example 0204114532 */
+            sku: string;
+            /** @example Brake Pad Set */
+            name: string;
+        };
+        VendorArticleResponseDto: {
+            /** @example article-uuid */
+            id: string;
+            /** @example tenant-uuid */
+            tenant_id: string;
+            /** @example vendor-uuid */
+            vendor_id: string;
+            /** @example item-uuid */
+            catalog_item_id: string;
+            /** @example BOS-0204114532 */
+            vendor_article_no: string;
+            /** @example 45.5 */
+            last_cost?: Record<string, never> | null;
+            /** @example 89.9 */
+            last_rrp?: Record<string, never> | null;
+            catalog_item?: components["schemas"]["VendorArticleCatalogItemDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         CreateInvoiceItemDto: {
             /** Format: uuid */
             catalogItemId?: string;
@@ -8942,6 +8987,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    VendorController_getArticles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorArticleResponseDto"][];
+                };
             };
         };
     };

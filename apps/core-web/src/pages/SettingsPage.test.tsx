@@ -264,6 +264,7 @@ describe('SettingsPage tab integration', () => {
     expect(screen.getByRole('tab', { name: 'Vehicle data' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Legal Entities' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Sites' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Margenregeln' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()

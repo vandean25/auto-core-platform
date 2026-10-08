@@ -156,6 +156,11 @@ export interface VendorArticle {
   vendor_article_no: string
   last_cost?: number | string | null
   last_rrp?: number | string | null
+  catalog_item?: {
+    id: string
+    sku: string
+    name: string
+  }
   createdAt?: string
   updatedAt?: string
 }

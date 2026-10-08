@@ -1,4 +1,4 @@
-export type ImportEntityTypeUi = 'CUSTOMER' | 'VEHICLE'
+export type ImportEntityTypeUi = 'CUSTOMER' | 'VEHICLE' | 'SUPPLIER_PRICE_LIST'
 
 export type ImportFieldDefinition = {
   key: string
@@ -191,8 +191,114 @@ export const VEHICLE_IMPORT_FIELDS: ImportFieldDefinition[] = [
   },
 ]
 
+export const SUPPLIER_PRICE_LIST_IMPORT_FIELDS: ImportFieldDefinition[] = [
+  {
+    key: 'supplier_article_no',
+    labelDe: 'Lieferanten-Artikelnummer',
+    labelEn: 'Supplier Article No.',
+    required: true,
+    headerAliases: [
+      'lieferanten-artikelnummer',
+      'lieferanten-artikelnr',
+      'lieferantenartikelnr',
+      'lieferantenartikelnummer',
+      'artikelnummer',
+      'artikelnr',
+      'art-nr',
+      'art.-nr.',
+      'artikelnr.',
+      'supplier article no',
+      'supplier article no.',
+      'supplier article number',
+      'supplier_article_no',
+      'part no',
+      'part number',
+      'item no',
+      'item_no',
+    ],
+  },
+  {
+    key: 'ean',
+    labelDe: 'EAN',
+    labelEn: 'EAN',
+    required: false,
+    headerAliases: ['ean', 'barcode', 'gtin', 'ean-code', 'ean code'],
+  },
+  {
+    key: 'description',
+    labelDe: 'Artikelbezeichnung',
+    labelEn: 'Description',
+    required: true,
+    headerAliases: [
+      'artikelbezeichnung',
+      'bezeichnung',
+      'beschreibung',
+      'description',
+      'name',
+      'artikelname',
+      'part description',
+    ],
+  },
+  {
+    key: 'brand',
+    labelDe: 'Markenname',
+    labelEn: 'Brand',
+    required: false,
+    headerAliases: ['markenname', 'marke', 'brand', 'hersteller', 'manufacturer'],
+  },
+  {
+    key: 'cost_price',
+    labelDe: 'Einkaufspreis (netto)',
+    labelEn: 'Cost Price',
+    required: true,
+    headerAliases: [
+      'einkaufspreis (netto)',
+      'einkaufspreis',
+      'ek',
+      'ek netto',
+      'ek-preis',
+      'ek preis',
+      'cost',
+      'cost price',
+      'cost_price',
+      'purchase price',
+      'net cost',
+    ],
+  },
+  {
+    key: 'rrp',
+    labelDe: 'UVP / RRP (brutto/netto)',
+    labelEn: 'RRP',
+    required: false,
+    headerAliases: [
+      'uvp / rrp (brutto/netto)',
+      'uvp',
+      'rrp',
+      'uvp brutto',
+      'uvp netto',
+      'uvp-preis',
+      'recommended retail price',
+      'list price',
+      'listenpreis',
+    ],
+  },
+  {
+    key: 'unit',
+    labelDe: 'Einheit',
+    labelEn: 'Unit',
+    required: false,
+    headerAliases: ['einheit', 'unit', 'vpe', 'uom', 'mengeneinheit'],
+  },
+]
+
 export function getImportFieldsForEntity(entityType: ImportEntityTypeUi): ImportFieldDefinition[] {
-  return entityType === 'VEHICLE' ? VEHICLE_IMPORT_FIELDS : CUSTOMER_IMPORT_FIELDS
+  if (entityType === 'VEHICLE') {
+    return VEHICLE_IMPORT_FIELDS
+  }
+  if (entityType === 'SUPPLIER_PRICE_LIST') {
+    return SUPPLIER_PRICE_LIST_IMPORT_FIELDS
+  }
+  return CUSTOMER_IMPORT_FIELDS
 }
 
 export function formatFieldLabel(field: ImportFieldDefinition): string {
@@ -202,3 +308,4 @@ export function formatFieldLabel(field: ImportFieldDefinition): string {
 export function bilingualLabel(english: string, german: string): string {
   return `${english} / ${german}`
 }
+

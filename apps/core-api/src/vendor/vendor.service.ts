@@ -218,4 +218,30 @@ export class VendorService {
 
     return vendor;
   }
+
+  async getArticles(vendorId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { id: vendorId, tenant_id: tenantId },
+    });
+    if (!vendor) {
+      throw new NotFoundException(`Vendor ${vendorId} not found`);
+    }
+
+    return this.prisma.vendorArticle.findMany({
+      where: { tenant_id: tenantId, vendor_id: vendorId },
+      include: {
+        catalog_item: {
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        vendor_article_no: 'asc',
+      },
+    });
+  }
 }

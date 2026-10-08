@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Mail, Package, ReceiptText, Tags } from 'lucide-react'
+import { ArrowLeft, FileUp, Mail, Package, ReceiptText, Tags } from 'lucide-react'
 import { toast } from 'sonner'
 import { useVendor, useUpdateVendor } from '@/api/vendors'
+import { useVendorArticles } from '@/api/margin-rules'
 import { BrandMultiSelect } from '@/components/BrandMultiSelect'
 import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -68,6 +69,7 @@ export default function VendorDetail() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { data: vendor, isLoading, error } = useVendor<VendorDetailResponse>(id ?? '')
+  const { data: articles = [], isLoading: isLoadingArticles } = useVendorArticles(vendor?.id)
   const updateVendor = useUpdateVendor()
   const [draftBrands, setDraftBrands] = useState<{ vendorId: string | null; ids: number[] | null }>({
     vendorId: null,
@@ -170,6 +172,11 @@ export default function VendorDetail() {
           </div>
         </div>
         <div className='flex gap-2'>
+          <Button variant='outline' asChild>
+            <Link to={`/settings?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=${vendor.id}`}>
+              <FileUp className='mr-2 h-4 w-4' /> + Preisliste importieren
+            </Link>
+          </Button>
           <Button asChild>
             <Link to={`/purchase-orders/new?vendorId=${vendor.id}`}>
               <Package className='mr-2 h-4 w-4' /> Purchase Order
@@ -230,6 +237,7 @@ export default function VendorDetail() {
               <TabsTrigger value='orders'>Active Orders</TabsTrigger>
               <TabsTrigger value='invoices'>Invoice History</TabsTrigger>
               <TabsTrigger value='brands'>Supported Brands</TabsTrigger>
+              <TabsTrigger value='articles'>Lieferanten-Artikelnummern</TabsTrigger>
             </TabsList>
 
             <TabsContent value='orders' className='mt-4'>
@@ -329,6 +337,64 @@ export default function VendorDetail() {
                   <p className='text-xs text-slate-500 mt-3'>
                     Changes are saved automatically. Selected brands will be available for parts procurement from this vendor.
                   </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value='articles' className='mt-4'>
+              <Card>
+                <CardContent className='p-0'>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Lieferanten-Artikelnr.</TableHead>
+                        <TableHead>Katalogartikel</TableHead>
+                        <TableHead className='text-right'>Letzter EK</TableHead>
+                        <TableHead className='text-right'>Letzter UVP</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoadingArticles ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>
+                            Lade Lieferanten-Artikel…
+                          </TableCell>
+                        </TableRow>
+                      ) : articles.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className='text-center py-4 text-muted-foreground'>
+                            Keine Lieferanten-Artikel vorhanden
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        articles.map((art) => (
+                          <TableRow key={art.id}>
+                            <TableCell className='font-mono font-medium text-xs'>
+                              {art.vendor_article_no}
+                            </TableCell>
+                            <TableCell>
+                              {art.catalog_item ? (
+                                <div className='flex items-center gap-2'>
+                                  <span className='font-medium'>{art.catalog_item.name}</span>
+                                  <span className='text-xs text-muted-foreground font-mono'>
+                                    ({art.catalog_item.sku})
+                                  </span>
+                                </div>
+                              ) : (
+                                '—'
+                              )}
+                            </TableCell>
+                            <TableCell className='text-right'>
+                              {art.last_cost != null ? formatCurrency(toNumber(art.last_cost)) : '—'}
+                            </TableCell>
+                            <TableCell className='text-right'>
+                              {art.last_rrp != null ? formatCurrency(toNumber(art.last_rrp)) : '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             </TabsContent>

@@ -8,6 +8,11 @@ export type ImportWizardOptions = {
   fill_empty_only: boolean
   allow_missing_vin: boolean
   invalid_vat_as_error: boolean
+  create_new_catalog_items?: boolean
+  accept_all_price_jumps?: boolean
+  accepted_row_numbers?: number[]
+  price_jump_threshold_percent?: number
+  vendor_id?: string
 }
 
 export const DEFAULT_IMPORT_OPTIONS: ImportWizardOptions = {
@@ -15,6 +20,7 @@ export const DEFAULT_IMPORT_OPTIONS: ImportWizardOptions = {
   fill_empty_only: false,
   allow_missing_vin: false,
   invalid_vat_as_error: false,
+  create_new_catalog_items: false,
 }
 
 export function isDryRunStale(params: {
@@ -40,7 +46,9 @@ export function isDryRunStale(params: {
     Boolean(jobOptions.update_existing) !== params.options.update_existing ||
     Boolean(jobOptions.fill_empty_only) !== params.options.fill_empty_only ||
     Boolean(jobOptions.allow_missing_vin) !== params.options.allow_missing_vin ||
-    Boolean(jobOptions.invalid_vat_as_error) !== params.options.invalid_vat_as_error
+    Boolean(jobOptions.invalid_vat_as_error) !== params.options.invalid_vat_as_error ||
+    Boolean(jobOptions.create_new_catalog_items) !== Boolean(params.options.create_new_catalog_items) ||
+    (jobOptions.vendor_id ?? '') !== (params.options.vendor_id ?? '')
   )
 }
 
