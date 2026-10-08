@@ -19,6 +19,7 @@ const expectedGewaehrleistungSales = {
         presumptionEnd: '2025-10-25',
         ruleVersion: 'at-used-vehicle-vgg-2022-v1',
         customerType: 'PRIVATE',
+        customerEmail: 'demo.gewaehrleistung.2y@example.at',
     },
     'DEMO-GW-1Y': {
         contract: '2025-10-20',
@@ -29,6 +30,7 @@ const expectedGewaehrleistungSales = {
         presumptionEnd: '2026-10-25',
         ruleVersion: 'at-used-vehicle-vgg-2022-v1',
         customerType: 'PRIVATE',
+        customerEmail: 'demo.gewaehrleistung.1y@example.at',
     },
     'DEMO-GW-B2B': {
         contract: '2026-10-01',
@@ -39,6 +41,7 @@ const expectedGewaehrleistungSales = {
         presumptionEnd: null,
         ruleVersion: 'at-used-vehicle-vgg-2026-10-v2',
         customerType: 'COMPANY',
+        customerEmail: 'demo.gewaehrleistung.b2b@example.at',
     },
 } as const;
 
@@ -120,7 +123,16 @@ async function verify() {
                     ledger_entries: { select: { entry_type: true, amount: true, vehicle_sale_id: true } },
                 },
             },
-            customer: { select: { type: true } },
+            customer: {
+                select: {
+                    type: true,
+                    email: true,
+                    address_street: true,
+                    address_zip: true,
+                    address_city: true,
+                    address_country: true,
+                },
+            },
             invoice: { select: { status: true, tax_mode: true, vehicle_sale_id: true, items: { select: { id: true } } } },
         },
     });
@@ -143,6 +155,7 @@ async function verify() {
             presumptionEnd: asIsoDate(sale.presumption_ends_on),
             ruleVersion: sale.gewaehrleistung_rule_version,
             customerType: sale.customer.type,
+            customerEmail: sale.customer.email,
         };
         if (JSON.stringify(actual) !== JSON.stringify(expected)) {
             throw new Error(
@@ -154,6 +167,10 @@ async function verify() {
             sale.status !== 'INVOICED' ||
             sale.vehicle.inventory_role !== 'CUSTOMER' ||
             sale.vehicle.stock_status !== null ||
+            !sale.customer.address_street?.trim() ||
+            !sale.customer.address_zip?.trim() ||
+            !sale.customer.address_city?.trim() ||
+            !sale.customer.address_country?.trim() ||
             !sale.invoice ||
             sale.invoice.status !== 'FINALIZED' ||
             sale.invoice.tax_mode !== 'MARGIN_SCHEME' ||

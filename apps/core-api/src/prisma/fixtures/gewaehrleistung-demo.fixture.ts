@@ -11,14 +11,16 @@ import {
   VehicleTaxScheme,
   Prisma,
 } from '@prisma/client';
-import type { Customer } from '@prisma/client';
 import { computeGewaehrleistung } from '../../vehicle-stock/gewaehrleistung/compute-gewaehrleistung.js';
 import { costBasis, marginVatGross } from '../../vehicle-stock/vehicle-cost.js';
 import { daysInStock } from '../../vehicle-stock/vehicle-stock-reports.math.js';
 import { InvoiceSnapshotCommitService } from '../../invoices/invoice-snapshot-commit.service.js';
 import type { SiteContextService } from '../../site/site-context.service.js';
 import type { SeedPrismaClient, TenantFoundationContext } from './types.js';
-import { DEMO_GEWAHRLEISTUNG_SALE_NUMBERS } from './gewaehrleistung-demo.constants.js';
+import {
+  DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS,
+  DEMO_GEWAHRLEISTUNG_SALE_NUMBERS,
+} from './gewaehrleistung-demo.constants.js';
 
 type DemoSale = {
   saleNumber: string;
@@ -46,7 +48,6 @@ function date(value: string): Date {
 export async function seedDemoGewaehrleistungSales(
   prisma: SeedPrismaClient,
   foundation: TenantFoundationContext,
-  privateCustomers: Array<Pick<Customer, 'id'>>,
   showroom: { id: string },
   vendor: { id: string },
   snapshotCommit = new InvoiceSnapshotCommitService({} as SiteContextService),
@@ -54,6 +55,23 @@ export async function seedDemoGewaehrleistungSales(
   const tenantId = foundation.defaultTenant.id;
   const legalEntityId = foundation.defaultLegalEntity.id;
   const vendorId = vendor.id;
+  const demoPrivateCustomers = await Promise.all(
+    DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS.slice(0, 2).map((email, index) =>
+      prisma.customer.create({
+        data: {
+          tenant_id: tenantId,
+          type: CustomerType.PRIVATE,
+          first_name: 'Demo',
+          last_name: index === 0 ? 'Gewaehrleistung 2Y' : 'Gewaehrleistung 1Y',
+          email,
+          address_street: `Demo Gewaehrleistung ${index + 1}`,
+          address_zip: '1010',
+          address_city: 'Vienna',
+          address_country: 'AT',
+        },
+      }),
+    ),
+  );
   const b2bCustomer = await prisma.customer.create({
     data: {
       tenant_id: tenantId,
@@ -61,7 +79,7 @@ export async function seedDemoGewaehrleistungSales(
       company_name: 'Demo Fuhrpark GmbH',
       first_name: 'Demo',
       last_name: 'Fuhrpark',
-      email: 'demo.gewaehrleistung.b2b@example.at',
+      email: DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS[2],
       vat_id: 'ATU12345678',
       address_street: 'Demo Strasse 1',
       address_city: 'Vienna',
@@ -81,7 +99,7 @@ export async function seedDemoGewaehrleistungSales(
         plate: 'DEMO-GW-2Y',
         firstRegistrationDate: date('2021-09-10'),
       },
-      customerId: privateCustomers[0].id,
+      customerId: demoPrivateCustomers[0].id,
       contractConcludedAt: date('2024-10-20'),
       handedOverAt: date('2024-10-25'),
       buyerIsConsumer: true,
@@ -99,7 +117,7 @@ export async function seedDemoGewaehrleistungSales(
         plate: 'DEMO-GW-1Y',
         firstRegistrationDate: date('2023-09-10'),
       },
-      customerId: privateCustomers[1].id,
+      customerId: demoPrivateCustomers[1].id,
       contractConcludedAt: date('2025-10-20'),
       handedOverAt: date('2025-10-25'),
       buyerIsConsumer: true,

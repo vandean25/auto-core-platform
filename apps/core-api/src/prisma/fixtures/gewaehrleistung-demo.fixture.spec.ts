@@ -4,7 +4,11 @@ describe('seedDemoGewaehrleistungSales', () => {
   it('seeds distinct consumer, negotiated consumer, and B2B sale facts with the expected snapshots', async () => {
     const prisma = {
       customer: {
-        create: jest.fn().mockResolvedValue({ id: 'company-customer' }),
+        create: jest
+          .fn()
+          .mockImplementation(({ data }) =>
+            Promise.resolve({ id: `customer-${data.email}`, ...data }),
+          ),
       },
       vehicle: {
         create: jest
@@ -54,10 +58,6 @@ describe('seedDemoGewaehrleistungSales', () => {
       defaultLegalEntity: { id: 'legal-entity-1' },
       mainSite: { id: 'site-main' },
     } as any;
-    const customers = [
-      { id: 'private-customer-1' },
-      { id: 'private-customer-2' },
-    ] as any;
     const showroom = { id: 'showroom-1' } as any;
     const snapshotCommit = {
       commitV2Snapshot: jest.fn().mockResolvedValue({}),
@@ -66,7 +66,6 @@ describe('seedDemoGewaehrleistungSales', () => {
     await seedDemoGewaehrleistungSales(
       prisma,
       foundation,
-      customers,
       showroom,
       { id: 'vendor-1' },
       snapshotCommit,
@@ -159,6 +158,42 @@ describe('seedDemoGewaehrleistungSales', () => {
         type: 'COMPANY',
       }),
     });
+    const createdCustomers = prisma.customer.create.mock.calls.map(
+      ([{ data }]: [{ data: Record<string, any> }]) => data,
+    );
+    const demoPrivateCustomers = createdCustomers.filter(
+      (customer: Record<string, any>) => customer.type === 'PRIVATE',
+    );
+    expect(demoPrivateCustomers).toHaveLength(2);
+    expect(
+      demoPrivateCustomers.map(
+        (customer: Record<string, any>) => customer.email,
+      ),
+    ).toEqual([
+      'demo.gewaehrleistung.2y@example.at',
+      'demo.gewaehrleistung.1y@example.at',
+    ]);
+    for (const customer of demoPrivateCustomers) {
+      expect(customer).toMatchObject({
+        address_street: expect.any(String),
+        address_zip: expect.any(String),
+        address_city: expect.any(String),
+        address_country: expect.any(String),
+      });
+    }
+    expect(
+      sales.find(
+        (sale: Record<string, any>) => sale.sale_number === 'DEMO-GW-2Y',
+      )?.customer_id,
+    ).toBe('customer-demo.gewaehrleistung.2y@example.at');
+    expect(
+      sales.find(
+        (sale: Record<string, any>) => sale.sale_number === 'DEMO-GW-1Y',
+      )?.customer_id,
+    ).toBe('customer-demo.gewaehrleistung.1y@example.at');
+    expect(
+      sales.filter((sale: Record<string, any>) => sale.buyer_is_consumer),
+    ).toHaveLength(2);
     for (const [{ data }] of prisma.vehicle.create.mock.calls) {
       expect(data.site_id).toBe('site-main');
       expect(data.location_id).toBe('showroom-1');

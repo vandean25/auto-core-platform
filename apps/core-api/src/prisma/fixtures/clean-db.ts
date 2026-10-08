@@ -1,6 +1,7 @@
 import type { SeedPrismaClient } from './types.js';
 import {
   DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS,
+  DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS,
   DEMO_GEWAHRLEISTUNG_SALE_NUMBERS,
   DEMO_GEWAHRLEISTUNG_VINS,
 } from './gewaehrleistung-demo.constants.js';
@@ -147,7 +148,18 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'vehicle_make_aliases',
     clean: (p) => p.vehicleMakeAlias.deleteMany(),
   },
-  { table: 'customers', clean: (p) => p.customer.deleteMany() },
+  {
+    table: 'customers',
+    clean: async (p) => {
+      await p.customer.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          email: { in: [...DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS] },
+        },
+      });
+      await p.customer.deleteMany();
+    },
+  },
   { table: 'vendors', clean: (p) => p.vendor.deleteMany() },
   { table: 'brands', clean: (p) => p.brand.deleteMany() },
   { table: 'tenants', clean: (p) => p.tenant.deleteMany() },

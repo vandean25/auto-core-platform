@@ -13,3 +13,8 @@ export const DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS = [
   'AUT408-GW-DEMO-GW-1Y',
   'AUT408-GW-DEMO-GW-B2B',
 ] as const;
+export const DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS = [
+  'demo.gewaehrleistung.2y@example.at',
+  'demo.gewaehrleistung.1y@example.at',
+  'demo.gewaehrleistung.b2b@example.at',
+] as const;

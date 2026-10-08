@@ -238,6 +238,7 @@ describe('cleanDb', () => {
     const ledgerCleaner =
       TABLE_CLEANERS[tables.indexOf('vehicle_ledger_entries')];
     const purchaseCleaner = TABLE_CLEANERS[tables.indexOf('vehicle_purchases')];
+    const customerCleaner = TABLE_CLEANERS[tables.indexOf('customers')];
     const vehicleSale = {
       deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
     };
@@ -251,6 +252,7 @@ describe('cleanDb', () => {
     const vehicle = {
       findMany: jest.fn().mockResolvedValue([{ id: 'demo-v1' }]),
     };
+    const customer = { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) };
 
     expect(saleIndex).toBeGreaterThan(-1);
     expect(saleIndex).toBeLessThan(vehicleIndex);
@@ -313,5 +315,19 @@ describe('cleanDb', () => {
         sale_number: { in: ['DEMO-GW-2Y', 'DEMO-GW-1Y', 'DEMO-GW-B2B'] },
       },
     });
+    await customerCleaner.clean({ customer } as any);
+    expect(customer.deleteMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        tenant: { is: { slug: 'default-workshop' } },
+        email: {
+          in: [
+            'demo.gewaehrleistung.2y@example.at',
+            'demo.gewaehrleistung.1y@example.at',
+            'demo.gewaehrleistung.b2b@example.at',
+          ],
+        },
+      },
+    });
+    expect(customer.deleteMany).toHaveBeenNthCalledWith(2);
   });
 });

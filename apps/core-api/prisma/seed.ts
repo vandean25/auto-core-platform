@@ -45,7 +45,6 @@ async function main() {
   await seedDemoGewaehrleistungSales(
     prisma,
     foundation,
-    customers.customers,
     inventory.showroom,
     vendors[0],
   );
