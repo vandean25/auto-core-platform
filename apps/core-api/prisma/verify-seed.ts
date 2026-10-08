@@ -2,11 +2,49 @@ import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { DEMO_GEWAHRLEISTUNG_SALE_NUMBERS } from '../src/prisma/fixtures/gewaehrleistung-demo.constants.js';
 
 const connectionString = process.env.DATABASE_URL;
 const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
+
+const expectedGewaehrleistungSales = {
+    'DEMO-GW-2Y': {
+        contract: '2024-10-20',
+        handover: '2024-10-25',
+        consumer: true,
+        shortened: false,
+        baseEnd: '2026-10-25',
+        presumptionEnd: '2025-10-25',
+        ruleVersion: 'at-used-vehicle-vgg-2022-v1',
+        customerType: 'PRIVATE',
+    },
+    'DEMO-GW-1Y': {
+        contract: '2025-10-20',
+        handover: '2025-10-25',
+        consumer: true,
+        shortened: true,
+        baseEnd: '2026-10-25',
+        presumptionEnd: '2026-10-25',
+        ruleVersion: 'at-used-vehicle-vgg-2022-v1',
+        customerType: 'PRIVATE',
+    },
+    'DEMO-GW-B2B': {
+        contract: '2026-10-01',
+        handover: '2026-10-06',
+        consumer: false,
+        shortened: false,
+        baseEnd: null,
+        presumptionEnd: null,
+        ruleVersion: 'at-used-vehicle-vgg-2026-10-v2',
+        customerType: 'COMPANY',
+    },
+} as const;
+
+function asIsoDate(value: Date | null): string | null {
+    return value?.toISOString().slice(0, 10) ?? null;
+}
 
 async function verify() {
     console.log('--- Verification Started ---');
@@ -68,6 +106,52 @@ async function verify() {
         throw new Error(`Vehicle stock demo is missing age buckets: ${missingAgeBuckets.join(', ')}`);
     }
     console.log(`Vehicle stock age buckets verified: ${expectedAgeBuckets.join(', ')}`);
+
+    const gewaehrleistungSales = await prisma.vehicleSale.findMany({
+        where: {
+            tenant: { is: { slug: 'default-workshop' } },
+            sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
+        },
+        include: {
+            vehicle: { select: { inventory_role: true, stock_status: true } },
+            customer: { select: { type: true } },
+        },
+    });
+    if (gewaehrleistungSales.length !== DEMO_GEWAHRLEISTUNG_SALE_NUMBERS.length) {
+        throw new Error(
+            `Expected ${DEMO_GEWAHRLEISTUNG_SALE_NUMBERS.length} AUT-408 demo sales, found ${gewaehrleistungSales.length}`,
+        );
+    }
+    for (const sale of gewaehrleistungSales) {
+        const expected = expectedGewaehrleistungSales[sale.sale_number as keyof typeof expectedGewaehrleistungSales];
+        if (!expected) {
+            throw new Error(`Unexpected AUT-408 demo sale: ${sale.sale_number}`);
+        }
+        const actual = {
+            contract: asIsoDate(sale.contract_concluded_at),
+            handover: asIsoDate(sale.handed_over_at),
+            consumer: sale.buyer_is_consumer,
+            shortened: sale.gewaehrleistung_shortened_negotiated,
+            baseEnd: asIsoDate(sale.gewaehrleistung_ends_on),
+            presumptionEnd: asIsoDate(sale.presumption_ends_on),
+            ruleVersion: sale.gewaehrleistung_rule_version,
+            customerType: sale.customer.type,
+        };
+        if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+            throw new Error(
+                `AUT-408 demo sale ${sale.sale_number} facts/snapshot mismatch: ${JSON.stringify(actual)}`,
+            );
+        }
+        if (
+            actual.contract === actual.handover ||
+            sale.status !== 'INVOICED' ||
+            sale.vehicle.inventory_role !== 'USED' ||
+            sale.vehicle.stock_status !== 'SOLD'
+        ) {
+            throw new Error(`AUT-408 demo sale ${sale.sale_number} is not a distinct sold-vehicle example`);
+        }
+    }
+    console.log('AUT-408 Gewährleistung demo sales verified: 2-year B2C, negotiated 1-year B2C, B2B');
 
     console.log('--- Verification Finished ---');
 }

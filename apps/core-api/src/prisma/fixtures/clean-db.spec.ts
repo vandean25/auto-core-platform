@@ -223,4 +223,26 @@ describe('cleanDb', () => {
       'all',
     ]);
   });
+
+  it('cleans only AUT-408 demo sales before their related vehicles and customers', async () => {
+    const tables = TABLE_CLEANERS.map((cleaner) => cleaner.table);
+    const saleIndex = tables.indexOf('vehicle_sales');
+    const vehicleIndex = tables.indexOf('vehicles');
+    const customerIndex = tables.indexOf('customers');
+    const demoSaleCleaner = TABLE_CLEANERS[saleIndex];
+    const vehicleSale = { deleteMany: jest.fn().mockResolvedValue({ count: 3 }) };
+
+    expect(saleIndex).toBeGreaterThan(-1);
+    expect(saleIndex).toBeLessThan(vehicleIndex);
+    expect(saleIndex).toBeLessThan(customerIndex);
+
+    await demoSaleCleaner.clean({ vehicleSale } as any);
+
+    expect(vehicleSale.deleteMany).toHaveBeenCalledWith({
+      where: {
+        tenant: { is: { slug: 'default-workshop' } },
+        sale_number: { in: ['DEMO-GW-2Y', 'DEMO-GW-1Y', 'DEMO-GW-B2B'] },
+      },
+    });
+  });
 });

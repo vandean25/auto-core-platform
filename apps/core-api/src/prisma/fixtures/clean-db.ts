@@ -1,4 +1,5 @@
 import type { SeedPrismaClient } from './types.js';
+import { DEMO_GEWAHRLEISTUNG_SALE_NUMBERS } from './gewaehrleistung-demo.constants.js';
 
 export interface TableCleaner {
   table: string;
@@ -80,6 +81,16 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   {
     table: 'vehicle_inspection_records',
     clean: (p) => p.vehicleInspectionRecord.deleteMany(),
+  },
+  {
+    table: 'vehicle_sales',
+    clean: (p) =>
+      p.vehicleSale.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
+        },
+      }),
   },
   { table: 'vehicles', clean: (p) => p.vehicle.deleteMany() },
   {

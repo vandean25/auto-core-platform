@@ -14,6 +14,7 @@ import {
   seedDemoSiteAccess,
   seedDemoWorkshopAccountingProfile,
   seedVehicleStockAgeDemo,
+  seedDemoGewaehrleistungSales,
   seedPickerlInspectionTemplate,
 } from '../src/prisma/fixtures/index.js';
 
@@ -41,6 +42,12 @@ async function main() {
   const customers = await seedCustomersAndVehicles(prisma, foundation.defaultTenant.id);
   await seedDemoSiteAccess(prisma, foundation);
   await seedVehicleStockAgeDemo(prisma, foundation, inventory.showroom);
+  await seedDemoGewaehrleistungSales(
+    prisma,
+    foundation,
+    customers.customers,
+    inventory.showroom,
+  );
 
   console.log('Seed completed successfully!');
   console.log('✓ All inventory movements recorded as transactions');
@@ -51,6 +58,7 @@ async function main() {
   console.log(`✓ Labor operations seeded and categorized in batch`);
   console.log(`✓ ${vendors.length} vendors created (one per brand)`);
   console.log(`✓ ${customers.customers.length} customers and their vehicles created`);
+  console.log('✓ 3 synthetic vehicle sales with Gewährleistung snapshots created');
 }
 
 main()
