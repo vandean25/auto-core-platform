@@ -52,7 +52,6 @@ VALUES
   ('catalog_provider_settings'),
   ('document_brand_assets'),
   ('employee_leave_balances'),
-  ('employee_work_schedules'),
   ('external_id_mappings'),
   ('import_job_rows'),
   ('inspection_template_items'),
@@ -66,7 +65,7 @@ VALUES
   ('voice_note_rate_limits'),
   ('bays'),
   ('document_brand_extractions'),
-  ('employee_work_schedule_days'),
+  ('employee_work_schedules'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
   ('purchase_orders'),
@@ -76,6 +75,7 @@ VALUES
   ('workshop_holidays'),
   ('workshop_opening_hours'),
   ('document_brand_profiles'),
+  ('employee_work_schedule_days'),
   ('inventory_stocks'),
   ('purchase_order_items'),
   ('stock_transfer_commands'),
@@ -196,6 +196,7 @@ VALUES
   ('employee_work_schedule_days', 'employee_work_schedules', 'tenant_id,schedule_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('employee_work_schedule_days', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employee_work_schedules', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
+  ('employee_work_schedules', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('employee_work_schedules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('employees', 'users', 'user_id', 'id', 'SET NULL', 'CASCADE'),
@@ -631,6 +632,8 @@ DELETE FROM public."purchase_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_stocks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."employee_work_schedule_days"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_profiles"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_opening_hours"
@@ -649,7 +652,7 @@ DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_fitments" AS child
 WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
-DELETE FROM public."employee_work_schedule_days"
+DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_extractions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -676,8 +679,6 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."import_job_rows"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."external_id_mappings"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_leave_balances"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
