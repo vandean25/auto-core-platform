@@ -63,9 +63,9 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
 
     const otherTenant = await createTestTenant(prisma, 'aut-408-gewaehrleistung-other');
     otherTenantId = otherTenant.tenantId;
-    await seedDueSales(tenantId, siteId, unauthorizedSiteId);
+    await seedDueSales(tenantId, siteId, '00000000', unauthorizedSiteId);
     const otherSiteId = await resolveTestMainSiteId(prisma, otherTenantId);
-    await seedDueSales(otherTenantId, otherSiteId);
+    await seedDueSales(otherTenantId, otherSiteId, '10000000');
   });
 
   afterAll(async () => {
@@ -124,6 +124,7 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
   async function seedDueSales(
     scopeTenantId: string,
     saleSiteId: string,
+    idPrefix: string,
     excludedSiteId?: string,
   ) {
     const scopedPrisma = createTenantAwarePrisma(prisma, scopeTenantId);
@@ -142,51 +143,61 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
       due.setUTCDate(due.getUTCDate() + days);
       return due;
     };
+    const makeSaleId = (sequence: number) =>
+      `${idPrefix}-0000-4000-8000-${String(sequence).padStart(12, '0')}`;
     const fixtures = [
       {
-        id: '00000000-0000-4000-8000-000000000002',
+        id: makeSaleId(2),
+        sequence: 2,
         days: 30,
         consumer: true,
         site_id: saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000001',
+        id: makeSaleId(1),
+        sequence: 1,
         days: 0,
         consumer: true,
         site_id: saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000003',
+        id: makeSaleId(3),
+        sequence: 3,
         days: 31,
         consumer: true,
         site_id: saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000004',
+        id: makeSaleId(4),
+        sequence: 4,
         days: 15,
         consumer: false,
         site_id: saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000005',
+        id: makeSaleId(5),
+        sequence: 5,
         days: 15,
         consumer: true,
         site_id: excludedSiteId ?? saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000006',
+        id: makeSaleId(6),
+        sequence: 6,
         days: 15,
         consumer: true,
         site_id: saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000007',
+        id: makeSaleId(7),
+        sequence: 7,
         days: 90,
         consumer: true,
         site_id: saleSiteId,
       },
       {
-        id: '00000000-0000-4000-8000-000000000008',
+        id: makeSaleId(8),
+        sequence: 8,
         days: 91,
         consumer: true,
         site_id: saleSiteId,
@@ -198,7 +209,7 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
           data: {
             tenant_id: scopeTenantId,
             make: 'Synthetic',
-            model: `Fixture ${fixture.id.slice(-1)}`,
+            model: `Fixture ${fixture.sequence}`,
             year: 2020,
           },
         });
@@ -207,14 +218,14 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
             id: fixture.id,
             tenant_id: scopeTenantId,
             site_id: fixture.site_id,
-            sale_number: `SYN-${fixture.id.slice(-4)}`,
+            sale_number: `SYN-${String(fixture.sequence).padStart(4, '0')}`,
             status: 'INVOICED',
             vehicle_id: vehicle.id,
             customer_id: buyer.id,
             sale_price: 1000,
             buyer_is_consumer: fixture.consumer,
             gewaehrleistung_ends_on:
-              fixture.id.endsWith('006') ? null : plusDays(fixture.days),
+              fixture.sequence === 6 ? null : plusDays(fixture.days),
             presumption_ends_on: null,
             gewaehrleistung_rule_version: 'synthetic-test-rule',
           },
