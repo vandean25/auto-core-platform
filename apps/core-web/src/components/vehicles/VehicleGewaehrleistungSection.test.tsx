@@ -24,4 +24,28 @@ describe('VehicleGewaehrleistungSection', () => {
     expect(screen.getByText(/Vermutungsfrist bis/)).toBeInTheDocument()
     expect(screen.getAllByText('Verlängerungen durch Reparaturen werden nicht erfasst.')).toHaveLength(1)
   })
+
+  it('shows legacy rows with missing buyer and snapshot facts as unknown', () => {
+    render(<VehicleGewaehrleistungSection sales={[sale({
+      buyer_is_consumer: null,
+      gewaehrleistung_ends_on: null,
+      presumption_ends_on: null,
+    })]} />)
+
+    expect(screen.getByText('Gewährleistungsdaten unbekannt.')).toBeInTheDocument()
+    expect(screen.queryByText(/Basisfrist bis/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Vermutungsfrist bis/)).not.toBeInTheDocument()
+  })
+
+  it('shows consumer rows with missing snapshot dates as unknown', () => {
+    render(<VehicleGewaehrleistungSection sales={[sale({
+      buyer_is_consumer: true,
+      gewaehrleistung_ends_on: null,
+      presumption_ends_on: null,
+    })]} />)
+
+    expect(screen.getByText('Gewährleistungsdaten unbekannt.')).toBeInTheDocument()
+    expect(screen.queryByText(/Basisfrist bis/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Vermutungsfrist bis/)).not.toBeInTheDocument()
+  })
 })

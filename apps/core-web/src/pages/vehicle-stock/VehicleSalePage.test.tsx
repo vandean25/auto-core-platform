@@ -143,4 +143,22 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
   })
+
+  it('preserves the stored buyer classification when reopening an existing sale', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: {
+      ...existingSale,
+      buyer_is_consumer: false,
+      customer: { ...existingSale.customer, type: 'PRIVATE' },
+    } })
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
+  })
 })

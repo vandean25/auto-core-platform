@@ -191,14 +191,7 @@ export type VehiclePurchase = {
 
 type SaleWarrantyInputs = Partial<Pick<components['schemas']['CreateVehicleSaleDto'],
   'contract_concluded_at' | 'handed_over_at' | 'buyer_is_consumer' | 'gewaehrleistung_shortened_negotiated'>>
-
-export type VehicleSale = SaleWarrantyInputs & {
-  id: string
-  sale_number: string
-  status: string
-  vehicle_id: string
-  customer_id: string
-  sale_price: string | number
+type SaleWarrantyResponseFields = {
   contract_concluded_at?: string | null
   handed_over_at?: string | null
   buyer_is_consumer?: boolean | null
@@ -206,6 +199,15 @@ export type VehicleSale = SaleWarrantyInputs & {
   gewaehrleistung_note?: string | null
   gewaehrleistung_ends_on?: string | null
   presumption_ends_on?: string | null
+}
+
+export type VehicleSale = Omit<SaleWarrantyInputs, keyof SaleWarrantyResponseFields> & SaleWarrantyResponseFields & {
+  id: string
+  sale_number: string
+  status: string
+  vehicle_id: string
+  customer_id: string
+  sale_price: string | number
   cost_basis_preview?: string | number
   margin_vat_preview?: string | number
   invoice?: { id: string; invoice_number: string | null; tax_mode: string }

@@ -74,12 +74,13 @@ export default function VehicleSalePage() {
     }
   }, [existing])
 
-  useEffect(() => {
-    if (!customer) return
-    const isConsumer = customer.type === 'PRIVATE'
+  const handleCustomerChange = (nextCustomer: Customer | null) => {
+    setCustomer(nextCustomer)
+    if (!nextCustomer) return
+    const isConsumer = nextCustomer.type === 'PRIVATE'
     setBuyerIsConsumer(isConsumer)
     if (!isConsumer) setShorteningNegotiated(false)
-  }, [customer])
+  }
 
   const isDraft = !existing || existing.status === 'DRAFT'
   const customerId = customer?.id || existing?.customer_id || ''
@@ -187,7 +188,7 @@ export default function VehicleSalePage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1 text-sm">
           <span className="text-slate-500">Buyer</span>
-          <CustomerSearch value={customer} onChange={setCustomer} />
+          <CustomerSearch value={customer} onChange={handleCustomerChange} />
         </div>
         <div className="space-y-4">
           <label className="space-y-1 text-sm">
