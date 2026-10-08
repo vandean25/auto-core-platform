@@ -66,7 +66,7 @@ export function loadCommittedReportInputs(): CommittedReportInputs {
     jev: [],
     'rules+jev': [],
   };
-  let files: string[] = [];
+  let files: string[];
   try {
     files = readdirSync(resultDirectory);
   } catch {
@@ -161,12 +161,13 @@ export function renderReportTables(
 }
 
 export function extractReportTables(report: string): string {
-  const start = report.indexOf(TABLE_START);
-  const end = report.indexOf(TABLE_END);
+  const normalizedReport = report.replace(/\r\n/g, '\n');
+  const start = normalizedReport.indexOf(TABLE_START);
+  const end = normalizedReport.indexOf(TABLE_END);
   if (start === -1 || end === -1 || end <= start) {
     throw new Error('Report is missing agent-eval table markers.');
   }
-  return report.slice(start + TABLE_START.length + 1, end - 1);
+  return normalizedReport.slice(start + TABLE_START.length + 1, end - 1);
 }
 
 export function generateReport(): string {
