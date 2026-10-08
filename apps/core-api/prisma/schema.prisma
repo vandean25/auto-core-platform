@@ -1406,6 +1406,14 @@ model VehicleSale {
   cost_basis_snapshot  Decimal?             @db.Decimal(12, 2)
   margin_vat_snapshot  Decimal?             @db.Decimal(12, 2)
   days_to_sell_snapshot Int?
+  contract_concluded_at DateTime?            @db.Date
+  handed_over_at       DateTime?            @db.Date
+  buyer_is_consumer    Boolean?
+  gewaehrleistung_shortened_negotiated Boolean?
+  gewaehrleistung_note String?
+  gewaehrleistung_ends_on DateTime?          @db.Date
+  presumption_ends_on  DateTime?             @db.Date
+  gewaehrleistung_rule_version String?
   trade_in_purchase_id String?
   invoice              Invoice?
   ledger_entries       VehicleLedgerEntry[]
