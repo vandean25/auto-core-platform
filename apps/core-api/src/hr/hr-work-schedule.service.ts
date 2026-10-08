@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import {
   EmployeeWorkScheduleDay,
@@ -14,6 +15,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { formatLocalDate } from '../workshop/workshop-planner.time.js';
 import { WorkshopSettingsService } from '../workshop/workshop-settings.service.js';
+import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import {
   averageExpectedMinutesPerWorkday,
   daysToMinutes,
@@ -34,6 +37,7 @@ export type ScheduleDayInput = Pick<
 
 export type ScheduleWithDays = {
   id: string;
+  site_id: string | null;
   effective_from: Date;
   days: EmployeeWorkScheduleDay[];
   createdAt: Date;
@@ -49,6 +53,7 @@ export class HrWorkScheduleService {
     private readonly settingsService: WorkshopSettingsService,
     private readonly identityService: HrIdentityService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async findForEmployee(
@@ -98,9 +103,11 @@ export class HrWorkScheduleService {
 
     const tenantId = await this.tenantContext.getTenantId();
     await this.assertEmployeeExists(employeeId, tenantId);
+    await this.assertAuthorizedSite(dto.siteId);
 
     try {
       const schedule = await this.prisma.$transaction(async (transaction) => {
+        await lockSitesAndAssertActive(transaction, tenantId, [dto.siteId]);
         const latest = await transaction.employeeWorkSchedule.findFirst({
           where: { tenant_id: tenantId, employee_id: employeeId },
           orderBy: { effective_from: 'desc' },
@@ -117,6 +124,7 @@ export class HrWorkScheduleService {
           data: {
             tenant_id: tenantId,
             employee_id: employeeId,
+            site_id: dto.siteId,
             effective_from: effectiveFrom,
             days: {
               create: dto.days.map((day) => ({
@@ -157,9 +165,15 @@ export class HrWorkScheduleService {
     if (!existing) {
       throw new NotFoundException(`Work schedule ${scheduleId} not found`);
     }
-
+    const targetSiteId = dto.siteId ?? existing.site_id;
+    if (targetSiteId) {
+      await this.assertAuthorizedSite(targetSiteId);
+    }
     try {
       const updated = await this.prisma.$transaction(async (transaction) => {
+        if (targetSiteId) {
+          await lockSitesAndAssertActive(transaction, tenantId, [targetSiteId]);
+        }
         try {
           await transaction.employeeWorkSchedule.update({
             where: {
@@ -168,7 +182,10 @@ export class HrWorkScheduleService {
                 id: scheduleId,
               },
             },
-            data: { updatedAt: new Date() },
+            data: {
+              updatedAt: new Date(),
+              ...(dto.siteId ? { site_id: dto.siteId } : {}),
+            },
           });
         } catch (error) {
           if (
@@ -352,6 +369,15 @@ export class HrWorkScheduleService {
     }
   }
 
+  private async assertAuthorizedSite(siteId: string): Promise<void> {
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    if (!authorizedSiteIds.includes(siteId)) {
+      throw new UnprocessableEntityException(
+        'Active site membership required on target site',
+      );
+    }
+  }
+
   private assertCanRead(): void {
     const role = this.tenantContext.getAuthenticatedUser()?.role;
     if (role !== 'OWNER' && role !== 'ADMIN' && role !== 'SALES') {
@@ -434,6 +460,7 @@ export class HrWorkScheduleService {
     return {
       id: schedule.id,
       effectiveFrom: schedule.effective_from.toISOString().slice(0, 10),
+      siteId: schedule.site_id,
       days: schedule.days.map((day) => ({
         id: day.id,
         weekday: day.weekday,

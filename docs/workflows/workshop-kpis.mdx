@@ -1,0 +1,54 @@
+---
+title: Workshop-Kennzahlen
+description: Vergleichen Sie Arbeitsleistung und Teilebestand an einem Werkstattstandort.
+---
+
+# Workshop-Kennzahlen
+
+Mit dem Bericht sehen Sie, wie viel Werkstattzeit verfügbar, gebucht und fakturiert wurde und wie sich der Teilebestand bewegt.
+
+<Steps>
+  <Step title="Bericht öffnen">
+    Öffnen Sie **Workshop KPIs** im Workshop-Menü.
+  </Step>
+  <Step title="Standort und Zeitraum wählen">
+    Wählen Sie einen Standort, das Start- und Enddatum sowie die Gruppierung nach Mechaniker, Kalenderwoche oder Monat.
+  </Step>
+  <Step title="Bericht exportieren">
+    Wählen Sie **CSV exportieren**, um Arbeitsleistung, Lagerumschlag und langsam drehende Teile herunterzuladen.
+  </Step>
+</Steps>
+
+<CardGroup cols={2}>
+  <Card title="Arbeitsleistung" icon="wrench">
+    - **Verfügbar**: Dienstplanzeit am ausgewählten Standort, abzüglich gebuchter Abwesenheiten und ganztägig geschlossener Werkstattfeiertage.
+    - **Auslastung**: abgeschlossene Arbeitszeit ÷ verfügbare Zeit × 100.
+    - **Leistungsgrad**: fakturierte Arbeitsstunden aus endgültigen Rechnungspositionen ÷ abgeschlossene Arbeitszeit × 100.
+    - **Nettoerlös je Auftrag**: Nettoerlös endgültiger Werkstattrechnungen ÷ abgerechnete Aufträge.
+  </Card>
+  <Card title="Lagerumschlag" icon="package">
+    - **Verbrauchskosten**: Kostenbasis der Werkstattverbrauchsbuchungen im Zeitraum.
+    - **Ø Lagerwert**: Summe der bewerteten Tagesendbestände ÷ Kalendertage im Zeitraum.
+    - **Umschlag**: Verbrauchskosten ÷ durchschnittlicher Lagerwert.
+    - Die Liste zeigt bis zu zehn Teile ohne Werkstattverbrauch in den letzten 90 Tagen.
+  </Card>
+</CardGroup>
+
+<Check>
+  Sie sehen nur Standorte, für die Sie eine aktive Standortmitgliedschaft haben. Datumsgrenzen richten sich nach der Zeitzone des gewählten Standorts. Ein Bericht umfasst höchstens 366 Kalendertage.
+</Check>
+
+<AccordionGroup>
+  <Accordion title="Warum fehlen offene Zeiteinträge in den Stunden?">
+    Ein Zeiteintrag ohne Endzeit zählt nicht zu den gebuchten Arbeitsstunden. Seine Anzahl erscheint separat.
+  </Accordion>
+  <Accordion title="Wie werden Dienstplanwechsel berücksichtigt?">
+    Für jeden Tag gilt die Dienstplanversion, die an diesem Datum beginnt. Die Standortzuordnung dieser Version bestimmt, welchem Standort die verfügbare Zeit zugerechnet wird.
+  </Accordion>
+  <Accordion title="Was bedeutet ein leerer Prozentwert oder Lagerwert?">
+    Wenn verfügbare oder gebuchte Stunden null sind, zeigt der Bericht keinen Prozentwert. Für nicht bewertete Bestände wird kein Lagerwert geschätzt; der Bericht weist solche Positionen separat aus.
+  </Accordion>
+  <Accordion title="Was enthält der CSV-Export?">
+    Der Export enthält die Arbeitsleistungszeilen samt Gesamtzeile, eine Zeile mit den Lagerumschlagswerten, einzelne Zeilen für langsam drehende Teile und eine Zeile mit Berichtszeitzone, Gruppierung und nicht zugeordneten Mechanikern. Trennzeichen ist ein Semikolon; Zahlen behalten den Dezimalpunkt.
+  </Accordion>
+</AccordionGroup>

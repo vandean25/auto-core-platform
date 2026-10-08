@@ -4499,6 +4499,70 @@
         ]
       }
     },
+    "/api/reports/workshop-kpis": {
+      "get": {
+        "operationId": "WorkshopKpiReportsController_getWorkshopKpis",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "groupBy",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "mechanic",
+              "type": "string",
+              "enum": [
+                "mechanic",
+                "week",
+                "month"
+              ]
+            }
+          },
+          {
+            "name": "siteId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopKpiReportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Read workshop KPIs for a site and date range",
+        "tags": [
+          "Workshop reports"
+        ]
+      }
+    },
     "/api/vehicle-purchases": {
       "post": {
         "operationId": "VehiclePurchaseController_create",
@@ -17346,6 +17410,199 @@
           "orderId"
         ]
       },
+      "WorkshopKpiReportRowDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "mechanic_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "mechanic_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "period": {
+            "type": "string"
+          },
+          "available_hours": {
+            "type": "string"
+          },
+          "clocked_hours": {
+            "type": "string"
+          },
+          "sold_hours": {
+            "type": "string"
+          },
+          "labor_net_revenue": {
+            "type": "string"
+          },
+          "parts_net_revenue": {
+            "type": "string"
+          },
+          "utilisation_percent": {
+            "type": "string",
+            "nullable": true
+          },
+          "productivity_percent": {
+            "type": "string",
+            "nullable": true
+          },
+          "closed_orders": {
+            "type": "number"
+          },
+          "average_net_revenue_per_order": {
+            "type": "string",
+            "nullable": true
+          },
+          "open_labor_entry_count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "mechanic_id",
+          "mechanic_name",
+          "period",
+          "available_hours",
+          "clocked_hours",
+          "sold_hours",
+          "labor_net_revenue",
+          "parts_net_revenue",
+          "utilisation_percent",
+          "productivity_percent",
+          "closed_orders",
+          "average_net_revenue_per_order",
+          "open_labor_entry_count"
+        ]
+      },
+      "WorkshopKpiReportMetaDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "mechanic",
+              "week",
+              "month"
+            ]
+          },
+          "unassigned_mechanic_count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "timezone",
+          "groupBy",
+          "unassigned_mechanic_count"
+        ]
+      },
+      "WorkshopKpiSlowMoverDto": {
+        "type": "object",
+        "properties": {
+          "catalog_item_id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quantity_on_hand": {
+            "type": "string"
+          },
+          "stock_value": {
+            "type": "string",
+            "nullable": true
+          },
+          "days_since_last_issue": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "catalog_item_id",
+          "sku",
+          "name",
+          "quantity_on_hand",
+          "stock_value",
+          "days_since_last_issue"
+        ]
+      },
+      "WorkshopKpiPartsTurnoverDto": {
+        "type": "object",
+        "properties": {
+          "issued_cost": {
+            "type": "string"
+          },
+          "average_stock_value": {
+            "type": "string",
+            "nullable": true
+          },
+          "turnover": {
+            "type": "string",
+            "nullable": true
+          },
+          "unvalued_stock_item_count": {
+            "type": "number"
+          },
+          "slow_movers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopKpiSlowMoverDto"
+            }
+          }
+        },
+        "required": [
+          "issued_cost",
+          "average_stock_value",
+          "turnover",
+          "unvalued_stock_item_count",
+          "slow_movers"
+        ]
+      },
+      "WorkshopKpiReportResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopKpiReportRowDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/WorkshopKpiReportMetaDto"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkshopKpiReportRowDto"
+          },
+          "parts_turnover": {
+            "$ref": "#/components/schemas/WorkshopKpiPartsTurnoverDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta",
+          "totals",
+          "parts_turnover"
+        ]
+      },
       "CreateVehiclePurchaseDto": {
         "type": "object",
         "properties": {
@@ -21950,6 +22207,11 @@
             "type": "string",
             "format": "date"
           },
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "days": {
             "type": "array",
             "items": {
@@ -21968,6 +22230,7 @@
         "required": [
           "id",
           "effectiveFrom",
+          "siteId",
           "days",
           "createdAt",
           "updatedAt"
@@ -22045,6 +22308,11 @@
               "$ref": "#/components/schemas/EmployeeWorkScheduleDayDto"
             }
           },
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Site this schedule version applies to."
+          },
           "effectiveFrom": {
             "type": "string",
             "format": "date",
@@ -22054,6 +22322,7 @@
         },
         "required": [
           "days",
+          "siteId",
           "effectiveFrom"
         ]
       },
@@ -22067,6 +22336,11 @@
             "items": {
               "$ref": "#/components/schemas/EmployeeWorkScheduleDayDto"
             }
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Assign this schedule version to a site."
           },
           "effectiveFrom": {
             "type": "string",
