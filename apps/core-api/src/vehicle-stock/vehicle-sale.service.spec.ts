@@ -139,6 +139,59 @@ describe('VehicleSaleService', () => {
   });
 
   describe('Gewaehrleistung sale facts', () => {
+    it('scopes the related vehicle when updating a draft sale', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({});
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        tenant_id: tenantId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+        vehicle: { first_registration_date: new Date('2020-01-01'), location: { site_id: 'site-1' } },
+      });
+      prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
+      prisma.vehicleSale.findFirst.mockResolvedValueOnce({
+        id: saleId,
+        tenant_id: tenantId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+        vehicle: { first_registration_date: new Date('2020-01-01'), location: { site_id: 'site-1' } },
+      }).mockResolvedValueOnce({ id: saleId, vehicle_id: vehicleId, sale_price: 100 });
+
+      await service.updateDraft(saleId, { gewaehrleistung_note: 'note' });
+
+      expect(prisma.vehicleSale.findFirst.mock.calls[0][0].where.vehicle).toEqual({
+        is: { tenant_id: tenantId, site_id: { in: ['site-1'] } },
+      });
+    });
+
+    it('scopes the related vehicle when correcting an invoiced sale', async () => {
+      jest.spyOn(service, 'findOne').mockResolvedValue({});
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        tenant_id: tenantId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.INVOICED,
+        vehicle_id: vehicleId,
+        vehicle: { first_registration_date: new Date('2020-01-01') },
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+      });
+      prisma.vehicleSale.updateMany.mockResolvedValue({ count: 1 });
+      prisma.vehicleSale.update.mockResolvedValue({});
+
+      await service.correctGewaehrleistungSnapshot(saleId, {
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+        reason: 'Corrected contract facts',
+      });
+
+      expect(prisma.vehicleSale.findFirst.mock.calls[0][0].where.vehicle).toEqual({
+        is: { tenant_id: tenantId, site_id: { in: ['site-1'] } },
+      });
+    });
+
     it.each([
       ['PRIVATE', true],
       ['COMPANY', false],

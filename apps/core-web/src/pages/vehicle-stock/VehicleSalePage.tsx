@@ -77,6 +77,7 @@ export default function VehicleSalePage() {
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedSerialized = useRef<string | null>(null)
+  const hydratedSaleId = useRef<string | null>(null)
   const finalizing = useRef(false)
   const saveTimer = useRef<number | null>(null)
   const pendingSave = useRef<Promise<void> | null>(null)
@@ -121,7 +122,8 @@ export default function VehicleSalePage() {
   }, [saleId, createSale, updateSale, navigate])
 
   useEffect(() => {
-    if (!existing) return
+    if (!existing || hydratedSaleId.current === existing.id) return
+    hydratedSaleId.current = existing.id
     setSaleId(existing.id)
     setSalePrice(String(existing.sale_price))
     setContractDate(existing.contract_concluded_at?.slice(0, 10) ?? '')

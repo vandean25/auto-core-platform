@@ -146,6 +146,47 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     )
   })
 
+  it('preserves newer edits when an older autosave refreshes the sale query', async () => {
+    let resolveUpdate: (() => void) | undefined
+    updateSale.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveUpdate = resolve
+    }))
+    let renderedSale = { ...existingSale }
+    asMock(vehicleStockApi.useVehicleSale).mockImplementation(() => ({ data: renderedSale }))
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(750) })
+    fireEvent.change(screen.getByLabelText('Vertragsdatum'), { target: { value: '2026-09-01' } })
+    renderedSale = { ...renderedSale, sale_price: 14500 }
+    rerender(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByLabelText('Vertragsdatum')).toHaveValue('2026-09-01')
+
+    await act(async () => {
+      resolveUpdate?.()
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(updateSale).toHaveBeenCalledTimes(2)
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      contract_concluded_at: '2026-09-01',
+    }))
+  })
+
   it('defaults a private buyer to consumer and requires explicit agreement for shortening', () => {
     render(
       <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>

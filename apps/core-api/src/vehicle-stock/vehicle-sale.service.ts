@@ -116,7 +116,15 @@ export class VehicleSaleService {
     const tenantId = await this.tenantContext.getTenantId();
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     const sale = await this.prisma.vehicleSale.findFirst({
-      where: { id, tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+        vehicle: {
+          is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
+        },
+        customer: { is: { tenant_id: tenantId } },
+      },
       include: { vehicle: true, customer: true, invoice: true },
     });
     if (!sale) {
@@ -142,6 +150,9 @@ export class VehicleSaleService {
         id,
         tenant_id: tenantId,
         site_id: { in: authorizedSiteIds },
+        vehicle: {
+          is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
+        },
       },
       include: { vehicle: { include: { location: true } } },
     });
@@ -270,6 +281,9 @@ export class VehicleSaleService {
           tenant_id: tenantId,
           site_id: { in: authorizedSiteIds },
           status: VehicleSaleStatus.INVOICED,
+          vehicle: {
+            is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
+          },
         },
         include: { vehicle: true },
       });
