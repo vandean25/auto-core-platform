@@ -98,45 +98,55 @@ export const mcpToolInputSchemas: Record<
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);
 const workshopOrderDraftStatusSchema = z.literal('SCHEDULED');
 
-export const draftWorkshopOrderInputSchema = z.object({
-  customer_id: uuidSchema.optional(),
-  vehicle_id: uuidSchema,
-  purpose: workshopOrderPurposeSchema.optional(),
-  status: workshopOrderDraftStatusSchema,
-  bay_id: uuidSchema.optional(),
-  mechanic_id: uuidSchema.optional(),
-  scheduled_start_at: z.string().optional(),
-  scheduled_end_at: z.string().optional(),
-  odometer: z.number().int().min(0).optional(),
-  fuel_level: z.number().int().min(0).max(100).optional(),
-  reported_issue: z.string().optional(),
-  notes: z.string().optional(),
-});
+export const draftWorkshopOrderInputSchema = z
+  .object({
+    customer_id: uuidSchema.optional(),
+    vehicle_id: uuidSchema,
+    purpose: workshopOrderPurposeSchema.optional(),
+    status: workshopOrderDraftStatusSchema,
+    bay_id: uuidSchema.optional(),
+    mechanic_id: uuidSchema.optional(),
+    scheduled_start_at: z.string().optional(),
+    scheduled_end_at: z.string().optional(),
+    odometer: z.number().int().min(0).optional(),
+    fuel_level: z.number().int().min(0).max(100).optional(),
+    reported_issue: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .strict();
 
-export const reservePartInputSchema = z.object({
-  workshop_task_line_item_id: uuidSchema,
-  quantity: z.number().min(0.001),
-  location_id: uuidSchema,
-});
-
-export const releaseReservationInputSchema = z.object({
-  reservation_id: uuidSchema,
-  return_location_id: uuidSchema.optional(),
-});
-
-export const proposeLineItemInputSchema = z.object({
-  workshop_order_id: uuidSchema,
-  workshop_task_id: uuidSchema,
-  expected_line_items_version: z.number().int().min(0),
-  line_item: z.object({
-    type: z.enum(['PART', 'LABOR']),
-    item_no: z.string().min(1),
-    description: z.string().min(1),
+export const reservePartInputSchema = z
+  .object({
+    workshop_task_line_item_id: uuidSchema,
     quantity: z.number().min(0.001),
-    unit_price_cents: z.number().int().min(0),
-    labor_operation_id: uuidSchema.optional(),
-  }),
-});
+    location_id: uuidSchema,
+  })
+  .strict();
+
+export const releaseReservationInputSchema = z
+  .object({
+    reservation_id: uuidSchema,
+    return_location_id: uuidSchema.optional(),
+  })
+  .strict();
+
+export const proposeLineItemInputSchema = z
+  .object({
+    workshop_order_id: uuidSchema,
+    workshop_task_id: uuidSchema,
+    expected_line_items_version: z.number().int().min(0),
+    line_item: z
+      .object({
+        type: z.enum(['PART', 'LABOR']),
+        item_no: z.string().min(1),
+        description: z.string().min(1),
+        quantity: z.number().min(0.001),
+        unit_price_cents: z.number().int().min(0),
+        labor_operation_id: uuidSchema.optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
 export const mcpWriteToolInputSchemas: Record<
   (typeof MCP_WRITE_TOOL_NAMES)[number],

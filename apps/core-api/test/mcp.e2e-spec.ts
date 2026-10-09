@@ -931,6 +931,50 @@ describe('MCP server (e2e)', () => {
       await transport.close();
     });
 
+    it('rejects dry_run on draft_workshop_order without creating an order', async () => {
+      await setPolicyTier('workshop_order.create', 'AUTO');
+      const draftVehicle = await createDraftVehicle('draft-dry-run-rejected');
+      const ordersBefore = await prismaA.workshopOrder.count({
+        where: { vehicle_id: draftVehicle.vehicleId },
+      });
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-draft-workshop-order-dry-run-rejected',
+        '00000000-0000-4000-8000-000000000215',
+      );
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          status: 'SCHEDULED',
+          ...scheduledBooking(14),
+          odometer: 1000,
+          fuel_level: 50,
+          notes: 'MCP dry_run rejected test',
+          dry_run: true,
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toMatch(/validation|unrecognized|invalid/i);
+      expect(
+        await prismaA.workshopOrder.count({
+          where: { vehicle_id: draftVehicle.vehicleId },
+        }),
+      ).toBe(ordersBefore);
+      expect(
+        await prismaA.agentActionLog.findFirst({
+          where: {
+            trace_id: '00000000-0000-4000-8000-000000000215',
+            action_type: 'mcp.draft_workshop_order',
+            status: 'FAILED',
+          },
+        }),
+      ).toBeTruthy();
+      await transport.close();
+    });
+
     it('reserve_part then release_reservation round-trip restores state', async () => {
       await setPolicyTier('inventory.part_reserve', 'AUTO');
       await setPolicyTier('inventory.part_release', 'AUTO', { amount_max: 1 });
