@@ -191,20 +191,28 @@ When applying an import job (`POST /api/imports/:id/apply`):
 
 ## Atomic Apply & Immutability Guarantees
 
-Applying a dry-run job executes inside a single atomic database transaction (`prisma.$transaction`):
+Applying a supplier price list job (`POST /api/imports/:id/apply`) is chunked, not all-or-nothing:
+
+- **Chunked transactions**: rows are applied in chunks of 50. Each chunk runs in its own `prisma.$transaction` (30 s timeout), so a chunk either commits completely or not at all.
+- **Row-by-row fallback**: if a chunk transaction fails, the chunk is rolled back and its rows are re-applied one at a time, each in its own transaction. Rows that are `SKIP` or `ERROR` in the dry run are counted once and never re-applied.
+- **Row-level failures become `ERROR` rows**: a stale row plan (`IMPORT_ROW_STALE`, e.g. the catalog price changed after the preview) or a row-level database conflict (unique violation `P2002`, foreign key `P2003`, referenced record gone `P2025`) rolls back only that row. The row is stored as `ERROR` (`IMPORT_APPLY_FAILED` for database conflicts) and counted under `error`. The other rows continue.
+- **Other failures fail the job**: connection loss, pool or transaction timeouts, and deadlocks are not converted into row errors. The apply stops, the job ends `FAILED` with the totals of the work already committed, and the error is returned to the caller.
+- **Committed chunks are kept**: chunks that committed before a failure are not rolled back. A `FAILED` job can therefore be partially applied, and its `totals_json` reflects exactly what was written.
+- **Job completion**: the transition to `APPLIED` (with `appliedAt` and `totals_json`) and the `AuditLog` entry (`import_job.applied`) are written in one transaction. The job ends `APPLIED` with its final counts, including `error` rows.
+- **Not re-appliable**: an `APPLIED` job returns `409 IMPORT_JOB_ALREADY_APPLIED`, and a `FAILED` job returns `409 IMPORT_JOB_STALE`. A new dry run is required to import again.
+
+Each applied row writes the following within its own transaction:
 
 1. **Catalog Price Updates**:
-   - Updates `CatalogItem.cost_price` and `CatalogItem.retail_price`.
-   - Inserts a `CatalogPriceHistory` record containing `old_cost`, `new_cost`, `old_retail`, `new_retail`, and `import_job_id`.
+   - When cost or retail price changed, updates `CatalogItem.cost_price` and `CatalogItem.retail_price`.
+   - In that case, inserts a `CatalogPriceHistory` record containing `old_cost`, `new_cost`, `old_retail`, `new_retail`, and `import_job_id`.
 2. **Vendor Article Mapping Upsert**:
    - Creates or updates `VendorArticle` for `(tenant_id, vendor_id, supplier_article_no)` with `catalog_item_id`, `last_cost`, and `last_rrp`.
 3. **New Item Creation (if enabled)**:
    - Inserts `CatalogItem` with `sku = supplier_article_no`, `name = description`, `cost_price`, `retail_price`, `brand_id`, `unit`, `ean`.
    - Creates `VendorArticle` link and initial `CatalogPriceHistory` (`old_cost: null`, `old_retail: null`).
-4. **Audit Trail**:
-   - Writes an `AuditLog` entry for `ImportJob` state transition to `APPLIED`.
-5. **Historical Document Immutability**:
-   - `InvoiceItem`, `SalesOrderItem`, and `WorkshopTaskLineItem` store their agreed `unit_price` as a fixed historical record. Changing the master `CatalogItem` price has **zero effect** on existing draft, confirmed, or finalized sales/service documents.
+
+**Historical Document Immutability**: `InvoiceItem`, `SalesOrderItem`, and `WorkshopTaskLineItem` store their agreed `unit_price` as a fixed historical record. Changing the master `CatalogItem` price has **zero effect** on existing draft, confirmed, or finalized sales/service documents.
 
 ---
 

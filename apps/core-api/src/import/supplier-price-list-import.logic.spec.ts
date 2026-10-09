@@ -6,6 +6,7 @@ import {
   type SupplierPriceListCatalogItem,
 } from './supplier-price-list-import.logic.js';
 import type { MarginRuleItem } from '../margin-rule/retail-from-cost.util.js';
+import { IMPORT_ERROR_CODES } from './import.constants.js';
 
 const mapping = {
   supplier_article_no: 'Lieferanten-Artikelnummer',
@@ -498,6 +499,115 @@ describe('supplier-price-list-import.logic', () => {
       expect(
         planned.warnings.some((w) => w.code === 'PRICE_JUMP_EXCEEDED'),
       ).toBe(true);
+    });
+  });
+
+  describe('RRP_MISSING_FOR_MARGIN_RULE (rule needs supplier UVP, row has none)', () => {
+    const rrpRules: MarginRuleItem[] = [
+      {
+        priority: 1,
+        use_supplier_rrp: true,
+        markup_percent: null,
+        rounding: 'NONE',
+        is_active: true,
+      },
+    ];
+
+    const emptyContext = (): SupplierPriceListMatchContext => ({
+      catalogItemByEan: new Map(),
+      catalogItemByVendorArticleNo: new Map(),
+      catalogItemBySku: new Map(),
+      marginRules: rrpRules,
+    });
+
+    it('warns for an unmatched new item without UVP and sets its retail price to the cost price', () => {
+      const row = {
+        supplier_article_no: 'NEW-NO-UVP',
+        ean: null,
+        description: 'New Item Without UVP',
+        brand: null,
+        cost_price: 40,
+        rrp: null,
+        unit: 'pcs',
+      };
+
+      const planned = planSupplierPriceListDryRunRow(1, row, emptyContext(), {
+        create_new_catalog_items: true,
+      });
+
+      expect(planned.action).toBe(ImportRowAction.CREATE);
+      expect(planned.normalized?.retail_price).toBe(40);
+      expect(planned.warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: IMPORT_ERROR_CODES.RRP_MISSING_FOR_MARGIN_RULE,
+            field: 'rrp',
+          }),
+        ]),
+      );
+    });
+
+    it('does not warn for an unmatched new item when the UVP is present', () => {
+      const row = {
+        supplier_article_no: 'NEW-WITH-UVP',
+        ean: null,
+        description: 'New Item With UVP',
+        brand: null,
+        cost_price: 40,
+        rrp: 79.9,
+        unit: 'pcs',
+      };
+
+      const planned = planSupplierPriceListDryRunRow(1, row, emptyContext(), {
+        create_new_catalog_items: true,
+      });
+
+      expect(planned.action).toBe(ImportRowAction.CREATE);
+      expect(planned.normalized?.retail_price).toBe(79.9);
+      expect(
+        planned.warnings.some(
+          (w) => w.code === IMPORT_ERROR_CODES.RRP_MISSING_FOR_MARGIN_RULE,
+        ),
+      ).toBe(false);
+    });
+
+    it('keeps the existing retail price and warns for a matched item without UVP', () => {
+      const existingItem: SupplierPriceListCatalogItem = {
+        id: 'item-rrp-1',
+        sku: 'SKU-RRP-1',
+        name: 'Existing Item',
+        cost_price: 40,
+        retail_price: 90,
+        ean: '4022222222222',
+      };
+      const context: SupplierPriceListMatchContext = {
+        catalogItemByEan: new Map([['4022222222222', existingItem]]),
+        catalogItemByVendorArticleNo: new Map(),
+        catalogItemBySku: new Map(),
+        marginRules: rrpRules,
+      };
+      const row = {
+        supplier_article_no: 'SKU-RRP-1',
+        ean: '4022222222222',
+        description: 'Existing Item',
+        brand: null,
+        cost_price: 40,
+        rrp: null,
+        unit: 'pcs',
+      };
+
+      const planned = planSupplierPriceListDryRunRow(1, row, context);
+
+      expect(planned.action).toBe(ImportRowAction.SKIP);
+      expect(planned.normalized?.retail_price).toBe(90);
+      expect(planned.warnings).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            code: IMPORT_ERROR_CODES.RRP_MISSING_FOR_MARGIN_RULE,
+            field: 'rrp',
+          }),
+        ]),
+      );
     });
   });
 });

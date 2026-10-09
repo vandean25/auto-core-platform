@@ -63,6 +63,20 @@ class ApplyRowStaleError extends Error {
   }
 }
 
+// Only conflicts with this row's own data are recorded as ERROR rows: a stale plan, a
+// unique violation, a foreign key failure or a referenced record that is gone. Deadlocks,
+// write conflicts, pool or transaction timeouts and connection loss are not row problems
+// and must surface instead of being turned into row errors.
+function isRowLevelApplyError(error: unknown): boolean {
+  if (error instanceof ApplyRowStaleError) {
+    return true;
+  }
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    ['P2002', 'P2003', 'P2025'].includes(error.code)
+  );
+}
+
 function resolveImportExternalId(
   payload: Record<string, unknown>,
   rowExternalId: string | null,
@@ -477,7 +491,7 @@ export class ImportService {
           const staleCode =
             error instanceof ApplyRowStaleError
               ? IMPORT_ERROR_CODES.ROW_STALE
-              : 'IMPORT_APPLY_FAILED';
+              : IMPORT_ERROR_CODES.APPLY_FAILED;
           await this.prisma.importJobRow.update({
             where: {
               tenant_id_import_job_id_row_no: {
@@ -774,21 +788,27 @@ export class ImportService {
       skip: 0,
       error: 0,
     };
+    // Set only after the APPLIED transition has committed. A later failure must not
+    // overwrite an applied job with FAILED.
+    let jobApplied = false;
 
     try {
       const CHUNK_SIZE = 50;
       for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
         const chunk = rows.slice(i, i + CHUNK_SIZE);
         try {
-          await this.prisma.$transaction(
+          // Counts stay local to the transaction and are merged into totals only after
+          // it commits, so a rolled-back chunk contributes nothing.
+          const chunkCounts = await this.prisma.$transaction(
             async (tx) => {
+              const counts = { create: 0, update: 0, skip: 0, error: 0 };
               for (const row of chunk) {
                 if (row.action === ImportRowAction.ERROR) {
-                  totals.error += 1;
+                  counts.error += 1;
                   continue;
                 }
                 if (row.action === ImportRowAction.SKIP) {
-                  totals.skip += 1;
+                  counts.skip += 1;
                   continue;
                 }
                 const res = await this.applySupplierRow(
@@ -799,13 +819,18 @@ export class ImportService {
                   job.source_system,
                   row,
                 );
-                if (res.action === ImportRowAction.CREATE) totals.create += 1;
+                if (res.action === ImportRowAction.CREATE) counts.create += 1;
                 else if (res.action === ImportRowAction.UPDATE)
-                  totals.update += 1;
+                  counts.update += 1;
               }
+              return counts;
             },
             { timeout: 30000, maxWait: 10000 },
           );
+          totals.create += chunkCounts.create;
+          totals.update += chunkCounts.update;
+          totals.skip += chunkCounts.skip;
+          totals.error += chunkCounts.error;
         } catch (chunkError) {
           this.logger.warn(
             `Supplier price list chunk failed at offset ${i}, falling back to row-by-row: ${chunkError instanceof Error ? chunkError.message : String(chunkError)}`,
@@ -820,21 +845,23 @@ export class ImportService {
               continue;
             }
             try {
-              await this.prisma.$transaction(async (tx) => {
-                const res = await this.applySupplierRow(
+              const res = await this.prisma.$transaction(async (tx) =>
+                this.applySupplierRow(
                   tx,
                   tenantId,
                   vendor.id,
                   job.id,
                   job.source_system,
                   row,
-                );
-                if (res.action === ImportRowAction.CREATE) totals.create += 1;
-                else if (res.action === ImportRowAction.UPDATE)
-                  totals.update += 1;
-              });
+                ),
+              );
+              if (res.action === ImportRowAction.CREATE) totals.create += 1;
+              else if (res.action === ImportRowAction.UPDATE)
+                totals.update += 1;
             } catch (rowError) {
-              totals.error += 1;
+              if (!isRowLevelApplyError(rowError)) {
+                throw rowError;
+              }
               const message =
                 rowError instanceof ApplyRowStaleError
                   ? rowError.message
@@ -842,7 +869,7 @@ export class ImportService {
               const code =
                 rowError instanceof ApplyRowStaleError
                   ? IMPORT_ERROR_CODES.ROW_STALE
-                  : 'IMPORT_APPLY_FAILED';
+                  : IMPORT_ERROR_CODES.APPLY_FAILED;
               await this.prisma.importJobRow.update({
                 where: {
                   tenant_id_import_job_id_row_no: {
@@ -856,47 +883,63 @@ export class ImportService {
                   errors_json: [{ code, message }],
                 },
               });
+              totals.error += 1;
             }
           }
         }
       }
 
-      const updatedJob = await this.prisma.importJob.update({
-        where: { id: job.id },
-        data: {
-          status: ImportJobStatus.APPLIED,
-          appliedAt: new Date(),
-          totals_json: totals,
-          options_json: options,
-        },
-      });
-
+      // The APPLIED transition and its audit entry commit together or not at all.
       const authUser = this.tenantContext.getAuthenticatedUser();
-      await this.prisma.auditLog.create({
-        data: {
-          tenant_id: tenantId,
-          entity_type: 'ImportJob',
-          entity_id: job.id,
-          action: AuditLogAction.UPDATE,
-          actor_user_id: actorUserId,
-          actor_email: authUser?.email ?? null,
-          actor_role: authUser?.role ?? null,
-          actor_type: AuditActorType.USER,
-          source: IMPORT_SOURCE,
-          after: {
-            event: 'import_job.applied',
-            importJobId: job.id,
-            totals,
+      const updatedJob = await this.prisma.$transaction(async (tx) => {
+        const applied = await tx.importJob.update({
+          where: { id: job.id },
+          data: {
+            status: ImportJobStatus.APPLIED,
+            appliedAt: new Date(),
+            totals_json: totals,
+            options_json: options,
           },
-        },
+        });
+        await tx.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            entity_type: 'ImportJob',
+            entity_id: job.id,
+            action: AuditLogAction.UPDATE,
+            actor_user_id: actorUserId,
+            actor_email: authUser?.email ?? null,
+            actor_role: authUser?.role ?? null,
+            actor_type: AuditActorType.USER,
+            source: IMPORT_SOURCE,
+            after: {
+              event: 'import_job.applied',
+              importJobId: job.id,
+              totals,
+            },
+          },
+        });
+        return applied;
       });
+      jobApplied = true;
 
       return this.serializeJob(updatedJob, totals);
     } catch (error) {
-      await this.prisma.importJob.update({
-        where: { id: job.id },
-        data: { status: ImportJobStatus.FAILED, totals_json: totals },
-      });
+      if (!jobApplied) {
+        // Chunks that already committed remain applied. The job ends FAILED with the
+        // totals of that committed work, so the partial state stays visible. The guard
+        // keeps this from overwriting a job that reached APPLIED on the database side.
+        try {
+          await this.prisma.importJob.updateMany({
+            where: { id: job.id, status: ImportJobStatus.APPLYING },
+            data: { status: ImportJobStatus.FAILED, totals_json: totals },
+          });
+        } catch (markError) {
+          this.logger.error(
+            `Could not mark import job ${job.id} as FAILED: ${markError instanceof Error ? markError.message : String(markError)}`,
+          );
+        }
+      }
       throw error;
     }
   }

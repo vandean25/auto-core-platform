@@ -200,11 +200,9 @@ export class VendorService {
       this.prisma.vehiclePurchase.count({
         where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
       }),
-      this.prisma.vendorArticle?.count
-        ? this.prisma.vendorArticle.count({
-            where: { tenant_id: tenantId, vendor_id: id },
-          })
-        : Promise.resolve(0),
+      this.prisma.vendorArticle.count({
+        where: { tenant_id: tenantId, vendor_id: id },
+      }),
     ]);
 
     if (

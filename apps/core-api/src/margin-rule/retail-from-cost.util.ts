@@ -62,13 +62,6 @@ export function roundPrice(
 }
 
 /**
- * Pure calculation engine determining retail price from cost and optional supplier RRP
- * according to ordered margin rules and rounding strategies.
- *
- * Rules are matched in priority order (lowest integer priority first).
- * Returns null if no rule matches or if required cost is missing/non-positive in markup mode.
- */
-/**
  * Finds the first matching active margin rule in priority order.
  */
 export function findMatchingMarginRule(

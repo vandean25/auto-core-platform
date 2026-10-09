@@ -609,5 +609,178 @@ describe('ImportService - Supplier Price List', () => {
         }),
       );
     });
+
+    describe('chunk failures and job bookkeeping', () => {
+      const createRow = (rowNo: number, sku: string) => ({
+        tenant_id: 'tenant-1',
+        import_job_id: 'job-chunk',
+        row_no: rowNo,
+        action: ImportRowAction.CREATE,
+        entity_id: null,
+        external_id: sku,
+        normalized_json: {
+          supplier_article_no: sku,
+          description: `Item ${sku}`,
+          cost_price: 10,
+          retail_price: 20,
+          rrp: null,
+          unit: 'pcs',
+          ean: null,
+        },
+      });
+
+      const arrangeApply = (jobId: string, rows: unknown[]) => {
+        mockPrisma.importJob.findFirst.mockResolvedValue({
+          id: jobId,
+          tenant_id: 'tenant-1',
+          entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
+          source_system: 'vendor-1',
+          status: ImportJobStatus.DRY_RUN_DONE,
+          options_json: { vendor_id: 'vendor-1' },
+        });
+        mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+        mockPrisma.vendor.findFirst.mockResolvedValue({
+          id: 'vendor-1',
+          name: 'Vendor 1',
+        });
+        mockPrisma.vendorArticle.findFirst.mockResolvedValue(null);
+        mockPrisma.vendorArticle.upsert.mockResolvedValue({});
+        mockPrisma.catalogPriceHistory.create.mockResolvedValue({});
+        mockPrisma.importJobRow.findMany.mockResolvedValue(rows);
+        mockPrisma.importJobRow.update.mockResolvedValue({});
+        mockPrisma.auditLog.create.mockResolvedValue({});
+        mockPrisma.importJob.update.mockImplementation(
+          async ({ data }: any) => ({
+            id: jobId,
+            status: data.status,
+            totals_json: data.totals_json,
+            createdAt: new Date(),
+            appliedAt: data.appliedAt ?? null,
+          }),
+        );
+      };
+
+      const uniqueViolation = () =>
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '0',
+        });
+
+      it('counts each row once when a chunk fails and its rows are re-applied one by one', async () => {
+        arrangeApply('job-chunk', [
+          createRow(1, 'ART-NEW-1'),
+          { ...createRow(2, 'ART-SKIP-2'), action: ImportRowAction.SKIP },
+          { ...createRow(3, 'ART-ERROR-3'), action: ImportRowAction.ERROR },
+          createRow(4, 'ART-DUPLICATE'),
+          createRow(5, 'ART-NEW-5'),
+        ]);
+        mockPrisma.catalogItem.create.mockImplementation(
+          async ({ data }: any) => {
+            if (data.sku === 'ART-DUPLICATE') {
+              throw uniqueViolation();
+            }
+            return { id: `item-${data.sku}`, sku: data.sku, name: data.name };
+          },
+        );
+
+        const result = await service.applyJob('job-chunk');
+
+        const expectedTotals = {
+          rows: 5,
+          create: 2,
+          update: 0,
+          skip: 1,
+          error: 2,
+        };
+        expect(result.totals).toEqual(expectedTotals);
+        expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              status: ImportJobStatus.APPLIED,
+              totals_json: expectedTotals,
+            }),
+          }),
+        );
+        expect(mockPrisma.importJobRow.update).toHaveBeenCalledWith({
+          where: {
+            tenant_id_import_job_id_row_no: {
+              tenant_id: 'tenant-1',
+              import_job_id: 'job-chunk',
+              row_no: 4,
+            },
+          },
+          data: {
+            action: ImportRowAction.ERROR,
+            errors_json: [
+              {
+                code: IMPORT_ERROR_CODES.APPLY_FAILED,
+                message: 'Row failed during apply',
+              },
+            ],
+          },
+        });
+      });
+
+      it('surfaces non row-level errors and ends the job FAILED with the committed totals', async () => {
+        arrangeApply('job-conn-lost', [
+          createRow(1, 'ART-OK-1'),
+          createRow(2, 'ART-CONN-2'),
+        ]);
+        mockPrisma.catalogItem.create.mockImplementation(
+          async ({ data }: any) => {
+            if (data.sku === 'ART-CONN-2') {
+              throw new Error('Connection lost');
+            }
+            return { id: `item-${data.sku}`, sku: data.sku, name: data.name };
+          },
+        );
+
+        await expect(service.applyJob('job-conn-lost')).rejects.toThrow(
+          'Connection lost',
+        );
+
+        expect(mockPrisma.importJob.updateMany).toHaveBeenCalledWith({
+          where: { id: 'job-conn-lost', status: ImportJobStatus.APPLYING },
+          data: {
+            status: ImportJobStatus.FAILED,
+            totals_json: { rows: 2, create: 1, update: 0, skip: 0, error: 0 },
+          },
+        });
+        expect(mockPrisma.importJob.update).not.toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ status: ImportJobStatus.APPLIED }),
+          }),
+        );
+      });
+
+      it('does not mark the job FAILED when bookkeeping fails after it was APPLIED', async () => {
+        arrangeApply('job-post-apply', [
+          { ...createRow(1, 'ART-SKIP-1'), action: ImportRowAction.SKIP },
+        ]);
+        const serializeSpy = jest
+          .spyOn(service as any, 'serializeJob')
+          .mockImplementation(() => {
+            throw new Error('serialization failed');
+          });
+
+        await expect(service.applyJob('job-post-apply')).rejects.toThrow(
+          'serialization failed',
+        );
+
+        expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ status: ImportJobStatus.APPLIED }),
+          }),
+        );
+        const failedWrites = [
+          ...mockPrisma.importJob.update.mock.calls,
+          ...mockPrisma.importJob.updateMany.mock.calls,
+        ].filter(
+          ([args]: any[]) => args?.data?.status === ImportJobStatus.FAILED,
+        );
+        expect(failedWrites).toEqual([]);
+        serializeSpy.mockRestore();
+      });
+    });
   });
 });
