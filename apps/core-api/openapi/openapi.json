@@ -11749,6 +11749,82 @@
         ]
       }
     },
+    "/api/decision-shadow-logs": {
+      "get": {
+        "description": "Returns cursor-paginated, read-only Jev/decision-adapter shadow rows for the authenticated tenant. Suggestions are never applied.",
+        "operationId": "DecisionShadowLogController_findAll",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor for forward pagination",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End of created_at range (ISO-8601). A date-only value includes the whole UTC day.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of rows to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "useCase",
+            "required": false,
+            "in": "query",
+            "description": "Filter by decision use case",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "import_row_matching",
+                "document_sort"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionShadowLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List decision shadow logs (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Decision Shadow Logs"
+        ]
+      }
+    },
     "/api/mcp": {
       "get": {
         "operationId": "McpController_handleMcp_get",
@@ -25869,6 +25945,140 @@
         "required": [
           "action_type",
           "payload_json"
+        ]
+      },
+      "DecisionShadowSuggestionDto": {
+        "type": "object",
+        "properties": {
+          "choice": {
+            "type": "string",
+            "description": "Choice suggested by the shadow provider. Never applied."
+          },
+          "confidence": {
+            "type": "number",
+            "nullable": true
+          },
+          "rationale": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "choice",
+          "confidence",
+          "rationale"
+        ]
+      },
+      "DecisionShadowActualOutcomeDto": {
+        "type": "object",
+        "properties": {
+          "choice": {
+            "type": "string",
+            "description": "Deterministic outcome the suggestion is compared against"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "choice",
+          "source"
+        ]
+      },
+      "DecisionShadowLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "useCase": {
+            "type": "string",
+            "enum": [
+              "import_row_matching",
+              "document_sort"
+            ]
+          },
+          "suggestion": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DecisionShadowSuggestionDto"
+              }
+            ]
+          },
+          "actualOutcome": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DecisionShadowActualOutcomeDto"
+              }
+            ]
+          },
+          "latencyMs": {
+            "type": "number",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true,
+            "description": "Provider error message. Null when the provider call succeeded."
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true
+          },
+          "match": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether the suggested choice equals the actual outcome. Null when there is no suggestion."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "traceId",
+          "useCase",
+          "suggestion",
+          "actualOutcome",
+          "latencyMs",
+          "error",
+          "provider",
+          "model",
+          "match",
+          "createdAt"
+        ]
+      },
+      "DecisionShadowLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DecisionShadowLogResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor for the next page when more results exist"
+          }
+        },
+        "required": [
+          "data",
+          "nextCursor"
         ]
       }
     }
