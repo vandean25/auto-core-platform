@@ -1,5 +1,6 @@
 import type { BrowserOptions } from '@sentry/react'
 import { applyChunkLoadRecoveryBeforeSend } from '@/sentry/chunk-load-before-send'
+import { isForceCloseDeleteOriginRejection } from '@/sentry/force-close-delete-origin'
 
 type SentryEnv = {
   MODE?: string
@@ -34,6 +35,11 @@ export function createSentryOptions(env: SentryEnv): BrowserOptions {
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     enableLogs: true,
-    beforeSend: applyChunkLoadRecoveryBeforeSend,
+    beforeSend: (event, hint) => {
+      if (isForceCloseDeleteOriginRejection(event)) {
+        return null
+      }
+      return applyChunkLoadRecoveryBeforeSend(event, hint)
+    },
   }
 }
