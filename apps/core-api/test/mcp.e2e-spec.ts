@@ -630,6 +630,28 @@ describe('MCP server (e2e)', () => {
 
      await transport.close();
    });
+    it('whoami and get_capabilities for tenant B never show tenant A identity', async () => {
+      const { client, transport } = await connectMcpClient(
+        adminHeaderB,
+        'e2e-tenant-b-identity',
+      );
+      try {
+        const whoami = await client.callTool({ name: 'whoami', arguments: {} });
+        expect(JSON.parse(toolPayloadText(whoami))).toMatchObject({
+          tenant: { id: tenantB },
+        });
+        expect(toolPayloadText(whoami)).not.toContain(tenantA);
+
+        const capabilities = await client.callTool({
+          name: 'get_capabilities',
+          arguments: { pageSize: 25 },
+        });
+        expect(toolPayloadText(capabilities)).not.toContain(tenantA);
+      } finally {
+        await transport.close();
+      }
+    });
+
     it('whoami reports the agent caller, the session tenant, and the decision mode', async () => {
       const { client, transport } = await connectMcpClient(
         adminHeaderA,

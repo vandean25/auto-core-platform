@@ -262,6 +262,24 @@ describe('McpCapabilitiesService.getCapabilities', () => {
     });
   });
 
+  it('reports a rule-level customer_facing escalation as PROPOSE, the tier every call enforces', async () => {
+    const { service, agentPolicy } = createService();
+    agentPolicy.getEffectiveRule.mockImplementation(async (actionType: string) =>
+      actionType === 'inventory.part_reserve'
+        ? policyRule('inventory.part_reserve', {
+            conditions: { customer_facing: true },
+          })
+        : (TENANT_A_RULES[actionType] ?? null),
+    );
+
+    const page = await service.getCapabilities({});
+
+    expect(byTool(page.data).get('reserve_part')).toMatchObject({
+      tier: 'PROPOSE',
+      enabled: true,
+    });
+  });
+
   it('reads each write tool from policy and never hardcodes its tier', async () => {
     const { service, agentPolicy } = createService();
 

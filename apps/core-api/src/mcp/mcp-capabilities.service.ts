@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { AgentPolicyTier } from '@prisma/client';
 import { MCP_WRITE_POLICY_ACTION_TYPES } from '../agent-policy/agent-policy.constants.js';
-import { isHumanOnlyFloorAction } from '../agent-policy/agent-policy-floor.js';
+import { evaluateAgentPolicy } from '../agent-policy/agent-policy.evaluator.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -184,19 +184,24 @@ export class McpCapabilitiesService {
    * A disabled rule stays listed with enabled=false and its configured tier, so
    * the caller can see why it is unavailable. A missing rule, a floor category,
    * or a configured HUMAN_ONLY tier is fail-closed and is not a tool.
+   *
+   * The tier is what a call with no per-call context would enforce. The evaluator
+   * applies the rule's own customer_facing condition, so that escalation shows here.
    */
   private async describeWriteTool(
     tool: McpWriteToolName,
   ): Promise<WriteToolDescription> {
     const actionType = MCP_WRITE_POLICY_ACTION_TYPES[tool];
-    if (isHumanOnlyFloorAction(actionType)) {
-      return { kind: 'human_only', actionType };
-    }
     const rule = await this.agentPolicy.getEffectiveRule(actionType);
     if (!rule) {
       return { kind: 'human_only', actionType };
     }
-    const tier = effectiveMcpWriteTier(tool, rule.tier);
+    const configured = evaluateAgentPolicy(
+      actionType,
+      {},
+      { ...rule, enabled: true },
+    ).tier;
+    const tier = effectiveMcpWriteTier(tool, configured);
     if (tier === AgentPolicyTier.HUMAN_ONLY) {
       return { kind: 'human_only', actionType };
     }
