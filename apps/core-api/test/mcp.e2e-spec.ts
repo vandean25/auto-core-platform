@@ -607,7 +607,14 @@ describe('MCP server (e2e)', () => {
         arguments: call.arguments,
       });
       const payload = toolPayloadText(result);
-      if (call.name.startsWith('get_')) {
+      if (
+        [
+          'get_customer',
+          'get_vehicle',
+          'get_workshop_order',
+          'get_stock_level',
+        ].includes(call.name)
+      ) {
         expect(result.isError).toBe(true);
         continue;
       }
