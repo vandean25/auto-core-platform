@@ -371,7 +371,13 @@ export class VehicleSaleService {
     const siteId = await this.siteContext.getSiteId();
     return this.prisma.$transaction(async (tx) => {
       let sale = await tx.vehicleSale.findFirst({
-        where: { id, tenant_id: tenantId, site_id: siteId },
+        where: {
+          id,
+          tenant_id: tenantId,
+          site_id: siteId,
+          vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
+          customer: { is: { tenant_id: tenantId } },
+        },
         include: { vehicle: true, customer: true },
       });
       if (!sale) {
@@ -403,6 +409,13 @@ export class VehicleSaleService {
           tenant_id: tenantId,
           site_id: commitmentContext.ownership.siteId,
           status: VehicleSaleStatus.DRAFT,
+          vehicle: {
+            is: {
+              tenant_id: tenantId,
+              site_id: commitmentContext.ownership.siteId,
+            },
+          },
+          customer: { is: { tenant_id: tenantId } },
         },
         include: { vehicle: true, customer: true },
       });
@@ -417,6 +430,17 @@ export class VehicleSaleService {
         sale.vehicle_id,
         sale.customer_id,
         tx,
+      );
+
+      const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+        {
+          contract_concluded_at: sale.contract_concluded_at,
+          handed_over_at: sale.handed_over_at,
+          buyer_is_consumer: sale.buyer_is_consumer ?? false,
+          gewaehrleistung_shortened_negotiated:
+            sale.gewaehrleistung_shortened_negotiated ?? false,
+        },
+        sale.vehicle.first_registration_date,
       );
 
       const entries = await tx.vehicleLedgerEntry.findMany({
@@ -447,12 +471,19 @@ export class VehicleSaleService {
         from: VehicleSaleStatus.DRAFT,
         to: VehicleSaleStatus.INVOICED,
         extraWhere: { site_id: persistedSiteId },
+        extraData: warrantySnapshot,
         conflictMessage:
           'Vehicle sale state or site changed concurrently. Please refresh.',
       });
 
       const posted = await tx.vehicleSale.findFirst({
-        where: { id, tenant_id: tenantId, site_id: siteId },
+        where: {
+          id,
+          tenant_id: tenantId,
+          site_id: siteId,
+          vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
+          customer: { is: { tenant_id: tenantId } },
+        },
         include: { vehicle: true, customer: true },
       });
       if (!posted) {
@@ -543,6 +574,7 @@ export class VehicleSaleService {
           site_id: persistedSiteId,
           inventory_role: VehicleInventoryRole.USED,
           stock_status: { in: SELLABLE_STATUSES },
+          first_registration_date: sale.vehicle.first_registration_date,
         },
         data: {
           stock_status: null,

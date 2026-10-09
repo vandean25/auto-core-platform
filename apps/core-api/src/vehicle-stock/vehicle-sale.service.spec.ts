@@ -455,6 +455,7 @@ describe('VehicleSaleService', () => {
       inventory_role: VehicleInventoryRole.USED,
       stock_status: VehicleStockStatus.IN_STOCK,
       stock_received_at: stockReceivedAt,
+      first_registration_date: new Date('2020-01-01T00:00:00.000Z'),
       reserved_for_customer_id: null,
     };
     const customer = {
@@ -478,6 +479,13 @@ describe('VehicleSaleService', () => {
       customer_id: customerId,
       status: VehicleSaleStatus.DRAFT,
       sale_price: new Prisma.Decimal(100),
+      contract_concluded_at: new Date('2026-10-02T00:00:00.000Z'),
+      handed_over_at: new Date('2026-10-08T00:00:00.000Z'),
+      buyer_is_consumer: true,
+      gewaehrleistung_shortened_negotiated: true,
+      gewaehrleistung_ends_on: new Date('2028-10-08T00:00:00.000Z'),
+      presumption_ends_on: new Date('2027-10-08T00:00:00.000Z'),
+      gewaehrleistung_rule_version: 'stale-rule-version',
       vehicle,
       customer,
     };
@@ -523,6 +531,7 @@ describe('VehicleSaleService', () => {
     prisma.invoice.updateMany.mockResolvedValue({ count: 1 });
     prisma.vehicleSale.update.mockResolvedValue(sale);
     prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: 'site-1', is_active: true }]);
 
     const result = await service.finalize(saleId);
 
@@ -568,6 +577,54 @@ describe('VehicleSaleService', () => {
         data: expect.objectContaining({ days_to_sell_snapshot: 30 }),
       }),
     );
+    expect(prisma.vehicleSale.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          gewaehrleistung_ends_on: new Date('2027-10-08T00:00:00.000Z'),
+          presumption_ends_on: new Date('2027-10-08T00:00:00.000Z'),
+          gewaehrleistung_rule_version: 'at-used-vehicle-vgg-2026-10-v2',
+        }),
+      }),
+    );
+    expect(prisma.vehicle.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          first_registration_date: vehicle.first_registration_date,
+        }),
+      }),
+    );
+  });
+
+  it('rejects finalization when a newly corrected registration date invalidates shortening', async () => {
+    const sale = {
+      id: saleId,
+      site_id: 'site-1',
+      vehicle_id: vehicleId,
+      customer_id: customerId,
+      status: VehicleSaleStatus.DRAFT,
+      sale_price: new Prisma.Decimal(100),
+      contract_concluded_at: new Date('2026-10-02T00:00:00.000Z'),
+      handed_over_at: new Date('2026-10-08T00:00:00.000Z'),
+      buyer_is_consumer: true,
+      gewaehrleistung_shortened_negotiated: true,
+      vehicle: { first_registration_date: new Date('2026-01-01T00:00:00.000Z') },
+      customer: { id: customerId },
+    };
+    prisma.vehicleSale.findFirst.mockResolvedValue(sale);
+    prisma.vehicle.findFirst.mockResolvedValue({
+      inventory_role: VehicleInventoryRole.USED,
+      stock_status: VehicleStockStatus.IN_STOCK,
+      reserved_for_customer_id: null,
+    });
+    prisma.customer.findFirst.mockResolvedValue({ id: customerId });
+    prisma.workshopOrder.count.mockResolvedValue(0);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: 'site-1', is_active: true }]);
+
+    await expect(service.finalize(saleId)).rejects.toBeInstanceOf(
+      UnprocessableEntityException,
+    );
+
+    expect(prisma.invoice.create).not.toHaveBeenCalled();
   });
 
   describe('updateDraft (retargeting)', () => {

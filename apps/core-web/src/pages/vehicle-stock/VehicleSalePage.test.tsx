@@ -107,6 +107,45 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     expect(finalizeSale).not.toHaveBeenCalled()
   })
 
+  it('saves current warranty edits before finalizing the invoice', async () => {
+    let resolveUpdate: (() => void) | undefined
+    updateSale.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveUpdate = resolve
+    }))
+    finalizeSale.mockResolvedValueOnce({ invoice: { id: 'invoice-1' } })
+
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Übergabedatum'), {
+      target: { value: '2026-10-08' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
+      handed_over_at: '2026-10-08',
+    }))
+    expect(finalizeSale).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveUpdate?.()
+      await Promise.resolve()
+    })
+
+    expect(updateSale.mock.invocationCallOrder[0]).toBeLessThan(
+      finalizeSale.mock.invocationCallOrder[0],
+    )
+  })
+
   it('defaults a private buyer to consumer and requires explicit agreement for shortening', () => {
     render(
       <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>

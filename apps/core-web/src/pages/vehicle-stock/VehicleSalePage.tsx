@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
@@ -20,6 +20,40 @@ import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
 
+type VehicleSaleDraftFacts = {
+  vehicle_id: string
+  customer_id: string
+  sale_price: number
+  contract_concluded_at: string | null
+  handed_over_at: string | null
+  buyer_is_consumer: boolean
+  gewaehrleistung_shortened_negotiated: boolean
+  gewaehrleistung_note: string | null
+}
+
+function buildVehicleSaleDraftFacts(input: {
+  vehicleId: string
+  customerId: string
+  salePrice: number
+  contractDate: string
+  handoverDate: string
+  buyerIsConsumer: boolean
+  shorteningNegotiated: boolean
+  warrantyNote: string
+}): VehicleSaleDraftFacts {
+  return {
+    vehicle_id: input.vehicleId,
+    customer_id: input.customerId,
+    sale_price: input.salePrice,
+    contract_concluded_at: input.contractDate || null,
+    handed_over_at: input.handoverDate || null,
+    buyer_is_consumer: input.buyerIsConsumer,
+    gewaehrleistung_shortened_negotiated:
+      input.buyerIsConsumer && input.shorteningNegotiated,
+    gewaehrleistung_note: input.warrantyNote || null,
+  }
+}
+
 export default function VehicleSalePage() {
   const { id = 'new' } = useParams()
   const [searchParams] = useSearchParams()
@@ -40,8 +74,51 @@ export default function VehicleSalePage() {
   const [buyerIsConsumer, setBuyerIsConsumer] = useState(true)
   const [shorteningNegotiated, setShorteningNegotiated] = useState(false)
   const [warrantyNote, setWarrantyNote] = useState('')
+  const [isFinalizing, setIsFinalizing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedSerialized = useRef<string | null>(null)
+  const finalizing = useRef(false)
+  const saveTimer = useRef<number | null>(null)
+  const pendingSave = useRef<Promise<void> | null>(null)
+  const persistSaleFacts = useCallback(async (
+    facts: VehicleSaleDraftFacts,
+    serialized: string,
+  ) => {
+    setSaveStatus('saving')
+    try {
+      if (!saleId) {
+        const created = await createSale({
+          vehicle_id: facts.vehicle_id,
+          customer_id: facts.customer_id,
+          sale_price: facts.sale_price,
+          contract_concluded_at: facts.contract_concluded_at ?? undefined,
+          handed_over_at: facts.handed_over_at ?? undefined,
+          buyer_is_consumer: facts.buyer_is_consumer,
+          gewaehrleistung_shortened_negotiated:
+            facts.gewaehrleistung_shortened_negotiated,
+          gewaehrleistung_note: facts.gewaehrleistung_note,
+        })
+        setSaleId(created.id)
+        navigate(`/vehicle-stock/sales/${created.id}`, { replace: true })
+      } else {
+        await updateSale({
+          customer_id: facts.customer_id,
+          sale_price: facts.sale_price,
+          contract_concluded_at: facts.contract_concluded_at,
+          handed_over_at: facts.handed_over_at,
+          buyer_is_consumer: facts.buyer_is_consumer,
+          gewaehrleistung_shortened_negotiated:
+            facts.gewaehrleistung_shortened_negotiated,
+          gewaehrleistung_note: facts.gewaehrleistung_note,
+        })
+      }
+      lastSavedSerialized.current = serialized
+      setSaveStatus('saved')
+    } catch (error) {
+      setSaveStatus('error')
+      throw error
+    }
+  }, [saleId, createSale, updateSale, navigate])
 
   useEffect(() => {
     if (!existing) return
@@ -75,6 +152,7 @@ export default function VehicleSalePage() {
   }, [existing])
 
   const handleCustomerChange = (nextCustomer: Customer | null) => {
+    if (finalizing.current) return
     setCustomer(nextCustomer)
     if (!nextCustomer) return
     const isConsumer = nextCustomer.type === 'PRIVATE'
@@ -87,58 +165,60 @@ export default function VehicleSalePage() {
   const priceNumber = Number(salePrice)
 
   useEffect(() => {
-    if (!isDraft || !vehicleId || !customerId || !priceNumber) return
-    const saleFacts = {
-      vehicle_id: vehicleId,
-      customer_id: customerId,
-      sale_price: priceNumber,
-      contract_concluded_at: contractDate || null,
-      handed_over_at: handoverDate || null,
-      buyer_is_consumer: buyerIsConsumer,
-      gewaehrleistung_shortened_negotiated: buyerIsConsumer && shorteningNegotiated,
-      gewaehrleistung_note: warrantyNote || null,
-    }
+    if (isFinalizing || !isDraft || !vehicleId || !customerId || !priceNumber) return
+    const saleFacts = buildVehicleSaleDraftFacts({
+      vehicleId,
+      customerId,
+      salePrice: priceNumber,
+      contractDate,
+      handoverDate,
+      buyerIsConsumer,
+      shorteningNegotiated,
+      warrantyNote,
+    })
     const serialized = JSON.stringify(saleFacts)
     if (serialized === lastSavedSerialized.current) return
     const handle = window.setTimeout(() => {
-      void (async () => {
-        setSaveStatus('saving')
-        try {
-          if (!saleId) {
-            const created = await createSale({
-              ...saleFacts,
-              contract_concluded_at: contractDate || undefined,
-              handed_over_at: handoverDate || undefined,
-              gewaehrleistung_note: warrantyNote || null,
-            })
-            setSaleId(created.id)
-            lastSavedSerialized.current = serialized
-            navigate(`/vehicle-stock/sales/${created.id}`, { replace: true })
-          } else {
-            await updateSale({
-              customer_id: customerId,
-              sale_price: priceNumber,
-              contract_concluded_at: contractDate || null,
-              handed_over_at: handoverDate || null,
-              buyer_is_consumer: buyerIsConsumer,
-              gewaehrleistung_shortened_negotiated: buyerIsConsumer && shorteningNegotiated,
-              gewaehrleistung_note: warrantyNote || null,
-            })
-            lastSavedSerialized.current = serialized
-          }
-          setSaveStatus('saved')
-        } catch (error) {
-          setSaveStatus('error')
-          toast.error(getErrorMessage(error, 'Failed to save sale'))
-        }
-      })()
+      saveTimer.current = null
+      const saveRequest = persistSaleFacts(saleFacts, serialized)
+      pendingSave.current = saveRequest
+      void saveRequest
+        .catch((error) => toast.error(getErrorMessage(error, 'Failed to save sale')))
+        .finally(() => {
+          if (pendingSave.current === saveRequest) pendingSave.current = null
+        })
     }, AUTO_SAVE_DEBOUNCE_MS)
-    return () => window.clearTimeout(handle)
-  }, [isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale, contractDate, handoverDate, buyerIsConsumer, shorteningNegotiated, warrantyNote])
+    saveTimer.current = handle
+    return () => {
+      window.clearTimeout(handle)
+      if (saveTimer.current === handle) saveTimer.current = null
+    }
+  }, [isFinalizing, isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale, contractDate, handoverDate, buyerIsConsumer, shorteningNegotiated, warrantyNote, persistSaleFacts])
 
   const finalize = async () => {
-    if (!saleId) return
+    if (!saleId || finalizing.current) return
+    finalizing.current = true
+    setIsFinalizing(true)
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
     try {
+      if (pendingSave.current) await pendingSave.current
+      const currentFacts = buildVehicleSaleDraftFacts({
+        vehicleId,
+        customerId,
+        salePrice: priceNumber,
+        contractDate,
+        handoverDate,
+        buyerIsConsumer,
+        shorteningNegotiated,
+        warrantyNote,
+      })
+      const serialized = JSON.stringify(currentFacts)
+      if (serialized !== lastSavedSerialized.current) {
+        await persistSaleFacts(currentFacts, serialized)
+      }
       const result = await finalizeSale.mutateAsync(saleId)
       toast.success('Sale invoiced')
       if (result.invoice?.id) {
@@ -148,6 +228,9 @@ export default function VehicleSalePage() {
       }
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to finalize sale'))
+    } finally {
+      finalizing.current = false
+      setIsFinalizing(false)
     }
   }
 
@@ -179,7 +262,10 @@ export default function VehicleSalePage() {
           {saveStatus === 'saving' && <span className="text-sm text-slate-500">Saving...</span>}
           {saveStatus === 'saved' && <span className="text-sm text-emerald-600">Saved</span>}
           {saveStatus === 'error' && <span className="text-sm text-rose-600">Save failed</span>}
-          <Button disabled={!saleId || !isDraft} onClick={() => void finalize()}>
+          <Button
+            disabled={!saleId || !isDraft || isFinalizing || saveStatus === 'saving'}
+            onClick={() => void finalize()}
+          >
             Finalize invoice
           </Button>
         </div>
@@ -194,7 +280,7 @@ export default function VehicleSalePage() {
           <label className="space-y-1 text-sm">
             <span className="text-slate-500">Sale price (gross)</span>
             <Input
-              disabled={!isDraft}
+              disabled={!isDraft || isFinalizing}
               type="number"
               value={salePrice}
               onChange={(event) => setSalePrice(event.target.value)}
@@ -204,26 +290,54 @@ export default function VehicleSalePage() {
             <h2 id="gewaehrleistung-form-title" className="font-medium">Gewährleistung</h2>
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Vertragsdatum</span>
-              <Input aria-label="Vertragsdatum" type="date" disabled={!isDraft} value={contractDate} onChange={(event) => setContractDate(event.target.value)} />
+              <Input
+                aria-label="Vertragsdatum"
+                type="date"
+                disabled={!isDraft || isFinalizing}
+                value={contractDate}
+                onChange={(event) => setContractDate(event.target.value)}
+              />
             </label>
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Übergabedatum</span>
-              <Input aria-label="Übergabedatum" type="date" disabled={!isDraft} value={handoverDate} onChange={(event) => setHandoverDate(event.target.value)} />
+              <Input
+                aria-label="Übergabedatum"
+                type="date"
+                disabled={!isDraft || isFinalizing}
+                value={handoverDate}
+                onChange={(event) => setHandoverDate(event.target.value)}
+              />
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={buyerIsConsumer} disabled={!isDraft} onChange={(event) => {
-                setBuyerIsConsumer(event.target.checked)
-                if (!event.target.checked) setShorteningNegotiated(false)
-              }} />
+              <input
+                type="checkbox"
+                checked={buyerIsConsumer}
+                disabled={!isDraft || isFinalizing}
+                onChange={(event) => {
+                  setBuyerIsConsumer(event.target.checked)
+                  if (!event.target.checked) setShorteningNegotiated(false)
+                }}
+              />
               Käufer:in ist Verbraucher:in
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={shorteningNegotiated} disabled={!isDraft || !buyerIsConsumer} onChange={(event) => setShorteningNegotiated(event.target.checked)} />
+              <input
+                type="checkbox"
+                checked={shorteningNegotiated}
+                disabled={!isDraft || !buyerIsConsumer || isFinalizing}
+                onChange={(event) => setShorteningNegotiated(event.target.checked)}
+              />
               Verkürzung wurde ausdrücklich vereinbart
             </label>
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Notiz zur Gewährleistung</span>
-              <textarea aria-label="Notiz zur Gewährleistung" disabled={!isDraft} className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" value={warrantyNote} onChange={(event) => setWarrantyNote(event.target.value)} />
+              <textarea
+                aria-label="Notiz zur Gewährleistung"
+                disabled={!isDraft || isFinalizing}
+                className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={warrantyNote}
+                onChange={(event) => setWarrantyNote(event.target.value)}
+              />
             </label>
             <p className="text-xs text-slate-500">Verlängerungen durch Reparaturen werden nicht erfasst.</p>
           </section>

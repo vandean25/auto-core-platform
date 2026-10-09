@@ -376,6 +376,8 @@ export class VehicleStockQueryService {
       where: {
         tenant_id: tenantId,
         site_id: siteId,
+        vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
+        customer: { is: { tenant_id: tenantId } },
         status: 'INVOICED',
         buyer_is_consumer: true,
         gewaehrleistung_ends_on: { gte: windowStart, lte: windowEnd },

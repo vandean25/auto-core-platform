@@ -40,6 +40,8 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
           where: {
             tenant_id: 'tenant-a',
             site_id: 'site-a',
+            vehicle: { is: { tenant_id: 'tenant-a', site_id: 'site-a' } },
+            customer: { is: { tenant_id: 'tenant-a' } },
             status: 'INVOICED',
             buyer_is_consumer: true,
             gewaehrleistung_ends_on: {
