@@ -1495,6 +1495,39 @@
         ]
       }
     },
+    "/api/vendors/{id}/articles": {
+      "get": {
+        "operationId": "VendorController_getArticles",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VendorArticleResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor"
+        ]
+      }
+    },
     "/api/sales/invoices": {
       "post": {
         "operationId": "SalesController_createDraft",
@@ -10526,7 +10559,8 @@
                     "type": "string",
                     "enum": [
                       "CUSTOMER",
-                      "VEHICLE"
+                      "VEHICLE",
+                      "SUPPLIER_PRICE_LIST"
                     ]
                   },
                   "sourceSystem": {
@@ -10575,7 +10609,8 @@
             "schema": {
               "enum": [
                 "CUSTOMER",
-                "VEHICLE"
+                "VEHICLE",
+                "SUPPLIER_PRICE_LIST"
               ],
               "type": "string"
             }
@@ -10829,6 +10864,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyImportJobDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -11395,6 +11440,215 @@
         },
         "tags": [
           "tyre-sets"
+        ]
+      }
+    },
+    "/api/margin-rules": {
+      "get": {
+        "operationId": "MarginRuleController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MarginRuleResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List all margin rules for current tenant ordered by priority",
+        "tags": [
+          "margin-rules"
+        ]
+      },
+      "post": {
+        "operationId": "MarginRuleController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMarginRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarginRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new margin rule (ADMIN/OWNER only)",
+        "tags": [
+          "margin-rules"
+        ]
+      }
+    },
+    "/api/margin-rules/threshold": {
+      "get": {
+        "operationId": "MarginRuleController_getThreshold",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceJumpThresholdResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get price jump threshold percentage",
+        "tags": [
+          "margin-rules"
+        ]
+      },
+      "put": {
+        "operationId": "MarginRuleController_updateThreshold",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePriceJumpThresholdDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceJumpThresholdResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update price jump threshold percentage (ADMIN/OWNER only)",
+        "tags": [
+          "margin-rules"
+        ]
+      }
+    },
+    "/api/margin-rules/{id}": {
+      "put": {
+        "operationId": "MarginRuleController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMarginRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarginRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a margin rule (ADMIN/OWNER only)",
+        "tags": [
+          "margin-rules"
+        ]
+      },
+      "patch": {
+        "operationId": "MarginRuleController_patch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMarginRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarginRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Partially update a margin rule (ADMIN/OWNER only)",
+        "tags": [
+          "margin-rules"
+        ]
+      },
+      "delete": {
+        "operationId": "MarginRuleController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Margin rule deleted successfully"
+          }
+        },
+        "summary": "Delete a margin rule (ADMIN/OWNER only)",
+        "tags": [
+          "margin-rules"
         ]
       }
     },
@@ -13066,6 +13320,83 @@
       "UpdateVendorDto": {
         "type": "object",
         "properties": {}
+      },
+      "VendorArticleCatalogItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "item-uuid"
+          },
+          "sku": {
+            "type": "string",
+            "example": "0204114532"
+          },
+          "name": {
+            "type": "string",
+            "example": "Brake Pad Set"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name"
+        ]
+      },
+      "VendorArticleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "article-uuid"
+          },
+          "tenant_id": {
+            "type": "string",
+            "example": "tenant-uuid"
+          },
+          "vendor_id": {
+            "type": "string",
+            "example": "vendor-uuid"
+          },
+          "catalog_item_id": {
+            "type": "string",
+            "example": "item-uuid"
+          },
+          "vendor_article_no": {
+            "type": "string",
+            "example": "BOS-0204114532"
+          },
+          "last_cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 45.5
+          },
+          "last_rrp": {
+            "type": "number",
+            "nullable": true,
+            "example": 89.9
+          },
+          "catalog_item": {
+            "$ref": "#/components/schemas/VendorArticleCatalogItemDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "vendor_id",
+          "catalog_item_id",
+          "vendor_article_no",
+          "createdAt",
+          "updatedAt"
+        ]
       },
       "CreateInvoiceItemDto": {
         "type": "object",
@@ -24765,7 +25096,8 @@
         "type": "string",
         "enum": [
           "CUSTOMER",
-          "VEHICLE"
+          "VEHICLE",
+          "SUPPLIER_PRICE_LIST"
         ]
       },
       "ImportJobStatus": {
@@ -24794,6 +25126,9 @@
             "type": "number"
           },
           "error": {
+            "type": "number"
+          },
+          "flagged_jumps": {
             "type": "number"
           }
         },
@@ -25082,6 +25417,28 @@
           "data",
           "meta"
         ]
+      },
+      "ApplyImportJobDto": {
+        "type": "object",
+        "properties": {
+          "accept_all_price_jumps": {
+            "type": "boolean",
+            "description": "Accept all price changes exceeding the threshold",
+            "example": true
+          },
+          "accepted_row_numbers": {
+            "description": "Specific row numbers where price jumps are accepted",
+            "example": [
+              1,
+              2,
+              5
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        }
       },
       "TyreStorageSettingsResponseDto": {
         "type": "object",
@@ -25528,6 +25885,316 @@
           "occurredAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "MarginRuleBrandDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Bosch"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MarginRuleRevenueGroupDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "number",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Parts"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "MarginRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "tenant_id": {
+            "type": "string",
+            "example": "tenant-123"
+          },
+          "name": {
+            "type": "string",
+            "example": "Standard Markup"
+          },
+          "priority": {
+            "type": "number",
+            "example": 0
+          },
+          "brand_id": {
+            "type": "number",
+            "example": 1,
+            "nullable": true
+          },
+          "brand": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MarginRuleBrandDto"
+              }
+            ]
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "example": 1,
+            "nullable": true
+          },
+          "revenue_group": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MarginRuleRevenueGroupDto"
+              }
+            ]
+          },
+          "cost_min": {
+            "type": "number",
+            "example": 10,
+            "nullable": true
+          },
+          "cost_max": {
+            "type": "number",
+            "example": 100,
+            "nullable": true
+          },
+          "markup_percent": {
+            "type": "number",
+            "example": 35,
+            "nullable": true
+          },
+          "use_supplier_rrp": {
+            "type": "boolean",
+            "example": false
+          },
+          "rounding": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "ROUND_90",
+              "ROUND_99",
+              "WHOLE_EURO"
+            ],
+            "example": "NONE"
+          },
+          "is_active": {
+            "type": "boolean",
+            "example": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "priority",
+          "use_supplier_rrp",
+          "rounding",
+          "is_active",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PriceJumpThresholdResponseDto": {
+        "type": "object",
+        "properties": {
+          "price_jump_threshold_percent": {
+            "type": "number",
+            "description": "Price jump threshold percentage",
+            "example": 20
+          },
+          "threshold_percent": {
+            "type": "number",
+            "description": "Alias for price jump threshold percentage",
+            "example": 20
+          }
+        },
+        "required": [
+          "price_jump_threshold_percent"
+        ]
+      },
+      "UpdatePriceJumpThresholdDto": {
+        "type": "object",
+        "properties": {
+          "price_jump_threshold_percent": {
+            "type": "number",
+            "description": "Price jump threshold percentage",
+            "example": 20
+          },
+          "threshold_percent": {
+            "type": "number",
+            "description": "Price jump threshold percentage (alias)",
+            "example": 20
+          }
+        }
+      },
+      "MarginRoundingStrategy": {
+        "type": "string",
+        "enum": [
+          "NONE",
+          "ROUND_90",
+          "ROUND_99",
+          "WHOLE_EURO"
+        ],
+        "description": "Price rounding strategy"
+      },
+      "CreateMarginRuleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the margin rule",
+            "example": "Standard Parts Margin"
+          },
+          "priority": {
+            "type": "number",
+            "description": "Rule priority (lowest number evaluated first)",
+            "example": 0
+          },
+          "brand_id": {
+            "type": "number",
+            "description": "Optional Brand ID to scope this rule to",
+            "example": 1,
+            "nullable": true
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "description": "Optional Revenue Group ID to scope this rule to",
+            "example": 1,
+            "nullable": true
+          },
+          "cost_min": {
+            "type": "number",
+            "description": "Minimum cost price for rule to apply",
+            "example": 0,
+            "nullable": true
+          },
+          "cost_max": {
+            "type": "number",
+            "description": "Maximum cost price for rule to apply",
+            "example": 100,
+            "nullable": true
+          },
+          "markup_percent": {
+            "type": "number",
+            "description": "Markup percentage to add to cost",
+            "example": 30,
+            "nullable": true
+          },
+          "use_supplier_rrp": {
+            "type": "boolean",
+            "description": "Whether to use supplier recommended retail price (UVP)",
+            "example": false
+          },
+          "rounding": {
+            "description": "Price rounding strategy",
+            "example": "NONE",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MarginRoundingStrategy"
+              }
+            ]
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the rule is active",
+            "example": true
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateMarginRuleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the margin rule",
+            "example": "Standard Parts Margin"
+          },
+          "priority": {
+            "type": "number",
+            "description": "Rule priority (lowest number evaluated first)",
+            "example": 0
+          },
+          "brand_id": {
+            "type": "number",
+            "description": "Optional Brand ID to scope this rule to",
+            "example": 1,
+            "nullable": true
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "description": "Optional Revenue Group ID to scope this rule to",
+            "example": 1,
+            "nullable": true
+          },
+          "cost_min": {
+            "type": "number",
+            "description": "Minimum cost price for rule to apply",
+            "example": 0,
+            "nullable": true
+          },
+          "cost_max": {
+            "type": "number",
+            "description": "Maximum cost price for rule to apply",
+            "example": 100,
+            "nullable": true
+          },
+          "markup_percent": {
+            "type": "number",
+            "description": "Markup percentage to add to cost",
+            "example": 30,
+            "nullable": true
+          },
+          "use_supplier_rrp": {
+            "type": "boolean",
+            "description": "Whether to use supplier recommended retail price (UVP)",
+            "example": false
+          },
+          "rounding": {
+            "description": "Price rounding strategy",
+            "example": "NONE",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MarginRoundingStrategy"
+              }
+            ]
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the rule is active",
+            "example": true
           }
         }
       },

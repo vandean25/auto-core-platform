@@ -220,6 +220,14 @@ vi.mock('@/components/settings/AccountingExportSettingsTab', () => ({
   AccountingExportSettingsTab: () => <div>Accounting export tab content</div>,
 }))
 
+vi.mock('@/components/settings/MarginRulesTab', () => ({
+  MarginRulesTab: () => <div>Margin rules tab content</div>,
+}))
+
+vi.mock('@/components/settings/data-import/DataImportSettingsTab', () => ({
+  DataImportSettingsTab: () => <div>Data import tab content</div>,
+}))
+
 function LocationProbe() {
   const location = useLocation()
   return <div data-testid='location-search'>{location.search}</div>
@@ -264,6 +272,7 @@ describe('SettingsPage tab integration', () => {
     expect(screen.getByRole('tab', { name: 'Vehicle data' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Legal Entities' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Sites' })).toBeVisible()
+    expect(screen.getByRole('tab', { name: 'Margenregeln' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Team' })).toBeVisible()
     expect(screen.getByRole('tab', { name: 'Audit Logs' })).toBeVisible()
     expect(screen.getByText('Employees tab content')).toBeVisible()
@@ -283,12 +292,41 @@ describe('SettingsPage tab integration', () => {
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=vehicle-data')
     })
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Margenregeln' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Margin rules tab content')).toBeVisible()
+      expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=margin-rules')
+    })
+
     fireEvent.click(screen.getByRole('tab', { name: 'Audit Logs' }))
 
     await waitFor(() => {
       expect(screen.getByText('Audit logs tab content')).toBeVisible()
       expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=audit-logs')
     })
+  })
+
+  it('activates Margenregeln tab panel when initial tab is margin-rules', async () => {
+    render(
+      <MemoryRouter initialEntries={['/settings?tab=margin-rules']}>
+        <Routes>
+          <Route
+            path='/settings'
+            element={
+              <>
+                <SettingsPage />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('tab', { name: 'Margenregeln' })).toBeVisible()
+    expect(screen.getByText('Margin rules tab content')).toBeVisible()
+    expect(screen.getByTestId('location-search')).toHaveTextContent('?tab=margin-rules')
   })
 })
 

@@ -40,6 +40,13 @@ import {
   normalizeVehicleRow,
   planVehicleDryRunRow,
 } from './vehicle-import.logic.js';
+import {
+  normalizeSupplierPriceListRow,
+  planSupplierPriceListDryRunRow,
+  type SupplierPriceListCatalogItem,
+  type SupplierPriceListMatchContext,
+} from './supplier-price-list-import.logic.js';
+import type { MarginRuleItem } from '../margin-rule/retail-from-cost.util.js';
 import { buildTemplateCsv, getImportTemplate } from './import.templates.js';
 import {
   buildImportAuditDiff,
@@ -51,10 +58,24 @@ import { DecisionLiveApplyService } from '../decision/decision-live-apply.servic
 import { RequestContextService } from '../common/services/request-context.service.js';
 
 class ApplyRowStaleError extends Error {
-  constructor() {
-    super('Import row plan is stale');
+  constructor(message = 'Import row plan is stale') {
+    super(message);
     this.name = 'ApplyRowStaleError';
   }
+}
+
+// Only conflicts with this row's own data are recorded as ERROR rows: a stale plan, a
+// unique violation, a foreign key failure or a referenced record that is gone. Deadlocks,
+// write conflicts, pool or transaction timeouts and connection loss are not row problems
+// and must surface instead of being turned into row errors.
+function isRowLevelApplyError(error: unknown): boolean {
+  if (error instanceof ApplyRowStaleError) {
+    return true;
+  }
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    ['P2002', 'P2003', 'P2025'].includes(error.code)
+  );
 }
 
 function resolveImportExternalId(
@@ -126,6 +147,14 @@ export class ImportService {
     }
 
     const options = this.normalizeOptions(params.optionsJson);
+    if (params.entityType === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      const vendor = await this.resolveAndValidateVendor(
+        tenantId,
+        params.sourceSystem,
+        options.vendor_id,
+      );
+      options.vendor_id = vendor.id;
+    }
     const dryRunRows = await this.runDryRun(
       tenantId,
       params.entityType,
@@ -288,7 +317,7 @@ export class ImportService {
     return serializeCsv(headers, data, ';');
   }
 
-  async applyJob(jobId: string) {
+  async applyJob(jobId: string, applyOptions?: ImportJobOptions) {
     assertTenantAdmin(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const currentUser = await requireActiveCurrentUser(
@@ -296,6 +325,87 @@ export class ImportService {
       this.tenantContext,
       tenantId,
     );
+
+    const existing = await this.prisma.importJob.findFirst({
+      where: { tenant_id: tenantId, id: jobId },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: IMPORT_ERROR_CODES.JOB_NOT_FOUND,
+        message: 'Import job not found',
+      });
+    }
+    if (existing.status === ImportJobStatus.APPLYING) {
+      throw new ConflictException({
+        code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
+        message: 'Import job is already being applied',
+      });
+    }
+    if (existing.status === ImportJobStatus.APPLIED) {
+      throw new ConflictException({
+        code: IMPORT_ERROR_CODES.JOB_ALREADY_APPLIED,
+        message: 'Import job was already applied',
+      });
+    }
+    if (existing.status !== ImportJobStatus.DRY_RUN_DONE) {
+      throw new ConflictException({
+        code: IMPORT_ERROR_CODES.JOB_STALE,
+        message: 'Import job cannot be applied in its current status',
+      });
+    }
+
+    const jobOptions = (existing.options_json as ImportJobOptions) ?? {};
+    const effectiveOptions: ImportJobOptions = {
+      ...jobOptions,
+      ...(applyOptions ?? {}),
+      ...(applyOptions?.accepted_row_numbers
+        ? {
+            accepted_row_numbers: [
+              ...(jobOptions.accepted_row_numbers ?? []),
+              ...applyOptions.accepted_row_numbers,
+            ],
+          }
+        : {}),
+    };
+
+    const rows = await this.prisma.importJobRow.findMany({
+      where: { tenant_id: tenantId, import_job_id: jobId },
+      orderBy: { row_no: 'asc' },
+    });
+
+    let supplierVendor: { id: string; name: string } | null = null;
+    if (existing.entity_type === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      const isAllAccepted = applyOptions?.accept_all_price_jumps === true;
+      const acceptedRowSet = new Set(
+        Array.isArray(applyOptions?.accepted_row_numbers)
+          ? applyOptions.accepted_row_numbers
+          : [],
+      );
+
+      for (const row of rows) {
+        if (row.action === ImportRowAction.ERROR) {
+          continue;
+        }
+        const normalized = row.normalized_json as Record<
+          string,
+          unknown
+        > | null;
+        if (normalized?.price_jump_flagged === true) {
+          if (!isAllAccepted && !acceptedRowSet.has(row.row_no)) {
+            throw new BadRequestException({
+              code: IMPORT_ERROR_CODES.PRICE_JUMP_REQUIRES_ACCEPTANCE,
+              message: 'Price changes exceeding threshold must be accepted',
+            });
+          }
+        }
+      }
+
+      supplierVendor = await this.resolveAndValidateVendor(
+        tenantId,
+        existing.source_system,
+        effectiveOptions.vendor_id,
+      );
+    }
 
     const lock = await this.prisma.importJob.updateMany({
       where: {
@@ -307,41 +417,24 @@ export class ImportService {
     });
 
     if (lock.count === 0) {
-      const existing = await this.prisma.importJob.findFirst({
-        where: { tenant_id: tenantId, id: jobId },
-      });
-      if (!existing) {
-        throw new NotFoundException({
-          code: IMPORT_ERROR_CODES.JOB_NOT_FOUND,
-          message: 'Import job not found',
-        });
-      }
-      if (existing.status === ImportJobStatus.APPLYING) {
-        throw new ConflictException({
-          code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
-          message: 'Import job is already being applied',
-        });
-      }
-      if (existing.status === ImportJobStatus.APPLIED) {
-        throw new ConflictException({
-          code: IMPORT_ERROR_CODES.JOB_ALREADY_APPLIED,
-          message: 'Import job was already applied',
-        });
-      }
       throw new ConflictException({
-        code: IMPORT_ERROR_CODES.JOB_STALE,
-        message: 'Import job cannot be applied in its current status',
+        code: IMPORT_ERROR_CODES.APPLY_IN_PROGRESS,
+        message: 'Import job is already being applied',
       });
     }
 
-    const job = await this.prisma.importJob.findFirstOrThrow({
-      where: { tenant_id: tenantId, id: jobId },
-    });
+    if (existing.entity_type === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      return this.applySupplierPriceListJob(
+        tenantId,
+        existing,
+        rows,
+        currentUser.id,
+        effectiveOptions,
+        supplierVendor!,
+      );
+    }
 
-    const rows = await this.prisma.importJobRow.findMany({
-      where: { tenant_id: tenantId, import_job_id: jobId },
-      orderBy: { row_no: 'asc' },
-    });
+    const job = existing;
 
     const totals: ImportJobTotals = {
       rows: rows.length,
@@ -412,7 +505,7 @@ export class ImportService {
           const staleCode =
             error instanceof ApplyRowStaleError
               ? IMPORT_ERROR_CODES.ROW_STALE
-              : 'IMPORT_APPLY_FAILED';
+              : IMPORT_ERROR_CODES.APPLY_FAILED;
           await this.prisma.importJobRow.update({
             where: {
               tenant_id_import_job_id_row_no: {
@@ -461,6 +554,410 @@ export class ImportService {
     }
   }
 
+  private async applySupplierRow(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vendorId: string,
+    jobId: string,
+    sourceSystem: string,
+    row: {
+      row_no: number;
+      action: ImportRowAction;
+      entity_id: string | null;
+      external_id: string | null;
+      normalized_json: Prisma.JsonValue;
+    },
+  ): Promise<{ action: ImportRowAction }> {
+    const payload = (row.normalized_json ?? {}) as Record<string, unknown>;
+    const rawArticleNo =
+      typeof payload.supplier_article_no === 'string'
+        ? payload.supplier_article_no
+        : typeof row.external_id === 'string'
+          ? row.external_id
+          : '';
+    const supplierArticleNo = rawArticleNo.trim();
+    const newCost = Number(payload.cost_price);
+    const newRetail = Number(payload.retail_price);
+    const rrp = payload.rrp != null ? Number(payload.rrp) : null;
+
+    if (row.action === ImportRowAction.UPDATE) {
+      if (!row.entity_id) {
+        throw new ApplyRowStaleError('Artikel-ID fehlt');
+      }
+
+      const catalogItem = await tx.catalogItem.findFirst({
+        where: { tenant_id: tenantId, id: row.entity_id },
+      });
+      if (!catalogItem) {
+        throw new ApplyRowStaleError('Artikel wurde zwischenzeitlich gelöscht');
+      }
+
+      const currentCost =
+        catalogItem.cost_price != null ? Number(catalogItem.cost_price) : null;
+      const currentRetail = Number(catalogItem.retail_price);
+
+      const snapshotOldCost =
+        payload.old_cost != null ? Number(payload.old_cost) : null;
+      const snapshotOldRetail =
+        payload.old_retail != null ? Number(payload.old_retail) : null;
+
+      if (
+        snapshotOldCost != null &&
+        currentCost != null &&
+        Math.abs(currentCost - snapshotOldCost) >= 0.005 &&
+        Math.abs(currentCost - newCost) >= 0.005
+      ) {
+        throw new ApplyRowStaleError(
+          'Einkaufspreis wurde seit der Vorschau im Katalog geändert',
+        );
+      }
+      if (
+        snapshotOldRetail != null &&
+        Math.abs(currentRetail - snapshotOldRetail) >= 0.005 &&
+        Math.abs(currentRetail - newRetail) >= 0.005
+      ) {
+        throw new ApplyRowStaleError(
+          'Verkaufspreis wurde seit der Vorschau im Katalog geändert',
+        );
+      }
+
+      const costChanged =
+        currentCost === null || Math.abs(newCost - currentCost) >= 0.005;
+      const retailChanged = Math.abs(newRetail - currentRetail) >= 0.005;
+
+      if (costChanged || retailChanged) {
+        await tx.catalogItem.update({
+          where: { id: catalogItem.id },
+          data: {
+            cost_price: newCost,
+            retail_price: newRetail,
+          },
+        });
+
+        await tx.catalogPriceHistory.create({
+          data: {
+            tenant_id: tenantId,
+            catalog_item_id: catalogItem.id,
+            old_cost: currentCost,
+            new_cost: newCost,
+            old_retail: currentRetail,
+            new_retail: newRetail,
+            import_job_id: jobId,
+          },
+        });
+      }
+
+      const existingMapping = await tx.vendorArticle.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          vendor_article_no: { equals: supplierArticleNo, mode: 'insensitive' },
+        },
+      });
+
+      const effectiveArtNo = existingMapping
+        ? existingMapping.vendor_article_no
+        : supplierArticleNo;
+
+      await tx.vendorArticle.upsert({
+        where: {
+          tenant_id_vendor_id_vendor_article_no: {
+            tenant_id: tenantId,
+            vendor_id: vendorId,
+            vendor_article_no: effectiveArtNo,
+          },
+        },
+        create: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          catalog_item_id: catalogItem.id,
+          vendor_article_no: effectiveArtNo,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+        update: {
+          catalog_item_id: catalogItem.id,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+      });
+
+      return { action: ImportRowAction.UPDATE };
+    } else if (row.action === ImportRowAction.CREATE) {
+      const description =
+        typeof payload.description === 'string'
+          ? payload.description.trim()
+          : supplierArticleNo;
+      const unit =
+        typeof payload.unit === 'string' && payload.unit.trim()
+          ? payload.unit.trim()
+          : 'pcs';
+      const ean =
+        typeof payload.ean === 'string' && payload.ean.trim()
+          ? payload.ean.trim()
+          : null;
+
+      const createdItem = await tx.catalogItem.create({
+        data: {
+          tenant_id: tenantId,
+          sku: supplierArticleNo,
+          name: description,
+          cost_price: newCost,
+          retail_price: newRetail,
+          unit,
+          brand_id: payload.brand_id != null ? Number(payload.brand_id) : null,
+          ean,
+          source_system: sourceSystem,
+        },
+      });
+
+      const existingMapping = await tx.vendorArticle.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          vendor_article_no: { equals: supplierArticleNo, mode: 'insensitive' },
+        },
+      });
+
+      const effectiveArtNo = existingMapping
+        ? existingMapping.vendor_article_no
+        : supplierArticleNo;
+
+      await tx.vendorArticle.upsert({
+        where: {
+          tenant_id_vendor_id_vendor_article_no: {
+            tenant_id: tenantId,
+            vendor_id: vendorId,
+            vendor_article_no: effectiveArtNo,
+          },
+        },
+        create: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          catalog_item_id: createdItem.id,
+          vendor_article_no: effectiveArtNo,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+        update: {
+          catalog_item_id: createdItem.id,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+      });
+
+      await tx.catalogPriceHistory.create({
+        data: {
+          tenant_id: tenantId,
+          catalog_item_id: createdItem.id,
+          old_cost: null,
+          new_cost: newCost,
+          old_retail: null,
+          new_retail: newRetail,
+          import_job_id: jobId,
+        },
+      });
+
+      await tx.importJobRow.update({
+        where: {
+          tenant_id_import_job_id_row_no: {
+            tenant_id: tenantId,
+            import_job_id: jobId,
+            row_no: row.row_no,
+          },
+        },
+        data: {
+          entity_id: createdItem.id,
+        },
+      });
+
+      return { action: ImportRowAction.CREATE };
+    }
+
+    return { action: row.action };
+  }
+
+  private async applySupplierPriceListJob(
+    tenantId: string,
+    job: {
+      id: string;
+      source_system: string;
+      options_json: Prisma.JsonValue;
+    },
+    rows: Array<{
+      row_no: number;
+      action: ImportRowAction;
+      entity_id: string | null;
+      external_id: string | null;
+      normalized_json: Prisma.JsonValue;
+    }>,
+    actorUserId: string,
+    options: ImportJobOptions,
+    vendor: { id: string; name: string },
+  ) {
+    const totals: ImportJobTotals = {
+      rows: rows.length,
+      create: 0,
+      update: 0,
+      skip: 0,
+      error: 0,
+    };
+    // Set only after the APPLIED transition has committed. A later failure must not
+    // overwrite an applied job with FAILED.
+    let jobApplied = false;
+
+    try {
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE);
+        try {
+          // Counts stay local to the transaction and are merged into totals only after
+          // it commits, so a rolled-back chunk contributes nothing.
+          const chunkCounts = await this.prisma.$transaction(
+            async (tx) => {
+              const counts = { create: 0, update: 0, skip: 0, error: 0 };
+              for (const row of chunk) {
+                if (row.action === ImportRowAction.ERROR) {
+                  counts.error += 1;
+                  continue;
+                }
+                if (row.action === ImportRowAction.SKIP) {
+                  counts.skip += 1;
+                  continue;
+                }
+                const res = await this.applySupplierRow(
+                  tx,
+                  tenantId,
+                  vendor.id,
+                  job.id,
+                  job.source_system,
+                  row,
+                );
+                if (res.action === ImportRowAction.CREATE) counts.create += 1;
+                else if (res.action === ImportRowAction.UPDATE)
+                  counts.update += 1;
+              }
+              return counts;
+            },
+            { timeout: 30000, maxWait: 10000 },
+          );
+          totals.create += chunkCounts.create;
+          totals.update += chunkCounts.update;
+          totals.skip += chunkCounts.skip;
+          totals.error += chunkCounts.error;
+        } catch (chunkError) {
+          this.logger.warn(
+            `Supplier price list chunk failed at offset ${i}, falling back to row-by-row: ${chunkError instanceof Error ? chunkError.message : String(chunkError)}`,
+          );
+          for (const row of chunk) {
+            if (row.action === ImportRowAction.ERROR) {
+              totals.error += 1;
+              continue;
+            }
+            if (row.action === ImportRowAction.SKIP) {
+              totals.skip += 1;
+              continue;
+            }
+            try {
+              const res = await this.prisma.$transaction(async (tx) =>
+                this.applySupplierRow(
+                  tx,
+                  tenantId,
+                  vendor.id,
+                  job.id,
+                  job.source_system,
+                  row,
+                ),
+              );
+              if (res.action === ImportRowAction.CREATE) totals.create += 1;
+              else if (res.action === ImportRowAction.UPDATE)
+                totals.update += 1;
+            } catch (rowError) {
+              if (!isRowLevelApplyError(rowError)) {
+                throw rowError;
+              }
+              const message =
+                rowError instanceof ApplyRowStaleError
+                  ? rowError.message
+                  : 'Row failed during apply';
+              const code =
+                rowError instanceof ApplyRowStaleError
+                  ? IMPORT_ERROR_CODES.ROW_STALE
+                  : IMPORT_ERROR_CODES.APPLY_FAILED;
+              await this.prisma.importJobRow.update({
+                where: {
+                  tenant_id_import_job_id_row_no: {
+                    tenant_id: tenantId,
+                    import_job_id: job.id,
+                    row_no: row.row_no,
+                  },
+                },
+                data: {
+                  action: ImportRowAction.ERROR,
+                  errors_json: [{ code, message }],
+                },
+              });
+              totals.error += 1;
+            }
+          }
+        }
+      }
+
+      // The APPLIED transition and its audit entry commit together or not at all.
+      const authUser = this.tenantContext.getAuthenticatedUser();
+      const updatedJob = await this.prisma.$transaction(async (tx) => {
+        const applied = await tx.importJob.update({
+          where: { id: job.id },
+          data: {
+            status: ImportJobStatus.APPLIED,
+            appliedAt: new Date(),
+            totals_json: totals,
+            options_json: options,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            tenant_id: tenantId,
+            entity_type: 'ImportJob',
+            entity_id: job.id,
+            action: AuditLogAction.UPDATE,
+            actor_user_id: actorUserId,
+            actor_email: authUser?.email ?? null,
+            actor_role: authUser?.role ?? null,
+            actor_type: AuditActorType.USER,
+            source: IMPORT_SOURCE,
+            after: {
+              event: 'import_job.applied',
+              importJobId: job.id,
+              totals,
+            },
+          },
+        });
+        return applied;
+      });
+      jobApplied = true;
+
+      return this.serializeJob(updatedJob, totals);
+    } catch (error) {
+      if (!jobApplied) {
+        // Chunks that already committed remain applied. The job ends FAILED with the
+        // totals of that committed work, so the partial state stays visible. The guard
+        // keeps this from overwriting a job that reached APPLIED on the database side.
+        try {
+          await this.prisma.importJob.updateMany({
+            where: { id: job.id, status: ImportJobStatus.APPLYING },
+            data: { status: ImportJobStatus.FAILED, totals_json: totals },
+          });
+        } catch (markError) {
+          this.logger.error(
+            `Could not mark import job ${job.id} as FAILED: ${markError instanceof Error ? markError.message : String(markError)}`,
+          );
+        }
+      }
+      throw error;
+    }
+  }
+
   getTemplate(entityType: ImportEntityType) {
     assertTenantAdmin(this.tenantContext);
     const template = getImportTemplate(entityType);
@@ -471,12 +968,31 @@ export class ImportService {
     };
   }
 
-  private normalizeOptions(options: ImportJobOptions): ImportJobOptions {
+  private normalizeOptions(options?: ImportJobOptions): ImportJobOptions {
+    if (!options) {
+      return {};
+    }
     return {
       update_existing: options.update_existing === true,
       fill_empty_only: options.fill_empty_only === true,
       allow_missing_vin: options.allow_missing_vin === true,
       invalid_vat_as_error: options.invalid_vat_as_error === true,
+      create_new_catalog_items: options.create_new_catalog_items === true,
+      accept_all_price_jumps: options.accept_all_price_jumps === true,
+      accepted_row_numbers: Array.isArray(options.accepted_row_numbers)
+        ? options.accepted_row_numbers
+            .map((n) => Number(n))
+            .filter((n) => Number.isFinite(n))
+        : undefined,
+      price_jump_threshold_percent:
+        typeof options.price_jump_threshold_percent === 'number' &&
+        Number.isFinite(options.price_jump_threshold_percent)
+          ? options.price_jump_threshold_percent
+          : undefined,
+      vendor_id:
+        typeof options.vendor_id === 'string' && options.vendor_id.trim()
+          ? options.vendor_id.trim()
+          : undefined,
     };
   }
 
@@ -497,7 +1013,16 @@ export class ImportService {
         parsed,
       );
     }
-    return this.runVehicleDryRun(
+    if (entityType === ImportEntityType.VEHICLE) {
+      return this.runVehicleDryRun(
+        tenantId,
+        sourceSystem,
+        mapping,
+        options,
+        parsed,
+      );
+    }
+    return this.runSupplierPriceListDryRun(
       tenantId,
       sourceSystem,
       mapping,
@@ -666,6 +1191,259 @@ export class ImportService {
           rowNo,
           normalized.row,
           context,
+          options,
+          normalized.warnings,
+        ),
+      );
+    }
+    return results;
+  }
+
+  private async resolveAndValidateVendor(
+    tenantId: string,
+    sourceSystem: string,
+    vendorIdOption?: string,
+  ): Promise<{ id: string; name: string }> {
+    const explicitVendorId = vendorIdOption?.trim();
+    if (explicitVendorId) {
+      const vendor = await this.prisma.vendor.findFirst({
+        where: {
+          tenant_id: tenantId,
+          id: explicitVendorId,
+        },
+        select: { id: true, name: true },
+      });
+      if (!vendor) {
+        throw new BadRequestException({
+          code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
+          message: `Lieferant mit ID '${explicitVendorId}' nicht gefunden`,
+        });
+      }
+      return vendor;
+    }
+
+    const candidate = sourceSystem?.trim();
+    if (!candidate) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
+        message: 'Valid vendor is required for supplier price list import',
+      });
+    }
+
+    const vendorById = await this.prisma.vendor.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: candidate,
+      },
+      select: { id: true, name: true },
+    });
+    if (vendorById) {
+      return vendorById;
+    }
+
+    const matches = await this.prisma.vendor.findMany({
+      where: {
+        tenant_id: tenantId,
+        OR: [{ name: candidate }, { account_number: candidate }],
+      },
+      select: { id: true, name: true },
+    });
+
+    if (matches.length === 0) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
+        message: `Lieferant '${candidate}' nicht gefunden`,
+      });
+    }
+
+    if (matches.length > 1) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.AMBIGUOUS_VENDOR,
+        message: `Mehrere Lieferanten mit dem Namen '${candidate}' gefunden. Bitte Lieferanten-ID angeben.`,
+      });
+    }
+
+    return matches[0];
+  }
+
+  private async runSupplierPriceListDryRun(
+    tenantId: string,
+    sourceSystem: string,
+    mapping: Record<string, string>,
+    options: ImportJobOptions,
+    parsed: ReturnType<typeof parseCsvFile>,
+  ): Promise<DryRunRowResult[]> {
+    const vendor = await this.resolveAndValidateVendor(
+      tenantId,
+      sourceSystem,
+      options.vendor_id,
+    );
+
+    const [marginRules, brands, financeSettings, catalogItems, vendorArticles] =
+      await Promise.all([
+        this.prisma.marginRule.findMany({
+          where: { tenant_id: tenantId, is_active: true },
+          orderBy: { priority: 'asc' },
+        }),
+        this.prisma.brand.findMany({
+          where: { tenant_id: tenantId },
+          select: { id: true, name: true, normalized_name: true },
+        }),
+        this.prisma.financeSettings.findFirst({
+          where: { tenant_id: tenantId },
+          select: { price_jump_threshold_percent: true },
+        }),
+        this.prisma.catalogItem.findMany({
+          where: { tenant_id: tenantId },
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            cost_price: true,
+            retail_price: true,
+            ean: true,
+            brand_id: true,
+            revenue_group_id: true,
+          },
+        }),
+        this.prisma.vendorArticle.findMany({
+          where: { tenant_id: tenantId, vendor_id: vendor.id },
+          include: {
+            catalog_item: {
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                cost_price: true,
+                retail_price: true,
+                ean: true,
+                brand_id: true,
+                revenue_group_id: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+    const catalogItemBySku = new Map<string, SupplierPriceListCatalogItem>();
+    const catalogItemByEan = new Map<string, SupplierPriceListCatalogItem>();
+    const catalogItemById = new Map<string, SupplierPriceListCatalogItem>();
+
+    for (const item of catalogItems) {
+      const dto: SupplierPriceListCatalogItem = {
+        id: item.id,
+        sku: item.sku,
+        name: item.name,
+        cost_price: item.cost_price != null ? Number(item.cost_price) : null,
+        retail_price: Number(item.retail_price),
+        ean: item.ean,
+        brand_id: item.brand_id,
+        revenue_group_id: item.revenue_group_id,
+      };
+      catalogItemById.set(item.id, dto);
+      const sku = item.sku.trim();
+      catalogItemBySku.set(sku, dto);
+      catalogItemBySku.set(sku.toUpperCase(), dto);
+      if (item.ean && item.ean.trim().length > 0) {
+        catalogItemByEan.set(item.ean.trim(), dto);
+      }
+    }
+
+    const catalogItemByVendorArticleNo = new Map<
+      string,
+      SupplierPriceListCatalogItem
+    >();
+    for (const va of vendorArticles) {
+      const itemDto =
+        catalogItemById.get(va.catalog_item_id) ??
+        (va.catalog_item
+          ? {
+              id: va.catalog_item.id,
+              sku: va.catalog_item.sku,
+              name: va.catalog_item.name,
+              cost_price:
+                va.catalog_item.cost_price != null
+                  ? Number(va.catalog_item.cost_price)
+                  : null,
+              retail_price: Number(va.catalog_item.retail_price),
+              ean: va.catalog_item.ean,
+              brand_id: va.catalog_item.brand_id,
+              revenue_group_id: va.catalog_item.revenue_group_id,
+            }
+          : null);
+      if (itemDto) {
+        const artNo = va.vendor_article_no.trim();
+        catalogItemByVendorArticleNo.set(artNo, itemDto);
+        catalogItemByVendorArticleNo.set(artNo.toUpperCase(), itemDto);
+      }
+    }
+
+    const brandByName = new Map<string, { id: number; name: string }>();
+    for (const b of brands) {
+      const entry = { id: b.id, name: b.name };
+      brandByName.set(b.name.trim().toLowerCase(), entry);
+      if (b.normalized_name) {
+        brandByName.set(b.normalized_name.trim().toLowerCase(), entry);
+      }
+    }
+
+    const marginRuleItems: MarginRuleItem[] = marginRules.map((r) => ({
+      id: r.id,
+      priority: r.priority,
+      brand_id: r.brand_id,
+      revenue_group_id: r.revenue_group_id,
+      cost_min: r.cost_min != null ? Number(r.cost_min) : null,
+      cost_max: r.cost_max != null ? Number(r.cost_max) : null,
+      markup_percent:
+        r.markup_percent != null ? Number(r.markup_percent) : null,
+      use_supplier_rrp: r.use_supplier_rrp,
+      rounding: r.rounding,
+      is_active: r.is_active,
+    }));
+
+    const priceJumpThresholdPercent =
+      options.price_jump_threshold_percent ??
+      (financeSettings?.price_jump_threshold_percent != null
+        ? Number(financeSettings.price_jump_threshold_percent)
+        : 20);
+
+    const matchContext: SupplierPriceListMatchContext = {
+      catalogItemByEan,
+      catalogItemByVendorArticleNo,
+      catalogItemBySku,
+      catalogItemById,
+      brandByName,
+      marginRules: marginRuleItems,
+      priceJumpThresholdPercent,
+      articleNoSeenInFile: new Map<string, number>(),
+    };
+
+    const results: DryRunRowResult[] = [];
+    for (let index = 0; index < parsed.rows.length; index += 1) {
+      const rowNo = index + 1;
+      const record = rowToRecord(parsed.headers, parsed.rows[index]);
+      const normalized = normalizeSupplierPriceListRow(
+        record,
+        mapping,
+        options,
+      );
+      if (!normalized.row) {
+        results.push({
+          row_no: rowNo,
+          external_id: record[mapping.supplier_article_no ?? ''] ?? null,
+          action: ImportRowAction.ERROR,
+          entity_id: null,
+          errors: normalized.issues,
+          warnings: normalized.warnings,
+          normalized: null,
+        });
+        continue;
+      }
+      results.push(
+        planSupplierPriceListDryRunRow(
+          rowNo,
+          normalized.row,
+          matchContext,
           options,
           normalized.warnings,
         ),
@@ -1158,7 +1936,11 @@ export class ImportService {
   }
 
   private computeTotals(
-    rows: Array<{ action: ImportRowAction }>,
+    rows: Array<{
+      action: ImportRowAction;
+      normalized?: Record<string, unknown> | null;
+      warnings?: Array<{ code?: string }>;
+    }>,
   ): ImportJobTotals {
     return rows.reduce(
       (acc, row) => {
@@ -1167,9 +1949,17 @@ export class ImportService {
         if (row.action === ImportRowAction.UPDATE) acc.update += 1;
         if (row.action === ImportRowAction.SKIP) acc.skip += 1;
         if (row.action === ImportRowAction.ERROR) acc.error += 1;
+        const isFlagged =
+          row.normalized?.price_jump_flagged === true ||
+          row.warnings?.some(
+            (w) => w.code === IMPORT_ERROR_CODES.PRICE_JUMP_EXCEEDED,
+          );
+        if (isFlagged) {
+          acc.flagged_jumps = (acc.flagged_jumps ?? 0) + 1;
+        }
         return acc;
       },
-      { rows: 0, create: 0, update: 0, skip: 0, error: 0 },
+      { rows: 0, create: 0, update: 0, skip: 0, error: 0, flagged_jumps: 0 },
     );
   }
 

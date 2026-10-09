@@ -436,6 +436,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vendors/{id}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VendorController_getArticles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sales/invoices": {
         parameters: {
             query?: never;
@@ -3436,6 +3452,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/margin-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List all margin rules for current tenant ordered by priority */
+        get: operations["MarginRuleController_findAll"];
+        put?: never;
+        /** Create a new margin rule (ADMIN/OWNER only) */
+        post: operations["MarginRuleController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/margin-rules/threshold": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get price jump threshold percentage */
+        get: operations["MarginRuleController_getThreshold"];
+        /** Update price jump threshold percentage (ADMIN/OWNER only) */
+        put: operations["MarginRuleController_updateThreshold"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/margin-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update a margin rule (ADMIN/OWNER only) */
+        put: operations["MarginRuleController_update"];
+        post?: never;
+        /** Delete a margin rule (ADMIN/OWNER only) */
+        delete: operations["MarginRuleController_delete"];
+        options?: never;
+        head?: never;
+        /** Partially update a margin rule (ADMIN/OWNER only) */
+        patch: operations["MarginRuleController_patch"];
+        trace?: never;
+    };
     "/api/agent-policy/rules": {
         parameters: {
             query?: never;
@@ -3976,6 +4047,35 @@ export interface components {
         };
         CreateVendorDto: Record<string, never>;
         UpdateVendorDto: Record<string, never>;
+        VendorArticleCatalogItemDto: {
+            /** @example item-uuid */
+            id: string;
+            /** @example 0204114532 */
+            sku: string;
+            /** @example Brake Pad Set */
+            name: string;
+        };
+        VendorArticleResponseDto: {
+            /** @example article-uuid */
+            id: string;
+            /** @example tenant-uuid */
+            tenant_id: string;
+            /** @example vendor-uuid */
+            vendor_id: string;
+            /** @example item-uuid */
+            catalog_item_id: string;
+            /** @example BOS-0204114532 */
+            vendor_article_no: string;
+            /** @example 45.5 */
+            last_cost?: number | null;
+            /** @example 89.9 */
+            last_rrp?: number | null;
+            catalog_item?: components["schemas"]["VendorArticleCatalogItemDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
         CreateInvoiceItemDto: {
             /** Format: uuid */
             catalogItemId?: string;
@@ -7445,7 +7545,7 @@ export interface components {
             auditEntries: components["schemas"]["AuditLogResponseDto"][];
         };
         /** @enum {string} */
-        ImportEntityType: "CUSTOMER" | "VEHICLE";
+        ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
         /** @enum {string} */
         ImportJobStatus: "DRY_RUN_DONE" | "APPLYING" | "APPLIED" | "FAILED" | "CANCELLED";
         ImportJobTotalsDto: {
@@ -7454,6 +7554,7 @@ export interface components {
             update: number;
             skip: number;
             error: number;
+            flagged_jumps?: number;
         };
         ImportJobResponseDto: {
             id: string;
@@ -7522,6 +7623,22 @@ export interface components {
         ImportJobRowsResponseDto: {
             data: components["schemas"]["ImportJobRowDto"][];
             meta: Record<string, never>;
+        };
+        ApplyImportJobDto: {
+            /**
+             * @description Accept all price changes exceeding the threshold
+             * @example true
+             */
+            accept_all_price_jumps?: boolean;
+            /**
+             * @description Specific row numbers where price jumps are accepted
+             * @example [
+             *       1,
+             *       2,
+             *       5
+             *     ]
+             */
+            accepted_row_numbers?: number[];
         };
         TyreStorageSettingsResponseDto: {
             summerSwapMonth: number;
@@ -7636,6 +7753,189 @@ export interface components {
             employeeId?: string;
             /** Format: date-time */
             occurredAt?: string;
+        };
+        MarginRuleBrandDto: {
+            /** @example 1 */
+            id: number;
+            /** @example Bosch */
+            name: string;
+        };
+        MarginRuleRevenueGroupDto: {
+            /** @example 1 */
+            id: number;
+            /** @example Parts */
+            name: string;
+        };
+        MarginRuleResponseDto: {
+            /**
+             * Format: uuid
+             * @example 123e4567-e89b-12d3-a456-426614174000
+             */
+            id: string;
+            /** @example tenant-123 */
+            tenant_id: string;
+            /** @example Standard Markup */
+            name: string;
+            /** @example 0 */
+            priority: number;
+            /** @example 1 */
+            brand_id?: number | null;
+            brand?: components["schemas"]["MarginRuleBrandDto"] | null;
+            /** @example 1 */
+            revenue_group_id?: number | null;
+            revenue_group?: components["schemas"]["MarginRuleRevenueGroupDto"] | null;
+            /** @example 10 */
+            cost_min?: number | null;
+            /** @example 100 */
+            cost_max?: number | null;
+            /** @example 35 */
+            markup_percent?: number | null;
+            /** @example false */
+            use_supplier_rrp: boolean;
+            /**
+             * @example NONE
+             * @enum {string}
+             */
+            rounding: "NONE" | "ROUND_90" | "ROUND_99" | "WHOLE_EURO";
+            /** @example true */
+            is_active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PriceJumpThresholdResponseDto: {
+            /**
+             * @description Price jump threshold percentage
+             * @example 20
+             */
+            price_jump_threshold_percent: number;
+            /**
+             * @description Alias for price jump threshold percentage
+             * @example 20
+             */
+            threshold_percent?: number;
+        };
+        UpdatePriceJumpThresholdDto: {
+            /**
+             * @description Price jump threshold percentage
+             * @example 20
+             */
+            price_jump_threshold_percent?: number;
+            /**
+             * @description Price jump threshold percentage (alias)
+             * @example 20
+             */
+            threshold_percent?: number;
+        };
+        /**
+         * @description Price rounding strategy
+         * @enum {string}
+         */
+        MarginRoundingStrategy: "NONE" | "ROUND_90" | "ROUND_99" | "WHOLE_EURO";
+        CreateMarginRuleDto: {
+            /**
+             * @description Name of the margin rule
+             * @example Standard Parts Margin
+             */
+            name: string;
+            /**
+             * @description Rule priority (lowest number evaluated first)
+             * @example 0
+             */
+            priority?: number;
+            /**
+             * @description Optional Brand ID to scope this rule to
+             * @example 1
+             */
+            brand_id?: number | null;
+            /**
+             * @description Optional Revenue Group ID to scope this rule to
+             * @example 1
+             */
+            revenue_group_id?: number | null;
+            /**
+             * @description Minimum cost price for rule to apply
+             * @example 0
+             */
+            cost_min?: number | null;
+            /**
+             * @description Maximum cost price for rule to apply
+             * @example 100
+             */
+            cost_max?: number | null;
+            /**
+             * @description Markup percentage to add to cost
+             * @example 30
+             */
+            markup_percent?: number | null;
+            /**
+             * @description Whether to use supplier recommended retail price (UVP)
+             * @example false
+             */
+            use_supplier_rrp?: boolean;
+            /**
+             * @description Price rounding strategy
+             * @example NONE
+             */
+            rounding?: components["schemas"]["MarginRoundingStrategy"];
+            /**
+             * @description Whether the rule is active
+             * @example true
+             */
+            is_active?: boolean;
+        };
+        UpdateMarginRuleDto: {
+            /**
+             * @description Name of the margin rule
+             * @example Standard Parts Margin
+             */
+            name?: string;
+            /**
+             * @description Rule priority (lowest number evaluated first)
+             * @example 0
+             */
+            priority?: number;
+            /**
+             * @description Optional Brand ID to scope this rule to
+             * @example 1
+             */
+            brand_id?: number | null;
+            /**
+             * @description Optional Revenue Group ID to scope this rule to
+             * @example 1
+             */
+            revenue_group_id?: number | null;
+            /**
+             * @description Minimum cost price for rule to apply
+             * @example 0
+             */
+            cost_min?: number | null;
+            /**
+             * @description Maximum cost price for rule to apply
+             * @example 100
+             */
+            cost_max?: number | null;
+            /**
+             * @description Markup percentage to add to cost
+             * @example 30
+             */
+            markup_percent?: number | null;
+            /**
+             * @description Whether to use supplier recommended retail price (UVP)
+             * @example false
+             */
+            use_supplier_rrp?: boolean;
+            /**
+             * @description Price rounding strategy
+             * @example NONE
+             */
+            rounding?: components["schemas"]["MarginRoundingStrategy"];
+            /**
+             * @description Whether the rule is active
+             * @example true
+             */
+            is_active?: boolean;
         };
         AgentPolicyConditionsDto: {
             amount_max?: number | null;
@@ -8754,6 +9054,27 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    VendorController_getArticles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorArticleResponseDto"][];
+                };
             };
         };
     };
@@ -14378,7 +14699,7 @@ export interface operations {
                     /** Format: binary */
                     file: string;
                     /** @enum {string} */
-                    entityType: "CUSTOMER" | "VEHICLE";
+                    entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
                     /** @example incadea */
                     sourceSystem: string;
                     /** @description JSON object mapping logical fields to CSV headers */
@@ -14402,7 +14723,7 @@ export interface operations {
     ImportController_listMappingProfiles: {
         parameters: {
             query: {
-                entityType: "CUSTOMER" | "VEHICLE";
+                entityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
                 sourceSystem: string;
             };
             header?: never;
@@ -14559,7 +14880,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyImportJobDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -14908,6 +15233,160 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TyreSetResponseDto"];
+                };
+            };
+        };
+    };
+    MarginRuleController_findAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginRuleResponseDto"][];
+                };
+            };
+        };
+    };
+    MarginRuleController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMarginRuleDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginRuleResponseDto"];
+                };
+            };
+        };
+    };
+    MarginRuleController_getThreshold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceJumpThresholdResponseDto"];
+                };
+            };
+        };
+    };
+    MarginRuleController_updateThreshold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePriceJumpThresholdDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceJumpThresholdResponseDto"];
+                };
+            };
+        };
+    };
+    MarginRuleController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMarginRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginRuleResponseDto"];
+                };
+            };
+        };
+    };
+    MarginRuleController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Margin rule deleted successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    MarginRuleController_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMarginRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarginRuleResponseDto"];
                 };
             };
         };

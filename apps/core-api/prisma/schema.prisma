@@ -128,6 +128,9 @@ model Tenant {
   importMappingProfiles         ImportMappingProfile[]
   agentPolicyRules              AgentPolicyRule[]
   agentProposals                AgentProposal[]
+  vendorArticles                VendorArticle[]
+  marginRules                   MarginRule[]
+  catalogPriceHistories         CatalogPriceHistory[]
 
   @@map("tenants")
 }
@@ -604,6 +607,7 @@ model RevenueGroup {
   is_default     Boolean @default(false)
 
   catalog_items CatalogItem[]
+  marginRules   MarginRule[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -631,6 +635,7 @@ model FinanceSettings {
   vehicle_sale_prefix          String    @default("VS-2026-")
   next_stock_transfer_number   Int       @default(1)
   stock_transfer_prefix        String    @default("TR-2026-")
+  price_jump_threshold_percent Decimal?  @default(20) @db.Decimal(5, 2)
 
   updatedAt DateTime @updatedAt
 
@@ -676,6 +681,7 @@ model Brand {
   vehicleMakeAliases     VehicleMakeAlias[]
   catalogOemConcernMakes CatalogOemConcernMake[]
   partsRequisitions      PartsRequisition[]
+  marginRules            MarginRule[]
 
   @@unique([tenant_id, name]) // tenant-scoped
   @@unique([tenant_id, normalized_name]) // tenant-scoped canonical name
@@ -792,6 +798,8 @@ model CatalogItem {
   sales_order_items        SalesOrderItem[]
   workshop_task_line_items WorkshopTaskLineItem[]
   stock_transfer_lines     StockTransferLine[]
+  vendorArticles           VendorArticle[]
+  catalogPriceHistories    CatalogPriceHistory[]
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
 
@@ -1128,6 +1136,7 @@ model Vendor {
   purchase_orders   PurchaseOrder[]
   purchase_invoices PurchaseInvoice[]
   vehicle_purchases VehiclePurchase[]
+  vendorArticles    VendorArticle[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
@@ -2779,6 +2788,7 @@ model LaborFitment {
 enum ImportEntityType {
   CUSTOMER
   VEHICLE
+  SUPPLIER_PRICE_LIST
 }
 
 enum ImportJobStatus {
@@ -2813,6 +2823,7 @@ model ImportJob {
   appliedAt     DateTime?
   rows          ImportJobRow[]
   firstSeenExternalIdMappings ExternalIdMapping[]
+  catalogPriceHistories       CatalogPriceHistory[]
 
   @@unique([tenant_id, id])
   @@index([tenant_id, createdAt])
@@ -2869,6 +2880,74 @@ model ImportMappingProfile {
   @@unique([tenant_id, entity_type, source_system, name])
   @@index([tenant_id, entity_type, source_system])
   @@map("import_mapping_profiles")
+}
+
+enum MarginRoundingStrategy {
+  NONE
+  ROUND_90
+  ROUND_99
+  WHOLE_EURO
+}
+
+model VendorArticle {
+  id                String       @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant       @relation(fields: [tenant_id], references: [id])
+  vendor_id         String
+  vendor            Vendor       @relation(fields: [vendor_id], references: [id], onDelete: Restrict)
+  catalog_item_id   String
+  catalog_item      CatalogItem  @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict)
+  vendor_article_no String
+  last_cost         Decimal?     @db.Decimal(10, 2)
+  last_rrp          Decimal?     @db.Decimal(10, 2)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([tenant_id, vendor_id, vendor_article_no])
+  @@index([tenant_id, catalog_item_id])
+  @@map("vendor_articles")
+}
+
+model MarginRule {
+  id                String                 @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant                 @relation(fields: [tenant_id], references: [id])
+  name              String
+  priority          Int                    @default(0)
+  brand_id          Int?
+  brand             Brand?                 @relation(fields: [brand_id], references: [id], onDelete: SetNull)
+  revenue_group_id  Int?
+  revenue_group     RevenueGroup?          @relation(fields: [revenue_group_id], references: [id], onDelete: SetNull)
+  cost_min          Decimal?               @db.Decimal(10, 2)
+  cost_max          Decimal?               @db.Decimal(10, 2)
+  markup_percent    Decimal?               @db.Decimal(5, 2)
+  use_supplier_rrp  Boolean                @default(false)
+  rounding          MarginRoundingStrategy @default(NONE)
+  is_active         Boolean                @default(true)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([tenant_id, priority])
+  @@map("margin_rules")
+}
+
+model CatalogPriceHistory {
+  id              String       @id @default(uuid())
+  tenant_id       String
+  tenant          Tenant       @relation(fields: [tenant_id], references: [id])
+  catalog_item_id String
+  catalog_item    CatalogItem  @relation(fields: [catalog_item_id], references: [id], onDelete: Restrict)
+  old_cost        Decimal?     @db.Decimal(10, 2)
+  new_cost        Decimal?     @db.Decimal(10, 2)
+  old_retail      Decimal?     @db.Decimal(10, 2)
+  new_retail      Decimal?     @db.Decimal(10, 2)
+  import_job_id   String?
+  import_job      ImportJob?   @relation(fields: [tenant_id, import_job_id], references: [tenant_id, id], onDelete: SetNull)
+  createdAt       DateTime     @default(now())
+
+  @@index([tenant_id, catalog_item_id, createdAt])
+  @@index([tenant_id, import_job_id])
+  @@map("catalog_price_histories")
 }
 
 model MasterPart {

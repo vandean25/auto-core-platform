@@ -22,6 +22,7 @@ import {
 import { CreateVendorDto } from './dto/create-vendor.dto.js';
 import { UpdateVendorDto } from './dto/update-vendor.dto.js';
 import { VendorResponseDto } from './dto/vendor-response.dto.js';
+import { VendorArticleResponseDto } from './dto/vendor-article-response.dto.js';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 
 @Controller('vendors')
@@ -125,6 +126,12 @@ export class VendorController {
     @Body() updateVendorDto: UpdateVendorDto,
   ) {
     return this.vendorService.update(id, updateVendorDto);
+  }
+
+  @Get(':id/articles')
+  @ApiOkResponse({ type: [VendorArticleResponseDto] })
+  async getArticles(@Param('id') id: string) {
+    return this.vendorService.getArticles(id);
   }
 
   @Delete(':id')

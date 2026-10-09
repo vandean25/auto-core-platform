@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   CheckCircle2,
@@ -22,6 +22,8 @@ import {
   useImportMappingProfiles,
   useImportTemplate,
 } from '@/api/imports'
+import { usePriceJumpThreshold } from '@/api/margin-rules'
+import { useVendors } from '@/api/vendors'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -87,15 +89,30 @@ const WIZARD_STEPS = [
 ] as const
 
 export function DataImportSettingsTab() {
+  const [searchParams] = useSearchParams()
+  const initialEntityParam = searchParams.get('entity')
+  const initialVendorParam = searchParams.get('vendorId')
+
+  const initialEntityType: ImportEntityTypeUi =
+    initialEntityParam === 'SUPPLIER_PRICE_LIST' ? 'SUPPLIER_PRICE_LIST' : 'CUSTOMER'
+
   const [step, setStep] = React.useState(1)
-  const [entityType, setEntityType] = React.useState<ImportEntityTypeUi>('CUSTOMER')
-  const [sourceSystem, setSourceSystem] = React.useState('incadea')
+  const [entityType, setEntityType] = React.useState<ImportEntityTypeUi>(initialEntityType)
+  const [selectedVendorId, setSelectedVendorId] = React.useState<string>(initialVendorParam ?? '')
+  const [acceptAllPriceJumps, setAcceptAllPriceJumps] = React.useState(false)
+  const [acceptedRowNumbers, setAcceptedRowNumbers] = React.useState<number[]>([])
+  const [sourceSystem, setSourceSystem] = React.useState(
+    initialEntityType === 'SUPPLIER_PRICE_LIST' ? 'supplier' : 'incadea',
+  )
   const [file, setFile] = React.useState<File | null>(null)
   const [fileFingerprint, setFileFingerprint] = React.useState<string | null>(null)
   const [csvHeaders, setCsvHeaders] = React.useState<string[]>([])
   const [previewRows, setPreviewRows] = React.useState<string[][]>([])
   const [mapping, setMapping] = React.useState<Record<string, string>>({})
-  const [options, setOptions] = React.useState<ImportWizardOptions>(DEFAULT_IMPORT_OPTIONS)
+  const [options, setOptions] = React.useState<ImportWizardOptions>({
+    ...DEFAULT_IMPORT_OPTIONS,
+    vendor_id: initialVendorParam ?? undefined,
+  })
   const [errorThreshold, setErrorThreshold] = React.useState(0)
   const [rowFilter, setRowFilter] = React.useState<ImportRowFilter>('ALL')
   const [rowsPage, setRowsPage] = React.useState(1)
@@ -105,6 +122,35 @@ export function DataImportSettingsTab() {
   const [confirmApplyOpen, setConfirmApplyOpen] = React.useState(false)
   const [applyInFlight, setApplyInFlight] = React.useState(false)
   const applyInFlightRef = React.useRef(false)
+
+  const { data: vendorsData } = useVendors({ page: 1, pageSize: 100, filters: [] })
+  const vendors = vendorsData?.data ?? []
+
+  const thresholdQuery = usePriceJumpThreshold()
+  const configuredThreshold =
+    thresholdQuery.data?.price_jump_threshold_percent ??
+    thresholdQuery.data?.threshold_percent ??
+    20
+
+  const isRowPriceJump = React.useCallback(
+    (row: { normalized?: unknown; warnings?: unknown }) => {
+      const norm = row.normalized as Record<string, unknown> | null
+      const warnings = (row.warnings ?? []) as Array<{
+        code?: string
+        message?: string
+      }>
+      return (
+        norm?.price_jump_flagged === true ||
+        warnings.some(
+          (w) =>
+            w.code === 'PRICE_JUMP_EXCEEDED' ||
+            (typeof w.message === 'string' &&
+              w.message.toLowerCase().includes('preissprung')),
+        )
+      )
+    },
+    [],
+  )
 
   const fields = React.useMemo(() => getImportFieldsForEntity(entityType), [entityType])
   const { data: template } = useImportTemplate(entityType)
@@ -138,7 +184,15 @@ export function DataImportSettingsTab() {
     },
   )
 
-  const jobRows = rowsResponse?.data ?? []
+  const jobRows = React.useMemo(() => rowsResponse?.data ?? [], [rowsResponse?.data])
+  const flaggedJumpCount = React.useMemo(() => {
+    const jobTotalFlagged = (dryRunJob?.totals as { flagged_jumps?: number } | undefined)
+      ?.flagged_jumps
+    if (typeof jobTotalFlagged === 'number') {
+      return jobTotalFlagged
+    }
+    return jobRows.filter(isRowPriceJump).length
+  }, [dryRunJob?.totals, jobRows, isRowPriceJump])
   const rowsMeta = rowsResponse?.meta
   const rowsTotalPages = rowsMeta
     ? Math.max(1, Math.ceil(rowsMeta.total / rowsMeta.limit))
@@ -154,10 +208,18 @@ export function DataImportSettingsTab() {
   const resetDryRun = React.useCallback(() => {
     setDryRunJob(null)
     setAppliedJob(null)
+    setAcceptAllPriceJumps(false)
+    setAcceptedRowNumbers([])
   }, [])
 
   const handleEntityChange = (value: ImportEntityTypeUi) => {
     setEntityType(value)
+    if (value !== 'SUPPLIER_PRICE_LIST') {
+      setSelectedVendorId('')
+      setOptions((prev) => ({ ...prev, vendor_id: undefined }))
+    } else if (sourceSystem === 'incadea') {
+      setSourceSystem('supplier')
+    }
     setMapping({})
     resetDryRun()
     setStep(1)
@@ -240,16 +302,24 @@ export function DataImportSettingsTab() {
     }
 
     try {
+      const effectiveOptions: ImportWizardOptions = {
+        ...options,
+        ...(entityType === 'SUPPLIER_PRICE_LIST'
+          ? { price_jump_threshold_percent: configuredThreshold }
+          : {}),
+      }
       const job = await dryRunMutation.mutateAsync({
         file,
         entityType: entityType as ImportEntityType,
         sourceSystem: sourceSystem.trim(),
         mapping,
-        options,
+        options: effectiveOptions,
       })
       setDryRunJob(job)
       setFileFingerprint(job.file_sha256)
       setAppliedJob(null)
+      setAcceptAllPriceJumps(false)
+      setAcceptedRowNumbers([])
       setStep(4)
       setRowFilter('ALL')
       setRowsPage(1)
@@ -263,7 +333,21 @@ export function DataImportSettingsTab() {
     applyInFlightRef.current = true
     setApplyInFlight(true)
     try {
-      const result = await applyMutation.mutateAsync(dryRunJob.id)
+      const applyPayload =
+        entityType === 'SUPPLIER_PRICE_LIST'
+          ? {
+              jobId: dryRunJob.id,
+              options: {
+                accept_all_price_jumps: acceptAllPriceJumps,
+                accepted_row_numbers: acceptAllPriceJumps
+                  ? undefined
+                  : acceptedRowNumbers.length > 0
+                    ? acceptedRowNumbers
+                    : undefined,
+              },
+            }
+          : dryRunJob.id
+      const result = await applyMutation.mutateAsync(applyPayload)
       setAppliedJob(result)
       setDryRunJob(result)
       setStep(5)
@@ -363,6 +447,9 @@ export function DataImportSettingsTab() {
                 <SelectContent>
                   <SelectItem value="CUSTOMER">Customers / Kunden</SelectItem>
                   <SelectItem value="VEHICLE">Vehicles / Fahrzeuge</SelectItem>
+                  <SelectItem value="SUPPLIER_PRICE_LIST">
+                    Lieferanten-Preisliste / Supplier price list
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -377,13 +464,43 @@ export function DataImportSettingsTab() {
                 }}
               />
             </div>
+            {entityType === 'SUPPLIER_PRICE_LIST' ? (
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="import-vendor">Lieferant / Vendor *</Label>
+                <Select
+                  value={selectedVendorId || '__none__'}
+                  onValueChange={(value) => {
+                    const id = value === '__none__' ? '' : value
+                    setSelectedVendorId(id)
+                    setOptions((prev) => ({ ...prev, vendor_id: id || undefined }))
+                    resetDryRun()
+                  }}
+                >
+                  <SelectTrigger id="import-vendor" aria-label="Lieferant auswählen">
+                    <SelectValue placeholder="Lieferant auswählen…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Lieferant auswählen…</SelectItem>
+                    {vendors.map((vendor) => (
+                      <SelectItem key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={() => void handleDownloadTemplate()}>
               <Download className="mr-2 h-4 w-4" />
               Download CSV template / CSV-Vorlage
             </Button>
-            <Button type="button" onClick={() => setStep(2)}>
+            <Button
+              type="button"
+              disabled={entityType === 'SUPPLIER_PRICE_LIST' && !selectedVendorId}
+              onClick={() => setStep(2)}
+            >
               Continue / Weiter
             </Button>
           </div>
@@ -590,6 +707,24 @@ export function DataImportSettingsTab() {
                 </Label>
               </div>
             ) : null}
+            {entityType === 'SUPPLIER_PRICE_LIST' ? (
+              <div className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  id="import-opt-create-catalog"
+                  checked={options.create_new_catalog_items}
+                  onCheckedChange={(checked) => {
+                    setOptions((prev) => ({
+                      ...prev,
+                      create_new_catalog_items: checked === true,
+                    }))
+                    resetDryRun()
+                  }}
+                />
+                <Label htmlFor="import-opt-create-catalog" className="font-normal cursor-pointer">
+                  Neue Artikel im Katalog anlegen / Create new catalog items
+                </Label>
+              </div>
+            ) : null}
           </div>
 
           {previewRows.length > 0 ? (
@@ -671,6 +806,62 @@ export function DataImportSettingsTab() {
             </Badge>
           </div>
 
+          {entityType === 'SUPPLIER_PRICE_LIST' ? (
+            <div className="flex items-center gap-2 p-3 bg-slate-50 border rounded-md text-sm">
+              <Checkbox
+                id="step4-opt-create-catalog"
+                checked={options.create_new_catalog_items}
+                onCheckedChange={(checked) => {
+                  setOptions((prev) => ({
+                    ...prev,
+                    create_new_catalog_items: checked === true,
+                  }))
+                }}
+              />
+              <Label htmlFor="step4-opt-create-catalog" className="font-normal cursor-pointer">
+                Neue Artikel im Katalog anlegen / Create new catalog items
+              </Label>
+              {options.create_new_catalog_items !==
+              Boolean((dryRunJob.options as ImportWizardOptions)?.create_new_catalog_items) ? (
+                <span className="text-xs text-amber-600 ml-auto">
+                  (Probelauf erneut starten erforderlich)
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
+          {entityType === 'SUPPLIER_PRICE_LIST' && flaggedJumpCount > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-amber-50/70 border border-amber-200 rounded-md text-sm">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="step4-accept-price-jumps"
+                  checked={acceptAllPriceJumps}
+                  onCheckedChange={(checked) => {
+                    setAcceptAllPriceJumps(checked === true)
+                  }}
+                />
+                <Label htmlFor="step4-accept-price-jumps" className="font-medium cursor-pointer">
+                  Preissprünge akzeptieren
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  {acceptAllPriceJumps
+                    ? '(Alle Preissprünge akzeptiert)'
+                    : acceptedRowNumbers.length > 0
+                      ? `(${acceptedRowNumbers.length} Zeilen akzeptiert)`
+                      : ''}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setAcceptAllPriceJumps((prev) => !prev)}
+              >
+                {acceptAllPriceJumps ? 'Auswahl aufheben' : 'Preissprünge akzeptieren'}
+              </Button>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-2 max-w-[200px]">
               <Label htmlFor="import-error-threshold">
@@ -738,12 +929,22 @@ export function DataImportSettingsTab() {
                 </TableHeader>
                 <TableBody>
                   {jobRows.map((row) => {
+                    const isPriceJump = isRowPriceJump(row)
+                    const thresholdPercent =
+                      (dryRunJob.options as ImportWizardOptions)?.price_jump_threshold_percent ??
+                      configuredThreshold
+
+                    const warnings = (row.warnings ?? []) as Array<{
+                      code?: string
+                      message?: string
+                    }>
+
                     const issues = [
                       ...(row.errors ?? []).map(
                         (issue) =>
                           `${bilingualLabel('Error', 'Fehler')}: ${issue.message}`,
                       ),
-                      ...(row.warnings ?? []).map(
+                      ...warnings.map(
                         (issue) =>
                           `${bilingualLabel('Warning', 'Warnung')}: ${issue.message}`,
                       ),
@@ -751,7 +952,16 @@ export function DataImportSettingsTab() {
                     return (
                       <TableRow key={row.row_no}>
                         <TableCell>{row.row_no}</TableCell>
-                        <TableCell>{row.action}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <span>{row.action}</span>
+                            {isPriceJump ? (
+                              <Badge variant="destructive" className="text-[10px]">
+                                Preissprung &gt; {thresholdPercent}%
+                              </Badge>
+                            ) : null}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {typeof row.external_id === 'string'
                             ? row.external_id
@@ -761,6 +971,33 @@ export function DataImportSettingsTab() {
                         </TableCell>
                         <TableCell className="text-xs max-w-md whitespace-pre-wrap">
                           {issues.join('\n') || '—'}
+                          {entityType === 'SUPPLIER_PRICE_LIST' && isPriceJump ? (
+                            <div className="mt-1 flex items-center gap-1.5">
+                              <Checkbox
+                                id={`accept-row-${row.row_no}`}
+                                checked={
+                                  acceptAllPriceJumps ||
+                                  acceptedRowNumbers.includes(row.row_no)
+                                }
+                                disabled={acceptAllPriceJumps}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setAcceptedRowNumbers((prev) => [...prev, row.row_no])
+                                  } else {
+                                    setAcceptedRowNumbers((prev) =>
+                                      prev.filter((n) => n !== row.row_no),
+                                    )
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor={`accept-row-${row.row_no}`}
+                                className="text-xs text-muted-foreground cursor-pointer"
+                              >
+                                Preissprung akzeptieren
+                              </label>
+                            </div>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     )
@@ -847,6 +1084,11 @@ export function DataImportSettingsTab() {
                   <li>Update: {dryRunJob?.totals.update ?? 0}</li>
                   <li>Skip: {dryRunJob?.totals.skip ?? 0}</li>
                   <li>Errors (skipped) / Fehler: {dryRunJob?.totals.error ?? 0}</li>
+                  {entityType === 'SUPPLIER_PRICE_LIST' ? (
+                    <li>
+                      Preissprünge akzeptiert: {acceptAllPriceJumps ? 'Alle' : `${acceptedRowNumbers.length} Zeilen`}
+                    </li>
+                  ) : null}
                 </ul>
               </div>
             </AlertDialogDescription>

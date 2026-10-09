@@ -185,26 +185,34 @@ export class VendorService {
       throw new NotFoundException(`Vendor ${id} not found`);
     }
 
-    const [purchaseOrdersCount, purchaseInvoicesCount, vehiclePurchasesCount] =
-      await Promise.all([
-        this.prisma.purchaseOrder.count({
-          where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
-        }),
-        this.prisma.purchaseInvoice.count({
-          where: { tenant_id: tenantId, vendor_id: id },
-        }),
-        this.prisma.vehiclePurchase.count({
-          where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
-        }),
-      ]);
+    const [
+      purchaseOrdersCount,
+      purchaseInvoicesCount,
+      vehiclePurchasesCount,
+      vendorArticlesCount,
+    ] = await Promise.all([
+      this.prisma.purchaseOrder.count({
+        where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
+      }),
+      this.prisma.purchaseInvoice.count({
+        where: { tenant_id: tenantId, vendor_id: id },
+      }),
+      this.prisma.vehiclePurchase.count({
+        where: { tenant_id: tenantId, site_id: siteId, vendor_id: id },
+      }),
+      this.prisma.vendorArticle.count({
+        where: { tenant_id: tenantId, vendor_id: id },
+      }),
+    ]);
 
     if (
       purchaseOrdersCount > 0 ||
       purchaseInvoicesCount > 0 ||
-      vehiclePurchasesCount > 0
+      vehiclePurchasesCount > 0 ||
+      vendorArticlesCount > 0
     ) {
       throw new BadRequestException(
-        'Vendor cannot be deleted because purchase orders, purchase invoices, or vehicle purchases are linked.',
+        'Vendor cannot be deleted because purchase orders, purchase invoices, vehicle purchases, or vendor article mappings are linked.',
       );
     }
 
@@ -217,5 +225,31 @@ export class VendorService {
     }
 
     return vendor;
+  }
+
+  async getArticles(vendorId: string) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const vendor = await this.prisma.vendor.findFirst({
+      where: { id: vendorId, tenant_id: tenantId },
+    });
+    if (!vendor) {
+      throw new NotFoundException(`Vendor ${vendorId} not found`);
+    }
+
+    return this.prisma.vendorArticle.findMany({
+      where: { tenant_id: tenantId, vendor_id: vendorId },
+      include: {
+        catalog_item: {
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        vendor_article_no: 'asc',
+      },
+    });
   }
 }

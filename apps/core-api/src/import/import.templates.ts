@@ -44,6 +44,25 @@ const VEHICLE_TEMPLATE: ImportTemplateDefinition = {
     'Fahrzeug-Nr;FIN;Kennzeichen;Marke;Modell;Baujahr;Kilometerstand;Farbe;Kunden-Nr;Schlüsselnummer',
 };
 
+const SUPPLIER_PRICE_LIST_TEMPLATE: ImportTemplateDefinition = {
+  entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
+  fields: [
+    {
+      key: 'supplier_article_no',
+      label_de: 'Lieferanten-Artikelnummer',
+      required: true,
+    },
+    { key: 'ean', label_de: 'EAN', required: false },
+    { key: 'description', label_de: 'Beschreibung', required: true },
+    { key: 'brand', label_de: 'Marke', required: false },
+    { key: 'cost_price', label_de: 'Einkaufspreis', required: true },
+    { key: 'rrp', label_de: 'UVP', required: false },
+    { key: 'unit', label_de: 'Einheit', required: false },
+  ],
+  csv_header:
+    'Lieferanten-Artikelnummer;EAN;Beschreibung;Marke;Einkaufspreis;UVP;Einheit',
+};
+
 export function getImportTemplate(
   entityType: ImportEntityType,
 ): ImportTemplateDefinition {
@@ -52,6 +71,9 @@ export function getImportTemplate(
   }
   if (entityType === ImportEntityType.VEHICLE) {
     return VEHICLE_TEMPLATE;
+  }
+  if (entityType === ImportEntityType.SUPPLIER_PRICE_LIST) {
+    return SUPPLIER_PRICE_LIST_TEMPLATE;
   }
   throw new Error('Unsupported import entity type');
 }

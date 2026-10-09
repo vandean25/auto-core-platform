@@ -361,7 +361,7 @@ function foreignKeyKey(childTable, parentTable, childColumns, parentColumns) {
 export function parseMigrationForeignKeyActions(migrationSql) {
   const actions = new Map();
   const foreignKeyPattern =
-    /ALTER TABLE\s+"([^"]+)"\s+ADD CONSTRAINT\s+"[^"]+"\s+FOREIGN KEY\s+\(([^)]+)\)\s+REFERENCES\s+"([^"]+)"\s*\(([^)]+)\)(?:\s+ON DELETE\s+(NO ACTION|RESTRICT|CASCADE|SET NULL|SET DEFAULT))?(?:\s+ON UPDATE\s+(NO ACTION|RESTRICT|CASCADE|SET NULL|SET DEFAULT))?\s*;/g;
+    /ALTER TABLE\s+"([^"]+)"\s+ADD CONSTRAINT\s+"[^"]+"\s+FOREIGN KEY\s+\(([^)]+)\)\s+REFERENCES\s+"([^"]+)"\s*\(([^)]+)\)(?:\s+ON DELETE\s+(NO ACTION|RESTRICT|CASCADE|SET NULL(?:\s*\([^)]+\))?|SET DEFAULT))?(?:\s+ON UPDATE\s+(NO ACTION|RESTRICT|CASCADE|SET NULL|SET DEFAULT))?\s*;/g;
 
   for (const match of migrationSql.matchAll(foreignKeyPattern)) {
     const [
@@ -383,7 +383,7 @@ export function parseMigrationForeignKeyActions(migrationSql) {
         normalizeColumns(parentColumns),
       ),
       {
-        onDelete,
+        onDelete: onDelete.startsWith('SET NULL') ? 'SET NULL' : onDelete,
         onUpdate,
       },
     );

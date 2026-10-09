@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { inventoryKeys } from './inventory'
 import { laborKeys } from './labor'
+import { marginRuleKeys } from './margin-rules'
 import { invoiceKeys } from './sales'
 import { workshopKeys } from './workshop'
 
@@ -51,6 +52,14 @@ describe('workshop and inventory factory keys', () => {
 
   it('identifies inventory lists so PO receipt can refresh stock screens', () => {
     expect(inventoryKeys.all).toEqual(['inventory'])
+  })
+})
+
+describe('marginRuleKeys', () => {
+  it('scopes margin rules and price jump threshold keys', () => {
+    expect(marginRuleKeys.all).toEqual(['margin-rules'])
+    expect(marginRuleKeys.list()).toEqual(['margin-rules', 'list'])
+    expect(marginRuleKeys.threshold()).toEqual(['margin-rules', 'threshold'])
   })
 })
 

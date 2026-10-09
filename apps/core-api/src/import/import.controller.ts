@@ -38,6 +38,7 @@ import {
   ImportMappingProfileResponseDto,
 } from './dto/import-mapping-profile-response.dto.js';
 import { CreateImportMappingProfileDto } from './dto/create-import-mapping-profile.dto.js';
+import { ApplyImportJobDto } from './dto/apply-import-job.dto.js';
 
 @ApiTags('imports')
 @Controller('imports')
@@ -61,7 +62,10 @@ export class ImportController {
       required: ['file', 'entityType', 'sourceSystem', 'mapping'],
       properties: {
         file: { type: 'string', format: 'binary' },
-        entityType: { type: 'string', enum: ['CUSTOMER', 'VEHICLE'] },
+        entityType: {
+          type: 'string',
+          enum: ['CUSTOMER', 'VEHICLE', 'SUPPLIER_PRICE_LIST'],
+        },
         sourceSystem: { type: 'string', example: 'incadea' },
         mapping: {
           type: 'string',
@@ -189,8 +193,8 @@ export class ImportController {
   @HttpCode(200)
   @ApiOperation({ summary: 'Apply a completed dry-run import job' })
   @ApiOkResponse({ type: ImportJobResponseDto })
-  apply(@Param('id') id: string) {
-    return this.importService.applyJob(id);
+  apply(@Param('id') id: string, @Body() body?: ApplyImportJobDto) {
+    return this.importService.applyJob(id, body);
   }
 
   private parseEntityType(value: string): ImportEntityType {
@@ -200,6 +204,9 @@ export class ImportController {
     }
     if (normalized === ImportEntityType.VEHICLE) {
       return ImportEntityType.VEHICLE;
+    }
+    if (normalized === ImportEntityType.SUPPLIER_PRICE_LIST) {
+      return ImportEntityType.SUPPLIER_PRICE_LIST;
     }
     throw new BadRequestException({
       code: IMPORT_ERROR_CODES.INVALID_ENTITY_TYPE,

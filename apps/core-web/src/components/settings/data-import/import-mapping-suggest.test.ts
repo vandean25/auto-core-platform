@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { CUSTOMER_IMPORT_FIELDS, VEHICLE_IMPORT_FIELDS } from './import-field-labels'
+import {
+  CUSTOMER_IMPORT_FIELDS,
+  SUPPLIER_PRICE_LIST_IMPORT_FIELDS,
+  VEHICLE_IMPORT_FIELDS,
+} from './import-field-labels'
 import {
   constrainMappingToCsvHeaders,
   suggestColumnMapping,
@@ -41,6 +45,29 @@ describe('import mapping suggest', () => {
     expect(mapping.owner_customer_external_id).toBe('Kunden-Nr')
   })
 
+  it('auto-suggests supplier price list columns from German supplier CSV', () => {
+    const headers = [
+      'Lieferanten-Artikelnummer',
+      'EAN',
+      'Beschreibung',
+      'Marke',
+      'Einkaufspreis',
+      'UVP',
+      'Einheit',
+    ]
+    const mapping = suggestColumnMapping(headers, SUPPLIER_PRICE_LIST_IMPORT_FIELDS)
+
+    expect(mapping).toEqual({
+      supplier_article_no: 'Lieferanten-Artikelnummer',
+      ean: 'EAN',
+      description: 'Beschreibung',
+      brand: 'Marke',
+      cost_price: 'Einkaufspreis',
+      rrp: 'UVP',
+      unit: 'Einheit',
+    })
+  })
+
   it('drops profile columns that are not in the current CSV headers', () => {
     const constrained = constrainMappingToCsvHeaders(
       { external_id: 'Missing-Col', last_name: 'Nachname' },
@@ -55,5 +82,18 @@ describe('import mapping suggest', () => {
 
     const ok = validateRequiredMappings({ external_id: 'Kunden-Nr' }, CUSTOMER_IMPORT_FIELDS)
     expect(ok).toEqual([])
+
+    const supplierMissing = validateRequiredMappings({}, SUPPLIER_PRICE_LIST_IMPORT_FIELDS)
+    expect(supplierMissing).toEqual(['supplier_article_no', 'description', 'cost_price'])
+
+    const supplierOk = validateRequiredMappings(
+      {
+        supplier_article_no: 'ArtNr',
+        description: 'Bezeichnung',
+        cost_price: 'EK',
+      },
+      SUPPLIER_PRICE_LIST_IMPORT_FIELDS,
+    )
+    expect(supplierOk).toEqual([])
   })
 })

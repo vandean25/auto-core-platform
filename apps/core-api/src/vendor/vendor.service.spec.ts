@@ -15,6 +15,10 @@ describe('VendorService', () => {
       delete: jest.fn(),
       deleteMany: jest.fn(),
     },
+    vendorArticle: {
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
     purchaseOrder: {
       count: jest.fn(),
     },
@@ -51,6 +55,7 @@ describe('VendorService', () => {
     mockPrisma.purchaseOrder.count.mockResolvedValue(0);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
     mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vendorArticle.count.mockResolvedValue(0);
     mockPrisma.vendor.deleteMany.mockResolvedValue({ id: 'v-1', count: 1 });
 
     await service.remove('v-1');
@@ -64,6 +69,8 @@ describe('VendorService', () => {
     mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
     mockPrisma.purchaseOrder.count.mockResolvedValue(1);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vendorArticle.count.mockResolvedValue(0);
 
     await expect(service.remove('v-1')).rejects.toThrow(BadRequestException);
   });
@@ -73,6 +80,17 @@ describe('VendorService', () => {
     mockPrisma.purchaseOrder.count.mockResolvedValue(0);
     mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
     mockPrisma.vehiclePurchase.count.mockResolvedValue(1);
+    mockPrisma.vendorArticle.count.mockResolvedValue(0);
+
+    await expect(service.remove('v-1')).rejects.toThrow(BadRequestException);
+  });
+
+  it('blocks delete when vendor articles are linked', async () => {
+    mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1' });
+    mockPrisma.purchaseOrder.count.mockResolvedValue(0);
+    mockPrisma.purchaseInvoice.count.mockResolvedValue(0);
+    mockPrisma.vehiclePurchase.count.mockResolvedValue(0);
+    mockPrisma.vendorArticle.count.mockResolvedValue(1);
 
     await expect(service.remove('v-1')).rejects.toThrow(BadRequestException);
   });
@@ -80,5 +98,48 @@ describe('VendorService', () => {
   it('throws not found when vendor is missing', async () => {
     mockPrisma.vendor.findFirst.mockResolvedValue(null);
     await expect(service.remove('missing')).rejects.toThrow(NotFoundException);
+  });
+
+  describe('getArticles', () => {
+    it('returns vendor articles with tenant and vendor scoping', async () => {
+      mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'v-1', tenant_id: 'tenant-1' });
+      mockPrisma.vendorArticle.findMany.mockResolvedValue([
+        {
+          id: 'va-1',
+          tenant_id: 'tenant-1',
+          vendor_id: 'v-1',
+          vendor_article_no: 'ART-100',
+          catalog_item: { id: 'c-1', sku: 'SKU-1', name: 'Brake Pad' },
+        },
+      ]);
+
+      const result = await service.getArticles('v-1');
+
+      expect(mockPrisma.vendor.findFirst).toHaveBeenCalledWith({
+        where: { id: 'v-1', tenant_id: 'tenant-1' },
+      });
+      expect(mockPrisma.vendorArticle.findMany).toHaveBeenCalledWith({
+        where: { tenant_id: 'tenant-1', vendor_id: 'v-1' },
+        include: {
+          catalog_item: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          vendor_article_no: 'asc',
+        },
+      });
+      expect(result).toHaveLength(1);
+      expect(result[0].vendor_article_no).toBe('ART-100');
+    });
+
+    it('throws not found when vendor does not exist for tenant', async () => {
+      mockPrisma.vendor.findFirst.mockResolvedValue(null);
+      await expect(service.getArticles('missing')).rejects.toThrow(NotFoundException);
+    });
   });
 });
