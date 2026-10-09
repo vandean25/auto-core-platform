@@ -5,8 +5,8 @@ import {
   type McpToolName,
 } from './mcp.constants.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import type { z } from 'zod';
 import {
-  draftWorkshopOrderInputSchema,
   getCustomerInputSchema,
   getStockLevelBaseSchema,
   getVehicleStockAgeReportInputSchema,
@@ -14,9 +14,7 @@ import {
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
   listWorkshopOrdersInputSchema,
-  proposeLineItemInputSchema,
-  releaseReservationInputSchema,
-  reservePartInputSchema,
+  mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
   searchPartsInputSchema,
   searchVehiclesInputSchema,
@@ -37,7 +35,7 @@ const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   get_vehicle_stock_margin_report:
     'Read paged invoiced vehicle margins for the active site and date period',
   draft_workshop_order:
-    'Create a DRAFT/SCHEDULED workshop order (policy-checked, dry-run preview, logged)',
+    'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:
     'Create an on-hand parts reservation (reversible; counter-tool: release_reservation)',
   release_reservation:
@@ -46,22 +44,24 @@ const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Propose a workshop task line item (never executes; records a pending proposal)',
 };
 
-const TOOL_INPUT_SCHEMAS = {
+type McpRegisterToolInputSchema = z.ZodTypeAny | Record<string, z.ZodTypeAny>;
+
+const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   search_customers: searchCustomersInputSchema.shape,
   get_customer: getCustomerInputSchema.shape,
-  search_vehicles: searchVehiclesInputSchema.shape,
   get_vehicle: getVehicleInputSchema.shape,
+  search_vehicles: searchVehiclesInputSchema.shape,
   list_workshop_orders: listWorkshopOrdersInputSchema.shape,
   get_workshop_order: getWorkshopOrderInputSchema.shape,
   search_parts: searchPartsInputSchema.shape,
   get_stock_level: getStockLevelBaseSchema.shape,
   get_vehicle_stock_age_report: getVehicleStockAgeReportInputSchema.shape,
   get_vehicle_stock_margin_report: getVehicleStockMarginReportInputSchema.shape,
-  draft_workshop_order: draftWorkshopOrderInputSchema.shape,
-  reserve_part: reservePartInputSchema.shape,
-  release_reservation: releaseReservationInputSchema.shape,
-  propose_line_item: proposeLineItemInputSchema.shape,
-} satisfies Record<McpToolName, Record<string, unknown>>;
+  draft_workshop_order: mcpWriteToolInputSchemas.draft_workshop_order,
+  reserve_part: mcpWriteToolInputSchemas.reserve_part,
+  release_reservation: mcpWriteToolInputSchemas.release_reservation,
+  propose_line_item: mcpWriteToolInputSchemas.propose_line_item,
+};
 
 export type McpServerSessionContext = {
   agentId: string;

@@ -1,8 +1,11 @@
+import { MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
 import {
+  draftWorkshopOrderInputSchema,
   getCustomerInputSchema,
   getStockLevelInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
+  mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
 } from './mcp-tool-schemas.js';
 
@@ -42,5 +45,23 @@ describe('MCP tool input schemas', () => {
     expect(() => getVehicleStockMarginReportInputSchema.parse({
       from: 'October', to: '2026-10-31',
     })).toThrow();
+  });
+
+  it('rejects unknown fields on MCP write tool schemas', () => {
+    const vehicleId = '00000000-0000-4000-8000-000000000099';
+    const validDraft = {
+      vehicle_id: vehicleId,
+      status: 'SCHEDULED' as const,
+    };
+
+    expect(draftWorkshopOrderInputSchema.parse(validDraft)).toEqual(validDraft);
+    expect(() =>
+      draftWorkshopOrderInputSchema.parse({ ...validDraft, dry_run: true }),
+    ).toThrow(/unrecognized/i);
+
+    for (const toolName of MCP_WRITE_TOOL_NAMES) {
+      const schema = mcpWriteToolInputSchemas[toolName];
+      expect(() => schema.parse({ dry_run: true })).toThrow();
+    }
   });
 });
