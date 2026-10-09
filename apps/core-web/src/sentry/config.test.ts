@@ -26,6 +26,17 @@ describe('createSentryOptions', () => {
     expect(options.enableLogs).toBe(true)
   })
 
+  it('uses VITE_SENTRY_ENVIRONMENT and sample rate overrides', () => {
+    const options = createSentryOptions({
+      MODE: 'production',
+      VITE_SENTRY_ENVIRONMENT: 'qa',
+      VITE_SENTRY_TRACES_SAMPLE_RATE: '1',
+    })
+
+    expect(options.environment).toBe('qa')
+    expect(options.tracesSampleRate).toBe(1)
+  })
+
   it('falls back to safe defaults when optional env is absent', () => {
     const options = createSentryOptions({})
 
