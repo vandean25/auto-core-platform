@@ -228,7 +228,8 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        # Docker Hub mirror: avoids the anonymous Docker Hub pull rate limit on shared runners
+        image: mirror.gcr.io/library/postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
