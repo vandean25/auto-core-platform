@@ -33,7 +33,7 @@ Infra sets these on the QA service after this PR merges. They are deliberately n
 | `decision.import_row_match` | `PROPOSE` | Suggestion becomes a pending approval in Approvals |
 | `decision.document_sort` | `PROPOSE` | Suggestion becomes a pending approval in Approvals |
 
-A tenant policy rule can only be stricter than the platform row. It can set `HUMAN_ONLY`, but it cannot set `AUTO` (AUT-400 trigger). **AUTO is platform-owned.** To exercise AUTO on QA, insert a platform row (`tenant_id` NULL, higher `version`, tier `AUTO`) in the QA database only, with product sign-off. Never do this in production.
+A tenant policy rule can only be stricter than the platform row. It can set `HUMAN_ONLY`, but it cannot set `AUTO` (AUT-393 trigger). **AUTO is platform-owned.** To exercise AUTO on QA, insert a platform row (`tenant_id` NULL, higher `version`, tier `AUTO`) in the QA database only, with product sign-off. Never do this in production.
 
 ## Verify on QA
 

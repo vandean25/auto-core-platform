@@ -59,7 +59,7 @@ Live suggestions are evaluated with `AgentPolicyService.evaluateAction`. Platfor
 | `decision.import_row_match` | `PROPOSE` | `ImportJob` (row-level detail in the log) |
 | `decision.document_sort` | `PROPOSE` | `DocumentBrandAsset` |
 
-Tenant rules must be at least as strict as the latest platform row. A DB trigger enforces this (AUT-400). A tenant can therefore move to `HUMAN_ONLY`, but cannot move to `AUTO` by itself. **AUTO is platform-owned.**
+Tenant rules must be at least as strict as the latest platform row. A DB trigger enforces this (AUT-393). A tenant can therefore move to `HUMAN_ONLY`, but cannot move to `AUTO` by itself. **AUTO is platform-owned.**
 
 | Tier | Import match | Document sort |
 |------|--------------|---------------|
