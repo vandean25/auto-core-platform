@@ -44,10 +44,11 @@ const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Propose a workshop task line item (never executes; records a pending proposal)',
 };
 
-type McpToolInputSchema =
-  z.ZodObject<z.ZodRawShape> | Record<string, z.ZodTypeAny>;
+type McpRegisterToolInputSchema =
+  | z.ZodTypeAny
+  | Record<string, z.ZodTypeAny>;
 
-const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpToolInputSchema> = {
+const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   search_customers: searchCustomersInputSchema.shape,
   get_customer: getCustomerInputSchema.shape,
   get_vehicle: getVehicleInputSchema.shape,
