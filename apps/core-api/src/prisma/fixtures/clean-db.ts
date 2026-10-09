@@ -1,4 +1,10 @@
 import type { SeedPrismaClient } from './types.js';
+import {
+  DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS,
+  DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS,
+  DEMO_GEWAHRLEISTUNG_SALE_NUMBERS,
+  DEMO_GEWAHRLEISTUNG_VINS,
+} from './gewaehrleistung-demo.constants.js';
 
 export interface TableCleaner {
   table: string;
@@ -39,7 +45,20 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   { table: 'purchase_orders', clean: (p) => p.purchaseOrder.deleteMany() },
   { table: 'inventory_stocks', clean: (p) => p.inventoryStock.deleteMany() },
   { table: 'invoice_items', clean: (p) => p.invoiceItem.deleteMany() },
-  { table: 'invoices', clean: (p) => p.invoice.deleteMany() },
+  {
+    table: 'invoices',
+    clean: async (p) => {
+      await p.invoice.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          vehicle_sale: {
+            is: { sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] } },
+          },
+        },
+      });
+      await p.invoice.deleteMany();
+    },
+  },
   { table: 'catalog_items', clean: (p) => p.catalogItem.deleteMany() },
   {
     table: 'workshop_opening_hours',
@@ -81,6 +100,41 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'vehicle_inspection_records',
     clean: (p) => p.vehicleInspectionRecord.deleteMany(),
   },
+  {
+    table: 'vehicle_ledger_entries',
+    clean: async (p) => {
+      const vehicles = await p.vehicle.findMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          vin: { in: [...DEMO_GEWAHRLEISTUNG_VINS] },
+        },
+        select: { id: true },
+      });
+      await p.vehicleLedgerEntry.deleteMany({
+        where: { vehicle_id: { in: vehicles.map(({ id }) => id) } },
+      });
+    },
+  },
+  {
+    table: 'vehicle_purchases',
+    clean: (p) =>
+      p.vehiclePurchase.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          purchase_number: { in: [...DEMO_GEWAHRLEISTUNG_PURCHASE_NUMBERS] },
+        },
+      }),
+  },
+  {
+    table: 'vehicle_sales',
+    clean: (p) =>
+      p.vehicleSale.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          sale_number: { in: [...DEMO_GEWAHRLEISTUNG_SALE_NUMBERS] },
+        },
+      }),
+  },
   { table: 'vehicles', clean: (p) => p.vehicle.deleteMany() },
   {
     table: 'catalog_oem_concern_makes',
@@ -94,7 +148,18 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     table: 'vehicle_make_aliases',
     clean: (p) => p.vehicleMakeAlias.deleteMany(),
   },
-  { table: 'customers', clean: (p) => p.customer.deleteMany() },
+  {
+    table: 'customers',
+    clean: async (p) => {
+      await p.customer.deleteMany({
+        where: {
+          tenant: { is: { slug: 'default-workshop' } },
+          email: { in: [...DEMO_GEWAHRLEISTUNG_CUSTOMER_EMAILS] },
+        },
+      });
+      await p.customer.deleteMany();
+    },
+  },
   { table: 'vendors', clean: (p) => p.vendor.deleteMany() },
   { table: 'brands', clean: (p) => p.brand.deleteMany() },
   { table: 'tenants', clean: (p) => p.tenant.deleteMany() },

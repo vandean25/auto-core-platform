@@ -24,6 +24,7 @@ import {
 import { costBasis } from './vehicle-cost.js';
 import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
+import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
 
 const STOCK_SORT_WHITELIST = [
   'make',
@@ -360,6 +361,69 @@ export class VehicleStockQueryService {
     };
   }
 
+  async listGewaehrleistungDue(query: GewaehrleistungDueListQueryDto) {
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const windowStart = new Date();
+    windowStart.setUTCHours(0, 0, 0, 0);
+    const windowEnd = new Date(windowStart);
+    windowEnd.setUTCDate(windowEnd.getUTCDate() + query.endsWithinDays);
+    windowEnd.setUTCHours(23, 59, 59, 999);
+
+    const data = await this.prisma.vehicleSale.findMany({
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
+        customer: { is: { tenant_id: tenantId } },
+        status: 'INVOICED',
+        buyer_is_consumer: true,
+        gewaehrleistung_ends_on: { gte: windowStart, lte: windowEnd },
+      },
+      select: {
+        id: true,
+        sale_number: true,
+        vehicle_id: true,
+        customer_id: true,
+        handed_over_at: true,
+        gewaehrleistung_ends_on: true,
+        presumption_ends_on: true,
+        gewaehrleistung_rule_version: true,
+        vehicle: {
+          select: {
+            id: true,
+            make: true,
+            model: true,
+            year: true,
+            vin: true,
+            plate: true,
+          },
+        },
+        customer: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            company_name: true,
+          },
+        },
+      },
+      orderBy: [{ gewaehrleistung_ends_on: 'asc' }, { id: 'asc' }],
+    });
+
+    return {
+      data,
+      meta: {
+        total: data.length,
+        page: 1,
+        pageSize: data.length,
+        pageCount: data.length === 0 ? 0 : 1,
+      },
+    };
+  }
+
   private async countDrafts(
     includeDrafts: boolean,
     siteScopedWhere: Prisma.VehiclePurchaseWhereInput,
@@ -413,7 +477,10 @@ export class VehicleStockQueryService {
         },
         location: true,
         purchases: { orderBy: { createdAt: 'desc' } },
-        sales: { orderBy: { createdAt: 'desc' } },
+        sales: {
+          where: { tenant_id: tenantId, site_id: siteId },
+          orderBy: { createdAt: 'desc' },
+        },
         ledger_entries: { orderBy: { createdAt: 'asc' } },
         workshop_orders: {
           where: { site_id: siteId, purpose: 'STOCK_PREP' },

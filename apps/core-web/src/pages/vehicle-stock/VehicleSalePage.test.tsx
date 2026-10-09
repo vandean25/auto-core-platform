@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
@@ -67,6 +67,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
   })
 
   afterEach(() => {
+    cleanup()
     vi.useRealTimers()
   })
 
@@ -96,10 +97,206 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     })
 
     expect(updateSale).toHaveBeenCalledTimes(1)
-    expect(JSON.stringify(updateSale.mock.calls[0][0])).toBe(
-      '{"customer_id":"buyer-1","sale_price":14500}',
-    )
+    expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'sale-1',
+      data: expect.objectContaining({
+        customer_id: 'buyer-1',
+        sale_price: 14500,
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+      }),
+    }))
     expect(createSale).not.toHaveBeenCalled()
     expect(finalizeSale).not.toHaveBeenCalled()
+  })
+
+  it('saves current warranty edits before finalizing the invoice', async () => {
+    let resolveUpdate: (() => void) | undefined
+    updateSale.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveUpdate = resolve
+    }))
+    finalizeSale.mockResolvedValueOnce({ invoice: { id: 'invoice-1' } })
+
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Übergabedatum'), {
+      target: { value: '2026-10-08' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ handed_over_at: '2026-10-08' }),
+    }))
+    expect(finalizeSale).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveUpdate?.()
+      await Promise.resolve()
+    })
+
+    expect(updateSale.mock.invocationCallOrder[0]).toBeLessThan(
+      finalizeSale.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('preserves newer edits when an older autosave refreshes the sale query', async () => {
+    let resolveUpdate: (() => void) | undefined
+    updateSale.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveUpdate = resolve
+    }))
+    let renderedSale = { ...existingSale }
+    asMock(vehicleStockApi.useVehicleSale).mockImplementation(() => ({ data: renderedSale }))
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(750) })
+    fireEvent.change(screen.getByLabelText('Vertragsdatum'), { target: { value: '2026-09-01' } })
+    renderedSale = { ...renderedSale, sale_price: 14500 }
+    rerender(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByLabelText('Vertragsdatum')).toHaveValue('2026-09-01')
+
+    await act(async () => {
+      resolveUpdate?.()
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(updateSale).toHaveBeenCalledTimes(2)
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ contract_concluded_at: '2026-09-01' }),
+    }))
+  })
+
+  it('serializes overlapping autosaves and waits for the latest one before finalizing', async () => {
+    let resolveFirstSave: (() => void) | undefined
+    let resolveSecondSave: (() => void) | undefined
+    updateSale
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirstSave = resolve }))
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveSecondSave = resolve }))
+    finalizeSale.mockResolvedValueOnce({ invoice: { id: 'invoice-1' } })
+
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(750) })
+    fireEvent.change(screen.getByLabelText('Vertragsdatum'), { target: { value: '2026-09-01' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(750) })
+    const finalizeButton = screen.getByRole('button', { name: 'Finalize invoice' })
+    fireEvent.click(finalizeButton)
+
+    expect(updateSale).toHaveBeenCalledTimes(1)
+    expect(finalizeSale).not.toHaveBeenCalled()
+    expect(finalizeButton).toBeDisabled()
+
+    await act(async () => {
+      resolveFirstSave?.()
+      await Promise.resolve()
+    })
+    expect(updateSale).toHaveBeenCalledTimes(2)
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        sale_price: 14500,
+        contract_concluded_at: '2026-09-01',
+      }),
+    }))
+    expect(resolveSecondSave).toBeDefined()
+    expect(finalizeSale).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveSecondSave?.()
+      await vi.runAllTicks()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(finalizeButton).toBeEnabled()
+    fireEvent.click(finalizeButton)
+    await act(async () => { await Promise.resolve() })
+    expect(finalizeSale).toHaveBeenCalledWith('sale-1')
+  })
+
+  it('defaults a private buyer to consumer and requires explicit agreement for shortening', () => {
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const consumerCheckbox = screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })
+    const shorteningCheckbox = screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })
+    expect(consumerCheckbox).toBeChecked()
+    expect(shorteningCheckbox).not.toBeChecked()
+    expect(screen.getByText('Verlängerungen durch Reparaturen werden nicht erfasst.')).toBeInTheDocument()
+    fireEvent.click(shorteningCheckbox)
+    fireEvent.click(consumerCheckbox)
+    expect(shorteningCheckbox).toBeDisabled()
+  })
+
+  it('defaults a company buyer to B2B and disables the shortening agreement', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: {
+      ...existingSale,
+      customer: { ...existingSale.customer, type: 'COMPANY' },
+      buyer_is_consumer: null,
+    } })
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await act(async () => { await Promise.resolve() })
+    expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
+  })
+
+  it('preserves the stored buyer classification when reopening an existing sale', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: {
+      ...existingSale,
+      buyer_is_consumer: false,
+      customer: { ...existingSale.customer, type: 'PRIVATE' },
+    } })
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
   })
 })

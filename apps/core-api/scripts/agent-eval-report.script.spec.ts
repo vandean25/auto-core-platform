@@ -113,6 +113,17 @@ describe('agent-eval report generator', () => {
 
     expect(extractReportTables(report)).toBe(expectedTables);
   });
+
+  it('extracts committed report tables when the file uses Windows line endings', () => {
+    const inputs = loadCommittedReportInputs();
+    const expectedTables = renderReportTables(
+      inputs.resultGroups,
+      inputs.datasetHash,
+    );
+    const report = readFileSync(inputs.reportPath, 'utf8').replace(/\r?\n/g, '\r\n');
+
+    expect(extractReportTables(report)).toBe(expectedTables);
+  });
 });
 
 function resultDocument(

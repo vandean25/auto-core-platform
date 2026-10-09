@@ -91,7 +91,10 @@ const coreModules: SidebarModule[] = [
     icon: Car,
     isVisible: () => true,
     isActive: (pathname) =>
-      pathname.startsWith('/vehicles') && !pathname.startsWith('/vehicles/stock') && !pathname.startsWith('/vehicles/pickerl-due'),
+      pathname.startsWith('/vehicles') &&
+      !pathname.startsWith('/vehicles/stock') &&
+      !pathname.startsWith('/vehicles/pickerl-due') &&
+      !pathname.startsWith('/vehicles/gewaehrleistung-due'),
   },
   {
     id: 'pickerl-due',
@@ -100,6 +103,14 @@ const coreModules: SidebarModule[] = [
     icon: Car,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/vehicles/pickerl-due'),
+  },
+  {
+    id: 'gewaehrleistung-due',
+    label: 'Gewährleistung fällig',
+    to: '/vehicles/gewaehrleistung-due',
+    icon: Car,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/vehicles/gewaehrleistung-due'),
   },
   {
     id: 'vehicle-stock',
