@@ -635,7 +635,7 @@ export class VehicleSaleService {
       );
 
       return {
-        ...posted,
+        ...omitKaufvertragArchiveInternals(posted),
         status: VehicleSaleStatus.INVOICED,
         vehicle: stripVehicleIdentityResolutionState(posted.vehicle),
         invoice: omitInvoiceSnapshot({

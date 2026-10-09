@@ -1,7 +1,8 @@
 /**
  * Archive internals stay server-side. The snapshot holds the seller's and the
  * buyer's identity, and the pointer holds storage coordinates. The sale
- * response keeps the two status fields the page reads.
+ * response keeps the two status fields the page reads. Apply it on every path
+ * that returns a sale row to a client, including nested `sales` relations.
  */
 export type KaufvertragArchiveInternalField =
   | 'kaufvertrag_snapshot'

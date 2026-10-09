@@ -17,6 +17,7 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { lockSitesAndAssertActive } from '../site/document-retarget.helpers.js';
 import { QueryBuilder } from '../common/utils/query-builder.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import { omitKaufvertragArchiveInternals } from './kaufvertrag/kaufvertrag-sale-response.js';
 import {
   assertVehicleRegulatoryFields,
   normalizeVehicleRegulatoryFields,
@@ -494,6 +495,7 @@ export class VehicleStockQueryService {
     }
     return {
       ...stripVehicleIdentityResolutionState(vehicle),
+      sales: vehicle.sales.map((sale) => omitKaufvertragArchiveInternals(sale)),
       cost_basis: costBasis(vehicle.ledger_entries),
     };
   }

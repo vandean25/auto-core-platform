@@ -13,7 +13,7 @@ export function resolveGarantieFacts(input: {
   terms: string | null;
   termsProvided: boolean;
 }): { garantie_months: number | null; garantie_terms: string | null } {
-  const terms = input.terms?.trim() ? input.terms : null;
+  const terms = input.terms?.trim() ? input.terms.trim() : null;
   if (input.months === null) {
     if (terms !== null && input.termsProvided) {
       throw new UnprocessableEntityException({

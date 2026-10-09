@@ -153,6 +153,76 @@ describe('Vehicle stock trading (e2e)', () => {
     return { purchase: createRes.body, received: receiveRes.body };
   }
 
+  it('leaves the snapshot and the archive pointer out of the finalize and vehicle responses', async () => {
+    const expectNoArchiveInternals = (sale: Record<string, unknown>) => {
+      for (const field of [
+        'kaufvertrag_snapshot',
+        'kaufvertrag_snapshot_sha256',
+        'kaufvertrag_archive_bucket',
+        'kaufvertrag_archive_key',
+        'kaufvertrag_archive_generation',
+        'kaufvertrag_archive_sha256',
+      ]) {
+        expect(sale).not.toHaveProperty(field);
+      }
+    };
+    const { received } = await createAndReceive({
+      vin: vin('ARCHIVE-INTERNALS'),
+      sellerType: 'VENDOR',
+    });
+    const created = await request(app.getHttpServer())
+      .post('/api/vehicle-sales')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vehicle_id: received.vehicle_id,
+        customer_id: buyerId,
+        sale_price: 12000,
+        contract_concluded_at: '2026-10-02',
+        handed_over_at: '2026-10-08',
+      })
+      .expect(201);
+
+    // The Kaufvertrag PDF itself is covered in vehicle-sale-kaufvertrag.e2e-spec.ts.
+    // Here an archived snapshot is written directly, so every response that carries
+    // the sale can be checked for the archive internals.
+    await prisma.vehicleSale.updateMany({
+      where: { id: created.body.id },
+      data: {
+        kaufvertrag_snapshot: { seller: { name: 'Demo Autohaus GmbH' } },
+        kaufvertrag_snapshot_sha256: 'a'.repeat(64),
+        kaufvertrag_archive_bucket: 'pdf-archive-bucket',
+        kaufvertrag_archive_key: `vehicle-sale-kaufvertrag-archives/${tenantId}/${created.body.id}/${'a'.repeat(64)}/kaufvertrag-brand-v1.pdf`,
+        kaufvertrag_archive_generation: '101',
+        kaufvertrag_archive_sha256: 'b'.repeat(64),
+        kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
+      },
+    });
+
+    const finalized = await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${created.body.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+    expect(finalized.body).toMatchObject({
+      status: 'INVOICED',
+      kaufvertrag_generated_at: '2026-10-09T10:00:00.000Z',
+    });
+    expectNoArchiveInternals(finalized.body);
+
+    const vehicle = await request(app.getHttpServer())
+      .get(`/api/vehicles/${received.vehicle_id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(vehicle.body.sales).toHaveLength(1);
+    expectNoArchiveInternals(vehicle.body.sales[0]);
+
+    const stock = await request(app.getHttpServer())
+      .get(`/api/vehicle-stock/${received.vehicle_id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(stock.body.sales).toHaveLength(1);
+    expectNoArchiveInternals(stock.body.sales[0]);
+  });
+
   it('captures, refreshes, protects, and audits Gewaehrleistung sale snapshots', async () => {
     const { received } = await createAndReceive({
       vin: vin('GEWAEHRLEISTUNG'),

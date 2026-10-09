@@ -416,6 +416,49 @@ describe('invoice-snapshot-v2.helpers', () => {
       expect(lockingTx.$queryRaw).toHaveBeenCalledTimes(1);
       expect(readOnlyTx.$queryRaw).not.toHaveBeenCalled();
     });
+
+    it('reports a missing logo without a row lock the same way as with one', async () => {
+      const logoAssetId = '3b825bc1-dcc9-4f2e-91fc-1b9905e6ba2e';
+      const profile = {
+        id: '8f507f3d-40e1-47c9-a451-73a2682c8b17',
+        active_revision: 3,
+        active_logo_asset_id: logoAssetId,
+        active_theme: {
+          schemaVersion: 1,
+          presetId: 'standard-v1',
+          logoAssetId,
+          primaryColor: '#334155',
+          secondaryColor: '#E5E7EB',
+          fontId: 'acp-sans-v1',
+          headerBand: 'primary',
+          footerBand: 'secondary',
+          headerText: 'Company Header',
+          footerText: 'Company Footer',
+        },
+      };
+      const readOnlyTx = {
+        documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(profile) },
+        $queryRaw: jest.fn(),
+        documentBrandAsset: { findFirst: jest.fn().mockResolvedValue(null) },
+      };
+
+      await expect(
+        resolveBrandingSnapshot(
+          readOnlyTx as never,
+          'tenant-1',
+          'le-1',
+          new Date(),
+          { lockLogo: false },
+        ),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          response: expect.objectContaining({
+            code: 'BRAND_RENDER_INPUT_UNAVAILABLE',
+          }),
+        }),
+      );
+      expect(readOnlyTx.$queryRaw).not.toHaveBeenCalled();
+    });
   });
 
   describe('sub-builders', () => {

@@ -21,6 +21,7 @@ import {
   normalizeVehicleIdentityValueOrNull,
   stripVehicleIdentityResolutionState,
 } from './vehicle-identity.util.js';
+import { omitKaufvertragArchiveInternals } from '../vehicle-stock/kaufvertrag/kaufvertrag-sale-response.js';
 import { VehicleQueryBuilder } from './vehicle-query.builder.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import {
@@ -432,7 +433,12 @@ export class VehicleService {
     }
 
     const projected = projectVehicleOperationalFields(
-      stripVehicleIdentityResolutionState(vehicle),
+      stripVehicleIdentityResolutionState({
+        ...vehicle,
+        sales: vehicle.sales.map((sale) =>
+          omitKaufvertragArchiveInternals(sale),
+        ),
+      }),
       authorizedSiteIds,
     );
     return attachPickerlDue(projected, new Date());

@@ -29,6 +29,19 @@ describe('resolveGarantieFacts', () => {
     ).toEqual({ garantie_months: null, garantie_terms: null });
   });
 
+  it('stores terms without surrounding whitespace', () => {
+    expect(
+      resolveGarantieFacts({
+        months: 12,
+        terms: '  Motorschaden ausgenommen  ',
+        termsProvided: true,
+      }),
+    ).toEqual({
+      garantie_months: 12,
+      garantie_terms: 'Motorschaden ausgenommen',
+    });
+  });
+
   it('refuses terms sent without a duration, with a stable code', () => {
     expect(() =>
       resolveGarantieFacts({

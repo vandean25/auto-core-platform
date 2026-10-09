@@ -94,7 +94,7 @@ No new entity and no new delete endpoint. Existing VehicleSale deletion behavior
 | Method | Route | Change |
 |--------|-------|--------|
 | POST / PATCH | `/api/vehicle-sales`, `/api/vehicle-sales/:id` | Accept `garantie_months` (integer 1–120, optional) and `garantie_terms` (≤2000 chars, optional). DRAFT only, like the other warranty facts. Terms without a duration are refused (422 `GARANTIE_TERMS_REQUIRE_DURATION`), and removing the duration clears the stored terms. |
-| GET | `/api/vehicle-sales/:id` | Returns `kaufvertrag_generated_at` and `kaufvertrag_generation_error`. The snapshot and the archive pointer (`kaufvertrag_snapshot*`, `kaufvertrag_archive_*`) stay server-side, as invoice snapshots do. |
+| GET, POST, PATCH | `/api/vehicle-sales`, `/api/vehicle-sales/:id` (also `.../finalize`), `/api/vehicles/:id` (`sales`), `/api/vehicle-stock/:vehicleId` (`sales`) | Return `kaufvertrag_generated_at` and `kaufvertrag_generation_error`. The snapshot and the archive pointer (`kaufvertrag_snapshot*`, `kaufvertrag_archive_*`) are left out on every path, as invoice snapshots are. |
 
 ### Error codes
 
