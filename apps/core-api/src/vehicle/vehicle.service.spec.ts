@@ -134,17 +134,53 @@ describe('VehicleService', () => {
       identity_resolution_generation: 'generation-1',
       identity_resolution_token: 'token-1',
       customer: null,
+      sales: [],
     };
     prisma.vehicle.findFirst.mockResolvedValue(vehicle);
 
     await expect(service.findOne(vehicleId)).resolves.toEqual({
       id: vehicleId,
       customer: null,
+      sales: [],
       pickerl_due: expect.objectContaining({
         status: 'UNKNOWN',
         due_month: null,
       }),
     });
+  });
+
+  it('does not expose Kaufvertrag archive internals of nested sales in the vehicle detail response', async () => {
+    prisma.vehicle.findFirst.mockResolvedValue({
+      id: vehicleId,
+      customer: null,
+      sales_orders: [],
+      workshop_orders: [],
+      invoices: [],
+      sales: [
+        {
+          id: 'sale-1',
+          kaufvertrag_snapshot: { seller: { name: 'Demo Autohaus GmbH' } },
+          kaufvertrag_snapshot_sha256: 'a'.repeat(64),
+          kaufvertrag_archive_bucket: 'pdf-archive-bucket',
+          kaufvertrag_archive_key:
+            'vehicle-sale-kaufvertrag-archives/tenant-1/sale-1/aaaa/kaufvertrag-brand-v1.pdf',
+          kaufvertrag_archive_generation: '101',
+          kaufvertrag_archive_sha256: 'b'.repeat(64),
+          kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
+          kaufvertrag_generation_error: null,
+        },
+      ],
+    });
+
+    const result = await service.findOne(vehicleId);
+
+    expect(result.sales).toEqual([
+      {
+        id: 'sale-1',
+        kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
+        kaufvertrag_generation_error: null,
+      },
+    ]);
   });
 
   it('does not expose identity resolution state in vehicle list responses', async () => {
@@ -205,6 +241,7 @@ describe('VehicleService', () => {
       sales_orders: [],
       workshop_orders: [],
       invoices: [],
+      sales: [],
     });
 
     await service.findOne(vehicleId);

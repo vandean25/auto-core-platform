@@ -1,9 +1,13 @@
 import { createHash } from 'node:crypto';
 
-export function hashInvoiceSnapshot(snapshot: unknown): string {
+export function hashCanonicalJson(value: unknown): string {
   return createHash('sha256')
-    .update(canonicalizeJson(snapshot), 'utf8')
+    .update(canonicalizeJson(value), 'utf8')
     .digest('hex');
+}
+
+export function hashInvoiceSnapshot(snapshot: unknown): string {
+  return hashCanonicalJson(snapshot);
 }
 
 function canonicalizeJson(value: unknown): string {

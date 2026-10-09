@@ -18,6 +18,8 @@ const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,
   'workshop-order': (resourceId) => `workshop/orders/${resourceId}/pdf/worker`,
   'credit-note': (resourceId) => `credit-notes/${resourceId}/pdf/worker`,
+  'vehicle-sale-kaufvertrag': (resourceId) =>
+    `vehicle-sales/${resourceId}/kaufvertrag/pdf/worker`,
 };
 
 export function resolveCloudTasksOidcAudience(targetBaseUrl: string): string {

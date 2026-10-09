@@ -256,3 +256,94 @@ describe('PdfStorage immutable PDF archive', () => {
     ).rejects.toBeInstanceOf(InternalServerErrorException);
   });
 });
+
+describe('PdfStorage generic immutable objects', () => {
+  const SALE_IDENTITY = {
+    tenant_id: 'tenant-1',
+    vehicle_sale_id: 'sale-1',
+    snapshot_sha256: 'c'.repeat(64),
+    template_version: 'kaufvertrag-brand-v1',
+  };
+  const OTHER_SALE_IDENTITY = { ...SALE_IDENTITY, vehicle_sale_id: 'sale-2' };
+  let service: PdfStorage;
+  let file: { getMetadata: jest.Mock; download: jest.Mock; save: jest.Mock };
+
+  beforeEach(() => {
+    process.env.INVOICE_PDF_BUCKET = 'invoice-pdf-test';
+    file = {
+      save: jest.fn().mockResolvedValue(undefined),
+      getMetadata: jest.fn().mockResolvedValue([
+        {
+          generation: '77',
+          contentType: 'application/pdf',
+          metadata: { ...SALE_IDENTITY, pdf_sha256: PDF_SHA256 },
+        },
+      ]),
+      download: jest.fn().mockResolvedValue([PDF_BYTES]),
+    };
+    service = new PdfStorage();
+    Object.defineProperty(service, 'storage', {
+      value: {
+        bucket: jest.fn().mockReturnValue({
+          file: jest.fn().mockReturnValue(file),
+        }),
+      },
+    });
+  });
+
+  it('publishes a create-only object with arbitrary identity metadata', async () => {
+    const result = await service.publishImmutableObject({
+      key: 'vehicle-sale-kaufvertrag-archives/tenant-1/sale-1/x.pdf',
+      body: PDF_BYTES,
+      contentType: 'application/pdf',
+      customMetadata: SALE_IDENTITY,
+    });
+
+    expect(file.save).toHaveBeenCalledWith(
+      PDF_BYTES,
+      expect.objectContaining({
+        preconditionOpts: { ifGenerationMatch: 0 },
+        metadata: expect.objectContaining({
+          metadata: { ...SALE_IDENTITY, pdf_sha256: PDF_SHA256 },
+        }),
+      }),
+    );
+    expect(result).toMatchObject({ generation: '77', sha256: PDF_SHA256 });
+  });
+
+  it('adopts an existing object by key only when its identity validates', async () => {
+    const archive = await service.readImmutableObjectByKey({
+      bucket: 'invoice-pdf-test',
+      key: 'vehicle-sale-kaufvertrag-archives/tenant-1/sale-1/x.pdf',
+      validateMetadata: (metadata) =>
+        metadata.vehicle_sale_id === SALE_IDENTITY.vehicle_sale_id &&
+        metadata.tenant_id === SALE_IDENTITY.tenant_id,
+    });
+
+    expect(archive.generation).toBe('77');
+    expect(archive.body).toEqual(PDF_BYTES);
+  });
+
+  it('refuses an existing object whose identity does not validate', async () => {
+    await expect(
+      service.readImmutableObjectByKey({
+        bucket: 'invoice-pdf-test',
+        key: 'vehicle-sale-kaufvertrag-archives/tenant-1/sale-2/x.pdf',
+        validateMetadata: (metadata) =>
+          metadata.vehicle_sale_id === OTHER_SALE_IDENTITY.vehicle_sale_id,
+      }),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+  });
+
+  it('refuses an exact generation whose metadata fails the validator even when the bytes match', async () => {
+    await expect(
+      service.readImmutableObjectGeneration({
+        bucket: 'invoice-pdf-test',
+        key: 'vehicle-sale-kaufvertrag-archives/tenant-1/sale-1/x.pdf',
+        generation: '77',
+        expectedSha256: PDF_SHA256,
+        validateMetadata: () => false,
+      }),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+  });
+});

@@ -3,13 +3,24 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
 import * as vehicleStockApi from '@/api/vehicle-stock'
+import { toast } from 'sonner'
 
-const { createSale, updateSale, finalizeSale, calculateNova, resetNova } = vi.hoisted(() => ({
+const {
+  createSale,
+  updateSale,
+  finalizeSale,
+  calculateNova,
+  resetNova,
+  downloadKaufvertrag,
+  usePdfDownloadMock,
+} = vi.hoisted(() => ({
   createSale: vi.fn(),
   updateSale: vi.fn(),
   finalizeSale: vi.fn(),
   calculateNova: vi.fn(),
   resetNova: vi.fn(),
+  downloadKaufvertrag: vi.fn(),
+  usePdfDownloadMock: vi.fn(),
 }))
 
 vi.mock('@/api/vehicle-stock')
@@ -21,6 +32,12 @@ vi.mock('@/components/sales/CustomerSearch', () => ({
 }))
 vi.mock('@/components/status/StatusBadge', () => ({ StatusBadge: () => null }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('@/hooks/usePdfDownload', () => ({
+  usePdfDownload: (config: unknown) => {
+    usePdfDownloadMock(config)
+    return { download: downloadKaufvertrag, isLoading: false, isDownloading: false }
+  },
+}))
 
 const existingSale = {
   id: 'sale-1',
@@ -298,5 +315,159 @@ describe('VehicleSalePage NoVA preview boundary', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Käufer:in ist Verbraucher:in' })).not.toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Verkürzung wurde ausdrücklich vereinbart' })).toBeDisabled()
+  })
+})
+
+describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: existingSale })
+    asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({ data: stockVehicle })
+    asMock(vehicleStockApi.useCreateVehicleSale).mockReturnValue({ mutateAsync: createSale })
+    asMock(vehicleStockApi.useUpdateVehicleSale).mockReturnValue({ mutateAsync: updateSale })
+    asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: finalizeSale })
+    updateSale.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+
+  function renderSalePage(path = '/vehicle-stock/sales/sale-1') {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('saves the Garantie duration and terms with the sale', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '12' },
+    })
+    fireEvent.change(screen.getByLabelText('Garantiebedingungen'), {
+      target: { value: 'Motorschaden ausgenommen' },
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        garantie_months: 12,
+        garantie_terms: 'Motorschaden ausgenommen',
+      }),
+    }))
+  })
+
+  it('does not save an out-of-range Garantie duration and says which range applies', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '0' },
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(updateSale).not.toHaveBeenCalled()
+    expect(screen.getByText('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')).toBeTruthy()
+  })
+
+  it('blocks the negotiated one-year period in the UI when the vehicle is too new for the handover date', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, buyer_is_consumer: true, handed_over_at: '2026-10-08T00:00:00.000Z' },
+    })
+    asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({
+      data: { ...stockVehicle, first_registration_date: '2026-06-01' },
+    })
+
+    renderSalePage()
+
+    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toBeDisabled()
+    expect(
+      screen.getByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.'),
+    ).toBeTruthy()
+  })
+
+  it('generates and downloads the Kaufvertrag PDF through the shared download hook', async () => {
+    renderSalePage()
+
+    const button = screen.getByRole('button', { name: 'Kaufvertrag PDF' })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(downloadKaufvertrag).toHaveBeenCalledTimes(1)
+    const config = usePdfDownloadMock.mock.calls.at(-1)?.[0] as {
+      postUrl: () => string
+      getUrl: () => string
+    }
+    expect(config.postUrl()).toBe('/api/vehicle-sales/sale-1/kaufvertrag/pdf')
+    expect(config.getUrl()).toBe('/api/vehicle-sales/sale-1/kaufvertrag/pdf')
+  })
+
+  it('does not download the Kaufvertrag PDF while the Garantie duration is out of range', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '0' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Kaufvertrag PDF' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(downloadKaufvertrag).not.toHaveBeenCalled()
+    expect(updateSale).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')
+  })
+
+  it('clears the Garantie terms when the duration is removed, so no terms are saved without one', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '12' },
+    })
+    fireEvent.change(screen.getByLabelText('Garantiebedingungen'), {
+      target: { value: 'Motorschaden ausgenommen' },
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        garantie_months: 12,
+        garantie_terms: 'Motorschaden ausgenommen',
+      }),
+    }))
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '' },
+    })
+    expect(screen.getByLabelText('Garantiebedingungen')).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ garantie_months: null, garantie_terms: null }),
+    }))
+  })
+
+  it('keeps the Kaufvertrag PDF action disabled until the sale has been saved', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: undefined })
+
+    renderSalePage('/vehicle-stock/sales/new?vehicleId=vehicle-1')
+
+    expect(screen.getByRole('button', { name: 'Kaufvertrag PDF' })).toBeDisabled()
   })
 })

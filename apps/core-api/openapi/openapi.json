@@ -4920,6 +4920,58 @@
         ]
       }
     },
+    "/api/vehicle-sales/{id}/kaufvertrag/pdf": {
+      "post": {
+        "operationId": "VehicleSaleController_generateKaufvertragPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      },
+      "get": {
+        "operationId": "VehicleSaleController_getKaufvertragPdf",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      }
+    },
     "/api/vehicle-stock": {
       "get": {
         "operationId": "VehicleStockController_list",
@@ -18238,6 +18290,18 @@
           "gewaehrleistung_note": {
             "type": "string",
             "nullable": true
+          },
+          "garantie_months": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 120,
+            "description": "Voluntary Garantie duration in months. Omit or null for no Garantie block."
+          },
+          "garantie_terms": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
           }
         },
         "required": [
@@ -18286,6 +18350,18 @@
           "gewaehrleistung_note": {
             "type": "string",
             "nullable": true
+          },
+          "garantie_months": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 120,
+            "description": "Voluntary Garantie duration in months. Null removes the Garantie block (DRAFT only)."
+          },
+          "garantie_terms": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
           }
         }
       },

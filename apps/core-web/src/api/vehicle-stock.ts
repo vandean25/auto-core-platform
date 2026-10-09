@@ -190,7 +190,7 @@ export type VehiclePurchase = {
 }
 
 type SaleWarrantyInputs = Partial<Pick<components['schemas']['CreateVehicleSaleDto'],
-  'contract_concluded_at' | 'handed_over_at' | 'buyer_is_consumer' | 'gewaehrleistung_shortened_negotiated'>>
+  'contract_concluded_at' | 'handed_over_at' | 'buyer_is_consumer' | 'gewaehrleistung_shortened_negotiated' | 'garantie_months' | 'garantie_terms'>>
 type SaleWarrantyResponseFields = {
   contract_concluded_at?: string | null
   handed_over_at?: string | null
@@ -199,6 +199,10 @@ type SaleWarrantyResponseFields = {
   gewaehrleistung_note?: string | null
   gewaehrleistung_ends_on?: string | null
   presumption_ends_on?: string | null
+  garantie_months?: number | null
+  garantie_terms?: string | null
+  kaufvertrag_generated_at?: string | null
+  kaufvertrag_generation_error?: string | null
 }
 
 export type VehicleSale = Omit<SaleWarrantyInputs, keyof SaleWarrantyResponseFields> & SaleWarrantyResponseFields & {
@@ -451,4 +455,15 @@ export function useFinalizeVehicleSale() {
       void queryClient.invalidateQueries({ queryKey: vehicleGewaehrleistungKeys.all })
     },
   })
+}
+
+/** Base path for vehicle sales. The Kaufvertrag PDF lives at `{base}/{id}/kaufvertrag/pdf`. */
+export const VEHICLE_SALES_API = '/api/vehicle-sales'
+
+/** Read while polling so a failed background generation stops the wait early. */
+export async function fetchVehicleSaleKaufvertragGenerationError(saleId: string): Promise<string | null> {
+  const response = await fetchWithAuth(`${VEHICLE_SALES_API}/${saleId}`)
+  if (!response.ok) return null
+  const sale = (await response.json()) as Pick<VehicleSale, 'kaufvertrag_generation_error'>
+  return sale.kaufvertrag_generation_error ?? null
 }

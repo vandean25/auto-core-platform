@@ -159,12 +159,44 @@ describe('VehicleStockQueryService', () => {
         identity_resolution_generation: 'generation-1',
         identity_resolution_token: 'token-1',
         ledger_entries: [],
+        sales: [],
       });
 
       const result = await service.detail('vehicle-1');
 
       expect(result).not.toHaveProperty('identity_resolution_generation');
       expect(result).not.toHaveProperty('identity_resolution_token');
+    });
+
+    it('does not expose Kaufvertrag archive internals of nested sales', async () => {
+      prisma.vehicle.findFirst.mockResolvedValue({
+        id: 'vehicle-1',
+        ledger_entries: [],
+        sales: [
+          {
+            id: 'sale-1',
+            kaufvertrag_snapshot: { seller: { name: 'Demo Autohaus GmbH' } },
+            kaufvertrag_snapshot_sha256: 'a'.repeat(64),
+            kaufvertrag_archive_bucket: 'pdf-archive-bucket',
+            kaufvertrag_archive_key:
+              'vehicle-sale-kaufvertrag-archives/tenant-1/sale-1/aaaa/kaufvertrag-brand-v1.pdf',
+            kaufvertrag_archive_generation: '101',
+            kaufvertrag_archive_sha256: 'b'.repeat(64),
+            kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
+            kaufvertrag_generation_error: null,
+          },
+        ],
+      });
+
+      const result = await service.detail('vehicle-1');
+
+      expect(result.sales).toEqual([
+        {
+          id: 'sale-1',
+          kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
+          kaufvertrag_generation_error: null,
+        },
+      ]);
     });
 
     it('throws NotFoundException when vehicle not found', async () => {
@@ -179,6 +211,7 @@ describe('VehicleStockQueryService', () => {
       prisma.vehicle.findFirst.mockResolvedValue({
         id: 'vehicle-1',
         ledger_entries: [],
+        sales: [],
       });
 
       await service.detail('vehicle-1');
@@ -224,6 +257,7 @@ describe('VehicleStockQueryService', () => {
         .mockResolvedValueOnce({
           id: 'vehicle-1',
           ledger_entries: [],
+        sales: [],
         });
       prisma.storageLocation.findFirst.mockResolvedValue({ id: 'lot-next' });
       prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
@@ -306,6 +340,7 @@ describe('VehicleStockQueryService', () => {
           inventory_role: VehicleInventoryRole.USED,
           stock_status: VehicleStockStatus.RESERVED,
           ledger_entries: [],
+        sales: [],
         });
       prisma.vehicle.updateMany.mockResolvedValue({ count: 1 });
 
