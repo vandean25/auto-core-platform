@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { VehicleAcquisitionKind } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -70,6 +71,7 @@ export class VehiclePurchaseService {
   async updateDraft(id: string, dto: PatchVehiclePurchaseDto) {
     const { tenantId, siteId } = await this.currentScope();
     const purchase = await this.findOne(id);
+    assertNotTradeInKind(purchase.acquisition_kind, 'edited');
     return ops.executeDraftUpdateFlow({
       prisma: this.prisma,
       tenantContext: this.tenantContext,
@@ -96,12 +98,41 @@ export class VehiclePurchaseService {
 
   async cancel(id: string) {
     const { tenantId, siteId } = await this.currentScope();
+    await this.assertNotTradeInById(tenantId, id, 'cancelled');
     await ops.executeCancelDraftPurchase(this.prisma, tenantId, siteId, id);
     return this.findOne(id);
   }
 
   async remove(id: string) {
     const { tenantId, siteId } = await this.currentScope();
+    await this.assertNotTradeInById(tenantId, id, 'deleted');
     return ops.executeRemovePurchaseFlow(this.prisma, tenantId, siteId, id);
+  }
+
+  /** Missing rows fall through so the existing not-found and DRAFT-state errors still apply. */
+  private async assertNotTradeInById(
+    tenantId: string,
+    id: string,
+    action: TradeInGuardAction,
+  ): Promise<void> {
+    const purchase = await this.prisma.vehiclePurchase.findFirst({
+      where: { id, tenant_id: tenantId },
+      select: { acquisition_kind: true },
+    });
+    assertNotTradeInKind(purchase?.acquisition_kind, action);
+  }
+}
+
+type TradeInGuardAction = 'edited' | 'cancelled' | 'deleted';
+
+/** Trade-in purchases belong to their vehicle sale: the sale sets, changes and removes them. */
+function assertNotTradeInKind(
+  acquisitionKind: VehicleAcquisitionKind | null | undefined,
+  action: TradeInGuardAction,
+): void {
+  if (acquisitionKind === VehicleAcquisitionKind.TRADE_IN) {
+    throw new ConflictException(
+      `Trade-in purchases cannot be ${action} here; change the trade-in on its vehicle sale instead`,
+    );
   }
 }

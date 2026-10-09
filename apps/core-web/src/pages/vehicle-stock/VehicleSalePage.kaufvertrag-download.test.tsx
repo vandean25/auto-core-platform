@@ -124,6 +124,8 @@ describe('VehicleSalePage Kaufvertrag download through the real hook', () => {
       mutateAsync: vi.fn().mockResolvedValue(undefined),
     })
     asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(vehicleStockApi.useUpsertVehicleSaleTradeIn).mockReturnValue({ mutateAsync: vi.fn() })
+    asMock(vehicleStockApi.useRemoveVehicleSaleTradeIn).mockReturnValue({ mutateAsync: vi.fn() })
     asMock(vehicleStockApi.fetchVehicleSaleKaufvertragGenerationError).mockResolvedValue(null)
   })
 

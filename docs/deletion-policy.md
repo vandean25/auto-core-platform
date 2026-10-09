@@ -70,8 +70,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VoiceNoteRateLimit | No API delete | Ephemeral per-mechanic voice-note upload counter. Rows expire by TTL window and cascade-delete with `Tenant` or `Employee`. |
 | LaborEntry | No | Immutable audit trail of mechanic time intervals; never hard-deleted through the API. The nightly close-out job may set `ended_at` and `pause_reason = AUTO_SHIFT_CLOSE` on open entries, but does not delete records. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
-| VehiclePurchase | Draft-only | Allow only in `DRAFT` with no `VehicleLedgerEntry` and `status != RECEIVED`. Received purchases are financial/stock history. |
-| VehicleSale | Draft-only | Allow only in `DRAFT` with no linked `Invoice`. Invoiced sales are financial documents. |
+| VehiclePurchase | Draft-only | Allow only in `DRAFT` with no `VehicleLedgerEntry` and `status != RECEIVED`. Received purchases are financial/stock history. A `TRADE_IN` purchase (AUT-443) is owned by its `VehicleSale`: it is created, edited and removed only through the sale's trade-in endpoints while the sale is `DRAFT`; cancel and generic delete/patch are refused, and `VehicleSale.trade_in_purchase_id` is a `RESTRICT` foreign key. |
+| VehicleSale | Draft-only | Allow only in `DRAFT` with no linked `Invoice`. Invoiced sales are financial documents. A draft sale may hold one trade-in (`trade_in_purchase_id`); removing it unlinks the sale first and then deletes the draft trade-in purchase. |
 | VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it, no child categories exist, and it is not `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` uses `ON DELETE SET NULL` (hourly/cost rates are snapshotted on the line). |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpException,
@@ -8,16 +9,19 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   StreamableFile,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiProduces, ApiTags } from '@nestjs/swagger';
 import * as Sentry from '@sentry/node';
 import { PdfWorker } from '../common/index.js';
 import { VehicleSaleService } from './vehicle-sale.service.js';
+import { VehicleSaleTradeInService } from './vehicle-sale-trade-in.service.js';
 import { VehicleSaleKaufvertragPdfService } from './kaufvertrag/kaufvertrag-pdf.service.js';
 import { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 import { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
+import { UpsertVehicleSaleTradeInDto } from './dto/upsert-vehicle-sale-trade-in.dto.js';
 
 /** Client errors (4xx) will not succeed on retry, so the task is dropped. Server errors are retried. */
 function handleKaufvertragWorkerError(
@@ -48,6 +52,7 @@ export class VehicleSaleController {
 
   constructor(
     private readonly sales: VehicleSaleService,
+    private readonly tradeIn: VehicleSaleTradeInService,
     private readonly kaufvertragPdf: VehicleSaleKaufvertragPdfService,
   ) {}
 
@@ -69,6 +74,19 @@ export class VehicleSaleController {
   @Post(':id/finalize')
   finalize(@Param('id') id: string) {
     return this.sales.finalize(id);
+  }
+
+  @Put(':id/trade-in')
+  upsertTradeIn(
+    @Param('id') id: string,
+    @Body() dto: UpsertVehicleSaleTradeInDto,
+  ) {
+    return this.tradeIn.upsert(id, dto);
+  }
+
+  @Delete(':id/trade-in')
+  removeTradeIn(@Param('id') id: string) {
+    return this.tradeIn.remove(id);
   }
 
   @Post(':id/gewaehrleistung-correction')

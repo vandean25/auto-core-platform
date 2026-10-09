@@ -15,6 +15,7 @@ import {
   seedDemoWorkshopAccountingProfile,
   seedVehicleStockAgeDemo,
   seedDemoGewaehrleistungSales,
+  seedDemoVehicleTradeInExample,
   seedPickerlInspectionTemplate,
 } from '../src/prisma/fixtures/index.js';
 
@@ -43,6 +44,12 @@ async function main() {
   await seedDemoSiteAccess(prisma, foundation);
   await seedVehicleStockAgeDemo(prisma, foundation, inventory.showroom);
   await seedDemoGewaehrleistungSales(
+    prisma,
+    foundation,
+    inventory.showroom,
+    vendors[0],
+  );
+  await seedDemoVehicleTradeInExample(
     prisma,
     foundation,
     inventory.showroom,

@@ -372,7 +372,7 @@ Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the country-specific margin-
 
 ## Appendix: B / C / D hooks (do not implement)
 
-**B Trade-in:** `VehicleSale.trade_in_purchase_id` + `VehiclePurchase.acquisition_kind=TRADE_IN` with `seller_type=CUSTOMER`. Receive flips buyer’s existing VIN to `USED`. Invoice nets sale minus allowance.
+**B Trade-in (implemented in AUT-443, see the section above):** `VehicleSale.trade_in_purchase_id` + `VehiclePurchase.acquisition_kind=TRADE_IN` with `seller_type=CUSTOMER`. Receive flips buyer’s existing VIN to `USED`. Invoice nets sale minus allowance.
 
 **C New:** purchase `inventory_role=NEW`, `tax_scheme=STANDARD`; sale `Invoice.tax_mode=STANDARD`. `ON_ORDER` used when ordered but not received.
 
@@ -418,3 +418,17 @@ The read-only Reports view at `/vehicle-stock/reports` exposes:
 - Money calculations use Decimal and round only at report output. The margin percentage is gross margin divided by net sale price.
 - The aged-stock dashboard summary counts vehicles older than 90 days and sums their current cost basis.
 - ACP MCP exposes both report queries as read-only tools in the caller's authenticated active-site context.
+
+## Trade-in on the sale invoice (Phase B, AUT-443)
+
+A draft vehicle sale can take the buyer's car in part-payment. The allowance reduces the amount billed; the trade-in car enters stock as a purchase at the allowance (once received, through the existing receive path).
+
+- **Model:** `VehicleSale.trade_in_purchase_id` → `VehiclePurchase` with `acquisition_kind = TRADE_IN`, `seller_type = CUSTOMER` (the buyer), `status = DRAFT`, `purchase_price` = allowance. Expand-only migration `20261009140000_aut443_vehicle_trade_in`: `vehicle_purchases.first_registration_date`, unique `(tenant_id, id)`, and a `RESTRICT` composite foreign key with its index.
+- **Endpoints:** `PUT /api/vehicle-sales/:id/trade-in` (create or replace, DRAFT only) and `DELETE /api/vehicle-sales/:id/trade-in` (remove, DRAFT only). `GET /api/vehicle-sales/:id` returns `trade_in_purchase` and `amount_due_preview`.
+- **Validation:** allowance greater than zero, not above the sale price, at most two decimals. VIN is 17 characters from the ISO 3779 set (no I, O or Q) and must differ from the sold VIN. Make, model and year are required. First registration cannot be in the future. The buyer cannot change, and the sale price cannot drop below the allowance, while a trade-in is attached.
+- **Netting:** the invoice has the sale line at the sale price and a trade-in credit line at minus the allowance in the same margin tax mode and revenue group. `total_gross` is the amount billed (sale minus allowance) and equals the sum of the lines. `total_tax` is the margin VAT on the full sale price, because the trade-in value is part of the consideration for the sold car. `total_net` stays sale minus margin VAT, so the margin report and revenue aggregates keep their meaning. For trade-in invoices, net plus tax therefore equals the sale price, not the amount billed.
+- **Snapshot and audit:** the trade-in line is frozen in the finalized invoice snapshot. Setting, changing and removing the trade-in write `VehicleSale` UPDATE audit rows with before and after. Finalize writes a netting audit row with the invoice id and number, the allowance and the amount due.
+- **Ownership:** a trade-in purchase cannot be edited, cancelled or deleted through the generic purchase endpoints. It is not listed as an `ON_ORDER` row on the stock list.
+- **Credit notes:** invoices with a negative line are refused with `TRADE_IN_CREDIT_UNSUPPORTED`. The credit engine would otherwise drop the trade-in line from a full credit and over-refund the buyer. Supporting credits needs the credit engine to reverse negative lines, plus an accountant decision (follow-up).
+- **Open for the accountant:** confirm that margin VAT is computed on the full sale price (trade-in value included) and that net plus tax is not expected to equal the billed amount on trade-in invoices.
+- **Out of scope here:** receive-side changes for trade-in vehicles, Eurotax/Schwacke valuation, Kaufvertrag PDF changes (AUT-442), and NoVA (AUT-405).

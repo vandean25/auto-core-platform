@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
+import { VehicleSaleTradeInSection } from '@/components/vehicle-stock/VehicleSaleTradeInSection'
 import {
   VEHICLE_SALES_API,
   fetchVehicleSaleKaufvertragGenerationError,
@@ -392,9 +393,17 @@ export default function VehicleSalePage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-1 text-sm">
-          <span className="text-slate-500">Buyer</span>
-          <CustomerSearch value={customer} onChange={handleCustomerChange} />
+        <div className="space-y-4">
+          <div className="space-y-1 text-sm">
+            <span className="text-slate-500">Buyer</span>
+            <CustomerSearch value={customer} onChange={handleCustomerChange} />
+          </div>
+          <VehicleSaleTradeInSection
+            saleId={saleId}
+            salePrice={priceNumber}
+            purchase={existing?.trade_in_purchase ?? null}
+            editable={isDraft && !isFinalizing}
+          />
         </div>
         <div className="space-y-4">
           <label className="space-y-1 text-sm">
@@ -537,6 +546,27 @@ export default function VehicleSalePage() {
           <div className="font-medium">MARGIN_SCHEME</div>
         </div>
       </div>
+
+      {existing?.trade_in_purchase ? (
+        <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">
+          <div>
+            <div className="text-xs text-slate-500">Trade-in vehicle</div>
+            <div className="font-medium">
+              {`${existing.trade_in_purchase.year} ${existing.trade_in_purchase.make} ${existing.trade_in_purchase.model}`}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Trade-in allowance</div>
+            <div className="font-medium">{formatCurrency(existing.trade_in_purchase.purchase_price)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Amount due after trade-in</div>
+            <div className="font-medium">
+              {existing.amount_due_preview != null ? formatCurrency(existing.amount_due_preview) : '—'}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

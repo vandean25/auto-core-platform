@@ -9,6 +9,7 @@ export * from './customer.fixture.js';
 export * from './demo-site-access.fixture.js';
 export * from './vehicle-stock-age.fixture.js';
 export * from './gewaehrleistung-demo.fixture.js';
+export * from './vehicle-trade-in-demo.fixture.js';
 export * from './demo-legal-entity-accounting-profile.fixture.js';
 export * from './demo-workshop-revenue-groups.fixture.js';
 export * from './pickerl-inspection-template.fixture.js';
