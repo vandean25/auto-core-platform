@@ -208,6 +208,7 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
         const vehicle = await scopedPrisma.vehicle.create({
           data: {
             tenant_id: scopeTenantId,
+            site_id: fixture.site_id,
             make: 'Synthetic',
             model: `Fixture ${fixture.sequence}`,
             year: 2020,
