@@ -108,6 +108,17 @@ describe('retailFromCost and roundPrice', () => {
         expect(retailFromCost(0, null, [rrpRule])).toBeNull();
       });
 
+      it('returns null when RRP is missing and markup_percent is null (prevents silent 0% margin)', () => {
+        const rrpOnlyRule: MarginRuleItem = {
+          id: 'rrp-only',
+          priority: 1,
+          use_supplier_rrp: true,
+          markup_percent: null,
+        };
+        expect(retailFromCost(20, null, [rrpOnlyRule])).toBeNull();
+        expect(retailFromCost(20, 0, [rrpOnlyRule])).toBeNull();
+      });
+
       it('applies rounding to RRP when specified', () => {
         const rrpRuleRounded: MarginRuleItem = {
           ...rrpRule,

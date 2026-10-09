@@ -59,6 +59,11 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.invoice.deleteMany();
     },
   },
+  { table: 'vendor_articles', clean: (p) => p.vendorArticle.deleteMany() },
+  {
+    table: 'catalog_price_histories',
+    clean: (p) => p.catalogPriceHistory.deleteMany(),
+  },
   { table: 'catalog_items', clean: (p) => p.catalogItem.deleteMany() },
   {
     table: 'workshop_opening_hours',
@@ -77,6 +82,7 @@ export const TABLE_CLEANERS: TableCleaner[] = [
     clean: (p) => p.legalEntityAccountingProfile.deleteMany(),
   },
   { table: 'legal_entities', clean: (p) => p.legalEntity.deleteMany() },
+  { table: 'margin_rules', clean: (p) => p.marginRule.deleteMany() },
   { table: 'revenue_groups', clean: (p) => p.revenueGroup.deleteMany() },
   { table: 'finance_settings', clean: (p) => p.financeSettings.deleteMany() },
   {

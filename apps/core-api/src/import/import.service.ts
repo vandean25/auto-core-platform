@@ -57,8 +57,8 @@ import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks
 import { RequestContextService } from '../common/services/request-context.service.js';
 
 class ApplyRowStaleError extends Error {
-  constructor() {
-    super('Import row plan is stale');
+  constructor(message = 'Import row plan is stale') {
+    super(message);
     this.name = 'ApplyRowStaleError';
   }
 }
@@ -345,10 +345,13 @@ export class ImportService {
       orderBy: { row_no: 'asc' },
     });
 
+    let supplierVendor: { id: string; name: string } | null = null;
     if (existing.entity_type === ImportEntityType.SUPPLIER_PRICE_LIST) {
-      const isAllAccepted = effectiveOptions.accept_all_price_jumps === true;
+      const isAllAccepted = applyOptions?.accept_all_price_jumps === true;
       const acceptedRowSet = new Set(
-        effectiveOptions.accepted_row_numbers ?? [],
+        Array.isArray(applyOptions?.accepted_row_numbers)
+          ? applyOptions.accepted_row_numbers
+          : [],
       );
 
       for (const row of rows) {
@@ -368,6 +371,12 @@ export class ImportService {
           }
         }
       }
+
+      supplierVendor = await this.resolveAndValidateVendor(
+        tenantId,
+        existing.source_system,
+        effectiveOptions.vendor_id,
+      );
     }
 
     const lock = await this.prisma.importJob.updateMany({
@@ -393,6 +402,7 @@ export class ImportService {
         rows,
         currentUser.id,
         effectiveOptions,
+        supplierVendor!,
       );
     }
 
@@ -516,6 +526,229 @@ export class ImportService {
     }
   }
 
+  private async applySupplierRow(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    vendorId: string,
+    jobId: string,
+    sourceSystem: string,
+    row: {
+      row_no: number;
+      action: ImportRowAction;
+      entity_id: string | null;
+      external_id: string | null;
+      normalized_json: Prisma.JsonValue;
+    },
+  ): Promise<{ action: ImportRowAction }> {
+    const payload = (row.normalized_json ?? {}) as Record<string, unknown>;
+    const rawArticleNo =
+      typeof payload.supplier_article_no === 'string'
+        ? payload.supplier_article_no
+        : typeof row.external_id === 'string'
+          ? row.external_id
+          : '';
+    const supplierArticleNo = rawArticleNo.trim();
+    const newCost = Number(payload.cost_price);
+    const newRetail = Number(payload.retail_price);
+    const rrp = payload.rrp != null ? Number(payload.rrp) : null;
+
+    if (row.action === ImportRowAction.UPDATE) {
+      if (!row.entity_id) {
+        throw new ApplyRowStaleError('Artikel-ID fehlt');
+      }
+
+      const catalogItem = await tx.catalogItem.findFirst({
+        where: { tenant_id: tenantId, id: row.entity_id },
+      });
+      if (!catalogItem) {
+        throw new ApplyRowStaleError('Artikel wurde zwischenzeitlich gelöscht');
+      }
+
+      const currentCost =
+        catalogItem.cost_price != null ? Number(catalogItem.cost_price) : null;
+      const currentRetail = Number(catalogItem.retail_price);
+
+      const snapshotOldCost =
+        payload.old_cost != null ? Number(payload.old_cost) : null;
+      const snapshotOldRetail =
+        payload.old_retail != null ? Number(payload.old_retail) : null;
+
+      if (
+        snapshotOldCost != null &&
+        currentCost != null &&
+        Math.abs(currentCost - snapshotOldCost) >= 0.005 &&
+        Math.abs(currentCost - newCost) >= 0.005
+      ) {
+        throw new ApplyRowStaleError(
+          'Einkaufspreis wurde seit der Vorschau im Katalog geändert',
+        );
+      }
+      if (
+        snapshotOldRetail != null &&
+        Math.abs(currentRetail - snapshotOldRetail) >= 0.005 &&
+        Math.abs(currentRetail - newRetail) >= 0.005
+      ) {
+        throw new ApplyRowStaleError(
+          'Verkaufspreis wurde seit der Vorschau im Katalog geändert',
+        );
+      }
+
+      const costChanged =
+        currentCost === null || Math.abs(newCost - currentCost) >= 0.005;
+      const retailChanged = Math.abs(newRetail - currentRetail) >= 0.005;
+
+      if (costChanged || retailChanged) {
+        await tx.catalogItem.update({
+          where: { id: catalogItem.id },
+          data: {
+            cost_price: newCost,
+            retail_price: newRetail,
+          },
+        });
+
+        await tx.catalogPriceHistory.create({
+          data: {
+            tenant_id: tenantId,
+            catalog_item_id: catalogItem.id,
+            old_cost: currentCost,
+            new_cost: newCost,
+            old_retail: currentRetail,
+            new_retail: newRetail,
+            import_job_id: jobId,
+          },
+        });
+      }
+
+      const existingMapping = await tx.vendorArticle.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          vendor_article_no: { equals: supplierArticleNo, mode: 'insensitive' },
+        },
+      });
+
+      const effectiveArtNo = existingMapping
+        ? existingMapping.vendor_article_no
+        : supplierArticleNo;
+
+      await tx.vendorArticle.upsert({
+        where: {
+          tenant_id_vendor_id_vendor_article_no: {
+            tenant_id: tenantId,
+            vendor_id: vendorId,
+            vendor_article_no: effectiveArtNo,
+          },
+        },
+        create: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          catalog_item_id: catalogItem.id,
+          vendor_article_no: effectiveArtNo,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+        update: {
+          catalog_item_id: catalogItem.id,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+      });
+
+      return { action: ImportRowAction.UPDATE };
+    } else if (row.action === ImportRowAction.CREATE) {
+      const description =
+        typeof payload.description === 'string'
+          ? payload.description.trim()
+          : supplierArticleNo;
+      const unit =
+        typeof payload.unit === 'string' && payload.unit.trim()
+          ? payload.unit.trim()
+          : 'pcs';
+      const ean =
+        typeof payload.ean === 'string' && payload.ean.trim()
+          ? payload.ean.trim()
+          : null;
+
+      const createdItem = await tx.catalogItem.create({
+        data: {
+          tenant_id: tenantId,
+          sku: supplierArticleNo,
+          name: description,
+          cost_price: newCost,
+          retail_price: newRetail,
+          unit,
+          brand_id: payload.brand_id != null ? Number(payload.brand_id) : null,
+          ean,
+          source_system: sourceSystem,
+        },
+      });
+
+      const existingMapping = await tx.vendorArticle.findFirst({
+        where: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          vendor_article_no: { equals: supplierArticleNo, mode: 'insensitive' },
+        },
+      });
+
+      const effectiveArtNo = existingMapping
+        ? existingMapping.vendor_article_no
+        : supplierArticleNo;
+
+      await tx.vendorArticle.upsert({
+        where: {
+          tenant_id_vendor_id_vendor_article_no: {
+            tenant_id: tenantId,
+            vendor_id: vendorId,
+            vendor_article_no: effectiveArtNo,
+          },
+        },
+        create: {
+          tenant_id: tenantId,
+          vendor_id: vendorId,
+          catalog_item_id: createdItem.id,
+          vendor_article_no: effectiveArtNo,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+        update: {
+          catalog_item_id: createdItem.id,
+          last_cost: newCost,
+          last_rrp: rrp,
+        },
+      });
+
+      await tx.catalogPriceHistory.create({
+        data: {
+          tenant_id: tenantId,
+          catalog_item_id: createdItem.id,
+          old_cost: null,
+          new_cost: newCost,
+          old_retail: null,
+          new_retail: newRetail,
+          import_job_id: jobId,
+        },
+      });
+
+      await tx.importJobRow.update({
+        where: {
+          tenant_id_import_job_id_row_no: {
+            tenant_id: tenantId,
+            import_job_id: jobId,
+            row_no: row.row_no,
+          },
+        },
+        data: {
+          entity_id: createdItem.id,
+        },
+      });
+
+      return { action: ImportRowAction.CREATE };
+    }
+
+    return { action: row.action };
+  }
+
   private async applySupplierPriceListJob(
     tenantId: string,
     job: {
@@ -532,13 +765,8 @@ export class ImportService {
     }>,
     actorUserId: string,
     options: ImportJobOptions,
+    vendor: { id: string; name: string },
   ) {
-    const vendor = await this.resolveAndValidateVendor(
-      tenantId,
-      job.source_system,
-      options.vendor_id,
-    );
-
     const totals: ImportJobTotals = {
       rows: rows.length,
       create: 0,
@@ -548,9 +776,41 @@ export class ImportService {
     };
 
     try {
-      const updatedJob = await this.prisma.$transaction(
-        async (tx) => {
-          for (const row of rows) {
+      const CHUNK_SIZE = 50;
+      for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+        const chunk = rows.slice(i, i + CHUNK_SIZE);
+        try {
+          await this.prisma.$transaction(
+            async (tx) => {
+              for (const row of chunk) {
+                if (row.action === ImportRowAction.ERROR) {
+                  totals.error += 1;
+                  continue;
+                }
+                if (row.action === ImportRowAction.SKIP) {
+                  totals.skip += 1;
+                  continue;
+                }
+                const res = await this.applySupplierRow(
+                  tx,
+                  tenantId,
+                  vendor.id,
+                  job.id,
+                  job.source_system,
+                  row,
+                );
+                if (res.action === ImportRowAction.CREATE) totals.create += 1;
+                else if (res.action === ImportRowAction.UPDATE)
+                  totals.update += 1;
+              }
+            },
+            { timeout: 30000, maxWait: 10000 },
+          );
+        } catch (chunkError) {
+          this.logger.warn(
+            `Supplier price list chunk failed at offset ${i}, falling back to row-by-row: ${chunkError instanceof Error ? chunkError.message : String(chunkError)}`,
+          );
+          for (const row of chunk) {
             if (row.action === ImportRowAction.ERROR) {
               totals.error += 1;
               continue;
@@ -559,153 +819,31 @@ export class ImportService {
               totals.skip += 1;
               continue;
             }
-
-            const payload = (row.normalized_json ?? {}) as Record<
-              string,
-              unknown
-            >;
-            const rawArticleNo =
-              typeof payload.supplier_article_no === 'string'
-                ? payload.supplier_article_no
-                : typeof row.external_id === 'string'
-                  ? row.external_id
-                  : '';
-            const supplierArticleNo = rawArticleNo.trim();
-            const newCost = Number(payload.cost_price);
-            const newRetail = Number(payload.retail_price);
-            const rrp = payload.rrp != null ? Number(payload.rrp) : null;
-
-            if (row.action === ImportRowAction.UPDATE) {
-              const catalogItem = await tx.catalogItem.findFirst({
-                where: { tenant_id: tenantId, id: row.entity_id! },
+            try {
+              await this.prisma.$transaction(async (tx) => {
+                const res = await this.applySupplierRow(
+                  tx,
+                  tenantId,
+                  vendor.id,
+                  job.id,
+                  job.source_system,
+                  row,
+                );
+                if (res.action === ImportRowAction.CREATE) totals.create += 1;
+                else if (res.action === ImportRowAction.UPDATE)
+                  totals.update += 1;
               });
-              if (!catalogItem) {
-                throw new ApplyRowStaleError();
-              }
-
-              const currentCost =
-                catalogItem.cost_price != null
-                  ? Number(catalogItem.cost_price)
-                  : null;
-              const currentRetail = Number(catalogItem.retail_price);
-
-              const costChanged =
-                currentCost === null ||
-                Math.abs(newCost - currentCost) >= 0.005;
-              const retailChanged =
-                Math.abs(newRetail - currentRetail) >= 0.005;
-
-              if (costChanged || retailChanged) {
-                await tx.catalogItem.update({
-                  where: { id: catalogItem.id },
-                  data: {
-                    cost_price: newCost,
-                    retail_price: newRetail,
-                  },
-                });
-
-                await tx.catalogPriceHistory.create({
-                  data: {
-                    tenant_id: tenantId,
-                    catalog_item_id: catalogItem.id,
-                    old_cost: currentCost,
-                    new_cost: newCost,
-                    old_retail: currentRetail,
-                    new_retail: newRetail,
-                    import_job_id: job.id,
-                  },
-                });
-              }
-
-              await tx.vendorArticle.upsert({
-                where: {
-                  tenant_id_vendor_id_vendor_article_no: {
-                    tenant_id: tenantId,
-                    vendor_id: vendor.id,
-                    vendor_article_no: supplierArticleNo,
-                  },
-                },
-                create: {
-                  tenant_id: tenantId,
-                  vendor_id: vendor.id,
-                  catalog_item_id: catalogItem.id,
-                  vendor_article_no: supplierArticleNo,
-                  last_cost: newCost,
-                  last_rrp: rrp,
-                },
-                update: {
-                  catalog_item_id: catalogItem.id,
-                  last_cost: newCost,
-                  last_rrp: rrp,
-                },
-              });
-
-              totals.update += 1;
-            } else if (row.action === ImportRowAction.CREATE) {
-              const description =
-                typeof payload.description === 'string'
-                  ? payload.description.trim()
-                  : supplierArticleNo;
-              const unit =
-                typeof payload.unit === 'string' && payload.unit.trim()
-                  ? payload.unit.trim()
-                  : 'pcs';
-              const ean =
-                typeof payload.ean === 'string' && payload.ean.trim()
-                  ? payload.ean.trim()
-                  : null;
-
-              const createdItem = await tx.catalogItem.create({
-                data: {
-                  tenant_id: tenantId,
-                  sku: supplierArticleNo,
-                  name: description,
-                  cost_price: newCost,
-                  retail_price: newRetail,
-                  unit,
-                  brand_id:
-                    payload.brand_id != null ? Number(payload.brand_id) : null,
-                  ean,
-                  source_system: job.source_system,
-                },
-              });
-
-              await tx.vendorArticle.upsert({
-                where: {
-                  tenant_id_vendor_id_vendor_article_no: {
-                    tenant_id: tenantId,
-                    vendor_id: vendor.id,
-                    vendor_article_no: supplierArticleNo,
-                  },
-                },
-                create: {
-                  tenant_id: tenantId,
-                  vendor_id: vendor.id,
-                  catalog_item_id: createdItem.id,
-                  vendor_article_no: supplierArticleNo,
-                  last_cost: newCost,
-                  last_rrp: rrp,
-                },
-                update: {
-                  catalog_item_id: createdItem.id,
-                  last_cost: newCost,
-                  last_rrp: rrp,
-                },
-              });
-
-              await tx.catalogPriceHistory.create({
-                data: {
-                  tenant_id: tenantId,
-                  catalog_item_id: createdItem.id,
-                  old_cost: null,
-                  new_cost: newCost,
-                  old_retail: null,
-                  new_retail: newRetail,
-                  import_job_id: job.id,
-                },
-              });
-
-              await tx.importJobRow.update({
+            } catch (rowError) {
+              totals.error += 1;
+              const message =
+                rowError instanceof ApplyRowStaleError
+                  ? rowError.message
+                  : 'Row failed during apply';
+              const code =
+                rowError instanceof ApplyRowStaleError
+                  ? IMPORT_ERROR_CODES.ROW_STALE
+                  : 'IMPORT_APPLY_FAILED';
+              await this.prisma.importJobRow.update({
                 where: {
                   tenant_id_import_job_id_row_no: {
                     tenant_id: tenantId,
@@ -714,48 +852,44 @@ export class ImportService {
                   },
                 },
                 data: {
-                  entity_id: createdItem.id,
+                  action: ImportRowAction.ERROR,
+                  errors_json: [{ code, message }],
                 },
               });
-
-              totals.create += 1;
             }
           }
+        }
+      }
 
-          const appliedJob = await tx.importJob.update({
-            where: { id: job.id },
-            data: {
-              status: ImportJobStatus.APPLIED,
-              appliedAt: new Date(),
-              totals_json: totals,
-              options_json: options,
-            },
-          });
-
-          const authUser = this.tenantContext.getAuthenticatedUser();
-          await tx.auditLog.create({
-            data: {
-              tenant_id: tenantId,
-              entity_type: 'ImportJob',
-              entity_id: job.id,
-              action: AuditLogAction.UPDATE,
-              actor_user_id: actorUserId,
-              actor_email: authUser?.email ?? null,
-              actor_role: authUser?.role ?? null,
-              actor_type: AuditActorType.USER,
-              source: IMPORT_SOURCE,
-              after: {
-                event: 'import_job.applied',
-                importJobId: job.id,
-                totals,
-              },
-            },
-          });
-
-          return appliedJob;
+      const updatedJob = await this.prisma.importJob.update({
+        where: { id: job.id },
+        data: {
+          status: ImportJobStatus.APPLIED,
+          appliedAt: new Date(),
+          totals_json: totals,
+          options_json: options,
         },
-        { timeout: 60000, maxWait: 10000 },
-      );
+      });
+
+      const authUser = this.tenantContext.getAuthenticatedUser();
+      await this.prisma.auditLog.create({
+        data: {
+          tenant_id: tenantId,
+          entity_type: 'ImportJob',
+          entity_id: job.id,
+          action: AuditLogAction.UPDATE,
+          actor_user_id: actorUserId,
+          actor_email: authUser?.email ?? null,
+          actor_role: authUser?.role ?? null,
+          actor_type: AuditActorType.USER,
+          source: IMPORT_SOURCE,
+          after: {
+            event: 'import_job.applied',
+            importJobId: job.id,
+            totals,
+          },
+        },
+      });
 
       return this.serializeJob(updatedJob, totals);
     } catch (error) {
@@ -1013,7 +1147,25 @@ export class ImportService {
     sourceSystem: string,
     vendorIdOption?: string,
   ): Promise<{ id: string; name: string }> {
-    const candidate = vendorIdOption?.trim() || sourceSystem?.trim();
+    const explicitVendorId = vendorIdOption?.trim();
+    if (explicitVendorId) {
+      const vendor = await this.prisma.vendor.findFirst({
+        where: {
+          tenant_id: tenantId,
+          id: explicitVendorId,
+        },
+        select: { id: true, name: true },
+      });
+      if (!vendor) {
+        throw new BadRequestException({
+          code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
+          message: `Lieferant mit ID '${explicitVendorId}' nicht gefunden`,
+        });
+      }
+      return vendor;
+    }
+
+    const candidate = sourceSystem?.trim();
     if (!candidate) {
       throw new BadRequestException({
         code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
@@ -1021,32 +1173,40 @@ export class ImportService {
       });
     }
 
-    let vendor = await this.prisma.vendor.findFirst({
+    const vendorById = await this.prisma.vendor.findFirst({
       where: {
         tenant_id: tenantId,
         id: candidate,
       },
       select: { id: true, name: true },
     });
-
-    if (!vendor) {
-      vendor = await this.prisma.vendor.findFirst({
-        where: {
-          tenant_id: tenantId,
-          OR: [{ name: candidate }, { account_number: candidate }],
-        },
-        select: { id: true, name: true },
-      });
+    if (vendorById) {
+      return vendorById;
     }
 
-    if (!vendor) {
+    const matches = await this.prisma.vendor.findMany({
+      where: {
+        tenant_id: tenantId,
+        OR: [{ name: candidate }, { account_number: candidate }],
+      },
+      select: { id: true, name: true },
+    });
+
+    if (matches.length === 0) {
       throw new BadRequestException({
         code: IMPORT_ERROR_CODES.SUPPLIER_VENDOR_REQUIRED,
-        message: 'Valid vendor is required for supplier price list import',
+        message: `Lieferant '${candidate}' nicht gefunden`,
       });
     }
 
-    return vendor;
+    if (matches.length > 1) {
+      throw new BadRequestException({
+        code: IMPORT_ERROR_CODES.AMBIGUOUS_VENDOR,
+        message: `Mehrere Lieferanten mit dem Namen '${candidate}' gefunden. Bitte Lieferanten-ID angeben.`,
+      });
+    }
+
+    return matches[0];
   }
 
   private async runSupplierPriceListDryRun(
@@ -1719,7 +1879,11 @@ export class ImportService {
   }
 
   private computeTotals(
-    rows: Array<{ action: ImportRowAction }>,
+    rows: Array<{
+      action: ImportRowAction;
+      normalized?: Record<string, unknown> | null;
+      warnings?: Array<{ code?: string }>;
+    }>,
   ): ImportJobTotals {
     return rows.reduce(
       (acc, row) => {
@@ -1728,9 +1892,17 @@ export class ImportService {
         if (row.action === ImportRowAction.UPDATE) acc.update += 1;
         if (row.action === ImportRowAction.SKIP) acc.skip += 1;
         if (row.action === ImportRowAction.ERROR) acc.error += 1;
+        const isFlagged =
+          row.normalized?.price_jump_flagged === true ||
+          row.warnings?.some(
+            (w) => w.code === IMPORT_ERROR_CODES.PRICE_JUMP_EXCEEDED,
+          );
+        if (isFlagged) {
+          acc.flagged_jumps = (acc.flagged_jumps ?? 0) + 1;
+        }
         return acc;
       },
-      { rows: 0, create: 0, update: 0, skip: 0, error: 0 },
+      { rows: 0, create: 0, update: 0, skip: 0, error: 0, flagged_jumps: 0 },
     );
   }
 

@@ -1,6 +1,7 @@
 import { ImportRowAction } from '@prisma/client';
 import { parseGermanNumber } from './number-parse.util.js';
 import {
+  findMatchingMarginRule,
   retailFromCost,
   type MarginRuleItem,
 } from '../margin-rule/retail-from-cost.util.js';
@@ -259,6 +260,18 @@ export function planSupplierPriceListDryRunRow(
     newRetail = calculatedRetail;
   } else if (matchedItem) {
     newRetail = Math.round(matchedItem.retail_price * 100) / 100;
+    const matchedRule = findMatchingMarginRule(newCost, marginRules, {
+      brandId,
+      revenueGroupId,
+    });
+    if (matchedRule?.use_supplier_rrp && (row.rrp == null || row.rrp <= 0)) {
+      rowWarnings.push({
+        code: 'RRP_MISSING_FOR_MARGIN_RULE',
+        message:
+          'Keine UVP vorhanden und kein Aufschlag definiert; bestehender Verkaufspreis bleibt unverändert',
+        field: 'rrp',
+      });
+    }
   } else {
     newRetail =
       row.rrp != null && row.rrp > 0

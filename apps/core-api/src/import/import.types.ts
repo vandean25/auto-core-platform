@@ -20,6 +20,7 @@ export type ImportJobTotals = {
   update: number;
   skip: number;
   error: number;
+  flagged_jumps?: number;
 };
 
 export type ImportRowIssue = {

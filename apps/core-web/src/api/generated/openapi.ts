@@ -7534,6 +7534,7 @@ export interface components {
             update: number;
             skip: number;
             error: number;
+            flagged_jumps?: number;
         };
         ImportJobResponseDto: {
             id: string;

@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -59,6 +60,7 @@ export class CreateMarginRuleDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(99999999.99)
   cost_min?: number | null;
 
   @ApiPropertyOptional({
@@ -70,6 +72,7 @@ export class CreateMarginRuleDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(99999999.99)
   cost_max?: number | null;
 
   @ApiPropertyOptional({
@@ -81,6 +84,7 @@ export class CreateMarginRuleDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(999.99)
   markup_percent?: number | null;
 
   @ApiPropertyOptional({

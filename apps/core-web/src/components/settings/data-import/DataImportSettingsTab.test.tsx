@@ -350,4 +350,47 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
 
     expect(screen.queryByLabelText(/Preissprünge akzeptieren/i)).not.toBeInTheDocument()
   })
+
+  it('renders price jump acceptance banner when totals.flagged_jumps > 0 even if page rows have no jumps', async () => {
+    dryRunMutationMock.mutateAsync.mockResolvedValue({
+      ...supplierDryRunJob,
+      totals: { ...supplierDryRunJob.totals, flagged_jumps: 3 },
+    })
+    ;(importsApi.useImportJobRows as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        data: [
+          {
+            ...supplierRow,
+            warnings: [],
+            normalized: {
+              ...supplierRow.normalized,
+              price_jump_flagged: false,
+            },
+          },
+        ],
+        meta: { total: 300, page: 1, limit: 200 },
+      },
+      isLoading: false,
+    })
+
+    renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    const fileInput = screen.getByLabelText(/CSV file/i)
+    const csvFile = new File(['ArtNr\n1\n'], 'prices.csv', { type: 'text/csv' })
+    fireEvent.change(fileInput, { target: { files: [csvFile] } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/4\. Dry-run report/i)).toBeInTheDocument()
+    })
+
+    expect(screen.getByLabelText(/Preissprünge akzeptieren/i)).toBeInTheDocument()
+  })
 })
+

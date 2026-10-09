@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ImportEntityType, ImportJobStatus } from '@prisma/client';
 
 export class ImportJobTotalsDto {
@@ -16,6 +16,9 @@ export class ImportJobTotalsDto {
 
   @ApiProperty()
   error!: number;
+
+  @ApiPropertyOptional({ type: Number })
+  flagged_jumps?: number;
 }
 
 export class ImportJobResponseDto {

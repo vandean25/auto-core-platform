@@ -96,5 +96,4 @@ ALTER TABLE "catalog_price_histories" ADD CONSTRAINT "catalog_price_histories_te
 -- AddForeignKey
 ALTER TABLE "catalog_price_histories" ADD CONSTRAINT "catalog_price_histories_catalog_item_id_fkey" FOREIGN KEY ("catalog_item_id") REFERENCES "catalog_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "catalog_price_histories" ADD CONSTRAINT "catalog_price_histories_tenant_id_import_job_id_fkey" FOREIGN KEY ("tenant_id", "import_job_id") REFERENCES "import_jobs"("tenant_id", "id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "catalog_price_histories" ADD CONSTRAINT "catalog_price_histories_tenant_id_import_job_id_fkey" FOREIGN KEY ("tenant_id", "import_job_id") REFERENCES "import_jobs"("tenant_id", "id") ON DELETE SET NULL ("import_job_id") ON UPDATE CASCADE;

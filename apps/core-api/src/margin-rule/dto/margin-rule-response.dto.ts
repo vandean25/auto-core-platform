@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MarginRoundingStrategy } from '@prisma/client';
-import { IsNumber, IsOptional, Min } from 'class-validator';
+import { IsNumber, IsOptional, Max, Min } from 'class-validator';
 
 export class MarginRuleBrandDto {
   @ApiProperty({ example: 1 })
@@ -96,6 +96,7 @@ export class UpdatePriceJumpThresholdDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(999.99)
   price_jump_threshold_percent?: number;
 
   @ApiPropertyOptional({
@@ -105,5 +106,6 @@ export class UpdatePriceJumpThresholdDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  @Max(999.99)
   threshold_percent?: number;
 }

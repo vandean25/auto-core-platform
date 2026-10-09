@@ -186,8 +186,13 @@ export function DataImportSettingsTab() {
 
   const jobRows = React.useMemo(() => rowsResponse?.data ?? [], [rowsResponse?.data])
   const flaggedJumpCount = React.useMemo(() => {
+    const jobTotalFlagged = (dryRunJob?.totals as { flagged_jumps?: number } | undefined)
+      ?.flagged_jumps
+    if (typeof jobTotalFlagged === 'number') {
+      return jobTotalFlagged
+    }
     return jobRows.filter(isRowPriceJump).length
-  }, [jobRows, isRowPriceJump])
+  }, [dryRunJob?.totals, jobRows, isRowPriceJump])
   const rowsMeta = rowsResponse?.meta
   const rowsTotalPages = rowsMeta
     ? Math.max(1, Math.ceil(rowsMeta.total / rowsMeta.limit))
@@ -203,6 +208,8 @@ export function DataImportSettingsTab() {
   const resetDryRun = React.useCallback(() => {
     setDryRunJob(null)
     setAppliedJob(null)
+    setAcceptAllPriceJumps(false)
+    setAcceptedRowNumbers([])
   }, [])
 
   const handleEntityChange = (value: ImportEntityTypeUi) => {
@@ -311,6 +318,8 @@ export function DataImportSettingsTab() {
       setDryRunJob(job)
       setFileFingerprint(job.file_sha256)
       setAppliedJob(null)
+      setAcceptAllPriceJumps(false)
+      setAcceptedRowNumbers([])
       setStep(4)
       setRowFilter('ALL')
       setRowsPage(1)
