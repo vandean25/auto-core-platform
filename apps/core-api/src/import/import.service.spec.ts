@@ -11,6 +11,7 @@ import { ImportService } from './import.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
+import { DecisionLiveApplyService } from '../decision/decision-live-apply.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
 
@@ -81,6 +82,12 @@ describe('ImportService - Supplier Price List', () => {
     scheduleCustomerImportDryRunShadows: jest.fn(),
   };
 
+  const mockDecisionLive = {
+    applyCustomerImportDecisions: jest
+      .fn()
+      .mockResolvedValue({ mode: 'shadow' }),
+  };
+
   const mockRequestContext = {
     getTraceId: jest.fn().mockReturnValue('trace-123'),
   };
@@ -92,6 +99,7 @@ describe('ImportService - Supplier Price List', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TenantContextService, useValue: mockTenantContext },
         { provide: DecisionUseCaseHooksService, useValue: mockDecisionHooks },
+        { provide: DecisionLiveApplyService, useValue: mockDecisionLive },
         { provide: RequestContextService, useValue: mockRequestContext },
       ],
     }).compile();
@@ -300,7 +308,10 @@ describe('ImportService - Supplier Price List', () => {
         options_json: { vendor_id: 'vendor-1' },
       });
       mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'vendor-1', name: 'Vendor 1' });
+      mockPrisma.vendor.findFirst.mockResolvedValue({
+        id: 'vendor-1',
+        name: 'Vendor 1',
+      });
       mockPrisma.vendorArticle.findFirst.mockResolvedValue(null);
 
       mockPrisma.importJobRow.findMany.mockResolvedValue([
@@ -436,7 +447,10 @@ describe('ImportService - Supplier Price List', () => {
         options_json: { vendor_id: 'vendor-1' },
       });
       mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'vendor-1', name: 'Vendor 1' });
+      mockPrisma.vendor.findFirst.mockResolvedValue({
+        id: 'vendor-1',
+        name: 'Vendor 1',
+      });
 
       mockPrisma.importJobRow.findMany.mockResolvedValue([
         {
@@ -513,7 +527,10 @@ describe('ImportService - Supplier Price List', () => {
         options_json: { vendor_id: 'vendor-1' },
       });
       mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'vendor-1', name: 'Vendor 1' });
+      mockPrisma.vendor.findFirst.mockResolvedValue({
+        id: 'vendor-1',
+        name: 'Vendor 1',
+      });
 
       mockPrisma.importJobRow.findMany.mockResolvedValue([
         {
