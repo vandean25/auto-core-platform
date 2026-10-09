@@ -364,7 +364,7 @@ describe('AgentSupervisionPage', () => {
 
     expect(screen.getByText('Customer (customer)')).toBeInTheDocument()
     expect(screen.queryByText(/WorkshopOrder \(/)).not.toBeInTheDocument()
-    expect(screen.getByText('Order number not set')).toBeInTheDocument()
+    expect(screen.getByText('Order No. not set')).toBeInTheDocument()
     expect(screen.getByText(/125\.00/)).toBeInTheDocument()
     expect(screen.getAllByText(/100\.00/).length).toBeGreaterThan(0)
   })
@@ -674,7 +674,7 @@ describe('AgentSupervisionPage', () => {
           workshop_order_summary: {
             id: ORDER_UUID,
             order_number: null,
-            customer_name: null,
+            customer_name: 'Maria Demo',
             vehicle_registration: null,
             vehicle_description: '2019 Volkswagen Golf',
           },
@@ -682,8 +682,8 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
-      expect(card.getByText('Order number not set')).toBeInTheDocument()
-      expect(card.getByText('Customer not set')).toBeInTheDocument()
+      expect(card.getByText('Order No. not set')).toBeInTheDocument()
+      expect(card.getByText('Maria Demo')).toBeInTheDocument()
       expect(card.getByText('2019 Volkswagen Golf')).toBeInTheDocument()
     })
 
@@ -693,7 +693,7 @@ describe('AgentSupervisionPage', () => {
       ])
 
       const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
-      expect(card.getByText('Order number not set')).toBeInTheDocument()
+      expect(card.getByText('Order No. not set')).toBeInTheDocument()
       expect(card.getByText('Customer not set')).toBeInTheDocument()
       expect(card.getByText('Vehicle not set')).toBeInTheDocument()
     })
@@ -745,6 +745,62 @@ describe('AgentSupervisionPage', () => {
       expect(screen.getByTestId('preview-panel-wo-prop-1')).toHaveTextContent(
         '"unit_price_cents": 25000',
       )
+    })
+
+    it('shows Dealer stock for an order without a customer, as the order screen does', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          workshop_order_summary: {
+            id: ORDER_UUID,
+            order_number: 'WO-2026-0002',
+            customer_name: null,
+            vehicle_registration: 'W-DEMO 102',
+            vehicle_description: '2018 Skoda Octavia',
+          },
+        }),
+      ])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
+      expect(card.getByText('Dealer stock')).toBeInTheDocument()
+      expect(card.queryByText('Customer not set')).not.toBeInTheDocument()
+    })
+
+    it('shows the name and quantity the approval writes when the payload omits them', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          payload_json: {
+            agent_id: 'workshop-agent',
+            workshop_order_id: ORDER_UUID,
+            line_item: { type: 'PART', unit_price_cents: 25000 },
+          },
+        }),
+      ])
+
+      const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
+      expect(lines.getByText('Proposed line item')).toBeInTheDocument()
+      expect(lines.getByText('1')).toBeInTheDocument()
+      expect(lines.getAllByText('€250.00')).toHaveLength(2)
+    })
+
+    it('keeps the existing target label for workshop order proposals that are not line actions', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          action_type: 'workshop_order.create',
+          effective_summary: {
+            target_type: 'WorkshopOrder',
+            target_id: ORDER_UUID,
+            amount_eur: null,
+          },
+          workshop_order_summary: null,
+        }),
+      ])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
+      expect(card.getByText('WorkshopOrder (6fd17060)')).toBeInTheDocument()
+      expect(card.queryByText('Order No. not set')).not.toBeInTheDocument()
+      expect(
+        screen.queryByTestId('proposed-lines-wo-prop-1'),
+      ).not.toBeInTheDocument()
     })
   })
 })

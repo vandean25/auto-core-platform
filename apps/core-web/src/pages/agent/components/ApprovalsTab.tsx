@@ -24,8 +24,8 @@ import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { RejectProposalDialog } from './RejectProposalDialog'
 
 interface ProposedLine {
-  name: string
-  type: string | null
+  name: string | null
+  type: 'PART' | 'LABOR'
   quantity: number | null
   unitPriceEur: number | null
   amountEur: number | null
@@ -34,40 +34,27 @@ interface ProposedLine {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
+const toFiniteOrNull = (value: number) => (Number.isFinite(value) ? value : null)
+
 /**
- * Reads the proposed workshop line from a line-item proposal payload. Accepts
- * the nested `line_item` form written by propose_line_item and the flat form.
+ * Reads the proposed line the way the approval writes it: quantity defaults to
+ * 1, type defaults to PART, and the unit price is unit_price_cents, else
+ * unit_price or unitPrice. Accepts the nested `line_item` and the flat form.
  */
-function getProposedLines(payload: Record<string, unknown>): ProposedLine[] {
-  const source = isRecord(payload.line_item) ? payload.line_item : payload
-  const name =
-    typeof source.description === 'string'
-      ? source.description
-      : typeof source.item_no === 'string'
-        ? source.item_no
-        : null
-  if (!name) return []
-
-  const quantity = typeof source.quantity === 'number' ? source.quantity : null
+function getProposedLine(payload: Record<string, unknown>): ProposedLine {
+  const line = isRecord(payload.line_item) ? payload.line_item : payload
+  const quantity = Number(line.quantity ?? 1)
   const unitPriceEur =
-    typeof source.unit_price_cents === 'number'
-      ? source.unit_price_cents / 100
-      : typeof source.unit_price === 'number'
-        ? source.unit_price
-        : null
-
-  return [
-    {
-      name,
-      type: typeof source.type === 'string' ? source.type : null,
-      quantity,
-      unitPriceEur,
-      amountEur:
-        unitPriceEur !== null && quantity !== null
-          ? unitPriceEur * quantity
-          : null,
-    },
-  ]
+    line.unit_price_cents !== undefined
+      ? Number(line.unit_price_cents) / 100
+      : Number(line.unit_price ?? line.unitPrice ?? 0)
+  return {
+    name: typeof line.description === 'string' ? line.description : null,
+    type: line.type === 'LABOR' ? 'LABOR' : 'PART',
+    quantity: toFiniteOrNull(quantity),
+    unitPriceEur: toFiniteOrNull(unitPriceEur),
+    amountEur: toFiniteOrNull(unitPriceEur * quantity),
+  }
 }
 
 interface ApprovalsTabProps {
@@ -135,11 +122,10 @@ export function ApprovalsTab({
     })
   }
 
-  const formatLineType = (type: string | null) => {
-    if (type === 'PART') return getCopy(t.lineTypePart, language)
-    if (type === 'LABOR') return getCopy(t.lineTypeLabor, language)
-    return type ?? '—'
-  }
+  const formatLineType = (type: ProposedLine['type']) =>
+    type === 'LABOR'
+      ? getCopy(t.lineTypeLabor, language)
+      : getCopy(t.lineTypePart, language)
 
   return (
     <div className="space-y-6" data-testid="approvals-tab">
@@ -261,8 +247,10 @@ export function ApprovalsTab({
                 ? payload.amount_cents / 100
                 : undefined)
             const amountFormatted = formatAmount(amountEur)
-            const isWorkshopOrder = summary?.target_type === 'WorkshopOrder'
-            const workshopOrderId = isWorkshopOrder
+            const isWorkshopOrderLine =
+              proposal.action_type === 'workshop_order.add_line' ||
+              proposal.action_type === 'workshop_order.propose_line'
+            const workshopOrderId = isWorkshopOrderLine
               ? (summary?.target_id ?? null)
               : null
             const orderSummary = proposal.workshop_order_summary ?? null
@@ -273,8 +261,8 @@ export function ApprovalsTab({
               ]
                 .filter(Boolean)
                 .join(' · ') || null
-            const proposedLines = isWorkshopOrder
-              ? getProposedLines(payload)
+            const proposedLines = isWorkshopOrderLine
+              ? [getProposedLine(payload)]
               : []
 
             return (
@@ -298,7 +286,7 @@ export function ApprovalsTab({
                         {getCopy(t.agent, language)}:{' '}
                         <strong className="text-slate-700">{agentId}</strong>
                       </span>
-                      {isWorkshopOrder ? (
+                      {isWorkshopOrderLine ? (
                         <>
                           <span>
                             {orderSummary?.order_number ? (
@@ -313,11 +301,12 @@ export function ApprovalsTab({
                             )}
                           </span>
                           <span>
-                            {orderSummary?.customer_name ? (
+                            {orderSummary ? (
                               <>
                                 {getCopy(t.customer, language)}:{' '}
                                 <strong className="text-slate-700">
-                                  {orderSummary.customer_name}
+                                  {orderSummary.customer_name ??
+                                    getCopy(t.dealerStock, language)}
                                 </strong>
                               </>
                             ) : (
@@ -462,7 +451,7 @@ export function ApprovalsTab({
                               className="border-b border-slate-100 last:border-0"
                             >
                               <td className="py-1.5 pr-3 font-medium text-slate-900">
-                                {line.name}
+                                {line.name ?? getCopy(t.unnamedLine, language)}
                               </td>
                               <td className="py-1.5 pr-3">
                                 {formatLineType(line.type)}

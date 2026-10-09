@@ -86,12 +86,12 @@ export const SUPERVISION_COPY = {
       de: 'Betrag',
     },
     orderNumber: {
-      en: 'Order number',
-      de: 'Auftragsnummer',
+      en: 'Order No.',
+      de: 'Auftrags-Nr.',
     },
     orderNumberMissing: {
-      en: 'Order number not set',
-      de: 'Auftragsnummer nicht gesetzt',
+      en: 'Order No. not set',
+      de: 'Auftrags-Nr. nicht gesetzt',
     },
     customer: {
       en: 'Customer',
@@ -100,6 +100,14 @@ export const SUPERVISION_COPY = {
     customerMissing: {
       en: 'Customer not set',
       de: 'Kunde nicht gesetzt',
+    },
+    dealerStock: {
+      en: 'Dealer stock',
+      de: 'Händlerbestand',
+    },
+    unnamedLine: {
+      en: 'Proposed line item',
+      de: 'Vorgeschlagene Position',
     },
     vehicle: {
       en: 'Vehicle',
