@@ -5,8 +5,10 @@ import {
   type McpToolName,
 } from './mcp.constants.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
 import type { z } from 'zod';
 import {
+  getCapabilitiesInputSchema,
   getCustomerInputSchema,
   getStockLevelBaseSchema,
   getVehicleStockAgeReportInputSchema,
@@ -21,35 +23,8 @@ import {
   searchCustomersInputSchema,
   searchPartsInputSchema,
   searchVehiclesInputSchema,
+  whoamiInputSchema,
 } from './mcp-tool-schemas.js';
-
-const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
-  search_customers: 'Search customers (tenant-scoped, paged)',
-  get_customer: 'Get a customer by id',
-  search_vehicles: 'Search vehicles (tenant-scoped, paged)',
-  get_vehicle: 'Get a vehicle by id',
-  list_workshop_orders: 'List workshop orders for the active site (paged)',
-  get_workshop_order: 'Get a workshop order by id (active site)',
-  search_parts:
-    'Search parts by query; optional workshop_order_id uses workshop catalog context',
-  get_stock_level: 'Stock levels for a catalog item id or SKU (active site)',
-  get_vehicle_stock_age_report:
-    'Read paged dealer stock age and cost basis for the active site',
-  get_vehicle_stock_margin_report:
-    'Read paged invoiced vehicle margins for the active site and date period',
-  list_bays: 'List active bays for the active site (paged)',
-  list_bins: 'List bin storage locations for the active site (paged)',
-  list_workshop_tasks:
-    'List workshop tasks the caller may see, including line IDs (paged)',
-  draft_workshop_order:
-    'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
-  reserve_part:
-    'Reserve a catalog part line from a bin; AUTO at or below policy amount_max (EUR 250 platform cap), PROPOSE above amount_max (reversible; counter-tool: release_reservation)',
-  release_reservation:
-    'Release a parts reservation (counter-tool of reserve_part)',
-  propose_line_item:
-    'Propose a workshop task line item (never executes; records a pending proposal)',
-};
 
 type McpRegisterToolInputSchema = z.ZodTypeAny | Record<string, z.ZodTypeAny>;
 
@@ -67,6 +42,8 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   list_bays: listBaysInputSchema.shape,
   list_bins: listBinsInputSchema.shape,
   list_workshop_tasks: listWorkshopTasksInputSchema.shape,
+  whoami: whoamiInputSchema.shape,
+  get_capabilities: getCapabilitiesInputSchema.shape,
   draft_workshop_order: mcpWriteToolInputSchemas.draft_workshop_order,
   reserve_part: mcpWriteToolInputSchemas.reserve_part,
   release_reservation: mcpWriteToolInputSchemas.release_reservation,
@@ -90,7 +67,7 @@ export function createMcpServer(
     server.registerTool(
       toolName,
       {
-        description: TOOL_DESCRIPTIONS[toolName],
+        description: MCP_TOOL_DESCRIPTIONS[toolName],
         inputSchema: TOOL_INPUT_SCHEMAS[toolName],
       },
       async (args) => {

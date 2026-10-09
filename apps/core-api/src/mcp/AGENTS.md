@@ -32,6 +32,8 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
+| `whoami` | Caller identity, role, tenant, active site, and decision apply mode | Read | AUTO |
+| `get_capabilities` | Paged tools for the caller with policy tier, enabled state, and disabled reason | Read | AUTO |
 | `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | Off by default; AUTO when enabled                     |
 | `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | Off by default; AUTO up to the amount limit, else PROPOSE |
 | `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |
@@ -48,9 +50,16 @@ Write tools start Off (`enabled: false`) in the platform policy table. A tenant 
 
 Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask first` to `PROPOSE`, and `Off` to disabled / `HUMAN_ONLY`. When a tool is Off or the server returns `HUMAN_ONLY`, stop. Never find another route to perform the action.
 
+### Identity and capability checks
+
+- `whoami` takes no input. For an agent session, `caller.type` is `agent` and `caller.id` is the agent identifier; `human_on_behalf` appears only when no agent identity is present. `role`, `tenant`, and `site` describe the human the agent acts for, and `mode` is the effective decision apply mode, `shadow` or `live`.
+- `get_capabilities` lists the tools the caller can use with `tier`, `enabled`, and `disabled_reason`. Read tools are `AUTO` and enabled. A write tool whose policy rule is off is listed with `enabled: false` and `disabled_reason: policy_disabled`; its `tier` is the configured base tier, which is not permission to run it. A call can still escalate an `AUTO` tier to `PROPOSE` from its amount or customer-facing context.
+- `human_only_actions` names policy actions that are never MCP tools for this caller, including the never-exposed actions. Ask a person to perform them and do not look for another route.
+- Check `get_capabilities` before planning a write, and still act on the status each write call returns.
+
 ### Paging and response size
 
-List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. MCP tools do not accept a cursor or a `limit` argument. The configured serialized-result cap is 32,768 string units; oversized results are truncated. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
+List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. `get_capabilities` is the one exception: it takes `pageSize` (default and maximum 25) and an opaque `cursor` from `meta.next_cursor`. Other MCP tools do not accept a cursor or a `limit` argument. The configured serialized-result cap is 32,768 string units; oversized results are truncated. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 
 ## Outcomes and errors
 

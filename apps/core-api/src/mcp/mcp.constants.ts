@@ -15,6 +15,9 @@ export const MCP_DEFAULT_PAGE = 1;
 export const MCP_DEFAULT_PAGE_SIZE = 10;
 export const MCP_MAX_PAGE_SIZE = 25;
 
+/** get_capabilities returns the whole current catalog on one page by default. */
+export const MCP_CAPABILITIES_DEFAULT_PAGE_SIZE = MCP_MAX_PAGE_SIZE;
+
 /** Max serialized tool result bytes returned to the MCP client. */
 export const MCP_TOOL_RESULT_MAX_BYTES = 32_768;
 
@@ -36,6 +39,8 @@ export const MCP_READ_TOOL_NAMES = [
   'list_bays',
   'list_bins',
   'list_workshop_tasks',
+  'whoami',
+  'get_capabilities',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];

@@ -1,4 +1,8 @@
-import { capMcpToolPayload } from './mcp-output.util.js';
+import {
+  capMcpToolPayload,
+  decodeMcpCursor,
+  encodeMcpCursor,
+} from './mcp-output.util.js';
 
 describe('capMcpToolPayload', () => {
   it('includes a JSON preview when the payload is oversized', () => {
@@ -8,5 +12,19 @@ describe('capMcpToolPayload', () => {
     expect(typeof capped.preview).toBe('string');
     expect((capped.preview as string).length).toBe(1024);
     expect(capped.originalBytes).toBeGreaterThan(32_768);
+  });
+});
+
+describe('MCP paging cursor', () => {
+  it('round-trips the offset it encodes', () => {
+    expect(decodeMcpCursor(encodeMcpCursor(0))).toBe(0);
+    expect(decodeMcpCursor(encodeMcpCursor(25))).toBe(25);
+  });
+
+  it('rejects values that were not issued as cursors', () => {
+    expect(decodeMcpCursor('')).toBeNull();
+    expect(decodeMcpCursor('not a cursor!')).toBeNull();
+    expect(decodeMcpCursor(Buffer.from('abc').toString('base64url'))).toBeNull();
+    expect(decodeMcpCursor(Buffer.from('-1').toString('base64url'))).toBeNull();
   });
 });

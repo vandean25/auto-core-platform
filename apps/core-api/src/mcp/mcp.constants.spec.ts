@@ -67,6 +67,8 @@ describe('MCP Constants - Never Exposed Actions', () => {
         'list_bays',
         'list_bins',
         'list_workshop_tasks',
+        'whoami',
+        'get_capabilities',
       ];
       expect(MCP_READ_TOOL_NAMES).toEqual(allowedReadTools);
     });

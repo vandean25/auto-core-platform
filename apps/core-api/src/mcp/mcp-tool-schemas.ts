@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { MCP_READ_TOOL_NAMES, MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
+import {
+  MCP_MAX_PAGE_SIZE,
+  MCP_READ_TOOL_NAMES,
+  MCP_WRITE_TOOL_NAMES,
+} from './mcp.constants.js';
+import { decodeMcpCursor } from './mcp-output.util.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const pageSizeSchema = z.number().int().min(1).max(25).optional();
@@ -94,6 +99,19 @@ export const listWorkshopTasksInputSchema = z.object({
   page_size: pageSizeSchema,
 });
 
+export const whoamiInputSchema = z.object({});
+
+const capabilityCursorSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]+$/, 'cursor is invalid')
+  .refine((cursor) => decodeMcpCursor(cursor) !== null, 'cursor is invalid');
+
+/** AUT-454 contract: camelCase `pageSize` and an opaque `cursor`. */
+export const getCapabilitiesInputSchema = z.object({
+  pageSize: z.number().int().min(1).max(MCP_MAX_PAGE_SIZE).optional(),
+  cursor: capabilityCursorSchema.optional(),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -111,6 +129,8 @@ export const mcpToolInputSchemas: Record<
   list_bays: listBaysInputSchema,
   list_bins: listBinsInputSchema,
   list_workshop_tasks: listWorkshopTasksInputSchema,
+  whoami: whoamiInputSchema,
+  get_capabilities: getCapabilitiesInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);
