@@ -630,6 +630,7 @@ describe('MCP server (e2e)', () => {
 
      await transport.close();
    });
+
     it('whoami and get_capabilities for tenant B never show tenant A identity', async () => {
       const { client, transport } = await connectMcpClient(
         adminHeaderB,
