@@ -26,10 +26,9 @@ import {
   resolveEnvDecisionApplyMode,
 } from './decision-env.js';
 import {
-  adjustImportTotalsForAdoptedRows,
+  refreshImportJobTotals,
   applyDocumentSortType,
   applyImportRowMatchChanges,
-  updateImportJobTotals,
   type ImportRowMatchChange,
 } from './decision-live-apply.util.js';
 import type { DecisionProvider } from './decision-provider.js';
@@ -374,31 +373,28 @@ export class DecisionLiveApplyService {
     let applyFailed = false;
     if (evaluation.tier === AgentPolicyTier.AUTO && changes.length > 0) {
       try {
-        const rowNos = await this.prisma.$transaction(async (tx) => {
-          const applied = await applyImportRowMatchChanges(tx, {
+        const applied = await this.prisma.$transaction(async (tx) => {
+          const rowNos = await applyImportRowMatchChanges(tx, {
             tenantId: params.tenantId,
             jobId: params.jobId,
             changes: changes.map((plan) => plan.change),
           });
-          if (applied.length > 0) {
-            await updateImportJobTotals(tx, {
-              tenantId: params.tenantId,
-              jobId: params.jobId,
-              totals: adjustImportTotalsForAdoptedRows(
-                params.totals,
-                applied.length,
-              ),
-            });
+          if (rowNos.length === 0) {
+            return { rowNos, totals: params.totals };
           }
-          return applied;
+          // The recount takes the job lock and fails unless the job is still
+          // DRY_RUN_DONE. A job that moved on during the Jev wait rolls the rows back.
+          const recounted = await refreshImportJobTotals(tx, {
+            tenantId: params.tenantId,
+            jobId: params.jobId,
+          });
+          if (!recounted) {
+            throw new Error('Import job left DRY_RUN_DONE during the decision');
+          }
+          return { rowNos, totals: recounted };
         });
-        rowNos.forEach((rowNo) => appliedRowNos.add(rowNo));
-        if (rowNos.length > 0) {
-          totals = adjustImportTotalsForAdoptedRows(
-            params.totals,
-            rowNos.length,
-          );
-        }
+        applied.rowNos.forEach((rowNo) => appliedRowNos.add(rowNo));
+        totals = applied.totals;
       } catch (error) {
         // The transaction rolls back as a unit, so no row or total changed.
         applyFailed = true;

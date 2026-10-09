@@ -187,6 +187,38 @@ describe('Decision live-apply (e2e)', () => {
     return response.body as { id: string; totals: { create: number; update: number } };
   }
 
+  async function runImportRows(
+    auth: string,
+    traceId: string,
+    rows: Array<{ lastName: string; externalId: string }>,
+  ) {
+    const headers = ['Kunden-Nr', 'Typ', 'Vorname', 'Nachname', 'E-Mail'];
+    const csv = Buffer.from(
+      serializeCsv(
+        headers,
+        rows.map((row) => [
+          row.externalId,
+          'PRIVATE',
+          'Erika',
+          row.lastName,
+          `${row.externalId}@example.org`,
+        ]),
+        ';',
+      ),
+      'utf8',
+    );
+    const response = await request(app.getHttpServer())
+      .post('/imports')
+      .set('Authorization', auth)
+      .set('X-Trace-Id', traceId)
+      .field('entityType', 'CUSTOMER')
+      .field('sourceSystem', 'legacy-dms')
+      .field('mapping', JSON.stringify(customerMapping))
+      .attach('file', csv, 'customers.csv')
+      .expect(201);
+    return response.body as { id: string; totals: { create: number; update: number } };
+  }
+
   async function importRow(tenant: TestTenant, jobId: string) {
     return createTenantAwarePrisma(prisma, tenant.tenantId).importJobRow.findFirst({
       where: { import_job_id: jobId, row_no: 1 },
@@ -441,6 +473,41 @@ describe('Decision live-apply (e2e)', () => {
       expect((await importRow(tenantB, job.id))?.action).toBe('CREATE');
       expect(decide).not.toHaveBeenCalled();
       expect(await logsFor(tenantB, traceId)).toHaveLength(0);
+    });
+
+    it('approves two PROPOSE matches of one job concurrently and keeps the totals consistent', async () => {
+      decide.mockResolvedValue(suggestion('choice_1'));
+      const suffix = randomUUID().slice(0, 8);
+      const first = await seedCustomer(tenantA, `Pair-a-${suffix}`);
+      const second = await seedCustomer(tenantA, `Pair-b-${suffix}`);
+      const traceId = randomUUID();
+
+      const job = await runImportRows(authA, traceId, [
+        { lastName: first.last_name, externalId: `ext-pair-a-${suffix}` },
+        { lastName: second.last_name, externalId: `ext-pair-b-${suffix}` },
+      ]);
+
+      expect(job.totals).toEqual(expect.objectContaining({ create: 2, update: 0 }));
+      const proposals = await proposalsFor(tenantA, traceId);
+      expect(proposals).toHaveLength(2);
+
+      await Promise.all(
+        proposals.map((proposal) =>
+          request(app.getHttpServer())
+            .post(`/agent-proposals/${proposal.id}/approve`)
+            .set('Authorization', authA)
+            .expect((response) => expect([200, 201]).toContain(response.status)),
+        ),
+      );
+
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+      const reloaded = await tenantPrisma.importJob.findFirst({ where: { id: job.id } });
+      expect(reloaded?.totals_json).toEqual({ rows: 2, create: 0, update: 2, skip: 0, error: 0 });
+      const rows = await tenantPrisma.importJobRow.findMany({
+        where: { import_job_id: job.id },
+        orderBy: { row_no: 'asc' },
+      });
+      expect(rows.map((row) => row.action)).toEqual(['UPDATE', 'UPDATE']);
     });
 
     it('isolates tenants: the adopted customer belongs to the importing tenant, and the other tenant cannot approve it', async () => {

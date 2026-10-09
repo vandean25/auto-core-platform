@@ -76,8 +76,18 @@ function buildHarness(options: {
         .mockResolvedValue({ decision_apply_mode: options.tenantMode ?? null }),
     },
     customer: { findMany: jest.fn().mockResolvedValue([customerRecord()]) },
-    importJobRow: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-    importJob: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    importJobRow: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      groupBy: jest
+        .fn()
+        .mockResolvedValue([{ action: 'UPDATE', _count: { _all: 1 } }]),
+    },
+    importJob: {
+      findFirst: jest.fn().mockResolvedValue({
+        totals_json: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+      }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     documentBrandAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     $transaction: jest.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
   };
@@ -650,6 +660,30 @@ describe('DecisionLiveApplyService', () => {
     });
   });
   describe('write failures stay audited and never escape', () => {
+    it('AUTO: a job that left DRY_RUN_DONE during the Jev wait rolls the rows back and logs apply_failed', async () => {
+      const harness = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue(suggestion('choice_1')),
+      });
+      harness.prisma.importJob.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      const result = await harness.service.applyCustomerImportDecisions(
+        importParams([ambiguousRow(1)]),
+      );
+
+      expect(harness.prisma.importJobRow.updateMany).toHaveBeenCalled();
+      expect(result).toEqual({
+        mode: 'live',
+        totals: { rows: 1, create: 1, update: 0, skip: 0, error: 0 },
+      });
+      expect(harness.actionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'FALLBACK',
+          resultSummary: expect.objectContaining({ reason: 'apply_failed' }),
+        }),
+      );
+    });
+
     it('AUTO: a failed transaction changes nothing and logs apply_failed', async () => {
       const harness = buildHarness({
         tier: 'AUTO',

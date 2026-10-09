@@ -49,7 +49,7 @@ export async function applyImportRowMatchChanges(
 }
 
 /** Returns false when the job is no longer awaiting confirmation. */
-export async function updateImportJobTotals(
+async function updateImportJobTotals(
   tx: Prisma.TransactionClient,
   params: { tenantId: string; jobId: string; totals: ImportJobTotals },
 ): Promise<boolean> {
@@ -127,17 +127,6 @@ function countImportTotals(
     if (group.action === ImportRowAction.ERROR) totals.error += group.count;
   }
   return totals;
-}
-
-export function adjustImportTotalsForAdoptedRows(
-  totals: ImportJobTotals,
-  adoptedRowCount: number,
-): ImportJobTotals {
-  return {
-    ...totals,
-    create: totals.create - adoptedRowCount,
-    update: totals.update + adoptedRowCount,
-  };
 }
 
 /**
