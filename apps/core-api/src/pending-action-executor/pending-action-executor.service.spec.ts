@@ -54,6 +54,9 @@ describe('PendingActionExecutorService', () => {
         vehicle_id: '00000000-0000-4000-8000-000000000002',
         purpose: 'CUSTOMER_REPAIR',
         status: 'SCHEDULED',
+        bay_id: '00000000-0000-4000-8000-000000000004',
+        scheduled_start_at: '2026-10-12T09:00:00.000Z',
+        scheduled_end_at: '2026-10-12T10:00:00.000Z',
       },
       { site_id: 'site-1' },
     );

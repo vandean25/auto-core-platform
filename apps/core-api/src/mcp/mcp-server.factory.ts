@@ -14,6 +14,9 @@ import {
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
   listWorkshopOrdersInputSchema,
+  listBaysInputSchema,
+  listBinsInputSchema,
+  listWorkshopTasksInputSchema,
   mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
   searchPartsInputSchema,
@@ -34,10 +37,14 @@ const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Read paged dealer stock age and cost basis for the active site',
   get_vehicle_stock_margin_report:
     'Read paged invoiced vehicle margins for the active site and date period',
+  list_bays: 'List active bays for the active site (paged)',
+  list_bins: 'List bin storage locations for the active site (paged)',
+  list_workshop_tasks:
+    'List workshop tasks the caller may see, including line IDs (paged)',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:
-    'Create an on-hand parts reservation (reversible; counter-tool: release_reservation)',
+    'Reserve a catalog part line from a bin; AUTO at or below policy amount_max (EUR 250 platform cap), PROPOSE above amount_max (reversible; counter-tool: release_reservation)',
   release_reservation:
     'Release a parts reservation (counter-tool of reserve_part)',
   propose_line_item:
@@ -57,6 +64,9 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   get_stock_level: getStockLevelBaseSchema.shape,
   get_vehicle_stock_age_report: getVehicleStockAgeReportInputSchema.shape,
   get_vehicle_stock_margin_report: getVehicleStockMarginReportInputSchema.shape,
+  list_bays: listBaysInputSchema.shape,
+  list_bins: listBinsInputSchema.shape,
+  list_workshop_tasks: listWorkshopTasksInputSchema.shape,
   draft_workshop_order: mcpWriteToolInputSchemas.draft_workshop_order,
   reserve_part: mcpWriteToolInputSchemas.reserve_part,
   release_reservation: mcpWriteToolInputSchemas.release_reservation,

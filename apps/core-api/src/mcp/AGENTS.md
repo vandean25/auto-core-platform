@@ -29,12 +29,22 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
 | `get_vehicle_stock_age_report` | Read paged dealer stock age and cost basis for the active site | Read | AUTO |
 | `get_vehicle_stock_margin_report` | Read paged invoiced vehicle margins by invoice date for the active site | Read | AUTO |
+| `list_bays` | List active bays for the active site | Read | AUTO |
+| `list_bins` | List bin storage locations for the active site | Read | AUTO |
+| `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
 | `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | Off by default; AUTO when enabled                     |
 | `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | Off by default; AUTO up to the amount limit, else PROPOSE |
 | `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |
 | `propose_line_item`    | Propose a part or labor line on a workshop task              | Write  | Off by default; PROPOSE when enabled                  |
 
 Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item` is clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+
+### Reservation rules
+
+- `reserve_part` only accepts a catalog-backed part line item. It does not accept free-text lines.
+- `reserve_part.location_id` must identify a bin at the active site; warehouse locations are not valid reservation bins.
+- The existing EUR 250 `amount_max` policy is unchanged. A reservation whose computed `amount_eur` is at or below the policy's `amount_max` may run as `AUTO`; an amount above `amount_max` is `PROPOSE`. Tenant policy can set a stricter cap.
+- For scheduled drafts, `draft_workshop_order` requires `bay_id`, `scheduled_start_at`, and `scheduled_end_at`, matching server validation.
 
 Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask first` to `PROPOSE`, and `Off` to disabled / `HUMAN_ONLY`. When a tool is Off or the server returns `HUMAN_ONLY`, stop. Never find another route to perform the action.
 

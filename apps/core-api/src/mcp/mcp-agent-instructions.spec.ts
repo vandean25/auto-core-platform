@@ -13,6 +13,10 @@ import {
   MCP_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
+import {
+  draftWorkshopOrderInputSchema,
+  reservePartInputSchema,
+} from './mcp-tool-schemas.js';
 
 type ToolDrift = {
   documentedButNotRegistered: string[];
@@ -180,6 +184,55 @@ describe('MCP agent-facing instructions', () => {
     expect(() =>
       assertToolTableMatchesRegistry(instructions, MCP_TOOL_NAMES),
     ).not.toThrow();
+  });
+
+  it('registers site bays, bins, and caller-visible workshop task reads', () => {
+    expect(MCP_READ_TOOL_NAMES).toEqual(
+      expect.arrayContaining([
+        'list_bays',
+        'list_bins',
+        'list_workshop_tasks',
+      ]),
+    );
+  });
+
+  it('documents reserve amount, bin location, and catalog line constraints', () => {
+    const instructions = readFileSync(
+      new URL('./AGENTS.md', import.meta.url),
+      'utf8',
+    );
+
+    expect(instructions).toMatch(/EUR\s*250/);
+    expect(instructions).toMatch(/amount_max/);
+    expect(instructions).toMatch(/location_id.*bin|bin.*location_id/is);
+    expect(instructions).toMatch(/catalog-backed part line item/i);
+  });
+
+  it('requires bay and schedule fields for scheduled draft orders', () => {
+    expect(
+      draftWorkshopOrderInputSchema.safeParse({
+        vehicle_id: '00000000-0000-4000-8000-000000000001',
+        status: 'SCHEDULED',
+      }).success,
+    ).toBe(false);
+    expect(
+      draftWorkshopOrderInputSchema.safeParse({
+        vehicle_id: '00000000-0000-4000-8000-000000000001',
+        status: 'SCHEDULED',
+        bay_id: '00000000-0000-4000-8000-000000000002',
+        scheduled_start_at: '2026-10-12T09:00:00.000Z',
+        scheduled_end_at: '2026-10-12T10:00:00.000Z',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('describes the reserve cap, catalog line, and bin in the tool schema', () => {
+    expect(reservePartInputSchema.description).toContain('EUR 250');
+    expect(reservePartInputSchema.shape.workshop_task_line_item_id.description)
+      .toMatch(/catalog-backed PART line item/);
+    expect(reservePartInputSchema.shape.location_id.description).toMatch(
+      /bin storage location/,
+    );
   });
 
   it('keeps the feature-spec read/write tables aligned with the registry', () => {
