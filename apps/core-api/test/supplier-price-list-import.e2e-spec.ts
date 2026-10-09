@@ -390,6 +390,9 @@ describe('Supplier Price List Import (e2e)', () => {
     // Verify benchmark execution time
     expect(elapsedMs).toBeLessThan(10000);
 
+    benchmarkJobId = res.body.id;
+    expect(benchmarkJobId).toBeDefined();
+
     // Verify job structure and counts
     expect(res.body.status).toBe('DRY_RUN_DONE');
     expect(res.body.totals).toEqual({
@@ -400,10 +403,8 @@ describe('Supplier Price List Import (e2e)', () => {
         FIXTURE_COUNTS.unchangedExpected + FIXTURE_COUNTS.unmatchedExpected, // 1,000 + 1,000 = 2,000
       create: 0,
       error: FIXTURE_COUNTS.errorsExpected, // 100
+      flagged_jumps: FIXTURE_COUNTS.priceJumpsExpected, // 400
     });
-
-    benchmarkJobId = res.body.id;
-    expect(benchmarkJobId).toBeDefined();
 
     // Verify rows endpoint returns rows
     const rowsRes = await request(app.getHttpServer())
