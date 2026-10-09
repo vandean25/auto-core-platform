@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -362,9 +363,10 @@ describe('AgentSupervisionPage', () => {
     render(<AgentSupervisionPage />)
 
     expect(screen.getByText('Customer (customer)')).toBeInTheDocument()
-    expect(screen.getByText('WorkshopOrder (order-45)')).toBeInTheDocument()
+    expect(screen.queryByText(/WorkshopOrder \(/)).not.toBeInTheDocument()
+    expect(screen.getByText('Order number not set')).toBeInTheDocument()
     expect(screen.getByText(/125\.00/)).toBeInTheDocument()
-    expect(screen.getByText(/100\.00/)).toBeInTheDocument()
+    expect(screen.getAllByText(/100\.00/).length).toBeGreaterThan(0)
   })
 
   it('localizes approval detail labels in German', () => {
@@ -596,5 +598,153 @@ describe('AgentSupervisionPage', () => {
 
     expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
     expect(screen.getByText('No pending proposals')).toBeInTheDocument()
+  })
+
+  describe('workshop order approval cards', () => {
+    const ORDER_UUID = '6fd17060-0000-4000-8000-000000000001'
+
+    const workshopOrderProposal = (overrides: Record<string, unknown> = {}) => ({
+      id: 'wo-prop-1',
+      tenant_id: 'tenant-1',
+      trace_id: '33333333-3333-3333-3333-333333333333',
+      action_type: 'workshop_order.propose_line',
+      tier: 'PROPOSE' as const,
+      status: 'PENDING' as const,
+      payload_json: {
+        agent_id: 'workshop-agent',
+        workshop_order_id: ORDER_UUID,
+        workshop_task_id: '44444444-4444-4444-4444-444444444444',
+        expected_line_items_version: 0,
+        line_item: {
+          type: 'PART',
+          item_no: 'DEMO-PART-001',
+          description: 'Brake pad set',
+          quantity: 2,
+          unit_price_cents: 25000,
+        },
+      },
+      effective_summary: {
+        target_type: 'WorkshopOrder',
+        target_id: ORDER_UUID,
+        amount_eur: 500,
+      },
+      workshop_order_summary: {
+        id: ORDER_UUID,
+        order_number: 'WO-2026-0001',
+        customer_name: 'Maria Demo',
+        vehicle_registration: 'W-DEMO 101',
+        vehicle_description: '2019 Volkswagen Golf',
+      },
+      preview_json: null,
+      decided_by: null,
+      decided_at: null,
+      reason: null,
+      expires_at: '2026-10-11T12:00:00.000Z',
+      created_at: '2026-10-04T12:00:00.000Z',
+      updated_at: '2026-10-04T12:00:00.000Z',
+      ...overrides,
+    })
+
+    const renderWithProposals = (proposals: unknown[]) => {
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: { data: proposals },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+      return render(<AgentSupervisionPage />)
+    }
+
+    it('shows order number, customer and vehicle instead of the raw order UUID', () => {
+      renderWithProposals([workshopOrderProposal()])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
+      expect(card.getByText('WO-2026-0001')).toBeInTheDocument()
+      expect(card.getByText('Maria Demo')).toBeInTheDocument()
+      expect(
+        card.getByText('2019 Volkswagen Golf · W-DEMO 101'),
+      ).toBeInTheDocument()
+      expect(card.queryByText(/WorkshopOrder \(/)).not.toBeInTheDocument()
+      expect(card.queryByText(new RegExp(ORDER_UUID))).not.toBeInTheDocument()
+    })
+
+    it('shows plain fallbacks when an order field is missing', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          workshop_order_summary: {
+            id: ORDER_UUID,
+            order_number: null,
+            customer_name: null,
+            vehicle_registration: null,
+            vehicle_description: '2019 Volkswagen Golf',
+          },
+        }),
+      ])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
+      expect(card.getByText('Order number not set')).toBeInTheDocument()
+      expect(card.getByText('Customer not set')).toBeInTheDocument()
+      expect(card.getByText('2019 Volkswagen Golf')).toBeInTheDocument()
+    })
+
+    it('shows fallbacks for all order fields when the order is not visible', () => {
+      renderWithProposals([
+        workshopOrderProposal({ workshop_order_summary: null }),
+      ])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
+      expect(card.getByText('Order number not set')).toBeInTheDocument()
+      expect(card.getByText('Customer not set')).toBeInTheDocument()
+      expect(card.getByText('Vehicle not set')).toBeInTheDocument()
+    })
+
+    it('shows the order UUID only under Show details', () => {
+      renderWithProposals([workshopOrderProposal()])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-1'))
+      expect(card.queryByText(new RegExp(ORDER_UUID))).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('toggle-preview-wo-prop-1'))
+
+      expect(
+        within(screen.getByTestId('preview-panel-wo-prop-1')).getByText(
+          ORDER_UUID,
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('lists each proposed line with name, quantity, type and euro amounts', () => {
+      renderWithProposals([workshopOrderProposal()])
+
+      const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
+      expect(lines.getByText('Brake pad set')).toBeInTheDocument()
+      expect(lines.getByText('Part')).toBeInTheDocument()
+      expect(lines.getByText('2')).toBeInTheDocument()
+      expect(lines.getByText('€250.00')).toBeInTheDocument()
+      expect(lines.getByText('€500.00')).toBeInTheDocument()
+    })
+
+    it('formats proposed line amounts as German euros', () => {
+      renderWithProposals([workshopOrderProposal()])
+      fireEvent.click(screen.getByTestId('toggle-language-btn'))
+
+      const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
+      expect(lines.getByText('Teil')).toBeInTheDocument()
+      expect(lines.getByText(/250,00\s€/)).toBeInTheDocument()
+      expect(lines.getByText(/500,00\s€/)).toBeInTheDocument()
+    })
+
+    it('keeps the raw payload JSON under Show details', () => {
+      renderWithProposals([workshopOrderProposal()])
+      expect(
+        screen.queryByTestId('preview-panel-wo-prop-1'),
+      ).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('toggle-preview-wo-prop-1'))
+
+      expect(screen.getByTestId('preview-panel-wo-prop-1')).toHaveTextContent(
+        '"unit_price_cents": 25000',
+      )
+    })
   })
 })

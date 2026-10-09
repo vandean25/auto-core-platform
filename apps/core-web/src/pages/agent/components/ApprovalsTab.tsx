@@ -23,6 +23,53 @@ import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { RejectProposalDialog } from './RejectProposalDialog'
 
+interface ProposedLine {
+  name: string
+  type: string | null
+  quantity: number | null
+  unitPriceEur: number | null
+  amountEur: number | null
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * Reads the proposed workshop line from a line-item proposal payload. Accepts
+ * the nested `line_item` form written by propose_line_item and the flat form.
+ */
+function getProposedLines(payload: Record<string, unknown>): ProposedLine[] {
+  const source = isRecord(payload.line_item) ? payload.line_item : payload
+  const name =
+    typeof source.description === 'string'
+      ? source.description
+      : typeof source.item_no === 'string'
+        ? source.item_no
+        : null
+  if (!name) return []
+
+  const quantity = typeof source.quantity === 'number' ? source.quantity : null
+  const unitPriceEur =
+    typeof source.unit_price_cents === 'number'
+      ? source.unit_price_cents / 100
+      : typeof source.unit_price === 'number'
+        ? source.unit_price
+        : null
+
+  return [
+    {
+      name,
+      type: typeof source.type === 'string' ? source.type : null,
+      quantity,
+      unitPriceEur,
+      amountEur:
+        unitPriceEur !== null && quantity !== null
+          ? unitPriceEur * quantity
+          : null,
+    },
+  ]
+}
+
 interface ApprovalsTabProps {
   language?: Language
   onSelectTraceId?: (traceId: string) => void
@@ -86,6 +133,12 @@ export function ApprovalsTab({
       style: 'currency',
       currency: 'EUR',
     })
+  }
+
+  const formatLineType = (type: string | null) => {
+    if (type === 'PART') return getCopy(t.lineTypePart, language)
+    if (type === 'LABOR') return getCopy(t.lineTypeLabor, language)
+    return type ?? '—'
   }
 
   return (
@@ -208,6 +261,21 @@ export function ApprovalsTab({
                 ? payload.amount_cents / 100
                 : undefined)
             const amountFormatted = formatAmount(amountEur)
+            const isWorkshopOrder = summary?.target_type === 'WorkshopOrder'
+            const workshopOrderId = isWorkshopOrder
+              ? (summary?.target_id ?? null)
+              : null
+            const orderSummary = proposal.workshop_order_summary ?? null
+            const orderVehicleLabel =
+              [
+                orderSummary?.vehicle_description,
+                orderSummary?.vehicle_registration,
+              ]
+                .filter(Boolean)
+                .join(' · ') || null
+            const proposedLines = isWorkshopOrder
+              ? getProposedLines(payload)
+              : []
 
             return (
               <div
@@ -230,7 +298,46 @@ export function ApprovalsTab({
                         {getCopy(t.agent, language)}:{' '}
                         <strong className="text-slate-700">{agentId}</strong>
                       </span>
-                      {entityType && (
+                      {isWorkshopOrder ? (
+                        <>
+                          <span>
+                            {orderSummary?.order_number ? (
+                              <>
+                                {getCopy(t.orderNumber, language)}:{' '}
+                                <strong className="text-slate-700">
+                                  {orderSummary.order_number}
+                                </strong>
+                              </>
+                            ) : (
+                              getCopy(t.orderNumberMissing, language)
+                            )}
+                          </span>
+                          <span>
+                            {orderSummary?.customer_name ? (
+                              <>
+                                {getCopy(t.customer, language)}:{' '}
+                                <strong className="text-slate-700">
+                                  {orderSummary.customer_name}
+                                </strong>
+                              </>
+                            ) : (
+                              getCopy(t.customerMissing, language)
+                            )}
+                          </span>
+                          <span>
+                            {orderVehicleLabel ? (
+                              <>
+                                {getCopy(t.vehicle, language)}:{' '}
+                                <strong className="text-slate-700">
+                                  {orderVehicleLabel}
+                                </strong>
+                              </>
+                            ) : (
+                              getCopy(t.vehicleMissing, language)
+                            )}
+                          </span>
+                        </>
+                      ) : entityType ? (
                         <span>
                           {getCopy(t.target, language)}:{' '}
                           <strong className="text-slate-700">
@@ -238,7 +345,7 @@ export function ApprovalsTab({
                             {entityId ? ` (${entityId.slice(0, 8)})` : ''}
                           </strong>
                         </span>
-                      )}
+                      ) : null}
                       <span>
                         <Clock
                           className="inline mr-1 h-3 w-3"
@@ -318,6 +425,69 @@ export function ApprovalsTab({
                   </div>
                 )}
 
+                {/* Proposed workshop lines */}
+                {proposedLines.length > 0 && (
+                  <div
+                    className="space-y-2"
+                    data-testid={`proposed-lines-${proposal.id}`}
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      {getCopy(t.proposedLines, language)}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-slate-700">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-left text-slate-500">
+                            <th className="py-1.5 pr-3 font-medium">
+                              {getCopy(t.lineName, language)}
+                            </th>
+                            <th className="py-1.5 pr-3 font-medium">
+                              {getCopy(t.lineType, language)}
+                            </th>
+                            <th className="py-1.5 pr-3 text-right font-medium">
+                              {getCopy(t.lineQuantity, language)}
+                            </th>
+                            <th className="py-1.5 pr-3 text-right font-medium">
+                              {getCopy(t.lineUnitPrice, language)}
+                            </th>
+                            <th className="py-1.5 text-right font-medium">
+                              {getCopy(t.amount, language)}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {proposedLines.map((line, index) => (
+                            <tr
+                              key={`${line.name}-${index}`}
+                              className="border-b border-slate-100 last:border-0"
+                            >
+                              <td className="py-1.5 pr-3 font-medium text-slate-900">
+                                {line.name}
+                              </td>
+                              <td className="py-1.5 pr-3">
+                                {formatLineType(line.type)}
+                              </td>
+                              <td className="py-1.5 pr-3 text-right font-mono">
+                                {line.quantity === null
+                                  ? '—'
+                                  : line.quantity.toLocaleString(
+                                      language === 'de' ? 'de-DE' : 'en-US',
+                                    )}
+                              </td>
+                              <td className="py-1.5 pr-3 text-right font-mono">
+                                {formatAmount(line.unitPriceEur) ?? '—'}
+                              </td>
+                              <td className="py-1.5 text-right font-mono font-semibold text-emerald-700">
+                                {formatAmount(line.amountEur) ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {/* Proposal Context metrics */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
                   <div className="flex items-center gap-4">
@@ -379,6 +549,14 @@ export function ApprovalsTab({
                     className="rounded-md border border-slate-200 bg-slate-900 p-4 text-xs font-mono text-slate-100 overflow-x-auto space-y-2"
                     data-testid={`preview-panel-${proposal.id}`}
                   >
+                    {workshopOrderId ? (
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                          {getCopy(t.workshopOrderId, language)}:
+                        </div>
+                        <div>{workshopOrderId}</div>
+                      </div>
+                    ) : null}
                     {proposal.preview_json ? (
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">

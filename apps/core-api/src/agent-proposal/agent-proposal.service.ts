@@ -8,6 +8,7 @@ import {
 import {
   AgentPolicyTier,
   AgentProposalStatus,
+  CustomerType,
   Prisma,
   type AgentProposal,
 } from '@prisma/client';
@@ -28,11 +29,19 @@ import type {
   BatchApplyAgentProposalsResponseDto,
   AgentProposalListResponseDto,
   AgentProposalResponseDto,
+  AgentProposalWorkshopOrderSummaryDto,
   CreateAgentProposalDto,
   QueryAgentProposalsDto,
   RejectAgentProposalDto,
   SubmitPendingAgentActionDto,
 } from './dto/agent-proposal.dto.js';
+
+const WORKSHOP_ORDER_ID_KEYS = [
+  'order_id',
+  'orderId',
+  'workshop_order_id',
+  'workshopOrderId',
+] as const;
 
 @Injectable()
 export class AgentProposalService {
@@ -75,8 +84,14 @@ export class AgentProposalService {
       take: query.limit ?? 50,
     });
 
+    const workshopOrderSummaries = await this.loadWorkshopOrderSummaries(
+      tenantId,
+      proposals,
+    );
     return {
-      data: proposals.map((proposal) => this.toResponseDto(proposal)),
+      data: proposals.map((proposal) =>
+        this.toResponseDto(proposal, workshopOrderSummaries),
+      ),
     };
   }
 
@@ -106,7 +121,11 @@ export class AgentProposalService {
       proposal.status = AgentProposalStatus.EXPIRED;
     }
 
-    return this.toResponseDto(proposal);
+    const workshopOrderSummaries = await this.loadWorkshopOrderSummaries(
+      tenantId,
+      [proposal],
+    );
+    return this.toResponseDto(proposal, workshopOrderSummaries);
   }
 
   async rejectProposal(
@@ -796,12 +815,7 @@ export class AgentProposalService {
         ? firstString(['customer_id', 'customerId'])
         : actionType === 'workshop_order.add_line' ||
             actionType === 'workshop_order.propose_line'
-          ? firstString([
-              'order_id',
-              'orderId',
-              'workshop_order_id',
-              'workshopOrderId',
-            ])
+          ? firstString([...WORKSHOP_ORDER_ID_KEYS])
           : firstString(['entity_id', 'entityId']);
 
     let amountEur: number | null = null;
@@ -819,7 +833,110 @@ export class AgentProposalService {
     };
   }
 
-  private toResponseDto(proposal: AgentProposal): AgentProposalResponseDto {
+  /**
+   * Read-only display context for workshop order proposals. Orders are
+   * site-owned, so only orders in sites the caller may operate on are loaded.
+   * Anything else resolves to null and the card shows plain fallbacks.
+   */
+  private async loadWorkshopOrderSummaries(
+    tenantId: string,
+    proposals: AgentProposal[],
+  ): Promise<Map<string, AgentProposalWorkshopOrderSummaryDto>> {
+    const summaries = new Map<string, AgentProposalWorkshopOrderSummaryDto>();
+    const orderIds = [
+      ...new Set(
+        proposals
+          .map((proposal) =>
+            this.resolveWorkshopOrderId(
+              proposal.action_type,
+              (proposal.payload_json ?? {}) as Record<string, unknown>,
+            ),
+          )
+          .filter((orderId): orderId is string => orderId !== null),
+      ),
+    ];
+    if (orderIds.length === 0) {
+      return summaries;
+    }
+
+    const siteIds = await this.siteContext.listAuthorizedSiteIds();
+    if (siteIds.length === 0) {
+      return summaries;
+    }
+
+    const orders = await this.prisma.workshopOrder.findMany({
+      where: {
+        tenant_id: tenantId,
+        site_id: { in: siteIds },
+        id: { in: orderIds },
+      },
+      select: {
+        id: true,
+        order_number: true,
+        customer: {
+          select: {
+            type: true,
+            company_name: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        vehicle: {
+          select: { plate: true, year: true, make: true, model: true },
+        },
+      },
+    });
+
+    for (const order of orders) {
+      const vehicleDescription = [
+        String(order.vehicle.year),
+        order.vehicle.make,
+        order.vehicle.model,
+      ]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(' ');
+      summaries.set(order.id, {
+        id: order.id,
+        order_number: order.order_number.trim() || null,
+        customer_name: formatCustomerName(order.customer),
+        vehicle_registration: order.vehicle.plate?.trim() || null,
+        vehicle_description: vehicleDescription || null,
+      });
+    }
+    return summaries;
+  }
+
+  private resolveWorkshopOrderId(
+    actionType: string,
+    payload: Record<string, unknown>,
+  ): string | null {
+    if (
+      actionType !== 'workshop_order.add_line' &&
+      actionType !== 'workshop_order.propose_line'
+    ) {
+      return null;
+    }
+    for (const key of WORKSHOP_ORDER_ID_KEYS) {
+      const value = payload[key];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  private toResponseDto(
+    proposal: AgentProposal,
+    workshopOrderSummaries: Map<
+      string,
+      AgentProposalWorkshopOrderSummaryDto
+    > = new Map(),
+  ): AgentProposalResponseDto {
+    const workshopOrderId = this.resolveWorkshopOrderId(
+      proposal.action_type,
+      (proposal.payload_json ?? {}) as Record<string, unknown>,
+    );
     return {
       id: proposal.id,
       tenant_id: proposal.tenant_id,
@@ -832,6 +949,9 @@ export class AgentProposalService {
         proposal.action_type,
         (proposal.payload_json ?? {}) as Record<string, unknown>,
       ),
+      workshop_order_summary: workshopOrderId
+        ? (workshopOrderSummaries.get(workshopOrderId) ?? null)
+        : null,
       preview_json: (proposal.preview_json ?? null) as Record<
         string,
         unknown
@@ -1020,4 +1140,22 @@ export function resolveLineItemFinancials(
     totalAmount: 0,
     quantity,
   };
+}
+
+function formatCustomerName(
+  customer: {
+    type: CustomerType;
+    company_name: string | null;
+    first_name: string;
+    last_name: string;
+  } | null,
+): string | null {
+  if (!customer) {
+    return null;
+  }
+  const companyName = customer.company_name?.trim();
+  if (customer.type === CustomerType.COMPANY && companyName) {
+    return companyName;
+  }
+  return `${customer.first_name} ${customer.last_name}`.trim() || null;
 }

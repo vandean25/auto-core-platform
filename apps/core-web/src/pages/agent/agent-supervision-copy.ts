@@ -85,6 +85,62 @@ export const SUPERVISION_COPY = {
       en: 'Amount',
       de: 'Betrag',
     },
+    orderNumber: {
+      en: 'Order number',
+      de: 'Auftragsnummer',
+    },
+    orderNumberMissing: {
+      en: 'Order number not set',
+      de: 'Auftragsnummer nicht gesetzt',
+    },
+    customer: {
+      en: 'Customer',
+      de: 'Kunde',
+    },
+    customerMissing: {
+      en: 'Customer not set',
+      de: 'Kunde nicht gesetzt',
+    },
+    vehicle: {
+      en: 'Vehicle',
+      de: 'Fahrzeug',
+    },
+    vehicleMissing: {
+      en: 'Vehicle not set',
+      de: 'Fahrzeug nicht gesetzt',
+    },
+    workshopOrderId: {
+      en: 'Workshop order ID',
+      de: 'Auftrags-ID',
+    },
+    proposedLines: {
+      en: 'Proposed lines',
+      de: 'Vorgeschlagene Positionen',
+    },
+    lineName: {
+      en: 'Name',
+      de: 'Bezeichnung',
+    },
+    lineType: {
+      en: 'Type',
+      de: 'Typ',
+    },
+    lineQuantity: {
+      en: 'Qty',
+      de: 'Menge',
+    },
+    lineUnitPrice: {
+      en: 'Unit price',
+      de: 'Einzelpreis',
+    },
+    lineTypePart: {
+      en: 'Part',
+      de: 'Teil',
+    },
+    lineTypeLabor: {
+      en: 'Labor',
+      de: 'Arbeit',
+    },
     previewDiff: {
       en: 'Preview / Diff',
       de: 'Vorschau / Differenz',

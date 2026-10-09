@@ -130,6 +130,27 @@ export class AgentProposalEffectiveSummaryDto {
   amount_eur!: number | null;
 }
 
+export class AgentProposalWorkshopOrderSummaryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ type: String, nullable: true, example: 'WO-2026-0001' })
+  order_number!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  customer_name!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  vehicle_registration!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '2019 Volkswagen Golf',
+  })
+  vehicle_description!: string | null;
+}
+
 export class AgentProposalResponseDto {
   @ApiProperty()
   id!: string;
@@ -154,6 +175,14 @@ export class AgentProposalResponseDto {
 
   @ApiProperty({ type: AgentProposalEffectiveSummaryDto })
   effective_summary!: AgentProposalEffectiveSummaryDto;
+
+  @ApiProperty({
+    type: AgentProposalWorkshopOrderSummaryDto,
+    nullable: true,
+    description:
+      'Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller.',
+  })
+  workshop_order_summary!: AgentProposalWorkshopOrderSummaryDto | null;
 
   @ApiProperty({
     type: Object,

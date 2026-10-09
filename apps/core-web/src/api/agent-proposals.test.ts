@@ -52,6 +52,7 @@ const mockProposal: AgentProposal = {
     target_id: 'wo-1',
     amount_eur: null,
   },
+  workshop_order_summary: null,
   preview_json: { description: 'Brake pads' },
   created_by_agent: null,
   decided_by: null,
