@@ -48,6 +48,8 @@ const TRACE_IDS: Record<(typeof MCP_READ_TOOL_NAMES)[number], string> = {
   list_bays: '00000000-0000-4000-8000-000000000109',
   list_bins: '00000000-0000-4000-8000-000000000110',
   list_workshop_tasks: '00000000-0000-4000-8000-000000000111',
+  get_vehicle_stock_age_report: '00000000-0000-4000-8000-000000000112',
+  get_vehicle_stock_margin_report: '00000000-0000-4000-8000-000000000113',
 };
 
 describe('MCP server (e2e)', () => {
@@ -414,7 +416,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists all fifteen tools (11 read + 4 write)', async () => {
+  it('lists all seventeen tools (13 read + 4 write)', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
@@ -449,10 +451,18 @@ describe('MCP server (e2e)', () => {
       },
       { name: 'search_parts', arguments: { query: fixtures.searchToken } },
       { name: 'get_stock_level', arguments: { sku: fixtures.sku } },
+      { name: 'get_vehicle_stock_age_report', arguments: {} },
+      {
+        name: 'get_vehicle_stock_margin_report',
+        arguments: { from: '2026-10-01', to: '2026-10-31' },
+      },
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
     ];
+    expect(toolCalls.map((call) => call.name).sort()).toEqual(
+      [...MCP_READ_TOOL_NAMES].sort(),
+    );
 
     for (const call of toolCalls) {
       const traceId = TRACE_IDS[call.name];
@@ -578,10 +588,18 @@ describe('MCP server (e2e)', () => {
         name: 'get_stock_level',
         arguments: { sku: fixtures.sku },
       },
+      { name: 'get_vehicle_stock_age_report', arguments: {} },
+      {
+        name: 'get_vehicle_stock_margin_report',
+        arguments: { from: '2026-10-01', to: '2026-10-31' },
+      },
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
     ];
+    expect(calls.map((call) => call.name).sort()).toEqual(
+      [...MCP_READ_TOOL_NAMES].sort(),
+    );
 
     for (const call of calls) {
       const result = await client.callTool({
