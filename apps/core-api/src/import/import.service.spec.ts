@@ -26,6 +26,7 @@ describe('ImportService - Supplier Price List', () => {
     },
     vendor: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
     },
     marginRule: {
       findMany: jest.fn(),
@@ -43,6 +44,7 @@ describe('ImportService - Supplier Price List', () => {
       create: jest.fn(),
     },
     vendorArticle: {
+      findFirst: jest.fn(),
       findMany: jest.fn(),
       upsert: jest.fn(),
     },
@@ -123,6 +125,7 @@ describe('ImportService - Supplier Price List', () => {
 
     it('throws SUPPLIER_VENDOR_REQUIRED if vendor is not found for tenant', async () => {
       mockPrisma.vendor.findFirst.mockResolvedValue(null);
+      mockPrisma.vendor.findMany.mockResolvedValue([]);
 
       await expect(
         service.createDryRunFromUpload({
@@ -144,7 +147,7 @@ describe('ImportService - Supplier Price List', () => {
         }),
       );
 
-      expect(mockPrisma.vendor.findFirst).toHaveBeenCalledWith(
+      expect(mockPrisma.vendor.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenant_id: 'tenant-1' }),
         }),
@@ -156,6 +159,12 @@ describe('ImportService - Supplier Price List', () => {
         id: 'vendor-1',
         name: 'Autoteile Partner',
       });
+      mockPrisma.vendor.findMany.mockResolvedValue([
+        {
+          id: 'vendor-1',
+          name: 'Autoteile Partner',
+        },
+      ]);
       mockPrisma.marginRule.findMany.mockResolvedValue([
         {
           id: 'rule-1',
@@ -232,6 +241,7 @@ describe('ImportService - Supplier Price List', () => {
         update: 1,
         skip: 0,
         error: 0,
+        flagged_jumps: 1,
       });
 
       const row1 = createdCall.data.rows.create[0];
@@ -291,6 +301,7 @@ describe('ImportService - Supplier Price List', () => {
       });
       mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.vendor.findFirst.mockResolvedValue({ id: 'vendor-1', name: 'Vendor 1' });
+      mockPrisma.vendorArticle.findFirst.mockResolvedValue(null);
 
       mockPrisma.importJobRow.findMany.mockResolvedValue([
         {

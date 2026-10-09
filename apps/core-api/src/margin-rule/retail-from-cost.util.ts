@@ -155,11 +155,7 @@ export function retailFromCost(
     return null;
   }
 
-  if (matchedRule.markup_percent == null) {
-    return null;
-  }
-
-  const markupPercent = matchedRule.markup_percent;
+  const markupPercent = matchedRule.markup_percent ?? 0;
   const rawRetail = cost * (1 + markupPercent / 100);
 
   return roundPrice(rawRetail, rounding);
