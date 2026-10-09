@@ -105,6 +105,8 @@ export class VehicleSaleService {
           vehicle_id: dto.vehicle_id,
           customer_id: dto.customer_id,
           sale_price: new Prisma.Decimal(dto.sale_price),
+          garantie_months: dto.garantie_months ?? null,
+          garantie_terms: dto.garantie_terms ?? null,
           ...warrantyFacts,
           ...warrantySnapshot,
         },
@@ -240,6 +242,14 @@ export class VehicleSaleService {
           dto.sale_price !== undefined
             ? new Prisma.Decimal(dto.sale_price)
             : undefined,
+        garantie_months:
+          dto.garantie_months !== undefined
+            ? dto.garantie_months
+            : sale.garantie_months,
+        garantie_terms:
+          dto.garantie_terms !== undefined
+            ? dto.garantie_terms
+            : sale.garantie_terms,
         ...warrantyFacts,
         ...warrantySnapshot,
       };

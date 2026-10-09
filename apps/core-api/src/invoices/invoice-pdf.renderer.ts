@@ -4,11 +4,11 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
+import { loadBundledBrandFontCss } from '../document-branding/bundled-brand-font-css.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
 import type { InvoiceSnapshot } from './invoice-snapshot.js';
 import {
@@ -141,46 +141,11 @@ export class InvoicePdfRenderer {
   }
 
   private async loadBundledFontCss(): Promise<string> {
-    try {
-      const fontNames = [
-        'NotoSans-Regular.woff2',
-        'NotoSans-Bold.woff2',
-        'NotoSans-LatinExt-Regular.woff2',
-        'NotoSans-LatinExt-Bold.woff2',
-      ];
-      const [fontFiles, manifestFile] = await Promise.all([
-        Promise.all(
-          fontNames.map((fontName) =>
-            readFile(resolve(this.assetDirectory, fontName)),
-          ),
-        ),
-        readFile(resolve(this.assetDirectory, 'font-manifest.json')),
-      ]);
-      const manifest = JSON.parse(manifestFile.toString('utf8')) as {
-        files?: Record<string, string>;
-      };
-      if (
-        !manifest.files ||
-        fontFiles.some(
-          (font, index) =>
-            manifest.files?.[fontNames[index] ?? ''] !==
-            `sha256:${createHash('sha256').update(font).digest('hex')}`,
-        )
-      ) {
-        throw this.renderInputUnavailable();
-      }
-      const [regular, bold, regularExtended, boldExtended] = fontFiles.map(
-        (font) => `data:font/woff2;base64,${font.toString('base64')}`,
-      );
-      return `
-        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 400; src: url('${regular}') format('woff2'); }
-        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 700; src: url('${bold}') format('woff2'); }
-        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 400; src: url('${regularExtended}') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
-        @font-face { font-family: 'ACP Sans'; font-style: normal; font-weight: 700; src: url('${boldExtended}') format('woff2'); unicode-range: U+0100-024F, U+1E00-1EFF; }
-      `;
-    } catch {
+    const css = await loadBundledBrandFontCss(this.assetDirectory);
+    if (!css) {
       throw this.renderInputUnavailable();
     }
+    return css;
   }
 
   private renderInputUnavailable(): UnprocessableEntityException {

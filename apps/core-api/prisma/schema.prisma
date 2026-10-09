@@ -1427,6 +1427,16 @@ model VehicleSale {
   gewaehrleistung_ends_on DateTime?          @db.Date
   presumption_ends_on  DateTime?             @db.Date
   gewaehrleistung_rule_version String?
+  garantie_months      Int?
+  garantie_terms       String?
+  kaufvertrag_snapshot Json?
+  kaufvertrag_snapshot_sha256    String?
+  kaufvertrag_archive_bucket     String?
+  kaufvertrag_archive_key        String?
+  kaufvertrag_archive_generation String?
+  kaufvertrag_archive_sha256     String?
+  kaufvertrag_generated_at       DateTime?
+  kaufvertrag_generation_error   String?
   trade_in_purchase_id String?
   invoice              Invoice?
   ledger_entries       VehicleLedgerEntry[]

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import {
+  VEHICLE_SALES_API,
+  fetchVehicleSaleKaufvertragGenerationError,
   useCreateVehicleSale,
   useFinalizeVehicleSale,
   useUpdateVehicleSale,
@@ -16,6 +18,8 @@ import {
 import type { Customer } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
+import { negotiatedShorteningBlockReason, parseGarantieMonths } from '@/lib/vehicle-sale-warranty'
+import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
@@ -29,6 +33,8 @@ type VehicleSaleDraftFacts = {
   buyer_is_consumer: boolean
   gewaehrleistung_shortened_negotiated: boolean
   gewaehrleistung_note: string | null
+  garantie_months: number | null
+  garantie_terms: string | null
 }
 
 function buildVehicleSaleDraftFacts(input: {
@@ -40,6 +46,8 @@ function buildVehicleSaleDraftFacts(input: {
   buyerIsConsumer: boolean
   shorteningNegotiated: boolean
   warrantyNote: string
+  garantieMonths: number | null
+  garantieTerms: string
 }): VehicleSaleDraftFacts {
   return {
     vehicle_id: input.vehicleId,
@@ -51,6 +59,8 @@ function buildVehicleSaleDraftFacts(input: {
     gewaehrleistung_shortened_negotiated:
       input.buyerIsConsumer && input.shorteningNegotiated,
     gewaehrleistung_note: input.warrantyNote || null,
+    garantie_months: input.garantieMonths,
+    garantie_terms: input.garantieTerms || null,
   }
 }
 
@@ -75,6 +85,9 @@ export default function VehicleSalePage() {
   const [buyerIsConsumer, setBuyerIsConsumer] = useState(true)
   const [shorteningNegotiated, setShorteningNegotiated] = useState(false)
   const [warrantyNote, setWarrantyNote] = useState('')
+  const [garantieMonthsInput, setGarantieMonthsInput] = useState('')
+  const [garantieTerms, setGarantieTerms] = useState('')
+  const garantie = parseGarantieMonths(garantieMonthsInput)
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const lastSavedSerialized = useRef<string | null>(null)
@@ -83,6 +96,17 @@ export default function VehicleSalePage() {
   const saveTimer = useRef<number | null>(null)
   const pendingSave = useRef<Promise<void> | null>(null)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  const { download: downloadKaufvertrag, isLoading: isDownloadingKaufvertrag } = usePdfDownload({
+    postUrl: () => `${VEHICLE_SALES_API}/${saleIdRef.current}/kaufvertrag/pdf`,
+    getUrl: () => `${VEHICLE_SALES_API}/${saleIdRef.current}/kaufvertrag/pdf`,
+    filename: () =>
+      `kaufvertrag-${(existing?.sale_number ?? saleIdRef.current).replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`,
+    checkGenerationFailed: () => fetchVehicleSaleKaufvertragGenerationError(saleIdRef.current),
+    messages: {
+      success: 'Kaufvertrag-PDF heruntergeladen',
+      errorFallback: 'Fehler beim Erstellen des Kaufvertrag-PDFs',
+    },
+  })
   const persistSaleFacts = useCallback(async (
     facts: VehicleSaleDraftFacts,
     serialized: string,
@@ -101,6 +125,8 @@ export default function VehicleSalePage() {
             gewaehrleistung_shortened_negotiated:
               facts.gewaehrleistung_shortened_negotiated,
             gewaehrleistung_note: facts.gewaehrleistung_note,
+            garantie_months: facts.garantie_months,
+            garantie_terms: facts.garantie_terms,
           })
           saleIdRef.current = created.id
           setSaleId(created.id)
@@ -117,6 +143,8 @@ export default function VehicleSalePage() {
               gewaehrleistung_shortened_negotiated:
                 facts.gewaehrleistung_shortened_negotiated,
               gewaehrleistung_note: facts.gewaehrleistung_note,
+              garantie_months: facts.garantie_months,
+              garantie_terms: facts.garantie_terms,
             },
           })
         }
@@ -142,6 +170,8 @@ export default function VehicleSalePage() {
     setBuyerIsConsumer(existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE')
     setShorteningNegotiated(existing.gewaehrleistung_shortened_negotiated ?? false)
     setWarrantyNote(existing.gewaehrleistung_note ?? '')
+    setGarantieMonthsInput(existing.garantie_months != null ? String(existing.garantie_months) : '')
+    setGarantieTerms(existing.garantie_terms ?? '')
     lastSavedSerialized.current = JSON.stringify({
       vehicle_id: existing.vehicle_id,
       customer_id: existing.customer_id,
@@ -151,6 +181,8 @@ export default function VehicleSalePage() {
       buyer_is_consumer: existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE',
       gewaehrleistung_shortened_negotiated: existing.gewaehrleistung_shortened_negotiated ?? false,
       gewaehrleistung_note: existing.gewaehrleistung_note ?? null,
+      garantie_months: existing.garantie_months ?? null,
+      garantie_terms: existing.garantie_terms || null,
     })
     if (existing.customer) {
       setCustomer({
@@ -176,9 +208,14 @@ export default function VehicleSalePage() {
   const isDraft = !existing || existing.status === 'DRAFT'
   const customerId = customer?.id || existing?.customer_id || ''
   const priceNumber = Number(salePrice)
+  const shorteningBlockReason = negotiatedShorteningBlockReason({
+    buyerIsConsumer,
+    firstRegistrationDate: vehicle?.first_registration_date ?? null,
+    handoverDate,
+  })
 
   useEffect(() => {
-    if (isFinalizing || !isDraft || !vehicleId || !customerId || !priceNumber) return
+    if (isFinalizing || !isDraft || !vehicleId || !customerId || !priceNumber || !garantie.valid) return
     const saleFacts = buildVehicleSaleDraftFacts({
       vehicleId,
       customerId,
@@ -188,6 +225,8 @@ export default function VehicleSalePage() {
       buyerIsConsumer,
       shorteningNegotiated,
       warrantyNote,
+      garantieMonths: garantie.value,
+      garantieTerms,
     })
     const serialized = JSON.stringify(saleFacts)
     if (serialized === lastSavedSerialized.current) return
@@ -206,7 +245,7 @@ export default function VehicleSalePage() {
       window.clearTimeout(handle)
       if (saveTimer.current === handle) saveTimer.current = null
     }
-  }, [isFinalizing, isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale, contractDate, handoverDate, buyerIsConsumer, shorteningNegotiated, warrantyNote, persistSaleFacts])
+  }, [isFinalizing, isDraft, vehicleId, customerId, priceNumber, saleId, navigate, createSale, updateSale, contractDate, handoverDate, buyerIsConsumer, shorteningNegotiated, warrantyNote, garantie.value, garantie.valid, garantieTerms, persistSaleFacts])
 
   const finalize = async () => {
     if (!saleId || finalizing.current) return
@@ -227,6 +266,8 @@ export default function VehicleSalePage() {
         buyerIsConsumer,
         shorteningNegotiated,
         warrantyNote,
+        garantieMonths: garantie.value,
+        garantieTerms,
       })
       const serialized = JSON.stringify(currentFacts)
       if (serialized !== lastSavedSerialized.current) {
@@ -245,6 +286,43 @@ export default function VehicleSalePage() {
       finalizing.current = false
       setIsFinalizing(false)
     }
+  }
+
+  /** Saves facts that are still inside the autosave window, so the PDF uses what the user sees. */
+  const persistCurrentFactsIfChanged = async () => {
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current)
+      saveTimer.current = null
+    }
+    if (pendingSave.current) await pendingSave.current
+    if (!isDraft || !vehicleId || !customerId || !priceNumber || !garantie.valid) return
+    const currentFacts = buildVehicleSaleDraftFacts({
+      vehicleId,
+      customerId,
+      salePrice: priceNumber,
+      contractDate,
+      handoverDate,
+      buyerIsConsumer,
+      shorteningNegotiated,
+      warrantyNote,
+      garantieMonths: garantie.value,
+      garantieTerms,
+    })
+    const serialized = JSON.stringify(currentFacts)
+    if (serialized !== lastSavedSerialized.current) {
+      await persistSaleFacts(currentFacts, serialized)
+    }
+  }
+
+  const downloadKaufvertragPdf = async () => {
+    if (!saleId || isDownloadingKaufvertrag) return
+    try {
+      await persistCurrentFactsIfChanged()
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Failed to save sale'))
+      return
+    }
+    await downloadKaufvertrag()
   }
 
   const vatPreview = existing?.margin_vat_preview
@@ -275,6 +353,20 @@ export default function VehicleSalePage() {
           {saveStatus === 'saving' && <span className="text-sm text-slate-500">Saving...</span>}
           {saveStatus === 'saved' && <span className="text-sm text-emerald-600">Saved</span>}
           {saveStatus === 'error' && <span className="text-sm text-rose-600">Save failed</span>}
+          <Button
+            variant="outline"
+            disabled={
+              !saleId ||
+              isFinalizing ||
+              isDownloadingKaufvertrag ||
+              saveStatus === 'saving' ||
+              existing?.status === 'CANCELLED'
+            }
+            onClick={() => void downloadKaufvertragPdf()}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Kaufvertrag PDF
+          </Button>
           <Button
             disabled={!saleId || !isDraft || isFinalizing || saveStatus === 'saving'}
             onClick={() => void finalize()}
@@ -337,11 +429,19 @@ export default function VehicleSalePage() {
               <input
                 type="checkbox"
                 checked={shorteningNegotiated}
-                disabled={!isDraft || !buyerIsConsumer || isFinalizing}
+                disabled={
+                  !isDraft ||
+                  !buyerIsConsumer ||
+                  isFinalizing ||
+                  (shorteningBlockReason !== null && !shorteningNegotiated)
+                }
                 onChange={(event) => setShorteningNegotiated(event.target.checked)}
               />
               Verkürzung wurde ausdrücklich vereinbart
             </label>
+            {shorteningBlockReason ? (
+              <p className="text-xs text-rose-600">{shorteningBlockReason}</p>
+            ) : null}
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Notiz zur Gewährleistung</span>
               <textarea
@@ -352,6 +452,39 @@ export default function VehicleSalePage() {
                 onChange={(event) => setWarrantyNote(event.target.value)}
               />
             </label>
+            <div className="space-y-2 border-t pt-3">
+              <h3 className="text-sm font-medium">Freiwillige Garantie (optional)</h3>
+              <label className="block space-y-1 text-sm">
+                <span className="text-slate-500">Garantiedauer (Monate)</span>
+                <Input
+                  aria-label="Garantiedauer in Monaten"
+                  type="number"
+                  min={1}
+                  max={120}
+                  step={1}
+                  disabled={!isDraft || isFinalizing}
+                  value={garantieMonthsInput}
+                  onChange={(event) => setGarantieMonthsInput(event.target.value)}
+                />
+              </label>
+              {garantie.valid ? null : (
+                <p className="text-xs text-rose-600">Bitte eine Dauer zwischen 1 und 120 Monaten angeben.</p>
+              )}
+              <label className="block space-y-1 text-sm">
+                <span className="text-slate-500">Garantiebedingungen</span>
+                <textarea
+                  aria-label="Garantiebedingungen"
+                  maxLength={2000}
+                  disabled={!isDraft || isFinalizing}
+                  className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={garantieTerms}
+                  onChange={(event) => setGarantieTerms(event.target.value)}
+                />
+              </label>
+              <p className="text-xs text-slate-500">
+                Ohne Dauer erscheint im Kaufvertrag kein Garantieblock. Die Garantie gilt zusätzlich zur gesetzlichen Gewährleistung.
+              </p>
+            </div>
             <p className="text-xs text-slate-500">Verlängerungen durch Reparaturen werden nicht erfasst.</p>
           </section>
           {vehicle ? (

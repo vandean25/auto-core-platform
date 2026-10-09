@@ -1460,6 +1460,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-sales/{id}/kaufvertrag/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["VehicleSaleController_getKaufvertragPdf"];
+        put?: never;
+        post: operations["VehicleSaleController_generateKaufvertragPdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-stock": {
         parameters: {
             query?: never;
@@ -5407,6 +5423,9 @@ export interface components {
             /** @default false */
             gewaehrleistung_shortened_negotiated: boolean;
             gewaehrleistung_note?: string | null;
+            /** @description Voluntary Garantie duration in months. Omit or null for no Garantie block. */
+            garantie_months?: number | null;
+            garantie_terms?: string | null;
         };
         PatchVehicleSaleDto: {
             customer_id?: string;
@@ -5424,6 +5443,9 @@ export interface components {
             buyer_is_consumer?: boolean;
             gewaehrleistung_shortened_negotiated?: boolean;
             gewaehrleistung_note?: string | null;
+            /** @description Voluntary Garantie duration in months. Null removes the Garantie block (DRAFT only). */
+            garantie_months?: number | null;
+            garantie_terms?: string | null;
         };
         CorrectGewaehrleistungSnapshotDto: {
             reason: string;
@@ -11193,6 +11215,46 @@ export interface operations {
                 "application/json": components["schemas"]["CorrectGewaehrleistungSnapshotDto"];
             };
         };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_getKaufvertragPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    VehicleSaleController_generateKaufvertragPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {

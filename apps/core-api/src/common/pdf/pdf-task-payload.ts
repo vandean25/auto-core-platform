@@ -5,6 +5,7 @@ export const PDF_TASK_KINDS = [
   'invoice',
   'workshop-order',
   'credit-note',
+  'vehicle-sale-kaufvertrag',
 ] as const;
 export type PdfTaskKind = (typeof PDF_TASK_KINDS)[number];
 export const PDF_TASK_KIND_KEY = 'pdfTaskKind';

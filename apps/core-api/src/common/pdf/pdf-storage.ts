@@ -26,6 +26,17 @@ export type ImmutablePdfArchive = {
   customMetadata: PdfArchiveIdentityMetadata & { pdf_sha256: string };
 };
 
+/** Custom metadata for immutable archive objects of any document kind. */
+export type PdfArchiveObjectMetadata = Record<string, string>;
+
+export type ImmutablePdfObject = {
+  bucket: string;
+  key: string;
+  generation: string;
+  sha256: string;
+  customMetadata: PdfArchiveObjectMetadata & { pdf_sha256: string };
+};
+
 @Injectable()
 export class PdfStorage {
   private readonly logger = new Logger(PdfStorage.name);
@@ -105,6 +116,20 @@ export class PdfStorage {
     contentType: string;
     customMetadata: PdfArchiveIdentityMetadata;
   }): Promise<ImmutablePdfArchive> {
+    return (await this.publishImmutableObject(params)) as ImmutablePdfArchive;
+  }
+
+  /**
+   * Create-only publication: `ifGenerationMatch: 0` means an existing object is
+   * never overwritten. A losing writer gets the 412 error and can adopt the
+   * winner with `readImmutableObjectByKey`.
+   */
+  async publishImmutableObject(params: {
+    key: string;
+    body: Buffer;
+    contentType: string;
+    customMetadata: PdfArchiveObjectMetadata;
+  }): Promise<ImmutablePdfObject> {
     SideEffectGuard.assertAllowed('GCS_WRITE');
     const bucketName = this.getBucketName();
     const file = this.storage.bucket(bucketName).file(params.key);
@@ -169,6 +194,19 @@ export class PdfStorage {
     generation: string;
     expectedSha256: string;
   }): Promise<ImmutablePdfArchive & { body: Buffer }> {
+    return (await this.readImmutableObjectGeneration({
+      ...params,
+      validateMetadata: hasArchiveIdentityMetadata,
+    })) as ImmutablePdfArchive & { body: Buffer };
+  }
+
+  async readImmutableObjectGeneration(params: {
+    bucket: string;
+    key: string;
+    generation: string;
+    expectedSha256: string;
+    validateMetadata: (metadata: PdfArchiveObjectMetadata) => boolean;
+  }): Promise<ImmutablePdfObject & { body: Buffer }> {
     const file = this.storage
       .bucket(params.bucket)
       .file(params.key, { generation: params.generation });
@@ -184,10 +222,10 @@ export class PdfStorage {
         );
       }
 
-      const customMetadata = metadata.metadata as
-        (PdfArchiveIdentityMetadata & { pdf_sha256?: string }) | undefined;
+      const customMetadata = (metadata.metadata ??
+        {}) as PdfArchiveObjectMetadata;
       if (
-        !hasArchiveIdentityMetadata(customMetadata) ||
+        !params.validateMetadata(customMetadata) ||
         customMetadata.pdf_sha256 !== params.expectedSha256
       ) {
         throw new InternalServerErrorException(
@@ -208,7 +246,7 @@ export class PdfStorage {
         key: params.key,
         generation,
         sha256,
-        customMetadata: customMetadata,
+        customMetadata: customMetadata as ImmutablePdfObject['customMetadata'],
         body,
       };
     } catch (error) {
@@ -237,33 +275,43 @@ export class PdfStorage {
     key: string;
     expectedIdentity: PdfArchiveIdentityMetadata;
   }): Promise<ImmutablePdfArchive & { body: Buffer }> {
+    return (await this.readImmutableObjectByKey({
+      bucket: params.bucket,
+      key: params.key,
+      validateMetadata: (metadata) =>
+        hasExpectedMetadata(metadata, params.expectedIdentity) &&
+        hasArchiveIdentityMetadata(metadata),
+    })) as ImmutablePdfArchive & { body: Buffer };
+  }
+
+  /** Adopts the object currently stored at `key`, but only if its metadata validates. */
+  async readImmutableObjectByKey(params: {
+    bucket: string;
+    key: string;
+    validateMetadata: (metadata: PdfArchiveObjectMetadata) => boolean;
+  }): Promise<ImmutablePdfObject & { body: Buffer }> {
     try {
       const file = this.storage.bucket(params.bucket).file(params.key);
       const [metadata] = await file.getMetadata();
       const generation = metadata.generation
         ? String(metadata.generation)
         : null;
-      const customMetadata = metadata.metadata as
-        (PdfArchiveIdentityMetadata & { pdf_sha256?: string }) | undefined;
-      if (
-        !generation ||
-        !hasExpectedMetadata(customMetadata, params.expectedIdentity) ||
-        !hasArchiveIdentityMetadata(customMetadata)
-      ) {
+      const customMetadata = (metadata.metadata ??
+        {}) as PdfArchiveObjectMetadata;
+      if (!generation || !params.validateMetadata(customMetadata)) {
         throw new InternalServerErrorException(
           'Immutable PDF archive identity could not be verified',
         );
       }
 
-      const archive = await this.readImmutablePdfGeneration({
+      const archive = await this.readImmutableObjectGeneration({
         bucket: params.bucket,
         key: params.key,
         generation,
         expectedSha256: customMetadata.pdf_sha256,
+        validateMetadata: params.validateMetadata,
       });
-      if (
-        !hasExpectedMetadata(archive.customMetadata, params.expectedIdentity)
-      ) {
+      if (!params.validateMetadata(archive.customMetadata)) {
         throw new InternalServerErrorException(
           'Immutable PDF archive identity changed during verification',
         );
@@ -346,8 +394,8 @@ function hasExpectedMetadata(
 }
 
 function hasArchiveIdentityMetadata(
-  metadata: (PdfArchiveIdentityMetadata & { pdf_sha256?: string }) | undefined,
-): metadata is ImmutablePdfArchive['customMetadata'] {
+  metadata: PdfArchiveObjectMetadata | undefined,
+): boolean {
   return Boolean(
     metadata?.tenant_id &&
     metadata.invoice_id &&
