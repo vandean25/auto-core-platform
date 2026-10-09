@@ -505,15 +505,15 @@ describe('MCP server (e2e)', () => {
       ),
     );
     const [bayResult, binResult, taskResult] = results;
-    const bays = JSON.parse(toolPayloadText(bayResult!)) as {
+    const bays = JSON.parse(toolPayloadText(bayResult)) as {
       data: Array<{ id: string }>;
       meta: { total: number };
     };
-    const bins = JSON.parse(toolPayloadText(binResult!)) as {
+    const bins = JSON.parse(toolPayloadText(binResult)) as {
       data: Array<{ id: string; type: string }>;
       meta: { total: number };
     };
-    const tasks = JSON.parse(toolPayloadText(taskResult!)) as {
+    const tasks = JSON.parse(toolPayloadText(taskResult)) as {
       data: Array<{
         id: string;
         workshop_order_id: string;
