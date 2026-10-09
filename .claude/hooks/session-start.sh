@@ -12,6 +12,9 @@ cd "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 # --- Dependencies (npm install, not ci, so the cached container state is reused)
 npm install --no-audit --no-fund
+# npm rewrites the lockfile (e.g. drops "libc" fields) without a real change;
+# restore it so the working tree stays clean.
+git checkout -- package-lock.json 2>/dev/null || true
 npm exec --workspace=core-api -- prisma generate
 
 # --- Local Postgres (skipped when DATABASE_URL already points somewhere else)
