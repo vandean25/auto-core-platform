@@ -18,7 +18,11 @@ import {
 import type { Customer } from '@/api/types'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
-import { negotiatedShorteningBlockReason, parseGarantieMonths } from '@/lib/vehicle-sale-warranty'
+import {
+  GARANTIE_MONTHS_MESSAGE,
+  negotiatedShorteningBlockReason,
+  parseGarantieMonths,
+} from '@/lib/vehicle-sale-warranty'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
 
@@ -60,9 +64,13 @@ function buildVehicleSaleDraftFacts(input: {
       input.buyerIsConsumer && input.shorteningNegotiated,
     gewaehrleistung_note: input.warrantyNote || null,
     garantie_months: input.garantieMonths,
-    garantie_terms: input.garantieTerms || null,
+    garantie_terms:
+      input.garantieMonths === null ? null : input.garantieTerms || null,
   }
 }
+
+const KAUFVERTRAG_FACTS_INCOMPLETE_MESSAGE =
+  'Bitte Kaufpreis und Käufer angeben, bevor das PDF erstellt wird.'
 
 export default function VehicleSalePage() {
   const { id = 'new' } = useParams()
@@ -288,14 +296,21 @@ export default function VehicleSalePage() {
     }
   }
 
-  /** Saves facts that are still inside the autosave window, so the PDF uses what the user sees. */
+  /**
+   * Saves facts that are still inside the autosave window, so the PDF uses what the user sees.
+   * Incomplete facts throw instead of being skipped, so the PDF never uses facts the user cannot see.
+   */
   const persistCurrentFactsIfChanged = async () => {
     if (saveTimer.current !== null) {
       window.clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
     if (pendingSave.current) await pendingSave.current
-    if (!isDraft || !vehicleId || !customerId || !priceNumber || !garantie.valid) return
+    if (!isDraft) return
+    if (!garantie.valid) throw new Error(GARANTIE_MONTHS_MESSAGE)
+    if (!vehicleId || !customerId || !priceNumber) {
+      throw new Error(KAUFVERTRAG_FACTS_INCOMPLETE_MESSAGE)
+    }
     const currentFacts = buildVehicleSaleDraftFacts({
       vehicleId,
       customerId,
@@ -464,18 +479,22 @@ export default function VehicleSalePage() {
                   step={1}
                   disabled={!isDraft || isFinalizing}
                   value={garantieMonthsInput}
-                  onChange={(event) => setGarantieMonthsInput(event.target.value)}
+                  onChange={(event) => {
+                    setGarantieMonthsInput(event.target.value)
+                    // Terms only apply with a duration, so clearing the duration clears the terms.
+                    if (event.target.value.trim() === '') setGarantieTerms('')
+                  }}
                 />
               </label>
               {garantie.valid ? null : (
-                <p className="text-xs text-rose-600">Bitte eine Dauer zwischen 1 und 120 Monaten angeben.</p>
+                <p className="text-xs text-rose-600">{GARANTIE_MONTHS_MESSAGE}</p>
               )}
               <label className="block space-y-1 text-sm">
                 <span className="text-slate-500">Garantiebedingungen</span>
                 <textarea
                   aria-label="Garantiebedingungen"
                   maxLength={2000}
-                  disabled={!isDraft || isFinalizing}
+                  disabled={!isDraft || isFinalizing || garantie.value === null}
                   className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   value={garantieTerms}
                   onChange={(event) => setGarantieTerms(event.target.value)}

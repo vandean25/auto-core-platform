@@ -137,7 +137,9 @@ export class VehicleSaleKaufvertragPdfService {
       authorizedSiteIds,
     );
 
-    const prepared = await this.prepareSnapshot(sale, tenantId);
+    const prepared = await this.prepareSnapshot(sale, tenantId, {
+      lockLogo: false,
+    });
     const cached = this.resolveCachedArchive(sale, prepared.snapshotSha256);
     if (cached) {
       return { mode: 'cached', saleId, ...cached };
@@ -182,7 +184,9 @@ export class VehicleSaleKaufvertragPdfService {
         const sale = await this.findSaleForTenant(saleId, tenantId);
 
         try {
-          const prepared = await this.prepareSnapshot(sale, tenantId);
+          const prepared = await this.prepareSnapshot(sale, tenantId, {
+            lockLogo: true,
+          });
           const cached = this.resolveCachedArchive(
             sale,
             prepared.snapshotSha256,
@@ -243,7 +247,9 @@ export class VehicleSaleKaufvertragPdfService {
     // Changed facts leave the previous archive pointer in place until the next
     // generation writes a new one. Serve only the archive that matches the
     // current facts, so a download never disagrees with the tracker.
-    const current = await this.prepareSnapshot(sale, tenantId);
+    const current = await this.prepareSnapshot(sale, tenantId, {
+      lockLogo: false,
+    });
     if (current.snapshotSha256 !== snapshotSha256) {
       throw new NotFoundException('Kaufvertrag PDF is not generated yet');
     }
@@ -317,10 +323,14 @@ export class VehicleSaleKaufvertragPdfService {
     return sale;
   }
 
-  /** Runs every guard and builds the frozen snapshot. Nothing is written here. */
+  /**
+   * Runs every guard and builds the frozen snapshot. Nothing is written here.
+   * Read-only callers pass `lockLogo: false`; generation keeps the logo lock.
+   */
   private async prepareSnapshot(
     sale: LoadedSale,
     tenantId: string,
+    options: { lockLogo: boolean },
   ): Promise<PreparedKaufvertrag> {
     const { vin, seller } = assertKaufvertragSaleEligible({
       status: sale.status,
@@ -341,7 +351,9 @@ export class VehicleSaleKaufvertragPdfService {
     });
     const branding: KaufvertragSnapshotBranding = toKaufvertragSnapshotBranding(
       await this.prisma.$transaction((tx) =>
-        resolveBrandingSnapshot(tx, tenantId, seller.id, new Date()),
+        resolveBrandingSnapshot(tx, tenantId, seller.id, new Date(), {
+          lockLogo: options.lockLogo,
+        }),
       ),
     );
 

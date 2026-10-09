@@ -288,6 +288,61 @@ describe('Vehicle sale Kaufvertrag PDF (e2e)', () => {
       .expect(200);
   });
 
+  it('refuses Garantie terms sent without a Garantie duration, and stores none', async () => {
+    const saleId = await seedSale({
+      saleNumber: 'VS-E2E-0010',
+      site: siteId,
+      firstRegistrationDate: new Date('2020-10-08T00:00:00.000Z'),
+      endsOn: new Date('2028-10-08T00:00:00.000Z'),
+      presumptionEndsOn: new Date('2027-10-08T00:00:00.000Z'),
+    });
+
+    const refused = await request(app.getHttpServer())
+      .patch(`/api/vehicle-sales/${saleId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ garantie_terms: 'Motorschaden ausgenommen' })
+      .expect(422);
+    expect(refused.body).toMatchObject({ code: 'GARANTIE_TERMS_REQUIRE_DURATION' });
+
+    const sale = await request(app.getHttpServer())
+      .get(`/api/vehicle-sales/${saleId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(sale.body.garantie_terms).toBeNull();
+  });
+
+  it('keeps the snapshot and the archive pointer out of the sale response', async () => {
+    const saleId = await seedSale({
+      saleNumber: 'VS-E2E-0011',
+      site: siteId,
+      firstRegistrationDate: new Date('2020-10-08T00:00:00.000Z'),
+      endsOn: new Date('2028-10-08T00:00:00.000Z'),
+      presumptionEndsOn: new Date('2027-10-08T00:00:00.000Z'),
+    });
+    await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${saleId}/kaufvertrag/pdf`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(201);
+
+    const sale = await request(app.getHttpServer())
+      .get(`/api/vehicle-sales/${saleId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(sale.body.kaufvertrag_generated_at).not.toBeNull();
+    expect(sale.body.kaufvertrag_generation_error).toBeNull();
+    for (const field of [
+      'kaufvertrag_snapshot',
+      'kaufvertrag_snapshot_sha256',
+      'kaufvertrag_archive_bucket',
+      'kaufvertrag_archive_key',
+      'kaufvertrag_archive_generation',
+      'kaufvertrag_archive_sha256',
+    ]) {
+      expect(sale.body).not.toHaveProperty(field);
+    }
+  });
+
   it('refuses a negotiated one-year period the vehicle cannot support when saving the sale', async () => {
     const saleId = await seedSale({
       saleNumber: 'VS-E2E-0005',

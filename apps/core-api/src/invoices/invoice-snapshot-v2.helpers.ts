@@ -209,19 +209,22 @@ async function resolveBrandLogo(
   tenantId: string,
   legalEntityId: string,
   logoAssetId: string,
+  lockAsset: boolean,
 ): Promise<NonNullable<InvoiceSnapshotV2Branding['logo']>> {
-  // eslint-disable-next-line no-restricted-syntax -- tenant/entity-scoped asset row lock serializes issuance with profile cleanup.
-  const lockedAssets = await tx.$queryRaw<Array<{ id: string }>>`
-    SELECT id
-    FROM document_brand_assets
-    WHERE id = ${logoAssetId}
-      AND tenant_id = ${tenantId}
-      AND legal_entity_id = ${legalEntityId}
-    ORDER BY id
-    FOR UPDATE
-  `;
-  if (lockedAssets.length !== 1) {
-    throw brandAssetUnavailable();
+  if (lockAsset) {
+    // eslint-disable-next-line no-restricted-syntax -- tenant/entity-scoped asset row lock serializes issuance with profile cleanup.
+    const lockedAssets = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM document_brand_assets
+      WHERE id = ${logoAssetId}
+        AND tenant_id = ${tenantId}
+        AND legal_entity_id = ${legalEntityId}
+      ORDER BY id
+      FOR UPDATE
+    `;
+    if (lockedAssets.length !== 1) {
+      throw brandAssetUnavailable();
+    }
   }
 
   const asset = await tx.documentBrandAsset.findFirst({
@@ -260,11 +263,21 @@ async function resolveBrandLogo(
   };
 }
 
+export interface ResolveBrandingSnapshotOptions {
+  /**
+   * Issuance locks the logo asset row, so it serializes with profile cleanup.
+   * Read-only callers pass `false`: the snapshot is the same, nothing is
+   * written, and polling does not hold a row lock.
+   */
+  lockLogo?: boolean;
+}
+
 export async function resolveBrandingSnapshot(
   tx: Prisma.TransactionClient,
   tenantId: string,
   legalEntityId: string,
   resolvedAt: Date,
+  options: ResolveBrandingSnapshotOptions = {},
 ): Promise<InvoiceSnapshotV2Branding> {
   if (!legalEntityId) {
     throw new UnprocessableEntityException({
@@ -294,7 +307,13 @@ export async function resolveBrandingSnapshot(
   }
 
   const logo = logoAssetId
-    ? await resolveBrandLogo(tx, tenantId, legalEntityId, logoAssetId)
+    ? await resolveBrandLogo(
+        tx,
+        tenantId,
+        legalEntityId,
+        logoAssetId,
+        options.lockLogo ?? true,
+      )
     : null;
 
   return {

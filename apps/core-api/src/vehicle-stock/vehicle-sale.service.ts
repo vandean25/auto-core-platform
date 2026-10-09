@@ -38,6 +38,8 @@ import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { computeGewaehrleistung } from './gewaehrleistung/compute-gewaehrleistung.js';
 import { resolveGewaehrleistungRuleSet } from './gewaehrleistung/gewaehrleistung-rule-sets.js';
+import { resolveGarantieFacts } from './kaufvertrag/kaufvertrag-garantie.js';
+import { omitKaufvertragArchiveInternals } from './kaufvertrag/kaufvertrag-sale-response.js';
 import type { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
@@ -93,11 +95,16 @@ export class VehicleSaleService {
       warrantyFacts,
       vehicle.first_registration_date,
     );
+    const garantie = resolveGarantieFacts({
+      months: dto.garantie_months ?? null,
+      terms: dto.garantie_terms ?? null,
+      termsProvided: dto.garantie_terms !== undefined,
+    });
     const saleNumber = await this.nextSaleNumber(tenantId);
     return this.prisma.$transaction(async (tx) => {
       await lockSitesAndAssertActive(tx, tenantId, [siteId]);
 
-      return tx.vehicleSale.create({
+      const created = await tx.vehicleSale.create({
         data: {
           tenant_id: tenantId,
           site_id: siteId,
@@ -105,12 +112,12 @@ export class VehicleSaleService {
           vehicle_id: dto.vehicle_id,
           customer_id: dto.customer_id,
           sale_price: new Prisma.Decimal(dto.sale_price),
-          garantie_months: dto.garantie_months ?? null,
-          garantie_terms: dto.garantie_terms ?? null,
+          ...garantie,
           ...warrantyFacts,
           ...warrantySnapshot,
         },
       });
+      return omitKaufvertragArchiveInternals(created);
     });
   }
 
@@ -136,7 +143,7 @@ export class VehicleSaleService {
     const basis = costBasis(entries);
     const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
     return {
-      ...sale,
+      ...omitKaufvertragArchiveInternals(sale),
       invoice: sale.invoice ? omitInvoiceSnapshot(sale.invoice) : sale.invoice,
       vehicle: stripVehicleIdentityResolutionState(sale.vehicle),
       cost_basis_preview: basis,
@@ -226,6 +233,17 @@ export class VehicleSaleService {
       warrantyFacts,
       sale.vehicle?.first_registration_date ?? null,
     );
+    const garantie = resolveGarantieFacts({
+      months:
+        dto.garantie_months !== undefined
+          ? dto.garantie_months
+          : sale.garantie_months,
+      terms:
+        dto.garantie_terms !== undefined
+          ? dto.garantie_terms
+          : sale.garantie_terms,
+      termsProvided: dto.garantie_terms !== undefined,
+    });
 
     await this.prisma.$transaction(async (tx) => {
       if (isRetargeting) {
@@ -242,14 +260,7 @@ export class VehicleSaleService {
           dto.sale_price !== undefined
             ? new Prisma.Decimal(dto.sale_price)
             : undefined,
-        garantie_months:
-          dto.garantie_months !== undefined
-            ? dto.garantie_months
-            : sale.garantie_months,
-        garantie_terms:
-          dto.garantie_terms !== undefined
-            ? dto.garantie_terms
-            : sale.garantie_terms,
+        ...garantie,
         ...warrantyFacts,
         ...warrantySnapshot,
       };

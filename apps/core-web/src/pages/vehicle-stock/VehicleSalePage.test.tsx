@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
 import * as vehicleStockApi from '@/api/vehicle-stock'
+import { toast } from 'sonner'
 
 const {
   createSale,
@@ -412,6 +413,54 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     }
     expect(config.postUrl()).toBe('/api/vehicle-sales/sale-1/kaufvertrag/pdf')
     expect(config.getUrl()).toBe('/api/vehicle-sales/sale-1/kaufvertrag/pdf')
+  })
+
+  it('does not download the Kaufvertrag PDF while the Garantie duration is out of range', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '0' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Kaufvertrag PDF' }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(downloadKaufvertrag).not.toHaveBeenCalled()
+    expect(updateSale).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')
+  })
+
+  it('clears the Garantie terms when the duration is removed, so no terms are saved without one', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '12' },
+    })
+    fireEvent.change(screen.getByLabelText('Garantiebedingungen'), {
+      target: { value: 'Motorschaden ausgenommen' },
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        garantie_months: 12,
+        garantie_terms: 'Motorschaden ausgenommen',
+      }),
+    }))
+
+    fireEvent.change(screen.getByLabelText('Garantiedauer in Monaten'), {
+      target: { value: '' },
+    })
+    expect(screen.getByLabelText('Garantiebedingungen')).toBeDisabled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ garantie_months: null, garantie_terms: null }),
+    }))
   })
 
   it('keeps the Kaufvertrag PDF action disabled until the sale has been saved', () => {

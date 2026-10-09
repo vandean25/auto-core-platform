@@ -78,7 +78,7 @@ export class PatchVehicleSaleDto {
   gewaehrleistung_note?: string | null;
 
   @ApiPropertyOptional({
-    type: Number,
+    type: 'integer',
     nullable: true,
     minimum: 1,
     maximum: 120,

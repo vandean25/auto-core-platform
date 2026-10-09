@@ -1,5 +1,6 @@
 export const GARANTIE_MONTHS_MIN = 1
 export const GARANTIE_MONTHS_MAX = 120
+export const GARANTIE_MONTHS_MESSAGE = 'Bitte eine Dauer zwischen 1 und 120 Monaten angeben.'
 
 /**
  * Adds one calendar year to an ISO day (`YYYY-MM-DD`). 29 February becomes

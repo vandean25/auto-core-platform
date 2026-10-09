@@ -356,6 +356,66 @@ describe('invoice-snapshot-v2.helpers', () => {
         height: 150,
       });
     });
+
+    it('reads the logo without a row lock when lockLogo is false, and gets the same snapshot', async () => {
+      const logoAssetId = '3b825bc1-dcc9-4f2e-91fc-1b9905e6ba2e';
+      const profile = {
+        id: '8f507f3d-40e1-47c9-a451-73a2682c8b17',
+        active_revision: 3,
+        active_logo_asset_id: logoAssetId,
+        active_theme: {
+          schemaVersion: 1,
+          presetId: 'standard-v1',
+          logoAssetId,
+          primaryColor: '#334155',
+          secondaryColor: '#E5E7EB',
+          fontId: 'acp-sans-v1',
+          headerBand: 'primary',
+          footerBand: 'secondary',
+          headerText: 'Company Header',
+          footerText: 'Company Footer',
+        },
+      };
+      const asset = {
+        id: logoAssetId,
+        bucket: 'brand-bucket',
+        object_key: 'logo.png',
+        object_generation: 'gen-1',
+        sha256: 'sha-1',
+        detected_mime_type: 'image/png',
+        pixel_width: 400,
+        pixel_height: 150,
+      };
+      const now = new Date('2026-09-30T10:00:00Z');
+      const lockingTx = {
+        documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(profile) },
+        $queryRaw: jest.fn().mockResolvedValue([{ id: logoAssetId }]),
+        documentBrandAsset: { findFirst: jest.fn().mockResolvedValue(asset) },
+      };
+      const readOnlyTx = {
+        documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(profile) },
+        $queryRaw: jest.fn(),
+        documentBrandAsset: { findFirst: jest.fn().mockResolvedValue(asset) },
+      };
+
+      const locked = await resolveBrandingSnapshot(
+        lockingTx as never,
+        'tenant-1',
+        'le-1',
+        now,
+      );
+      const readOnly = await resolveBrandingSnapshot(
+        readOnlyTx as never,
+        'tenant-1',
+        'le-1',
+        now,
+        { lockLogo: false },
+      );
+
+      expect(readOnly).toEqual(locked);
+      expect(lockingTx.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(readOnlyTx.$queryRaw).not.toHaveBeenCalled();
+    });
   });
 
   describe('sub-builders', () => {

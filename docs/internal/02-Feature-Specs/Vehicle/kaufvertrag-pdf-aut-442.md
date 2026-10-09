@@ -86,15 +86,15 @@ No new entity and no new delete endpoint. Existing VehicleSale deletion behavior
 | Method | Route | Purpose | Auth |
 |--------|-------|---------|------|
 | POST | `/api/vehicle-sales/:id/kaufvertrag/pdf` | Generate, or reuse the cached archive. Returns `cached`, `enqueued`, or `generated`. | Same as other vehicle-sale routes (global JWT guard, tenant context, active site membership). TECH mechanic sessions are not allowed. |
-| GET | `/api/vehicle-sales/:id/kaufvertrag/pdf` | Stream the archived PDF. 404 "Kaufvertrag PDF is not generated yet" until ready. | Same as above. |
+| GET | `/api/vehicle-sales/:id/kaufvertrag/pdf` | Stream the archived PDF, but only when it matches the current facts and branding. Otherwise 404 "Kaufvertrag PDF is not generated yet" until a POST writes a matching archive. A guard that now fails returns its 422 code instead. | Same as above. |
 | POST | `/api/vehicle-sales/:id/kaufvertrag/pdf/worker` | Cloud Tasks worker. Signed payload, `PdfWorker` guards. Not for clients. | Worker secret, signed payload, tenant guard. Excluded from OpenAPI. |
 
 ### Modified Endpoints
 
 | Method | Route | Change |
 |--------|-------|--------|
-| POST / PATCH | `/api/vehicle-sales`, `/api/vehicle-sales/:id` | Accept `garantie_months` (1–120, optional) and `garantie_terms` (≤2000 chars, optional). DRAFT only, like the other warranty facts. |
-| GET | `/api/vehicle-sales/:id` | Returns the new columns, including `kaufvertrag_generated_at` and `kaufvertrag_generation_error`. |
+| POST / PATCH | `/api/vehicle-sales`, `/api/vehicle-sales/:id` | Accept `garantie_months` (integer 1–120, optional) and `garantie_terms` (≤2000 chars, optional). DRAFT only, like the other warranty facts. Terms without a duration are refused (422 `GARANTIE_TERMS_REQUIRE_DURATION`), and removing the duration clears the stored terms. |
+| GET | `/api/vehicle-sales/:id` | Returns `kaufvertrag_generated_at` and `kaufvertrag_generation_error`. The snapshot and the archive pointer (`kaufvertrag_snapshot*`, `kaufvertrag_archive_*`) stay server-side, as invoice snapshots do. |
 
 ### Error codes
 
