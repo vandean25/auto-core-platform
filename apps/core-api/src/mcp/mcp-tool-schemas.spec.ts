@@ -52,6 +52,9 @@ describe('MCP tool input schemas', () => {
     const validDraft = {
       vehicle_id: vehicleId,
       status: 'SCHEDULED' as const,
+      bay_id: '00000000-0000-4000-8000-000000000098',
+      scheduled_start_at: '2026-10-12T09:00:00.000Z',
+      scheduled_end_at: '2026-10-12T10:00:00.000Z',
     };
 
     expect(draftWorkshopOrderInputSchema.parse(validDraft)).toEqual(validDraft);

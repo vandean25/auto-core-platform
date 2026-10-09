@@ -39,6 +39,8 @@ model Tenant {
   created_at DateTime   @default(now())
   updated_at DateTime   @updatedAt
   is_active  Boolean    @default(true)
+  /// AUT-413 tenant opt-out for decision live-apply. Only `shadow` is valid; NULL inherits the environment.
+  decision_apply_mode String? @db.VarChar(16)
 
   revenueGroups                 RevenueGroup[]
   financeSettings               FinanceSettings?
@@ -379,6 +381,8 @@ model DocumentBrandAsset {
   validation_lease_until       DateTime?
   expires_at                   DateTime?
   failure_code                 String?
+  /// AUT-413 document type set by decision live-apply (AUTO or approved PROPOSE). NULL until decided.
+  document_sort_type           String?                   @db.VarChar(32)
   createdAt                    DateTime                  @default(now())
   updatedAt                    DateTime                  @updatedAt
 

@@ -54,6 +54,7 @@ import {
   pickVehicleAuditSnapshot,
 } from './import-audit.util.js';
 import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
+import { DecisionLiveApplyService } from '../decision/decision-live-apply.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 
 class ApplyRowStaleError extends Error {
@@ -99,6 +100,7 @@ export class ImportService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly decisionHooks: DecisionUseCaseHooksService,
+    private readonly decisionLive: DecisionLiveApplyService,
     private readonly requestContext: RequestContextService,
   ) {}
 
@@ -200,21 +202,33 @@ export class ImportService {
 
     await this.writeImportJobAudit(tenantId, currentUser.id, job.id, 'created');
 
+    let jobTotals = totals;
     if (params.entityType === ImportEntityType.CUSTOMER) {
-      void this.decisionHooks
-        .scheduleCustomerImportDryRunShadows(
-          tenantId,
-          this.requestContext.getTraceId(),
-          dryRunRows,
-        )
-        .catch((error) => {
-          this.logger.debug(
-            `Decision import shadow scheduling failed: ${String(error)}`,
-          );
-        });
+      const liveImport = await this.decisionLive.applyCustomerImportDecisions({
+        tenantId,
+        traceId: this.requestContext.getTraceId(),
+        jobId: job.id,
+        rows: dryRunRows,
+        totals,
+      });
+      if (liveImport.mode === 'live') {
+        jobTotals = liveImport.totals;
+      } else {
+        void this.decisionHooks
+          .scheduleCustomerImportDryRunShadows(
+            tenantId,
+            this.requestContext.getTraceId(),
+            dryRunRows,
+          )
+          .catch((error) => {
+            this.logger.debug(
+              `Decision import shadow scheduling failed: ${String(error)}`,
+            );
+          });
+      }
     }
 
-    return this.serializeJob(job, totals);
+    return this.serializeJob(job, jobTotals);
   }
 
   async getJob(jobId: string) {

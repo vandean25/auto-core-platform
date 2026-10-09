@@ -39,6 +39,9 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_stock_level` | AUTO | Stock for `sku` or `catalog_item_id` (active site) |
 | `get_vehicle_stock_age_report` | AUTO | Paged vehicle stock age and current cost basis (active site) |
 | `get_vehicle_stock_margin_report` | AUTO | Paged invoiced vehicle margin report for a date period (active site) |
+| `list_bays` | AUTO | Paged active bays for the active site |
+| `list_bins` | AUTO | Paged bin storage locations for the active site |
+| `list_workshop_tasks` | AUTO | Paged tasks visible to the caller with line IDs for MCP actions |
 
 Outputs are page-limited (max 25 rows) and JSON size-capped before returning to the client. Summaries written to the action log are redacted per AE2.
 
@@ -50,6 +53,8 @@ Outputs are page-limited (max 25 rows) and JSON size-capped before returning to 
 | `reserve_part` | Off by default; AUTO up to the policy amount limit, otherwise PROPOSE | Reversible via `release_reservation` | `release_reservation` |
 | `release_reservation` | Off by default; AUTO when enabled | Reversible via `reserve_part` (subject to stock availability) | `reserve_part` |
 | `propose_line_item` | Off by default; PROPOSE when enabled | Preview only; the proposed line item is rolled back and not persisted | Not applicable |
+
+`reserve_part` requires a catalog-backed part line and a bin `location_id` at the active site. Its existing EUR 250 `amount_max` policy allows `AUTO` at or below the configured amount and returns `PROPOSE` above it. Scheduled `draft_workshop_order` inputs require `bay_id`, `scheduled_start_at`, and `scheduled_end_at`.
 
 Write tools follow a shared pipeline: policy evaluation → immediate refusal for disabled / HUMAN_ONLY actions → DryRunService rollback preview (`would_change`) for enabled actions → outcome by evaluated tier:
 - **AUTO**: Execute immediately, log as EXECUTED

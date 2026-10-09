@@ -180,6 +180,50 @@ export class WorkshopTaskService {
     private readonly partsReservations: PartsRequisitionService,
   ) {}
 
+  async listForMcp(input: { page: number; pageSize: number }) {
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const where = {
+      tenant_id: tenantId,
+      workshop_order: { is: { tenant_id: tenantId, site_id: siteId } },
+    };
+    const skip = (input.page - 1) * input.pageSize;
+    const [data, total] = await Promise.all([
+      this.prisma.workshopTask.findMany({
+        where,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip,
+        take: input.pageSize,
+        select: {
+          id: true,
+          workshop_order_id: true,
+          title: true,
+          status: true,
+          line_items_version: true,
+          line_items: {
+            select: {
+              id: true,
+              type: true,
+              item_no: true,
+              description: true,
+              quantity: true,
+              unit_price: true,
+              catalog_item_id: true,
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      }),
+      this.prisma.workshopTask.count({ where }),
+    ]);
+    return {
+      data,
+      meta: { total, page: input.page, page_size: input.pageSize },
+    };
+  }
+
   createTask(orderId: string, dto: CreateWorkshopTaskDto) {
     return runWorkshopTaskCreate(this.deps(), orderId, dto);
   }

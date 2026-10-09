@@ -3,11 +3,14 @@ import { AgentActionLogService } from '../agent-action-log/agent-action-log.serv
 import { CatalogService } from '../catalog/catalog.service.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
+import { LocationService } from '../inventory/location.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { VehicleService } from '../vehicle/vehicle.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
+import { WorkshopBoardService } from '../workshop/workshop-board.service.js';
+import { WorkshopTaskService } from '../workshop/workshop-task.service.js';
 import { VehicleStockReportsService } from '../vehicle-stock/vehicle-stock-reports.service.js';
 import type {
   McpReadToolName,
@@ -28,7 +31,10 @@ import {
   getVehicleStockMarginReportInputSchema,
   getVehicleInputSchema,
   getWorkshopOrderInputSchema,
+  listBaysInputSchema,
+  listBinsInputSchema,
   listWorkshopOrdersInputSchema,
+  listWorkshopTasksInputSchema,
   mcpToolInputSchemas,
   mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
@@ -58,6 +64,9 @@ export class McpToolHandlerService {
     private readonly siteContext: SiteContextService,
     private readonly vehicleStockReports: VehicleStockReportsService,
     private readonly pendingActionExecutors: PendingActionExecutorService,
+    private readonly locationService: LocationService,
+    private readonly workshopBoardService: WorkshopBoardService,
+    private readonly workshopTaskService: WorkshopTaskService,
   ) {}
 
   async executeTool(
@@ -222,7 +231,53 @@ export class McpToolHandlerService {
           limit: clampMcpPageSize(input.page_size),
         });
       }
+      case 'list_bays':
+        return this.listBays(listBaysInputSchema.parse(parsed));
+      case 'list_bins':
+        return this.listBins(listBinsInputSchema.parse(parsed));
+      case 'list_workshop_tasks':
+        return this.listWorkshopTasks(
+          listWorkshopTasksInputSchema.parse(parsed),
+        );
     }
+  }
+
+  private async listBays(input: { page?: number; page_size?: number }) {
+    const page = clampMcpPage(input.page);
+    const pageSize = clampMcpPageSize(input.page_size);
+    const { bays } = await this.workshopBoardService.getBoardResources();
+    const offset = (page - 1) * pageSize;
+    return {
+      data: bays.slice(offset, offset + pageSize),
+      meta: { total: bays.length, page, page_size: pageSize },
+    };
+  }
+
+  private async listBins(input: { page?: number; page_size?: number }) {
+    const page = clampMcpPage(input.page);
+    const pageSize = clampMcpPageSize(input.page_size);
+    const bins = await this.locationService.getBins();
+    const offset = (page - 1) * pageSize;
+    return {
+      data: bins.slice(offset, offset + pageSize).map((bin) => ({
+        id: bin.id,
+        name: bin.name,
+        code: bin.code,
+        type: bin.type,
+        parent: bin.parent,
+      })),
+      meta: { total: bins.length, page, page_size: pageSize },
+    };
+  }
+
+  private async listWorkshopTasks(input: {
+    page?: number;
+    page_size?: number;
+  }) {
+    return this.workshopTaskService.listForMcp({
+      page: clampMcpPage(input.page),
+      pageSize: clampMcpPageSize(input.page_size),
+    });
   }
 
   private async searchCustomers(input: {

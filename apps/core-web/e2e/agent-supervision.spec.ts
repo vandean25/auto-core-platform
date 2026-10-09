@@ -178,6 +178,76 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
     await expectNoCriticalA11yViolations(page)
   })
 
+  test('shows read-only decision shadow rows, filters by use case, and passes axe a11y', async ({ page }) => {
+    const shadowRequests: string[] = []
+    const mockShadowLogs = [
+      {
+        id: 'shadow-1',
+        traceId: '33333333-3333-3333-3333-333333333333',
+        useCase: 'document_sort',
+        suggestion: {
+          choice: 'Lieferschein',
+          confidence: 0.6,
+          rationale: 'Made-up delivery note keywords',
+        },
+        actualOutcome: { choice: 'Rechnung', source: 'heuristic_classifier' },
+        latencyMs: 95,
+        error: null,
+        provider: 'openrouter-jev',
+        model: 'typesafe/jev-1.13',
+        match: false,
+        createdAt: '2026-10-02T09:30:00.000Z',
+      },
+      {
+        id: 'shadow-2',
+        traceId: '44444444-4444-4444-4444-444444444444',
+        useCase: 'import_row_matching',
+        suggestion: null,
+        actualOutcome: { choice: 'create_new', source: 'import_dry_run' },
+        latencyMs: null,
+        error: 'provider down',
+        provider: 'openrouter-jev',
+        model: null,
+        match: null,
+        createdAt: '2026-10-04T16:00:00.000Z',
+      },
+    ]
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/decision-shadow-logs'), async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fulfill({
+          status: 405,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'Read-only resource' }),
+        })
+        return
+      }
+      shadowRequests.push(route.request().url())
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: mockShadowLogs, nextCursor: null }),
+      })
+    })
+
+    const corePage = new AutoCorePage(page, 'Agent Supervision')
+    await corePage.navigate('/agent/supervision')
+
+    await page.getByTestId('tab-decision-shadow').click()
+
+    const shadowTab = page.getByTestId('decision-shadow-tab')
+    await expect(shadowTab).toBeVisible()
+    await expect(page.getByTestId('decision-shadow-row-shadow-1')).toContainText('Lieferschein')
+    await expect(page.getByTestId('decision-shadow-row-shadow-2')).toContainText('provider down')
+    // Filters apply on change, and the tab exposes no apply or write action
+    await expect(shadowTab.getByRole('button', { name: /apply/i })).toHaveCount(0)
+
+    await page.getByTestId('filter-decision-shadow-use-case-select').selectOption('document_sort')
+    await expect.poll(() => shadowRequests.some((url) => url.includes('useCase=document_sort'))).toBe(true)
+
+    await expectNoCriticalA11yViolations(page)
+  })
+
   test('toggles language to German and back to English', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Agent Supervision')
     await corePage.navigate('/agent/supervision')

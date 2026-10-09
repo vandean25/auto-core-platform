@@ -1,4 +1,9 @@
-import { BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PendingActionExecutorService } from './pending-action-executor.service.js';
 
@@ -19,6 +24,10 @@ describe('PendingActionExecutorService', () => {
       create: jest.fn().mockResolvedValue({ id: 'line-item-1' }),
     },
     partsReservation: { findFirst: jest.fn() },
+    importJob: { findFirst: jest.fn(), updateMany: jest.fn() },
+    importJobRow: { updateMany: jest.fn(), groupBy: jest.fn() },
+    customer: { findFirst: jest.fn() },
+    documentBrandAsset: { updateMany: jest.fn() },
   };
   const mockTenant = { getTenantId: jest.fn().mockResolvedValue('tenant-1') };
   const mockSite = { getSiteId: jest.fn().mockResolvedValue('site-1') };
@@ -54,6 +63,9 @@ describe('PendingActionExecutorService', () => {
         vehicle_id: '00000000-0000-4000-8000-000000000002',
         purpose: 'CUSTOMER_REPAIR',
         status: 'SCHEDULED',
+        bay_id: '00000000-0000-4000-8000-000000000004',
+        scheduled_start_at: '2026-10-12T09:00:00.000Z',
+        scheduled_end_at: '2026-10-12T10:00:00.000Z',
       },
       { site_id: 'site-1' },
     );
@@ -200,5 +212,176 @@ describe('PendingActionExecutorService', () => {
     expect(() => service.resolve('workshop_order.delete')).toThrow(
       BadRequestException,
     );
+  });
+  describe('AUT-413 approvals of decision suggestions', () => {
+    const importPayload = {
+      import_job_id: 'job-1',
+      row_no: 2,
+      customer_id: 'customer-1',
+    };
+    const documentPayload = {
+      document_brand_asset_id: 'asset-1',
+      document_sort_type: 'Lieferschein',
+    };
+    const storedTotals = { rows: 2, create: 2, update: 0, skip: 0, error: 0 };
+
+    beforeEach(() => {
+      mockTenant.getTenantId.mockResolvedValue('tenant-1');
+      mockPrisma.importJob.findFirst.mockResolvedValue({
+        id: 'job-1',
+        totals_json: storedTotals,
+      });
+      mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.customer.findFirst.mockResolvedValue({ id: 'customer-1' });
+      mockPrisma.importJobRow.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.importJobRow.groupBy.mockResolvedValue([
+        { action: 'UPDATE', _count: { _all: 2 } },
+      ]);
+      mockPrisma.documentBrandAsset.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it.each([
+      ['a missing row_no', { row_no: undefined }],
+      ['a non-integer row_no', { row_no: 1.5 }],
+      ['a missing customer_id', { customer_id: undefined }],
+    ])('rejects an import payload with %s', async (_label, override) => {
+      const executor = service.resolve('decision.import_row_match');
+
+      await expect(
+        executor.execute({ ...importPayload, ...override }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.importJobRow.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects a document type outside the allowed list before writing', async () => {
+      const executor = service.resolve('decision.document_sort');
+
+      await expect(
+        executor.execute({ ...documentPayload, document_sort_type: 'Mietvertrag' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(mockPrisma.documentBrandAsset.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses an import whose job is no longer awaiting confirmation', async () => {
+      mockPrisma.importJob.findFirst.mockResolvedValueOnce(null);
+      const executor = service.resolve('decision.import_row_match');
+
+      await expect(executor.execute(importPayload)).rejects.toBeInstanceOf(
+        UnprocessableEntityException,
+      );
+      expect(mockPrisma.importJobRow.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('scopes the customer lookup to the approver tenant, so a foreign customer is not found', async () => {
+      mockPrisma.customer.findFirst.mockResolvedValueOnce(null);
+      mockTenant.getTenantId.mockResolvedValue('tenant-2');
+      const executor = service.resolve('decision.import_row_match');
+
+      await expect(executor.execute(importPayload)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'customer-1', tenant_id: 'tenant-2' },
+        }),
+      );
+      expect(mockPrisma.importJobRow.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('conflicts when the row is no longer CREATE and changes no totals', async () => {
+      mockPrisma.importJobRow.updateMany.mockResolvedValueOnce({ count: 0 });
+      const executor = service.resolve('decision.import_row_match');
+
+      await expect(executor.execute(importPayload)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(mockPrisma.importJob.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('recounts totals from the rows instead of adjusting the stored snapshot', async () => {
+      // Stored totals still say two CREATE rows. Another approval already moved
+      // row 1 to UPDATE, and this approval moved row 2, so the rows now say two UPDATE.
+      const executor = service.resolve('decision.import_row_match');
+
+      await executor.execute(importPayload);
+
+      const lockWrite = mockPrisma.importJob.updateMany.mock.calls[0][0];
+      expect(lockWrite.data).toEqual({ totals_json: storedTotals });
+      expect(
+        mockPrisma.importJob.updateMany.mock.invocationCallOrder[0],
+      ).toBeLessThan(mockPrisma.importJobRow.groupBy.mock.invocationCallOrder[0]);
+      expect(mockPrisma.importJobRow.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { tenant_id: 'tenant-1', import_job_id: 'job-1' },
+        }),
+      );
+      const totalsWrite = mockPrisma.importJob.updateMany.mock.calls[1][0];
+      expect(totalsWrite.data).toEqual({
+        totals_json: { rows: 2, create: 0, update: 2, skip: 0, error: 0 },
+      });
+    });
+
+    it('fails the approval when the job lock touches no row', async () => {
+      mockPrisma.importJob.updateMany.mockResolvedValueOnce({ count: 0 });
+      const executor = service.resolve('decision.import_row_match');
+
+      await expect(executor.execute(importPayload)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(mockPrisma.importJob.updateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails the approval when the totals write touches no row', async () => {
+      mockPrisma.importJob.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+      const executor = service.resolve('decision.import_row_match');
+
+      await expect(executor.execute(importPayload)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+
+    it('sets a document type only on a READY asset of the approver tenant', async () => {
+      const executor = service.resolve('decision.document_sort');
+
+      await expect(executor.execute(documentPayload)).resolves.toEqual({
+        id: 'asset-1',
+        entityId: 'asset-1',
+      });
+      expect(mockPrisma.documentBrandAsset.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'asset-1',
+          tenant_id: 'tenant-1',
+          state: 'READY',
+          document_sort_type: null,
+        },
+        data: { document_sort_type: 'Lieferschein' },
+      });
+    });
+
+    it('conflicts when the type is already set or the asset is not READY', async () => {
+      mockPrisma.documentBrandAsset.updateMany.mockResolvedValueOnce({ count: 0 });
+      const executor = service.resolve('decision.document_sort');
+
+      await expect(executor.execute(documentPayload)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+
+    it('never matches another tenant document asset', async () => {
+      mockPrisma.documentBrandAsset.updateMany.mockResolvedValueOnce({ count: 0 });
+      mockTenant.getTenantId.mockResolvedValue('tenant-2');
+      const executor = service.resolve('decision.document_sort');
+
+      await expect(executor.execute(documentPayload)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(mockPrisma.documentBrandAsset.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tenant_id: 'tenant-2' }),
+        }),
+      );
+    });
   });
 });

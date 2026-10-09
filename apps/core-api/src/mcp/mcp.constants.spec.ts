@@ -64,6 +64,9 @@ describe('MCP Constants - Never Exposed Actions', () => {
         'get_stock_level',
         'get_vehicle_stock_age_report',
         'get_vehicle_stock_margin_report',
+        'list_bays',
+        'list_bins',
+        'list_workshop_tasks',
       ];
       expect(MCP_READ_TOOL_NAMES).toEqual(allowedReadTools);
     });

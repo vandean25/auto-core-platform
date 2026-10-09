@@ -1,3 +1,4 @@
+import type { ErrorEvent } from '@sentry/react'
 import { describe, expect, it } from 'vitest'
 import { createSentryOptions } from './config'
 
@@ -41,5 +42,43 @@ describe('createSentryOptions', () => {
     })
 
     expect(options.tracePropagationTargets).toEqual(['localhost', /\/api(?:\/|$)/])
+  })
+
+  it('drops force-closed delete-origin rejections in beforeSend and keeps unrelated errors', () => {
+    const options = createSentryOptions({ MODE: 'production' })
+    const forceClosed = {
+      exception: {
+        values: [
+          {
+            type: 'UnknownError',
+            value: 'Connection is closing because of: Force close delete origin',
+            mechanism: { type: 'auto.browser.global_handlers.onunhandledrejection', handled: false },
+          },
+        ],
+      },
+    } as unknown as ErrorEvent
+    const unrelated = {
+      exception: {
+        values: [
+          {
+            type: 'TypeError',
+            value: "Cannot read properties of undefined (reading 'id')",
+            mechanism: { type: 'auto.browser.global_handlers.onerror', handled: false },
+          },
+        ],
+      },
+    } as unknown as ErrorEvent
+
+    expect(options.beforeSend?.(forceClosed, {})).toBeNull()
+    expect(options.beforeSend?.(unrelated, {})).toBe(unrelated)
+  })
+
+  it('still tags chunk load errors in beforeSend', () => {
+    const options = createSentryOptions({ MODE: 'production' })
+    const event = options.beforeSend?.({ tags: {} } as unknown as ErrorEvent, {
+      originalException: new TypeError('Failed to fetch dynamically imported module: /assets/a.js'),
+    })
+
+    expect(event).toMatchObject({ tags: { chunk_load_recovered: 'true' } })
   })
 })

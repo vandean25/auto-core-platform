@@ -12,7 +12,12 @@ import {
   useRejectAgentProposal,
 } from '@/api/agent-proposals'
 import { useAgentActions, useAgentActionTraceDetail } from '@/api/agent-actions'
+import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
 import AgentSupervisionPage from './AgentSupervisionPage'
+
+vi.mock('@/api/decision-shadow-logs', () => ({
+  useDecisionShadowLogs: vi.fn(),
+}))
 
 vi.mock('@/api/agent-proposals', () => ({
   useAgentProposals: vi.fn(),
@@ -247,6 +252,16 @@ describe('AgentSupervisionPage', () => {
       isFetchingNextPage: false,
       refetch: mockRefetchActions,
     } as unknown as ReturnType<typeof useAgentActions>)
+
+    vi.mocked(useDecisionShadowLogs).mockReturnValue({
+      data: { pages: [{ data: [], nextCursor: null }] },
+      isLoading: false,
+      isError: false,
+      fetchNextPage: vi.fn(),
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useDecisionShadowLogs>)
 
     vi.mocked(useAgentActionTraceDetail).mockReturnValue({
       data: mockTraceDetail,
@@ -545,6 +560,28 @@ describe('AgentSupervisionPage', () => {
         endDate: new Date(2026, 9, 4, 23, 59, 59, 999).toISOString(),
       }),
     )
+  })
+
+  it('switches to the Decision shadow tab and filters its read-only log by use case', () => {
+    render(<AgentSupervisionPage />)
+
+    fireEvent.click(screen.getByTestId('tab-decision-shadow'))
+
+    expect(screen.getByTestId('decision-shadow-tab')).toBeInTheDocument()
+    expect(vi.mocked(useDecisionShadowLogs)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ useCase: undefined, limit: 50 }),
+    )
+
+    fireEvent.change(
+      screen.getByTestId('filter-decision-shadow-use-case-select'),
+      { target: { value: 'document_sort' } },
+    )
+    expect(vi.mocked(useDecisionShadowLogs)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ useCase: 'document_sort' }),
+    )
+    expect(
+      screen.getByTestId('decision-shadow-empty-state'),
+    ).toBeInTheDocument()
   })
 
   it('renders empty states when there are no proposals or activity records', () => {

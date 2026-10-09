@@ -33,6 +33,9 @@ export const MCP_READ_TOOL_NAMES = [
   'get_stock_level',
   'get_vehicle_stock_age_report',
   'get_vehicle_stock_margin_report',
+  'list_bays',
+  'list_bins',
+  'list_workshop_tasks',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];

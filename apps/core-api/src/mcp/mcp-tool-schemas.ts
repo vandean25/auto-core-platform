@@ -79,6 +79,21 @@ export const getVehicleStockMarginReportInputSchema = z.object({
   page_size: pageSizeSchema,
 });
 
+export const listBaysInputSchema = z.object({
+  page: pageSchema,
+  page_size: pageSizeSchema,
+});
+
+export const listBinsInputSchema = z.object({
+  page: pageSchema,
+  page_size: pageSizeSchema,
+});
+
+export const listWorkshopTasksInputSchema = z.object({
+  page: pageSchema,
+  page_size: pageSizeSchema,
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -93,6 +108,9 @@ export const mcpToolInputSchemas: Record<
   get_stock_level: getStockLevelInputSchema,
   get_vehicle_stock_age_report: getVehicleStockAgeReportInputSchema,
   get_vehicle_stock_margin_report: getVehicleStockMarginReportInputSchema,
+  list_bays: listBaysInputSchema,
+  list_bins: listBinsInputSchema,
+  list_workshop_tasks: listWorkshopTasksInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);
@@ -104,10 +122,10 @@ export const draftWorkshopOrderInputSchema = z
     vehicle_id: uuidSchema,
     purpose: workshopOrderPurposeSchema.optional(),
     status: workshopOrderDraftStatusSchema,
-    bay_id: uuidSchema.optional(),
+    bay_id: uuidSchema.describe('Required bay ID for a scheduled draft'),
     mechanic_id: uuidSchema.optional(),
-    scheduled_start_at: z.string().optional(),
-    scheduled_end_at: z.string().optional(),
+    scheduled_start_at: z.string().describe('Required scheduled start time'),
+    scheduled_end_at: z.string().describe('Required scheduled end time'),
     odometer: z.number().int().min(0).optional(),
     fuel_level: z.number().int().min(0).max(100).optional(),
     reported_issue: z.string().optional(),
@@ -117,11 +135,18 @@ export const draftWorkshopOrderInputSchema = z
 
 export const reservePartInputSchema = z
   .object({
-    workshop_task_line_item_id: uuidSchema,
+    workshop_task_line_item_id: uuidSchema.describe(
+      'ID of a catalog-backed PART line item on a workshop task; free-text lines are not supported',
+    ),
     quantity: z.number().min(0.001),
-    location_id: uuidSchema,
+    location_id: uuidSchema.describe(
+      'ID of a bin storage location at the active site',
+    ),
   })
-  .strict();
+  .strict()
+  .describe(
+    'Reservations use the existing EUR 250 platform amount_max: AUTO at or below the effective policy amount_max and PROPOSE above it.',
+  );
 
 export const releaseReservationInputSchema = z
   .object({

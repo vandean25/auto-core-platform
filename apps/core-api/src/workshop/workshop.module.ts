@@ -59,6 +59,11 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopKpiReportsService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
-  exports: [WorkshopSettingsService, WorkshopIntakeService],
+  exports: [
+    WorkshopSettingsService,
+    WorkshopIntakeService,
+    WorkshopTaskService,
+    WorkshopBoardService,
+  ],
 })
 export class WorkshopModule {}

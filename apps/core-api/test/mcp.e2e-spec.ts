@@ -32,6 +32,7 @@ type TenantFixtures = {
   catalogItemId: string;
   sku: string;
   workshopTaskLineItemId: string;
+  workshopTaskId: string;
   locationId: string;
 };
 
@@ -44,6 +45,11 @@ const TRACE_IDS: Record<(typeof MCP_READ_TOOL_NAMES)[number], string> = {
   get_workshop_order: '00000000-0000-4000-8000-000000000106',
   search_parts: '00000000-0000-4000-8000-000000000107',
   get_stock_level: '00000000-0000-4000-8000-000000000108',
+  list_bays: '00000000-0000-4000-8000-000000000109',
+  list_bins: '00000000-0000-4000-8000-000000000110',
+  list_workshop_tasks: '00000000-0000-4000-8000-000000000111',
+  get_vehicle_stock_age_report: '00000000-0000-4000-8000-000000000112',
+  get_vehicle_stock_margin_report: '00000000-0000-4000-8000-000000000113',
 };
 
 describe('MCP server (e2e)', () => {
@@ -207,6 +213,7 @@ describe('MCP server (e2e)', () => {
       catalogItemId: catalogItem.id,
       sku,
       workshopTaskLineItemId: lineItem.id,
+      workshopTaskId: task.id,
       locationId: location.id,
     };
   }
@@ -409,7 +416,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists all twelve tools (8 read + 4 write)', async () => {
+  it('lists all seventeen tools (13 read + 4 write)', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
@@ -444,7 +451,18 @@ describe('MCP server (e2e)', () => {
       },
       { name: 'search_parts', arguments: { query: fixtures.searchToken } },
       { name: 'get_stock_level', arguments: { sku: fixtures.sku } },
+      { name: 'get_vehicle_stock_age_report', arguments: {} },
+      {
+        name: 'get_vehicle_stock_margin_report',
+        arguments: { from: '2026-10-01', to: '2026-10-31' },
+      },
+      { name: 'list_bays', arguments: {} },
+      { name: 'list_bins', arguments: {} },
+      { name: 'list_workshop_tasks', arguments: {} },
     ];
+    expect(toolCalls.map((call) => call.name).sort()).toEqual(
+      [...MCP_READ_TOOL_NAMES].sort(),
+    );
 
     for (const call of toolCalls) {
       const traceId = TRACE_IDS[call.name];
@@ -467,6 +485,77 @@ describe('MCP server (e2e)', () => {
       expect(log?.tier).toBe('AUTO');
       await transport.close();
     }
+  });
+
+  it.each(['list_bays', 'list_bins', 'list_workshop_tasks'])(
+    'returns empty data for %s on tenant B',
+    async (toolName) => {
+      const { client, transport } = await connectMcpClient(
+        adminHeaderB,
+        `e2e-empty-${toolName}`,
+      );
+      const result = await client.callTool({ name: toolName, arguments: {} });
+      expect(result.isError).not.toBe(true);
+      expect(JSON.parse(toolPayloadText(result))).toMatchObject({
+        data: [],
+        meta: { total: 0, page: 1, page_size: 10 },
+      });
+      await transport.close();
+    },
+  );
+
+  it('returns active-site bays, bins, and actionable workshop task context', async () => {
+    const { client, transport } = await connectMcpClient(
+      adminHeaderA,
+      'e2e-new-mcp-lists',
+    );
+    const results = await Promise.all(
+      ['list_bays', 'list_bins', 'list_workshop_tasks'].map((name) =>
+        client.callTool({ name, arguments: {} }),
+      ),
+    );
+    const [bayResult, binResult, taskResult] = results;
+    const bays = JSON.parse(toolPayloadText(bayResult)) as {
+      data: Array<{ id: string }>;
+      meta: { total: number };
+    };
+    const bins = JSON.parse(toolPayloadText(binResult)) as {
+      data: Array<{ id: string; type: string }>;
+      meta: { total: number };
+    };
+    const tasks = JSON.parse(toolPayloadText(taskResult)) as {
+      data: Array<{
+        id: string;
+        workshop_order_id: string;
+        line_items_version: number;
+        line_items: Array<{ id: string; catalog_item_id: string | null }>;
+      }>;
+      meta: { total: number };
+    };
+
+    expect(bayResult?.isError).not.toBe(true);
+    expect(bins.data.map((bin) => bin.type)).toContain('bin');
+    expect(bays.data.map((bay) => bay.id)).toContain(workshopBayId);
+    expect(bins.data.map((bin) => bin.id)).toContain(fixtures.locationId);
+    expect(tasks.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: fixtures.workshopTaskId,
+          workshop_order_id: fixtures.workshopOrderId,
+          line_items_version: expect.any(Number),
+          line_items: expect.arrayContaining([
+            expect.objectContaining({
+              id: fixtures.workshopTaskLineItemId,
+              catalog_item_id: fixtures.catalogItemId,
+            }),
+          ]),
+        }),
+      ]),
+    );
+    expect(bays.meta.total).toBeGreaterThan(0);
+    expect(bins.meta.total).toBeGreaterThan(0);
+    expect(tasks.meta.total).toBeGreaterThan(0);
+    await transport.close();
   });
 
   it('isolates tenant A data for every read tool with tenant B token', async () => {
@@ -499,7 +588,18 @@ describe('MCP server (e2e)', () => {
         name: 'get_stock_level',
         arguments: { sku: fixtures.sku },
       },
+      { name: 'get_vehicle_stock_age_report', arguments: {} },
+      {
+        name: 'get_vehicle_stock_margin_report',
+        arguments: { from: '2026-10-01', to: '2026-10-31' },
+      },
+      { name: 'list_bays', arguments: {} },
+      { name: 'list_bins', arguments: {} },
+      { name: 'list_workshop_tasks', arguments: {} },
     ];
+    expect(calls.map((call) => call.name).sort()).toEqual(
+      [...MCP_READ_TOOL_NAMES].sort(),
+    );
 
     for (const call of calls) {
       const result = await client.callTool({
@@ -507,7 +607,14 @@ describe('MCP server (e2e)', () => {
         arguments: call.arguments,
       });
       const payload = toolPayloadText(result);
-      if (call.name.startsWith('get_')) {
+      if (
+        [
+          'get_customer',
+          'get_vehicle',
+          'get_workshop_order',
+          'get_stock_level',
+        ].includes(call.name)
+      ) {
         expect(result.isError).toBe(true);
         continue;
       }
@@ -1319,6 +1426,7 @@ describe('MCP server (e2e)', () => {
           vehicle_id: tenantBVehicle.id,
           purpose: 'CUSTOMER_REPAIR',
           status: 'SCHEDULED',
+          ...scheduledBooking(),
           odometer: 1000,
           fuel_level: 50,
         },
@@ -1475,6 +1583,7 @@ describe('MCP server (e2e)', () => {
                 vehicle_id: fixtures.vehicleId,
                 purpose: 'CUSTOMER_REPAIR',
                 status: 'SCHEDULED',
+                ...scheduledBooking(),
                 odometer: 1000,
                 fuel_level: 50,
               },
