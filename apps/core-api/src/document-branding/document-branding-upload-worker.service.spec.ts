@@ -38,6 +38,7 @@ describe('DocumentBrandingUploadWorkerService', () => {
     validateAndRasterize: jest.fn(),
   } as unknown as DocumentBrandingPdfParser;
   const scheduleDocumentSortForText = jest.fn();
+  const classifyDocumentTextForOutcome = jest.fn().mockReturnValue('Sonstiges');
   const isLiveForTenant = jest.fn().mockResolvedValue(false);
   const applyDocumentSortForAsset = jest.fn().mockResolvedValue(undefined);
   let service: DocumentBrandingUploadWorkerService;
@@ -66,7 +67,7 @@ describe('DocumentBrandingUploadWorkerService', () => {
       prisma,
       storage,
       pdfParser,
-      { scheduleDocumentSortForText } as never,
+      { scheduleDocumentSortForText, classifyDocumentTextForOutcome } as never,
       { getTraceId: () => undefined } as never,
       { isLiveForTenant, applyDocumentSortForAsset } as never,
     );
@@ -285,6 +286,7 @@ describe('DocumentBrandingUploadWorkerService', () => {
 
   describe('document sort decision wiring (AUT-413)', () => {
     beforeEach(() => {
+      classifyDocumentTextForOutcome.mockReturnValue('Sonstiges');
       findFirst.mockResolvedValue({
         ...asset,
         purpose: 'SOURCE',
@@ -313,6 +315,22 @@ describe('DocumentBrandingUploadWorkerService', () => {
         expect.objectContaining({ tenantId: 'tenant-1' }),
       );
       expect(applyDocumentSortForAsset).not.toHaveBeenCalled();
+    });
+
+    it('keeps the shadow row for a document the heuristic already classified in live mode', async () => {
+      isLiveForTenant.mockResolvedValue(true);
+      classifyDocumentTextForOutcome.mockReturnValue('Rechnung');
+
+      await expect(service.validate('asset-1', 'tenant-1')).resolves.toEqual({
+        state: 'READY',
+      });
+
+      expect(scheduleDocumentSortForText).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: 'tenant-1' }),
+      );
+      expect(applyDocumentSortForAsset).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: 'tenant-1', assetId: 'asset-1' }),
+      );
     });
 
     it('applies live document sort only after the asset is persisted as READY', async () => {

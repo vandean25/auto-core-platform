@@ -83,6 +83,8 @@ A timeout, provider error, empty answer, invalid choice, exhausted batch budget,
 
 Every live decision writes one `agent_action_logs` row. It carries the request trace id, the tier, the redacted input and suggestion, and the outcome.
 
+With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_shadow_logs` row from the same suggestion. Documents the heuristic already classified (not `Sonstiges`) never reach live, so they keep the ordinary shadow row. The AE7 comparison data therefore stays complete in live mode.
+
 | Outcome | `status` | Meaning |
 |---------|----------|---------|
 | `applied` | `EXECUTED` | AUTO applied the suggestion |

@@ -93,7 +93,14 @@ export class DocumentBrandingUploadWorkerService {
         const text = extractLoosePdfText(validated.bytes);
         if (await this.decisionLive.isLiveForTenant(tenantId)) {
           documentSortText = text;
-        } else {
+        }
+        // Live mode consults Jev only for the Sonstiges gap, and logs that
+        // decision itself. Every other document keeps its shadow row.
+        if (
+          documentSortText === null ||
+          this.decisionHooks.classifyDocumentTextForOutcome(text) !==
+            'Sonstiges'
+        ) {
           this.decisionHooks.scheduleDocumentSortForText({
             tenantId,
             traceId: this.requestContext.getTraceId(),

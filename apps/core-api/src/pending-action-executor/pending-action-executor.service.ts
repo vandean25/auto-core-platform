@@ -21,11 +21,9 @@ import {
   reservePartInputSchema,
 } from '../mcp/mcp-tool-schemas.js';
 import {
-  adjustImportTotalsForAdoptedRows,
   applyDocumentSortType,
   applyImportRowMatchChanges,
-  readImportJobTotals,
-  updateImportJobTotals,
+  refreshImportJobTotals,
 } from '../decision/decision-live-apply.util.js';
 import { DOCUMENT_SORT_TYPES } from '../decision/decision.constants.js';
 
@@ -504,7 +502,7 @@ export class PendingActionExecutorService {
         tenant_id: tenantId,
         status: ImportJobStatus.DRY_RUN_DONE,
       },
-      select: { totals_json: true },
+      select: { id: true },
     });
     if (!job) {
       throw new UnprocessableEntityException(
@@ -528,13 +526,15 @@ export class PendingActionExecutorService {
         'Import row changed since the suggestion was made',
       );
     }
-    const totals = readImportJobTotals(job.totals_json);
-    if (totals) {
-      await updateImportJobTotals(this.prisma, {
-        tenantId,
-        jobId,
-        totals: adjustImportTotalsForAdoptedRows(totals, 1),
-      });
+    // Recount from the rows under the job lock. A stored total is never adjusted.
+    const totals = await refreshImportJobTotals(this.prisma, {
+      tenantId,
+      jobId,
+    });
+    if (!totals) {
+      throw new ConflictException(
+        'Import job is no longer awaiting confirmation',
+      );
     }
     return { id: jobId, entityId: jobId };
   }

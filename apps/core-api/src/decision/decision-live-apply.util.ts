@@ -48,11 +48,12 @@ export async function applyImportRowMatchChanges(
     .map((change) => change.row_no);
 }
 
+/** Returns false when the job is no longer awaiting confirmation. */
 export async function updateImportJobTotals(
   tx: Prisma.TransactionClient,
   params: { tenantId: string; jobId: string; totals: ImportJobTotals },
-): Promise<void> {
-  await tx.importJob.updateMany({
+): Promise<boolean> {
+  const updated = await tx.importJob.updateMany({
     where: {
       tenant_id: params.tenantId,
       id: params.jobId,
@@ -60,6 +61,72 @@ export async function updateImportJobTotals(
     },
     data: { totals_json: params.totals },
   });
+  return updated.count === 1;
+}
+
+/**
+ * Recounts a dry-run job's totals from its rows instead of adjusting a stored
+ * snapshot. The job row is written first and takes its row lock, so concurrent
+ * approvals on the same job queue here. Each recount then sees the committed row
+ * changes of the others. Returns null when the job is no longer awaiting
+ * confirmation, so the caller can roll back.
+ */
+export async function refreshImportJobTotals(
+  tx: Prisma.TransactionClient,
+  params: { tenantId: string; jobId: string },
+): Promise<ImportJobTotals | null> {
+  const job = await tx.importJob.findFirst({
+    where: {
+      tenant_id: params.tenantId,
+      id: params.jobId,
+      status: ImportJobStatus.DRY_RUN_DONE,
+    },
+    select: { totals_json: true },
+  });
+  if (!job) {
+    return null;
+  }
+  const locked = await tx.importJob.updateMany({
+    where: {
+      tenant_id: params.tenantId,
+      id: params.jobId,
+      status: ImportJobStatus.DRY_RUN_DONE,
+    },
+    data: { totals_json: job.totals_json as Prisma.InputJsonValue },
+  });
+  if (locked.count !== 1) {
+    return null;
+  }
+  const groups = await tx.importJobRow.groupBy({
+    by: ['action'],
+    where: { tenant_id: params.tenantId, import_job_id: params.jobId },
+    _count: { _all: true },
+  });
+  const totals = countImportTotals(
+    groups.map((group) => ({ action: group.action, count: group._count._all })),
+  );
+  const written = await updateImportJobTotals(tx, { ...params, totals });
+  return written ? totals : null;
+}
+
+function countImportTotals(
+  groups: Array<{ action: ImportRowAction; count: number }>,
+): ImportJobTotals {
+  const totals: ImportJobTotals = {
+    rows: 0,
+    create: 0,
+    update: 0,
+    skip: 0,
+    error: 0,
+  };
+  for (const group of groups) {
+    totals.rows += group.count;
+    if (group.action === ImportRowAction.CREATE) totals.create += group.count;
+    if (group.action === ImportRowAction.UPDATE) totals.update += group.count;
+    if (group.action === ImportRowAction.SKIP) totals.skip += group.count;
+    if (group.action === ImportRowAction.ERROR) totals.error += group.count;
+  }
+  return totals;
 }
 
 export function adjustImportTotalsForAdoptedRows(
@@ -70,26 +137,6 @@ export function adjustImportTotalsForAdoptedRows(
     ...totals,
     create: totals.create - adoptedRowCount,
     update: totals.update + adoptedRowCount,
-  };
-}
-
-export function readImportJobTotals(
-  value: Prisma.JsonValue | null,
-): ImportJobTotals | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-  const record = value as Record<string, unknown>;
-  const keys = ['rows', 'create', 'update', 'skip', 'error'] as const;
-  if (!keys.every((key) => typeof record[key] === 'number')) {
-    return null;
-  }
-  return {
-    rows: record.rows as number,
-    create: record.create as number,
-    update: record.update as number,
-    skip: record.skip as number,
-    error: record.error as number,
   };
 }
 
