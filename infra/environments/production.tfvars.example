@@ -7,6 +7,9 @@ container_image                  = "europe-west3-docker.pkg.dev/auto-core-platfo
 frontend_url                     = "https://auto-core-platform-vande.web.app"
 sentry_release                   = "REPLACE_WITH_RELEASE_TAG"
 cloud_tasks_target_base_url      = "https://PRODUCTION_PDF_WORKER_URL/api"
+# Request-based billing; variables.tf defaults (min 1, always-on CPU) cost ~24/7.
+min_instance_count               = 0
+cpu_idle                         = true
 database_secret_name             = "DATABASE_URL_PROD"
 database_pooled_secret_name      = "acp-core-api-database-url-pooled-prod"
 database_pooler_required         = false

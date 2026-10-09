@@ -22,6 +22,12 @@ substitutions:
   # The tag pipeline deploys the QA/demo instance (auto-core-platform-vande).
   # Override with "false" on a trigger that must not expose the screen.
   _VITE_FEATURE_AGENT_SUPERVISION: "true"
+  # QA/demo runtime flags (demo data only). Previously re-applied by hand after
+  # every tag deploy because --set-env-vars resets them. Override per trigger.
+  _MCP_SERVER_ENABLED: "true"
+  _DECISION_PROVIDER: openrouter-jev
+  _DECISION_SHADOW_ENABLED: "true"
+  _DOCUMENT_BRAND_EXTRACTION_PROVIDER: openrouter
 options:
   logging: CLOUD_LOGGING_ONLY
 
@@ -106,7 +112,7 @@ steps:
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --no-allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED},DOCUMENT_BRAND_EXTRACTION_PROVIDER=disabled" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED},DOCUMENT_BRAND_EXTRACTION_PROVIDER=${_DOCUMENT_BRAND_EXTRACTION_PROVIDER},DECISION_PROVIDER=${_DECISION_PROVIDER},DECISION_SHADOW_ENABLED=${_DECISION_SHADOW_ENABLED}" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,DOCUMENT_BRANDING_BUCKET=DOCUMENT_BRANDING_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest,CATALOG_HIT_HMAC_SECRET=CATALOG_HIT_HMAC_SECRET:latest,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest" \
           --cpu 1 \
           --memory 2Gi \
@@ -136,21 +142,22 @@ steps:
         set -euo pipefail
         IMAGE="${_REGION}-docker.pkg.dev/${_BACKEND_PROJECT}/${_AR_REPO}/${_RUN_SERVICE}:${TAG_NAME}"
         WORKER_URL="$$(cat /workspace/.pdf_worker_url)"
-        # Socket.IO: min-instances 1 + continuous CPU for heartbeats. REDIS_URL is Upstash
-        # (public TLS) from GSM — no VPC connector. These flags apply only to core-api,
-        # not core-api-pdf-worker.
+        # Request-based billing (min 0, CPU throttled when idle) to avoid always-on cost.
+        # Socket.IO still works: an open WebSocket / pending long-poll is an in-flight
+        # request, so CPU stays allocated for heartbeats while clients are connected.
+        # REDIS_URL is Upstash (public TLS) from GSM — no VPC connector.
         gcloud run deploy "${_RUN_SERVICE}" \
           --image "$$IMAGE" \
           --region "${_REGION}" \
           --project "${_BACKEND_PROJECT}" \
           --allow-unauthenticated \
-          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED},INVOICE_BRANDING_WRITER_ENABLED=true,DOCUMENT_BRAND_EXTRACTION_PROVIDER=disabled" \
+          --set-env-vars "NODE_ENV=production,FRONTEND_URL=${_FRONTEND_URL},SENTRY_RELEASE=${TAG_NAME},FIREBASE_PROJECT_ID=${_BACKEND_FIREBASE_PROJECT_ID},CLOUD_TASKS_ENABLED=true,CLOUD_TASKS_LOCATION=${_REGION},CLOUD_TASKS_QUEUE=pdf-queue,CLOUD_TASKS_TARGET_BASE_URL=$$WORKER_URL/api,CLOUD_TASKS_INVOKER_SA=${_CLOUD_TASKS_INVOKER_SA},DATABASE_POOLER_REQUIRED=${_DATABASE_POOLER_REQUIRED},INVOICE_BRANDING_WRITER_ENABLED=true,DOCUMENT_BRAND_EXTRACTION_PROVIDER=${_DOCUMENT_BRAND_EXTRACTION_PROVIDER},DECISION_PROVIDER=${_DECISION_PROVIDER},DECISION_SHADOW_ENABLED=${_DECISION_SHADOW_ENABLED},MCP_SERVER_ENABLED=${_MCP_SERVER_ENABLED}" \
           --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,DATABASE_URL_POOLED=${_DATABASE_POOLED_SECRET}:latest,SENTRY_DSN=acp-core-api-sentry-dsn:latest,INVOICE_PDF_BUCKET=INVOICE_PDF_BUCKET:latest,DOCUMENT_BRANDING_BUCKET=DOCUMENT_BRANDING_BUCKET:latest,WORKSHOP_MEDIA_BUCKET=WORKSHOP_MEDIA_BUCKET:latest,SECRET_ENCRYPTION_KEY=SECRET_ENCRYPTION_KEY:latest,CLOUD_TASKS_WORKER_SECRET=CLOUD_TASKS_WORKER_SECRET:latest,CATALOG_HIT_HMAC_SECRET=CATALOG_HIT_HMAC_SECRET:latest,REDIS_URL=REDIS_URL:latest,OPENROUTER_API_KEY=OPENROUTER_API_KEY:latest" \
           --cpu 1 \
           --memory 512Mi \
           --concurrency 40 \
-          --min-instances 1 \
-          --no-cpu-throttling \
+          --min-instances 0 \
+          --cpu-throttling \
           --startup-probe "httpGet.path=/api/health,httpGet.port=8080" \
           --max-instances 5 \
           --quiet
