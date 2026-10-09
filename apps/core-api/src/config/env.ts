@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const SECRET_ENCRYPTION_KEY_BYTES = 32;
+const API_KEY_PEPPER_MIN_BYTES = 32;
 const REQUIRED_ISSUE = 'Required';
 
 export const DOCUMENTED_ENV_KEYS = [
@@ -38,6 +39,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'GCP_CREDENTIALS',
   'SECRET_ENCRYPTION_KEY',
   'CATALOG_HIT_HMAC_SECRET',
+  'API_KEY_PEPPER',
   'DEFAULT_VAT_RATE',
   'GOOGLE_CLOUD_PROJECT',
   'FIREBASE_PROJECT_ID',
@@ -122,6 +124,7 @@ const envSchema = z
     GCP_CREDENTIALS: optionalString,
     SECRET_ENCRYPTION_KEY: optionalString,
     CATALOG_HIT_HMAC_SECRET: optionalString,
+    API_KEY_PEPPER: optionalString,
     DEFAULT_VAT_RATE: optionalString,
     GOOGLE_CLOUD_PROJECT: optionalString,
     FIREBASE_PROJECT_ID: optionalString,
@@ -136,6 +139,9 @@ const envSchema = z
     ),
   })
   .superRefine((env, ctx) => {
+    // Optional everywhere (ADR-0026): unset disables tenant API keys (fail closed); a bad value must still fail boot.
+    addApiKeyPepperIssues(ctx, env.API_KEY_PEPPER);
+
     if (env.NODE_ENV === 'test') {
       return;
     }
@@ -236,6 +242,24 @@ function addEncryptionKeyIssues(
   });
 }
 
+function addApiKeyPepperIssues(
+  ctx: z.RefinementCtx,
+  rawPepper: string | undefined,
+): void {
+  if (!rawPepper) {
+    return;
+  }
+  if (Buffer.from(rawPepper, 'base64').length >= API_KEY_PEPPER_MIN_BYTES) {
+    return;
+  }
+  ctx.addIssue({
+    code: 'custom',
+    path: ['API_KEY_PEPPER'],
+    message: `API_KEY_PEPPER must be a base64-encoded key of at least ${API_KEY_PEPPER_MIN_BYTES} bytes.`,
+    continue: true,
+  });
+}
+
 function arePdfWorkersEnabled(env: {
   NODE_ENV: AppEnv['NODE_ENV'];
   CLOUD_TASKS_ENABLED?: string;
@@ -273,6 +297,11 @@ function formatEnvValidationMessage(
   }
   if (invalid.includes('SECRET_ENCRYPTION_KEY')) {
     parts.push('SECRET_ENCRYPTION_KEY must be a base64-encoded 32-byte key.');
+  }
+  if (invalid.includes('API_KEY_PEPPER')) {
+    parts.push(
+      `API_KEY_PEPPER must be a base64-encoded key of at least ${API_KEY_PEPPER_MIN_BYTES} bytes.`,
+    );
   }
   return parts.join(' ');
 }

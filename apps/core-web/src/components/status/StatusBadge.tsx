@@ -80,6 +80,7 @@ const statusClassMap: Record<string, string> = {
   EXECUTED: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   FAILED: 'border-rose-200 bg-rose-100 text-rose-700',
   EXPIRED: 'border-slate-200 bg-slate-100 text-slate-600',
+  REVOKED: 'border-rose-200 bg-rose-100 text-rose-700',
   AUTO: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   PROPOSE: 'border-amber-200 bg-amber-100 text-amber-700',
   HUMAN_ONLY: 'border-purple-200 bg-purple-100 text-purple-700',

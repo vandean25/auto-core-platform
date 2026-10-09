@@ -10,6 +10,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - financeSettings, inspectionTemplate, inspectionTemplateItem: PlatformAdminService tenant-provisioning bootstrap only; writes use the new tenant ID
  * - attendanceEvent: HrAttendanceSchedulerService nightly close only
  * - agentPolicyRule: AgentPolicyService platform-default rows (tenant_id null)
+ * - tenantApiKey: ApiKeyLookupService, one findUnique by key id before any tenant context exists (ADR-0026).
+ *   The key row names its tenant, and every later query is tenant-scoped.
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -22,6 +24,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'inspectionTemplateItem',
   'attendanceEvent',
   'agentPolicyRule',
+  'tenantApiKey',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -79,5 +82,6 @@ export function createSystemPrismaTransactionClient(
     inspectionTemplateItem: client.inspectionTemplateItem,
     attendanceEvent: client.attendanceEvent,
     agentPolicyRule: client.agentPolicyRule,
+    tenantApiKey: client.tenantApiKey,
   };
 }

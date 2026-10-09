@@ -41,6 +41,8 @@ model Tenant {
   is_active  Boolean    @default(true)
   /// AUT-413 tenant opt-out for decision live-apply. Only `shadow` is valid; NULL inherits the environment.
   decision_apply_mode String? @db.VarChar(16)
+  /// AUT-411 per-key request budget for the public API (requests per 1-minute window, each key).
+  api_rate_limit_per_minute Int @default(60)
 
   revenueGroups                 RevenueGroup[]
   financeSettings               FinanceSettings?
@@ -131,6 +133,7 @@ model Tenant {
   vendorArticles                VendorArticle[]
   marginRules                   MarginRule[]
   catalogPriceHistories         CatalogPriceHistory[]
+  tenantApiKeys                 TenantApiKey[]
 
   @@map("tenants")
 }
@@ -212,6 +215,8 @@ model User {
   transfersReceived                 StockTransfer[]           @relation("StockTransferReceivedBy")
   confirmedDocumentBrandProfiles    DocumentBrandProfile[]    @relation("DocumentBrandConfirmedBy")
   requestedDocumentBrandExtractions DocumentBrandExtraction[] @relation("DocumentBrandExtractionRequestedBy")
+  createdTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyCreatedBy")
+  revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
   createdAt                         DateTime                  @default(now())
   updatedAt                         DateTime                  @updatedAt
 
@@ -1066,6 +1071,8 @@ enum AgentActionLogActorType {
   AGENT
   USER
   SYSTEM
+  /// AUT-411 public API request authenticated with a tenant API key.
+  API_KEY
 }
 
 model AgentActionLog {
@@ -1077,6 +1084,8 @@ model AgentActionLog {
   actor_type            AgentActionLogActorType
   agent_id              String?
   on_behalf_of_user_id  String?
+  /// AUT-411 TenantApiKey id when actor_type = API_KEY. Identifier only, never the secret.
+  api_key_id            String?
   action_type           String
   tier                  String
   status                String
@@ -1097,7 +1106,38 @@ model AgentActionLog {
   @@index([tenant_id, status, created_at])
   @@index([tenant_id, tier, created_at])
   @@index([tenant_id, entity_type, entity_id, created_at])
+  @@index([tenant_id, api_key_id, created_at])
   @@map("agent_action_logs")
+}
+
+/// AUT-411 tenant API key for the read-only public API (ADR-0026).
+/// Only an HMAC-SHA256 digest of the secret is stored; the plaintext secret is returned once at creation.
+model TenantApiKey {
+  id                     String    @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant    @relation(fields: [tenant_id], references: [id])
+  name                   String
+  /// Display-only prefix (`acp_live_` + first 8 characters of id). Never used for authentication.
+  key_prefix             String
+  /// HMAC-SHA256 hex digest of the secret. Never the plaintext secret.
+  secret_hash            String
+  /// Pepper derivation version (ADR-0026 rotation). Bump when the pepper or digest algorithm changes.
+  hash_version           Int       @default(1)
+  scopes                 String[]  @default([])
+  created_by_user_id     String?
+  created_by             User?     @relation("TenantApiKeyCreatedBy", fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  revoked_by_user_id     String?
+  revoked_by             User?     @relation("TenantApiKeyRevokedBy", fields: [revoked_by_user_id], references: [id], onDelete: SetNull)
+  created_at             DateTime  @default(now())
+  last_used_at           DateTime?
+  expires_at             DateTime?
+  revoked_at             DateTime?
+  /// Fixed-window request counter (one-minute windows). Reset atomically when the window expires.
+  rate_window_count      Int       @default(0)
+  rate_window_expires_at DateTime?
+
+  @@index([tenant_id, created_at])
+  @@map("tenant_api_keys")
 }
 
 model DecisionShadowLog {

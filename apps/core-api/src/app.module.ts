@@ -14,6 +14,8 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { AUTH_THROTTLER_OPTIONS } from './auth/auth-throttling.js';
+import { ApiKeyAuthGuard } from './public-api/api-keys/api-key.guard.js';
+import { PublicApiModule } from './public-api/public-api.module.js';
 
 import { PurchaseModule } from './purchase/purchase.module.js';
 import { VendorModule } from './vendor/vendor.module.js';
@@ -105,6 +107,7 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
     DecisionModule,
     DecisionShadowLogModule,
     McpModule,
+    PublicApiModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
@@ -112,6 +115,11 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // Order matters: API-key authentication must run before the Firebase session guard (ADR-0026).
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyAuthGuard,
     },
     {
       provide: APP_GUARD,

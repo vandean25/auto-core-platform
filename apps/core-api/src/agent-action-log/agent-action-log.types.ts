@@ -30,9 +30,11 @@ const statusSchema = z.enum(AGENT_ACTION_STATUSES);
 export const agentActionRecordInputSchema = z.object({
   traceId: z.string().uuid().optional(),
   parentTraceId: z.string().uuid().optional(),
-  actorType: z.enum(['AGENT', 'USER', 'SYSTEM']),
+  actorType: z.enum(['AGENT', 'USER', 'SYSTEM', 'API_KEY']),
   agentId: z.string().min(1).optional(),
   onBehalfOfUserId: z.string().optional(),
+  /** TenantApiKey id; required context for actorType API_KEY. Never the secret. */
+  apiKeyId: z.string().uuid().optional(),
   actionType: z.string().min(1),
   tier: tierSchema,
   status: statusSchema,

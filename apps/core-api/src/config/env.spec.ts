@@ -144,6 +144,27 @@ describe('validateEnv', () => {
     expect(validationError.message).toMatch(/base64-encoded 32-byte key/);
   });
 
+  it('rejects an API_KEY_PEPPER shorter than 32 bytes when it is set', () => {
+    const validationError = expectEnvError(
+      productionEnv({
+        API_KEY_PEPPER: Buffer.alloc(16, 3).toString('base64'),
+      }),
+    );
+    expect(validationError.invalid).toContain('API_KEY_PEPPER');
+    expect(validationError.message).toMatch(/API_KEY_PEPPER must be a base64-encoded key/);
+  });
+
+  it('treats API_KEY_PEPPER as optional and accepts a 32-byte value', () => {
+    expect(() => validateEnv(productionEnv())).not.toThrow();
+    expect(
+      validateEnv(
+        productionEnv({
+          API_KEY_PEPPER: Buffer.alloc(32, 3).toString('base64'),
+        }),
+      ).API_KEY_PEPPER,
+    ).toBe(Buffer.alloc(32, 3).toString('base64'));
+  });
+
   it('requires DATABASE_URL, SECRET_ENCRYPTION_KEY, and CATALOG_HIT_HMAC_SECRET in development', () => {
     const validationError = expectEnvError({ NODE_ENV: 'development' });
     expect(validationError.missing).toEqual([

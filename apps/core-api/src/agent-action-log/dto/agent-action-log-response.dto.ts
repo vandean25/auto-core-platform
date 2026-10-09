@@ -28,6 +28,10 @@ export class AgentActionLogResponseDto {
   @ApiPropertyOptional({ nullable: true })
   onBehalfOfUserId?: string | null;
 
+  /** TenantApiKey id for public API requests (actorType API_KEY). Never the secret. */
+  @ApiPropertyOptional({ nullable: true })
+  apiKeyId?: string | null;
+
   @ApiProperty()
   actionType!: string;
 
