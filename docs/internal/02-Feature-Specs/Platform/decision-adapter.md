@@ -113,6 +113,23 @@ Implement a new class that satisfies `DecisionProvider` and extend `createDecisi
 - Hygiene test rejects `sk-` patterns and non-reserved email domains in fixtures.
 - Live-apply tests use a fake provider only (`test/decision-live-apply.e2e-spec.ts`). They never call OpenRouter.
 
+## Read API (AUT-423)
+
+QA can read shadow rows without raw database access: `GET /api/decision-shadow-logs`. Read-only, so no endpoint applies, edits or deletes a suggestion. Live-apply is out of scope here (AUT-413).
+
+| Topic | Rule |
+|-------|------|
+| Roles | OWNER, ADMIN, ADVISOR (same supervisor gate as `/api/agent-actions`). TECH and SALES get 403. |
+| Scope | Tenant-scoped through `TenantContextService`. Rows from other tenants are never returned. |
+| Filters | `useCase` (`import_row_matching` \| `document_sort`); `startDate` / `endDate` on `created_at` (ISO-8601; a date-only `endDate` includes the whole UTC day); `startDate` must not be after `endDate`. |
+| Paging | `limit` (1-100, default 20) and opaque `cursor`. Newest first. Response is `{ data, nextCursor }`. |
+| Row fields | `id`, `traceId`, `useCase`, `suggestion` (`choice`, `confidence`, `rationale`, or null), `actualOutcome` (`choice`, `source`, or null), `latencyMs`, `error` (provider error text, null on success), `provider`, `model`, `match`, `createdAt`. |
+| Not exposed | `input_redacted_json`, `input_hash`, provider `raw_ref`, token counts. |
+
+Code: `apps/core-api/src/decision-shadow-log/`. Contract: `openapi/openapi.json` and the generated web types.
+
+UI: the **Decision shadow** tab on Agent Supervision (`/agent/supervision`). It has the same visibility as that page (`isAgentSupervisionEnabled()` and OWNER/ADMIN/ADVISOR). Filters apply on change and there is no Apply button.
+
 ## Operations
 
 - Expand-only schema changes:

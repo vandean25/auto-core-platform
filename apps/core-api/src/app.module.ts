@@ -54,6 +54,7 @@ import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 import { AgentProposalModule } from './agent-proposal/agent-proposal.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { DecisionModule } from './decision/decision.module.js';
+import { DecisionShadowLogModule } from './decision-shadow-log/decision-shadow-log.module.js';
 import { DryRunModule } from './dry-run/dry-run.module.js';
 
 @Module({
@@ -100,6 +101,7 @@ import { DryRunModule } from './dry-run/dry-run.module.js';
     AgentPolicyModule,
     AgentProposalModule,
     DecisionModule,
+    DecisionShadowLogModule,
     McpModule,
   ],
   controllers: [AppController, HealthController],
