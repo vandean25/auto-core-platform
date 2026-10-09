@@ -41,15 +41,19 @@ graph TD
 
 ### Cloud Run WebSocket Requirements
 
-Cloud Run manages serverless HTTP/WebSocket containers. Without explicit flags, idle WebSockets are dropped when CPU is throttled between HTTP requests, and instances scale to zero.
+`core-api` runs with **request-based billing** (CPU is allocated only while a request or connection is open). Socket.IO works with this: CPU is allocated while a WebSocket/long-polling connection is open, and the Redis adapter handles multiple instances.
 
-These flags apply **only to `core-api`**, not `core-api-pdf-worker`:
+These flags apply **only to `core-api`**, not `core-api-pdf-worker` (set via `cloudbuild.yaml`, PR #669):
 
-- **`--min-instances 1`**: Prevents cold starts and keeps at least one instance alive to maintain long-lived WebSocket connections.
-- **`--no-cpu-throttling`**: Allocates CPU continuously outside active requests so background WebSocket ping/pong heartbeats are never starved.
+- **`--min-instances 0`**: Scale to zero when idle. After idle, the first connection hits a cold start; the client reconnects automatically. A few realtime events may be missed meanwhile, and the app refetches via REST.
+- **`--cpu-throttling`**: Request-based billing (default). Do not use `--no-cpu-throttling` or `--min-instances 1` without a concrete reason.
 - **`--max-instances 5`**: Horizontal scale-out. Safe because `REDIS_URL` is injected and the Socket.IO Redis adapter fans room broadcasts across replicas.
 
-Do not copy the Socket.IO always-on CPU flags onto the Playwright PDF worker.
+**Cost warning:** an always-on instance (`--min-instances 1` with `--no-cpu-throttling`) costs roughly 70+ USD/month per instance and caused the September 2026 cost spike. Do not reintroduce it without a reason.
+
+**Transports and expected 400s:** the client uses `transports: ['websocket','polling']` on path `/api/socket.io`. The Firebase Hosting `/api/**` rewrite does not proxy WebSocket upgrades, so the upgrade request returns **400** (direct Cloud Run returns `101 Switching Protocols`). The client then falls back to long-polling, which works. These 400s in the logs are expected noise, not an outage.
+
+Do not copy the Socket.IO flags onto the Playwright PDF worker.
 
 ### Redis Pub/Sub Adapter
 
@@ -109,8 +113,8 @@ gcloud secrets add-iam-policy-binding REDIS_URL \
 `deploy-cloud-run` for `core-api` includes:
 
 - `REDIS_URL=REDIS_URL:latest`
-- `--min-instances 1`
-- `--no-cpu-throttling`
+- `--min-instances 0`
+- `--cpu-throttling` (request-based billing)
 - `--max-instances 5`
 - no `--vpc-connector` / Direct VPC flags
 
