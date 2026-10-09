@@ -296,4 +296,26 @@ describe('AgentActionLogService', () => {
     );
     expect(result.data[0]?.agentId).toBe('workshop-agent');
   });
+
+  it('persists the NOT_EVALUATED tier for writes rejected before policy evaluation', async () => {
+    await service.record({
+      actorType: 'AGENT',
+      agentId: 'mcp:test',
+      onBehalfOfUserId: 'user-1',
+      actionType: 'mcp.draft_workshop_order',
+      tier: 'NOT_EVALUATED',
+      status: 'FAILED',
+      inputSummary: { tool: 'draft_workshop_order' },
+      resultSummary: { error: 'Invalid input' },
+    });
+
+    expectAppendOnlyRecord();
+    expect(prisma.agentActionLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        tier: 'NOT_EVALUATED',
+        status: 'FAILED',
+        action_type: 'mcp.draft_workshop_order',
+      }),
+    });
+  });
 });

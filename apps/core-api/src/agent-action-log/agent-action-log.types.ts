@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
-export const AGENT_ACTION_TIERS = ['AUTO', 'PROPOSE', 'HUMAN_ONLY'] as const;
+// NOT_EVALUATED marks a write rejected by schema validation before any policy
+// evaluation: no policy tier applied, nothing previewed, proposed or executed.
+// Expand-only: agent_action_logs.tier is plain text with no DB enum or CHECK.
+export const AGENT_ACTION_TIERS = [
+  'AUTO',
+  'PROPOSE',
+  'HUMAN_ONLY',
+  'NOT_EVALUATED',
+] as const;
 
 export const AGENT_ACTION_STATUSES = [
   'PROPOSED',

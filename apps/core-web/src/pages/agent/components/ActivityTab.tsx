@@ -130,6 +130,7 @@ export function ActivityTab({
               <option value="AUTO">AUTO</option>
               <option value="PROPOSE">PROPOSE</option>
               <option value="HUMAN_ONLY">HUMAN_ONLY</option>
+              <option value="NOT_EVALUATED">NOT_EVALUATED</option>
             </select>
           </div>
 
