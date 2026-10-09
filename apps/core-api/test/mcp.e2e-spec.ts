@@ -70,20 +70,30 @@ describe('MCP server (e2e)', () => {
     authHeader: string,
     clientName: string,
     traceId?: string,
-  ): Promise<{ client: Client; transport: StreamableHTTPClientTransport }> {
+  ): Promise<{
+    client: Client;
+    transport: StreamableHTTPClientTransport;
+    responseTraceIds: Array<string | null>;
+  }> {
     const headers: Record<string, string> = { Authorization: authHeader };
     if (traceId) {
       headers['X-Trace-Id'] = traceId;
     }
+    const responseTraceIds: Array<string | null> = [];
     const transport = new StreamableHTTPClientTransport(new URL(mcpBaseUrl()), {
       requestInit: { headers },
+      fetch: async (input, init) => {
+        const response = await fetch(input, init);
+        responseTraceIds.push(response.headers.get('X-Trace-Id'));
+        return response;
+      },
     });
     const client = new Client(
       { name: clientName, version: '1.0.0' },
       { capabilities: {} },
     );
     await client.connect(transport);
-    return { client, transport };
+    return { client, transport, responseTraceIds };
   }
 
   function toolPayloadText(result: CallToolResult): string {
@@ -522,7 +532,7 @@ describe('MCP server (e2e)', () => {
       });
       const { line_items_version: expectedVersion } = task;
 
-      const { client, transport } = await connectMcpClient(
+      const { client, transport, responseTraceIds } = await connectMcpClient(
         adminHeaderA,
         'e2e-propose-line-item',
         '00000000-0000-4000-8000-000000000200', // traceId for propose_line_item
@@ -552,7 +562,10 @@ describe('MCP server (e2e)', () => {
         trace_id: string;
       };
       expect(payload.status).toBe('needs_approval');
-      expect(payload.trace_id).toBeTruthy();
+      expect(payload.trace_id).toBe('00000000-0000-4000-8000-000000000200');
+      expect(responseTraceIds[responseTraceIds.length - 1]).toBe(
+        payload.trace_id,
+      );
 
       // Ensure no line item row was created (dry run is rolled back)
       const lineItemCountAfter = await prismaA.workshopTaskLineItem.count({
@@ -572,6 +585,88 @@ describe('MCP server (e2e)', () => {
       expect(log?.tier).toBe('PROPOSE');
       expect(log?.status).toBe('PROPOSED');
 
+      const traceDetail = await request(app.getHttpServer())
+        .get(`/api/agent-actions/${payload.trace_id}`)
+        .set('Authorization', adminHeaderA)
+        .expect(200);
+      expect(traceDetail.body.logs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            traceId: payload.trace_id,
+            actionType: 'mcp.propose_line_item',
+            status: 'PROPOSED',
+          }),
+        ]),
+      );
+
+      await transport.close();
+    });
+
+    it('returns one generated trace ID for PROPOSE when X-Trace-Id is absent', async () => {
+      await setPolicyTier('workshop_order.propose_line', 'PROPOSE');
+      const task = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: fixtures.workshopOrderId,
+          title: 'Generated Trace Test Task',
+          status: 'NOT_STARTED',
+        },
+        select: { id: true, line_items_version: true },
+      });
+      const { client, transport, responseTraceIds } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-propose-line-item-generated-trace',
+      );
+
+      const result = await client.callTool({
+        name: 'propose_line_item',
+        arguments: {
+          workshop_order_id: fixtures.workshopOrderId,
+          workshop_task_id: task.id,
+          expected_line_items_version: task.line_items_version,
+          line_item: {
+            type: 'PART',
+            item_no: 'TEST-ITEM-GENERATED-TRACE',
+            description: 'Generated trace test line item',
+            quantity: 1,
+            unit_price_cents: 100,
+          },
+        },
+      });
+      expect(result.isError).not.toBe(true);
+      const payload = JSON.parse(toolPayloadText(result)) as {
+        status: string;
+        trace_id: string;
+      };
+      expect(payload.status).toBe('needs_approval');
+      expect(payload.trace_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(responseTraceIds[responseTraceIds.length - 1]).toBe(
+        payload.trace_id,
+      );
+
+      const log = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: payload.trace_id,
+          action_type: 'mcp.propose_line_item',
+        },
+      });
+      expect(log?.status).toBe('PROPOSED');
+
+      const traceDetail = await request(app.getHttpServer())
+        .get(`/api/agent-actions/${payload.trace_id}`)
+        .set('Authorization', adminHeaderA)
+        .expect(200);
+      expect(traceDetail.body.logs).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            traceId: payload.trace_id,
+            actionType: 'mcp.propose_line_item',
+            status: 'PROPOSED',
+          }),
+        ]),
+      );
       await transport.close();
     });
 
