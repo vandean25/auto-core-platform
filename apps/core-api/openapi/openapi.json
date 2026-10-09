@@ -25725,6 +25725,40 @@
           "amount_eur"
         ]
       },
+      "AgentProposalWorkshopOrderSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "order_number": {
+            "type": "string",
+            "nullable": true,
+            "example": "WO-2026-0001"
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_registration": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_description": {
+            "type": "string",
+            "nullable": true,
+            "example": "2019 Volkswagen Golf"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "customer_name",
+          "vehicle_registration",
+          "vehicle_description"
+        ]
+      },
       "AgentProposalResponseDto": {
         "type": "object",
         "properties": {
@@ -25766,6 +25800,16 @@
           "effective_summary": {
             "$ref": "#/components/schemas/AgentProposalEffectiveSummaryDto"
           },
+          "workshop_order_summary": {
+            "nullable": true,
+            "description": "Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgentProposalWorkshopOrderSummaryDto"
+              }
+            ]
+          },
           "preview_json": {
             "type": "object",
             "additionalProperties": true,
@@ -25806,6 +25850,7 @@
           "status",
           "payload_json",
           "effective_summary",
+          "workshop_order_summary",
           "preview_json",
           "created_by_agent",
           "decided_by",

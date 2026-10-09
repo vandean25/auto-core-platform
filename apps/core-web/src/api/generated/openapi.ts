@@ -7689,6 +7689,16 @@ export interface components {
             target_id: string | null;
             amount_eur: number | null;
         };
+        AgentProposalWorkshopOrderSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example WO-2026-0001 */
+            order_number: string | null;
+            customer_name: string | null;
+            vehicle_registration: string | null;
+            /** @example 2019 Volkswagen Golf */
+            vehicle_description: string | null;
+        };
         AgentProposalResponseDto: {
             id: string;
             tenant_id: string;
@@ -7702,6 +7712,8 @@ export interface components {
                 [key: string]: unknown;
             };
             effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
+            /** @description Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller. */
+            workshop_order_summary: components["schemas"]["AgentProposalWorkshopOrderSummaryDto"] | null;
             preview_json: {
                 [key: string]: unknown;
             } | null;
