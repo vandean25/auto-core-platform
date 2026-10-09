@@ -250,6 +250,44 @@ describe('Vehicle sale Kaufvertrag PDF (e2e)', () => {
     expect(archive.objectsByKey.get(first.body.key)).toHaveLength(1);
   });
 
+  it('does not serve the earlier archive after the facts change, until a new one is generated', async () => {
+    const saleId = await seedSale({
+      saleNumber: 'VS-E2E-0009',
+      site: siteId,
+      firstRegistrationDate: new Date('2020-10-08T00:00:00.000Z'),
+      endsOn: new Date('2028-10-08T00:00:00.000Z'),
+      presumptionEndsOn: new Date('2027-10-08T00:00:00.000Z'),
+    });
+    await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${saleId}/kaufvertrag/pdf`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .patch(`/api/vehicle-sales/${saleId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ garantie_months: 12, garantie_terms: 'Motorschaden ausgenommen' })
+      .expect(200);
+
+    // The earlier archive is still referenced until the next generation, but it no longer matches the facts.
+    const stale = await request(app.getHttpServer())
+      .get(`/api/vehicle-sales/${saleId}/kaufvertrag/pdf`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+    expect(stale.body.message).toBe('Kaufvertrag PDF is not generated yet');
+
+    const regenerated = await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${saleId}/kaufvertrag/pdf`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(201);
+    expect(regenerated.body.mode).toBe('generated');
+
+    await request(app.getHttpServer())
+      .get(`/api/vehicle-sales/${saleId}/kaufvertrag/pdf`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+  });
+
   it('refuses a negotiated one-year period the vehicle cannot support when saving the sale', async () => {
     const saleId = await seedSale({
       saleNumber: 'VS-E2E-0005',

@@ -141,6 +141,32 @@ describe('buildKaufvertragHtmlDocument', () => {
     expect(html).not.toContain('Vermutungsfrist');
   });
 
+  it('labels the buyer by the warranty regime, so the party block and the warranty section agree', () => {
+    const consumerCompany = render(
+      snapshotWith({
+        buyer: { ...BASE_INPUT.buyer, type: 'COMPANY', company_name: 'Beispiel GmbH' },
+      }),
+    );
+    expect(consumerCompany).toContain('<br>Verbraucher');
+    expect(consumerCompany).not.toContain('<br>Unternehmer');
+
+    const b2bPrivate = render(
+      snapshotWith({
+        warranty: {
+          ...BASE_INPUT.warranty,
+          regime: 'B2B_PER_CONTRACT',
+          buyerIsConsumer: false,
+          basePeriodYears: null,
+          presumptionPeriodYears: null,
+          baseEndsOn: null,
+          presumptionEndsOn: null,
+        },
+      }),
+    );
+    expect(b2bPrivate).toContain('<br>Unternehmer');
+    expect(b2bPrivate).not.toContain('<br>Verbraucher');
+  });
+
   it('prints the presumption as a research note that is not legal advice for consumers', () => {
     const html = render(snapshotWith({}));
 

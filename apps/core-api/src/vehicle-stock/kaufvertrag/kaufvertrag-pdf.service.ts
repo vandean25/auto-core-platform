@@ -240,6 +240,14 @@ export class VehicleSaleKaufvertragPdfService {
       throw new NotFoundException('Kaufvertrag PDF is not generated yet');
     }
 
+    // Changed facts leave the previous archive pointer in place until the next
+    // generation writes a new one. Serve only the archive that matches the
+    // current facts, so a download never disagrees with the tracker.
+    const current = await this.prepareSnapshot(sale, tenantId);
+    if (current.snapshotSha256 !== snapshotSha256) {
+      throw new NotFoundException('Kaufvertrag PDF is not generated yet');
+    }
+
     const identity = buildKaufvertragArchiveIdentity({
       tenantId,
       saleId: sale.id,

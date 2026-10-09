@@ -486,6 +486,24 @@ describe('VehicleSaleKaufvertragPdfService', () => {
       ).toBe(stored.kaufvertrag_archive_key);
     });
 
+    it('does not serve an earlier archive once the sale facts change', async () => {
+      const first = createHarness(loadedSale());
+      await first.service.requestGeneration(SALE_ID, { targetBaseUrl: '' });
+      const stored = storedFromUpdate(first.vehicleSale.updateMany.mock.calls[0][0].data);
+
+      // The archive pointer is unchanged, but a Garantie was added after the archive was written.
+      const harness = createHarness(
+        loadedSale({
+          ...stored,
+          garantie_months: 12,
+          garantie_terms: 'Motorschaden ausgenommen',
+        }),
+      );
+
+      await expect(harness.service.getPdf(SALE_ID)).rejects.toBeInstanceOf(NotFoundException);
+      expect(harness.storage.readImmutableObjectGeneration).not.toHaveBeenCalled();
+    });
+
     it('scopes the download lookup to the tenant and the authorized sites', async () => {
       const harness = createHarness(loadedSale());
       await expect(harness.service.getPdf(SALE_ID)).rejects.toBeInstanceOf(NotFoundException);

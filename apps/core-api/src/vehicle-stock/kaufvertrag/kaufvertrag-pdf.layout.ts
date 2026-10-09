@@ -75,7 +75,10 @@ function buyerLines(snapshot: KaufvertragSnapshot): string {
     escapeHtml(cityLine),
     escapeHtml(country),
     buyer.vat_id ? `UID: ${escapeHtml(buyer.vat_id)}` : '',
-    buyer.type === 'COMPANY' ? 'Unternehmer' : 'Verbraucher',
+    // Same status the warranty section uses, so the two cannot disagree.
+    snapshot.warranty.regime === 'B2B_PER_CONTRACT'
+      ? 'Unternehmer'
+      : 'Verbraucher',
   ]
     .filter(Boolean)
     .join('<br>');
