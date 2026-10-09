@@ -2,11 +2,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { toast } from 'sonner'
+
 import type { MarginRule } from '@/api/types'
 import * as marginRulesApi from '@/api/margin-rules'
 import * as brandsApi from '@/api/brands'
 import * as financeApi from '@/api/useFinance'
 import { MarginRulesTab } from './MarginRulesTab'
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}))
 
 vi.mock('@/api/margin-rules', () => ({
   useMarginRules: vi.fn(),
@@ -45,6 +54,25 @@ const mockRules: MarginRule[] = [
     updatedAt: '2026-01-01T00:00:00.000Z',
   },
 ]
+
+const mockRule2: MarginRule = {
+  id: 'rule-2',
+  tenant_id: 'tenant-1',
+  name: 'Brembo Bremsen',
+  priority: 20,
+  brand_id: 1,
+  brand: { id: 1, name: 'Brembo' },
+  revenue_group_id: 2,
+  revenue_group: { id: 2, name: 'Verschleißteile' },
+  cost_min: 50,
+  cost_max: 200,
+  markup_percent: 45,
+  use_supplier_rrp: false,
+  rounding: 'NONE',
+  is_active: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+}
 
 function renderTab() {
   const queryClient = new QueryClient({
@@ -199,5 +227,76 @@ describe('MarginRulesTab', () => {
     await waitFor(() => {
       expect(deleteMutation.mutateAsync).toHaveBeenCalledWith('rule-1')
     })
+  })
+
+  it('toggles priority sorting when clicking Prio header', () => {
+    ;(marginRulesApi.useMarginRules as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [mockRules[0], mockRule2],
+      isLoading: false,
+    })
+
+    renderTab()
+
+    const rowsBefore = screen.getAllByRole('row').slice(1)
+    expect(rowsBefore[0]).toHaveTextContent('Bosch Verschleißteile')
+    expect(rowsBefore[1]).toHaveTextContent('Brembo Bremsen')
+
+    const prioBtn = screen.getByRole('button', { name: /Priorität sortieren/i })
+    fireEvent.click(prioBtn)
+
+    const rowsAfterDesc = screen.getAllByRole('row').slice(1)
+    expect(rowsAfterDesc[0]).toHaveTextContent('Brembo Bremsen')
+    expect(rowsAfterDesc[1]).toHaveTextContent('Bosch Verschleißteile')
+
+    fireEvent.click(prioBtn)
+
+    const rowsAfterAsc = screen.getAllByRole('row').slice(1)
+    expect(rowsAfterAsc[0]).toHaveTextContent('Bosch Verschleißteile')
+    expect(rowsAfterAsc[1]).toHaveTextContent('Brembo Bremsen')
+  })
+
+  it('shows error when cost_min > cost_max on submit', async () => {
+    renderTab()
+
+    const addBtn = screen.getByRole('button', { name: /\+ Margenregel/i })
+    fireEvent.click(addBtn)
+
+    fireEvent.change(screen.getByLabelText(/^Bezeichnung/i), {
+      target: { value: 'Ungültige Regel' },
+    })
+    fireEvent.change(screen.getByLabelText(/Min\. Einkaufspreis/i), {
+      target: { value: '100' },
+    })
+    fireEvent.change(screen.getByLabelText(/Max\. Einkaufspreis/i), {
+      target: { value: '50' },
+    })
+
+    const submitBtn = screen.getByRole('button', { name: /Regel erstellen/i })
+    fireEvent.click(submitBtn)
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'Mindest-Einkaufspreis darf nicht größer als Höchst-Einkaufspreis sein',
+    )
+    expect(createMutation.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('shows error when markup_percent < 0 on submit', async () => {
+    renderTab()
+
+    const addBtn = screen.getByRole('button', { name: /\+ Margenregel/i })
+    fireEvent.click(addBtn)
+
+    fireEvent.change(screen.getByLabelText(/^Bezeichnung/i), {
+      target: { value: 'Negativer Aufschlag' },
+    })
+    fireEvent.change(screen.getByLabelText(/^Aufschlag/i), {
+      target: { value: '-10' },
+    })
+
+    const submitBtn = screen.getByRole('button', { name: /Regel erstellen/i })
+    fireEvent.click(submitBtn)
+
+    expect(toast.error).toHaveBeenCalledWith('Aufschlag darf nicht negativ sein')
+    expect(createMutation.mutateAsync).not.toHaveBeenCalled()
   })
 })

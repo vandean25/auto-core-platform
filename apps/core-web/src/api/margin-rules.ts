@@ -6,7 +6,6 @@ import type {
   PriceJumpThreshold,
   UpdateMarginRulePayload,
   UpdatePriceJumpThresholdPayload,
-  VendorArticle,
 } from './types'
 import { fetchWithAuth } from './client'
 
@@ -142,16 +141,4 @@ export function useUpdatePriceJumpThreshold() {
   })
 }
 
-export function useVendorArticles(vendorId: string | null | undefined) {
-  return useQuery({
-    queryKey: marginRuleKeys.vendorArticles(vendorId ?? ''),
-    enabled: Boolean(vendorId),
-    queryFn: async () => {
-      const response = await fetchWithAuth(`/api/vendors/${vendorId}/articles`)
-      if (!response.ok) {
-        throw new Error(await readErrorMessage(response, 'Failed to load vendor articles'))
-      }
-      return response.json() as Promise<VendorArticle[]>
-    },
-  })
-}
+export { useVendorArticles } from './vendors'

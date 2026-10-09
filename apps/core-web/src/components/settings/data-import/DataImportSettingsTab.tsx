@@ -22,6 +22,7 @@ import {
   useImportMappingProfiles,
   useImportTemplate,
 } from '@/api/imports'
+import { usePriceJumpThreshold } from '@/api/margin-rules'
 import { useVendors } from '@/api/vendors'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
@@ -125,6 +126,32 @@ export function DataImportSettingsTab() {
   const { data: vendorsData } = useVendors({ page: 1, pageSize: 100, filters: [] })
   const vendors = vendorsData?.data ?? []
 
+  const thresholdQuery = usePriceJumpThreshold()
+  const configuredThreshold =
+    thresholdQuery.data?.price_jump_threshold_percent ??
+    thresholdQuery.data?.threshold_percent ??
+    20
+
+  const isRowPriceJump = React.useCallback(
+    (row: { normalized?: unknown; warnings?: unknown }) => {
+      const norm = row.normalized as Record<string, unknown> | null
+      const warnings = (row.warnings ?? []) as Array<{
+        code?: string
+        message?: string
+      }>
+      return (
+        norm?.price_jump_flagged === true ||
+        warnings.some(
+          (w) =>
+            w.code === 'PRICE_JUMP_EXCEEDED' ||
+            (typeof w.message === 'string' &&
+              w.message.toLowerCase().includes('preissprung')),
+        )
+      )
+    },
+    [],
+  )
+
   const fields = React.useMemo(() => getImportFieldsForEntity(entityType), [entityType])
   const { data: template } = useImportTemplate(entityType)
   const { data: profiles = [] } = useImportMappingProfiles(entityType, sourceSystem)
@@ -157,7 +184,10 @@ export function DataImportSettingsTab() {
     },
   )
 
-  const jobRows = rowsResponse?.data ?? []
+  const jobRows = React.useMemo(() => rowsResponse?.data ?? [], [rowsResponse?.data])
+  const flaggedJumpCount = React.useMemo(() => {
+    return jobRows.filter(isRowPriceJump).length
+  }, [jobRows, isRowPriceJump])
   const rowsMeta = rowsResponse?.meta
   const rowsTotalPages = rowsMeta
     ? Math.max(1, Math.ceil(rowsMeta.total / rowsMeta.limit))
@@ -265,12 +295,18 @@ export function DataImportSettingsTab() {
     }
 
     try {
+      const effectiveOptions: ImportWizardOptions = {
+        ...options,
+        ...(entityType === 'SUPPLIER_PRICE_LIST'
+          ? { price_jump_threshold_percent: configuredThreshold }
+          : {}),
+      }
       const job = await dryRunMutation.mutateAsync({
         file,
         entityType: entityType as ImportEntityType,
         sourceSystem: sourceSystem.trim(),
         mapping,
-        options,
+        options: effectiveOptions,
       })
       setDryRunJob(job)
       setFileFingerprint(job.file_sha256)
@@ -785,7 +821,7 @@ export function DataImportSettingsTab() {
             </div>
           ) : null}
 
-          {entityType === 'SUPPLIER_PRICE_LIST' ? (
+          {entityType === 'SUPPLIER_PRICE_LIST' && flaggedJumpCount > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-4 p-3 bg-amber-50/70 border border-amber-200 rounded-md text-sm">
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -884,22 +920,15 @@ export function DataImportSettingsTab() {
                 </TableHeader>
                 <TableBody>
                   {jobRows.map((row) => {
-                    const norm = row.normalized as Record<string, unknown> | null
+                    const isPriceJump = isRowPriceJump(row)
+                    const thresholdPercent =
+                      (dryRunJob.options as ImportWizardOptions)?.price_jump_threshold_percent ??
+                      configuredThreshold
+
                     const warnings = (row.warnings ?? []) as Array<{
                       code?: string
                       message?: string
                     }>
-                    const isPriceJump =
-                      norm?.price_jump_flagged === true ||
-                      warnings.some(
-                        (w) =>
-                          w.code === 'PRICE_JUMP_EXCEEDED' ||
-                          (typeof w.message === 'string' &&
-                            w.message.toLowerCase().includes('preissprung')),
-                      )
-                    const thresholdPercent =
-                      (dryRunJob.options as ImportWizardOptions)?.price_jump_threshold_percent ??
-                      20
 
                     const issues = [
                       ...(row.errors ?? []).map(

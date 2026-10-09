@@ -279,7 +279,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "data-import", "team", "audit-logs"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "margin-rules", "data-import", "team", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -292,6 +292,7 @@ export default function SettingsPage() {
     const activeTab: SettingsTab =
         requestedTab === 'team' && !canManageTeam ? 'finance'
         : requestedTab === 'vehicle-data' && !canManageVehicleData ? 'finance'
+        : requestedTab === 'margin-rules' && !canManageTeam ? 'finance'
         : requestedTab === 'data-import' && !canManageTeam ? 'finance'
         : (requestedTab === 'legal-entities' || requestedTab === 'sites') && !canManageTeam ? 'finance'
         : requestedTab

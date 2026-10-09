@@ -27,10 +27,10 @@ export class VendorArticleResponseDto {
   @ApiProperty({ example: 'BOS-0204114532' })
   vendor_article_no!: string;
 
-  @ApiProperty({ required: false, nullable: true, example: 45.5 })
+  @ApiProperty({ type: Number, required: false, nullable: true, example: 45.5 })
   last_cost?: number | null;
 
-  @ApiProperty({ required: false, nullable: true, example: 89.9 })
+  @ApiProperty({ type: Number, required: false, nullable: true, example: 89.9 })
   last_rrp?: number | null;
 
   @ApiProperty({ type: VendorArticleCatalogItemDto, required: false })

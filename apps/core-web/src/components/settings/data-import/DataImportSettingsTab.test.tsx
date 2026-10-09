@@ -5,12 +5,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ImportJob } from '@/api/imports'
 import * as importsApi from '@/api/imports'
+import * as marginRulesApi from '@/api/margin-rules'
 import * as vendorsApi from '@/api/vendors'
 
 import { DataImportSettingsTab } from './DataImportSettingsTab'
 
 vi.mock('@/api/vendors', () => ({
   useVendors: vi.fn(),
+}))
+
+vi.mock('@/api/margin-rules', () => ({
+  usePriceJumpThreshold: vi.fn(),
 }))
 
 vi.mock('@/api/imports', async (importOriginal) => {
@@ -97,6 +102,10 @@ describe('DataImportSettingsTab row filter', () => {
     })
     ;(importsApi.useImportJobRows as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { data: [], meta: { total: 0, page: 1, limit: 200 } },
+      isLoading: false,
+    })
+    ;(marginRulesApi.usePriceJumpThreshold as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { price_jump_threshold_percent: 20 },
       isLoading: false,
     })
   })
@@ -190,9 +199,11 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
   }
 
   const applyMutationMock = { mutateAsync: vi.fn(), isPending: false }
+  const dryRunMutationMock = { mutateAsync: vi.fn(), isPending: false }
 
   beforeEach(() => {
     vi.clearAllMocks()
+    dryRunMutationMock.mutateAsync.mockResolvedValue(supplierDryRunJob)
     ;(vendorsApi.useVendors as ReturnType<typeof vi.fn>).mockReturnValue({
       data: {
         data: [{ id: 'vendor-1', name: 'Stahlgruber GmbH' }],
@@ -212,15 +223,16 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     ;(importsApi.useImportMappingProfiles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: [],
     })
-    ;(importsApi.useImportDryRun as ReturnType<typeof vi.fn>).mockReturnValue({
-      mutateAsync: vi.fn().mockResolvedValue(supplierDryRunJob),
-      isPending: false,
-    })
+    ;(importsApi.useImportDryRun as ReturnType<typeof vi.fn>).mockReturnValue(dryRunMutationMock)
     ;(importsApi.useApplyImportJob as ReturnType<typeof vi.fn>).mockReturnValue(
       applyMutationMock,
     )
     ;(importsApi.useImportJobRows as ReturnType<typeof vi.fn>).mockReturnValue({
       data: { data: [supplierRow], meta: { total: 1, page: 1, limit: 200 } },
+      isLoading: false,
+    })
+    ;(marginRulesApi.usePriceJumpThreshold as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: { price_jump_threshold_percent: 20 },
       isLoading: false,
     })
   })
@@ -261,6 +273,16 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
     // Run dry-run
     fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
 
+    await waitFor(() => {
+      expect(dryRunMutationMock.mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({
+            price_jump_threshold_percent: 20,
+          }),
+        }),
+      )
+    })
+
     // In dry-run report
     await waitFor(() => {
       expect(screen.getByText(/Preissprung > 20%/i)).toBeInTheDocument()
@@ -289,5 +311,43 @@ describe('DataImportSettingsTab SUPPLIER_PRICE_LIST flow', () => {
         },
       })
     })
+  })
+
+  it('does not render price jump acceptance banner when flaggedJumpCount is 0', async () => {
+    ;(importsApi.useImportJobRows as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: {
+        data: [
+          {
+            ...supplierRow,
+            warnings: [],
+            normalized: {
+              ...supplierRow.normalized,
+              price_jump_flagged: false,
+            },
+          },
+        ],
+        meta: { total: 1, page: 1, limit: 200 },
+      },
+      isLoading: false,
+    })
+
+    renderTab(['/?tab=data-import&entity=SUPPLIER_PRICE_LIST&vendorId=vendor-1'])
+
+    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    const fileInput = screen.getByLabelText(/CSV file/i)
+    const csvFile = new File(['ArtNr\n1\n'], 'prices.csv', { type: 'text/csv' })
+    fireEvent.change(fileInput, { target: { files: [csvFile] } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Continue \/ Weiter/i })).toBeEnabled()
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Continue \/ Weiter/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Run dry-run/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/4\. Dry-run report/i)).toBeInTheDocument()
+    })
+
+    expect(screen.queryByLabelText(/Preissprünge akzeptieren/i)).not.toBeInTheDocument()
   })
 })

@@ -4047,9 +4047,9 @@ export interface components {
             /** @example BOS-0204114532 */
             vendor_article_no: string;
             /** @example 45.5 */
-            last_cost?: Record<string, never> | null;
+            last_cost?: number | null;
             /** @example 89.9 */
-            last_rrp?: Record<string, never> | null;
+            last_rrp?: number | null;
             catalog_item?: components["schemas"]["VendorArticleCatalogItemDto"];
             /** Format: date-time */
             createdAt: string;

@@ -4,16 +4,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as vendorsApi from '@/api/vendors'
-import * as marginRulesApi from '@/api/margin-rules'
 import * as brandsApi from '@/api/brands'
 import VendorDetail from './VendorDetail'
 
 vi.mock('@/api/vendors', () => ({
   useVendor: vi.fn(),
   useUpdateVendor: vi.fn(),
-}))
-
-vi.mock('@/api/margin-rules', () => ({
   useVendorArticles: vi.fn(),
 }))
 
@@ -149,7 +145,7 @@ describe('VendorDetail Price List & Articles integration', () => {
       data: [],
       isLoading: false,
     })
-    ;(marginRulesApi.useVendorArticles as ReturnType<typeof vi.fn>).mockReturnValue({
+    ;(vendorsApi.useVendorArticles as ReturnType<typeof vi.fn>).mockReturnValue({
       data: mockArticles,
       isLoading: false,
     })

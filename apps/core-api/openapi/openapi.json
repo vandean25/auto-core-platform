@@ -13290,12 +13290,12 @@
             "example": "BOS-0204114532"
           },
           "last_cost": {
-            "type": "object",
+            "type": "number",
             "nullable": true,
             "example": 45.5
           },
           "last_rrp": {
-            "type": "object",
+            "type": "number",
             "nullable": true,
             "example": 89.9
           },

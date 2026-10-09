@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { AlertCircle, Edit2, Loader2, Plus, Trash2 } from 'lucide-react'
+import { AlertCircle, ArrowDown, ArrowUp, Edit2, Loader2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import type {
@@ -105,10 +105,17 @@ export function MarginRulesTab() {
   const updateThreshold = useUpdatePriceJumpThreshold()
 
   const [thresholdInput, setThresholdInput] = React.useState<number>(20)
+  const [prioritySortOrder, setPrioritySortOrder] = React.useState<'asc' | 'desc'>('asc')
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingRule, setEditingRule] = React.useState<MarginRule | null>(null)
   const [formData, setFormData] = React.useState<RuleFormData>(DEFAULT_FORM_DATA)
   const [deleteCandidate, setDeleteCandidate] = React.useState<MarginRule | null>(null)
+
+  const sortedRules = React.useMemo(() => {
+    return [...rules].sort((a, b) =>
+      prioritySortOrder === 'asc' ? a.priority - b.priority : b.priority - a.priority,
+    )
+  }, [rules, prioritySortOrder])
 
   React.useEffect(() => {
     if (thresholdData?.price_jump_threshold_percent != null) {
@@ -156,6 +163,20 @@ export function MarginRulesTab() {
     event.preventDefault()
     if (!formData.name.trim()) {
       toast.error('Bitte geben Sie eine Bezeichnung ein')
+      return
+    }
+
+    if (
+      formData.cost_min != null &&
+      formData.cost_max != null &&
+      formData.cost_min > formData.cost_max
+    ) {
+      toast.error('Mindest-Einkaufspreis darf nicht größer als Höchst-Einkaufspreis sein')
+      return
+    }
+
+    if (formData.markup_percent != null && formData.markup_percent < 0) {
+      toast.error('Aufschlag darf nicht negativ sein')
       return
     }
 
@@ -286,7 +307,23 @@ export function MarginRulesTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Prio</TableHead>
+                  <TableHead className="w-20">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 font-medium hover:text-slate-900 transition-colors"
+                      onClick={() =>
+                        setPrioritySortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+                      }
+                      aria-label="Priorität sortieren"
+                    >
+                      <span>Prio</span>
+                      {prioritySortOrder === 'asc' ? (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Bezeichnung</TableHead>
                   <TableHead>Marke</TableHead>
                   <TableHead>Erlösgruppe</TableHead>
@@ -306,14 +343,14 @@ export function MarginRulesTab() {
                       Lade Margenregeln…
                     </TableCell>
                   </TableRow>
-                ) : rules.length === 0 ? (
+                ) : sortedRules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={10} className="text-center py-6 text-muted-foreground">
                       Keine Margenregeln definiert. Erstellen Sie eine neue Regel mit &quot;+ Margenregel&quot;.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rules.map((rule) => (
+                  sortedRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell className="font-mono font-medium">{rule.priority}</TableCell>
                       <TableCell className="font-medium">{rule.name}</TableCell>
@@ -371,7 +408,7 @@ export function MarginRulesTab() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitRule} className="space-y-4">
+          <form onSubmit={handleSubmitRule} noValidate className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="rule-name">Bezeichnung *</Label>
               <Input

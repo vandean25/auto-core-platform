@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from './client'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
-import type { Vendor } from './types'
+import type { Vendor, VendorArticle } from './types'
 
 const VENDORS_API = '/api/vendors'
 
@@ -10,6 +10,7 @@ export const vendorKeys = {
     all: ['vendors'] as const,
     list: (queryParams?: DataTableQueryParams) => [...vendorKeys.all, 'list', queryParams] as const,
     detail: (id: string) => [...vendorKeys.all, 'detail', id] as const,
+    articles: (vendorId: string) => [...vendorKeys.all, 'articles', vendorId] as const,
 }
 
 type VendorListResponse = {
@@ -118,6 +119,21 @@ export function useDeleteVendor() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: vendorKeys.all })
+        },
+    })
+}
+
+export function useVendorArticles(vendorId: string | null | undefined) {
+    return useQuery({
+        queryKey: vendorKeys.articles(vendorId ?? ''),
+        enabled: Boolean(vendorId),
+        queryFn: async () => {
+            const res = await fetchWithAuth(`${VENDORS_API}/${vendorId}/articles`)
+            if (!res.ok) {
+                const error = await res.json().catch(() => ({ message: 'Failed to load vendor articles' }))
+                throw new Error(error.message || 'Failed to load vendor articles')
+            }
+            return res.json() as Promise<VendorArticle[]>
         },
     })
 }
