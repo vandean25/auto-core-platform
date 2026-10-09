@@ -98,10 +98,13 @@ describe('VehicleSalePage NoVA preview boundary', () => {
 
     expect(updateSale).toHaveBeenCalledTimes(1)
     expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
-      customer_id: 'buyer-1',
-      sale_price: 14500,
-      buyer_is_consumer: true,
-      gewaehrleistung_shortened_negotiated: false,
+      id: 'sale-1',
+      data: expect.objectContaining({
+        customer_id: 'buyer-1',
+        sale_price: 14500,
+        buyer_is_consumer: true,
+        gewaehrleistung_shortened_negotiated: false,
+      }),
     }))
     expect(createSale).not.toHaveBeenCalled()
     expect(finalizeSale).not.toHaveBeenCalled()
@@ -132,7 +135,7 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     })
 
     expect(updateSale).toHaveBeenCalledWith(expect.objectContaining({
-      handed_over_at: '2026-10-08',
+      data: expect.objectContaining({ handed_over_at: '2026-10-08' }),
     }))
     expect(finalizeSale).not.toHaveBeenCalled()
 
@@ -183,8 +186,63 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     })
     expect(updateSale).toHaveBeenCalledTimes(2)
     expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
-      contract_concluded_at: '2026-09-01',
+      data: expect.objectContaining({ contract_concluded_at: '2026-09-01' }),
     }))
+  })
+
+  it('serializes overlapping autosaves and waits for the latest one before finalizing', async () => {
+    let resolveFirstSave: (() => void) | undefined
+    let resolveSecondSave: (() => void) | undefined
+    updateSale
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirstSave = resolve }))
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveSecondSave = resolve }))
+    finalizeSale.mockResolvedValueOnce({ invoice: { id: 'invoice-1' } })
+
+    render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(750) })
+    fireEvent.change(screen.getByLabelText('Vertragsdatum'), { target: { value: '2026-09-01' } })
+    await act(async () => { await vi.advanceTimersByTimeAsync(750) })
+    const finalizeButton = screen.getByRole('button', { name: 'Finalize invoice' })
+    fireEvent.click(finalizeButton)
+
+    expect(updateSale).toHaveBeenCalledTimes(1)
+    expect(finalizeSale).not.toHaveBeenCalled()
+    expect(finalizeButton).toBeDisabled()
+
+    await act(async () => {
+      resolveFirstSave?.()
+      await Promise.resolve()
+    })
+    expect(updateSale).toHaveBeenCalledTimes(2)
+    expect(updateSale).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        sale_price: 14500,
+        contract_concluded_at: '2026-09-01',
+      }),
+    }))
+    expect(resolveSecondSave).toBeDefined()
+    expect(finalizeSale).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveSecondSave?.()
+      await vi.runAllTicks()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(finalizeButton).toBeEnabled()
+    fireEvent.click(finalizeButton)
+    await act(async () => { await Promise.resolve() })
+    expect(finalizeSale).toHaveBeenCalledWith('sale-1')
   })
 
   it('defaults a private buyer to consumer and requires explicit agreement for shortening', () => {

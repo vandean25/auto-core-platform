@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -34,7 +34,15 @@ export default function GewaehrleistungDueList() {
   const navigate = useNavigate()
   const [windowDays, setWindowDays] = useState<(typeof WINDOWS)[number]>(30)
   const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 25 })
+  const { setPagination } = tableState
   const { data, isLoading, isError } = useGewaehrleistungDueList(windowDays)
+  const { search } = queryParams
+  const previousFilters = useRef({ windowDays, search })
+  useEffect(() => {
+    if (previousFilters.current.windowDays === windowDays && previousFilters.current.search === search) return
+    previousFilters.current = { windowDays, search }
+    setPagination((current) => ({ ...current, pageIndex: 0 }))
+  }, [windowDays, search, setPagination])
   const rows = useMemo<DueRow[]>(() => (data?.data ?? []).map((row) => ({
     id: row.id,
     vehicleId: row.vehicle.id,
@@ -47,7 +55,7 @@ export default function GewaehrleistungDueList() {
     presumptionEnds: row.presumption_ends_on?.slice(0, 10) ?? '',
     presumptionEndsLabel: row.presumption_ends_on ? formatDate(row.presumption_ends_on) : '—',
   })), [data])
-  const { search, sortField, sortDirection } = queryParams
+  const { sortField, sortDirection } = queryParams
   const filteredRows = useMemo(() => {
     const term = search?.trim().toLocaleLowerCase('de-AT')
     const matchingRows = term

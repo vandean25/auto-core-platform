@@ -65,7 +65,8 @@ export default function VehicleSalePage() {
   const { data: vehicle } = useVehicleStockDetail(vehicleId)
   const { mutateAsync: createSale } = useCreateVehicleSale()
   const [saleId, setSaleId] = useState(isNew ? '' : id)
-  const { mutateAsync: updateSale } = useUpdateVehicleSale(saleId)
+  const saleIdRef = useRef(saleId)
+  const { mutateAsync: updateSale } = useUpdateVehicleSale()
   const finalizeSale = useFinalizeVehicleSale()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [salePrice, setSalePrice] = useState('')
@@ -81,49 +82,59 @@ export default function VehicleSalePage() {
   const finalizing = useRef(false)
   const saveTimer = useRef<number | null>(null)
   const pendingSave = useRef<Promise<void> | null>(null)
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
   const persistSaleFacts = useCallback(async (
     facts: VehicleSaleDraftFacts,
     serialized: string,
   ) => {
-    setSaveStatus('saving')
-    try {
-      if (!saleId) {
-        const created = await createSale({
-          vehicle_id: facts.vehicle_id,
-          customer_id: facts.customer_id,
-          sale_price: facts.sale_price,
-          contract_concluded_at: facts.contract_concluded_at ?? undefined,
-          handed_over_at: facts.handed_over_at ?? undefined,
-          buyer_is_consumer: facts.buyer_is_consumer,
-          gewaehrleistung_shortened_negotiated:
-            facts.gewaehrleistung_shortened_negotiated,
-          gewaehrleistung_note: facts.gewaehrleistung_note,
-        })
-        setSaleId(created.id)
-        navigate(`/vehicle-stock/sales/${created.id}`, { replace: true })
-      } else {
-        await updateSale({
-          customer_id: facts.customer_id,
-          sale_price: facts.sale_price,
-          contract_concluded_at: facts.contract_concluded_at,
-          handed_over_at: facts.handed_over_at,
-          buyer_is_consumer: facts.buyer_is_consumer,
-          gewaehrleistung_shortened_negotiated:
-            facts.gewaehrleistung_shortened_negotiated,
-          gewaehrleistung_note: facts.gewaehrleistung_note,
-        })
+    const saveOperation = saveQueue.current.catch(() => undefined).then(async () => {
+      setSaveStatus('saving')
+      try {
+        if (!saleIdRef.current) {
+          const created = await createSale({
+            vehicle_id: facts.vehicle_id,
+            customer_id: facts.customer_id,
+            sale_price: facts.sale_price,
+            contract_concluded_at: facts.contract_concluded_at ?? undefined,
+            handed_over_at: facts.handed_over_at ?? undefined,
+            buyer_is_consumer: facts.buyer_is_consumer,
+            gewaehrleistung_shortened_negotiated:
+              facts.gewaehrleistung_shortened_negotiated,
+            gewaehrleistung_note: facts.gewaehrleistung_note,
+          })
+          saleIdRef.current = created.id
+          setSaleId(created.id)
+          navigate(`/vehicle-stock/sales/${created.id}`, { replace: true })
+        } else {
+          await updateSale({
+            id: saleIdRef.current,
+            data: {
+              customer_id: facts.customer_id,
+              sale_price: facts.sale_price,
+              contract_concluded_at: facts.contract_concluded_at,
+              handed_over_at: facts.handed_over_at,
+              buyer_is_consumer: facts.buyer_is_consumer,
+              gewaehrleistung_shortened_negotiated:
+                facts.gewaehrleistung_shortened_negotiated,
+              gewaehrleistung_note: facts.gewaehrleistung_note,
+            },
+          })
+        }
+        lastSavedSerialized.current = serialized
+        setSaveStatus('saved')
+      } catch (error) {
+        setSaveStatus('error')
+        throw error
       }
-      lastSavedSerialized.current = serialized
-      setSaveStatus('saved')
-    } catch (error) {
-      setSaveStatus('error')
-      throw error
-    }
-  }, [saleId, createSale, updateSale, navigate])
+    })
+    saveQueue.current = saveOperation
+    return saveOperation
+  }, [createSale, updateSale, navigate])
 
   useEffect(() => {
     if (!existing || hydratedSaleId.current === existing.id) return
     hydratedSaleId.current = existing.id
+    saleIdRef.current = existing.id
     setSaleId(existing.id)
     setSalePrice(String(existing.sale_price))
     setContractDate(existing.contract_concluded_at?.slice(0, 10) ?? '')

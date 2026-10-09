@@ -414,10 +414,10 @@ export function useCreateVehicleSale() {
   })
 }
 
-export function useUpdateVehicleSale(id: string) {
+export function useUpdateVehicleSale() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (data: PatchVehicleSaleDto) => {
+    mutationFn: async ({ id, data }: { id: string; data: PatchVehicleSaleDto }) => {
       const response = await fetchWithAuth(`/api/vehicle-sales/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
