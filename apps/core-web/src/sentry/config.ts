@@ -8,15 +8,17 @@ type SentryEnv = {
   VITE_APP_VERSION?: string
   VITE_API_BASE_URL?: string
   VITE_SENTRY_TRACES_SAMPLE_RATE?: string
+  VITE_SENTRY_ENVIRONMENT?: string
 }
 
 const API_PATH_PROPAGATION_TARGET = /\/api(?:\/|$)/
 
 export function createSentryOptions(env: SentryEnv): BrowserOptions {
   const dsn = env.VITE_SENTRY_DSN ?? ''
-  const environment = env.MODE ?? 'development'
+  const environment = env.VITE_SENTRY_ENVIRONMENT || (env.MODE ?? 'development')
+  const mode = env.MODE ?? 'development'
   const release = env.VITE_APP_VERSION ?? undefined
-  const configuredRate = Number(env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? (environment === 'production' ? 0.1 : 1))
+  const configuredRate = Number(env.VITE_SENTRY_TRACES_SAMPLE_RATE ?? (mode === 'production' ? 0.1 : 1))
   const tracesSampleRate = Number.isFinite(configuredRate) ? configuredRate : 0.1
 
   const apiBaseUrl = env.VITE_API_BASE_URL
