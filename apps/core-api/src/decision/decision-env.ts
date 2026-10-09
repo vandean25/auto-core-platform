@@ -1,8 +1,18 @@
-import type { DecisionProviderId } from './decision.constants.js';
+import type {
+  DecisionApplyMode,
+  DecisionProviderId,
+} from './decision.constants.js';
 import {
   DEFAULT_DECISION_HTTP_TIMEOUT_MS,
   OPENROUTER_JEV_DEFAULT_MODEL,
 } from './decision.constants.js';
+
+export type DecisionApplyModeResolution = {
+  /** Mode allowed by the environment, before any tenant opt-out. */
+  mode: DecisionApplyMode;
+  /** True when `live` was requested but a production runtime has not opted in. */
+  blockedByProductionGate: boolean;
+};
 
 export function readDecisionProviderId(
   env: NodeJS.ProcessEnv = process.env,
@@ -18,6 +28,34 @@ export function readDecisionShadowEnabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return env.DECISION_SHADOW_ENABLED?.trim().toLowerCase() === 'true';
+}
+
+/** Unknown values are `shadow`, so a typo never turns live-apply on. */
+export function readDecisionApplyMode(
+  env: NodeJS.ProcessEnv = process.env,
+): DecisionApplyMode {
+  return env.DECISION_APPLY_MODE?.trim().toLowerCase() === 'live'
+    ? 'live'
+    : 'shadow';
+}
+
+/**
+ * Production gate (AUT-395). Cloud Run services run with NODE_ENV=production,
+ * including QA, so live-apply there also needs DECISION_LIVE_OPT_IN=true.
+ */
+export function resolveEnvDecisionApplyMode(
+  env: NodeJS.ProcessEnv = process.env,
+): DecisionApplyModeResolution {
+  if (readDecisionApplyMode(env) !== 'live') {
+    return { mode: 'shadow', blockedByProductionGate: false };
+  }
+  const isProductionRuntime =
+    env.NODE_ENV?.trim().toLowerCase() === 'production';
+  const hasOptIn = env.DECISION_LIVE_OPT_IN?.trim().toLowerCase() === 'true';
+  if (isProductionRuntime && !hasOptIn) {
+    return { mode: 'shadow', blockedByProductionGate: true };
+  }
+  return { mode: 'live', blockedByProductionGate: false };
 }
 
 export function readOpenRouterJevModelId(
