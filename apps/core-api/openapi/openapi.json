@@ -10522,7 +10522,8 @@
               "enum": [
                 "AUTO",
                 "PROPOSE",
-                "HUMAN_ONLY"
+                "HUMAN_ONLY",
+                "NOT_EVALUATED"
               ]
             }
           },
@@ -25072,7 +25073,8 @@
             "enum": [
               "AUTO",
               "PROPOSE",
-              "HUMAN_ONLY"
+              "HUMAN_ONLY",
+              "NOT_EVALUATED"
             ]
           },
           "status": {

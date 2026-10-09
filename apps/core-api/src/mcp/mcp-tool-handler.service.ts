@@ -149,12 +149,14 @@ export class McpToolHandlerService {
     context: McpToolCallContext,
     error: unknown,
   ): Promise<void> {
+    // Schema validation runs before policy, so no tier was evaluated. Logging
+    // PROPOSE here would read as a proposal awaiting approval.
     await this.agentActionLog.record({
       actorType: 'AGENT',
       agentId: context.agentId,
       onBehalfOfUserId: context.onBehalfOfUserId,
       actionType: `mcp.${toolName}`,
-      tier: 'PROPOSE',
+      tier: 'NOT_EVALUATED',
       status: 'FAILED',
       inputSummary: { tool: toolName, args: rawArgs },
       resultSummary: {

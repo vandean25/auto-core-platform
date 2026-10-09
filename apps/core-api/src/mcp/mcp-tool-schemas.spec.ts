@@ -67,4 +67,23 @@ describe('MCP tool input schemas', () => {
       expect(() => schema.parse({ dry_run: true })).toThrow();
     }
   });
+
+  it('accepts only SCHEDULED as the draft workshop order status', () => {
+    const validDraft = {
+      vehicle_id: '00000000-0000-4000-8000-000000000099',
+      bay_id: '00000000-0000-4000-8000-000000000098',
+      scheduled_start_at: '2026-10-12T09:00:00.000Z',
+      scheduled_end_at: '2026-10-12T10:00:00.000Z',
+    };
+
+    expect(
+      draftWorkshopOrderInputSchema.parse({ ...validDraft, status: 'SCHEDULED' }),
+    ).toMatchObject({ status: 'SCHEDULED' });
+    expect(() =>
+      draftWorkshopOrderInputSchema.parse({ ...validDraft, status: 'DRAFT' }),
+    ).toThrow();
+    expect(() =>
+      draftWorkshopOrderInputSchema.parse({ ...validDraft, status: 'INTAKE' }),
+    ).toThrow();
+  });
 });

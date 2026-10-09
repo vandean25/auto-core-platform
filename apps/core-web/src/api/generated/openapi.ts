@@ -7541,7 +7541,7 @@ export interface components {
             onBehalfOfUserId?: Record<string, never> | null;
             actionType: string;
             /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
             /** @enum {string} */
             status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
             inputSummary?: {
@@ -14707,7 +14707,7 @@ export interface operations {
                 /** @description Filter by action status */
                 status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
                 /** @description Filter by policy tier */
-                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
                 /** @description Filter by trace ID */
                 traceId?: string;
             };

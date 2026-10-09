@@ -83,6 +83,7 @@ const statusClassMap: Record<string, string> = {
   AUTO: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   PROPOSE: 'border-amber-200 bg-amber-100 text-amber-700',
   HUMAN_ONLY: 'border-purple-200 bg-purple-100 text-purple-700',
+  NOT_EVALUATED: 'border-slate-200 bg-slate-100 text-slate-600',
 }
 
 export function formatStatusLabel(status: string) {

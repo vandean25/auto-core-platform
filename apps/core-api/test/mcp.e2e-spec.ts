@@ -1095,6 +1095,7 @@ describe('MCP server (e2e)', () => {
           trace_id: '00000000-0000-4000-8000-000000000213',
           action_type: 'mcp.draft_workshop_order',
           status: 'FAILED',
+          tier: 'NOT_EVALUATED',
         },
       })).toBeTruthy();
       await transport.close();
@@ -1128,6 +1129,7 @@ describe('MCP server (e2e)', () => {
           trace_id: '00000000-0000-4000-8000-000000000214',
           action_type: 'mcp.draft_workshop_order',
           status: 'FAILED',
+          tier: 'NOT_EVALUATED',
         },
       })).toBeTruthy();
       await transport.close();
@@ -1171,9 +1173,50 @@ describe('MCP server (e2e)', () => {
             trace_id: '00000000-0000-4000-8000-000000000215',
             action_type: 'mcp.draft_workshop_order',
             status: 'FAILED',
+            tier: 'NOT_EVALUATED',
           },
         }),
       ).toBeTruthy();
+      await transport.close();
+    });
+
+    it('logs a DRAFT status for draft_workshop_order as FAILED NOT_EVALUATED, never PROPOSE', async () => {
+      await setPolicyTier('workshop_order.create', 'AUTO');
+      const draftVehicle = await createDraftVehicle('draft-status-draft-rejected');
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-draft-workshop-order-status-draft-rejected',
+        '00000000-0000-4000-8000-000000000217',
+      );
+      const result = await client.callTool({
+        name: 'draft_workshop_order',
+        arguments: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          status: 'DRAFT',
+          ...scheduledBooking(14),
+          notes: 'MCP DRAFT status rejected test',
+        },
+      });
+
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toMatch(/validation|invalid/i);
+      expect(
+        await prismaA.workshopOrder.count({
+          where: { vehicle_id: draftVehicle.vehicleId },
+        }),
+      ).toBe(0);
+      const failures = await prismaA.agentActionLog.findMany({
+        where: {
+          trace_id: '00000000-0000-4000-8000-000000000217',
+          action_type: 'mcp.draft_workshop_order',
+        },
+      });
+      expect(failures).toHaveLength(1);
+      expect(failures[0]).toMatchObject({
+        status: 'FAILED',
+        tier: 'NOT_EVALUATED',
+      });
       await transport.close();
     });
 
