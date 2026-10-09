@@ -45,8 +45,7 @@ const TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
 };
 
 type McpToolInputSchema =
-  | z.ZodObject<z.ZodRawShape>
-  | Record<string, z.ZodTypeAny>;
+  z.ZodObject<z.ZodRawShape> | Record<string, z.ZodTypeAny>;
 
 const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpToolInputSchema> = {
   search_customers: searchCustomersInputSchema.shape,
