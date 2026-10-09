@@ -10422,7 +10422,8 @@
                 "EXECUTED",
                 "REFUSED",
                 "FAILED",
-                "DRY_RUN"
+                "DRY_RUN",
+                "FALLBACK"
               ]
             }
           },
@@ -24600,7 +24601,8 @@
               "EXECUTED",
               "REFUSED",
               "FAILED",
-              "DRY_RUN"
+              "DRY_RUN",
+              "FALLBACK"
             ]
           },
           "inputSummary": {

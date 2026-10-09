@@ -7,7 +7,10 @@ import { DECISION_PROVIDER_TOKEN } from './decision.constants.js';
 import { readDecisionShadowEnabled } from './decision-env.js';
 import type { DecisionProvider } from './decision-provider.js';
 import { hashDecisionInput } from './decision-input-hash.js';
-import type { DecisionShadowRecordParams } from './decision.types.js';
+import type {
+  DecisionResult,
+  DecisionShadowRecordParams,
+} from './decision.types.js';
 
 const MAX_CONCURRENT_SHADOWS = 4;
 const MAX_QUEUED_SHADOWS = 100;
@@ -69,57 +72,66 @@ export class DecisionShadowService {
   }
 
   private async runShadow(params: DecisionShadowRecordParams): Promise<void> {
-    const inputHash = hashDecisionInput({
-      useCase: params.useCase,
-      input: params.input,
-      choices: params.choices,
-    });
-
-    let suggestionJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
-      Prisma.JsonNull;
-    let provider = this.decisionProvider.providerId;
-    let model: string | null = null;
-    let latencyMs: number | null = null;
+    let suggestion: DecisionResult | null = null;
     let error: string | null = null;
-    let match: boolean | null = null;
 
     try {
-      const suggestion = await this.decisionProvider.decide({
+      suggestion = await this.decisionProvider.decide({
         useCase: params.useCase,
         input: params.input,
         choices: params.choices,
       });
-      if (suggestion) {
-        suggestionJson = suggestion;
-        provider = suggestion.provider;
-        model = suggestion.model;
-        latencyMs = suggestion.latency_ms;
-        match = suggestion.choice === params.actualOutcome.choice;
-      }
     } catch (caught) {
       error = caught instanceof Error ? caught.message : String(caught);
     }
 
+    await this.writeShadowRecord(params, {
+      suggestion,
+      error,
+      providerId: this.decisionProvider.providerId,
+    });
+  }
+
+  /**
+   * Persists one `decision_shadow_logs` row. `params` must already be redacted
+   * with `redactShadowParams`. AUT-413 live mode reuses this with the suggestion
+   * it already fetched, so Jev is never called twice for one decision.
+   */
+  async writeShadowRecord(
+    params: DecisionShadowRecordParams,
+    outcome: {
+      suggestion: DecisionResult | null;
+      error: string | null;
+      providerId: string;
+    },
+  ): Promise<void> {
+    const { suggestion } = outcome;
     await this.prisma.decisionShadowLog.create({
       data: {
         tenant_id: params.tenantId,
         trace_id: params.traceId,
         use_case: params.useCase,
-        input_hash: inputHash,
+        input_hash: hashDecisionInput({
+          useCase: params.useCase,
+          input: params.input,
+          choices: params.choices,
+        }),
         input_redacted_json: toInputJson(params.input),
-        suggestion_json: suggestionJson,
+        suggestion_json: suggestion ?? Prisma.JsonNull,
         actual_outcome_json: toInputJson(params.actualOutcome),
-        match,
-        provider,
-        model,
-        latency_ms: latencyMs,
-        error,
+        match: suggestion
+          ? suggestion.choice === params.actualOutcome.choice
+          : null,
+        provider: suggestion?.provider ?? outcome.providerId,
+        model: suggestion?.model ?? null,
+        latency_ms: suggestion?.latency_ms ?? null,
+        error: outcome.error,
       },
     });
   }
 }
 
-function redactShadowParams(
+export function redactShadowParams(
   params: DecisionShadowRecordParams,
 ): DecisionShadowRecordParams {
   const choiceAliases =

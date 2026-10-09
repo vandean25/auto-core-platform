@@ -10,6 +10,7 @@ export const AGENT_ACTION_STATUSES = [
   'REFUSED',
   'FAILED',
   'DRY_RUN',
+  'FALLBACK',
 ] as const;
 
 export type AgentActionTier = (typeof AGENT_ACTION_TIERS)[number];

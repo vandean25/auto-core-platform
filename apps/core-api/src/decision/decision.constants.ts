@@ -27,3 +27,22 @@ export const DEFAULT_DECISION_HTTP_TIMEOUT_MS = 5_000;
 /** Rough char-per-token estimate for input size guard (~24K tokens). */
 export const DECISION_MAX_INPUT_TOKEN_ESTIMATE = 24_000;
 export const DECISION_CHARS_PER_TOKEN_ESTIMATE = 4;
+
+/** AUT-413: `shadow` (default, log only) or `live` (awaited suggestions, gated by policy tier). */
+export const DECISION_APPLY_MODES = ['shadow', 'live'] as const;
+export type DecisionApplyMode = (typeof DECISION_APPLY_MODES)[number];
+
+/** Tenant-level override value. Only opting out is supported; a tenant cannot turn live on. */
+export const DECISION_TENANT_OPT_OUT_MODE = 'shadow';
+
+/** Policy action types for live suggestions. Platform default rows are seeded by migration. */
+export const DECISION_POLICY_ACTION_TYPES = {
+  IMPORT_ROW_MATCH: 'decision.import_row_match',
+  DOCUMENT_SORT: 'decision.document_sort',
+} as const;
+
+/** Maximum Jev calls in flight for one live import dry-run. */
+export const DECISION_LIVE_MAX_CONCURRENT_CALLS = 8;
+
+/** Whole-batch budget for live import decisions, as a multiple of DECISION_HTTP_TIMEOUT_MS. */
+export const DECISION_LIVE_BATCH_BUDGET_MULTIPLIER = 2;

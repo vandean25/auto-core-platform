@@ -37,6 +37,9 @@ describe('DocumentBrandingUploadWorkerService', () => {
   const pdfParser = {
     validateAndRasterize: jest.fn(),
   } as unknown as DocumentBrandingPdfParser;
+  const scheduleDocumentSortForText = jest.fn();
+  const isLiveForTenant = jest.fn().mockResolvedValue(false);
+  const applyDocumentSortForAsset = jest.fn().mockResolvedValue(undefined);
   let service: DocumentBrandingUploadWorkerService;
 
   beforeEach(async () => {
@@ -58,14 +61,14 @@ describe('DocumentBrandingUploadWorkerService', () => {
       bucket: 'private-branding',
       generation: '456',
     });
+    isLiveForTenant.mockResolvedValue(false);
     service = new DocumentBrandingUploadWorkerService(
       prisma,
       storage,
       pdfParser,
-      {
-        scheduleDocumentSortForText: jest.fn(),
-      } as never,
+      { scheduleDocumentSortForText } as never,
       { getTraceId: () => undefined } as never,
+      { isLiveForTenant, applyDocumentSortForAsset } as never,
     );
   });
 
@@ -278,6 +281,59 @@ describe('DocumentBrandingUploadWorkerService', () => {
         }),
       }),
     );
+  });
+
+  describe('document sort decision wiring (AUT-413)', () => {
+    beforeEach(() => {
+      findFirst.mockResolvedValue({
+        ...asset,
+        purpose: 'SOURCE',
+        detected_mime_type: 'application/pdf',
+      });
+      (storage.readGeneration as jest.Mock).mockResolvedValue(
+        Buffer.from('%PDF-1.7 fixture'),
+      );
+      (pdfParser.validateAndRasterize as jest.Mock).mockResolvedValue({
+        pageCount: 1,
+        width: 10,
+        height: 10,
+        raster: Buffer.from('png'),
+      });
+    });
+
+    it('keeps the shadow document-sort call before storage when live mode is off', async () => {
+      isLiveForTenant.mockResolvedValue(false);
+
+      await expect(service.validate('asset-1', 'tenant-1')).resolves.toEqual({
+        state: 'READY',
+      });
+
+      expect(isLiveForTenant).toHaveBeenCalledWith('tenant-1');
+      expect(scheduleDocumentSortForText).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: 'tenant-1' }),
+      );
+      expect(applyDocumentSortForAsset).not.toHaveBeenCalled();
+    });
+
+    it('applies live document sort only after the asset is persisted as READY', async () => {
+      isLiveForTenant.mockResolvedValue(true);
+
+      await expect(service.validate('asset-1', 'tenant-1')).resolves.toEqual({
+        state: 'READY',
+      });
+
+      expect(scheduleDocumentSortForText).not.toHaveBeenCalled();
+      expect(applyDocumentSortForAsset).toHaveBeenCalledWith(
+        expect.objectContaining({ tenantId: 'tenant-1', assetId: 'asset-1' }),
+      );
+      const readyWriteOrder =
+        updateMany.mock.invocationCallOrder[
+          updateMany.mock.invocationCallOrder.length - 1
+        ];
+      expect(applyDocumentSortForAsset.mock.invocationCallOrder[0]).toBeGreaterThan(
+        readyWriteOrder,
+      );
+    });
   });
 
   it('does not publish when a duplicate task cannot acquire the validation lease', async () => {

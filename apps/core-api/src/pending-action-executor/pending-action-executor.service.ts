@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopLineItemType } from '@prisma/client';
+import { ImportJobStatus, Prisma, WorkshopLineItemType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -19,6 +20,14 @@ import {
   releaseReservationInputSchema,
   reservePartInputSchema,
 } from '../mcp/mcp-tool-schemas.js';
+import {
+  adjustImportTotalsForAdoptedRows,
+  applyDocumentSortType,
+  applyImportRowMatchChanges,
+  readImportJobTotals,
+  updateImportJobTotals,
+} from '../decision/decision-live-apply.util.js';
+import { DOCUMENT_SORT_TYPES } from '../decision/decision.constants.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
@@ -28,7 +37,9 @@ export type PendingActionType =
   | 'inventory.part_release'
   | 'workshop_order.propose_line'
   | 'workshop_order.add_line'
-  | 'customer.update';
+  | 'customer.update'
+  | 'decision.import_row_match'
+  | 'decision.document_sort';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -145,6 +156,34 @@ export class PendingActionExecutorService {
             entityType: 'Customer',
             entityId: (result as { id: string }).id,
             reversible: true,
+          }),
+        };
+      case 'decision.import_row_match':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          execute: (input) => this.executeImportRowMatchProposal(input),
+          buildResultSummary: (result) => ({
+            import_job_id: (result as { id: string }).id,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'ImportJob',
+            entityId: (result as { id: string }).id,
+            reversible: false,
+          }),
+        };
+      case 'decision.document_sort':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          execute: (input) => this.executeDocumentSortProposal(input),
+          buildResultSummary: (result) => ({
+            document_brand_asset_id: (result as { id: string }).id,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'DocumentBrandAsset',
+            entityId: (result as { id: string }).id,
+            reversible: false,
           }),
         };
       default:
@@ -432,6 +471,101 @@ export class PendingActionExecutorService {
       select: { id: true },
     });
     return { id: created.id, entityId: created.id };
+  }
+
+  /**
+   * AUT-413 approval of a PROPOSE import match. Same write as live AUTO, scoped
+   * to the approver's tenant. Only a dry-run job still awaiting confirmation can
+   * change, and only a row that is still CREATE.
+   */
+  private async executeImportRowMatchProposal(
+    input: unknown,
+  ): Promise<unknown> {
+    const record = this.asRecord(input);
+    const jobId =
+      typeof record.import_job_id === 'string' ? record.import_job_id : '';
+    const rowNo = record.row_no;
+    const customerId =
+      typeof record.customer_id === 'string' ? record.customer_id : '';
+    if (
+      !jobId ||
+      typeof rowNo !== 'number' ||
+      !Number.isInteger(rowNo) ||
+      !customerId
+    ) {
+      throw new BadRequestException(
+        'decision.import_row_match payload requires import_job_id, row_no and customer_id',
+      );
+    }
+    const tenantId = await this.tenantContext.getTenantId();
+    const job = await this.prisma.importJob.findFirst({
+      where: {
+        id: jobId,
+        tenant_id: tenantId,
+        status: ImportJobStatus.DRY_RUN_DONE,
+      },
+      select: { totals_json: true },
+    });
+    if (!job) {
+      throw new UnprocessableEntityException(
+        'Import job is no longer awaiting confirmation',
+      );
+    }
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new NotFoundException(`Customer ${customerId} not found`);
+    }
+    const appliedRowNos = await applyImportRowMatchChanges(this.prisma, {
+      tenantId,
+      jobId,
+      changes: [{ row_no: rowNo, customer_id: customer.id }],
+    });
+    if (appliedRowNos.length !== 1) {
+      throw new ConflictException(
+        'Import row changed since the suggestion was made',
+      );
+    }
+    const totals = readImportJobTotals(job.totals_json);
+    if (totals) {
+      await updateImportJobTotals(this.prisma, {
+        tenantId,
+        jobId,
+        totals: adjustImportTotalsForAdoptedRows(totals, 1),
+      });
+    }
+    return { id: jobId, entityId: jobId };
+  }
+
+  /** AUT-413 approval of a PROPOSE document type. Sets it only while it is still unset. */
+  private async executeDocumentSortProposal(input: unknown): Promise<unknown> {
+    const record = this.asRecord(input);
+    const assetId =
+      typeof record.document_brand_asset_id === 'string'
+        ? record.document_brand_asset_id
+        : '';
+    const sortType = DOCUMENT_SORT_TYPES.find(
+      (candidate) => candidate === record.document_sort_type,
+    );
+    if (!assetId || !sortType) {
+      throw new BadRequestException(
+        'decision.document_sort payload requires document_brand_asset_id and a valid document_sort_type',
+      );
+    }
+    const tenantId = await this.tenantContext.getTenantId();
+    const applied = await applyDocumentSortType(this.prisma, {
+      tenantId,
+      assetId,
+      sortType,
+    });
+    if (!applied) {
+      throw new ConflictException(
+        'Document type is already set or the asset is not ready',
+      );
+    }
+    return { id: assetId, entityId: assetId };
   }
 
   private asRecord(value: unknown): Record<string, unknown> {

@@ -9,6 +9,7 @@ import { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
+import { DecisionLiveApplyService } from '../decision/decision-live-apply.service.js';
 import { extractLoosePdfText } from '../decision/pdf-loose-text.util.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 
@@ -26,6 +27,7 @@ export class DocumentBrandingUploadWorkerService {
     private readonly pdfParser: DocumentBrandingPdfParser,
     private readonly decisionHooks: DecisionUseCaseHooksService,
     private readonly requestContext: RequestContextService,
+    private readonly decisionLive: DecisionLiveApplyService,
   ) {}
 
   async validate(assetId: string, tenantId: string) {
@@ -68,6 +70,7 @@ export class DocumentBrandingUploadWorkerService {
       generation: string;
     } | null = null;
     let readyPersisted = false;
+    let documentSortText: string | null = null;
     try {
       if (
         !current.quarantine_bucket ||
@@ -88,11 +91,15 @@ export class DocumentBrandingUploadWorkerService {
       );
       if (current.detected_mime_type === 'application/pdf') {
         const text = extractLoosePdfText(validated.bytes);
-        this.decisionHooks.scheduleDocumentSortForText({
-          tenantId,
-          traceId: this.requestContext.getTraceId(),
-          text,
-        });
+        if (await this.decisionLive.isLiveForTenant(tenantId)) {
+          documentSortText = text;
+        } else {
+          this.decisionHooks.scheduleDocumentSortForText({
+            tenantId,
+            traceId: this.requestContext.getTraceId(),
+            text,
+          });
+        }
       }
       const rootKey = `tenants/${tenantId}/legal-entities/${current.legal_entity_id}/document-branding`;
       const extension =
@@ -156,6 +163,14 @@ export class DocumentBrandingUploadWorkerService {
         current.quarantine_object_key,
         current.quarantine_object_generation,
       );
+      if (documentSortText !== null) {
+        await this.decisionLive.applyDocumentSortForAsset({
+          tenantId,
+          assetId,
+          traceId: this.requestContext.getTraceId(),
+          text: documentSortText,
+        });
+      }
       return { state: 'READY' as const };
     } catch (error) {
       if (previewPublished && !readyPersisted) {
