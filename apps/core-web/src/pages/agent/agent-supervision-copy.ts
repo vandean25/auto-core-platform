@@ -43,6 +43,10 @@ export const SUPERVISION_COPY = {
       en: 'Activity',
       de: 'Aktivitäten',
     },
+    decisionShadow: {
+      en: 'Decision shadow',
+      de: 'Entscheidungs-Schatten',
+    },
   },
   approvals: {
     pendingOnly: {
@@ -268,6 +272,94 @@ export const SUPERVISION_COPY = {
     viewAudit: {
       en: 'View correlated audit logs',
       de: 'Korrelierte Audit-Logs anzeigen',
+    },
+  },
+  decisionShadow: {
+    description: {
+      en: 'Read-only view of Jev suggestions recorded in shadow mode. Suggestions are never applied and do not change any outcome.',
+      de: 'Nur-Lese-Ansicht der im Schattenmodus protokollierten Jev-Vorschläge. Vorschläge werden nie angewendet und ändern kein Ergebnis.',
+    },
+    filters: {
+      useCaseLabel: {
+        en: 'Use case',
+        de: 'Anwendungsfall',
+      },
+      allUseCases: {
+        en: 'All use cases',
+        de: 'Alle Anwendungsfälle',
+      },
+    },
+    useCases: {
+      import_row_matching: {
+        en: 'Import row matching',
+        de: 'Import-Zeilenzuordnung',
+      },
+      document_sort: {
+        en: 'Document sort',
+        de: 'Dokumentensortierung',
+      },
+    },
+    columns: {
+      time: {
+        en: 'Time',
+        de: 'Zeitpunkt',
+      },
+      useCase: {
+        en: 'Use case',
+        de: 'Anwendungsfall',
+      },
+      suggestion: {
+        en: 'Suggestion',
+        de: 'Vorschlag',
+      },
+      actualOutcome: {
+        en: 'Actual outcome',
+        de: 'Tatsächliches Ergebnis',
+      },
+      match: {
+        en: 'Match',
+        de: 'Übereinstimmung',
+      },
+      latency: {
+        en: 'Latency',
+        de: 'Latenz',
+      },
+      provider: {
+        en: 'Provider / model',
+        de: 'Anbieter / Modell',
+      },
+      error: {
+        en: 'Provider error',
+        de: 'Anbieterfehler',
+      },
+      traceId: {
+        en: 'Trace ID',
+        de: 'Trace-ID',
+      },
+    },
+    confidence: {
+      en: 'Confidence',
+      de: 'Konfidenz',
+    },
+    matchYes: {
+      en: 'Match',
+      de: 'Treffer',
+    },
+    matchNo: {
+      en: 'Mismatch',
+      de: 'Abweichung',
+    },
+    noSuggestion: {
+      en: 'No suggestion',
+      de: 'Kein Vorschlag',
+    },
+    emptyState: {
+      en: 'No shadow suggestions found',
+      de: 'Keine Schatten-Vorschläge gefunden',
+    },
+    emptyStateDesc: {
+      en: 'No decision shadow rows match the selected filters.',
+      de: 'Keine Einträge zur Entscheidungs-Schattenprotokollierung entsprechen den gewählten Filtern.',
     },
   },
   traceDialog: {

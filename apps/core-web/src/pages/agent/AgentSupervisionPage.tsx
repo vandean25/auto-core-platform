@@ -5,14 +5,17 @@ import { Button } from '@/components/ui/button'
 import { AgentSafetyBanner } from './components/AgentSafetyBanner'
 import { ApprovalsTab } from './components/ApprovalsTab'
 import { ActivityTab } from './components/ActivityTab'
+import { DecisionShadowTab } from './components/DecisionShadowTab'
 import { TraceAuditDetailDialog } from './components/TraceAuditDetailDialog'
 import type { Language } from './agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from './agent-supervision-copy'
 
+type SupervisionTab = 'approvals' | 'activity' | 'decision-shadow'
+
 export default function AgentSupervisionPage() {
   const [language, setLanguage] = useState<Language>('en')
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
-  const [currentTab, setCurrentTab] = useState<'approvals' | 'activity'>('approvals')
+  const [currentTab, setCurrentTab] = useState<SupervisionTab>('approvals')
 
   const toggleLanguage = () => {
     setLanguage((prev) => (prev === 'en' ? 'de' : 'en'))
@@ -53,15 +56,18 @@ export default function AgentSupervisionPage() {
       {/* Main Supervision Tabs */}
       <Tabs
         value={currentTab}
-        onValueChange={(val) => setCurrentTab(val as 'approvals' | 'activity')}
+        onValueChange={(val) => setCurrentTab(val as SupervisionTab)}
         className="space-y-6"
       >
-        <TabsList className="grid w-full max-w-xs grid-cols-2">
+        <TabsList className="grid w-full max-w-lg grid-cols-3">
           <TabsTrigger value="approvals" data-testid="tab-approvals">
             {getCopy(SUPERVISION_COPY.tabs.approvals, language)}
           </TabsTrigger>
           <TabsTrigger value="activity" data-testid="tab-activity">
             {getCopy(SUPERVISION_COPY.tabs.activity, language)}
+          </TabsTrigger>
+          <TabsTrigger value="decision-shadow" data-testid="tab-decision-shadow">
+            {getCopy(SUPERVISION_COPY.tabs.decisionShadow, language)}
           </TabsTrigger>
         </TabsList>
 
@@ -77,6 +83,10 @@ export default function AgentSupervisionPage() {
             language={language}
             onSelectTraceId={(traceId) => setSelectedTraceId(traceId)}
           />
+        </TabsContent>
+
+        <TabsContent value="decision-shadow" className="mt-0 space-y-6 focus-visible:outline-none">
+          <DecisionShadowTab language={language} />
         </TabsContent>
       </Tabs>
 

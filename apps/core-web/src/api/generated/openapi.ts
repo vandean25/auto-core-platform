@@ -3611,6 +3611,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/decision-shadow-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List decision shadow logs (OWNER/ADMIN/ADVISOR)
+         * @description Returns cursor-paginated, read-only Jev/decision-adapter shadow rows for the authenticated tenant. Suggestions are never applied.
+         */
+        get: operations["DecisionShadowLogController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mcp": {
         parameters: {
             query?: never;
@@ -7736,6 +7756,40 @@ export interface components {
             payload_json: {
                 [key: string]: unknown;
             };
+        };
+        DecisionShadowSuggestionDto: {
+            /** @description Choice suggested by the shadow provider. Never applied. */
+            choice: string;
+            confidence: number | null;
+            rationale: string | null;
+        };
+        DecisionShadowActualOutcomeDto: {
+            /** @description Deterministic outcome the suggestion is compared against */
+            choice: string;
+            source: string | null;
+        };
+        DecisionShadowLogResponseDto: {
+            id: string;
+            /** Format: uuid */
+            traceId: string;
+            /** @enum {string} */
+            useCase: "import_row_matching" | "document_sort";
+            suggestion: components["schemas"]["DecisionShadowSuggestionDto"] | null;
+            actualOutcome: components["schemas"]["DecisionShadowActualOutcomeDto"] | null;
+            latencyMs: number | null;
+            /** @description Provider error message. Null when the provider call succeeded. */
+            error: string | null;
+            provider: string;
+            model: string | null;
+            /** @description Whether the suggested choice equals the actual outcome. Null when there is no suggestion. */
+            match: boolean | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DecisionShadowLogListResponseDto: {
+            data: components["schemas"]["DecisionShadowLogResponseDto"][];
+            /** @description Cursor for the next page when more results exist */
+            nextCursor: string | null;
         };
     };
     responses: never;
@@ -15069,6 +15123,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    DecisionShadowLogController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor for forward pagination */
+                cursor?: string;
+                /** @description End of created_at range (ISO-8601). A date-only value includes the whole UTC day. */
+                endDate?: string;
+                /** @description Maximum number of rows to return */
+                limit?: number;
+                /** @description Start of created_at range (ISO-8601) */
+                startDate?: string;
+                /** @description Filter by decision use case */
+                useCase?: "import_row_matching" | "document_sort";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DecisionShadowLogListResponseDto"];
                 };
             };
         };
