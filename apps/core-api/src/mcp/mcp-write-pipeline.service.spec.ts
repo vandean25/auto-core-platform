@@ -270,6 +270,7 @@ describe('McpWritePipelineService', () => {
           preview_json: expect.objectContaining({
             execution_context: { site_id: 'site-preview' },
           }),
+          trace_id: traceId,
         }),
       );
       expect(mockAgentActionLog.record).toHaveBeenCalledWith(
@@ -283,6 +284,9 @@ describe('McpWritePipelineService', () => {
             preview: expect.any(Object),
           }),
         }),
+      );
+      expect(mockAgentActionLog.record.mock.calls[0][0]).not.toHaveProperty(
+        'traceId',
       );
       expect(execution.execute).toHaveBeenCalledTimes(1);
     });

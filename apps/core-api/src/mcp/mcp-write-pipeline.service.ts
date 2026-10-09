@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { AgentPolicyTier } from '@prisma/client';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
@@ -152,14 +151,12 @@ export class McpWritePipelineService {
     }
 
     if (tier === AgentPolicyTier.PROPOSE) {
-      const traceId = randomUUID();
       const proposal = {
         payload: input,
         would_change: wouldChange,
         preview,
       };
       const record = await this.agentActionLog.record({
-        traceId,
         actorType: 'AGENT',
         agentId: context.agentId,
         onBehalfOfUserId: context.onBehalfOfUserId,
