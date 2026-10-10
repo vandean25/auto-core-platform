@@ -347,6 +347,8 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const entries = await auditEntries(response.body.id as string);
       expect(entries.map((entry) => entry.action)).toEqual(['CREATE']);
       expect(entries[0]).toMatchObject({ actor_role: 'ADMIN', actor_type: 'USER' });
+      expect(entries[0].before).toBeNull();
+      expect(entries[0].after).toMatchObject({ id: response.body.id, status: 'DRAFT' });
     });
 
     it('lists the claims of one order and filters them by status', async () => {
@@ -419,6 +421,8 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         complaint: { from: 'alt', to: 'Neue Beschreibung' },
         claimedAmountNet: { from: null, to: '99.50' },
       });
+      expect(entries[1].before).toMatchObject({ complaint: 'alt', claimedAmountNet: null });
+      expect(entries[1].after).toMatchObject({ complaint: 'Neue Beschreibung', claimedAmountNet: '99.50' });
     });
 
     it('leaves updatedAt and the audit trail alone when a save changes nothing', async () => {
