@@ -88,7 +88,7 @@ export const redactAuditSecrets = (
 /** Stands in for an email, phone, or address value whose shape is not kept. */
 export const MASKED_PII_VALUE = '***';
 
-type AuditPiiKind = 'email' | 'phone' | 'address';
+export type AuditPiiKind = 'email' | 'phone' | 'address';
 
 /**
  * An email address inside free text. The lookbehind starts a match only at the
@@ -114,7 +114,7 @@ const ADDRESS_FIELD_NAMES = new Set([
 const countDigits = (value: string): number => value.replace(/\D/g, '').length;
 
 /** Field names that hold contact or address data. Identifiers such as address_id are not masked. */
-const classifyPiiFieldName = (fieldName: string): AuditPiiKind | null => {
+export const classifyPiiFieldName = (fieldName: string): AuditPiiKind | null => {
   const normalized = normalizeFieldName(fieldName);
   if (normalized.endsWith('id')) {
     return null;
