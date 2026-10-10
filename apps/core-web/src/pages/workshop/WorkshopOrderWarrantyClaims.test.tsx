@@ -69,13 +69,17 @@ afterEach(() => {
 });
 
 describe("WorkshopOrderWarrantyClaims: create", () => {
-  it("selects the new claim when the advisor is still on the page", async () => {
+  it("selects the new claim and clears the status filter when the advisor is still on the page", async () => {
     givenCreate(async () => ({ id: "claim-new" }));
     render(pageTree());
 
     fireEvent.click(screen.getByRole("button", { name: "Warranty Claim" }));
 
     await waitFor(() => expect(setSearchParams).toHaveBeenCalledTimes(1));
+    const updater = setSearchParams.mock.calls[0][0] as (previous: URLSearchParams) => URLSearchParams;
+    const next = updater(new URLSearchParams("status=CLOSED&claim=old"));
+    expect(next.get("claim")).toBe("claim-new");
+    expect(next.has("status")).toBe(false);
   });
 
   it("does not move the advisor back to the claims tab when the create finishes after they left it", async () => {

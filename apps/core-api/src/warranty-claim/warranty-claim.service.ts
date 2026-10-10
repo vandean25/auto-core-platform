@@ -310,6 +310,8 @@ export class WarrantyClaimService {
               : {}),
           },
         });
+        // Defensive: the claim row lock above keeps the status fixed until this write, so this only fires if that
+        // lock is ever removed. It stays so a lost update cannot pass silently.
         if (result.count !== 1) {
           throw new ConflictException({
             code: WARRANTY_CLAIM_ERROR_CODES.STATE_CHANGED,
