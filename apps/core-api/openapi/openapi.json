@@ -4744,6 +4744,57 @@
         ]
       }
     },
+    "/api/workshop/estimates/{versionId}/pdf": {
+      "post": {
+        "operationId": "WorkshopEstimateController_requestPdf",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopPdfGenerationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "get": {
+        "operationId": "WorkshopEstimateController_getPdf",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/vehicle-purchases": {
       "post": {
         "operationId": "VehiclePurchaseController_create",
@@ -19244,6 +19295,14 @@
           },
           "legal_hold": {
             "type": "boolean"
+          },
+          "pdf_generated_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdf_generation_error": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -19259,7 +19318,9 @@
           "snapshot_sha256",
           "legal_text_version",
           "retain_until",
-          "legal_hold"
+          "legal_hold",
+          "pdf_generated_at",
+          "pdf_generation_error"
         ]
       },
       "WorkshopEstimateOverrunWarningDto": {
@@ -19654,6 +19715,14 @@
           "legal_hold": {
             "type": "boolean"
           },
+          "pdf_generated_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "pdf_generation_error": {
+            "type": "string",
+            "nullable": true
+          },
           "estimate_id": {
             "type": "string"
           },
@@ -19696,6 +19765,8 @@
           "legal_text_version",
           "retain_until",
           "legal_hold",
+          "pdf_generated_at",
+          "pdf_generation_error",
           "estimate_id",
           "estimate_number",
           "workshop_order_id"

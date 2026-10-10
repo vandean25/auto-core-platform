@@ -60,6 +60,14 @@ export class WorkshopEstimateVersionSummaryDto {
 
   @ApiProperty()
   legal_hold!: boolean;
+
+  /** Set when the archive for this version exists. Null while no PDF has been rendered. */
+  @ApiProperty({ type: String, nullable: true })
+  pdf_generated_at!: string | null;
+
+  /** Safe message of the last failed PDF render (no internal detail). Null when the last attempt succeeded or none ran. */
+  @ApiProperty({ type: String, nullable: true })
+  pdf_generation_error!: string | null;
 }
 
 export class WorkshopEstimateResponseDto {

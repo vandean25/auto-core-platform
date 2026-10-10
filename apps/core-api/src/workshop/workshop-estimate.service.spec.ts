@@ -29,12 +29,17 @@ function buildService(role: string | undefined) {
   const siteContext = {
     getSiteId: jest.fn().mockResolvedValue('site-1'),
   };
+  const pdf = {
+    requestGeneration: jest.fn(),
+    getPdf: jest.fn(),
+  };
   const service = new WorkshopEstimateService(
     prisma as never,
     tenantContext as never,
     siteContext as never,
+    pdf as never,
   );
-  return { service, prisma, tenantContext };
+  return { service, prisma, tenantContext, pdf };
 }
 
 describe('WorkshopEstimateService access and send gating', () => {
@@ -54,13 +59,17 @@ describe('WorkshopEstimateService access and send gating', () => {
     ['revise', (service: WorkshopEstimateService) => service.createRevision('order-1')],
     ['read', (service: WorkshopEstimateService) => service.getVersion('version-1')],
     ['send', (service: WorkshopEstimateService) => service.sendVersion('version-1')],
+    ['request pdf', (service: WorkshopEstimateService) => service.requestVersionPdf('version-1')],
+    ['download pdf', (service: WorkshopEstimateService) => service.getVersionPdf('version-1')],
   ])('refuses a TECH session on %s without touching the database', async (_name, call) => {
     process.env[SEND_FLAG] = 'true';
-    const { service, prisma } = buildService('TECH');
+    const { service, prisma, pdf } = buildService('TECH');
 
     await expect(call(service)).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.workshopEstimate.findFirst).not.toHaveBeenCalled();
+    expect(pdf.requestGeneration).not.toHaveBeenCalled();
+    expect(pdf.getPdf).not.toHaveBeenCalled();
   });
 
   it('keeps sending closed while the legal copy is unapproved (503, no transaction)', async () => {

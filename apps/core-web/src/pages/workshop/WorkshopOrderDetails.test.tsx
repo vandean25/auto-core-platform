@@ -15,6 +15,7 @@ import * as salesApi from "@/api/sales";
 import * as invoicesApi from "@/api/invoices";
 import * as vehicleInspectionApi from "@/api/vehicle-inspection-records";
 import * as authSessionApi from "@/api/auth-session";
+import * as estimateApi from "@/api/workshop-estimates";
 import { toast } from "sonner";
 
 vi.mock("@/api/workshop");
@@ -22,6 +23,7 @@ vi.mock("@/api/sales");
 vi.mock("@/api/invoices");
 vi.mock("@/api/vehicle-inspection-records");
 vi.mock("@/api/auth-session");
+vi.mock("@/api/workshop-estimates");
 vi.mock("@/api/inventory");
 vi.mock("sonner", () => ({
   toast: {
@@ -204,6 +206,25 @@ function setupDefaultMocks(orderOverride?: unknown) {
     createMutationMock(),
   );
   asMock(workshopApi.downloadWorkshopPdf).mockResolvedValue(new Blob());
+  asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
+    data: null,
+    isLoading: false,
+    isError: false,
+    error: null,
+  });
+  asMock(estimateApi.useWorkshopEstimateVersion).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+  });
+  asMock(estimateApi.useCreateWorkshopEstimate).mockReturnValue(
+    createMutationMock(),
+  );
+  asMock(estimateApi.useReviseWorkshopEstimate).mockReturnValue(
+    createMutationMock(),
+  );
+  asMock(estimateApi.useSendWorkshopEstimateVersion).mockReturnValue(
+    createMutationMock(),
+  );
 }
 
 // --------------------------------------------------------------------------
@@ -1414,6 +1435,26 @@ describe("WorkshopOrderDetails Characterization", () => {
       renderComponent();
 
       expect(screen.queryByText("High Priority")).not.toBeInTheDocument();
+    });
+
+    it("offers estimate creation to SALES on an open order", async () => {
+      renderComponent();
+
+      expect(
+        await screen.findByRole("button", { name: "Kostenvoranschlag erstellen" }),
+      ).toBeInTheDocument();
+    });
+
+    it("keeps the estimate card away from TECH sessions", async () => {
+      asMock(authSessionApi.useAuthSession).mockReturnValue({
+        data: { activeRole: "TECH" },
+      });
+      renderComponent();
+
+      expect(await screen.findByText("Oil Change")).toBeInTheDocument();
+      expect(
+        screen.queryByText("Kostenvoranschlag", { exact: true }),
+      ).not.toBeInTheDocument();
     });
   });
 });

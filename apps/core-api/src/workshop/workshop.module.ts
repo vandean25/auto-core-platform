@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
+import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
@@ -12,6 +13,8 @@ import { WorkshopHolidayService } from './workshop-holiday.service.js';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopInvoiceService } from './workshop-invoice.service.js';
 import { WorkshopEstimateController } from './workshop-estimate.controller.js';
+import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js';
+import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
 import { WorkshopPdfService } from './workshop-pdf.service.js';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
@@ -31,6 +34,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
 @Module({
   imports: [
     PrismaModule,
+    DocumentBrandingModule,
     InvoicesModule,
     InventoryModule,
     CommonModule,
@@ -47,6 +51,8 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
   ],
   providers: [
     WorkshopEstimateService,
+    WorkshopEstimatePdfService,
+    WorkshopEstimatePdfRenderer,
     WorkshopIntakeService,
     WorkshopTaskService,
     WorkshopInspectionService,

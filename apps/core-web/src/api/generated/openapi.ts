@@ -1396,6 +1396,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/estimates/{versionId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_getPdf"];
+        put?: never;
+        post: operations["WorkshopEstimateController_requestPdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-purchases": {
         parameters: {
             query?: never;
@@ -5703,6 +5719,8 @@ export interface components {
             legal_text_version: string | null;
             retain_until: string | null;
             legal_hold: boolean;
+            pdf_generated_at: string | null;
+            pdf_generation_error: string | null;
         };
         WorkshopEstimateOverrunWarningDto: {
             total_over_threshold: boolean;
@@ -5809,6 +5827,8 @@ export interface components {
             legal_text_version: string | null;
             retain_until: string | null;
             legal_hold: boolean;
+            pdf_generated_at: string | null;
+            pdf_generation_error: string | null;
             estimate_id: string;
             estimate_number: string;
             workshop_order_id: string;
@@ -11838,6 +11858,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_getPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopEstimateController_requestPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
                 };
             };
         };
