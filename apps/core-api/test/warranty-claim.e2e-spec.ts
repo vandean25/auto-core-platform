@@ -711,12 +711,27 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         .get(claimsPath(westOrder.orderId))
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(404);
+      await request(app.getHttpServer())
+        .patch(claimsPath(westOrder.orderId, westClaimId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ complaint: 'Nur aus dem Hauptstandort' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .post(claimsPath(westOrder.orderId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ type: 'GARANTIE' })
+        .expect(404);
+      await request(app.getHttpServer())
+        .get(`${claimsPath(westOrder.orderId, westClaimId)}/pdf`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
 
       await basePrisma.user.update({ where: { id: adminUserId }, data: { active_site_id: westSite.id } });
-      await request(app.getHttpServer())
+      const stored = await request(app.getHttpServer())
         .get(claimsPath(westOrder.orderId, westClaimId))
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
+      expect(stored.body.complaint).toBeNull();
     });
   });
 
@@ -828,10 +843,12 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         return outcomes;
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      expect(answered).toBe(false);
-
-      await releaseLine();
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        expect(answered).toBe(false);
+      } finally {
+        await releaseLine();
+      }
       const outcomes = await outcomesReady;
 
       expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([200, 409]);
@@ -855,10 +872,12 @@ describe('Warranty claims (AUT-464, e2e)', () => {
         answered = true;
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      expect(answered).toBe(false);
-
-      await releaseClaim();
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        expect(answered).toBe(false);
+      } finally {
+        await releaseClaim();
+      }
       await savesDone;
 
       const stored = await request(app.getHttpServer())

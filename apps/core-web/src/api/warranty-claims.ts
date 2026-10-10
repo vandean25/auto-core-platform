@@ -63,57 +63,64 @@ export async function createWarrantyClaim(
 /** A save that does not answer in this time fails, so the editor and its decision dialog never wait forever. */
 export const WARRANTY_CLAIM_SAVE_TIMEOUT_MS = 30_000
 
-export async function updateWarrantyClaim(
+/**
+ * Runs a request that gives up after `ms`. The timer covers the whole call, including the token lookup that
+ * runs before fetch and the body read, so a request that never settles cannot keep the editor busy.
+ */
+function withTimeout<T>(
+  ms: number,
+  timeoutMessage: string,
+  run: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      const error = new DOMException(timeoutMessage, 'TimeoutError')
+      controller.abort(error)
+      reject(error)
+    }, ms)
+  })
+  return Promise.race([run(controller.signal), timedOut]).finally(() => clearTimeout(timer))
+}
+
+export function updateWarrantyClaim(
   orderId: string,
   claimId: string,
   payload: UpdateWarrantyClaimPayload,
 ): Promise<WarrantyClaim> {
-  const controller = new AbortController()
-  const timer = setTimeout(
-    () =>
-      controller.abort(
-        new DOMException('The save timed out. It may still have been saved, so reload the claim to check.', 'TimeoutError'),
-      ),
+  return withTimeout(
     WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
+    'The save timed out. It may still have been saved, so reload the claim to check.',
+    async (signal) => {
+      const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal,
+      })
+      if (!response.ok) throw await readErrorMessage(response, 'Failed to save warranty claim')
+      return (await response.json()) as WarrantyClaim
+    },
   )
-  try {
-    const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    })
-    if (!response.ok) throw await readErrorMessage(response, 'Failed to save warranty claim')
-    // Awaited inside try, so the timer also covers reading the body.
-    return (await response.json()) as WarrantyClaim
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 /** The server renders the PDF within 15 seconds. The download gives up after this long, so Print cannot stay busy. */
 export const WARRANTY_CLAIM_PDF_TIMEOUT_MS = 45_000
 
-export async function downloadWarrantyClaimPdf(orderId: string, claimId: string): Promise<Blob> {
-  const controller = new AbortController()
-  const timer = setTimeout(
-    () =>
-      controller.abort(
-        new DOMException('The PDF took too long to generate. Try again.', 'TimeoutError'),
-      ),
+export function downloadWarrantyClaimPdf(orderId: string, claimId: string): Promise<Blob> {
+  return withTimeout(
     WARRANTY_CLAIM_PDF_TIMEOUT_MS,
+    'The PDF took too long to generate. Try again.',
+    async (signal) => {
+      const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}/pdf`, {
+        headers: { Accept: 'application/pdf' },
+        signal,
+      })
+      if (!response.ok) throw await readErrorMessage(response, 'Failed to generate the claim PDF')
+      return response.blob()
+    },
   )
-  try {
-    const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}/pdf`, {
-      headers: { Accept: 'application/pdf' },
-      signal: controller.signal,
-    })
-    if (!response.ok) throw await readErrorMessage(response, 'Failed to generate the claim PDF')
-    // Awaited inside try, so the timer also covers reading the body.
-    return await response.blob()
-  } finally {
-    clearTimeout(timer)
-  }
 }
 
 export function useWarrantyClaims(orderId: string, status?: WarrantyClaimStatus) {

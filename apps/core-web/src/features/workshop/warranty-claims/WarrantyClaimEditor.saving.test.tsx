@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { triggerBlobDownload } from "@/lib/download";
 import {
   claimFixture,
   failSavesWith,
@@ -25,6 +26,12 @@ vi.mock("sonner", () => ({
     dismiss: vi.fn(),
   },
 }));
+
+vi.mock("@/lib/download", () => ({
+  triggerBlobDownload: vi.fn(),
+}));
+
+const triggerBlobDownloadMock = vi.mocked(triggerBlobDownload);
 
 describe("WarrantyClaimEditor: saving", () => {
   useEditorMocks();
@@ -115,6 +122,60 @@ describe("WarrantyClaimEditor: saving", () => {
     expect(payloadOf(fetchMock.mock.calls[1])).toEqual({ complaint: "ab" });
 
     answers[1](jsonResponse(claimFixture({ complaint: "ab" })));
+    await settle();
+  });
+
+  it("keeps saving after a save is refused, and the next save carries every edit still pending", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Refused" }, 500));
+    fetchMock.mockImplementation(async (input, init) => jsonResponse(claimFixture(payloadOf([input, init]))));
+    const patches = () =>
+      fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH");
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Kupplung rutscht stark" } });
+    await waitFor(() => expect(patches()).toHaveLength(1), { timeout: 2000 });
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+    await waitFor(() => expect(patches()).toHaveLength(2), { timeout: 2000 });
+    expect(payloadOf(patches()[1])).toEqual({
+      complaint: "Kupplung rutscht stark",
+      causeCorrection: "Geberzylinder getauscht",
+    });
+    await settle();
+  });
+
+  it("unlocks the fields when a status change is refused", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Refused" }, 409));
+    renderEditor(claimFixture());
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByLabelText("Complaint")).toBeEnabled());
+    expect(screen.getByLabelText("Reference at the OEM")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeEnabled();
+    await settle();
+  });
+
+  it("saves the pending edits, then downloads the PDF", async () => {
+    triggerBlobDownloadMock.mockClear();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(claimFixture({ complaint: "Kupplung rutscht stark" })))
+      .mockResolvedValueOnce(
+        new Response("%PDF-1.4", { status: 200, headers: { "Content-Type": "application/pdf" } }),
+      );
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Kupplung rutscht stark" } });
+    fireEvent.click(screen.getByRole("button", { name: "Print" }));
+
+    await waitFor(() => expect(triggerBlobDownloadMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht stark" });
+    expect(String(fetchMock.mock.calls[1][0])).toMatch(/\/pdf$/);
     await settle();
   });
 

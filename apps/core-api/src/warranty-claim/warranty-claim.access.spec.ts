@@ -43,7 +43,7 @@ describe('warranty claim access for technicians', () => {
   it.each([
     ['list', () => service.list('order-1', {})],
     ['get', () => service.get('order-1', 'claim-1')],
-    ['create', () => service.create('order-1', {})],
+    ['create', () => service.create('order-1', { type: 'GARANTIE' })],
     ['update', () => service.update('order-1', 'claim-1', {})],
     ['render the PDF', () => pdf.render('order-1', 'claim-1')],
   ])('refuses to %s before it reaches any data', async (_name, call) => {
