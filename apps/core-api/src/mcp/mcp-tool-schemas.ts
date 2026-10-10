@@ -1,10 +1,21 @@
 import { z } from 'zod';
 import {
+  AGENT_ACTION_STATUSES,
+  AGENT_ACTION_TIERS,
+} from '../agent-action-log/agent-action-log.types.js';
+import { TRACE_ID_UUID_REGEX } from '../common/services/trace-id.util.js';
+import {
   MCP_MAX_PAGE_SIZE,
   MCP_READ_TOOL_NAMES,
+  MCP_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
-import { decodeMcpCursor } from './mcp-output.util.js';
+import {
+  decodeMcpCursor,
+  decodeMcpKeysetCursor,
+  normalizeMcpRangeEnd,
+  normalizeMcpRangeStart,
+} from './mcp-output.util.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const pageSizeSchema = z.number().int().min(1).max(25).optional();
@@ -112,6 +123,108 @@ export const getCapabilitiesInputSchema = z.object({
   cursor: capabilityCursorSchema.optional(),
 });
 
+/** AUT-455 contract: camelCase `pageSize` and a keyset `cursor` from `meta.next_cursor`. */
+const pageSizeCamelSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(MCP_MAX_PAGE_SIZE)
+  .optional();
+
+const keysetCursorSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]+$/, 'cursor is invalid')
+  .refine(
+    (cursor) => decodeMcpKeysetCursor(cursor) !== null,
+    'cursor is invalid',
+  );
+
+const traceIdSchema = z
+  .string()
+  .regex(TRACE_ID_UUID_REGEX, 'trace_id must be a UUID');
+
+const isoDateOrDateTimeSchema = z
+  .string()
+  .regex(
+    /^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/,
+    'must be an ISO-8601 date or date-time',
+  )
+  .refine(
+    (value) => !Number.isNaN(Date.parse(value)),
+    'must be an ISO-8601 date or date-time',
+  );
+
+const auditEntityTypeSchema = z
+  .string()
+  .regex(
+    /^[A-Za-z][A-Za-z0-9_]{0,63}$/,
+    'entity_type must be a model name such as Customer',
+  );
+
+const auditEntityIdSchema = z.string().trim().min(1).max(128);
+
+const orderedRangeOptions = {
+  message: 'from must not be after to',
+  path: ['from'],
+};
+
+function isOrderedRange(value: { from?: string; to?: string }): boolean {
+  if (value.from === undefined || value.to === undefined) {
+    return true;
+  }
+  return (
+    Date.parse(normalizeMcpRangeStart(value.from)) <=
+    Date.parse(normalizeMcpRangeEnd(value.to))
+  );
+}
+
+/** The base object is the registered MCP shape; the refined schema is what the handler parses. */
+export const listAuditEventsBaseSchema = z.object({
+  entity_type: auditEntityTypeSchema.optional(),
+  entity_id: auditEntityIdSchema.optional(),
+  actor: uuidSchema.optional(),
+  action: z.enum(['CREATE', 'UPDATE', 'DELETE']).optional(),
+  from: isoDateOrDateTimeSchema.optional(),
+  to: isoDateOrDateTimeSchema.optional(),
+  trace_id: traceIdSchema.optional(),
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const listAuditEventsInputSchema = listAuditEventsBaseSchema.refine(
+  isOrderedRange,
+  orderedRangeOptions,
+);
+
+export const getEntityHistoryInputSchema = z.object({
+  entity_type: auditEntityTypeSchema,
+  entity_id: auditEntityIdSchema,
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const getAgentActionInputSchema = z.object({
+  trace_id: traceIdSchema,
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const listAgentActionsBaseSchema = z.object({
+  agent: z.string().trim().min(1).max(160).optional(),
+  tool: z.enum(MCP_TOOL_NAMES).optional(),
+  tier: z.enum(AGENT_ACTION_TIERS).optional(),
+  status: z.enum(AGENT_ACTION_STATUSES).optional(),
+  from: isoDateOrDateTimeSchema.optional(),
+  to: isoDateOrDateTimeSchema.optional(),
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const listAgentActionsInputSchema = listAgentActionsBaseSchema.refine(
+  isOrderedRange,
+  orderedRangeOptions,
+);
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -131,6 +244,10 @@ export const mcpToolInputSchemas: Record<
   list_workshop_tasks: listWorkshopTasksInputSchema,
   whoami: whoamiInputSchema,
   get_capabilities: getCapabilitiesInputSchema,
+  list_audit_events: listAuditEventsInputSchema,
+  get_entity_history: getEntityHistoryInputSchema,
+  get_agent_action: getAgentActionInputSchema,
+  list_agent_actions: listAgentActionsInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);

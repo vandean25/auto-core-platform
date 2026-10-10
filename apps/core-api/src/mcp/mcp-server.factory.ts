@@ -8,8 +8,12 @@ import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
 import type { z } from 'zod';
 import {
+  getAgentActionInputSchema,
   getCapabilitiesInputSchema,
   getCustomerInputSchema,
+  getEntityHistoryInputSchema,
+  listAgentActionsBaseSchema,
+  listAuditEventsBaseSchema,
   getStockLevelBaseSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
@@ -44,6 +48,10 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   list_workshop_tasks: listWorkshopTasksInputSchema.shape,
   whoami: whoamiInputSchema.shape,
   get_capabilities: getCapabilitiesInputSchema.shape,
+  list_audit_events: listAuditEventsBaseSchema.shape,
+  get_entity_history: getEntityHistoryInputSchema.shape,
+  get_agent_action: getAgentActionInputSchema.shape,
+  list_agent_actions: listAgentActionsBaseSchema.shape,
   draft_workshop_order: mcpWriteToolInputSchemas.draft_workshop_order,
   reserve_part: mcpWriteToolInputSchemas.reserve_part,
   release_reservation: mcpWriteToolInputSchemas.release_reservation,

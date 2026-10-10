@@ -25,8 +25,12 @@ import {
   clampMcpPageSize,
 } from './mcp-output.util.js';
 import {
+  getAgentActionInputSchema,
   getCapabilitiesInputSchema,
   getCustomerInputSchema,
+  getEntityHistoryInputSchema,
+  listAgentActionsInputSchema,
+  listAuditEventsInputSchema,
   getStockLevelInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
@@ -44,6 +48,7 @@ import {
 } from './mcp-tool-schemas.js';
 import { formatMcpAgentId } from './mcp-agent-id.util.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
+import { McpAuditReadService } from './mcp-audit-read.service.js';
 import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 
 export type McpToolCallContext = {
@@ -70,6 +75,7 @@ export class McpToolHandlerService {
     private readonly workshopBoardService: WorkshopBoardService,
     private readonly workshopTaskService: WorkshopTaskService,
     private readonly capabilities: McpCapabilitiesService,
+    private readonly auditReads: McpAuditReadService,
   ) {}
 
   async executeTool(
@@ -250,6 +256,22 @@ export class McpToolHandlerService {
       case 'get_capabilities':
         return this.capabilities.getCapabilities(
           getCapabilitiesInputSchema.parse(parsed),
+        );
+      case 'list_audit_events':
+        return this.auditReads.listAuditEvents(
+          listAuditEventsInputSchema.parse(parsed),
+        );
+      case 'get_entity_history':
+        return this.auditReads.getEntityHistory(
+          getEntityHistoryInputSchema.parse(parsed),
+        );
+      case 'get_agent_action':
+        return this.auditReads.getAgentAction(
+          getAgentActionInputSchema.parse(parsed),
+        );
+      case 'list_agent_actions':
+        return this.auditReads.listAgentActions(
+          listAgentActionsInputSchema.parse(parsed),
         );
     }
   }

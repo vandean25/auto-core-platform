@@ -44,10 +44,16 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `list_workshop_tasks` | AUTO | Paged tasks visible to the caller with line IDs for MCP actions |
 | `whoami` | AUTO | Caller identity, role, tenant, active site, and decision apply mode (no input) |
 | `get_capabilities` | AUTO | Paged tools for the caller with policy tier, enabled state, and disabled reason; HUMAN_ONLY action names |
+| `list_audit_events` | AUTO | Paged tenant audit events, newest first, filtered by entity, actor, action, date range, or trace ID (OWNER and ADMIN only) |
+| `get_entity_history` | AUTO | Paged field changes for one entity, with email, phone, and address values masked (OWNER and ADMIN only) |
+| `get_agent_action` | AUTO | Agent action log rows for a trace ID, plus up to 25 correlated audit entries (OWNER and ADMIN only) |
+| `list_agent_actions` | AUTO | Paged agent action log rows filtered by agent, tool, tier, status, or time range (OWNER and ADMIN only) |
 
 Outputs are page-limited (max 25 rows) and JSON size-capped before returning to the client. Summaries written to the action log are redacted per AE2.
 
 `whoami` and `get_capabilities` (AUT-454) are identity and capability reads, and both are logged like other reads. `whoami` takes no input: an agent session reports itself as `caller` with `type: agent`, while `role`, `tenant`, `site`, and `mode` come from the session and the tenant's decision apply mode, never from tool arguments. `get_capabilities` reads each write tool's tier and enabled state from the agent policy (tenant override, else platform default), reports a disabled rule as `enabled: false` with `disabled_reason: policy_disabled`, and never lists a HUMAN_ONLY action as a tool; those action names appear in `human_only_actions`. It pages with `pageSize` (max 25) and an opaque `cursor`, the one exception to the `page` and `page_size` convention.
+
+The audit and agent action reads (AUT-455), `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions`, read the audit trail and the agent action log for the session tenant only. They need OWNER or ADMIN, the same rule as the REST agent action log, so a SALES session gets a `ForbiddenException` from them. The audit and agent action lists page newest first with a keyset `cursor` (`pageSize` default 10, max 25). A page is capped at 32 KB: rows that would exceed it are dropped, `truncated` is set, and `next_cursor` resumes after the last row kept. Contact data in before, after, and change values is masked before it leaves the server: email addresses keep their first letter and domain (`j***@example.com`), phone numbers keep their last two digits, and address fields become `***`. Personal names are not masked. `get_agent_action` returns the log rows for a trace and the first 25 correlated audit entries; `list_audit_events` with `trace_id` pages the rest. Audit rows written by `AuditService.recordTenantMutation` now carry the agent trace in `request_id`, as the Prisma audit extension already did for updates and deletes.
 
 ## Write tools (phase 2)
 
@@ -111,8 +117,8 @@ Use the MCP Inspector or the official TypeScript SDK `Client` + `StreamableHTTPC
 
 ## Testing
 
-- Unit: Zod tool schemas, MCP RBAC helper.
-- E2E: `apps/core-api/test/mcp.e2e-spec.ts` (flag off, RBAC, tool list, action log row, tenant isolation).
+- Unit: Zod tool schemas, MCP RBAC helper, audit read service and PII masking, the 32 KB page cap.
+- E2E: `apps/core-api/test/mcp.e2e-spec.ts` (flag off, RBAC, tool list, action log row, tenant isolation, audit reads).
 
 ## Out of scope (phase 2)
 

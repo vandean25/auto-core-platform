@@ -41,6 +41,10 @@ export const MCP_READ_TOOL_NAMES = [
   'list_workshop_tasks',
   'whoami',
   'get_capabilities',
+  'list_audit_events',
+  'get_entity_history',
+  'get_agent_action',
+  'list_agent_actions',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];

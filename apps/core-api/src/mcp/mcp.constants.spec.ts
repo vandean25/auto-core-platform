@@ -69,6 +69,10 @@ describe('MCP Constants - Never Exposed Actions', () => {
         'list_workshop_tasks',
         'whoami',
         'get_capabilities',
+        'list_audit_events',
+        'get_entity_history',
+        'get_agent_action',
+        'list_agent_actions',
       ];
       expect(MCP_READ_TOOL_NAMES).toEqual(allowedReadTools);
     });

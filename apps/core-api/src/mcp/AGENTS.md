@@ -34,6 +34,10 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
 | `whoami` | Caller identity, role, tenant, active site, and decision apply mode | Read | AUTO |
 | `get_capabilities` | Paged tools for the caller with policy tier, enabled state, and disabled reason | Read | AUTO |
+| `list_audit_events` | List tenant audit events, newest first, filtered by entity, actor, action, date range, or trace ID | Read | AUTO |
+| `get_entity_history` | Readable field changes for one entity, with email, phone, and address values masked | Read | AUTO |
+| `get_agent_action` | Agent action log rows and correlated audit entries for one trace ID | Read | AUTO |
+| `list_agent_actions` | List agent action log rows filtered by agent, tool, tier, status, or time range | Read | AUTO |
 | `draft_workshop_order` | Create a scheduled draft workshop order                      | Write  | Off by default; AUTO when enabled                     |
 | `reserve_part`         | Reserve on-hand stock for a workshop line                    | Write  | Off by default; AUTO up to the amount limit, else PROPOSE |
 | `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |
@@ -59,7 +63,23 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 ### Paging and response size
 
-List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. `get_capabilities` is the one exception: it takes `pageSize` (default and maximum 25) and an opaque `cursor` from `meta.next_cursor`. Other MCP tools do not accept a cursor or a `limit` argument. The configured serialized-result cap is 32,768 string units; oversized results are truncated. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
+List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Two groups take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. No other MCP tool accepts a cursor or a `limit` argument.
+
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25.
+- `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
+
+The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
+
+### Audit and agent-action reads
+
+- These four tools need OWNER or ADMIN. A SALES caller gets a `ForbiddenException`, the same rule the REST agent action log applies.
+- Every call writes its own agent action row with the trace ID, like the other reads.
+- Audit rows identify the actor by user ID. Email addresses, IP addresses, and user agents are never returned.
+- `get_entity_history` returns field changes newest first. Email addresses keep their first letter and domain, such as `j***@example.com`. Phone numbers keep their last two digits. Address fields are replaced with `***`. Personal names are not masked. Each value is capped, and a long value reports `__truncated__`.
+- `get_agent_action` masks the same way in its input and result previews, and each preview is capped at 512 bytes.
+- `get_agent_action` returns up to 25 correlated audit entries. To page the rest, call `list_audit_events` with the same `trace_id`.
+- Filters take identifiers, not free text. `actor` and `trace_id` are UUIDs, `entity_type` is a model name such as `Customer`, and `tool` must be a registered tool name.
+- Dates for `from` and `to` are ISO-8601 dates or date-times. A bare `to` date includes its whole day, and `from` must not be after `to`.
 
 ## Outcomes and errors
 
@@ -87,7 +107,7 @@ The MCP write pipeline evaluates policy before doing any work. Disabled actions 
 
 ## Trace IDs
 
-The HTTP middleware accepts a UUID in the `X-Trace-Id` request header. If absent, it generates one and echoes the effective value in the `X-Trace-Id` response header. Quote the ID when reporting a result or problem. Successful write-tool results also include `trace_id`; use that returned value. The ID connects the action log and related audit entries and can be looked up at `/api/agent-actions/:traceId` by an authorized caller.
+The HTTP middleware accepts a UUID in the `X-Trace-Id` request header. If absent, it generates one and echoes the effective value in the `X-Trace-Id` response header. Quote the ID when reporting a result or problem. Successful write-tool results also include `trace_id`; use that returned value. The ID connects the action log and related audit entries and can be looked up at `/api/agent-actions/:traceId` by an authorized caller. `get_agent_action` returns the same log rows for a trace over MCP.
 
 ## Untrusted input
 
