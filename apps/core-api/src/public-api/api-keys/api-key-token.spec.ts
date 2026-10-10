@@ -71,46 +71,50 @@ describe('api-key-token', () => {
   });
 
   describe('hashApiKeySecret / verifyApiKeySecret', () => {
-    it('produces a deterministic 64-char hex HMAC-SHA256 digest', () => {
-      const digest = hashApiKeySecret(KEY_ID, SECRET, PEPPER);
+    it('produces a deterministic 64-char hex scrypt digest', async () => {
+      const digest = await hashApiKeySecret(KEY_ID, SECRET, PEPPER);
 
       expect(digest).toMatch(/^[0-9a-f]{64}$/);
-      expect(hashApiKeySecret(KEY_ID, SECRET, PEPPER)).toBe(digest);
+      expect(await hashApiKeySecret(KEY_ID, SECRET, PEPPER)).toBe(digest);
     });
 
-    it('does not contain the plaintext secret', () => {
-      expect(hashApiKeySecret(KEY_ID, SECRET, PEPPER)).not.toContain(SECRET);
+    it('does not contain the plaintext secret', async () => {
+      expect(await hashApiKeySecret(KEY_ID, SECRET, PEPPER)).not.toContain(SECRET);
     });
 
-    it('changes when the pepper changes', () => {
-      expect(hashApiKeySecret(KEY_ID, SECRET, OTHER_PEPPER)).not.toBe(
-        hashApiKeySecret(KEY_ID, SECRET, PEPPER),
+    it('changes when the pepper changes', async () => {
+      expect(await hashApiKeySecret(KEY_ID, SECRET, OTHER_PEPPER)).not.toBe(
+        await hashApiKeySecret(KEY_ID, SECRET, PEPPER),
       );
     });
 
-    it('binds the digest to the key id, so a digest cannot be replayed onto another row', () => {
+    it('binds the digest to the key id, so a digest cannot be replayed onto another row', async () => {
       const otherKeyId = '00000000-0000-4000-8000-000000000000';
 
-      expect(hashApiKeySecret(otherKeyId, SECRET, PEPPER)).not.toBe(
-        hashApiKeySecret(KEY_ID, SECRET, PEPPER),
+      expect(await hashApiKeySecret(otherKeyId, SECRET, PEPPER)).not.toBe(
+        await hashApiKeySecret(KEY_ID, SECRET, PEPPER),
       );
     });
 
-    it('verifies the matching secret and rejects any other secret', () => {
-      const storedHash = hashApiKeySecret(KEY_ID, SECRET, PEPPER);
+    it('verifies the matching secret and rejects any other secret', async () => {
+      const storedHash = await hashApiKeySecret(KEY_ID, SECRET, PEPPER);
 
-      expect(verifyApiKeySecret(KEY_ID, SECRET, storedHash, PEPPER)).toBe(true);
+      expect(await verifyApiKeySecret(KEY_ID, SECRET, storedHash, PEPPER)).toBe(
+        true,
+      );
       expect(
-        verifyApiKeySecret(KEY_ID, 'd'.repeat(64), storedHash, PEPPER),
+        await verifyApiKeySecret(KEY_ID, 'd'.repeat(64), storedHash, PEPPER),
       ).toBe(false);
-      expect(verifyApiKeySecret(KEY_ID, SECRET, storedHash, OTHER_PEPPER)).toBe(
+      expect(
+        await verifyApiKeySecret(KEY_ID, SECRET, storedHash, OTHER_PEPPER),
+      ).toBe(false);
+    });
+
+    it('rejects a stored hash that is not a 32-byte digest instead of throwing', async () => {
+      expect(await verifyApiKeySecret(KEY_ID, SECRET, 'not-hex', PEPPER)).toBe(
         false,
       );
-    });
-
-    it('rejects a stored hash that is not a 32-byte digest instead of throwing', () => {
-      expect(verifyApiKeySecret(KEY_ID, SECRET, 'not-hex', PEPPER)).toBe(false);
-      expect(verifyApiKeySecret(KEY_ID, SECRET, '', PEPPER)).toBe(false);
+      expect(await verifyApiKeySecret(KEY_ID, SECRET, '', PEPPER)).toBe(false);
     });
   });
 

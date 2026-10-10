@@ -175,9 +175,9 @@ describe('TenantApiKeyService', () => {
       expect(parsed?.keyId).toBe(keyId);
       const secret = parsed?.secret ?? '';
       expect(
-        verifyApiKeySecret(keyId, secret, String(persisted.data.secret_hash), PEPPER),
+        await verifyApiKeySecret(keyId, secret, String(persisted.data.secret_hash), PEPPER),
       ).toBe(true);
-      expect(hashApiKeySecret(keyId, secret, PEPPER)).toBe(persisted.data.secret_hash);
+      expect(await hashApiKeySecret(keyId, secret, PEPPER)).toBe(persisted.data.secret_hash);
 
       // The plaintext secret and the digest must not reach the database row or the audit trail.
       expect(JSON.stringify(persisted.data)).not.toContain(secret);

@@ -88,6 +88,11 @@ export class TenantApiKeyService {
 
     const expiresAt = parseExpiry(dto.expiresAt, now);
     const credentials = createApiKeyCredentials();
+    const secretHash = await hashApiKeySecret(
+      credentials.keyId,
+      credentials.secret,
+      pepper,
+    );
 
     const created = await this.prisma.$transaction(async (tx) => {
       const row = await tx.tenantApiKey.create({
@@ -96,11 +101,7 @@ export class TenantApiKeyService {
           tenant_id: tenantId,
           name: dto.name.trim(),
           key_prefix: buildApiKeyDisplayPrefix(credentials.keyId),
-          secret_hash: hashApiKeySecret(
-            credentials.keyId,
-            credentials.secret,
-            pepper,
-          ),
+          secret_hash: secretHash,
           hash_version: API_KEY_HASH_VERSION,
           scopes: [...dto.scopes],
           created_by_user_id: actorUserId,

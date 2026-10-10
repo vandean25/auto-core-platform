@@ -193,7 +193,7 @@ describe('Public API keys (e2e, AUT-411)', () => {
       expect(row.key_prefix).toBe(`acp_live_${key.id.slice(0, 8)}`);
       const pepper = resolveApiKeyPepper();
       expect(pepper).toBeDefined();
-      expect(row.secret_hash).toBe(hashApiKeySecret(key.id, key.secret, pepper as Buffer));
+      expect(row.secret_hash).toBe(await hashApiKeySecret(key.id, key.secret, pepper as Buffer));
       expect(row.tenant_id).toBe(tenantA.tenantId);
     });
 

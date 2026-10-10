@@ -48,7 +48,13 @@ export class ApiKeyAuthenticatorService {
     if (!pepper || row.hash_version !== API_KEY_HASH_VERSION) {
       throw invalidApiKey();
     }
-    if (!verifyApiKeySecret(row.id, parsed.secret, row.secret_hash, pepper)) {
+    const secretMatches = await verifyApiKeySecret(
+      row.id,
+      parsed.secret,
+      row.secret_hash,
+      pepper,
+    );
+    if (!secretMatches) {
       throw invalidApiKey();
     }
 

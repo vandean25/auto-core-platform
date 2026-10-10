@@ -12,12 +12,12 @@ const NOW = new Date('2026-10-09T10:00:00.000Z');
 
 type Credentials = ReturnType<typeof createApiKeyCredentials>;
 
-function storedRow(credentials: Credentials, overrides: Record<string, unknown> = {}) {
+async function storedRow(credentials: Credentials, overrides: Record<string, unknown> = {}) {
   return {
     id: credentials.keyId,
     tenant_id: 'tenant-a',
     key_prefix: buildApiKeyDisplayPrefix(credentials.keyId),
-    secret_hash: hashApiKeySecret(credentials.keyId, credentials.secret, PEPPER),
+    secret_hash: await hashApiKeySecret(credentials.keyId, credentials.secret, PEPPER),
     hash_version: API_KEY_HASH_VERSION,
     scopes: ['customers:read'],
     expires_at: null,
@@ -71,7 +71,7 @@ describe('ApiKeyAuthenticatorService', () => {
   describe('verifyToken', () => {
     it('returns the principal for a valid token without reading the secret back', async () => {
       const credentials = createApiKeyCredentials();
-      lookup.findForVerification.mockResolvedValue(storedRow(credentials));
+      lookup.findForVerification.mockResolvedValue(await storedRow(credentials));
 
       const principal = await service.verifyToken(credentials.token);
 
@@ -99,7 +99,7 @@ describe('ApiKeyAuthenticatorService', () => {
     it('rejects a wrong secret for a known key id with the same generic message', async () => {
       const credentials = createApiKeyCredentials();
       const other = createApiKeyCredentials();
-      lookup.findForVerification.mockResolvedValue(storedRow(credentials));
+      lookup.findForVerification.mockResolvedValue(await storedRow(credentials));
 
       await expect(
         service.verifyToken(
@@ -111,7 +111,7 @@ describe('ApiKeyAuthenticatorService', () => {
     it('rejects a key whose tenant is inactive', async () => {
       const credentials = createApiKeyCredentials();
       lookup.findForVerification.mockResolvedValue(
-        storedRow(credentials, { tenant: { is_active: false, api_rate_limit_per_minute: 60 } }),
+        await storedRow(credentials, { tenant: { is_active: false, api_rate_limit_per_minute: 60 } }),
       );
 
       await expect(service.verifyToken(credentials.token)).rejects.toThrow(
@@ -122,7 +122,7 @@ describe('ApiKeyAuthenticatorService', () => {
     it('rejects an unknown digest version instead of guessing the scheme', async () => {
       const credentials = createApiKeyCredentials();
       lookup.findForVerification.mockResolvedValue(
-        storedRow(credentials, { hash_version: 99 }),
+        await storedRow(credentials, { hash_version: 99 }),
       );
 
       await expect(service.verifyToken(credentials.token)).rejects.toThrow(
@@ -132,7 +132,7 @@ describe('ApiKeyAuthenticatorService', () => {
 
     it('fails closed when no pepper is configured outside tests', async () => {
       const credentials = createApiKeyCredentials();
-      lookup.findForVerification.mockResolvedValue(storedRow(credentials));
+      lookup.findForVerification.mockResolvedValue(await storedRow(credentials));
       delete process.env.API_KEY_PEPPER;
       process.env.NODE_ENV = 'production';
 

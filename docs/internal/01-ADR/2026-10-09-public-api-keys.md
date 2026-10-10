@@ -19,7 +19,7 @@ tags:
 
 ## Status
 
-**Accepted — 2026-10-09.** Implements [AUT-411](https://linear.app/auto-core-platform/issue/AUT-411). Amends nothing. It builds on [ADR-0013](2026-04-15-row-level-multi-tenancy.md) (tenant isolation), [ADR-0022](2026-08-31-site-operational-scope.md) (site scope), [ADR-0010](2026-04-12-openapi-contract-first.md) (OpenAPI contract) and [ADR-0015](2026-05-26-audit-tracing-and-operational-logging.md) (audit tracing).
+**Accepted — 2026-10-09**, revised before merge on 2026-10-10: the digest changed from HMAC-SHA256 to scrypt (section 3). Implements [AUT-411](https://linear.app/auto-core-platform/issue/AUT-411). Amends nothing. It builds on [ADR-0013](2026-04-15-row-level-multi-tenancy.md) (tenant isolation), [ADR-0022](2026-08-31-site-operational-scope.md) (site scope), [ADR-0010](2026-04-12-openapi-contract-first.md) (OpenAPI contract) and [ADR-0015](2026-05-26-audit-tracing-and-operational-logging.md) (audit tracing).
 
 ## Context
 
@@ -43,11 +43,11 @@ The public API must be small, read-only and deny by default. A key must never re
 
 ### 3. Hashing
 
-- `secret_hash = HMAC-SHA256(pepper, "<keyId>:<secret>")`, hex. `hash_version = 1` records the scheme.
-- The pepper is `API_KEY_PEPPER`: optional, base64, at least 32 bytes. It is loaded through the same secret pattern as the other server secrets (GSM mapping, then env). If it is unset, creation returns **503** and every key is rejected. This is fail-closed, and boot does not depend on it. Test runs use a random per-process pepper, as the test JWT secret does.
+- `secret_hash = scrypt("<keyId>:<secret>", salt = pepper, N = 4096, r = 8, p = 1, keylen = 32)`, hex. `hash_version = 1` records the scheme.
+- The pepper is `API_KEY_PEPPER`: optional, base64, at least 32 bytes. It is loaded through the same secret pattern as the other server secrets (GSM mapping, then env). If it is unset, creation returns **503** and every key is rejected. This is fail-closed, and boot does not depend on it. Test runs use a random per-process pepper, as the test JWT secret does. The pepper is the scrypt salt, so a copy of the digests cannot be checked without it.
 - The key id is inside the MAC input, so a digest cannot be moved onto another row.
 - Verification uses `crypto.timingSafeEqual` on the 32-byte digests. Every failure to verify returns the same `401 Invalid API key.`, so the response does not reveal which step failed.
-- **Why HMAC and not argon2id.** The secret is 256 bits of CSPRNG output, so offline guessing is not feasible and no key-stretching is needed. A keyed fast digest keeps the per-request cost to microseconds. argon2id would add CPU cost on every request without changing the risk.
+- **Why scrypt, at a low cost.** The secret is 256 bits of CSPRNG output, so offline guessing is not feasible with or without stretching. The digest is a memory-hard KDF rather than a fast MAC, for two reasons. CodeQL's `js/insufficient-password-hash` rule flags fast digests of credential-like values (alert #17 on PR #684), and a standard KDF adds a margin if the generator ever weakens. The cost stays low because the secret carries the security. N = 4096 (4 MiB) measured about 12 ms median per call on the development sandbox, against about 25 ms at N = 8192 and about 48 ms at N = 16384. The cost is paid on every key-authenticated request, so a higher setting adds latency and threadpool load without a gain in this threat model. The parameters live in the code, so changing them means a `hash_version` bump.
 
 ### 4. Pre-tenant lookup (documented exception)
 
@@ -125,6 +125,7 @@ Per-site key restriction is a **follow-up**. Until it exists, an integration tha
 **Negative**
 
 - Each API request costs a few extra database operations: the key lookup, the rate-limit update, the audit row, and at most one `last_used_at` write per five minutes.
+- Each key-authenticated request also runs one scrypt call, about 12 ms median on the development sandbox, on the libuv threadpool.
 - Site-owned data is tenant-wide until per-site keys ship.
 - Pepper rotation is a mass re-issue.
 
@@ -140,7 +141,8 @@ Per-site key restriction is a **follow-up**. Until it exists, an integration tha
 | Firebase custom tokens per integration | Still bound to a user identity. Cannot be scoped or revoked without the user. |
 | OAuth client-credentials | Out of scope for v1. Adds a token-exchange flow and client registration for a single internal consumer model. |
 | Store the secret encrypted and show it again | Adds a decryption path to recover a secret that nobody needs once issued. Hashing is enough. |
-| argon2id for the digest | Adds per-request CPU cost with no gain for 256-bit random secrets. |
+| HMAC-SHA256 as a fast keyed digest (the first design) | Adds no stretching, and CodeQL `js/insufficient-password-hash` flags it for credential-like values (alert #17). Replaced by scrypt before merge. |
+| argon2id for the digest | Memory-hard like scrypt. scrypt is in Node's built-in `crypto` module, so it adds no dependency. |
 | Redis-backed rate limiter | Better at high volume, but adds an infrastructure dependency. Deferred. |
 | Add `TenantApiKey` to the auto-audited model list | Its snapshots would carry the digest. Explicit audit entries exclude it by construction. |
 
