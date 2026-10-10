@@ -1,4 +1,5 @@
 import { ArrowLeft, Plus } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import type { WarrantyClaimStatus } from "@/api/types";
@@ -67,11 +68,22 @@ export function WorkshopOrderWarrantyClaims() {
     );
   };
 
+  // A create can finish after the advisor has left this page. Then it must not pull them back to it.
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const handleCreate = async () => {
     try {
       const created = await createClaim.mutateAsync({ orderId: id, payload: { type: "GARANTIE" } });
       // Clears the status filter too, so the new draft is visible in the list.
-      updateSearchParams({ [STATUS_PARAM]: null, [CLAIM_PARAM]: created.id });
+      if (isMounted.current) {
+        updateSearchParams({ [STATUS_PARAM]: null, [CLAIM_PARAM]: created.id });
+      }
       toast.success("Warranty claim created");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to create the warranty claim"));

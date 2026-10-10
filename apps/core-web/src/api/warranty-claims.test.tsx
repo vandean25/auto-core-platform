@@ -6,6 +6,7 @@ import { fetchWithAuth } from "./client";
 import {
   WARRANTY_CLAIM_PDF_TIMEOUT_MS,
   WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
+  createWarrantyClaim,
   downloadWarrantyClaimPdf,
   fetchWarrantyClaims,
   updateWarrantyClaim,
@@ -116,6 +117,73 @@ describe("warranty claim API", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ type: "GARANTIE" }) }),
     );
     expect(queryClient.getQueryData(warrantyClaimKeys.detail("order-1", "claim-new"))).toEqual(created);
+  });
+
+  it("gives up on a create that does not answer, and says it may have been created", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockImplementation(() => new Promise<Response>(() => undefined));
+
+      const outcome = createWarrantyClaim("order-1", { type: "GARANTIE" }).catch(
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(WARRANTY_CLAIM_SAVE_TIMEOUT_MS);
+
+      const error = await outcome;
+      expect((error as DOMException).name).toBe("TimeoutError");
+      expect((error as DOMException).message).toMatch(/may still have been created/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reads the list again after a create fails, because the server may have applied it", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Refused" }, 500));
+    const queryClient = createQueryClient();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+
+    const { result } = renderHook(() => useCreateWarrantyClaim(), {
+      wrapper: createWrapper(queryClient),
+    });
+    await expect(
+      result.current.mutateAsync({ orderId: "order-1", payload: { type: "GARANTIE" } }),
+    ).rejects.toThrow();
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: warrantyClaimKeys.lists("order-1") });
+  });
+
+  it("shows the new draft in the cached list at once, so it can be selected", async () => {
+    const created = claimFixture({ id: "claim-new", status: "DRAFT" });
+    fetchMock.mockResolvedValue(jsonResponse(created, 201));
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(warrantyClaimKeys.list("order-1"), { data: [], meta: { total: 0 } });
+
+    const { result } = renderHook(() => useCreateWarrantyClaim(), {
+      wrapper: createWrapper(queryClient),
+    });
+    await result.current.mutateAsync({ orderId: "order-1", payload: { type: "GARANTIE" } });
+
+    expect(queryClient.getQueryData(warrantyClaimKeys.list("order-1"))).toEqual({
+      data: [created],
+      meta: { total: 1 },
+    });
+  });
+
+  it("resolves the create without waiting for a list read that never answers", async () => {
+    const created = claimFixture({ id: "claim-new" });
+    fetchMock.mockImplementation(async (_input, init) => {
+      if (init?.method === "POST") return jsonResponse(created, 201);
+      return new Promise<Response>(() => undefined);
+    });
+    const queryClient = createQueryClient();
+
+    const { result } = renderHook(
+      () => ({ create: useCreateWarrantyClaim(), lists: useWarrantyClaims("order-1") }),
+      { wrapper: createWrapper(queryClient) },
+    );
+    await expect(
+      result.current.create.mutateAsync({ orderId: "order-1", payload: { type: "GARANTIE" } }),
+    ).resolves.toEqual(created);
   });
 
   it("sends only the patch it is given and stores the saved claim", async () => {

@@ -53,7 +53,7 @@ export function createWarrantyClaim(
 ): Promise<WarrantyClaim> {
   return withTimeout(
     WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
-    'The claim creation timed out. It may still have been created, so reload the order to check.',
+    'The claim creation timed out. It may still have been created, so check the claim list before creating another.',
     async (signal) => {
       const response = await fetchWithAuth(claimsUrl(orderId), {
         method: 'POST',
@@ -153,8 +153,23 @@ export function useCreateWarrantyClaim() {
       createWarrantyClaim(orderId, payload),
     onSuccess: (claim, { orderId }) => {
       queryClient.setQueryData(warrantyClaimKeys.detail(orderId, claim.id), claim)
-      // Awaited, so the caller selects the new claim only once the list shows it.
-      return queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
+      // The new draft joins the cached lists it belongs to at once, so the caller can select it without waiting
+      // for a list read. The read still follows, to pick up the server's view.
+      queryClient.setQueriesData<WarrantyClaimListResponse>(
+        {
+          queryKey: warrantyClaimKeys.lists(orderId),
+          predicate: (query) => {
+            const filter = query.queryKey[query.queryKey.length - 1]
+            return filter === 'all' || filter === claim.status
+          },
+        },
+        (old) => {
+          if (!old || old.data.some((item) => item.id === claim.id)) return old
+          const total = old.meta.total ?? old.data.length
+          return { data: [claim, ...old.data], meta: { total: total + 1 } }
+        },
+      )
+      void queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
     },
     // A create that failed on the way back may still have been applied, so the list is read again.
     onError: (_error, { orderId }) => {
