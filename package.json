@@ -22,6 +22,8 @@
     "repowise:dead-code": "uvx --from repowise==0.49.0 repowise dead-code",
     "repowise:serve": "uvx --from repowise==0.49.0 repowise serve --port 7338",
     "repowise:update": "uvx --from repowise==0.49.0 repowise update",
+    "repowise:gate": "node tools/repowise-gate.mjs",
+    "repowise:gate:test": "node --test tools/repowise-gate.test.mjs",
     "agent-eval": "npm run agent-eval --workspace=core-api",
     "agent-eval:report": "npm run agent-eval:report --workspace=core-api",
     "ci": "npm run lint && npm test && npm run build",

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "files": {
+    "apps/core-api/src/mcp/mcp-tool-handler.service.ts": 4.7,
+    "apps/core-api/src/vehicle/vehicle.controller.ts": 5.98,
+    "apps/core-web/src/pages/agent/components/ActivityTab.tsx": 4.65
+  }
+}

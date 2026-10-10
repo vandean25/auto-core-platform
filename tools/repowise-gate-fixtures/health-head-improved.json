@@ -1,0 +1,74 @@
+{
+  "kpis": {
+    "file_count": 6
+  },
+  "metrics": [
+    {
+      "file_path": "apps/core-web/src/pages/agent/components/ActivityTab.tsx",
+      "score": 4.65,
+      "max_ccn": 6,
+      "max_nesting": 1,
+      "nloc": 328,
+      "has_test_file": true,
+      "line_coverage_pct": null,
+      "branch_coverage_pct": null,
+      "duplication_pct": 59.76
+    },
+    {
+      "file_path": "apps/core-api/src/mcp/mcp-tool-handler.service.ts",
+      "score": 5.1,
+      "max_ccn": 3,
+      "max_nesting": 2,
+      "nloc": 423,
+      "has_test_file": true,
+      "line_coverage_pct": null,
+      "branch_coverage_pct": null,
+      "duplication_pct": 39.06
+    },
+    {
+      "file_path": "apps/core-api/src/vehicle/vehicle.controller.ts",
+      "score": 6.05,
+      "max_ccn": 13,
+      "max_nesting": 1,
+      "nloc": 187,
+      "has_test_file": true,
+      "line_coverage_pct": null,
+      "branch_coverage_pct": null,
+      "duplication_pct": 57.22
+    },
+    {
+      "file_path": "apps/core-api/src/document-branding/document-branding-upload.service.ts",
+      "score": 6.1,
+      "max_ccn": 10,
+      "max_nesting": 3,
+      "nloc": 392,
+      "has_test_file": true,
+      "line_coverage_pct": null,
+      "branch_coverage_pct": null,
+      "duplication_pct": 55.22
+    },
+    {
+      "file_path": "docs/internal/05-Runbooks/lint-prisma-tenant.ts",
+      "score": 8.21,
+      "max_ccn": 9,
+      "max_nesting": 4,
+      "nloc": 47,
+      "has_test_file": true,
+      "line_coverage_pct": null,
+      "branch_coverage_pct": null,
+      "duplication_pct": null
+    },
+    {
+      "file_path": "apps/core-api/src/workshop/workshop-task.service.ts",
+      "score": 10.0,
+      "max_ccn": 1,
+      "max_nesting": 0,
+      "nloc": 1,
+      "has_test_file": true,
+      "line_coverage_pct": null,
+      "branch_coverage_pct": null,
+      "duplication_pct": null
+    }
+  ],
+  "findings": []
+}
