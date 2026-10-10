@@ -36,6 +36,8 @@ export const MCP_READ_TOOL_NAMES = [
   'get_stock_level',
   'get_vehicle_stock_age_report',
   'get_vehicle_stock_margin_report',
+  'list_invoices',
+  'get_invoice',
   'list_bays',
   'list_bins',
   'list_workshop_tasks',
@@ -93,6 +95,9 @@ export const MCP_AGENT_FACING_CODES = {
  */
 export const MCP_NEVER_EXPOSED_ACTIONS = [
   'invoice.finalize',
+  'invoice.cancel',
+  'invoice.send',
+  'credit_note.create',
   'credit_note.issue',
   'credit_note.finalize',
   'accounting_export.create',

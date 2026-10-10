@@ -29,6 +29,8 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
 | `get_vehicle_stock_age_report` | Read paged dealer stock age and cost basis for the active site | Read | AUTO |
 | `get_vehicle_stock_margin_report` | Read paged invoiced vehicle margins by invoice date for the active site | Read | AUTO |
+| `list_invoices` | List invoices for the active site by status, customer, order, issue date, or number, newest first | Read | AUTO |
+| `get_invoice` | Get an invoice for the active site with lines, totals, seller as printed, order links, and credit notes | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -63,10 +65,11 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 ### Paging and response size
 
-List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Two groups take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. No other MCP tool accepts a cursor or a `limit` argument.
+List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. No other MCP tool accepts a cursor or a `limit` argument.
 
 - `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
+- `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
 
 The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 
@@ -80,6 +83,18 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `get_agent_action` returns up to 25 correlated audit entries. To page the rest, call `list_audit_events` with the same `trace_id`.
 - Filters take identifiers, not free text. `actor` and `trace_id` are UUIDs, `entity_type` is a model name such as `Customer`, and `tool` must be a registered tool name.
 - Dates for `from` and `to` are ISO-8601 dates or date-times. A bare `to` date includes its whole day, and `from` must not be after `to`.
+
+### Invoice reads
+
+- `list_invoices` and `get_invoice` read invoices for the active site only. An invoice at another site is not found.
+- Amounts are EUR decimal strings, such as `"174.00"`, never cents.
+- A list row's `total_gross` is the snapshot total for a committed invoice with a usable snapshot, the figure the PDF prints. A draft, or a committed invoice without a usable snapshot, shows its stored total.
+- `get_invoice` sets `amount_source`. `snapshot` means the frozen data the PDF renders: lines, totals, and the seller block as printed. `stored` means the invoice's current rows, which apply to drafts and to invoices without a usable snapshot. Drafts have no seller block.
+- Legacy invoices with an older snapshot report totals and unit prices, and their line `net` and `gross` are `null`. A draft with an invoice-level discount also reports `null` line amounts.
+- `lines_truncated: true` means some lines did not fit the result cap, and `lines_total` is the full count. Say so and point the person to the invoice in the app. Lines cannot be paged.
+- `customer` carries the ID and the customer's current name, formatted as the PDF formats it. A committed invoice's PDF keeps the name it was issued with, so after a customer is renamed this name can differ from that PDF. Customer contact data, internal notes, and PDF storage keys are never returned.
+- `seller` carries the seller identity as the PDF prints it, including the company's address, contact details, and bank details. These are the company's own details, not customer data.
+- Finalizing, cancelling, sending, and creating credit notes are `HUMAN_ONLY`. They are never tools. Ask a person to do them.
 
 ## Outcomes and errors
 
@@ -120,6 +135,9 @@ These policy actions are intentionally not registered as MCP tools:
 | Action                           |
 | -------------------------------- |
 | `invoice.finalize`               |
+| `invoice.cancel`                 |
+| `invoice.send`                   |
+| `credit_note.create`             |
 | `credit_note.issue`              |
 | `credit_note.finalize`           |
 | `accounting_export.create`       |

@@ -14,6 +14,10 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Read paged dealer stock age and cost basis for the active site',
   get_vehicle_stock_margin_report:
     'Read paged invoiced vehicle margins for the active site and date period',
+  list_invoices:
+    'List invoices for the active site by status, customer, order, issue date, or number (keyset cursor, newest first)',
+  get_invoice:
+    'Get an invoice for the active site: lines, net/tax/gross totals, seller as printed on the PDF, order links, and credit notes',
   list_bays: 'List active bays for the active site (paged)',
   list_bins: 'List bin storage locations for the active site (paged)',
   list_workshop_tasks:

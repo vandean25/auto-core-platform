@@ -225,6 +225,45 @@ export const listAgentActionsInputSchema = listAgentActionsBaseSchema.refine(
   orderedRangeOptions,
 );
 
+/** AUT-456 invoice reads: filters take identifiers and issue dates, paging is the AUT-455 keyset contract. */
+const invoiceStatusSchema = z.enum([
+  'DRAFT',
+  'FINALIZED',
+  'ISSUED',
+  'PAID',
+  'CANCELLED',
+]);
+
+export const listInvoicesBaseSchema = z.object({
+  status: invoiceStatusSchema.optional(),
+  customer_id: uuidSchema.optional(),
+  order_id: uuidSchema
+    .optional()
+    .describe('Workshop order or sales order ID the invoice was created from'),
+  from: z
+    .string()
+    .date()
+    .optional()
+    .describe('Issue date, YYYY-MM-DD, inclusive'),
+  to: z
+    .string()
+    .date()
+    .optional()
+    .describe('Issue date, YYYY-MM-DD, inclusive'),
+  number: z.string().trim().min(1).max(64).optional(),
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const listInvoicesInputSchema = listInvoicesBaseSchema.refine(
+  isOrderedRange,
+  orderedRangeOptions,
+);
+
+export const getInvoiceInputSchema = z.object({
+  invoice_id: uuidSchema,
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -239,6 +278,8 @@ export const mcpToolInputSchemas: Record<
   get_stock_level: getStockLevelInputSchema,
   get_vehicle_stock_age_report: getVehicleStockAgeReportInputSchema,
   get_vehicle_stock_margin_report: getVehicleStockMarginReportInputSchema,
+  list_invoices: listInvoicesInputSchema,
+  get_invoice: getInvoiceInputSchema,
   list_bays: listBaysInputSchema,
   list_bins: listBinsInputSchema,
   list_workshop_tasks: listWorkshopTasksInputSchema,
