@@ -88,6 +88,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 - `list_invoices` and `get_invoice` read invoices for the active site only. An invoice at another site is not found.
 - Amounts are EUR decimal strings, such as `"174.00"`, never cents.
+- A list row's `total_gross` is the snapshot total for a committed invoice, the figure the PDF prints, and the stored total for a draft.
 - `get_invoice` sets `amount_source`. `snapshot` means the frozen data the PDF renders: lines, totals, and the seller block as printed. `stored` means the invoice's current rows, which apply to drafts and to invoices without a usable snapshot. Drafts have no seller block.
 - Legacy invoices with an older snapshot report totals and unit prices, and their line `net` and `gross` are `null`. A draft with an invoice-level discount also reports `null` line amounts.
 - `lines_truncated: true` means some lines did not fit the result cap, and `lines_total` is the full count. Say so and point the person to the invoice in the app. Lines cannot be paged.

@@ -103,6 +103,7 @@ describe('toMcpInvoiceListRow', () => {
       date: new Date('2026-09-20T00:00:00.000Z'),
       currency: null,
       total_gross: new Prisma.Decimal('1234.5'),
+      snapshot: null,
       customer: {
         id: CUSTOMER_ID,
         type: 'PRIVATE',
@@ -121,6 +122,74 @@ describe('toMcpInvoiceListRow', () => {
       total_gross: '1234.50',
       currency: 'EUR',
     });
+  });
+});
+
+describe('list total for committed and draft invoices', () => {
+  const snapshot = {
+    schema_version: 2,
+    document_kind: 'INVOICE',
+    template_version: 'invoice-pdf-v1',
+    site_id: 'site-1',
+    legal_entity_id: 'le-1',
+    currency: 'EUR',
+    seller: { name: 'Musterwerkstatt Nord GmbH' },
+    items: [{ description: 'Position' }],
+    tax_breakdown: [],
+    total_net: '1.50',
+    total_tax: '0.30',
+    total_gross: '1.80',
+    snapshot_created_at: '2026-09-20T12:00:00.000Z',
+  };
+
+  /** Three lines of 0.50 at 19%: the stored column keeps the unrounded tax, the snapshot rounds each line. */
+  function listRecord(status: InvoiceStatus) {
+    return {
+      id: INVOICE_ID,
+      invoice_number: 'RE-2026-0002',
+      status,
+      date: new Date('2026-09-20T00:00:00.000Z'),
+      currency: 'EUR',
+      total_gross: new Prisma.Decimal('1.79'),
+      snapshot,
+      customer: {
+        id: CUSTOMER_ID,
+        type: 'PRIVATE' as const,
+        company_name: null,
+        first_name: 'Erika',
+        last_name: 'Beispiel',
+      },
+    };
+  }
+
+  it('shows the snapshot total for an issued invoice, the figure the PDF prints', () => {
+    expect(toMcpInvoiceListRow(listRecord(InvoiceStatus.ISSUED))).toMatchObject({
+      total_gross: '1.80',
+    });
+  });
+
+  it('shows the snapshot total for finalized, paid, and cancelled invoices', () => {
+    for (const status of [
+      InvoiceStatus.FINALIZED,
+      InvoiceStatus.PAID,
+      InvoiceStatus.CANCELLED,
+    ]) {
+      expect(toMcpInvoiceListRow(listRecord(status))).toMatchObject({
+        total_gross: '1.80',
+      });
+    }
+  });
+
+  it('shows the stored total for a draft even when a snapshot is present', () => {
+    expect(toMcpInvoiceListRow(listRecord(InvoiceStatus.DRAFT))).toMatchObject({
+      total_gross: '1.79',
+    });
+  });
+
+  it('shows the stored total for a committed invoice without a usable snapshot', () => {
+    expect(
+      toMcpInvoiceListRow({ ...listRecord(InvoiceStatus.ISSUED), snapshot: null }),
+    ).toMatchObject({ total_gross: '1.79' });
   });
 });
 

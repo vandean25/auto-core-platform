@@ -34,6 +34,7 @@ export type McpInvoiceListRecord = {
   date: Date;
   currency: string | null;
   total_gross: Prisma.Decimal;
+  snapshot: unknown;
   customer: McpInvoiceCustomer;
 };
 
@@ -94,6 +95,24 @@ export function mcpCustomerName(
     : person;
 }
 
+/**
+ * Gross total for a list row. A committed invoice shows its snapshot total, the
+ * same figure the PDF prints and `get_invoice` reports. The stored column is
+ * written once at draft creation and can differ from the snapshot, because the
+ * snapshot rounds tax per line. A draft shows its stored total.
+ */
+function listGrossTotal(record: McpInvoiceListRecord): string {
+  if (COMMITTED_STATUSES.has(record.status)) {
+    if (isInvoiceSnapshotV2(record.snapshot)) {
+      return record.snapshot.total_gross;
+    }
+    if (isInvoiceSnapshot(record.snapshot)) {
+      return record.snapshot.total_gross;
+    }
+  }
+  return record.total_gross.toFixed(2);
+}
+
 export function toMcpInvoiceListRow(record: McpInvoiceListRecord) {
   return {
     id: record.id,
@@ -104,7 +123,7 @@ export function toMcpInvoiceListRow(record: McpInvoiceListRecord) {
       name: mcpCustomerName(record.customer),
     },
     issued_at: record.date.toISOString(),
-    total_gross: record.total_gross.toFixed(2),
+    total_gross: listGrossTotal(record),
     currency: record.currency ?? 'EUR',
   };
 }

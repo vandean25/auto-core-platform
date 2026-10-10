@@ -48,6 +48,7 @@ const LIST_SELECT = {
   date: true,
   currency: true,
   total_gross: true,
+  snapshot: true,
   customer: { select: CUSTOMER_SELECT },
 } as const;
 
