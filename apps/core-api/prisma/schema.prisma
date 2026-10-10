@@ -69,6 +69,10 @@ model Tenant {
   creditNotes                   CreditNote[]
   creditNoteItems               CreditNoteItem[]
   creditNoteSequences           CreditNoteSequence[]
+  workshopEstimates             WorkshopEstimate[]
+  workshopEstimateSequences     WorkshopEstimateSequence[]
+  workshopEstimateVersions      WorkshopEstimateVersion[]
+  workshopEstimateAssetRefs     WorkshopEstimateBrandAssetReference[]
   purchaseInvoices              PurchaseInvoice[]
   purchaseInvoiceLines          PurchaseInvoiceLine[]
   inspectionTemplates           InspectionTemplate[]
@@ -291,6 +295,8 @@ model LegalEntity {
   documentBrandAssets         DocumentBrandAsset[]
   documentBrandExtractions    DocumentBrandExtraction[]
   invoiceBrandAssetReferences InvoiceBrandAssetReference[]
+  workshopEstimateVersions   WorkshopEstimateVersion[]
+  workshopEstimateAssetRefs  WorkshopEstimateBrandAssetReference[]
   invoices                    Invoice[]
   creditNotes                 CreditNote[]
   createdAt                   DateTime                      @default(now())
@@ -397,6 +403,7 @@ model DocumentBrandAsset {
   draftSourceForProfiles DocumentBrandProfile[] @relation("DocumentBrandDraftSource")
   activeForProfiles      DocumentBrandProfile[] @relation("DocumentBrandActiveLogo")
   invoiceReferences InvoiceBrandAssetReference[]
+  workshopEstimateReferences WorkshopEstimateBrandAssetReference[]
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, legal_entity_id, id])
@@ -568,6 +575,7 @@ model Site {
   tyreSets                 TyreSet[]
   invoices                 Invoice[]
   creditNotes              CreditNote[]
+  workshopEstimates        WorkshopEstimate[]
   loanerVehicles           LoanerVehicle[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
@@ -643,6 +651,7 @@ model FinanceSettings {
   next_stock_transfer_number   Int       @default(1)
   stock_transfer_prefix        String    @default("TR-2026-")
   price_jump_threshold_percent Decimal?  @default(20) @db.Decimal(5, 2)
+  estimate_overrun_threshold_pct Decimal @default(15) @db.Decimal(5, 2)
 
   updatedAt DateTime @updatedAt
 
@@ -2148,6 +2157,7 @@ model WorkshopOrder {
   media                  WorkshopMedia[]
   tasks                  WorkshopTask[]
   invoice                Invoice?
+  estimates              WorkshopEstimate[]
   vehicle_ledger_entries VehicleLedgerEntry[]
   loaner_bookings        LoanerBooking[]
   tyre_set_events        TyreSetEvent[]
@@ -2170,6 +2180,116 @@ model WorkshopOrder {
   @@index([bay_id], map: "idx_workshop_orders_bay_id")
   @@index([tenant_id, bay_id, scheduled_start_at], map: "idx_workshop_orders_bay_schedule")
   @@map("workshop_orders")
+}
+
+enum WorkshopEstimateStatus {
+  DRAFT
+  SENT
+  APPROVED
+  DECLINED
+  EXPIRED
+  SUPERSEDED
+}
+
+/// KV-YYYY-XXXX counter per tenant and calendar year (ADR-0009 pattern).
+model WorkshopEstimateSequence {
+  id        String @id @default(uuid())
+  tenant_id String
+  tenant    Tenant @relation(fields: [tenant_id], references: [id])
+  year      Int
+  current   Int    @default(0)
+
+  @@unique([tenant_id, year])
+  @@index([tenant_id])
+  @@map("workshop_estimate_sequences")
+}
+
+/// One Kostenvoranschlag per workshop order (ADR-0025 §1). Revisions add
+/// versions; the estimate number never changes.
+model WorkshopEstimate {
+  id                String                    @id @default(uuid())
+  tenant_id         String
+  tenant            Tenant                    @relation(fields: [tenant_id], references: [id])
+  site_id           String
+  site              Site                      @relation(fields: [tenant_id, site_id], references: [tenant_id, id])
+  workshop_order_id String
+  workshop_order    WorkshopOrder             @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  estimate_number   String
+  year              Int
+  versions          WorkshopEstimateVersion[]
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, estimate_number])
+  @@unique([tenant_id, workshop_order_id])
+  @@index([tenant_id])
+  @@index([tenant_id, site_id])
+  @@map("workshop_estimates")
+}
+
+/// Versioned estimate content. A DRAFT is live (built from the order when sent);
+/// SENT and later rows carry the immutable snapshot, its hash and the PDF archive
+/// (ADR-0025 §2 and §4). Only the status and PDF columns change after send.
+model WorkshopEstimateVersion {
+  id                     String                              @id @default(uuid())
+  tenant_id              String
+  tenant                 Tenant                              @relation(fields: [tenant_id], references: [id])
+  estimate_id            String
+  estimate               WorkshopEstimate                    @relation(fields: [tenant_id, estimate_id], references: [tenant_id, id], onDelete: Restrict)
+  version                Int
+  status                 WorkshopEstimateStatus             @default(DRAFT)
+  legal_entity_id        String?
+  legal_entity           LegalEntity?                        @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id])
+  sent_at                DateTime?
+  valid_from             DateTime?
+  valid_until            DateTime?
+  total_net              Decimal?                            @db.Decimal(10, 2)
+  total_tax              Decimal?                            @db.Decimal(10, 2)
+  total_gross            Decimal?                            @db.Decimal(10, 2)
+  snapshot               Json?
+  snapshot_sha256        String?
+  legal_text_version     String?
+  legal_text_sha256      String?
+  retain_until           DateTime?
+  legal_hold             Boolean                             @default(false)
+  pdf_storage_bucket     String?
+  pdf_storage_key        String?
+  pdf_archive_generation String?
+  pdf_sha256             String?
+  pdf_generated_at       DateTime?
+  pdf_generation_error   String?
+  brand_asset_reference  WorkshopEstimateBrandAssetReference?
+  createdAt              DateTime                            @default(now())
+  updatedAt              DateTime                            @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, estimate_id, version])
+  @@index([tenant_id])
+  @@index([tenant_id, estimate_id, status])
+  @@index([tenant_id, legal_entity_id, sent_at], map: "wev_entity_sent_idx")
+  @@map("workshop_estimate_versions")
+}
+
+/// Pins the frozen logo asset of a sent estimate version, so asset cleanup
+/// cannot remove it (ADR-0025 §3, "referenced assets are retained").
+model WorkshopEstimateBrandAssetReference {
+  id                           String                  @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "weba_tenant_fkey")
+  legal_entity_id              String
+  legal_entity                 LegalEntity             @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict, map: "weba_entity_fkey")
+  workshop_estimate_version_id String
+  version                      WorkshopEstimateVersion @relation(fields: [tenant_id, workshop_estimate_version_id], references: [tenant_id, id], onDelete: Restrict, map: "weba_version_fkey")
+  asset_id                     String
+  asset                        DocumentBrandAsset      @relation(fields: [tenant_id, legal_entity_id, asset_id], references: [tenant_id, legal_entity_id, id], onDelete: Restrict, map: "weba_asset_fkey")
+  createdAt                    DateTime                @default(now())
+
+  @@unique([tenant_id, id], map: "weba_tenant_id_uq")
+  @@unique([tenant_id, workshop_estimate_version_id], map: "weba_tenant_version_uq")
+  @@index([tenant_id])
+  @@index([tenant_id, legal_entity_id, asset_id], map: "weba_asset_scope_idx")
+  @@map("workshop_estimate_brand_asset_references")
 }
 
 enum LoanerVehicleStatus {

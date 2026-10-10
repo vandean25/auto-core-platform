@@ -193,6 +193,42 @@ describe("warranty claim API", () => {
     }
   });
 
+  it("gives up on a save that stalls before the request is sent, such as a token lookup", async () => {
+    vi.useFakeTimers();
+    try {
+      // Ignores the abort signal, as a token lookup does: only the race can end this call.
+      fetchMock.mockImplementation(() => new Promise<Response>(() => undefined));
+
+      const outcome = updateWarrantyClaim("order-1", "claim-1", { complaint: "Kupplung" }).catch(
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(WARRANTY_CLAIM_SAVE_TIMEOUT_MS);
+
+      const error = await outcome;
+      expect((error as DOMException).name).toBe("TimeoutError");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears its timer once a save is answered", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockResolvedValue(
+        new Response(JSON.stringify({ id: "claim-1" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+      await updateWarrantyClaim("order-1", "claim-1", { complaint: "Kupplung" });
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("gives up on a PDF that does not come back, so Print cannot stay busy", async () => {
     vi.useFakeTimers();
     try {

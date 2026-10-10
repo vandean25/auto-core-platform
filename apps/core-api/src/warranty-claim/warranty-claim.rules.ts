@@ -85,6 +85,24 @@ export function missingSubmissionFields(claim: {
   return missing;
 }
 
+/** What each missing submission field asks for, worded for the 422 message. */
+const SUBMISSION_GAP_PHRASES: Record<string, string> = {
+  complaint: 'a complaint',
+  claimedAmountNet: 'a claimed amount above zero',
+  lines: 'at least one affected line',
+};
+
+/** Names only the gaps that are left, so the advisor knows what to fix. */
+function submissionGapMessage(missing: string[]): string {
+  const phrases = missing.map((field) => SUBMISSION_GAP_PHRASES[field]);
+  const last = phrases[phrases.length - 1];
+  const list =
+    phrases.length > 1
+      ? `${phrases.slice(0, -1).join(', ')} and ${last}`
+      : last;
+  return `A claim needs ${list} before it can be submitted.`;
+}
+
 export function assertWarrantyClaimSubmittable(
   claim: Parameters<typeof missingSubmissionFields>[0],
 ): void {
@@ -92,8 +110,7 @@ export function assertWarrantyClaimSubmittable(
   if (missing.length > 0) {
     throw new UnprocessableEntityException({
       code: WARRANTY_CLAIM_ERROR_CODES.SUBMISSION_INCOMPLETE,
-      message:
-        'A claim needs a complaint, a claimed amount above zero and at least one affected line before it can be submitted.',
+      message: submissionGapMessage(missing),
       missingFields: missing,
     });
   }

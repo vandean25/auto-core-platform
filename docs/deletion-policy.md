@@ -59,7 +59,11 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopHoliday | Yes | Hard delete allowed (site-scoped). Not referenced by orders. Removing a holiday only changes future grid hours for that site. |
 | LoanerVehicle | Conditional | Soft-disable via `active = false` preferred. Hard delete only when no `LoanerBooking` rows reference the fleet entry. |
 | LoanerBooking | Status lifecycle | No hard delete. Use `CANCELLED`, `RETURNED`, or `NO_SHOW`. Hand-over/return fields are retained for audit. |
-| WorkshopOrder | Conditional | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. A `WarrantyClaim` on the order also blocks hard delete (`RESTRICT`); claims cannot be filed on a `SCHEDULED` order. |
+| WorkshopOrder | Conditional | Hard delete allowed only while `SCHEDULED` (planner no-show). Blocked from `INTAKE` onward unless a future cancel API is added. An order with an estimate is never hard-deleted (`ON DELETE RESTRICT`). A `WarrantyClaim` on the order also blocks hard delete (`RESTRICT`); claims cannot be filed on a `SCHEDULED` order. |
+| WorkshopEstimate | Conditional | One Kostenvoranschlag per workshop order (`KV-YYYY-XXXX`). No hard-delete endpoint in v1. Retained with its order. |
+| WorkshopEstimateVersion | Retention-bound | No delete endpoint. A `DRAFT` version is replaced by sending or by a later revision. `SENT` and later versions are immutable: snapshot, `snapshot_sha256` and PDF archive are written once. Only `status` moves (`SUPERSEDED`, `APPROVED`, `DECLINED`, `EXPIRED`). Removal only after `retain_until` has passed and `legal_hold` is false (ADR-0025 §10). |
+| WorkshopEstimateBrandAssetReference | No direct delete | Pins the frozen logo asset of a sent version. Removed only together with its version row, so asset cleanup treats the logo as in use. |
+| WorkshopEstimateSequence | No | Numbering counter per tenant and year. Consumed numbers are never reused or reset. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED`, no linked invoice exists yet on the order, no `LaborEntry` records exist for the task, and **no child line has a `PartsReservation` or inventory activity**. |
 | WorkshopTaskLineItem | Soft-cancel after operational history | Hard delete forbidden once any `PartsReservation` or `InventoryTransaction` exists. Consumed > 0: leftover-release shrinks `quantity` to consumed, status `CONSUMED` (still billable). Consumed = 0: status `CANCELLED`. Keep the row so reservations retain `workshop_task_line_item_id`. `replaceTaskLineItems` must not `deleteMany` operational lines. A line referenced by a `WarrantyClaimLine` cannot be hard-deleted either: the database foreign key (`RESTRICT`) refuses the delete, so the line replacement and the task delete fail with 422 and the generic related-record message. While the claim is `DRAFT`, remove the line from the claim first; once a claim has left `DRAFT` its lines stay on the order for the audit trail. |
 | WarrantyClaim | No (close instead) | Retained for the audit trail and the OEM reference; no delete API. Status runs `DRAFT` → `SUBMITTED_EXTERNALLY` → `APPROVED` or `REJECTED` → `CLOSED`, and `CLOSED` is terminal. Type, complaint, cause/correction, lines and claimed amount are editable only in `DRAFT`; external reference and decision fields stay editable until `CLOSED`. Every change is written to the audit log. |
@@ -114,6 +118,15 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 | AccountingExport | No | Retain exact bytes, manifest, frozen profile, checksum and actor/time. No ordinary delete endpoint or short TTL. |
 
 Retention and tenant-purge exceptions require a separate approved policy; this baseline authorizes no historical deletion or snapshot repair.
+
+## ADR-0025 / AUT-354 — Workshop estimates (Kostenvoranschlag)
+
+Retention follows ADR-0025 §2 and §10 as implemented in AUT-354:
+
+- `workshop_estimates` and `workshop_estimate_versions` have no delete endpoint. Their foreign keys to `workshop_orders` are `ON DELETE RESTRICT`.
+- At send, a version's snapshot, `snapshot_sha256`, `legal_text_sha256` and PDF archive are written once. They are never rewritten, and a sent PDF is never re-rendered.
+- `retain_until` is set at send to 31 December of the document year + 3. When the linked order is invoiced, it moves to 31 December of the document year + 7, in the same transaction as the `INVOICED` status change. It never shortens.
+- `legal_hold` blocks any future erasure or cleanup job. Erasure after a data-subject request (AUT-371 / AUT-374) restricts access until `retain_until` and then deletes or anonymises. That job is not part of AUT-354.
 
 ## ADR-0024 / AUT-318 — Document branding rules
 

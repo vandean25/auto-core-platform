@@ -473,6 +473,22 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       });
     });
 
+    it('names only the gaps that are left when a claim is missing its lines', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId);
+      await patchClaim(fixture.orderId, claimId, { complaint: 'Kupplung rutscht', claimedAmountNet: 250 });
+
+      const response = await patchClaim(
+        fixture.orderId,
+        claimId,
+        { status: 'SUBMITTED_EXTERNALLY' },
+        422,
+      );
+      expect(response.body.message).toBe(
+        'A claim needs at least one affected line before it can be submitted.',
+      );
+    });
+
     it('locks the content after submission but keeps the external reference editable', async () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));

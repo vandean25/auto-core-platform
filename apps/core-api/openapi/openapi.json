@@ -4596,6 +4596,154 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/estimates": {
+      "post": {
+        "operationId": "WorkshopEstimateController_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "get": {
+        "operationId": "WorkshopEstimateController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/{id}/estimates/revisions": {
+      "post": {
+        "operationId": "WorkshopEstimateController_revise",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateVersionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/estimates/{versionId}": {
+      "get": {
+        "operationId": "WorkshopEstimateController_getVersion",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateVersionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/estimates/{versionId}/send": {
+      "post": {
+        "operationId": "WorkshopEstimateController_send",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateVersionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/vehicle-purchases": {
       "post": {
         "operationId": "VehiclePurchaseController_create",
@@ -19036,6 +19184,521 @@
           "meta",
           "totals",
           "parts_turnover"
+        ]
+      },
+      "WorkshopEstimateVersionSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SENT",
+              "APPROVED",
+              "DECLINED",
+              "EXPIRED",
+              "SUPERSEDED"
+            ]
+          },
+          "sent_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "valid_from": {
+            "type": "string",
+            "nullable": true
+          },
+          "valid_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_net": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_tax": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_gross": {
+            "type": "string",
+            "nullable": true
+          },
+          "snapshot_sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "legal_text_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "retain_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "legal_hold": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "sent_at",
+          "valid_from",
+          "valid_until",
+          "total_net",
+          "total_tax",
+          "total_gross",
+          "snapshot_sha256",
+          "legal_text_version",
+          "retain_until",
+          "legal_hold"
+        ]
+      },
+      "WorkshopEstimateOverrunWarningDto": {
+        "type": "object",
+        "properties": {
+          "total_over_threshold": {
+            "type": "boolean"
+          },
+          "new_work_lines": {
+            "type": "boolean"
+          },
+          "approved_total_gross": {
+            "type": "string"
+          },
+          "current_total_gross": {
+            "type": "string"
+          },
+          "threshold_pct": {
+            "type": "string"
+          },
+          "new_line_count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_over_threshold",
+          "new_work_lines",
+          "approved_total_gross",
+          "current_total_gross",
+          "threshold_pct",
+          "new_line_count"
+        ]
+      },
+      "WorkshopEstimateResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workshop_order_id": {
+            "type": "string"
+          },
+          "estimate_number": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateVersionSummaryDto"
+            }
+          },
+          "overrun_warning": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopEstimateOverrunWarningDto"
+              }
+            ]
+          },
+          "send_enabled": {
+            "type": "boolean",
+            "description": "False until CUSTOMER_ESTIMATE_SEND_ENABLED is on (legal copy approval pending). Sending is refused with 503 while false."
+          },
+          "overrun_threshold_pct": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workshop_order_id",
+          "estimate_number",
+          "year",
+          "created_at",
+          "versions",
+          "overrun_warning",
+          "send_enabled",
+          "overrun_threshold_pct"
+        ]
+      },
+      "WorkshopEstimateListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "WorkshopEstimateDocumentDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "WORKSHOP_ESTIMATE"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "estimate_number": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "issued_at": {
+            "type": "string"
+          },
+          "valid_from": {
+            "type": "string"
+          },
+          "valid_until": {
+            "type": "string"
+          },
+          "validity_days": {
+            "type": "number"
+          },
+          "non_binding": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "free_of_charge": {
+            "type": "boolean"
+          },
+          "price_display": {
+            "type": "string",
+            "enum": [
+              "GROSS",
+              "NET_WITH_VAT"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "estimate_number",
+          "version",
+          "issued_at",
+          "valid_from",
+          "valid_until",
+          "validity_days",
+          "non_binding",
+          "free_of_charge",
+          "price_display"
+        ]
+      },
+      "WorkshopEstimateLineDto": {
+        "type": "object",
+        "properties": {
+          "source_line_id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "item_no": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "unit_price": {
+            "type": "string"
+          },
+          "tax_rate": {
+            "type": "string"
+          },
+          "net": {
+            "type": "string"
+          },
+          "tax": {
+            "type": "string"
+          },
+          "gross": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_line_id",
+          "type",
+          "item_no",
+          "description",
+          "quantity",
+          "unit_price",
+          "tax_rate",
+          "net",
+          "tax",
+          "gross"
+        ]
+      },
+      "WorkshopEstimateTaxBucketDto": {
+        "type": "object",
+        "properties": {
+          "rate": {
+            "type": "string"
+          },
+          "net": {
+            "type": "string"
+          },
+          "tax": {
+            "type": "string"
+          },
+          "gross": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rate",
+          "net",
+          "tax",
+          "gross"
+        ]
+      },
+      "WorkshopEstimateTotalsDto": {
+        "type": "object",
+        "properties": {
+          "total_net": {
+            "type": "string"
+          },
+          "total_tax": {
+            "type": "string"
+          },
+          "total_gross": {
+            "type": "string"
+          },
+          "tax_breakdown": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateTaxBucketDto"
+            }
+          }
+        },
+        "required": [
+          "total_net",
+          "total_tax",
+          "total_gross",
+          "tax_breakdown"
+        ]
+      },
+      "WorkshopEstimateSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "number"
+          },
+          "document": {
+            "$ref": "#/components/schemas/WorkshopEstimateDocumentDto"
+          },
+          "seller": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "customer": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "vehicle": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "order": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateLineDto"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkshopEstimateTotalsDto"
+          },
+          "branding": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "legal": {
+            "type": "object",
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "schema_version",
+          "document",
+          "seller",
+          "customer",
+          "vehicle",
+          "order",
+          "lines",
+          "totals",
+          "branding",
+          "legal"
+        ]
+      },
+      "WorkshopEstimateDraftPreviewDto": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateLineDto"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkshopEstimateTotalsDto"
+          }
+        },
+        "required": [
+          "lines",
+          "totals"
+        ]
+      },
+      "WorkshopEstimateVersionDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SENT",
+              "APPROVED",
+              "DECLINED",
+              "EXPIRED",
+              "SUPERSEDED"
+            ]
+          },
+          "sent_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "valid_from": {
+            "type": "string",
+            "nullable": true
+          },
+          "valid_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_net": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_tax": {
+            "type": "string",
+            "nullable": true
+          },
+          "total_gross": {
+            "type": "string",
+            "nullable": true
+          },
+          "snapshot_sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "legal_text_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "retain_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "legal_hold": {
+            "type": "boolean"
+          },
+          "estimate_id": {
+            "type": "string"
+          },
+          "estimate_number": {
+            "type": "string"
+          },
+          "workshop_order_id": {
+            "type": "string"
+          },
+          "snapshot": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopEstimateSnapshotDto"
+              }
+            ]
+          },
+          "draft_preview": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopEstimateDraftPreviewDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "sent_at",
+          "valid_from",
+          "valid_until",
+          "total_net",
+          "total_tax",
+          "total_gross",
+          "snapshot_sha256",
+          "legal_text_version",
+          "retain_until",
+          "legal_hold",
+          "estimate_id",
+          "estimate_number",
+          "workshop_order_id"
         ]
       },
       "CreateVehiclePurchaseDto": {

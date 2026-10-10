@@ -45,6 +45,7 @@ VALUES
   ('tyre_storage_settings'),
   ('vendors'),
   ('voice_translation_settings'),
+  ('workshop_estimate_sequences'),
   ('_VendorBrands'),
   ('accounting_exports'),
   ('attendance_events'),
@@ -97,10 +98,12 @@ VALUES
   ('tyre_set_events'),
   ('vehicle_sales'),
   ('warranty_claims'),
+  ('workshop_estimates'),
   ('workshop_tasks'),
   ('invoices'),
   ('labor_entries'),
   ('vehicle_ledger_entries'),
+  ('workshop_estimate_versions'),
   ('workshop_inspections'),
   ('workshop_media'),
   ('workshop_task_line_items'),
@@ -110,6 +113,7 @@ VALUES
   ('invoice_items'),
   ('parts_reservations'),
   ('warranty_claim_lines'),
+  ('workshop_estimate_brand_asset_references'),
   ('workshop_inspection_items'),
   ('credit_note_items'),
   ('inventory_transactions');
@@ -375,6 +379,17 @@ VALUES
   ('warranty_claim_lines', 'workshop_task_line_items', 'workshop_task_line_item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('warranty_claims', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('warranty_claims', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_brand_asset_references', 'document_brand_assets', 'tenant_id,legal_entity_id,asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_brand_asset_references', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_brand_asset_references', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_brand_asset_references', 'workshop_estimate_versions', 'tenant_id,workshop_estimate_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_sequences', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_versions', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_versions', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_versions', 'workshop_estimates', 'tenant_id,estimate_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimates', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimates', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimates', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_holidays', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_holidays', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_inspection_items', 'inspection_template_items', 'tenant_id,inspection_template_item_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
@@ -600,6 +615,8 @@ DELETE FROM public."credit_note_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_inspection_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_estimate_brand_asset_references"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claim_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_reservations"
@@ -618,6 +635,8 @@ DELETE FROM public."workshop_media"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_inspections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_estimate_versions"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_ledger_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_entries"
@@ -625,6 +644,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_tasks"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_estimates"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claims"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -731,6 +752,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."_VendorBrands" AS child
 WHERE EXISTS (SELECT 1 FROM public."brands" AS parent_0 WHERE parent_0."id" = child."A" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'))
   AND EXISTS (SELECT 1 FROM public."vendors" AS parent_1 WHERE parent_1."id" = child."B" AND parent_1."tenant_id" = current_setting('app.target_tenant_id'));
+DELETE FROM public."workshop_estimate_sequences"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_translation_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vendors"

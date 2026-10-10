@@ -47,17 +47,24 @@ export async function fetchWarrantyClaim(orderId: string, claimId: string): Prom
   return response.json() as Promise<WarrantyClaim>
 }
 
-export async function createWarrantyClaim(
+export function createWarrantyClaim(
   orderId: string,
   payload: CreateWarrantyClaimPayload,
 ): Promise<WarrantyClaim> {
-  const response = await fetchWithAuth(claimsUrl(orderId), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!response.ok) throw await readErrorMessage(response, 'Failed to create warranty claim')
-  return response.json() as Promise<WarrantyClaim>
+  return withTimeout(
+    WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
+    'The claim creation timed out. It may still have been created, so reload the order to check.',
+    async (signal) => {
+      const response = await fetchWithAuth(claimsUrl(orderId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal,
+      })
+      if (!response.ok) throw await readErrorMessage(response, 'Failed to create warranty claim')
+      return (await response.json()) as WarrantyClaim
+    },
+  )
 }
 
 /** A save that does not answer in this time fails, so the editor and its decision dialog never wait forever. */
@@ -146,6 +153,11 @@ export function useCreateWarrantyClaim() {
       createWarrantyClaim(orderId, payload),
     onSuccess: (claim, { orderId }) => {
       queryClient.setQueryData(warrantyClaimKeys.detail(orderId, claim.id), claim)
+      // Awaited, so the caller selects the new claim only once the list shows it.
+      return queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
+    },
+    // A create that failed on the way back may still have been applied, so the list is read again.
+    onError: (_error, { orderId }) => {
       void queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
     },
   })
