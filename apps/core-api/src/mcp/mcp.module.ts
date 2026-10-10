@@ -15,6 +15,8 @@ import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
+import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
@@ -43,6 +45,8 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
     McpCapabilitiesService,
     McpAuditReadService,
     McpInvoiceReadService,
+    McpRecordReadService,
+    McpStockReadService,
     McpSessionService,
   ],
 })

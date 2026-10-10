@@ -88,7 +88,7 @@ export const redactAuditSecrets = (
 /** Stands in for an email, phone, or address value whose shape is not kept. */
 export const MASKED_PII_VALUE = '***';
 
-type AuditPiiKind = 'email' | 'phone' | 'address';
+export type AuditPiiKind = 'email' | 'phone' | 'address';
 
 /**
  * An email address inside free text. The lookbehind starts a match only at the
@@ -113,36 +113,42 @@ const ADDRESS_FIELD_NAMES = new Set([
 
 const countDigits = (value: string): number => value.replace(/\D/g, '').length;
 
+/**
+ * Contact and address field rules, checked in order. A normalized name matches a rule when it
+ * contains one of the partial markers or equals one of the exact names.
+ */
+const PII_FIELD_RULES: ReadonlyArray<{
+  kind: AuditPiiKind;
+  partialNames: readonly string[];
+  exactNames: ReadonlySet<string>;
+}> = [
+  { kind: 'email', partialNames: ['email'], exactNames: new Set(['mail']) },
+  {
+    kind: 'phone',
+    partialNames: ['phone', 'telefon', 'mobil', 'fax'],
+    exactNames: new Set(['tel', 'handy']),
+  },
+  {
+    kind: 'address',
+    partialNames: ['address', 'adresse', 'street', 'strasse', 'strae'],
+    exactNames: ADDRESS_FIELD_NAMES,
+  },
+];
+
 /** Field names that hold contact or address data. Identifiers such as address_id are not masked. */
-const classifyPiiFieldName = (fieldName: string): AuditPiiKind | null => {
+export const classifyPiiFieldName = (
+  fieldName: string,
+): AuditPiiKind | null => {
   const normalized = normalizeFieldName(fieldName);
   if (normalized.endsWith('id')) {
     return null;
   }
-  if (normalized.includes('email') || normalized === 'mail') {
-    return 'email';
-  }
-  if (
-    normalized.includes('phone') ||
-    normalized.includes('telefon') ||
-    normalized.includes('mobil') ||
-    normalized.includes('fax') ||
-    normalized === 'tel' ||
-    normalized === 'handy'
-  ) {
-    return 'phone';
-  }
-  if (
-    normalized.includes('address') ||
-    normalized.includes('adresse') ||
-    normalized.includes('street') ||
-    normalized.includes('strasse') ||
-    normalized.includes('strae') ||
-    ADDRESS_FIELD_NAMES.has(normalized)
-  ) {
-    return 'address';
-  }
-  return null;
+  const rule = PII_FIELD_RULES.find(
+    ({ partialNames, exactNames }) =>
+      exactNames.has(normalized) ||
+      partialNames.some((partial) => normalized.includes(partial)),
+  );
+  return rule?.kind ?? null;
 };
 
 /**

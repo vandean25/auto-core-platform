@@ -42,18 +42,8 @@ describe('McpToolHandlerService write input validation', () => {
 
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
       writePipeline as unknown as McpWritePipelineService,
-      unused,
-      unused,
-      unused,
-      unused,
       pendingActionExecutors as unknown as PendingActionExecutorService,
-      unused,
       unused,
       unused,
       unused,
