@@ -1396,6 +1396,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/estimates/{versionId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_getPdf"];
+        put?: never;
+        post: operations["WorkshopEstimateController_requestPdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-purchases": {
         parameters: {
             query?: never;
@@ -11701,6 +11717,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_getPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    WorkshopEstimateController_requestPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
                 };
             };
         };

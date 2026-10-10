@@ -4744,6 +4744,57 @@
         ]
       }
     },
+    "/api/workshop/estimates/{versionId}/pdf": {
+      "post": {
+        "operationId": "WorkshopEstimateController_requestPdf",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopPdfGenerationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "get": {
+        "operationId": "WorkshopEstimateController_getPdf",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/vehicle-purchases": {
       "post": {
         "operationId": "VehiclePurchaseController_create",

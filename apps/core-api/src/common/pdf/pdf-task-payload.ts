@@ -4,6 +4,7 @@ import * as crypto from 'crypto';
 export const PDF_TASK_KINDS = [
   'invoice',
   'workshop-order',
+  'workshop-estimate',
   'credit-note',
   'vehicle-sale-kaufvertrag',
 ] as const;
