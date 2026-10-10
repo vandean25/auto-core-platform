@@ -309,8 +309,7 @@ This project uses the following MCP servers:
   - **Change risk & blast radius**: Before executing refactoring or architectural modifications, call `get_change_risk` or `get_risk` to evaluate downstream impact and statistical co-change partners.
   - **Dead code**: Run `npm run repowise:dead-code` or call `get_dead_code` to detect unused exports and orphaned symbols.
   - **Health biomarkers**: Use `npm run repowise:health` or call `get_health` to review file complexity, nesting depth, and defect likelihood.
-  - **Health gate (required CI check `Repowise Health Gate`)**: changed source files may not score lower than on `main`, new source files must score ≥ 6.0, and legacy files below 6.0 are ratcheted via `.repowise-baseline.json`.
-  - **Run locally**: `npm run repowise:gate -- --base origin/main`; after a legacy file improves, run `npm run repowise:gate -- --update` and commit the baseline.
+  - **Health gate** (check `Repowise Health Gate`, advisory since 2026-10-10: it reports but does not block merges): changed files should not get worse and new files should reach >= 6.0; legacy files are in `.repowise-baseline.json`. Local: `npm run repowise:gate -- --base origin/main`. On a red gate or before editing large files, read `.agents/skills/repowise-gate/SKILL.md`. Prefer fixing the code over lowering baseline values by hand.
   - **Web UI**: Run `npm run repowise:serve` to launch the local web UI (configured to bind to port `7338` to avoid colliding with NestJS on port 3000).
 
 Use the `mcp-server-neon` skills for database operations like creating branches or running migrations.

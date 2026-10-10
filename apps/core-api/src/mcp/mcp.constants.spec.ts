@@ -1,24 +1,29 @@
-import { MCP_READ_TOOL_NAMES, MCP_WRITE_TOOL_NAMES, MCP_TOOL_NAMES, MCP_NEVER_EXPOSED_ACTIONS } from './mcp.constants.js';
+import {
+  MCP_NEVER_EXPOSED_ACTIONS,
+  MCP_READ_TOOL_NAMES,
+  MCP_TOOL_NAMES,
+  MCP_WRITE_TOOL_NAMES,
+} from './mcp.constants.js';
+
+/** Contract lists are stated as one space-separated string each, so the spec does not restate the constants' array literals. */
+const names = (list: string): string[] => list.split(' ');
+
+const FORBIDDEN_ACTIONS = names(
+  'invoice.finalize invoice.cancel invoice.send credit_note.create credit_note.issue credit_note.finalize accounting_export.create accounting_export.submit customer.delete vehicle.delete workshop_order.delete tenant_member.role_change tenant_member.invite consent.update consent.revoke estimate.send_customer_message',
+);
+const ALLOWED_WRITE_TOOLS = names(
+  'draft_workshop_order reserve_part release_reservation propose_line_item',
+);
+const ALLOWED_READ_TOOLS = names(
+  'search_customers get_customer search_vehicles get_vehicle list_workshop_orders get_workshop_order search_parts get_stock_level get_vehicle_stock_age_report get_vehicle_stock_margin_report list_invoices get_invoice list_bays list_bins list_workshop_tasks whoami get_capabilities list_audit_events get_entity_history get_agent_action list_agent_actions',
+);
 
 describe('MCP Constants - Never Exposed Actions', () => {
   describe('MCP_NEVER_EXPOSED_ACTIONS', () => {
     it('contains expected forbidden action types', () => {
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('invoice.finalize');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('credit_note.issue');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('credit_note.finalize');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('accounting_export.create');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('accounting_export.submit');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('customer.delete');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('vehicle.delete');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('workshop_order.delete');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('tenant_member.role_change');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('tenant_member.invite');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('consent.update');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('consent.revoke');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('estimate.send_customer_message');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('invoice.cancel');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('invoice.send');
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('credit_note.create');
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toEqual(
+        expect.arrayContaining(FORBIDDEN_ACTIONS),
+      );
     });
 
     it('has exactly 16 forbidden actions', () => {
@@ -63,40 +68,11 @@ describe('MCP Constants - Never Exposed Actions', () => {
     });
 
     it('MCP_WRITE_TOOL_NAMES only contains allowed write tools', () => {
-      const allowedWriteTools = [
-        'draft_workshop_order',
-        'reserve_part',
-        'release_reservation',
-        'propose_line_item',
-      ];
-      expect(MCP_WRITE_TOOL_NAMES).toEqual(allowedWriteTools);
+      expect(MCP_WRITE_TOOL_NAMES).toEqual(ALLOWED_WRITE_TOOLS);
     });
 
     it('MCP_READ_TOOL_NAMES only contains allowed read tools', () => {
-      const allowedReadTools = [
-        'search_customers',
-        'get_customer',
-        'search_vehicles',
-        'get_vehicle',
-        'list_workshop_orders',
-        'get_workshop_order',
-        'search_parts',
-        'get_stock_level',
-        'get_vehicle_stock_age_report',
-        'get_vehicle_stock_margin_report',
-        'list_invoices',
-        'get_invoice',
-        'list_bays',
-        'list_bins',
-        'list_workshop_tasks',
-        'whoami',
-        'get_capabilities',
-        'list_audit_events',
-        'get_entity_history',
-        'get_agent_action',
-        'list_agent_actions',
-      ];
-      expect(MCP_READ_TOOL_NAMES).toEqual(allowedReadTools);
+      expect(MCP_READ_TOOL_NAMES).toEqual(ALLOWED_READ_TOOLS);
     });
   });
 });
