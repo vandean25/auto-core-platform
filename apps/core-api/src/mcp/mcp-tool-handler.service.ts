@@ -1,17 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
-import { CatalogService } from '../catalog/catalog.service.js';
-import { CustomerService } from '../customer/customer.service.js';
-import { InventoryService } from '../inventory/inventory.service.js';
-import { LocationService } from '../inventory/location.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { SiteContextService } from '../common/services/site-context.service.js';
-import { VehicleService } from '../vehicle/vehicle.service.js';
-import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
-import { WorkshopBoardService } from '../workshop/workshop-board.service.js';
-import { WorkshopTaskService } from '../workshop/workshop-task.service.js';
-import { VehicleStockReportsService } from '../vehicle-stock/vehicle-stock-reports.service.js';
 import type {
   McpReadToolName,
   McpToolName,
@@ -19,11 +7,7 @@ import type {
 } from './mcp.constants.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution } from './mcp-write-pipeline.service.js';
-import {
-  capMcpToolPayload,
-  clampMcpPage,
-  clampMcpPageSize,
-} from './mcp-output.util.js';
+import { capMcpToolPayload } from './mcp-output.util.js';
 import {
   getAgentActionInputSchema,
   getCapabilitiesInputSchema,
@@ -48,10 +32,11 @@ import {
   searchPartsInputSchema,
   searchVehiclesInputSchema,
 } from './mcp-tool-schemas.js';
-import { formatMcpAgentId } from './mcp-agent-id.util.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
+import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpStockReadService } from './mcp-stock-read.service.js';
 import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 
 export type McpToolCallContext = {
@@ -61,26 +46,36 @@ export type McpToolCallContext = {
 
 @Injectable()
 export class McpToolHandlerService {
+  private readonly agentActionLog: AgentActionLogService;
+  private readonly writePipeline: McpWritePipelineService;
+  private readonly pendingActionExecutors: PendingActionExecutorService;
+  private readonly capabilities: McpCapabilitiesService;
+  private readonly auditReads: McpAuditReadService;
+  private readonly invoiceReads: McpInvoiceReadService;
+  private readonly recordReads: McpRecordReadService;
+  private readonly stockReads: McpStockReadService;
+
+  // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
+  // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
   constructor(
-    private readonly agentActionLog: AgentActionLogService,
-    private readonly customerService: CustomerService,
-    private readonly vehicleService: VehicleService,
-    private readonly workshopIntakeService: WorkshopIntakeService,
-    private readonly catalogService: CatalogService,
-    private readonly inventoryService: InventoryService,
-    private readonly writePipeline: McpWritePipelineService,
-    private readonly prisma: PrismaService,
-    private readonly tenantContext: TenantContextService,
-    private readonly siteContext: SiteContextService,
-    private readonly vehicleStockReports: VehicleStockReportsService,
-    private readonly pendingActionExecutors: PendingActionExecutorService,
-    private readonly locationService: LocationService,
-    private readonly workshopBoardService: WorkshopBoardService,
-    private readonly workshopTaskService: WorkshopTaskService,
-    private readonly capabilities: McpCapabilitiesService,
-    private readonly auditReads: McpAuditReadService,
-    private readonly invoiceReads: McpInvoiceReadService,
-  ) {}
+    agentActionLog: AgentActionLogService,
+    writePipeline: McpWritePipelineService,
+    pendingActionExecutors: PendingActionExecutorService,
+    capabilities: McpCapabilitiesService,
+    auditReads: McpAuditReadService,
+    invoiceReads: McpInvoiceReadService,
+    recordReads: McpRecordReadService,
+    stockReads: McpStockReadService,
+  ) {
+    this.agentActionLog = agentActionLog;
+    this.writePipeline = writePipeline;
+    this.pendingActionExecutors = pendingActionExecutors;
+    this.capabilities = capabilities;
+    this.auditReads = auditReads;
+    this.invoiceReads = invoiceReads;
+    this.recordReads = recordReads;
+    this.stockReads = stockReads;
+  }
 
   async executeTool(
     toolName: McpToolName,
@@ -110,10 +105,6 @@ export class McpToolHandlerService {
     );
 
     return capMcpToolPayload(record.workResult);
-  }
-
-  resolveAgentId(clientName: string | undefined): string {
-    return formatMcpAgentId(clientName ?? 'unknown');
   }
 
   private async executeWriteTool(
@@ -211,42 +202,43 @@ export class McpToolHandlerService {
   ): Promise<unknown> {
     switch (toolName) {
       case 'search_customers':
-        return this.searchCustomers(searchCustomersInputSchema.parse(parsed));
+        return this.recordReads.searchCustomers(
+          searchCustomersInputSchema.parse(parsed),
+        );
       case 'get_customer':
-        return this.getCustomer(getCustomerInputSchema.parse(parsed));
+        return this.recordReads.getCustomer(
+          getCustomerInputSchema.parse(parsed),
+        );
       case 'search_vehicles':
-        return this.searchVehicles(searchVehiclesInputSchema.parse(parsed));
+        return this.recordReads.searchVehicles(
+          searchVehiclesInputSchema.parse(parsed),
+        );
       case 'get_vehicle':
-        return this.getVehicle(getVehicleInputSchema.parse(parsed));
+        return this.recordReads.getVehicle(getVehicleInputSchema.parse(parsed));
       case 'list_workshop_orders':
-        return this.listWorkshopOrders(
+        return this.recordReads.listWorkshopOrders(
           listWorkshopOrdersInputSchema.parse(parsed),
         );
       case 'get_workshop_order':
-        return this.getWorkshopOrder(getWorkshopOrderInputSchema.parse(parsed));
+        return this.recordReads.getWorkshopOrder(
+          getWorkshopOrderInputSchema.parse(parsed),
+        );
       case 'search_parts':
-        return this.searchParts(searchPartsInputSchema.parse(parsed));
+        return this.stockReads.searchParts(
+          searchPartsInputSchema.parse(parsed),
+        );
       case 'get_stock_level':
-        return this.getStockLevel(getStockLevelInputSchema.parse(parsed));
-      case 'get_vehicle_stock_age_report': {
-        const input = getVehicleStockAgeReportInputSchema.parse(parsed);
-        return this.vehicleStockReports.stockAge({
-          inventory_role: input.inventory_role,
-          stock_status: input.stock_status,
-          bucket: input.bucket,
-          page: clampMcpPage(input.page),
-          limit: clampMcpPageSize(input.page_size),
-        });
-      }
-      case 'get_vehicle_stock_margin_report': {
-        const input = getVehicleStockMarginReportInputSchema.parse(parsed);
-        return this.vehicleStockReports.margin({
-          from: input.from,
-          to: input.to,
-          page: clampMcpPage(input.page),
-          limit: clampMcpPageSize(input.page_size),
-        });
-      }
+        return this.stockReads.getStockLevel(
+          getStockLevelInputSchema.parse(parsed),
+        );
+      case 'get_vehicle_stock_age_report':
+        return this.stockReads.vehicleStockAgeReport(
+          getVehicleStockAgeReportInputSchema.parse(parsed),
+        );
+      case 'get_vehicle_stock_margin_report':
+        return this.stockReads.vehicleStockMarginReport(
+          getVehicleStockMarginReportInputSchema.parse(parsed),
+        );
       case 'list_invoices':
         return this.invoiceReads.listInvoices(
           listInvoicesInputSchema.parse(parsed),
@@ -256,11 +248,11 @@ export class McpToolHandlerService {
           getInvoiceInputSchema.parse(parsed),
         );
       case 'list_bays':
-        return this.listBays(listBaysInputSchema.parse(parsed));
+        return this.recordReads.listBays(listBaysInputSchema.parse(parsed));
       case 'list_bins':
-        return this.listBins(listBinsInputSchema.parse(parsed));
+        return this.recordReads.listBins(listBinsInputSchema.parse(parsed));
       case 'list_workshop_tasks':
-        return this.listWorkshopTasks(
+        return this.recordReads.listWorkshopTasks(
           listWorkshopTasksInputSchema.parse(parsed),
         );
       case 'whoami':
@@ -286,172 +278,6 @@ export class McpToolHandlerService {
           listAgentActionsInputSchema.parse(parsed),
         );
     }
-  }
-
-  private async listBays(input: { page?: number; page_size?: number }) {
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
-    const { bays } = await this.workshopBoardService.getBoardResources();
-    const offset = (page - 1) * pageSize;
-    return {
-      data: bays.slice(offset, offset + pageSize),
-      meta: { total: bays.length, page, page_size: pageSize },
-    };
-  }
-
-  private async listBins(input: { page?: number; page_size?: number }) {
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
-    const bins = await this.locationService.getBins();
-    const offset = (page - 1) * pageSize;
-    return {
-      data: bins.slice(offset, offset + pageSize).map((bin) => ({
-        id: bin.id,
-        name: bin.name,
-        code: bin.code,
-        type: bin.type,
-        parent: bin.parent,
-      })),
-      meta: { total: bins.length, page, page_size: pageSize },
-    };
-  }
-
-  private async listWorkshopTasks(input: {
-    page?: number;
-    page_size?: number;
-  }) {
-    return this.workshopTaskService.listForMcp({
-      page: clampMcpPage(input.page),
-      pageSize: clampMcpPageSize(input.page_size),
-    });
-  }
-
-  private async searchCustomers(input: {
-    search?: string;
-    page?: number;
-    page_size?: number;
-  }) {
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
-    const skip = (page - 1) * pageSize;
-
-    const { data, total } = await this.customerService.findAll({
-      where: input.search
-        ? {
-            OR: [
-              { first_name: { contains: input.search, mode: 'insensitive' } },
-              { last_name: { contains: input.search, mode: 'insensitive' } },
-              { company_name: { contains: input.search, mode: 'insensitive' } },
-              { email: { contains: input.search, mode: 'insensitive' } },
-            ],
-          }
-        : undefined,
-      skip,
-      take: pageSize,
-      orderBy: [{ company_name: 'asc' }, { last_name: 'asc' }],
-    });
-
-    return {
-      data,
-      meta: { total, page, page_size: pageSize },
-    };
-  }
-
-  private async getCustomer(input: { customer_id: string }) {
-    return this.customerService.findOne(input.customer_id, {
-      historyPage: 1,
-      historyLimit: 5,
-    });
-  }
-
-  private async searchVehicles(input: {
-    search?: string;
-    page?: number;
-    page_size?: number;
-  }) {
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
-    return this.vehicleService.findAll({
-      search: input.search,
-      page,
-      pageSize,
-    });
-  }
-
-  private async getVehicle(input: { vehicle_id: string }) {
-    return this.vehicleService.findOne(input.vehicle_id);
-  }
-
-  private async listWorkshopOrders(input: {
-    search?: string;
-    customer_id?: string;
-    page?: number;
-    page_size?: number;
-  }) {
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
-    return this.workshopIntakeService.findAll({
-      search: input.search,
-      customerId: input.customer_id,
-      page,
-      pageSize,
-    });
-  }
-
-  private async getWorkshopOrder(input: { workshop_order_id: string }) {
-    return this.workshopIntakeService.findOne(input.workshop_order_id);
-  }
-
-  private async searchParts(input: {
-    query: string;
-    workshop_order_id?: string;
-    page?: number;
-    page_size?: number;
-  }) {
-    if (input.workshop_order_id) {
-      const catalogResult = await this.catalogService.search(
-        input.query,
-        input.workshop_order_id,
-      );
-      return catalogResult;
-    }
-
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
-    const inventoryResult = await this.inventoryService.findAll({
-      search: input.query,
-      page,
-      pageSize,
-    });
-    return inventoryResult;
-  }
-
-  private async getStockLevel(input: {
-    catalog_item_id?: string;
-    sku?: string;
-  }) {
-    if (input.sku) {
-      return this.inventoryService.checkAvailability(input.sku);
-    }
-
-    const tenantId = await this.tenantContext.getTenantId();
-    const item = await this.prisma.catalogItem.findFirst({
-      where: { id: input.catalog_item_id, tenant_id: tenantId },
-      select: { id: true, sku: true },
-    });
-    if (!item) {
-      throw new NotFoundException(
-        `Catalog item with ID ${input.catalog_item_id} not found`,
-      );
-    }
-
-    const availability = await this.inventoryService.checkAvailability(
-      item.sku,
-    );
-    return {
-      catalog_item_id: item.id,
-      ...availability,
-    };
   }
 }
 

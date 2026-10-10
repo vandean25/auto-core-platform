@@ -54,22 +54,12 @@ describe('McpToolHandlerService audit and agent action reads', () => {
 
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
       {} as unknown as McpWritePipelineService,
-      unused,
-      unused,
-      unused,
-      unused,
       pendingActionExecutors,
       unused,
-      unused,
-      unused,
-      unused,
       auditReads as unknown as McpAuditReadService,
+      unused,
+      unused,
       unused,
     );
   });
