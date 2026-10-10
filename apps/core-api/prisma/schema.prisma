@@ -1111,7 +1111,7 @@ model AgentActionLog {
 }
 
 /// AUT-411 tenant API key for the read-only public API (ADR-0026).
-/// Only an HMAC-SHA256 digest of the secret is stored; the plaintext secret is returned once at creation.
+/// Only a scrypt digest of the secret is stored; the plaintext secret is returned once at creation.
 model TenantApiKey {
   id                     String    @id @default(uuid())
   tenant_id              String
@@ -1119,7 +1119,7 @@ model TenantApiKey {
   name                   String
   /// Display-only prefix (`acp_live_` + first 8 characters of id). Never used for authentication.
   key_prefix             String
-  /// HMAC-SHA256 hex digest of the secret. Never the plaintext secret.
+  /// scrypt digest of the secret (pepper as salt), hex. Never the plaintext secret.
   secret_hash            String
   /// Pepper derivation version (ADR-0026 rotation). Bump when the pepper or digest algorithm changes.
   hash_version           Int       @default(1)

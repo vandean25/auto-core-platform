@@ -192,8 +192,9 @@ const STOCK_SELECT = {
 
 /**
  * Read-only data for tenant API keys (ADR-0026). Every query is scoped to the key's tenant. Site-owned
- * rows are scoped to the tenant's active sites, because a key is tenant-wide in v1. Responses are built
- * from explicit allowlists, so internal fields never leave the server.
+ * rows are scoped to the tenant's active sites, because a key is tenant-wide in v1. Vehicles are
+ * tenant-wide identity (ADR-0026 section 7), so they are not filtered by site. Responses are built from
+ * explicit allowlists, so internal fields never leave the server.
  */
 @Injectable()
 export class PublicApiReadService {
