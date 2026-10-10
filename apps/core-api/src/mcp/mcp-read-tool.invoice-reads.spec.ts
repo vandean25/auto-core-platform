@@ -1,54 +1,40 @@
 import { ZodError } from 'zod';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import type { McpInvoiceReadService } from './mcp-invoice-read.service.js';
+import { McpReadToolService } from './mcp-read-tool.service.js';
 import {
-  McpToolHandlerService,
-  type McpToolCallContext,
-} from './mcp-tool-handler.service.js';
+  HANDLER_SPEC_CONTEXT,
+  HANDLER_SPEC_EMPTY_PAGE,
+  expectAutoReadRecorded,
+  handlerSpecActionLog,
+} from './mcp-tool-handler.spec.support.js';
+import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import type { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 
 const INVOICE_ID = '00000000-0000-4000-8000-0000000000f1';
 
 describe('McpToolHandlerService invoice reads', () => {
-  const context: McpToolCallContext = {
-    agentId: 'mcp:cursor',
-    onBehalfOfUserId: '00000000-0000-4000-8000-0000000000b1',
-  };
-  const emptyPage = {
-    data: [],
-    meta: { page_size: 10, next_cursor: null },
-    truncated: false,
-  };
+  const context = HANDLER_SPEC_CONTEXT;
+  const emptyPage = HANDLER_SPEC_EMPTY_PAGE;
 
   let handler: McpToolHandlerService;
   let agentActionLog: { record: jest.Mock };
   let invoiceReads: { listInvoices: jest.Mock; getInvoice: jest.Mock };
 
   beforeEach(() => {
-    agentActionLog = {
-      record: jest.fn(
-        async (_input: unknown, work: () => Promise<unknown>) => ({
-          id: 'log-1',
-          traceId: '6f1c2b7e-3d4a-4b8e-9c2d-1a2b3c4d5e6f',
-          workResult: await work(),
-        }),
-      ),
-    };
+    agentActionLog = handlerSpecActionLog();
     invoiceReads = {
       listInvoices: jest.fn().mockResolvedValue(emptyPage),
       getInvoice: jest.fn().mockResolvedValue({ id: INVOICE_ID }),
     };
     const unused = {} as never;
 
+    const readTools = new McpReadToolService(unused, unused, invoiceReads as unknown as McpInvoiceReadService, unused, unused, unused, unused);
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
       {} as unknown as McpWritePipelineService,
       unused,
-      unused,
-      unused,
-      invoiceReads as unknown as McpInvoiceReadService,
-      unused,
-      unused,
+      readTools,
     );
   });
 
@@ -60,18 +46,7 @@ describe('McpToolHandlerService invoice reads', () => {
     async (toolName, args, method) => {
       const result = await handler.executeTool(toolName, args, context);
 
-      expect(agentActionLog.record).toHaveBeenCalledWith(
-        expect.objectContaining({
-          actorType: 'AGENT',
-          agentId: 'mcp:cursor',
-          onBehalfOfUserId: context.onBehalfOfUserId,
-          actionType: `mcp.${toolName}`,
-          tier: 'AUTO',
-          status: 'EXECUTED',
-          inputSummary: { tool: toolName, args },
-        }),
-        expect.any(Function),
-      );
+      expectAutoReadRecorded(agentActionLog, toolName, args);
       expect(invoiceReads[method]).toHaveBeenCalledTimes(1);
       expect(result).toBeDefined();
     },

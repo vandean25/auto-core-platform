@@ -101,13 +101,6 @@ export class McpRecordReadService {
     };
   }
 
-  async getCustomer(input: { customer_id: string }) {
-    return this.customerService.findOne(input.customer_id, {
-      historyPage: 1,
-      historyLimit: 5,
-    });
-  }
-
   async searchVehicles(input: {
     search?: string;
     page?: number;
