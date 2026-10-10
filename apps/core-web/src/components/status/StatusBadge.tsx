@@ -8,6 +8,8 @@ interface StatusBadgeProps {
 
 const statusClassMap: Record<string, string> = {
   DRAFT: 'border-slate-200 bg-slate-100 text-slate-700',
+  SUBMITTED_EXTERNALLY: 'border-cyan-200 bg-cyan-100 text-cyan-700',
+  CLOSED: 'border-slate-300 bg-slate-200 text-slate-700',
   CLOCKED_IN: 'border-emerald-200 bg-emerald-100 text-emerald-700',
   CLOCKED_OUT: 'border-slate-200 bg-slate-100 text-slate-700',
   AT_DOCTOR: 'border-sky-200 bg-sky-100 text-sky-700',

@@ -6245,6 +6245,216 @@
         ]
       }
     },
+    "/api/workshop/orders/{orderId}/warranty-claims": {
+      "get": {
+        "operationId": "WarrantyClaimController_list",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Only claims in these statuses. Repeat the parameter or pass a comma-separated list.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "SUBMITTED_EXTERNALLY",
+                  "APPROVED",
+                  "REJECTED",
+                  "CLOSED"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarrantyClaimListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "post": {
+        "operationId": "WarrantyClaimController_create",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWarrantyClaimDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarrantyClaimResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/{orderId}/warranty-claims/{claimId}": {
+      "get": {
+        "operationId": "WarrantyClaimController_get",
+        "parameters": [
+          {
+            "name": "claimId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarrantyClaimResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      },
+      "patch": {
+        "operationId": "WarrantyClaimController_update",
+        "parameters": [
+          {
+            "name": "claimId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWarrantyClaimDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarrantyClaimResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/{orderId}/warranty-claims/{claimId}/pdf": {
+      "get": {
+        "operationId": "WarrantyClaimController_downloadPdf",
+        "parameters": [
+          {
+            "name": "claimId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Printable Garantie/Kulanz claim summary",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/mechanic/queue": {
       "get": {
         "operationId": "MechanicController_getQueue",
@@ -20706,6 +20916,284 @@
           "odometerIn",
           "fuelIn"
         ]
+      },
+      "WarrantyClaimLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string"
+          },
+          "lineType": {
+            "type": "string",
+            "enum": [
+              "LABOR",
+              "PART"
+            ]
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.000"
+          },
+          "unitPrice": {
+            "type": "string",
+            "example": "89.90",
+            "description": "EUR, net"
+          },
+          "netAmount": {
+            "type": "string",
+            "example": "89.90",
+            "description": "EUR, net"
+          }
+        },
+        "required": [
+          "id",
+          "workshopTaskLineItemId",
+          "lineType",
+          "itemNo",
+          "description",
+          "quantity",
+          "unitPrice",
+          "netAmount"
+        ]
+      },
+      "WarrantyClaimResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "workshopOrderId": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "GARANTIE",
+              "KULANZ",
+              "GEWAEHRLEISTUNG"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED_EXTERNALLY",
+              "APPROVED",
+              "REJECTED",
+              "CLOSED"
+            ]
+          },
+          "complaint": {
+            "type": "string",
+            "nullable": true
+          },
+          "causeCorrection": {
+            "type": "string",
+            "nullable": true
+          },
+          "claimedAmountNet": {
+            "type": "string",
+            "nullable": true,
+            "example": "1250.00",
+            "description": "EUR, net"
+          },
+          "linesNetAmount": {
+            "type": "string",
+            "example": "1250.00",
+            "description": "EUR, net; sum of the affected lines"
+          },
+          "externalReference": {
+            "type": "string",
+            "nullable": true
+          },
+          "decisionDate": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-10-10"
+          },
+          "decisionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "submittedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WarrantyClaimLineResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "workshopOrderId",
+          "type",
+          "status",
+          "complaint",
+          "causeCorrection",
+          "claimedAmountNet",
+          "linesNetAmount",
+          "externalReference",
+          "decisionDate",
+          "decisionNote",
+          "submittedAt",
+          "closedAt",
+          "createdAt",
+          "updatedAt",
+          "lines"
+        ]
+      },
+      "WarrantyClaimListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WarrantyClaimResponseDto"
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "CreateWarrantyClaimDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "GARANTIE",
+              "KULANZ",
+              "GEWAEHRLEISTUNG"
+            ]
+          },
+          "complaint": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000
+          },
+          "causeCorrection": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000
+          },
+          "claimedAmountNet": {
+            "type": "number",
+            "nullable": true,
+            "description": "Claimed amount in EUR, net of VAT.",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "lineItemIds": {
+            "description": "Labor and part lines of this workshop order that the claim covers.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "UpdateWarrantyClaimDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "GARANTIE",
+              "KULANZ",
+              "GEWAEHRLEISTUNG"
+            ]
+          },
+          "complaint": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000
+          },
+          "causeCorrection": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4000
+          },
+          "claimedAmountNet": {
+            "type": "number",
+            "nullable": true,
+            "description": "Claimed amount in EUR, net of VAT.",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "lineItemIds": {
+            "description": "Labor and part lines of this workshop order that the claim covers. Replaces the current set.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED_EXTERNALLY",
+              "APPROVED",
+              "REJECTED",
+              "CLOSED"
+            ]
+          },
+          "externalReference": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120,
+            "description": "Claim reference at the OEM, typed in by the advisor."
+          },
+          "decisionDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "Decision day of the OEM, as YYYY-MM-DD.",
+            "example": "2026-10-10"
+          },
+          "decisionNote": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        }
       },
       "MechanicVehicleDto": {
         "type": "object",

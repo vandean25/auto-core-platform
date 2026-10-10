@@ -1867,6 +1867,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{orderId}/warranty-claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WarrantyClaimController_list"];
+        put?: never;
+        post: operations["WarrantyClaimController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/warranty-claims/{claimId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WarrantyClaimController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WarrantyClaimController_update"];
+        trace?: never;
+    };
+    "/api/workshop/orders/{orderId}/warranty-claims/{claimId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WarrantyClaimController_downloadPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mechanic/queue": {
         parameters: {
             query?: never;
@@ -6162,6 +6210,95 @@ export interface components {
             odometerIn: number;
             fuelIn: number;
             damageNotesIn?: string;
+        };
+        WarrantyClaimLineResponseDto: {
+            id: string;
+            workshopTaskLineItemId: string;
+            /** @enum {string} */
+            lineType: "LABOR" | "PART";
+            itemNo: string;
+            description: string;
+            /** @example 1.000 */
+            quantity: string;
+            /**
+             * @description EUR, net
+             * @example 89.90
+             */
+            unitPrice: string;
+            /**
+             * @description EUR, net
+             * @example 89.90
+             */
+            netAmount: string;
+        };
+        WarrantyClaimResponseDto: {
+            id: string;
+            workshopOrderId: string;
+            /** @enum {string} */
+            type: "GARANTIE" | "KULANZ" | "GEWAEHRLEISTUNG";
+            /** @enum {string} */
+            status: "DRAFT" | "SUBMITTED_EXTERNALLY" | "APPROVED" | "REJECTED" | "CLOSED";
+            complaint: string | null;
+            causeCorrection: string | null;
+            /**
+             * @description EUR, net
+             * @example 1250.00
+             */
+            claimedAmountNet: string | null;
+            /**
+             * @description EUR, net; sum of the affected lines
+             * @example 1250.00
+             */
+            linesNetAmount: string;
+            externalReference: string | null;
+            /** @example 2026-10-10 */
+            decisionDate: string | null;
+            decisionNote: string | null;
+            /** Format: date-time */
+            submittedAt: string | null;
+            /** Format: date-time */
+            closedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            lines: components["schemas"]["WarrantyClaimLineResponseDto"][];
+        };
+        WarrantyClaimListResponseDto: {
+            data: components["schemas"]["WarrantyClaimResponseDto"][];
+            meta: {
+                total?: number;
+            };
+        };
+        CreateWarrantyClaimDto: {
+            /** @enum {string} */
+            type: "GARANTIE" | "KULANZ" | "GEWAEHRLEISTUNG";
+            complaint?: string | null;
+            causeCorrection?: string | null;
+            /** @description Claimed amount in EUR, net of VAT. */
+            claimedAmountNet?: number | null;
+            /** @description Labor and part lines of this workshop order that the claim covers. */
+            lineItemIds?: string[];
+        };
+        UpdateWarrantyClaimDto: {
+            /** @enum {string} */
+            type?: "GARANTIE" | "KULANZ" | "GEWAEHRLEISTUNG";
+            complaint?: string | null;
+            causeCorrection?: string | null;
+            /** @description Claimed amount in EUR, net of VAT. */
+            claimedAmountNet?: number | null;
+            /** @description Labor and part lines of this workshop order that the claim covers. Replaces the current set. */
+            lineItemIds?: string[];
+            /** @enum {string} */
+            status?: "DRAFT" | "SUBMITTED_EXTERNALLY" | "APPROVED" | "REJECTED" | "CLOSED";
+            /** @description Claim reference at the OEM, typed in by the advisor. */
+            externalReference?: string | null;
+            /**
+             * @description Decision day of the OEM, as YYYY-MM-DD.
+             * @example 2026-10-10
+             */
+            decisionDate?: string | null;
+            decisionNote?: string | null;
         };
         MechanicVehicleDto: {
             id: string;
@@ -12443,6 +12580,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    WarrantyClaimController_list: {
+        parameters: {
+            query?: {
+                /** @description Only claims in these statuses. Repeat the parameter or pass a comma-separated list. */
+                status?: ("DRAFT" | "SUBMITTED_EXTERNALLY" | "APPROVED" | "REJECTED" | "CLOSED")[];
+            };
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarrantyClaimListResponseDto"];
+                };
+            };
+        };
+    };
+    WarrantyClaimController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWarrantyClaimDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarrantyClaimResponseDto"];
+                };
+            };
+        };
+    };
+    WarrantyClaimController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarrantyClaimResponseDto"];
+                };
+            };
+        };
+    };
+    WarrantyClaimController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWarrantyClaimDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WarrantyClaimResponseDto"];
+                };
+            };
+        };
+    };
+    WarrantyClaimController_downloadPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                claimId: string;
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Printable Garantie/Kulanz claim summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
                 };
             };
         };

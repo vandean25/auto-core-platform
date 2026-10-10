@@ -105,6 +105,14 @@ export type WorkshopPickMovedLine =
 export type WorkshopPickPartsResponse =
     OpenApiSchemas['PickWorkshopPartsResponseDto']
 
+export type WarrantyClaim = OpenApiSchemas['WarrantyClaimResponseDto']
+export type WarrantyClaimLine = OpenApiSchemas['WarrantyClaimLineResponseDto']
+export type WarrantyClaimType = WarrantyClaim['type']
+export type WarrantyClaimStatus = WarrantyClaim['status']
+export type CreateWarrantyClaimPayload = OpenApiSchemas['CreateWarrantyClaimDto']
+export type UpdateWarrantyClaimPayload = OpenApiSchemas['UpdateWarrantyClaimDto']
+export type WarrantyClaimListResponse = OpenApiSchemas['WarrantyClaimListResponseDto']
+
 export interface NormalizedWorkshopTask extends Omit<WorkshopTask, 'lineItems'> {
     lineItems?: NormalizedWorkshopTaskLineItem[]
 }

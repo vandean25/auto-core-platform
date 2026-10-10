@@ -456,6 +456,8 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.workshopInspectionItem.deleteMany({});
   await tenantPrisma.workshopInspection.deleteMany({});
   await tenantPrisma.workshopMedia.deleteMany({});
+  await tenantPrisma.warrantyClaimLine.deleteMany({});
+  await tenantPrisma.warrantyClaim.deleteMany({});
   await tenantPrisma.workshopTaskLineItem.deleteMany({});
   await tenantPrisma.laborEntry.deleteMany({});
   await tenantPrisma.workshopVoiceNoteDraft.deleteMany({});

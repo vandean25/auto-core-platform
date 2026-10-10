@@ -1,0 +1,196 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchWithAuth } from "@/api/client";
+import type { WarrantyClaim, WorkshopTask } from "@/api/types";
+import { WarrantyClaimEditor } from "./WarrantyClaimEditor";
+
+vi.mock("@/api/client", () => ({
+  fetchWithAuth: vi.fn(),
+}));
+
+const fetchMock = vi.mocked(fetchWithAuth);
+
+function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
+  return {
+    id: "claim-1",
+    workshopOrderId: "order-1",
+    type: "GARANTIE",
+    status: "DRAFT",
+    complaint: "Kupplung rutscht",
+    causeCorrection: null,
+    claimedAmountNet: "250.00",
+    linesNetAmount: "250.00",
+    externalReference: null,
+    decisionDate: null,
+    decisionNote: null,
+    submittedAt: null,
+    closedAt: null,
+    createdAt: "2026-10-10T08:00:00.000Z",
+    updatedAt: "2026-10-10T08:00:00.000Z",
+    lines: [
+      {
+        id: "wcl-1",
+        workshopTaskLineItemId: "item-labor",
+        lineType: "LABOR",
+        itemNo: "LAB-1",
+        description: "Kupplung entlüften",
+        quantity: "2.500",
+        unitPrice: "100.00",
+        netAmount: "250.00",
+      },
+    ],
+    ...overrides,
+  };
+}
+
+const tasks = [
+  {
+    id: "task-1",
+    title: "Kupplung",
+    status: "IN_PROGRESS",
+    done: false,
+    lineItemsVersion: 1,
+    lineItems: [
+      {
+        id: "item-labor",
+        type: "LABOR",
+        itemNo: "LAB-1",
+        description: "Kupplung entlüften",
+        qty: 2.5,
+        unitPrice: 100,
+      },
+      {
+        id: "item-part",
+        type: "PART",
+        itemNo: "A1234567",
+        description: "Geberzylinder",
+        qty: 1,
+        unitPrice: 1000,
+        partExecutionStatus: "PENDING_PICK",
+      },
+    ],
+    createdAt: "2026-10-10T08:00:00.000Z",
+    updatedAt: "2026-10-10T08:00:00.000Z",
+  },
+] as unknown as WorkshopTask[];
+
+function renderEditor(
+  claim: WarrantyClaim,
+  options: { lineClaimedElsewhere?: Map<string, string> } = {},
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  function Wrapper({ children }: { children: ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  }
+  return render(
+    <WarrantyClaimEditor
+      orderId="order-1"
+      orderNumber="WO-2026-0007"
+      claim={claim}
+      tasks={tasks}
+      lineClaimedElsewhere={options.lineClaimedElsewhere ?? new Map()}
+    />,
+    { wrapper: Wrapper },
+  );
+}
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+beforeEach(() => {
+  fetchMock.mockReset();
+  fetchMock.mockImplementation(async (_input, init) => {
+    const payload = init?.body ? JSON.parse(String(init.body)) : {};
+    return jsonResponse(claimFixture(payload));
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("WarrantyClaimEditor", () => {
+  it("shows the claim status and lets the advisor submit a complete draft", () => {
+    renderEditor(claimFixture());
+
+    expect(screen.getByRole("heading", { name: /Garantie claim/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Complaint")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeEnabled();
+  });
+
+  it("keeps the submit button off until the claim is complete", () => {
+    renderEditor(claimFixture({ complaint: null, lines: [] }));
+
+    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeDisabled();
+  });
+
+  it("locks the content once submitted, but keeps the OEM reference editable", () => {
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    expect(screen.getByLabelText("Complaint")).toBeDisabled();
+    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toBeDisabled();
+    expect(screen.getByLabelText("Reference at the OEM")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Record approval" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Record rejection" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Mark submitted" })).not.toBeInTheDocument();
+  });
+
+  it("is read-only once closed and offers no further status change", () => {
+    renderEditor(claimFixture({ status: "CLOSED", closedAt: "2026-10-11T09:00:00.000Z" }));
+
+    expect(screen.getByText("This claim is closed and read-only.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Reference at the OEM")).toBeDisabled();
+    expect(screen.getByLabelText("Decision date")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Close claim" })).not.toBeInTheDocument();
+  });
+
+  it("does not let a line be picked when another open claim already covers it", () => {
+    renderEditor(claimFixture({ lines: [] }), {
+      lineClaimedElsewhere: new Map([["item-part", "Kulanz claim"]]),
+    });
+
+    expect(screen.getByText("Already on Kulanz claim")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Geberzylinder/ })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: /Kupplung entlüften/ })).toBeEnabled();
+  });
+
+  it("autosaves only the field that changed, after the 750 ms debounce", async () => {
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe("/api/workshop/orders/order-1/warranty-claims/claim-1");
+    expect(init).toMatchObject({ method: "PATCH" });
+    expect(JSON.parse(String(init?.body))).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+  });
+
+  it("does not save an amount that cannot be read", async () => {
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+      target: { value: "12,345" },
+    });
+
+    expect(screen.getByText("Enter an amount in EUR with at most two decimals.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
