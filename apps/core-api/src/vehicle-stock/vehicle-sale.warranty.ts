@@ -181,6 +181,33 @@ export function buildCorrectedWarrantyFacts(
   };
 }
 
+type CorrectableSale = WarrantySale &
+  Pick<
+    VehicleSale,
+    'gewaehrleistung_ends_on' | 'presumption_ends_on' | 'gewaehrleistung_rule_version'
+  >;
+
+/** The before and after snapshots a correction audits; the reason is trimmed on the way in. */
+export function buildCorrectionAudit(
+  sale: CorrectableSale,
+  warrantyFacts: ReturnType<typeof buildCorrectedWarrantyFacts>,
+  warrantySnapshot: ReturnType<typeof computeSaleWarrantySnapshot>,
+  reason: string,
+) {
+  return {
+    before: {
+      input: toGewaehrleistungInput(sale),
+      snapshot: toGewaehrleistungSnapshot(sale),
+      reason: null,
+    },
+    after: {
+      input: warrantyFacts,
+      snapshot: warrantySnapshot,
+      reason: reason.trim(),
+    },
+  };
+}
+
 /**
  * Guards the correction write: it applies only while the invoiced sale still carries the
  * warranty facts and snapshot that the correction was computed against.
@@ -189,8 +216,7 @@ export function buildCorrectionGuardWhere(
   id: string,
   tenantId: string,
   authorizedSiteIds: string[],
-  sale: WarrantySale &
-    Pick<VehicleSale, 'gewaehrleistung_ends_on' | 'presumption_ends_on' | 'gewaehrleistung_rule_version'>,
+  sale: CorrectableSale,
 ): Prisma.VehicleSaleWhereInput {
   return {
     id,

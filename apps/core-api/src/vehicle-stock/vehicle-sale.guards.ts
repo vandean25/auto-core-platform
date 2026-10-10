@@ -149,15 +149,14 @@ export function assertExpectedSaleSite(
 
 /** Scopes the draft update to a DRAFT still on the expected site, so a stale write matches nothing. */
 export function buildDraftUpdateWhere(
-  id: string,
-  tenantId: string,
+  scope: { id: string; tenantId: string },
   sale: { site_id: string | null },
   dto: Pick<PatchVehicleSaleDto, 'expectedSiteId'>,
   isRetargeting: boolean,
 ): Prisma.VehicleSaleWhereInput {
   return {
-    id,
-    tenant_id: tenantId,
+    id: scope.id,
+    tenant_id: scope.tenantId,
     status: VehicleSaleStatus.DRAFT,
     ...(isRetargeting && sale.site_id ? { site_id: sale.site_id } : {}),
     ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
