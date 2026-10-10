@@ -59,6 +59,7 @@ export const APP_ROUTE_PATHS = {
   workshopLoanerVehicles: '/workshop/loaner-vehicles',
   workshopLoanerBookingPrint: '/workshop/loaner-bookings/:id/print',
   workshopOrderDetail: '/workshop/orders/:id',
+  workshopOrderWarrantyClaims: '/workshop/orders/:id/garantie-kulanz',
   tyreStorage: '/workshop/tyre-storage',
   tyreStorageDetail: '/workshop/tyre-storage/:id',
   agentSupervision: '/agent/supervision',

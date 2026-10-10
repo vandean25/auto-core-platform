@@ -39,7 +39,7 @@ CREATE TABLE "warranty_claim_lines" (
     "description" TEXT NOT NULL,
     "quantity" DECIMAL(10,3) NOT NULL,
     "unit_price" DECIMAL(10,2) NOT NULL,
-    "net_amount" DECIMAL(12,2) NOT NULL,
+    "net_amount" DECIMAL(18,2) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "warranty_claim_lines_pkey" PRIMARY KEY ("id")

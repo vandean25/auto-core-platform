@@ -473,6 +473,26 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       });
     });
 
+    it('keeps the net amount of a very large line', async () => {
+      const fixture = await seedOrder();
+      await prisma.workshopTaskLineItem.update({
+        where: { id: fixture.partLineId },
+        data: { quantity: 100000, unit_price: 100000 },
+      });
+      const claimId = await createClaim(fixture.orderId, { lineItemIds: [fixture.partLineId] });
+
+      const claim = await request(app.getHttpServer())
+        .get(claimsPath(fixture.orderId, claimId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(claim.body.lines).toEqual([
+        expect.objectContaining({
+          workshopTaskLineItemId: fixture.partLineId,
+          netAmount: '10000000000.00',
+        }),
+      ]);
+    });
+
     it('names only the gaps that are left when a claim is missing its lines', async () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId);
