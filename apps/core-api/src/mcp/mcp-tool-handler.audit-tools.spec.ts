@@ -54,22 +54,12 @@ describe('McpToolHandlerService audit and agent action reads', () => {
 
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
       {} as unknown as McpWritePipelineService,
-      unused,
-      unused,
-      unused,
-      unused,
       pendingActionExecutors,
       unused,
-      unused,
-      unused,
-      unused,
       auditReads as unknown as McpAuditReadService,
+      unused,
+      unused,
       unused,
     );
   });
@@ -92,32 +82,34 @@ describe('McpToolHandlerService audit and agent action reads', () => {
     async (toolName, args, method) => {
       const result = await handler.executeTool(toolName, args, context);
 
+      const loggedRow = {
+        actorType: 'AGENT',
+        agentId: 'mcp:cursor',
+        onBehalfOfUserId: context.onBehalfOfUserId,
+        actionType: `mcp.${toolName}`,
+        tier: 'AUTO',
+        status: 'EXECUTED',
+        inputSummary: { tool: toolName, args },
+      };
       expect(agentActionLog.record).toHaveBeenCalledWith(
-        expect.objectContaining({
-          actorType: 'AGENT',
-          agentId: 'mcp:cursor',
-          onBehalfOfUserId: context.onBehalfOfUserId,
-          actionType: `mcp.${toolName}`,
-          tier: 'AUTO',
-          status: 'EXECUTED',
-          inputSummary: { tool: toolName, args },
-        }),
+        expect.objectContaining(loggedRow),
         expect.any(Function),
       );
-      expect(auditReads[method]).toHaveBeenCalledTimes(1);
       expect(result).toMatchObject({ truncated: false });
+      expect(auditReads[method]).toHaveBeenCalledTimes(1);
     },
   );
 
   it('rejects a reversed time range inside the logged call, before any read', async () => {
-    await expect(
-      handler.executeTool(
-        'list_audit_events',
-        { from: '2026-10-10', to: '2026-10-01' },
-        context,
-      ),
-    ).rejects.toBeInstanceOf(ZodError);
-    expect(auditReads.listAuditEvents).not.toHaveBeenCalled();
+    const reversedRange = { from: '2026-10-10', to: '2026-10-01' };
+    const error = await handler
+      .executeTool('list_audit_events', reversedRange, context)
+      .catch((caught: unknown) => caught);
+
+    expect({
+      isZodError: error instanceof ZodError,
+      reads: auditReads.listAuditEvents.mock.calls.length,
+    }).toEqual({ isZodError: true, reads: 0 });
   });
 
   it('rejects a page size above 25 before any read', async () => {

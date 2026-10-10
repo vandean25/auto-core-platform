@@ -42,23 +42,13 @@ describe('McpToolHandlerService invoice reads', () => {
 
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
       {} as unknown as McpWritePipelineService,
       unused,
       unused,
       unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
-      unused,
       invoiceReads as unknown as McpInvoiceReadService,
+      unused,
+      unused,
     );
   });
 
