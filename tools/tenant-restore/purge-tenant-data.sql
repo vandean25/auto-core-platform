@@ -40,6 +40,7 @@ VALUES
   ('labor_categories'),
   ('legal_entities'),
   ('revenue_groups'),
+  ('tenant_api_keys'),
   ('tenant_members'),
   ('tyre_storage_settings'),
   ('vendors'),
@@ -318,6 +319,9 @@ VALUES
   ('storage_locations', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('storage_locations', 'storage_locations', 'tenant_id,site_id,parent_id', 'tenant_id,site_id,id', 'RESTRICT', 'CASCADE'),
   ('storage_locations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tenant_api_keys', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('tenant_api_keys', 'users', 'created_by_user_id', 'id', 'SET NULL', 'CASCADE'),
+  ('tenant_api_keys', 'users', 'revoked_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('tenant_members', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tenant_members', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('tyre_set_events', 'employees', 'employee_id', 'id', 'SET NULL', 'CASCADE'),
@@ -722,6 +726,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_storage_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_members"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."tenant_api_keys"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."revenue_groups"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

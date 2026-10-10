@@ -42,6 +42,18 @@ async function generateOpenApiSpec() {
       },
       'BearerAuth',
     )
+    // Tenant API keys (ADR-0026). Not a global requirement: only /api/public/v1 operations declare it,
+    // and each one names its scope in the x-required-scopes extension. Session-only routes reject keys.
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'acp_live_<keyId>_<secret>',
+        description:
+          'Tenant API key created in Settings > API keys. Send as `Authorization: Bearer acp_live_<keyId>_<secret>`. Only read endpoints under /api/public/v1 accept it.',
+      },
+      'PublicApiKey',
+    )
     .addSecurityRequirements('BearerAuth')
     .build();
 

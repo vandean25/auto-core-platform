@@ -12,6 +12,7 @@ export function mapAgentActionLog(
     actorType: record.actor_type,
     agentId: record.agent_id,
     onBehalfOfUserId: record.on_behalf_of_user_id,
+    apiKeyId: record.api_key_id,
     actionType: record.action_type,
     tier: record.tier,
     status: record.status,
