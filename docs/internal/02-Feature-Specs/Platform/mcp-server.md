@@ -33,7 +33,7 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_customer` | AUTO | Customer contact data, vehicles, and a compact order history (paged with `orders_cursor`, max 25) |
 | `search_vehicles` | AUTO | Paged vehicle search |
 | `get_vehicle` | AUTO | Vehicle detail by id |
-| `get_vehicle_history` | AUTO | Vehicle for the active site: compact orders (paged), Pickerl status, the newest ten inspections, and the first page of documents |
+| `get_vehicle_history` | AUTO | Tenant vehicle: Pickerl status, the newest ten inspections, and compact orders (paged) and the first page of documents for the active site |
 | `list_workshop_orders` | AUTO | Paged workshop orders (active site) |
 | `get_workshop_order` | AUTO | Workshop order by id (active site) |
 | `search_parts` | AUTO | Inventory search; optional `workshop_order_id` uses workshop catalog search |

@@ -2458,6 +2458,7 @@ describe('MCP server (e2e)', () => {
           is_active: true,
         },
       });
+      historyOtherSiteId = otherSite.id;
       const otherSiteOrder = await prismaA.workshopOrder.create({
         data: {
           order_number: `WO-OTHER-${historyToken}`,
@@ -2473,7 +2474,6 @@ describe('MCP server (e2e)', () => {
         },
         select: { id: true },
       });
-      historyOtherSiteId = otherSite.id;
       historyOtherSiteOrderId = otherSiteOrder.id;
 
       historyCustomerId = customer.id;
