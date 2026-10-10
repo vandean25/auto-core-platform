@@ -56,6 +56,18 @@ describe('invoice branding commitment lock order (e2e)', () => {
     tenantId = tenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     authToken = createTestAuthToken(app.get(AuthService), tenant);
+    // sales_orders.order_number is globally unique in the database, so default counters collide with
+    // other suites that share it. Start this tenant's counter at a per-run value (as finance.e2e does).
+    const salesOrderStart = 100_000 + Math.floor(Math.random() * 800_000);
+    await prisma.financeSettings.upsert({
+      where: { tenant_id: tenantId },
+      update: { next_sales_order_number: salesOrderStart },
+      create: {
+        tenant_id: tenantId,
+        workshop_order_prefix: 'WO-2026-',
+        next_sales_order_number: salesOrderStart,
+      },
+    });
     const { entity } = await seedReadySellerAndAccountingProfile(
       prisma,
       tenantId,
