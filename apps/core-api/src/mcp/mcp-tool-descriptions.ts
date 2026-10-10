@@ -22,6 +22,14 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Caller identity, role, tenant, active site, and decision apply mode (no input)',
   get_capabilities:
     'Paged tools the caller may use, with policy tier, enabled state, and disabled reason',
+  list_audit_events:
+    'Tenant audit events, newest first, filtered by entity, actor, action, date range, or trace ID (paged; OWNER and ADMIN only)',
+  get_entity_history:
+    'Field changes for one entity, newest first, with email, phone, and address values masked (paged; OWNER and ADMIN only)',
+  get_agent_action:
+    'Agent action log rows and correlated audit entries for a trace ID (paged; OWNER and ADMIN only)',
+  list_agent_actions:
+    'Agent action log rows filtered by agent, tool, tier, status, or time range (paged; OWNER and ADMIN only)',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:

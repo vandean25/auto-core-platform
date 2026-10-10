@@ -3,6 +3,7 @@ import { AuditService } from './audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { AuditActorType, AuditLogAction } from '@prisma/client';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 
 describe('AuditService', () => {
   let service: AuditService;
@@ -14,6 +15,7 @@ describe('AuditService', () => {
   };
   let tenantContext: {
     getTenantId: jest.Mock;
+    getAuthenticatedUser: jest.Mock;
   };
 
   const sampleAuditLog = {
@@ -48,6 +50,7 @@ describe('AuditService', () => {
 
     tenantContext = {
       getTenantId: jest.fn().mockResolvedValue('tenant-123'),
+      getAuthenticatedUser: jest.fn().mockReturnValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -192,5 +195,59 @@ describe('AuditService', () => {
         orderBy: { occurred_at: 'desc' },
       }),
     );
+  });
+
+  describe('recordTenantMutation', () => {
+    const mutation = {
+      entityType: 'Customer',
+      entityId: 'cust-1',
+      action: AuditLogAction.CREATE,
+    };
+    const traceId = '6f1c2b7e-3d4a-4b8e-9c2d-1a2b3c4d5e6f';
+
+    it('correlates the row with the active agent trace', async () => {
+      const client = { auditLog: { create: jest.fn().mockResolvedValue({}) } };
+
+      await TenantContextStorage.run(async () => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-1',
+          traceId,
+          auditCorrelationId: traceId,
+          source: 'API',
+        });
+        await service.recordTenantMutation(mutation, client as never);
+      });
+
+      expect(client.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ request_id: traceId }),
+      });
+    });
+
+    it('falls back to the request ID outside an agent action', async () => {
+      const client = { auditLog: { create: jest.fn().mockResolvedValue({}) } };
+
+      await TenantContextStorage.run(async () => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-1',
+          traceId,
+          source: 'API',
+        });
+        await service.recordTenantMutation(mutation, client as never);
+      });
+
+      expect(client.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ request_id: 'req-1' }),
+      });
+    });
+
+    it('leaves request_id null without a request context', async () => {
+      const client = { auditLog: { create: jest.fn().mockResolvedValue({}) } };
+
+      await service.recordTenantMutation(mutation, client as never);
+
+      expect(client.auditLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ request_id: null }),
+      });
+    });
   });
 });

@@ -17,10 +17,12 @@ import {
   MCP_CAPABILITIES_DEFAULT_PAGE_SIZE,
   MCP_NEVER_EXPOSED_ACTIONS,
   MCP_READ_TOOL_NAMES,
+  MCP_SUPERVISOR_READ_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
   type McpToolName,
   type McpWriteToolName,
 } from './mcp.constants.js';
+import { isMcpSupervisorRole } from './mcp.authorization.js';
 import { resolveMcpAgentName } from './mcp-agent-id.util.js';
 import { decodeMcpCursor, encodeMcpCursor } from './mcp-output.util.js';
 import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
@@ -45,7 +47,7 @@ export type McpCapability = {
   tier: McpCapabilityTier;
   access: 'read' | 'write';
   enabled: boolean;
-  disabled_reason?: 'policy_disabled';
+  disabled_reason?: 'policy_disabled' | 'role_not_permitted';
 };
 
 export type McpCapabilitiesPage = {
@@ -101,7 +103,9 @@ export class McpCapabilitiesService {
     const pageSize = input.pageSize ?? MCP_CAPABILITIES_DEFAULT_PAGE_SIZE;
     const offset =
       input.cursor === undefined ? 0 : (decodeMcpCursor(input.cursor) ?? 0);
-    const { tools, humanOnlyActions } = await this.buildCatalog();
+    const { tools, humanOnlyActions } = await this.buildCatalog(
+      this.tenantContext.getAuthenticatedUser()?.role,
+    );
     const nextOffset = offset + pageSize;
     return {
       data: tools.slice(offset, nextOffset),
@@ -155,18 +159,34 @@ export class McpCapabilitiesService {
     });
   }
 
-  private async buildCatalog(): Promise<{
+  /**
+   * Read tools that show other users' activity are enabled only for the roles in
+   * MCP_SUPERVISOR_ROLES. For any other caller they are listed with enabled false
+   * and the reason, so the catalog matches what each call will accept.
+   */
+  private async buildCatalog(role: string | undefined): Promise<{
     tools: McpCapability[];
     humanOnlyActions: string[];
   }> {
+    const supervisorOnly = new Set<string>(MCP_SUPERVISOR_READ_TOOL_NAMES);
+    const isSupervisor = isMcpSupervisorRole(role);
     const tools: McpCapability[] = MCP_READ_TOOL_NAMES.map(
-      (tool): McpCapability => ({
-        tool,
-        description: MCP_TOOL_DESCRIPTIONS[tool],
-        tier: 'AUTO',
-        access: 'read',
-        enabled: true,
-      }),
+      (tool): McpCapability => {
+        const entry = {
+          tool,
+          description: MCP_TOOL_DESCRIPTIONS[tool],
+          tier: 'AUTO' as const,
+          access: 'read' as const,
+        };
+        if (supervisorOnly.has(tool) && !isSupervisor) {
+          return {
+            ...entry,
+            enabled: false,
+            disabled_reason: 'role_not_permitted',
+          };
+        }
+        return { ...entry, enabled: true };
+      },
     );
     const humanOnlyActions = new Set<string>(MCP_NEVER_EXPOSED_ACTIONS);
     for (const tool of MCP_WRITE_TOOL_NAMES) {

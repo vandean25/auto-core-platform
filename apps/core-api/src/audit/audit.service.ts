@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { AuditActorType, AuditLogAction, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import { QueryAuditLogsDto, AuditLogListResponseDto } from './dto/index.js';
 import { AuditQueryBuilder } from './audit-query.builder.js';
 
@@ -51,6 +52,9 @@ export class AuditService {
   ): Promise<void> {
     const tenantId = await this.tenantContext.getTenantId();
     const authUser = this.tenantContext.getAuthenticatedUser();
+    // Same correlation rule as the Prisma audit extension: the agent trace when
+    // inside an agent action, otherwise the request ID.
+    const requestMeta = TenantContextStorage.getRequestMeta();
 
     await client.auditLog.create({
       data: {
@@ -62,6 +66,8 @@ export class AuditService {
         actor_email: authUser?.email ?? null,
         actor_role: authUser?.role ?? null,
         actor_type: AuditActorType.USER,
+        request_id:
+          requestMeta?.auditCorrelationId ?? requestMeta?.requestId ?? null,
         source: params.source ?? null,
         before: params.before
           ? (params.before as Prisma.InputJsonValue)

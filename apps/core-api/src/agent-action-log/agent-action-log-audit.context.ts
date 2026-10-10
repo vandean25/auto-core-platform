@@ -11,9 +11,12 @@ export async function runWithAgentAuditTrace<T>(
     );
   }
 
+  // request_id is a string column, but agent_action_logs.trace_id is a UUID
+  // column that Postgres returns in lowercase. Store the lowercase form so the
+  // audit rows and the action log join on the same value.
   TenantContextStorage.setRequestMeta({
     ...existing,
-    auditCorrelationId: traceId,
+    auditCorrelationId: traceId.toLowerCase(),
   });
 
   try {

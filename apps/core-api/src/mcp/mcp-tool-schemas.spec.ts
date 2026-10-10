@@ -1,10 +1,14 @@
-import { MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
-import { encodeMcpCursor } from './mcp-output.util.js';
+import { MCP_TOOL_NAMES, MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
+import { encodeMcpCursor, encodeMcpKeysetCursor } from './mcp-output.util.js';
 import {
   draftWorkshopOrderInputSchema,
+  getAgentActionInputSchema,
   getCapabilitiesInputSchema,
   getCustomerInputSchema,
+  getEntityHistoryInputSchema,
   getStockLevelInputSchema,
+  listAgentActionsInputSchema,
+  listAuditEventsInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
   mcpWriteToolInputSchemas,
@@ -100,6 +104,101 @@ describe('MCP tool input schemas', () => {
     });
     expect(() => getCapabilitiesInputSchema.parse({ pageSize: 26 })).toThrow();
     expect(() => getCapabilitiesInputSchema.parse({ pageSize: 0 })).toThrow();
+  });
+
+  it('validates list_audit_events filters, page size, and keyset cursor', () => {
+    const cursor = encodeMcpKeysetCursor({
+      at: '2026-10-10T08:00:00.000Z',
+      id: '00000000-0000-4000-8000-0000000000a1',
+    });
+
+    expect(
+      listAuditEventsInputSchema.parse({
+        entity_type: 'Customer',
+        entity_id: 'cust-1',
+        actor: '00000000-0000-4000-8000-0000000000b1',
+        action: 'UPDATE',
+        from: '2026-10-01',
+        to: '2026-10-31',
+        trace_id: '6f1c2b7e-3d4a-4b8e-9c2d-1a2b3c4d5e6f',
+        pageSize: 25,
+        cursor,
+      }),
+    ).toMatchObject({ entity_type: 'Customer', pageSize: 25, cursor });
+    expect(() => listAuditEventsInputSchema.parse({ pageSize: 26 })).toThrow();
+    expect(() =>
+      listAuditEventsInputSchema.parse({ cursor: 'bad cursor!' }),
+    ).toThrow();
+  });
+
+  it('drops a tenant_id supplied in read arguments instead of using it', () => {
+    expect(
+      listAuditEventsInputSchema.parse({ tenant_id: 'tenant-b' }),
+    ).not.toHaveProperty('tenant_id');
+    expect(
+      getEntityHistoryInputSchema.parse({
+        entity_type: 'Customer',
+        entity_id: 'cust-1',
+        tenant_id: 'tenant-b',
+      }),
+    ).not.toHaveProperty('tenant_id');
+  });
+
+  it('rejects a reversed range, a malformed entity type, and a non-UUID trace ID', () => {
+    expect(() =>
+      listAuditEventsInputSchema.parse({ from: '2026-10-10', to: '2026-10-01' }),
+    ).toThrow(/must not be after to/);
+    expect(() =>
+      listAgentActionsInputSchema.parse({ from: '2026-10-10', to: '2026-10-01' }),
+    ).toThrow(/must not be after to/);
+    expect(() =>
+      listAuditEventsInputSchema.parse({ entity_type: 'Customer; DROP TABLE' }),
+    ).toThrow();
+    expect(() =>
+      listAuditEventsInputSchema.parse({ trace_id: 'trace-1' }),
+    ).toThrow();
+  });
+
+  it('accepts a same-day range because a bare to date includes its whole day', () => {
+    expect(
+      listAgentActionsInputSchema.parse({ from: '2026-10-10', to: '2026-10-10' }),
+    ).toMatchObject({ from: '2026-10-10', to: '2026-10-10' });
+  });
+
+  it('accepts only registered tools and documented tiers and statuses as agent action filters', () => {
+    expect(MCP_TOOL_NAMES).toContain('reserve_part');
+    expect(
+      listAgentActionsInputSchema.parse({
+        agent: 'mcp:cursor',
+        tool: 'reserve_part',
+        tier: 'PROPOSE',
+        status: 'PROPOSED',
+      }),
+    ).toMatchObject({ tool: 'reserve_part' });
+    expect(() =>
+      listAgentActionsInputSchema.parse({ tool: 'delete_customer' }),
+    ).toThrow();
+    expect(() => listAgentActionsInputSchema.parse({ tier: 'NOPE' })).toThrow();
+    expect(() => listAgentActionsInputSchema.parse({ status: 'DONE' })).toThrow();
+  });
+
+  it('requires a trace ID for get_agent_action and an entity type and ID for get_entity_history', () => {
+    const traceId = '6f1c2b7e-3d4a-4b8e-9c2d-1a2b3c4d5e6f';
+
+    expect(getAgentActionInputSchema.parse({ trace_id: traceId })).toEqual({
+      trace_id: traceId,
+    });
+    expect(() => getAgentActionInputSchema.parse({})).toThrow();
+    expect(() =>
+      getEntityHistoryInputSchema.parse({ entity_type: 'Customer' }),
+    ).toThrow();
+    expect(() =>
+      getEntityHistoryInputSchema.parse({
+        entity_type: 'Customer',
+        entity_id: 'cust-1',
+        pageSize: 0,
+      }),
+    ).toThrow();
   });
 
   it('accepts only cursors issued by encodeMcpCursor for get_capabilities', () => {

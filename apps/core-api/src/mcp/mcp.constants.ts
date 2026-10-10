@@ -41,9 +41,21 @@ export const MCP_READ_TOOL_NAMES = [
   'list_workshop_tasks',
   'whoami',
   'get_capabilities',
+  'list_audit_events',
+  'get_entity_history',
+  'get_agent_action',
+  'list_agent_actions',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];
+
+/** Read tools that show other users' activity. Only the roles in MCP_SUPERVISOR_ROLES may call them. */
+export const MCP_SUPERVISOR_READ_TOOL_NAMES = [
+  'list_audit_events',
+  'get_entity_history',
+  'get_agent_action',
+  'list_agent_actions',
+] as const;
 
 export const MCP_WRITE_TOOL_NAMES = [
   'draft_workshop_order',
