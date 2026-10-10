@@ -2,7 +2,8 @@ import type { McpToolName } from './mcp.constants.js';
 
 export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   search_customers: 'Search customers (tenant-scoped, paged)',
-  get_customer: 'Get a customer by id',
+  get_customer:
+    'Get a customer by id: contact data, vehicles, and a compact order history (orders newest first, max 25 per page, paged with orders_cursor; invoices via list_invoices)',
   search_vehicles: 'Search vehicles (tenant-scoped, paged)',
   get_vehicle: 'Get a vehicle by id',
   list_workshop_orders: 'List workshop orders for the active site (paged)',
@@ -34,6 +35,12 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Agent action log rows and correlated audit entries for a trace ID (paged; OWNER and ADMIN only)',
   list_agent_actions:
     'Agent action log rows filtered by agent, tool, tier, status, or time range (paged; OWNER and ADMIN only)',
+  get_vehicle_history:
+    'Vehicle history for the active site: compact orders (paged with orders_cursor), Pickerl status with recent inspections, and the first page of documents (list_documents for more)',
+  list_documents:
+    'List stored PDFs for the active site (invoice, credit_note, workshop_order, vehicle_sale_contract), filtered by type, customer, vehicle, or owner record; newest first (keyset cursor, max 25)',
+  get_document_pdf:
+    'Metadata and a read link for one stored PDF by document ID (<type>:<uuid>). The link expires within 15 minutes; PDF bytes are never returned',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:
