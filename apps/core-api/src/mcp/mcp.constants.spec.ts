@@ -16,10 +16,30 @@ describe('MCP Constants - Never Exposed Actions', () => {
       expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('consent.update');
       expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('consent.revoke');
       expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('estimate.send_customer_message');
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('invoice.cancel');
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('invoice.send');
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toContain('credit_note.create');
     });
 
-    it('has exactly 13 forbidden actions', () => {
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toHaveLength(13);
+    it('has exactly 16 forbidden actions', () => {
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toHaveLength(16);
+    });
+  });
+
+  describe('Invoice write actions are not tools (AUT-456)', () => {
+    it('registers no tool that finalizes, cancels, sends, issues, voids, or credits', () => {
+      const writeVerbs = /finaliz|cancel|send|issue|void|credit/i;
+      expect(MCP_TOOL_NAMES.filter((name) => writeVerbs.test(name))).toEqual(
+        [],
+      );
+    });
+
+    it('registers the invoice reads as AUTO read tools only', () => {
+      expect(MCP_READ_TOOL_NAMES).toEqual(
+        expect.arrayContaining(['list_invoices', 'get_invoice']),
+      );
+      expect(MCP_WRITE_TOOL_NAMES).not.toContain('list_invoices');
+      expect(MCP_WRITE_TOOL_NAMES).not.toContain('get_invoice');
     });
   });
 
@@ -64,6 +84,8 @@ describe('MCP Constants - Never Exposed Actions', () => {
         'get_stock_level',
         'get_vehicle_stock_age_report',
         'get_vehicle_stock_margin_report',
+        'list_invoices',
+        'get_invoice',
         'list_bays',
         'list_bins',
         'list_workshop_tasks',

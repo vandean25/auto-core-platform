@@ -1,14 +1,15 @@
 import { ZodError } from 'zod';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
-import type { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
-import type { McpAuditReadService } from './mcp-audit-read.service.js';
+import type { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import {
   McpToolHandlerService,
   type McpToolCallContext,
 } from './mcp-tool-handler.service.js';
 import type { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 
-describe('McpToolHandlerService audit and agent action reads', () => {
+const INVOICE_ID = '00000000-0000-4000-8000-0000000000f1';
+
+describe('McpToolHandlerService invoice reads', () => {
   const context: McpToolCallContext = {
     agentId: 'mcp:cursor',
     onBehalfOfUserId: '00000000-0000-4000-8000-0000000000b1',
@@ -21,12 +22,7 @@ describe('McpToolHandlerService audit and agent action reads', () => {
 
   let handler: McpToolHandlerService;
   let agentActionLog: { record: jest.Mock };
-  let auditReads: {
-    listAuditEvents: jest.Mock;
-    getEntityHistory: jest.Mock;
-    getAgentAction: jest.Mock;
-    listAgentActions: jest.Mock;
-  };
+  let invoiceReads: { listInvoices: jest.Mock; getInvoice: jest.Mock };
 
   beforeEach(() => {
     agentActionLog = {
@@ -38,19 +34,11 @@ describe('McpToolHandlerService audit and agent action reads', () => {
         }),
       ),
     };
-    auditReads = {
-      listAuditEvents: jest.fn().mockResolvedValue(emptyPage),
-      getEntityHistory: jest.fn().mockResolvedValue(emptyPage),
-      getAgentAction: jest.fn().mockResolvedValue({
-        ...emptyPage,
-        trace_id: '6f1c2b7e-3d4a-4b8e-9c2d-1a2b3c4d5e6f',
-        audit_entries: [],
-        audit_truncated: false,
-      }),
-      listAgentActions: jest.fn().mockResolvedValue(emptyPage),
+    invoiceReads = {
+      listInvoices: jest.fn().mockResolvedValue(emptyPage),
+      getInvoice: jest.fn().mockResolvedValue({ id: INVOICE_ID }),
     };
     const unused = {} as never;
-    const pendingActionExecutors = {} as never;
 
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
@@ -64,29 +52,19 @@ describe('McpToolHandlerService audit and agent action reads', () => {
       unused,
       unused,
       unused,
-      pendingActionExecutors,
       unused,
       unused,
       unused,
       unused,
-      auditReads as unknown as McpAuditReadService,
       unused,
+      unused,
+      invoiceReads as unknown as McpInvoiceReadService,
     );
   });
 
   it.each([
-    ['list_audit_events', { entity_type: 'Customer' }, 'listAuditEvents'],
-    [
-      'get_entity_history',
-      { entity_type: 'Customer', entity_id: 'cust-1' },
-      'getEntityHistory',
-    ],
-    [
-      'get_agent_action',
-      { trace_id: '6f1c2b7e-3d4a-4b8e-9c2d-1a2b3c4d5e6f' },
-      'getAgentAction',
-    ],
-    ['list_agent_actions', { tier: 'AUTO' }, 'listAgentActions'],
+    ['list_invoices', { status: 'PAID' }, 'listInvoices'],
+    ['get_invoice', { invoice_id: INVOICE_ID }, 'getInvoice'],
   ] as const)(
     'records %s as an AUTO agent action row and returns the read result',
     async (toolName, args, method) => {
@@ -104,26 +82,55 @@ describe('McpToolHandlerService audit and agent action reads', () => {
         }),
         expect.any(Function),
       );
-      expect(auditReads[method]).toHaveBeenCalledTimes(1);
-      expect(result).toMatchObject({ truncated: false });
+      expect(invoiceReads[method]).toHaveBeenCalledTimes(1);
+      expect(result).toBeDefined();
     },
   );
 
-  it('rejects a reversed time range inside the logged call, before any read', async () => {
-    await expect(
-      handler.executeTool(
-        'list_audit_events',
-        { from: '2026-10-10', to: '2026-10-01' },
-        context,
-      ),
-    ).rejects.toBeInstanceOf(ZodError);
-    expect(auditReads.listAuditEvents).not.toHaveBeenCalled();
+  it('passes the parsed list filters and cursor to the invoice read service', async () => {
+    await handler.executeTool(
+      'list_invoices',
+      { status: 'FINALIZED', from: '2026-09-01', to: '2026-09-30', pageSize: 5 },
+      context,
+    );
+
+    expect(invoiceReads.listInvoices).toHaveBeenCalledWith({
+      status: 'FINALIZED',
+      from: '2026-09-01',
+      to: '2026-09-30',
+      pageSize: 5,
+    });
   });
 
   it('rejects a page size above 25 before any read', async () => {
     await expect(
-      handler.executeTool('list_agent_actions', { pageSize: 26 }, context),
+      handler.executeTool('list_invoices', { pageSize: 26 }, context),
     ).rejects.toBeInstanceOf(ZodError);
-    expect(auditReads.listAgentActions).not.toHaveBeenCalled();
+    expect(invoiceReads.listInvoices).not.toHaveBeenCalled();
+  });
+
+  it('rejects a reversed issue-date range before any read', async () => {
+    await expect(
+      handler.executeTool(
+        'list_invoices',
+        { from: '2026-10-10', to: '2026-10-01' },
+        context,
+      ),
+    ).rejects.toBeInstanceOf(ZodError);
+    expect(invoiceReads.listInvoices).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown invoice status before any read', async () => {
+    await expect(
+      handler.executeTool('list_invoices', { status: 'VOID' }, context),
+    ).rejects.toBeInstanceOf(ZodError);
+    expect(invoiceReads.listInvoices).not.toHaveBeenCalled();
+  });
+
+  it('rejects a get_invoice call without a UUID before any read', async () => {
+    await expect(
+      handler.executeTool('get_invoice', { invoice_id: 'RE-2026-0001' }, context),
+    ).rejects.toBeInstanceOf(ZodError);
+    expect(invoiceReads.getInvoice).not.toHaveBeenCalled();
   });
 });

@@ -34,6 +34,7 @@ type TenantFixtures = {
   workshopTaskLineItemId: string;
   workshopTaskId: string;
   locationId: string;
+  invoiceId: string;
 };
 
 const TRACE_IDS: Record<(typeof MCP_READ_TOOL_NAMES)[number], string> = {
@@ -56,6 +57,8 @@ const TRACE_IDS: Record<(typeof MCP_READ_TOOL_NAMES)[number], string> = {
   get_entity_history: '00000000-0000-4000-8000-000000000119',
   get_agent_action: '00000000-0000-4000-8000-000000000120',
   list_agent_actions: '00000000-0000-4000-8000-000000000121',
+  list_invoices: '00000000-0000-4000-8000-000000000122',
+  get_invoice: '00000000-0000-4000-8000-000000000123',
 };
 
 describe('MCP server (e2e)', () => {
@@ -125,6 +128,47 @@ describe('MCP server (e2e)', () => {
     expect(payload).not.toContain(fixtures.vehicleId);
     expect(payload).not.toContain(fixtures.workshopOrderId);
     expect(payload).not.toContain(fixtures.catalogItemId);
+  }
+
+  /** Draft invoice with one line of quantity 1 at 20% tax, on the given site. */
+  async function createDraftInvoice(input: {
+    customerId: string;
+    siteId: string;
+    description: string;
+    workshopOrderId?: string;
+    date?: Date;
+    unitPrice?: number;
+  }): Promise<{ id: string }> {
+    const net = input.unitPrice ?? 100;
+    const tax = Number((net * 0.2).toFixed(2));
+    return prismaA.invoice.create({
+      data: {
+        tenant_id: tenantA,
+        customer_id: input.customerId,
+        site_id: input.siteId,
+        workshop_order_id: input.workshopOrderId ?? null,
+        status: 'DRAFT',
+        date: input.date ?? new Date(),
+        due_date: new Date('2026-12-31T00:00:00.000Z'),
+        currency: 'EUR',
+        total_net: net,
+        total_tax: tax,
+        total_gross: net + tax,
+        items: {
+          create: [
+            {
+              tenant_id: tenantA,
+              description: input.description,
+              quantity: 1,
+              unit_price: net,
+              tax_rate: 20,
+              line_total: net,
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
   }
 
   async function seedTenantAFixtures(): Promise<TenantFixtures> {
@@ -211,6 +255,12 @@ describe('MCP server (e2e)', () => {
         quantity_on_hand: 3,
       },
     });
+    const invoice = await createDraftInvoice({
+      customerId: customer.id,
+      workshopOrderId: workshopOrder.id,
+      siteId,
+      description: 'Ölwechsel inkl. Filter',
+    });
     return {
       searchToken,
       customerId: customer.id,
@@ -221,6 +271,7 @@ describe('MCP server (e2e)', () => {
       workshopTaskLineItemId: lineItem.id,
       workshopTaskId: task.id,
       locationId: location.id,
+      invoiceId: invoice.id,
     };
   }
 
@@ -422,7 +473,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists all twenty-three tools (19 read + 4 write)', async () => {
+  it('lists all twenty-five tools (21 read + 4 write)', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
@@ -462,6 +513,11 @@ describe('MCP server (e2e)', () => {
         name: 'get_vehicle_stock_margin_report',
         arguments: { from: '2026-10-01', to: '2026-10-31' },
       },
+      {
+        name: 'list_invoices',
+        arguments: { customer_id: fixtures.customerId },
+      },
+      { name: 'get_invoice', arguments: { invoice_id: fixtures.invoiceId } },
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
@@ -619,6 +675,8 @@ describe('MCP server (e2e)', () => {
       { name: 'list_workshop_tasks', arguments: {} },
       { name: 'whoami', arguments: {} },
       { name: 'get_capabilities', arguments: {} },
+      { name: 'list_invoices', arguments: {} },
+      { name: 'get_invoice', arguments: { invoice_id: fixtures.invoiceId } },
       { name: 'list_audit_events', arguments: {} },
       {
         name: 'get_entity_history',
@@ -649,6 +707,7 @@ describe('MCP server (e2e)', () => {
           'get_vehicle',
           'get_workshop_order',
           'get_stock_level',
+          'get_invoice',
           'get_agent_action',
         ].includes(call.name)
       ) {
@@ -2211,6 +2270,215 @@ describe('MCP server (e2e)', () => {
            }),
          );
        }
+     });
+   });
+
+   describe('invoice reads (AUT-456)', () => {
+     type InvoiceListPayload = {
+       data: Array<{
+         id: string;
+         status: string;
+         total_gross: string;
+         customer: { name: string };
+       }>;
+       meta: { page_size: number; next_cursor: string | null };
+       truncated: boolean;
+     };
+
+     let olderInvoiceId: string;
+     let oldestInvoiceId: string;
+
+     async function readInvoiceTool(
+       authHeader: string,
+       name: string,
+       args: Record<string, unknown>,
+     ): Promise<CallToolResult> {
+       const { client, transport } = await connectMcpClient(
+         authHeader,
+         'e2e-invoice-reads',
+       );
+       try {
+         return (await client.callTool({
+           name,
+           arguments: args,
+         })) as CallToolResult;
+       } finally {
+         await transport.close();
+       }
+     }
+
+     /** A schema-rejected call is either an error result or a protocol error. */
+     async function invoiceCallFails(
+       authHeader: string,
+       name: string,
+       args: Record<string, unknown>,
+     ): Promise<boolean> {
+       try {
+         return (await readInvoiceTool(authHeader, name, args)).isError === true;
+       } catch {
+         return true;
+       }
+     }
+
+     function listedInvoiceIds(result: CallToolResult): string[] {
+       return (
+         JSON.parse(toolPayloadText(result)) as InvoiceListPayload
+       ).data.map((row) => row.id);
+     }
+
+     beforeAll(async () => {
+       const siteId = await resolveTestMainSiteId(prisma, tenantA);
+       const older = await createDraftInvoice({
+         customerId: fixtures.customerId,
+         siteId,
+         description: 'Reifen wechseln',
+         date: new Date('2024-03-10T00:00:00.000Z'),
+         unitPrice: 50,
+       });
+       const oldest = await createDraftInvoice({
+         customerId: fixtures.customerId,
+         siteId,
+         description: 'Inspektion',
+         date: new Date('2024-03-05T00:00:00.000Z'),
+         unitPrice: 75,
+       });
+       olderInvoiceId = older.id;
+       oldestInvoiceId = oldest.id;
+     });
+
+     it('lists a customer invoices newest first with name and gross total', async () => {
+       const result = await readInvoiceTool(adminHeaderA, 'list_invoices', {
+         customer_id: fixtures.customerId,
+       });
+
+       expect(result.isError).not.toBe(true);
+       expect(listedInvoiceIds(result)).toEqual([
+         fixtures.invoiceId,
+         olderInvoiceId,
+         oldestInvoiceId,
+       ]);
+       const payload = JSON.parse(toolPayloadText(result)) as InvoiceListPayload;
+       expect(payload.data[0]).toMatchObject({
+         status: 'DRAFT',
+         total_gross: '120.00',
+         customer: { name: `Mcp ${fixtures.searchToken}` },
+       });
+     });
+
+     it('returns lines, totals, and the workshop order link for an own invoice', async () => {
+       const result = await readInvoiceTool(adminHeaderA, 'get_invoice', {
+         invoice_id: fixtures.invoiceId,
+       });
+
+       expect(result.isError).not.toBe(true);
+       const payload = toolPayloadText(result);
+       expect(JSON.parse(payload)).toMatchObject({
+         id: fixtures.invoiceId,
+         amount_source: 'stored',
+         seller: null,
+         totals: { net: '100.00', tax: '20.00', gross: '120.00' },
+         lines: [
+           {
+             description: 'Ölwechsel inkl. Filter',
+             quantity: '1.000',
+             unit_net: '100.00',
+             tax_rate: '20.00',
+             net: '100.00',
+             gross: '120.00',
+           },
+         ],
+         workshop_order: {
+           id: fixtures.workshopOrderId,
+           order_number: `WO-${fixtures.searchToken}`,
+         },
+         customer: {
+           id: fixtures.customerId,
+           name: `Mcp ${fixtures.searchToken}`,
+         },
+       });
+       expect(payload).not.toContain('@');
+     });
+
+     it('filters by order link, status, and number', async () => {
+       const byOrder = await readInvoiceTool(adminHeaderA, 'list_invoices', {
+         order_id: fixtures.workshopOrderId,
+       });
+       const paid = await readInvoiceTool(adminHeaderA, 'list_invoices', {
+         customer_id: fixtures.customerId,
+         status: 'PAID',
+       });
+       // Drafts have no invoice number until they are finalized.
+       const byNumber = await readInvoiceTool(adminHeaderA, 'list_invoices', {
+         customer_id: fixtures.customerId,
+         number: 'RE-2026',
+       });
+
+       expect(listedInvoiceIds(byOrder)).toEqual([fixtures.invoiceId]);
+       expect(listedInvoiceIds(paid)).toEqual([]);
+       expect(listedInvoiceIds(byNumber)).toEqual([]);
+     });
+
+     it('filters by an inclusive UTC issue-date range', async () => {
+       const result = await readInvoiceTool(adminHeaderA, 'list_invoices', {
+         customer_id: fixtures.customerId,
+         from: '2024-03-10',
+         to: '2024-03-10',
+       });
+
+       expect(listedInvoiceIds(result)).toEqual([olderInvoiceId]);
+     });
+
+     it('pages with a keyset cursor until the last row', async () => {
+       const seen: string[] = [];
+       let cursor: string | undefined;
+       do {
+         const result = await readInvoiceTool(adminHeaderA, 'list_invoices', {
+           customer_id: fixtures.customerId,
+           pageSize: 1,
+           ...(cursor ? { cursor } : {}),
+         });
+         const payload = JSON.parse(
+           toolPayloadText(result),
+         ) as InvoiceListPayload;
+         expect(payload.data).toHaveLength(1);
+         expect(payload.truncated).toBe(false);
+         seen.push(...payload.data.map((row) => row.id));
+         cursor = payload.meta.next_cursor ?? undefined;
+       } while (cursor);
+
+       expect(seen).toEqual([
+         fixtures.invoiceId,
+         olderInvoiceId,
+         oldestInvoiceId,
+       ]);
+     });
+
+     it('keeps tenant A invoices away from tenant B', async () => {
+       const detail = await readInvoiceTool(adminHeaderB, 'get_invoice', {
+         invoice_id: fixtures.invoiceId,
+       });
+       const list = await readInvoiceTool(adminHeaderB, 'list_invoices', {
+         customer_id: fixtures.customerId,
+       });
+
+       expect(detail.isError).toBe(true);
+       expect(listedInvoiceIds(list)).toEqual([]);
+       expect(toolPayloadText(list)).not.toContain(fixtures.invoiceId);
+     });
+
+     it('lets SALES read invoices and rejects bad filters before any read', async () => {
+       const salesList = await readInvoiceTool(salesHeaderA, 'list_invoices', {});
+
+       expect(salesList.isError).not.toBe(true);
+       expect(
+         await invoiceCallFails(adminHeaderA, 'list_invoices', { pageSize: 26 }),
+       ).toBe(true);
+       expect(
+         await invoiceCallFails(adminHeaderA, 'list_invoices', {
+           from: '2026-10-10',
+           to: '2026-10-01',
+         }),
+       ).toBe(true);
      });
    });
 

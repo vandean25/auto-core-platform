@@ -29,8 +29,10 @@ import {
   getCapabilitiesInputSchema,
   getCustomerInputSchema,
   getEntityHistoryInputSchema,
+  getInvoiceInputSchema,
   listAgentActionsInputSchema,
   listAuditEventsInputSchema,
+  listInvoicesInputSchema,
   getStockLevelInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
@@ -49,6 +51,7 @@ import {
 import { formatMcpAgentId } from './mcp-agent-id.util.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
+import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 
 export type McpToolCallContext = {
@@ -76,6 +79,7 @@ export class McpToolHandlerService {
     private readonly workshopTaskService: WorkshopTaskService,
     private readonly capabilities: McpCapabilitiesService,
     private readonly auditReads: McpAuditReadService,
+    private readonly invoiceReads: McpInvoiceReadService,
   ) {}
 
   async executeTool(
@@ -243,6 +247,14 @@ export class McpToolHandlerService {
           limit: clampMcpPageSize(input.page_size),
         });
       }
+      case 'list_invoices':
+        return this.invoiceReads.listInvoices(
+          listInvoicesInputSchema.parse(parsed),
+        );
+      case 'get_invoice':
+        return this.invoiceReads.getInvoice(
+          getInvoiceInputSchema.parse(parsed),
+        );
       case 'list_bays':
         return this.listBays(listBaysInputSchema.parse(parsed));
       case 'list_bins':

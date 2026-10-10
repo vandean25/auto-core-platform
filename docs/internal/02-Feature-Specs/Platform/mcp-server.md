@@ -39,6 +39,8 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_stock_level` | AUTO | Stock for `sku` or `catalog_item_id` (active site) |
 | `get_vehicle_stock_age_report` | AUTO | Paged vehicle stock age and current cost basis (active site) |
 | `get_vehicle_stock_margin_report` | AUTO | Paged invoiced vehicle margin report for a date period (active site) |
+| `list_invoices` | AUTO | Paged invoices for the active site by status, customer, order, issue date, or number, newest first (keyset cursor) |
+| `get_invoice` | AUTO | Invoice for the active site: lines, net, tax, and gross totals, seller as printed, order links, and credit notes |
 | `list_bays` | AUTO | Paged active bays for the active site |
 | `list_bins` | AUTO | Paged bin storage locations for the active site |
 | `list_workshop_tasks` | AUTO | Paged tasks visible to the caller with line IDs for MCP actions |
@@ -54,6 +56,8 @@ Outputs are page-limited (max 25 rows) and JSON size-capped before returning to 
 `whoami` and `get_capabilities` (AUT-454) are identity and capability reads, and both are logged like other reads. `whoami` takes no input: an agent session reports itself as `caller` with `type: agent`, while `role`, `tenant`, `site`, and `mode` come from the session and the tenant's decision apply mode, never from tool arguments. `get_capabilities` reads each write tool's tier and enabled state from the agent policy (tenant override, else platform default), reports a disabled rule as `enabled: false` with `disabled_reason: policy_disabled`, and never lists a HUMAN_ONLY action as a tool; those action names appear in `human_only_actions`. It pages with `pageSize` (max 25) and an opaque `cursor`. The AUT-455 reads below use the same convention.
 
 The audit and agent action reads (AUT-455), `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions`, read the audit trail and the agent action log for the session tenant only. They need OWNER or ADMIN (`MCP_SUPERVISOR_ROLES`), so a SALES session gets a `ForbiddenException` from them. `get_capabilities` lists them for that session with `enabled: false` and `disabled_reason: role_not_permitted`. The audit and agent action lists page newest first with a keyset `cursor` (`pageSize` default 10, max 25). A page is capped at 32 KB: rows that would exceed it are dropped, `truncated` is set, and `next_cursor` resumes after the last row kept. Contact data in before, after, and change values is masked before it leaves the server: email addresses keep their first letter and domain (`j***@example.com`), phone numbers keep their last two digits, and address fields become `***`. Personal names are not masked. `get_agent_action` returns the log rows for a trace and the first 25 correlated audit entries; `list_audit_events` with `trace_id` pages the rest. Audit rows written by `AuditService.recordTenantMutation` now carry the agent trace in `request_id` in lowercase form, as the Prisma audit extension already did for updates and deletes. The audit reads lowercase their trace filter to match.
+
+The invoice reads (AUT-456), `list_invoices` and `get_invoice`, are AUTO and read the session tenant's invoices at the active site (ADR-0022), as the vehicle stock margin report does. An invoice at another site is not found. `list_invoices` filters by `status`, `customer_id`, `order_id` (a workshop or sales order), an inclusive issue-date range (`from` and `to`, UTC days), and `number` (partial match). It pages with a keyset `cursor` (`pageSize` default 10, max 25) and drops trailing rows that would exceed the 32 KB cap. `get_invoice` returns lines, net, tax, and gross totals, the customer's ID and name, the linked workshop and sales orders, and the credit notes. For a committed invoice, lines, totals, and the `seller` block come from the same snapshot the PDF renders, so `seller` is the identity as printed (AUT-298). Drafts and invoices without a usable snapshot report the stored rows with `amount_source: stored`; drafts have no seller block. Amounts are EUR decimal strings. Customer contact data and internal notes are never returned.
 
 ## Write tools (phase 2)
 
@@ -79,13 +83,14 @@ Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened
 The following actions are intentionally never exposed as MCP tools, as they require human oversight or are withheld from agent automation per policy:
 
 - Invoice finalization (`invoice.finalize`)
-- Credit note issuance and finalization (`credit_note.issue`, `credit_note.finalize`)
+- Invoice cancellation and sending (`invoice.cancel`, `invoice.send`)
+- Credit note creation, issuance, and finalization (`credit_note.create`, `credit_note.issue`, `credit_note.finalize`)
 - Accounting exports (`accounting_export.create`, `accounting_export.submit`)
 - Deletions of customers, vehicles, or workshop orders
 - User/role/consent changes (`tenant_member.role_change`, `tenant_member.invite`, `consent.update`, `consent.revoke`)
 - Sending customer messages (`estimate.send_customer_message`)
 
-These align with the `MCP_NEVER_EXPOSED_ACTIONS` constant in the MCP implementation.
+These align with the `MCP_NEVER_EXPOSED_ACTIONS` constant in the MCP implementation. `invoice.cancel`, `invoice.send`, and `credit_note.create` are not in the agent policy catalog yet, so they fail closed as HUMAN_ONLY (unknown action types) and are withheld from the tool list.
 
 ## Agent identity
 
@@ -117,7 +122,7 @@ Use the MCP Inspector or the official TypeScript SDK `Client` + `StreamableHTTPC
 
 ## Testing
 
-- Unit: Zod tool schemas, MCP RBAC helper, audit read service and PII masking, the 32 KB page cap.
+- Unit: Zod tool schemas, MCP RBAC helper, audit read service and PII masking, the 32 KB page cap, invoice reads (tenant and site scope, filters, paging, and amounts checked against the PDF source data).
 - E2E: `apps/core-api/test/mcp.e2e-spec.ts` (flag off, RBAC, tool list, action log row, tenant isolation, audit reads).
 
 ## Out of scope (phase 2)

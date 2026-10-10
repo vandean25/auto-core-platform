@@ -56,6 +56,9 @@ describe('McpToolHandlerService write input validation', () => {
       unused,
       unused,
       unused,
+      unused,
+      unused,
+      unused,
     );
   });
 
