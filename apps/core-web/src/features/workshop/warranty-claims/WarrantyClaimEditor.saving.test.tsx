@@ -1,0 +1,299 @@
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { triggerBlobDownload } from "@/lib/download";
+import {
+  claimFixture,
+  failSavesWith,
+  fetchMock,
+  jsonResponse,
+  payloadOf,
+  renderEditor,
+  settle,
+  toastMock,
+  useEditorMocks,
+} from "./WarrantyClaimEditor.testUtils";
+
+vi.mock("@/api/client", () => ({
+  fetchWithAuth: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: {
+    error: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/download", () => ({
+  triggerBlobDownload: vi.fn(),
+}));
+
+const triggerBlobDownloadMock = vi.mocked(triggerBlobDownload);
+
+describe("WarrantyClaimEditor: saving", () => {
+  useEditorMocks();
+
+  it("autosaves only the field that changed, after the 750 ms debounce", async () => {
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toBe("/api/workshop/orders/order-1/warranty-claims/claim-1");
+    expect(init).toMatchObject({ method: "PATCH" });
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+  });
+
+  it("does not save an amount that cannot be read", async () => {
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+      target: { value: "12,345" },
+    });
+
+    expect(screen.getByText("Enter an amount in EUR with at most two decimals.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps saving the other edits while the amount cannot be read", async () => {
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+      target: { value: "12,345" },
+    });
+    fireEvent.change(screen.getByLabelText("Complaint"), {
+      target: { value: "Kupplung rutscht stark" },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht stark" });
+  });
+
+  it("locks the fields while a status change is being saved", async () => {
+    let answer!: (response: Response) => void;
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    renderEditor(claimFixture());
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Complaint")).toBeDisabled());
+    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toBeDisabled();
+    expect(screen.getByLabelText("Reference at the OEM")).toBeDisabled();
+
+    answer(
+      jsonResponse(
+        claimFixture({ status: "SUBMITTED_EXTERNALLY", submittedAt: "2026-10-10T09:00:00.000Z" }),
+      ),
+    );
+    await settle();
+  });
+
+  it("sends the next save only after the previous one has been answered", async () => {
+    const answers: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          answers.push(resolve);
+        }),
+    );
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "a" } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "ab" } });
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    answers[0](jsonResponse(claimFixture({ complaint: "a" })));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 2000 });
+    expect(payloadOf(fetchMock.mock.calls[1])).toEqual({ complaint: "ab" });
+
+    answers[1](jsonResponse(claimFixture({ complaint: "ab" })));
+    await settle();
+  });
+
+  it("keeps saving after a save is refused, and the next save carries every edit still pending", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Refused" }, 500));
+    fetchMock.mockImplementation(async (input, init) => jsonResponse(claimFixture(payloadOf([input, init]))));
+    const patches = () =>
+      fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method === "PATCH");
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Kupplung rutscht stark" } });
+    await waitFor(() => expect(patches()).toHaveLength(1), { timeout: 2000 });
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+    await waitFor(() => expect(patches()).toHaveLength(2), { timeout: 2000 });
+    expect(payloadOf(patches()[1])).toEqual({
+      complaint: "Kupplung rutscht stark",
+      causeCorrection: "Geberzylinder getauscht",
+    });
+    await settle();
+  });
+
+  it("unlocks the fields when a status change is refused", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "Refused" }, 409));
+    renderEditor(claimFixture());
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByLabelText("Complaint")).toBeEnabled());
+    expect(screen.getByLabelText("Reference at the OEM")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeEnabled();
+    await settle();
+  });
+
+  it("saves the pending edits, then downloads the PDF", async () => {
+    triggerBlobDownloadMock.mockClear();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(claimFixture({ complaint: "Kupplung rutscht stark" })))
+      .mockResolvedValueOnce(
+        new Response("%PDF-1.4", { status: 200, headers: { "Content-Type": "application/pdf" } }),
+      );
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "Kupplung rutscht stark" } });
+    fireEvent.click(screen.getByRole("button", { name: "Print" }));
+
+    await waitFor(() => expect(triggerBlobDownloadMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht stark" });
+    expect(String(fetchMock.mock.calls[1][0])).toMatch(/\/pdf$/);
+    await settle();
+  });
+
+  it("saves pending edits before it closes the claim", async () => {
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close claim" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close claim" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
+    expect(payloadOf(fetchMock.mock.calls[1])).toEqual({ status: "CLOSED" });
+  });
+
+  it("does not close the claim when the pending edits fail to save", async () => {
+    failSavesWith("externalReference", "The OEM reference could not be stored.");
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close claim" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close claim" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await settle();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
+    expect(payloadOf(fetchMock.mock.calls[0])).not.toHaveProperty("status");
+  });
+
+  it("saves an edit that is still waiting for the debounce when the editor unmounts", async () => {
+    const { unmount } = renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+    unmount();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+  });
+
+  it("does not submit the claim when the pending edits fail to save", async () => {
+    failSavesWith("causeCorrection", "The cause could not be stored.");
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await settle();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+  });
+
+  it("does not print the claim when the pending edits fail to save", async () => {
+    failSavesWith("externalReference", "The OEM reference could not be stored.");
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Print" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await settle();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).not.toMatch(/\/pdf$/);
+  });
+
+  it("saves the other edits when the claimed amount cannot be read and the editor unmounts", async () => {
+    const { unmount } = renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), {
+      target: { value: "Kupplung rutscht bei Kaltstart" },
+    });
+    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+      target: { value: "12,345" },
+    });
+    unmount();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht bei Kaltstart" });
+    expect(toastMock.error).toHaveBeenCalledWith(
+      "The claimed amount could not be read, so it was not saved.",
+    );
+  });
+
+  it("does not save on unmount when nothing is pending", async () => {
+    const { unmount } = renderEditor(claimFixture());
+
+    unmount();
+
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(toastMock.error).not.toHaveBeenCalled();
+  });
+});
