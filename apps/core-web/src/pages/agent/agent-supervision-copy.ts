@@ -161,6 +161,14 @@ export const SUPERVISION_COPY = {
       en: 'Trace ID',
       de: 'Trace-ID',
     },
+    decidedBy: {
+      en: 'Decided by',
+      de: 'Entschieden von',
+    },
+    decidedById: {
+      en: 'Decided by ID',
+      de: 'ID der entscheidenden Person',
+    },
     expiresAt: {
       en: 'Expires',
       de: 'Gültig bis',
@@ -214,8 +222,8 @@ export const SUPERVISION_COPY = {
       de: 'Alle vorgeschlagenen Agenten-Aktionen wurden bearbeitet. Gute Arbeit!',
     },
     approveSuccess: {
-      en: 'Proposal approved and executed successfully',
-      de: 'Vorschlag erfolgreich genehmigt und ausgeführt',
+      en: 'Proposal approved',
+      de: 'Vorschlag genehmigt',
     },
     rejectSuccess: {
       en: 'Proposal rejected',
@@ -316,6 +324,10 @@ export const SUPERVISION_COPY = {
         en: 'Trace ID',
         de: 'Trace-ID',
       },
+    },
+    showDetails: {
+      en: 'Show details',
+      de: 'Details anzeigen',
     },
     emptyState: {
       en: 'No activity found',
@@ -453,6 +465,10 @@ export const SUPERVISION_COPY = {
     },
   },
   common: {
+    unknownUser: {
+      en: 'Unknown user',
+      de: 'Unbekannter Benutzer',
+    },
     loading: {
       en: 'Loading data...',
       de: 'Daten werden geladen...',

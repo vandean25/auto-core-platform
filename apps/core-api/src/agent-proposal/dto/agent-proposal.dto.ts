@@ -197,6 +197,22 @@ export class AgentProposalResponseDto {
   @ApiProperty({ type: String, nullable: true })
   decided_by!: string | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set.',
+  })
+  decided_by_name!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant.',
+  })
+  decided_by_email!: string | null;
+
   @ApiProperty({ type: String, nullable: true })
   decided_at!: string | null;
 

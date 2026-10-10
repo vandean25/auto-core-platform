@@ -28,6 +28,22 @@ export class AgentActionLogResponseDto {
   @ApiPropertyOptional({ nullable: true })
   onBehalfOfUserId?: string | null;
 
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description:
+      'Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set.',
+  })
+  onBehalfOfUserName?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description:
+      'Email of the on-behalf-of user. Null when the user is not a member of the tenant.',
+  })
+  onBehalfOfUserEmail?: string | null;
+
   /** TenantApiKey id for public API requests (actorType API_KEY). Never the secret. */
   @ApiPropertyOptional({ nullable: true })
   apiKeyId?: string | null;

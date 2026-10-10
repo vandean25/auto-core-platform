@@ -14,7 +14,12 @@ import {
 } from '@/api/agent-proposals'
 import { useAgentActions, useAgentActionTraceDetail } from '@/api/agent-actions'
 import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
+import { toast } from 'sonner'
 import AgentSupervisionPage from './AgentSupervisionPage'
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}))
 
 vi.mock('@/api/decision-shadow-logs', () => ({
   useDecisionShadowLogs: vi.fn(),
@@ -801,6 +806,205 @@ describe('AgentSupervisionPage', () => {
       expect(
         screen.queryByTestId('proposed-lines-wo-prop-1'),
       ).not.toBeInTheDocument()
+    })
+  })
+
+  describe('agent name, decided-by and approval toasts', () => {
+    const TRACE_ID = '55555555-5555-5555-5555-555555555555'
+    const DECIDER_ID = '7d1c0a52-0000-4000-8000-0000000000aa'
+
+    const mcpProposal = (overrides: Record<string, unknown> = {}) => ({
+      id: 'mcp-prop-1',
+      tenant_id: 'tenant-1',
+      trace_id: TRACE_ID,
+      action_type: 'sales_order.apply_discount',
+      tier: 'PROPOSE' as const,
+      status: 'PENDING' as const,
+      created_by_agent: 'mcp:qa-fresh-agent',
+      payload_json: {
+        entity_type: 'SalesOrder',
+        entity_id: 'so-900',
+        amount_cents: 2000,
+      },
+      effective_summary: {
+        target_type: 'SalesOrder',
+        target_id: 'so-900',
+        amount_eur: 20,
+      },
+      workshop_order_summary: null,
+      preview_json: null,
+      decided_by: null,
+      decided_by_name: null,
+      decided_by_email: null,
+      decided_at: null,
+      reason: null,
+      expires_at: '2026-10-11T12:00:00.000Z',
+      created_at: '2026-10-04T12:00:00.000Z',
+      updated_at: '2026-10-04T12:00:00.000Z',
+      ...overrides,
+    })
+
+    const decisionLog = (overrides: Record<string, unknown> = {}) => ({
+      id: 'log-decided-1',
+      tenantId: 'tenant-1',
+      traceId: TRACE_ID,
+      actorType: 'USER' as const,
+      agentId: 'mcp:qa-fresh-agent',
+      actionType: 'sales_order.apply_discount',
+      tier: 'PROPOSE' as const,
+      status: 'EXECUTED' as const,
+      onBehalfOfUserId: DECIDER_ID,
+      onBehalfOfUserName: 'Sam Supervisor',
+      onBehalfOfUserEmail: 'sam@example.com',
+      reversible: false,
+      createdAt: '2026-10-04T12:05:00.000Z',
+      ...overrides,
+    })
+
+    const renderWith = ({
+      proposals = [],
+      logs = [],
+    }: {
+      proposals?: unknown[]
+      logs?: unknown[]
+    }) => {
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: { data: proposals },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+
+      vi.mocked(useAgentActions).mockReturnValue({
+        data: { pages: [{ data: logs, nextCursor: null }] },
+        isLoading: false,
+        isError: false,
+        fetchNextPage: vi.fn(),
+        hasNextPage: false,
+        isFetchingNextPage: false,
+        refetch: mockRefetchActions,
+      } as unknown as ReturnType<typeof useAgentActions>)
+
+      return render(<AgentSupervisionPage />)
+    }
+
+    it('shows the same agent name on the approval card and in the matching Activity row', () => {
+      renderWith({ proposals: [mcpProposal()], logs: [decisionLog()] })
+
+      const card = within(screen.getByTestId('proposal-card-mcp-prop-1'))
+      expect(card.getByText('mcp:qa-fresh-agent')).toBeInTheDocument()
+      expect(card.queryByText('agent')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('tab-activity'))
+      const row = within(screen.getByTestId('activity-row-log-decided-1'))
+      expect(row.getByText('mcp:qa-fresh-agent')).toBeInTheDocument()
+    })
+
+    it('shows the decider name under Decided by in Activity and keeps the raw id under Show details', () => {
+      renderWith({ logs: [decisionLog()] })
+      fireEvent.click(screen.getByTestId('tab-activity'))
+
+      const decidedBy = within(
+        screen.getByTestId('activity-decided-by-log-decided-1'),
+      )
+      expect(decidedBy.getByText('Sam Supervisor')).toBeInTheDocument()
+      expect(decidedBy.getByText('Show details')).toBeInTheDocument()
+      expect(
+        decidedBy.getByText(DECIDER_ID).closest('details'),
+      ).not.toBeNull()
+    })
+
+    it('shows the decider email under Decided by when the name is missing', () => {
+      renderWith({
+        logs: [decisionLog({ onBehalfOfUserName: null })],
+      })
+      fireEvent.click(screen.getByTestId('tab-activity'))
+
+      const decidedBy = within(
+        screen.getByTestId('activity-decided-by-log-decided-1'),
+      )
+      expect(decidedBy.getByText('sam@example.com')).toBeInTheDocument()
+      expect(decidedBy.queryByText('Sam Supervisor')).not.toBeInTheDocument()
+    })
+
+    it('shows a fallback label instead of only the raw id when the decider cannot be resolved', () => {
+      renderWith({
+        logs: [
+          decisionLog({ onBehalfOfUserName: null, onBehalfOfUserEmail: null }),
+        ],
+      })
+      fireEvent.click(screen.getByTestId('tab-activity'))
+
+      const decidedBy = within(
+        screen.getByTestId('activity-decided-by-log-decided-1'),
+      )
+      expect(decidedBy.getByText('Unknown user')).toBeInTheDocument()
+      expect(
+        decidedBy.getByText(DECIDER_ID).closest('details'),
+      ).not.toBeNull()
+    })
+
+    it('shows who decided on the approval card and keeps the raw id under Show details', () => {
+      renderWith({
+        proposals: [
+          mcpProposal({
+            status: 'APPROVED',
+            decided_by: DECIDER_ID,
+            decided_by_name: 'Sam Supervisor',
+            decided_by_email: 'sam@example.com',
+            decided_at: '2026-10-04T12:05:00.000Z',
+          }),
+        ],
+      })
+
+      const card = within(screen.getByTestId('proposal-card-mcp-prop-1'))
+      expect(card.getByTestId('decided-by-mcp-prop-1')).toHaveTextContent(
+        'Sam Supervisor',
+      )
+      expect(card.queryByText(DECIDER_ID)).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('toggle-preview-mcp-prop-1'))
+      expect(
+        within(screen.getByTestId('preview-panel-mcp-prop-1')).getByText(
+          DECIDER_ID,
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('shows the Proposal approved toast after a successful Approve', async () => {
+      renderWith({ proposals: [mcpProposal()] })
+
+      fireEvent.click(screen.getByTestId('approve-btn-mcp-prop-1'))
+
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith('Proposal approved'),
+      )
+      expect(toast.error).not.toHaveBeenCalled()
+    })
+
+    it('shows the error and not the success toast when Approve fails', async () => {
+      mockMutateApprove.mockRejectedValueOnce(
+        new Error('Proposal has expired'),
+      )
+      renderWith({ proposals: [mcpProposal()] })
+
+      fireEvent.click(screen.getByTestId('approve-btn-mcp-prop-1'))
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith('Proposal has expired'),
+      )
+      expect(toast.success).not.toHaveBeenCalledWith('Proposal approved')
+    })
+
+    it('still shows the Proposal rejected toast after a successful reject', async () => {
+      renderWith({ proposals: [mcpProposal()] })
+
+      fireEvent.click(screen.getByTestId('reject-btn-mcp-prop-1'))
+      fireEvent.click(screen.getByTestId('confirm-reject-btn'))
+
+      await waitFor(() =>
+        expect(toast.success).toHaveBeenCalledWith('Proposal rejected'),
+      )
     })
   })
 })

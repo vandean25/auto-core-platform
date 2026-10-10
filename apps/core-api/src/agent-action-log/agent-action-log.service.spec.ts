@@ -18,6 +18,9 @@ describe('AgentActionLogService', () => {
     auditLog: {
       findMany: jest.fn(),
     },
+    user: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   };
 
   const tenantContext = {
@@ -295,6 +298,93 @@ describe('AgentActionLogService', () => {
       }),
     );
     expect(result.data[0]?.agentId).toBe('workshop-agent');
+  });
+
+  describe('on-behalf-of contact', () => {
+    const decisionRow = {
+      id: 'decision-log-2',
+      tenant_id: 'tenant-1',
+      trace_id: '00000000-0000-4000-8000-00000000aa02',
+      parent_trace_id: null,
+      actor_type: 'USER',
+      agent_id: 'mcp:qa-fresh-agent',
+      on_behalf_of_user_id: 'supervisor-1',
+      action_type: 'sales_order.apply_discount',
+      tier: 'PROPOSE',
+      status: 'EXECUTED',
+      input_summary_json: {},
+      result_summary_json: {},
+      entity_type: null,
+      entity_id: null,
+      reversible: false,
+      reverted_by_log_id: null,
+      created_at: new Date('2026-10-06T00:00:00.000Z'),
+    };
+
+    it('adds the on-behalf-of name and email to list rows from one tenant-scoped query', async () => {
+      prisma.agentActionLog.findMany.mockResolvedValue([decisionRow]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'supervisor-1',
+          email: 'sam@example.com',
+          firstName: 'Sam',
+          lastName: 'Supervisor',
+        },
+      ]);
+
+      const result = await service.findAll({});
+
+      expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        where: {
+          id: { in: ['supervisor-1'] },
+          memberships: { some: { tenant_id: 'tenant-1' } },
+        },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      });
+      expect(result.data[0]).toMatchObject({
+        agentId: 'mcp:qa-fresh-agent',
+        onBehalfOfUserId: 'supervisor-1',
+        onBehalfOfUserName: 'Sam Supervisor',
+        onBehalfOfUserEmail: 'sam@example.com',
+      });
+    });
+
+    it('keeps the on-behalf-of name and email null for a user outside the tenant', async () => {
+      prisma.agentActionLog.findMany.mockResolvedValue([
+        { ...decisionRow, on_behalf_of_user_id: 'user-outside-tenant' },
+      ]);
+      prisma.user.findMany.mockResolvedValue([]);
+
+      const result = await service.findAll({});
+
+      expect(result.data[0]).toMatchObject({
+        onBehalfOfUserId: 'user-outside-tenant',
+        onBehalfOfUserName: null,
+        onBehalfOfUserEmail: null,
+      });
+    });
+
+    it('adds the on-behalf-of contact to the trace detail logs', async () => {
+      prisma.agentActionLog.findMany.mockResolvedValue([decisionRow]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.user.findMany.mockResolvedValue([
+        {
+          id: 'supervisor-1',
+          email: 'sam@example.com',
+          firstName: 'Sam',
+          lastName: 'Supervisor',
+        },
+      ]);
+
+      const result = await service.findByTraceId(decisionRow.trace_id);
+
+      expect(result.logs[0]).toMatchObject({
+        onBehalfOfUserId: 'supervisor-1',
+        onBehalfOfUserName: 'Sam Supervisor',
+        onBehalfOfUserEmail: 'sam@example.com',
+      });
+    });
   });
 
   it('persists the NOT_EVALUATED tier for writes rejected before policy evaluation', async () => {

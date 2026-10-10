@@ -17,6 +17,10 @@ import { AgentActionLogService } from '../agent-action-log/agent-action-log.serv
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import {
+  loadTenantUserContacts,
+  type TenantUserContact,
+} from '../common/services/tenant-user-contact.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
@@ -88,9 +92,14 @@ export class AgentProposalService {
       tenantId,
       proposals,
     );
+    const deciders = await loadTenantUserContacts(
+      this.prisma,
+      tenantId,
+      proposals.map((proposal) => proposal.decided_by),
+    );
     return {
       data: proposals.map((proposal) =>
-        this.toResponseDto(proposal, workshopOrderSummaries),
+        this.toResponseDto(proposal, workshopOrderSummaries, deciders),
       ),
     };
   }
@@ -125,7 +134,11 @@ export class AgentProposalService {
       tenantId,
       [proposal],
     );
-    return this.toResponseDto(proposal, workshopOrderSummaries);
+    return this.toResponseDtoWithDecider(
+      tenantId,
+      proposal,
+      workshopOrderSummaries,
+    );
   }
 
   async rejectProposal(
@@ -166,7 +179,7 @@ export class AgentProposalService {
     }
 
     if (proposal.status === AgentProposalStatus.REJECTED) {
-      return this.toResponseDto(proposal);
+      return this.toResponseDtoWithDecider(tenantId, proposal);
     }
 
     if (
@@ -221,7 +234,9 @@ export class AgentProposalService {
         where: { id: proposal.id, tenant_id: tenantId },
       });
     });
-    if (rejectedProposal) return this.toResponseDto(rejectedProposal);
+    if (rejectedProposal) {
+      return this.toResponseDtoWithDecider(tenantId, rejectedProposal);
+    }
 
     const reloaded = await this.prisma.agentProposal.findFirst({
       where: { id: proposal.id, tenant_id: tenantId },
@@ -245,7 +260,7 @@ export class AgentProposalService {
       throw new UnprocessableEntityException('Proposal has expired');
     }
     if (reloaded.status === AgentProposalStatus.REJECTED) {
-      return this.toResponseDto(reloaded);
+      return this.toResponseDtoWithDecider(tenantId, reloaded);
     }
     throw new ConflictException(
       `Proposal state conflict: current status is ${reloaded.status}`,
@@ -290,7 +305,7 @@ export class AgentProposalService {
       proposal.status === AgentProposalStatus.APPROVED ||
       proposal.status === AgentProposalStatus.EXECUTED
     ) {
-      return this.toResponseDto(proposal);
+      return this.toResponseDtoWithDecider(tenantId, proposal);
     }
 
     if (
@@ -391,6 +406,13 @@ export class AgentProposalService {
       }
     }
 
+    // Resolved before the try block: once the action is claimed, the catch below
+    // treats any error as an execution failure, and a read must not do that.
+    const deciderContacts = await loadTenantUserContacts(
+      this.prisma,
+      tenantId,
+      [currentUser.id],
+    );
     const now = new Date();
     let claimed = false;
     try {
@@ -466,7 +488,9 @@ export class AgentProposalService {
         return { claimed: true as const, proposal: executedProposal };
       });
 
-      if (outcome.claimed) return this.toResponseDto(outcome.proposal);
+      if (outcome.claimed) {
+        return this.toResponseDto(outcome.proposal, new Map(), deciderContacts);
+      }
 
       const reloaded = await this.prisma.agentProposal.findFirst({
         where: { id: proposal.id, tenant_id: tenantId },
@@ -490,7 +514,7 @@ export class AgentProposalService {
         reloaded.status === AgentProposalStatus.APPROVED ||
         reloaded.status === AgentProposalStatus.EXECUTED
       ) {
-        return this.toResponseDto(reloaded);
+        return this.toResponseDtoWithDecider(tenantId, reloaded);
       }
       throw new ConflictException(
         `Proposal state conflict: current status is ${reloaded.status}`,
@@ -926,17 +950,39 @@ export class AgentProposalService {
     return null;
   }
 
+  /**
+   * Single-proposal response that also resolves the decider's name and email.
+   * Lists batch that lookup in one query instead of calling this per row.
+   */
+  private async toResponseDtoWithDecider(
+    tenantId: string,
+    proposal: AgentProposal,
+    workshopOrderSummaries: Map<
+      string,
+      AgentProposalWorkshopOrderSummaryDto
+    > = new Map(),
+  ): Promise<AgentProposalResponseDto> {
+    const deciders = await loadTenantUserContacts(this.prisma, tenantId, [
+      proposal.decided_by,
+    ]);
+    return this.toResponseDto(proposal, workshopOrderSummaries, deciders);
+  }
+
   private toResponseDto(
     proposal: AgentProposal,
     workshopOrderSummaries: Map<
       string,
       AgentProposalWorkshopOrderSummaryDto
     > = new Map(),
+    deciders: Map<string, TenantUserContact> = new Map(),
   ): AgentProposalResponseDto {
     const workshopOrderId = this.resolveWorkshopOrderId(
       proposal.action_type,
       (proposal.payload_json ?? {}) as Record<string, unknown>,
     );
+    const decider = proposal.decided_by
+      ? deciders.get(proposal.decided_by)
+      : undefined;
     return {
       id: proposal.id,
       tenant_id: proposal.tenant_id,
@@ -958,6 +1004,8 @@ export class AgentProposalService {
       > | null,
       created_by_agent: proposal.created_by_agent,
       decided_by: proposal.decided_by,
+      decided_by_name: decider?.name ?? null,
+      decided_by_email: decider?.email ?? null,
       decided_at: proposal.decided_at
         ? proposal.decided_at.toISOString()
         : null,

@@ -1,8 +1,10 @@
 import type { AgentActionLog } from '@prisma/client';
+import type { TenantUserContact } from '../common/services/tenant-user-contact.util.js';
 import type { AgentActionLogResponseDto } from './dto/agent-action-log-response.dto.js';
 
 export function mapAgentActionLog(
   record: AgentActionLog,
+  onBehalfOf?: TenantUserContact,
 ): AgentActionLogResponseDto {
   return {
     id: record.id,
@@ -12,6 +14,8 @@ export function mapAgentActionLog(
     actorType: record.actor_type,
     agentId: record.agent_id,
     onBehalfOfUserId: record.on_behalf_of_user_id,
+    onBehalfOfUserName: onBehalfOf?.name ?? null,
+    onBehalfOfUserEmail: onBehalfOf?.email ?? null,
     apiKeyId: record.api_key_id,
     actionType: record.action_type,
     tier: record.tier,

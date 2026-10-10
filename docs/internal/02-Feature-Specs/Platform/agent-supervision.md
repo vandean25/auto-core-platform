@@ -48,7 +48,7 @@ The Agent Supervision feature (AE6) provides a human-in-the-loop review queue fo
   - `status`: `AgentProposalStatus` enum (`PENDING`, `APPROVED`, `REJECTED`, `EXPIRED`, `EXECUTED`, `FAILED`).
   - `payload_json`: Stored action arguments and context.
   - `preview_json`: Optional dry-run diff preview (AE3 integration).
-  - `decided_by`: User ID of approving/rejecting supervisor.
+  - `decided_by`: User ID of approving/rejecting supervisor. Responses also carry `decided_by_name` (first and last name) and `decided_by_email`, resolved from the user record for tenant members only. The UI shows the name, then the email, and keeps the raw ID under "Show details".
   - `decided_at`: Timestamp of decision.
   - `reason`: Optional rejection reason.
   - `expires_at`: Expiration timestamp (default: 7 days from creation).
@@ -84,13 +84,16 @@ Accessible in `apps/core-web` under route `/agent/supervision`, gated by runtime
 ### Key UI Features:
 - **Persistent Safety Banner**: Prominently warns that agent supervision is active and that `HUMAN_ONLY` operations must be conducted manually.
 - **Approvals Tab**:
-  - Displays pending proposal cards with formatted actions, agent IDs, creation times, target entity references, and EUR currency amounts.
+  - Displays pending proposal cards with formatted actions, agent names, creation times, target entity references, and EUR currency amounts. The agent name is the one the agent registered (for example `mcp:<client>`), the same name the matching Activity row shows. It falls back to the agent ID in the payload, then to the generic word `agent`.
+  - Decided proposals (visible under "Show all statuses") show `Decided by` with the person's name or email.
   - Expandable JSON details panel for dry-run preview diffs and payload arguments.
   - **Critical Safety Guard**: Actions with tier `HUMAN_ONLY` do not render an Approve button; instead, they render a prominent "Do this manually" notice.
   - Reject opens a modal dialog allowing an optional rejection reason.
+  - A successful Approve shows the toast "Proposal approved"; a successful reject shows "Proposal rejected". A failed Approve or reject shows the error toast only.
 - **Activity Tab**:
   - Displays historic agent actions from `GET /api/agent-actions`.
   - Filterable by status (`ALL`, `EXECUTED`, `FAILED`), tier (`ALL`, `AUTO`, `PROPOSE`, `HUMAN_ONLY`), and agent search.
+  - `Decided by` column shows the person's name, then their email, and the raw user ID under "Show details". The API returns `onBehalfOfUserName` and `onBehalfOfUserEmail` on each log row (tenant members only).
   - Trace ID is a real interactive button opening `TraceAuditDetailDialog`.
 - **Trace Audit & Correlation Dialog**:
   - Shows all action steps in the trace.
