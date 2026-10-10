@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { downloadWarrantyClaimPdf, useUpdateWarrantyClaim } from "@/api/warranty-claims";
 import type {
@@ -134,6 +134,20 @@ export function WarrantyClaimEditor({
       return false;
     }
   };
+
+  // The autosave timer is cleared when the editor unmounts, for example when the advisor picks another
+  // claim within 750 ms. Save what is still waiting here instead. The request outlives the component.
+  const saveOnUnmount = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    saveOnUnmount.current = () => {
+      const snapshot = latestDraftRef.current;
+      if (!parseClaimedAmount(snapshot.claimedAmount).valid) return;
+      persistDraft(snapshot).catch((error: unknown) => {
+        toast.error(getErrorMessage(error, "Failed to save the claim"));
+      });
+    };
+  });
+  useEffect(() => () => saveOnUnmount.current(), []);
 
   const toggleLine = (lineId: string, checked: boolean) => {
     const current = latestDraftRef.current.lineItemIds.filter((id) => id !== lineId);
@@ -345,7 +359,6 @@ export function WarrantyClaimEditor({
                         checked={checked}
                         disabled={disabled}
                         onCheckedChange={(value) => toggleLine(row.id, value === true)}
-                        aria-label={`Include ${row.itemNo} ${row.description}`}
                       />
                       <label htmlFor={`warranty-line-${row.id}`} className="flex-1 space-y-0.5 text-sm">
                         <span className="block font-medium text-slate-900">
@@ -413,7 +426,10 @@ export function WarrantyClaimEditor({
       </div>
 
       <WarrantyClaimDecisionDialog
+        key={decisionOutcome ?? "closed"}
         outcome={decisionOutcome}
+        initialDecisionDate={draft.decisionDate}
+        initialDecisionNote={draft.decisionNote}
         isSubmitting={busyAction === decisionOutcome}
         onOpenChange={(open) => {
           if (!open) setDecisionOutcome(null);

@@ -280,40 +280,43 @@ export class WarrantyClaimService {
 
       const actorUserId = await this.findAuditActorId(tx, tenantId);
 
-      // Guarded write: fails if the status moved after the lock was taken. Field values are the
-      // fresh values read above, so no concurrent save can be reverted by this one.
-      const now = new Date();
-      const result = await tx.warrantyClaim.updateMany({
-        where: {
-          id: claimId,
-          tenant_id: tenantId,
-          workshop_order_id: orderId,
-          status: current.status,
-        },
-        data: {
-          type: next.type,
-          status: next.status,
-          complaint: next.complaint,
-          cause_correction: next.causeCorrection,
-          claimed_amount_net: next.claimedAmountNet,
-          external_reference: next.externalReference,
-          decision_note: next.decisionNote,
-          decision_date: next.decisionDate,
-          ...(statusChanged &&
-          next.status === WarrantyClaimStatus.SUBMITTED_EXTERNALLY
-            ? { submitted_at: now }
-            : {}),
-          ...(statusChanged && next.status === WarrantyClaimStatus.CLOSED
-            ? { closed_at: now }
-            : {}),
-        },
-      });
-      if (result.count !== 1) {
-        throw new ConflictException({
-          code: WARRANTY_CLAIM_ERROR_CODES.STATE_CHANGED,
-          message:
-            'The warranty claim changed while you were editing. Reload it and try again.',
+      // A save that changes nothing writes nothing, so updatedAt and the list date stay as they were.
+      if (contentChanged || metadataChanged || statusChanged) {
+        // Guarded write: fails if the status moved after the lock was taken. Field values are the
+        // fresh values read above, so no concurrent save can be reverted by this one.
+        const now = new Date();
+        const result = await tx.warrantyClaim.updateMany({
+          where: {
+            id: claimId,
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            status: current.status,
+          },
+          data: {
+            type: next.type,
+            status: next.status,
+            complaint: next.complaint,
+            cause_correction: next.causeCorrection,
+            claimed_amount_net: next.claimedAmountNet,
+            external_reference: next.externalReference,
+            decision_note: next.decisionNote,
+            decision_date: next.decisionDate,
+            ...(statusChanged &&
+            next.status === WarrantyClaimStatus.SUBMITTED_EXTERNALLY
+              ? { submitted_at: now }
+              : {}),
+            ...(statusChanged && next.status === WarrantyClaimStatus.CLOSED
+              ? { closed_at: now }
+              : {}),
+          },
         });
+        if (result.count !== 1) {
+          throw new ConflictException({
+            code: WARRANTY_CLAIM_ERROR_CODES.STATE_CHANGED,
+            message:
+              'The warranty claim changed while you were editing. Reload it and try again.',
+          });
+        }
       }
 
       if (requestedLineIds !== undefined && linesChanged) {
@@ -392,8 +395,8 @@ export class WarrantyClaimService {
   }
 
   /**
-   * Row-locks the claim until the transaction ends. The UPDATE also bumps updatedAt, which is
-   * harmless because a failed save rolls it back.
+   * Row-locks the claim until the transaction ends. Only a lock, so a save that changes nothing
+   * leaves updatedAt alone.
    */
   private async lockClaimRow(
     tx: Prisma.TransactionClient,
@@ -401,11 +404,16 @@ export class WarrantyClaimService {
     orderId: string,
     claimId: string,
   ): Promise<void> {
-    const locked = await tx.warrantyClaim.updateMany({
-      where: { id: claimId, tenant_id: tenantId, workshop_order_id: orderId },
-      data: { updatedAt: new Date() },
-    });
-    if (locked.count !== 1) {
+    // eslint-disable-next-line no-restricted-syntax -- row lock on the claim; a write here would bump updatedAt on every save.
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM warranty_claims
+      WHERE id = ${claimId}
+        AND tenant_id = ${tenantId}
+        AND workshop_order_id = ${orderId}
+      FOR UPDATE
+    `;
+    if (locked.length !== 1) {
       throw new NotFoundException(`Warranty claim ${claimId} not found`);
     }
   }

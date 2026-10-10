@@ -295,4 +295,128 @@ describe("WarrantyClaimEditor", () => {
     expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
     expect(payloadOf(fetchMock.mock.calls[0])).not.toHaveProperty("status");
   });
+
+  it("keeps the decision date and note the advisor entered when recording an approval", async () => {
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Decision date"), { target: { value: "2026-10-08" } });
+    fireEvent.change(screen.getByLabelText("Decision note"), { target: { value: "80% goodwill share" } });
+    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByLabelText("Decision date")).toHaveValue("2026-10-08");
+    expect(within(dialog).getByLabelText("Decision note")).toHaveValue("80% goodwill share");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark approved" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(payloadOf(fetchMock.mock.calls[1])).toEqual({
+      status: "APPROVED",
+      decisionDate: "2026-10-08",
+      decisionNote: "80% goodwill share",
+    });
+  });
+
+  it("names each line with its quantity, price and reason for assistive technology", () => {
+    renderEditor(claimFixture({ lines: [] }), {
+      lineClaimedElsewhere: new Map([["item-part", "Kulanz claim"]]),
+    });
+
+    expect(screen.getByRole("checkbox", { name: /Kupplung entlüften.*2\.5 ×/ })).toBeEnabled();
+    expect(
+      screen.getByRole("checkbox", { name: /Geberzylinder.*Already on Kulanz claim/ }),
+    ).toBeDisabled();
+  });
+
+  it("saves an edit that is still waiting for the debounce when the editor unmounts", async () => {
+    const { unmount } = renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+    unmount();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+  });
+
+  it("does not submit the claim when the pending edits fail to save", async () => {
+    fetchMock.mockImplementation(async (_input, init) => {
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      if ("causeCorrection" in payload) {
+        return jsonResponse({ message: "The cause could not be stored." }, 500);
+      }
+      return jsonResponse(claimFixture(payload));
+    });
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Cause and correction"), {
+      target: { value: "Geberzylinder getauscht" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+  });
+
+  it("does not record an approval when the pending edits fail to save", async () => {
+    fetchMock.mockImplementation(async (_input, init) => {
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      if ("externalReference" in payload) {
+        return jsonResponse({ message: "The OEM reference could not be stored." }, 500);
+      }
+      return jsonResponse(claimFixture(payload));
+    });
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark approved" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("does not print the claim when the pending edits fail to save", async () => {
+    fetchMock.mockImplementation(async (_input, init) => {
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      if ("externalReference" in payload) {
+        return jsonResponse({ message: "The OEM reference could not be stored." }, 500);
+      }
+      return jsonResponse(claimFixture(payload));
+    });
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Print" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).not.toMatch(/\/pdf$/);
+  });
 });

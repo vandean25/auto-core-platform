@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,9 @@ export type WarrantyClaimDecisionValues = {
 
 type WarrantyClaimDecisionDialogProps = {
   outcome: WarrantyClaimDecisionOutcome | null;
+  /** The claim's decision date and note as the editor holds them, so the dialog does not overwrite them. */
+  initialDecisionDate: string;
+  initialDecisionNote: string;
   isSubmitting: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (values: WarrantyClaimDecisionValues) => void;
@@ -33,21 +36,20 @@ function todayIsoDay(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+/**
+ * The editor mounts this dialog with a key per opening, so the fields start from the claim's current
+ * values each time it opens.
+ */
 export function WarrantyClaimDecisionDialog({
   outcome,
+  initialDecisionDate,
+  initialDecisionNote,
   isSubmitting,
   onOpenChange,
   onConfirm,
 }: WarrantyClaimDecisionDialogProps) {
-  const [decisionDate, setDecisionDate] = useState(todayIsoDay);
-  const [decisionNote, setDecisionNote] = useState("");
-
-  useEffect(() => {
-    if (outcome) {
-      setDecisionDate(todayIsoDay());
-      setDecisionNote("");
-    }
-  }, [outcome]);
+  const [decisionDate, setDecisionDate] = useState(() => initialDecisionDate || todayIsoDay());
+  const [decisionNote, setDecisionNote] = useState(initialDecisionNote);
 
   const isApproval = outcome === "APPROVED";
   const title = isApproval ? "Record approval" : "Record rejection";

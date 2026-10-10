@@ -381,6 +381,25 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       });
     });
 
+    it('leaves updatedAt and the audit trail alone when a save changes nothing', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, { complaint: 'alt' });
+      const before = await prisma.warrantyClaim.findFirst({
+        where: { id: claimId, tenant_id: tenant.tenantId },
+        select: { updatedAt: true },
+      });
+
+      const response = await patchClaim(fixture.orderId, claimId, { complaint: 'alt' });
+      expect(response.body).toMatchObject({ complaint: 'alt' });
+
+      const after = await prisma.warrantyClaim.findFirst({
+        where: { id: claimId, tenant_id: tenant.tenantId },
+        select: { updatedAt: true },
+      });
+      expect(after?.updatedAt).toEqual(before?.updatedAt);
+      expect((await auditEntries(claimId)).map((entry) => entry.action)).toEqual(['CREATE']);
+    });
+
     it('will not submit a claim that is missing its complaint, amount or lines', async () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId);
