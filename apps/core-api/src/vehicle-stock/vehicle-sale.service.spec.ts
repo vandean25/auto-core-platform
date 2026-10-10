@@ -73,6 +73,7 @@ describe('VehicleSaleService', () => {
         create: jest.fn(),
       },
       vehicle: { findFirst: jest.fn(), updateMany: jest.fn() },
+      vehiclePurchase: { findFirst: jest.fn() },
       customer: { findFirst: jest.fn() },
       workshopOrder: { count: jest.fn() },
       vehicleLedgerEntry: { findMany: jest.fn() },
@@ -720,6 +721,39 @@ describe('VehicleSaleService', () => {
           }),
         }),
       );
+    });
+
+    it('refuses to retarget a sale with a trade-in attached, because the trade-in purchase stays at the old site', async () => {
+      prisma.vehicleSale.findFirst.mockResolvedValue({
+        id: saleId,
+        site_id: 'site-1',
+        status: VehicleSaleStatus.DRAFT,
+        vehicle_id: vehicleId,
+        customer_id: 'buyer-1',
+        sale_price: new Prisma.Decimal(10000),
+        trade_in_purchase_id: 'purchase-trade-in',
+        vehicle: {
+          id: vehicleId,
+          location: { id: 'loc-2', site_id: 'site-2' },
+        },
+      });
+      prisma.vehiclePurchase.findFirst.mockResolvedValue({
+        id: 'purchase-trade-in',
+        purchase_price: new Prisma.Decimal(3000),
+      });
+      prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+      prisma.tenantMember.findFirst.mockResolvedValue({ id: 'tm-1' });
+      prisma.siteMembership.findFirst.mockResolvedValue({ id: 'sm-2' });
+
+      await expect(
+        service.updateDraft(saleId, {
+          siteId: 'site-2',
+          expectedSiteId: 'site-1',
+        }),
+      ).rejects.toThrow(
+        'Remove the trade-in before moving this sale to another site',
+      );
+      expect(prisma.vehicleSale.updateMany).not.toHaveBeenCalled();
     });
 
     it('rejects retargeting if parked vehicle is on a lot that does not belong to target site with 422', async () => {

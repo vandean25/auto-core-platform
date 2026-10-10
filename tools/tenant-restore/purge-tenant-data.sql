@@ -91,25 +91,25 @@ VALUES
   ('tyre_sets'),
   ('vehicle_inspection_records'),
   ('vehicle_purchases'),
-  ('vehicle_sales'),
   ('workshop_orders'),
-  ('invoices'),
   ('loaner_bookings'),
   ('sales_order_items'),
   ('tyre_set_events'),
-  ('vehicle_ledger_entries'),
+  ('vehicle_sales'),
   ('workshop_tasks'),
-  ('credit_notes'),
-  ('invoice_brand_asset_references'),
-  ('invoice_items'),
+  ('invoices'),
   ('labor_entries'),
+  ('vehicle_ledger_entries'),
   ('workshop_inspections'),
   ('workshop_media'),
   ('workshop_task_line_items'),
   ('workshop_voice_note_drafts'),
-  ('credit_note_items'),
+  ('credit_notes'),
+  ('invoice_brand_asset_references'),
+  ('invoice_items'),
   ('parts_reservations'),
   ('workshop_inspection_items'),
+  ('credit_note_items'),
   ('inventory_transactions');
 
 CREATE TEMP TABLE tenant_restore_allowed_global_tables (
@@ -354,6 +354,7 @@ VALUES
   ('vehicle_sales', 'customers', 'customer_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('vehicle_sales', 'vehicle_purchases', 'tenant_id,trade_in_purchase_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('vehicle_sales', 'vehicles', 'vehicle_id', 'id', 'RESTRICT', 'CASCADE'),
   ('vehicles', 'brands', 'make_brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('vehicles', 'customers', 'customer_id', 'id', 'SET NULL', 'CASCADE'),
@@ -588,11 +589,17 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 
 DELETE FROM public."inventory_transactions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."credit_note_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_inspection_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_reservations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."credit_note_items"
+DELETE FROM public."invoice_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."invoice_brand_asset_references"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."credit_notes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_voice_note_drafts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -602,17 +609,15 @@ DELETE FROM public."workshop_media"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_inspections"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."vehicle_ledger_entries"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."invoice_items"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."invoice_brand_asset_references"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."credit_notes"
+DELETE FROM public."invoices"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_tasks"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_ledger_entries"
+DELETE FROM public."vehicle_sales"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_set_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -620,11 +625,7 @@ DELETE FROM public."sales_order_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."loaner_bookings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."invoices"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_orders"
-WHERE "tenant_id" = current_setting('app.target_tenant_id');
-DELETE FROM public."vehicle_sales"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_purchases"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

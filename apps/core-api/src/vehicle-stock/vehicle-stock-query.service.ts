@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   Prisma,
+  VehicleAcquisitionKind,
   VehicleInventoryRole,
   VehiclePurchaseStatus,
   VehicleStockStatus,
@@ -166,10 +167,12 @@ export function buildVehicleListWhere(
     ...(stockStatus ? { stock_status: stockStatus } : {}),
     ...searchFilter,
   };
+  // Trade-in drafts are the customer's car, not ordered stock: keep them off the ON_ORDER rows.
   const draftWhere: Prisma.VehiclePurchaseWhereInput = {
     tenant_id: tenantId,
     site_id: siteId,
     status: VehiclePurchaseStatus.DRAFT,
+    acquisition_kind: VehicleAcquisitionKind.DIRECT,
     ...searchFilter,
   };
   return { vehicleWhere, draftWhere };

@@ -4887,6 +4887,60 @@
         ]
       }
     },
+    "/api/vehicle-sales/{id}/trade-in": {
+      "put": {
+        "operationId": "VehicleSaleController_upsertTradeIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertVehicleSaleTradeInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      },
+      "delete": {
+        "operationId": "VehicleSaleController_removeTradeIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "vehicle-sales"
+        ]
+      }
+    },
     "/api/vehicle-sales/{id}/gewaehrleistung-correction": {
       "post": {
         "operationId": "VehicleSaleController_correctGewaehrleistungSnapshot",
@@ -19006,6 +19060,49 @@
             "maxLength": 2000
           }
         }
+      },
+      "UpsertVehicleSaleTradeInDto": {
+        "type": "object",
+        "properties": {
+          "allowance": {
+            "type": "number",
+            "description": "Trade-in allowance credited to the buyer for their own vehicle (EUR). Greater than zero and not above the sale price.",
+            "minimum": 0.01
+          },
+          "vin": {
+            "type": "string",
+            "description": "VIN of the trade-in vehicle (17 characters)."
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "mileage": {
+            "type": "number"
+          },
+          "first_registration_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "plate": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "allowance",
+          "vin",
+          "make",
+          "model",
+          "year"
+        ]
       },
       "CorrectGewaehrleistungSnapshotDto": {
         "type": "object",

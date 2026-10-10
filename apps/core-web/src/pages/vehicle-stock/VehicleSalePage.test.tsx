@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
@@ -9,6 +9,8 @@ const {
   createSale,
   updateSale,
   finalizeSale,
+  upsertTradeIn,
+  removeTradeIn,
   calculateNova,
   resetNova,
   downloadKaufvertrag,
@@ -17,6 +19,8 @@ const {
   createSale: vi.fn(),
   updateSale: vi.fn(),
   finalizeSale: vi.fn(),
+  upsertTradeIn: vi.fn(),
+  removeTradeIn: vi.fn(),
   calculateNova: vi.fn(),
   resetNova: vi.fn(),
   downloadKaufvertrag: vi.fn(),
@@ -81,6 +85,8 @@ describe('VehicleSalePage NoVA preview boundary', () => {
     asMock(vehicleStockApi.useCreateVehicleSale).mockReturnValue({ mutateAsync: createSale })
     asMock(vehicleStockApi.useUpdateVehicleSale).mockReturnValue({ mutateAsync: updateSale })
     asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: finalizeSale })
+    asMock(vehicleStockApi.useUpsertVehicleSaleTradeIn).mockReturnValue({ mutateAsync: upsertTradeIn })
+    asMock(vehicleStockApi.useRemoveVehicleSaleTradeIn).mockReturnValue({ mutateAsync: removeTradeIn })
   })
 
   afterEach(() => {
@@ -327,6 +333,8 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     asMock(vehicleStockApi.useCreateVehicleSale).mockReturnValue({ mutateAsync: createSale })
     asMock(vehicleStockApi.useUpdateVehicleSale).mockReturnValue({ mutateAsync: updateSale })
     asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: finalizeSale })
+    asMock(vehicleStockApi.useUpsertVehicleSaleTradeIn).mockReturnValue({ mutateAsync: upsertTradeIn })
+    asMock(vehicleStockApi.useRemoveVehicleSaleTradeIn).mockReturnValue({ mutateAsync: removeTradeIn })
     updateSale.mockResolvedValue(undefined)
   })
 
@@ -469,5 +477,241 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     renderSalePage('/vehicle-stock/sales/new?vehicleId=vehicle-1')
 
     expect(screen.getByRole('button', { name: 'Kaufvertrag PDF' })).toBeDisabled()
+  })
+})
+
+describe('VehicleSalePage trade-in', () => {
+  const savedTradeIn = {
+    id: 'purchase-1',
+    purchase_number: 'VP-2026-0002',
+    status: 'DRAFT',
+    vin: 'TRDNB000000000001',
+    make: 'Skoda',
+    model: 'Octavia',
+    year: 2016,
+    mileage: 98000,
+    first_registration_date: '2016-03-01',
+    plate: null,
+    color: null,
+    purchase_price: '5000.00',
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: { ...existingSale, trade_in_purchase: null } })
+    asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({ data: stockVehicle })
+    asMock(vehicleStockApi.useCreateVehicleSale).mockReturnValue({ mutateAsync: createSale })
+    asMock(vehicleStockApi.useUpdateVehicleSale).mockReturnValue({ mutateAsync: updateSale })
+    asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: finalizeSale })
+    asMock(vehicleStockApi.useUpsertVehicleSaleTradeIn).mockReturnValue({ mutateAsync: upsertTradeIn })
+    asMock(vehicleStockApi.useRemoveVehicleSaleTradeIn).mockReturnValue({ mutateAsync: removeTradeIn })
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+
+  function renderSalePage() {
+    return render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('autosaves a valid trade-in after the debounce window and shows the amount due', async () => {
+    upsertTradeIn.mockResolvedValue({ ...existingSale, trade_in_purchase: null })
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText('VIN'), { target: { value: 'trdnb000000000001' } })
+    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Skoda' } })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
+    fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
+    expect(screen.getByText(/Amount due after trade-in/)).toBeInTheDocument()
+    expect(screen.getByText('€7,000.00')).toBeInTheDocument()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(upsertTradeIn).toHaveBeenCalledTimes(1)
+    expect(upsertTradeIn).toHaveBeenCalledWith({
+      id: 'sale-1',
+      data: expect.objectContaining({
+        allowance: 5000,
+        vin: 'TRDNB000000000001',
+        make: 'Skoda',
+        model: 'Octavia',
+        year: 2016,
+      }),
+    })
+  })
+
+  it('does not save a trade-in whose allowance exceeds the sale price', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '13000' } })
+    fireEvent.change(screen.getByLabelText('VIN'), { target: { value: 'TRDNB000000000001' } })
+    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Skoda' } })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
+    fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
+
+    expect(screen.getByText('The allowance cannot exceed the sale price.')).toBeInTheDocument()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+  })
+
+  it('does not rewrite an unchanged saved trade-in when the sale is opened', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, trade_in_purchase: savedTradeIn, amount_due_preview: '7000.00' },
+    })
+    renderSalePage()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+  })
+
+  it('shows a saved trade-in and removes it on request', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, trade_in_purchase: savedTradeIn, amount_due_preview: '7000.00' },
+    })
+    removeTradeIn.mockResolvedValue({ ...existingSale, trade_in_purchase: null })
+    renderSalePage()
+
+    expect(screen.getByLabelText('VIN')).toHaveValue('TRDNB000000000001')
+    expect(screen.getAllByText('€7,000.00').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+    })
+
+    expect(removeTradeIn).toHaveBeenCalledWith('sale-1')
+  })
+
+  it('saves a trade-in typed inside the autosave window before the sale is invoiced', async () => {
+    upsertTradeIn.mockResolvedValue({ ...existingSale, trade_in_purchase: savedTradeIn })
+    finalizeSale.mockResolvedValue({ invoice: { id: 'invoice-1' } })
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
+    fireEvent.change(screen.getByLabelText('VIN'), { target: { value: 'TRDNB000000000001' } })
+    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Skoda' } })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Octavia' } })
+    fireEvent.change(screen.getByLabelText('Model year'), { target: { value: '2016' } })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(upsertTradeIn).toHaveBeenCalledTimes(1)
+    expect(upsertTradeIn).toHaveBeenCalledWith({
+      id: 'sale-1',
+      data: expect.objectContaining({ allowance: 5000, vin: 'TRDNB000000000001' }),
+    })
+    expect(finalizeSale).toHaveBeenCalledWith('sale-1')
+    expect(upsertTradeIn.mock.invocationCallOrder[0]).toBeLessThan(finalizeSale.mock.invocationCallOrder[0])
+  })
+
+  it('stops the invoice with the reason when the trade-in on the form is incomplete', async () => {
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Allowance (EUR)'), { target: { value: '5000' } })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+    expect(finalizeSale).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith('The VIN must have 17 characters and no I, O or Q.')
+  })
+
+  it('waits for an in-flight trade-in removal before finalizing, instead of saving the removed form', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, trade_in_purchase: savedTradeIn, amount_due_preview: '7000.00' },
+    })
+    let settleRemoval: (value: unknown) => void = () => undefined
+    removeTradeIn.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        settleRemoval = resolve
+      }),
+    )
+    finalizeSale.mockResolvedValue({ invoice: { id: 'invoice-1' } })
+    renderSalePage()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(finalizeSale).not.toHaveBeenCalled()
+
+    await act(async () => {
+      settleRemoval({ ...existingSale, trade_in_purchase: null })
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+    expect(removeTradeIn).toHaveBeenCalledWith('sale-1')
+    expect(finalizeSale).toHaveBeenCalledWith('sale-1')
+    expect(removeTradeIn.mock.invocationCallOrder[0]).toBeLessThan(finalizeSale.mock.invocationCallOrder[0])
+  })
+
+  it('stops finalize when the removal it waited for fails, so the trade-in is not invoiced unseen', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, trade_in_purchase: savedTradeIn, amount_due_preview: '7000.00' },
+    })
+    let failRemoval: (reason: unknown) => void = () => undefined
+    removeTradeIn.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => {
+        failRemoval = reject
+      }),
+    )
+    renderSalePage()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    await act(async () => {
+      failRemoval(new Error('Trade-in is locked'))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(finalizeSale).not.toHaveBeenCalled()
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith(
+      'The trade-in could not be removed and is still on this sale. Remove it again before finalizing.',
+    )
+  })
+
+  it('announces the save status and the validation message to assistive technology', () => {
+    renderSalePage()
+    const section = screen.getByRole('region', { name: 'Trade-in' })
+
+    fireEvent.change(within(section).getByLabelText('Allowance (EUR)'), { target: { value: '13000' } })
+
+    expect(within(section).getByRole('status')).toBeInTheDocument()
+    expect(within(section).getByText('The allowance cannot exceed the sale price.')).toHaveAttribute(
+      'aria-live',
+      'polite',
+    )
   })
 })

@@ -137,9 +137,11 @@ export class InvoiceSnapshotCommitService {
   async prepareV2Snapshot(
     input: Omit<CommitInvoiceSnapshotInput, 'invoiceNumber'> & {
       invoiceNumber?: string;
+      /** Trade-in allowance netted on a vehicle sale. Only the UID threshold reads it; it is not billed here. */
+      inKindCredit?: Prisma.Decimal;
     },
   ): Promise<PreparedInvoiceSnapshot> {
-    const { tx, tenantId, invoice, margin } = input;
+    const { tx, tenantId, invoice, margin, inKindCredit } = input;
     const invoiceNumber = input.invoiceNumber ?? invoice.invoice_number ?? '';
     assertSupportedTaxProfile(invoice.tax_mode);
     const commitmentContext =
@@ -161,7 +163,8 @@ export class InvoiceSnapshotCommitService {
     assertAtHighValueBusinessRecipientUid({
       seller,
       customer: invoice.customer,
-      totalGross: invoice.total_gross,
+      // A vehicle trade-in lowers the amount billed, not the consideration for the car, so the threshold counts it.
+      totalGross: invoice.total_gross.add(inKindCredit ?? 0),
     });
     const profile = await loadAccountingProfile(
       tx,

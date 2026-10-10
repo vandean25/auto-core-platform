@@ -7,6 +7,10 @@ import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import {
+  VehicleSaleTradeInSection,
+  type VehicleSaleTradeInHandle,
+} from '@/components/vehicle-stock/VehicleSaleTradeInSection'
+import {
   VEHICLE_SALES_API,
   fetchVehicleSaleKaufvertragGenerationError,
   useCreateVehicleSale,
@@ -104,6 +108,7 @@ export default function VehicleSalePage() {
   const saveTimer = useRef<number | null>(null)
   const pendingSave = useRef<Promise<void> | null>(null)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  const tradeInRef = useRef<VehicleSaleTradeInHandle>(null)
   const { download: downloadKaufvertrag, isLoading: isDownloadingKaufvertrag } = usePdfDownload({
     postUrl: () => `${VEHICLE_SALES_API}/${saleIdRef.current}/kaufvertrag/pdf`,
     getUrl: () => `${VEHICLE_SALES_API}/${saleIdRef.current}/kaufvertrag/pdf`,
@@ -281,6 +286,8 @@ export default function VehicleSalePage() {
       if (serialized !== lastSavedSerialized.current) {
         await persistSaleFacts(currentFacts, serialized)
       }
+      // A trade-in typed inside the autosave window must be saved first, or the invoice would bill the full price.
+      await tradeInRef.current?.flush()
       const result = await finalizeSale.mutateAsync(saleId)
       toast.success('Sale invoiced')
       if (result.invoice?.id) {
@@ -392,9 +399,18 @@ export default function VehicleSalePage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-1 text-sm">
-          <span className="text-slate-500">Buyer</span>
-          <CustomerSearch value={customer} onChange={handleCustomerChange} />
+        <div className="space-y-4">
+          <div className="space-y-1 text-sm">
+            <span className="text-slate-500">Buyer</span>
+            <CustomerSearch value={customer} onChange={handleCustomerChange} />
+          </div>
+          <VehicleSaleTradeInSection
+            ref={tradeInRef}
+            saleId={saleId}
+            salePrice={priceNumber}
+            purchase={existing?.trade_in_purchase ?? null}
+            editable={isDraft && !isFinalizing}
+          />
         </div>
         <div className="space-y-4">
           <label className="space-y-1 text-sm">
@@ -537,6 +553,27 @@ export default function VehicleSalePage() {
           <div className="font-medium">MARGIN_SCHEME</div>
         </div>
       </div>
+
+      {existing?.trade_in_purchase ? (
+        <div className="rounded-lg border p-4 grid gap-3 md:grid-cols-3">
+          <div>
+            <div className="text-xs text-slate-500">Trade-in vehicle</div>
+            <div className="font-medium">
+              {`${existing.trade_in_purchase.year} ${existing.trade_in_purchase.make} ${existing.trade_in_purchase.model}`}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Trade-in allowance</div>
+            <div className="font-medium">{formatCurrency(existing.trade_in_purchase.purchase_price)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">Amount due after trade-in</div>
+            <div className="font-medium">
+              {existing.amount_due_preview != null ? formatCurrency(existing.amount_due_preview) : '—'}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

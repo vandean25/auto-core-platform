@@ -1444,6 +1444,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-sales/{id}/trade-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["VehicleSaleController_upsertTradeIn"];
+        post?: never;
+        delete: operations["VehicleSaleController_removeTradeIn"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-sales/{id}/gewaehrleistung-correction": {
         parameters: {
             query?: never;
@@ -5637,6 +5653,20 @@ export interface components {
             /** @description Voluntary Garantie duration in months. Null removes the Garantie block (DRAFT only). */
             garantie_months?: number | null;
             garantie_terms?: string | null;
+        };
+        UpsertVehicleSaleTradeInDto: {
+            /** @description Trade-in allowance credited to the buyer for their own vehicle (EUR). Greater than zero and not above the sale price. */
+            allowance: number;
+            /** @description VIN of the trade-in vehicle (17 characters). */
+            vin: string;
+            make: string;
+            model: string;
+            year: number;
+            mileage?: number;
+            /** Format: date */
+            first_registration_date?: string;
+            plate?: string;
+            color?: string;
         };
         CorrectGewaehrleistungSnapshotDto: {
             reason: string;
@@ -11588,6 +11618,48 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_upsertTradeIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertVehicleSaleTradeInDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_removeTradeIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
