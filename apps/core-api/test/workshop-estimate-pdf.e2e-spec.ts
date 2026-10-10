@@ -477,6 +477,71 @@ describe('Workshop estimate PDF (e2e)', () => {
     const download = await getPdf(versionId).expect(200);
     expect((download.body as Buffer).equals(PDF_BYTES)).toBe(true);
   });
+
+  it('creates, sends, revises and sends again, then downloads the revised PDF while the first version stays readable', async () => {
+    const orderId = await createOrderWithLabor();
+    const created = await api()
+      .post(`/api/workshop/orders/${orderId}/estimates`)
+      .set(adminAuth())
+      .expect(201);
+    const firstId = created.body.versions[0].id as string;
+    await sendVersion(firstId);
+    const rendersAfterFirstSend = renderSpy.mock.calls.length;
+
+    const revised = await api()
+      .post(`/api/workshop/orders/${orderId}/estimates/revisions`)
+      .set(adminAuth())
+      .expect(201);
+    expect(revised.body).toMatchObject({ version: 2, status: 'DRAFT' });
+    const secondId = revised.body.id as string;
+
+    // A DRAFT has no PDF: the request is refused before anything is rendered.
+    await api()
+      .post(`/api/workshop/estimates/${secondId}/pdf`)
+      .set(adminAuth())
+      .expect(409)
+      .expect((res) => {
+        expect(res.body).toMatchObject({ code: 'ESTIMATE_PDF_NOT_SENT' });
+      });
+    expect(renderSpy.mock.calls.length).toBe(rendersAfterFirstSend);
+
+    await sendVersion(secondId);
+    expect(renderSpy.mock.calls.length).toBe(rendersAfterFirstSend + 1);
+
+    await api()
+      .post(`/api/workshop/estimates/${secondId}/pdf`)
+      .set(adminAuth())
+      .expect(201)
+      .expect({ message: 'PDF is ready', enqueued: false });
+    expect(renderSpy.mock.calls.length).toBe(rendersAfterFirstSend + 1);
+
+    const revisedPdf = await getPdf(secondId).expect(200);
+    expect(revisedPdf.headers['content-disposition']).toMatch(/-v2\.pdf"$/);
+    expect((revisedPdf.body as Buffer).equals(PDF_BYTES)).toBe(true);
+
+    // The superseded first version keeps its archive and stays downloadable.
+    const firstPdf = await getPdf(firstId).expect(200);
+    expect(firstPdf.headers['content-disposition']).toMatch(/-v1\.pdf"$/);
+
+    const list = await api()
+      .get(`/api/workshop/orders/${orderId}/estimates`)
+      .set(adminAuth())
+      .expect(200);
+    const versions = list.body.data[0].versions as Array<{
+      version: number;
+      status: string;
+      pdf_generated_at: string | null;
+      pdf_generation_error: string | null;
+    }>;
+    expect(versions.map((v) => [v.version, v.status])).toEqual([
+      [1, 'SUPERSEDED'],
+      [2, 'SENT'],
+    ]);
+    for (const version of versions) {
+      expect(version.pdf_generated_at).not.toBeNull();
+      expect(version.pdf_generation_error).toBeNull();
+    }
+  });
 });
 
 function restoreEnv(name: string, value: string | undefined): void {

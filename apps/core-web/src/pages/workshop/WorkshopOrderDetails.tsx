@@ -7,6 +7,8 @@ import { useCatalogProviderSettings } from "@/api/useCatalogProviderSettings";
 import { useVehicle, useResolveVehicleIdentity } from "@/api/vehicles";
 import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
+import { WorkshopEstimateCard } from "@/components/workshop/WorkshopEstimateCard";
+import { canManageWorkshopEstimates } from "@/features/workshop/workshop-estimate-permissions";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import {
   AlertDialog,
@@ -150,6 +152,9 @@ export function WorkshopOrderDetails() {
     catalogProviderSettings?.oemConcerns,
   );
   const isIdentityStale = isVehicleIdentityStale(vehicleIdentity);
+  const canManageEstimates = canManageWorkshopEstimates(
+    sessionQuery.data?.activeRole,
+  );
 
   if (isLoading) {
     return (
@@ -426,6 +431,13 @@ export function WorkshopOrderDetails() {
                 void handleAssignedTechChange(mechanicId)
               }
             />
+            {canManageEstimates && (
+              <WorkshopEstimateCard
+                orderId={order.id}
+                orderStatus={order.status}
+                isLocked={!!isLocked}
+              />
+            )}
           </motion.div>
 
           <motion.div

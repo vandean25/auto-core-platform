@@ -5671,6 +5671,8 @@ export interface components {
             legal_text_version: string | null;
             retain_until: string | null;
             legal_hold: boolean;
+            pdf_generated_at: string | null;
+            pdf_generation_error: string | null;
         };
         WorkshopEstimateOverrunWarningDto: {
             total_over_threshold: boolean;
@@ -5777,6 +5779,8 @@ export interface components {
             legal_text_version: string | null;
             retain_until: string | null;
             legal_hold: boolean;
+            pdf_generated_at: string | null;
+            pdf_generation_error: string | null;
             estimate_id: string;
             estimate_number: string;
             workshop_order_id: string;
