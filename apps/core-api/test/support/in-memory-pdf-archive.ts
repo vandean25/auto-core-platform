@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { InternalServerErrorException } from '@nestjs/common';
+import { PDF_READ_LINK_MAX_TTL_SECONDS } from '../../src/common/pdf/pdf-storage.js';
 
 export type StoredPdfObject = {
   bucket: string;
@@ -10,6 +11,15 @@ export type StoredPdfObject = {
   customMetadata: Record<string, string>;
 };
 
+export type SignedReadRecord = {
+  bucket: string;
+  key: string;
+  filename: string;
+  ttlSeconds: number;
+  url: string;
+  expiresAt: Date;
+};
+
 /**
  * Create-only object store for e2e runs. It mirrors the GCS contract the
  * services rely on: a published key is never overwritten (412), and reads
@@ -17,10 +27,39 @@ export type StoredPdfObject = {
  */
 export function createInMemoryPdfArchive(bucket = 'e2e-pdf-archive') {
   const objectsByKey = new Map<string, StoredPdfObject[]>();
+  const signedReads: SignedReadRecord[] = [];
   let nextGeneration = 1000;
 
   return {
     objectsByKey,
+    /** Every read link issued, in call order. The URL is a fake; the TTL is clamped like the real store. */
+    signedReads,
+    async createSignedReadUrl(params: {
+      bucket?: string | null;
+      key: string;
+      filename: string;
+      ttlSeconds?: number;
+    }): Promise<{ url: string; expiresAt: Date }> {
+      const bucketName = params.bucket ?? bucket;
+      const ttlSeconds = Math.min(
+        Math.max(
+          Math.floor(params.ttlSeconds ?? PDF_READ_LINK_MAX_TTL_SECONDS),
+          1,
+        ),
+        PDF_READ_LINK_MAX_TTL_SECONDS,
+      );
+      const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+      const url = `https://storage.example.test/${bucketName}/${encodeURIComponent(params.key)}?X-Goog-Expires=${ttlSeconds}&X-Goog-Signature=in-memory-test-signature`;
+      signedReads.push({
+        bucket: bucketName,
+        key: params.key,
+        filename: params.filename,
+        ttlSeconds,
+        url,
+        expiresAt,
+      });
+      return { url, expiresAt };
+    },
     async publishImmutableObject(params: {
       key: string;
       body: Buffer;

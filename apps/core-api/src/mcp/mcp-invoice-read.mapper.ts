@@ -102,7 +102,9 @@ export function mcpCustomerName(
  * snapshot, because the snapshot rounds tax per line. A draft, or a committed
  * invoice without a usable snapshot, shows its stored total.
  */
-function listGrossTotal(record: McpInvoiceListRecord): string {
+export function listGrossTotal(
+  record: Pick<McpInvoiceListRecord, 'status' | 'snapshot' | 'total_gross'>,
+): string {
   if (COMMITTED_STATUSES.has(record.status)) {
     if (isInvoiceSnapshotV2(record.snapshot)) {
       return record.snapshot.total_gross;

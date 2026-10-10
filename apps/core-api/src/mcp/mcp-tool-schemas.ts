@@ -11,6 +11,11 @@ import {
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
 import {
+  MCP_DOCUMENT_ENTITY_TYPES,
+  MCP_DOCUMENT_TYPES,
+  isMcpDocumentId,
+} from './mcp-document-read.mapper.js';
+import {
   decodeMcpCursor,
   decodeMcpKeysetCursor,
   normalizeMcpRangeEnd,
@@ -25,10 +30,6 @@ export const searchCustomersInputSchema = z.object({
   search: z.string().min(1).optional(),
   page: pageSchema,
   page_size: pageSizeSchema,
-});
-
-export const getCustomerInputSchema = z.object({
-  customer_id: uuidSchema,
 });
 
 export const searchVehiclesInputSchema = z.object({
@@ -264,6 +265,63 @@ export const getInvoiceInputSchema = z.object({
   invoice_id: uuidSchema,
 });
 
+/**
+ * AUT-459 customer and vehicle history. The order list is a keyset page with
+ * its own parameters, so it does not share the top-level pageSize and cursor.
+ */
+const orderHistoryPageFields = {
+  orders_page_size: pageSizeCamelSchema.describe(
+    'Orders per page: default 10, max 25',
+  ),
+  orders_cursor: keysetCursorSchema
+    .optional()
+    .describe('Cursor from orders.meta.next_cursor'),
+};
+
+export const getCustomerInputSchema = z.object({
+  customer_id: uuidSchema,
+  ...orderHistoryPageFields,
+});
+
+export const getVehicleHistoryInputSchema = z.object({
+  vehicle_id: uuidSchema,
+  ...orderHistoryPageFields,
+});
+
+/** AUT-459 document reads: a document ID is `<type>:<uuid>`, and list paging is the AUT-455 keyset contract. */
+const documentTypeSchema = z.enum(MCP_DOCUMENT_TYPES);
+const documentEntityTypeSchema = z.enum(MCP_DOCUMENT_ENTITY_TYPES);
+
+/** The base object is the registered MCP shape; the refined schema is what the handler parses. */
+export const listDocumentsBaseSchema = z.object({
+  entity_type: documentEntityTypeSchema
+    .optional()
+    .describe(
+      'customer or vehicle lists its documents; invoice, credit_note, workshop_order, or vehicle_sale lists the one record',
+    ),
+  entity_id: uuidSchema.optional(),
+  type: documentTypeSchema
+    .optional()
+    .describe(
+      'invoice, credit_note, workshop_order (job card), or vehicle_sale_contract (Kaufvertrag)',
+    ),
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const listDocumentsInputSchema = listDocumentsBaseSchema.refine(
+  (value) =>
+    (value.entity_type === undefined) === (value.entity_id === undefined),
+  {
+    message: 'entity_type and entity_id must be given together',
+    path: ['entity_id'],
+  },
+);
+
+export const getDocumentPdfInputSchema = z.object({
+  id: z.string().refine(isMcpDocumentId, 'id must be <type>:<uuid>'),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -289,6 +347,9 @@ export const mcpToolInputSchemas: Record<
   get_entity_history: getEntityHistoryInputSchema,
   get_agent_action: getAgentActionInputSchema,
   list_agent_actions: listAgentActionsInputSchema,
+  get_vehicle_history: getVehicleHistoryInputSchema,
+  list_documents: listDocumentsInputSchema,
+  get_document_pdf: getDocumentPdfInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);

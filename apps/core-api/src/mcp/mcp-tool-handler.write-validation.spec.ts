@@ -45,10 +45,6 @@ describe('McpToolHandlerService write input validation', () => {
       writePipeline as unknown as McpWritePipelineService,
       pendingActionExecutors as unknown as PendingActionExecutorService,
       unused,
-      unused,
-      unused,
-      unused,
-      unused,
     );
   });
 
