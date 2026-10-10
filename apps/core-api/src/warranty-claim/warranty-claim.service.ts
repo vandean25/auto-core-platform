@@ -41,7 +41,7 @@ import {
 const WARRANTY_CLAIM_ENTITY_TYPE = 'WarrantyClaim';
 const WARRANTY_CLAIM_AUDIT_SOURCE = 'API';
 
-/** Database access used by the claim writes. Both the base client and a transaction satisfy it. */
+/** Database access for reads and the audit lookup. Both the base client and a transaction satisfy it. */
 type WarrantyClaimDb = Pick<
   Prisma.TransactionClient,
   'user' | 'workshopTaskLineItem' | 'warrantyClaim' | 'warrantyClaimLine'
@@ -152,7 +152,7 @@ export class WarrantyClaimService {
       });
 
       if (dto.lineItemIds !== undefined) {
-        await this.replaceLines(
+        await this.syncClaimLines(
           tx,
           tenantId,
           orderId,
@@ -188,6 +188,8 @@ export class WarrantyClaimService {
     await this.findOrderInSite(tenantId, siteId, orderId);
 
     return this.prisma.$transaction(async (tx) => {
+      // Lock first, then read: a concurrent save of the same claim waits here and then reads its result.
+      await this.lockClaimRow(tx, tenantId, orderId, claimId);
       const current = await this.loadClaimRow(tx, tenantId, orderId, claimId);
       const before = toWarrantyClaimResponse(current);
 
@@ -222,16 +224,17 @@ export class WarrantyClaimService {
               : parseWarrantyClaimDay(dto.decisionDate)
             : current.decision_date,
       };
+      const currentLineIds = current.lines.map(
+        (line) => line.workshop_task_line_item_id,
+      );
       const requestedLineIds =
         dto.lineItemIds !== undefined
           ? [...new Set(dto.lineItemIds)]
           : undefined;
       const linesChanged =
         requestedLineIds !== undefined &&
-        !sameIds(
-          requestedLineIds,
-          current.lines.map((line) => line.workshop_task_line_item_id),
-        );
+        !sameIds(requestedLineIds, currentLineIds);
+      const effectiveLineIds = requestedLineIds ?? currentLineIds;
 
       const contentChanged =
         next.type !== current.type ||
@@ -262,22 +265,23 @@ export class WarrantyClaimService {
         });
       }
 
-      const lineCount = requestedLineIds?.length ?? current.lines.length;
       if (statusChanged) {
         assertWarrantyClaimTransition(current.status, next.status);
         if (next.status === WarrantyClaimStatus.SUBMITTED_EXTERNALLY) {
           assertWarrantyClaimSubmittable({
             complaint: next.complaint,
             claimedAmountNet: next.claimedAmountNet,
-            lineCount,
+            lineCount: effectiveLineIds.length,
           });
+          await this.assertNoCancelledLines(tx, tenantId, effectiveLineIds);
         }
       }
       assertWarrantyClaimDecisionDate(next.status, next.decisionDate);
 
       const actorUserId = await this.findAuditActorId(tx, tenantId);
 
-      // Guarded write first: it takes the claim row lock and fails if the status moved meanwhile.
+      // Guarded write: fails if the status moved after the lock was taken. Field values are the
+      // fresh values read above, so no concurrent save can be reverted by this one.
       const now = new Date();
       const result = await tx.warrantyClaim.updateMany({
         where: {
@@ -313,7 +317,7 @@ export class WarrantyClaimService {
       }
 
       if (requestedLineIds !== undefined && linesChanged) {
-        await this.replaceLines(
+        await this.syncClaimLines(
           tx,
           tenantId,
           orderId,
@@ -387,6 +391,25 @@ export class WarrantyClaimService {
     return row;
   }
 
+  /**
+   * Row-locks the claim until the transaction ends. The UPDATE also bumps updatedAt, which is
+   * harmless because a failed save rolls it back.
+   */
+  private async lockClaimRow(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    orderId: string,
+    claimId: string,
+  ): Promise<void> {
+    const locked = await tx.warrantyClaim.updateMany({
+      where: { id: claimId, tenant_id: tenantId, workshop_order_id: orderId },
+      data: { updatedAt: new Date() },
+    });
+    if (locked.count !== 1) {
+      throw new NotFoundException(`Warranty claim ${claimId} not found`);
+    }
+  }
+
   private async findAuditActorId(
     db: WarrantyClaimDb,
     tenantId: string,
@@ -400,42 +423,80 @@ export class WarrantyClaimService {
     return actor?.id;
   }
 
-  /**
-   * Replaces the lines of a DRAFT claim with a snapshot of the given order lines. Every line must
-   * belong to this order, must not be cancelled, and must not sit on another open claim.
-   */
-  private async replaceLines(
+  /** Cancelled part lines cannot be claimed or submitted. */
+  private async assertNoCancelledLines(
     db: WarrantyClaimDb,
+    tenantId: string,
+    lineItemIds: string[],
+  ): Promise<void> {
+    if (lineItemIds.length === 0) return;
+    const cancelled = await db.workshopTaskLineItem.findFirst({
+      where: {
+        id: { in: lineItemIds },
+        tenant_id: tenantId,
+        part_execution_status: WorkshopPartLineExecutionStatus.CANCELLED,
+      },
+      select: { id: true },
+    });
+    if (cancelled) {
+      throw new UnprocessableEntityException({
+        code: WARRANTY_CLAIM_ERROR_CODES.LINE_CANCELLED,
+        message:
+          'Cancelled part lines cannot be claimed. Remove them from the claim first.',
+      });
+    }
+  }
+
+  /**
+   * Brings the claim's lines in line with the requested set. Lines that stay keep their snapshot,
+   * removed lines are deleted, and added lines are validated, row-locked and snapshotted.
+   */
+  private async syncClaimLines(
+    tx: Prisma.TransactionClient,
     tenantId: string,
     orderId: string,
     claimId: string,
     lineItemIds: string[],
-  ): Promise<number> {
-    const ids = [...new Set(lineItemIds)];
-    const lineItems =
-      ids.length === 0
-        ? []
-        : await db.workshopTaskLineItem.findMany({
-            where: {
-              id: { in: ids },
-              tenant_id: tenantId,
-              workshop_task: {
-                tenant_id: tenantId,
-                workshop_order_id: orderId,
-              },
-            },
-            select: {
-              id: true,
-              type: true,
-              item_no: true,
-              description: true,
-              quantity: true,
-              unit_price: true,
-              part_execution_status: true,
-            },
-          });
+  ): Promise<void> {
+    const requested = [...new Set(lineItemIds)];
+    const existing = await tx.warrantyClaimLine.findMany({
+      where: { tenant_id: tenantId, warranty_claim_id: claimId },
+      select: { workshop_task_line_item_id: true },
+    });
+    const existingIds = existing.map((line) => line.workshop_task_line_item_id);
+    const removedIds = existingIds.filter((id) => !requested.includes(id));
+    const addedIds = requested.filter((id) => !existingIds.includes(id));
 
-    if (lineItems.length !== ids.length) {
+    if (removedIds.length > 0) {
+      await tx.warrantyClaimLine.deleteMany({
+        where: {
+          tenant_id: tenantId,
+          warranty_claim_id: claimId,
+          workshop_task_line_item_id: { in: removedIds },
+        },
+      });
+    }
+    if (addedIds.length === 0) return;
+
+    await this.lockLineItems(tx, tenantId, addedIds);
+
+    const lineItems = await tx.workshopTaskLineItem.findMany({
+      where: {
+        id: { in: addedIds },
+        tenant_id: tenantId,
+        workshop_task: { tenant_id: tenantId, workshop_order_id: orderId },
+      },
+      select: {
+        id: true,
+        type: true,
+        item_no: true,
+        description: true,
+        quantity: true,
+        unit_price: true,
+        part_execution_status: true,
+      },
+    });
+    if (lineItems.length !== addedIds.length) {
       throw new UnprocessableEntityException({
         code: WARRANTY_CLAIM_ERROR_CODES.LINE_NOT_ON_ORDER,
         message:
@@ -455,46 +516,59 @@ export class WarrantyClaimService {
       });
     }
 
-    if (ids.length > 0) {
-      const claimedElsewhere = await db.warrantyClaimLine.findFirst({
-        where: {
+    // Runs after the line lock, so it sees any claim that committed while this one waited.
+    const claimedElsewhere = await tx.warrantyClaimLine.findFirst({
+      where: {
+        tenant_id: tenantId,
+        workshop_task_line_item_id: { in: addedIds },
+        warranty_claim: {
           tenant_id: tenantId,
-          workshop_task_line_item_id: { in: ids },
-          warranty_claim: {
-            tenant_id: tenantId,
-            id: { not: claimId },
-            status: { not: WarrantyClaimStatus.CLOSED },
-          },
+          id: { not: claimId },
+          status: { not: WarrantyClaimStatus.CLOSED },
         },
-        select: { workshop_task_line_item_id: true },
+      },
+      select: { workshop_task_line_item_id: true },
+    });
+    if (claimedElsewhere) {
+      throw new ConflictException({
+        code: WARRANTY_CLAIM_ERROR_CODES.LINE_ALREADY_CLAIMED,
+        message:
+          'A line can belong to one open warranty claim at a time. Close the other claim first.',
       });
-      if (claimedElsewhere) {
-        throw new ConflictException({
-          code: WARRANTY_CLAIM_ERROR_CODES.LINE_ALREADY_CLAIMED,
-          message:
-            'A line can belong to one open warranty claim at a time. Close the other claim first.',
-        });
-      }
     }
 
-    await db.warrantyClaimLine.deleteMany({
-      where: { tenant_id: tenantId, warranty_claim_id: claimId },
+    await tx.warrantyClaimLine.createMany({
+      data: lineItems.map((line) => ({
+        tenant_id: tenantId,
+        warranty_claim_id: claimId,
+        workshop_task_line_item_id: line.id,
+        line_type: line.type,
+        item_no: line.item_no,
+        description: line.description,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+        net_amount: computeLineNetAmount(line.quantity, line.unit_price),
+      })),
     });
-    if (lineItems.length > 0) {
-      await db.warrantyClaimLine.createMany({
-        data: lineItems.map((line) => ({
-          tenant_id: tenantId,
-          warranty_claim_id: claimId,
-          workshop_task_line_item_id: line.id,
-          line_type: line.type,
-          item_no: line.item_no,
-          description: line.description,
-          quantity: line.quantity,
-          unit_price: line.unit_price,
-          net_amount: computeLineNetAmount(line.quantity, line.unit_price),
-        })),
-      });
-    }
-    return lineItems.length;
+  }
+
+  /**
+   * Row-locks the order lines being attached, in id order. Two claims saved at the same time then
+   * cannot both pass the one-open-claim check: the second waits until the first commits.
+   */
+  private async lockLineItems(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    lineItemIds: string[],
+  ): Promise<void> {
+    // eslint-disable-next-line no-restricted-syntax -- row lock on the lines being attached; the one-open-claim check that follows must see a concurrent claim's commit.
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id
+      FROM workshop_task_line_items
+      WHERE tenant_id = ${tenantId}
+        AND id IN (${Prisma.join(lineItemIds)})
+      ORDER BY id
+      FOR UPDATE
+    `;
   }
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAuth } from "@/api/client";
@@ -78,7 +78,7 @@ const tasks = [
 
 function renderEditor(
   claim: WarrantyClaim,
-  options: { lineClaimedElsewhere?: Map<string, string> } = {},
+  options: { lineClaimedElsewhere?: Map<string, string>; orderTasks?: WorkshopTask[] } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -91,18 +91,23 @@ function renderEditor(
       orderId="order-1"
       orderNumber="WO-2026-0007"
       claim={claim}
-      tasks={tasks}
+      tasks={options.orderTasks ?? tasks}
       lineClaimedElsewhere={options.lineClaimedElsewhere ?? new Map()}
     />,
     { wrapper: Wrapper },
   );
 }
 
-function jsonResponse(body: unknown): Response {
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function payloadOf(call: unknown[] | undefined): Record<string, unknown> {
+  const init = (call?.[1] ?? {}) as { body?: unknown };
+  return init.body ? JSON.parse(String(init.body)) : {};
 }
 
 beforeEach(() => {
@@ -131,6 +136,12 @@ describe("WarrantyClaimEditor", () => {
     renderEditor(claimFixture({ complaint: null, lines: [] }));
 
     expect(screen.getByRole("button", { name: "Mark submitted" })).toBeDisabled();
+  });
+
+  it("names the group of affected lines for assistive technology", () => {
+    renderEditor(claimFixture());
+
+    expect(screen.getByRole("group", { name: "Affected labor and parts" })).toBeInTheDocument();
   });
 
   it("locks the content once submitted, but keeps the OEM reference editable", () => {
@@ -168,6 +179,48 @@ describe("WarrantyClaimEditor", () => {
     expect(screen.getByRole("checkbox", { name: /Kupplung entlüften/ })).toBeEnabled();
   });
 
+  it("keeps a cancelled line that is on the claim visible, so it can be removed", () => {
+    const orderTasks = [
+      {
+        ...tasks[0],
+        lineItems: [
+          ...tasks[0].lineItems!,
+          {
+            id: "item-cancelled",
+            type: "PART",
+            itemNo: "B7654321",
+            description: "Dichtsatz",
+            qty: 1,
+            unitPrice: 30,
+            partExecutionStatus: "CANCELLED",
+          },
+        ],
+      },
+    ] as unknown as WorkshopTask[];
+    renderEditor(
+      claimFixture({
+        lines: [
+          ...claimFixture().lines,
+          {
+            id: "wcl-2",
+            workshopTaskLineItemId: "item-cancelled",
+            lineType: "PART",
+            itemNo: "B7654321",
+            description: "Dichtsatz",
+            quantity: "1.000",
+            unitPrice: "30.00",
+            netAmount: "30.00",
+          },
+        ],
+      }),
+      { orderTasks },
+    );
+
+    expect(screen.getByText(/Cancelled on the order/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Dichtsatz/ })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark submitted" })).toBeDisabled();
+  });
+
   it("autosaves only the field that changed, after the 750 ms debounce", async () => {
     renderEditor(claimFixture());
 
@@ -179,7 +232,7 @@ describe("WarrantyClaimEditor", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(String(url)).toBe("/api/workshop/orders/order-1/warranty-claims/claim-1");
     expect(init).toMatchObject({ method: "PATCH" });
-    expect(JSON.parse(String(init?.body))).toEqual({ causeCorrection: "Geberzylinder getauscht" });
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ causeCorrection: "Geberzylinder getauscht" });
   });
 
   it("does not save an amount that cannot be read", async () => {
@@ -192,5 +245,54 @@ describe("WarrantyClaimEditor", () => {
     expect(screen.getByText("Enter an amount in EUR with at most two decimals.")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 900));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("saves pending edits before it closes the claim", async () => {
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close claim" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close claim" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
+    expect(payloadOf(fetchMock.mock.calls[1])).toEqual({ status: "CLOSED" });
+  });
+
+  it("does not close the claim when the pending edits fail to save", async () => {
+    fetchMock.mockImplementation(async (_input, init) => {
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      if ("externalReference" in payload) {
+        return jsonResponse({ message: "The OEM reference could not be stored." }, 500);
+      }
+      return jsonResponse(claimFixture(payload));
+    });
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Reference at the OEM"), {
+      target: { value: "OEM-REF-9" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Close claim" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close claim" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ externalReference: "OEM-REF-9" });
+    expect(payloadOf(fetchMock.mock.calls[0])).not.toHaveProperty("status");
   });
 });

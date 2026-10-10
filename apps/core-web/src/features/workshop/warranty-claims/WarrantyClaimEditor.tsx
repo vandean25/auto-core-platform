@@ -32,6 +32,7 @@ import {
   TEXTAREA_CLASS_NAME,
   WARRANTY_CLAIM_TYPE_OPTIONS,
   availableStatusChanges,
+  buildClaimLineRows,
   buildClaimPatch,
   canSubmitClaim,
   draftFromClaim,
@@ -39,9 +40,9 @@ import {
   isWarrantyClaimContentEditable,
   isWarrantyClaimMetadataEditable,
   parseClaimedAmount,
-  selectedLinesTotal,
-  toClaimableLines,
+  selectedNetCents,
   warrantyClaimPdfFileName,
+  warrantyClaimTypeLabel,
   type WarrantyClaimDraft,
 } from "./warranty-claim-form";
 import {
@@ -75,7 +76,7 @@ export function WarrantyClaimEditor({
 }: WarrantyClaimEditorProps) {
   const updateClaim = useUpdateWarrantyClaim();
   const initialDraft = draftFromClaim(claim);
-  // Last draft the API acknowledged. Autosave sends only what differs from it.
+  // Last draft the API acknowledged. Saves send only what differs from it.
   const savedDraftRef = useRef<WarrantyClaimDraft>(initialDraft);
   const latestDraftRef = useRef<WarrantyClaimDraft>(initialDraft);
   const [draft, setDraft] = useState<WarrantyClaimDraft>(initialDraft);
@@ -83,21 +84,26 @@ export function WarrantyClaimEditor({
   const [decisionOutcome, setDecisionOutcome] = useState<WarrantyClaimDecisionOutcome | null>(null);
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
 
-  const lines = useMemo(() => toClaimableLines(tasks), [tasks]);
+  const rows = useMemo(() => buildClaimLineRows(tasks, claim.lines), [tasks, claim.lines]);
   const contentEditable = isWarrantyClaimContentEditable(claim.status);
   const metadataEditable = isWarrantyClaimMetadataEditable(claim.status);
   const amount = parseClaimedAmount(draft.claimedAmount);
-  const linesTotal = selectedLinesTotal(lines, draft.lineItemIds);
+  const selectedCents = selectedNetCents(rows, draft.lineItemIds);
+  const hasCancelledLine = rows.some(
+    (row) => row.cancelledOnOrder && draft.lineItemIds.includes(row.id),
+  );
   const statusChanges = availableStatusChanges(claim.status);
   const isBusy = busyAction !== null;
 
-  const { saveStatus, triggerAutoSave } = useDebouncedAutoSave<WarrantyClaimDraft>({
-    save: async (snapshot) => {
-      const payload = buildClaimPatch(savedDraftRef.current, snapshot);
-      if (!payload) return;
-      await updateClaim.mutateAsync({ orderId, claimId: claim.id, payload });
-      savedDraftRef.current = snapshot;
-    },
+  const persistDraft = async (snapshot: WarrantyClaimDraft) => {
+    const payload = buildClaimPatch(savedDraftRef.current, snapshot);
+    if (!payload) return;
+    await updateClaim.mutateAsync({ orderId, claimId: claim.id, payload });
+    savedDraftRef.current = snapshot;
+  };
+
+  const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave<WarrantyClaimDraft>({
+    save: persistDraft,
     shouldSave: (snapshot) => parseClaimedAmount(snapshot.claimedAmount).valid,
     onError: (error) => toast.error(getErrorMessage(error, "Failed to save the claim")),
   });
@@ -109,7 +115,25 @@ export function WarrantyClaimEditor({
     void triggerAutoSave(next);
   };
 
-  const flushPendingChanges = () => triggerAutoSave(latestDraftRef.current, { immediate: true });
+  /**
+   * Saves the pending edits now. Returns false when they did not save, and then the caller must not
+   * go on: a status change or a PDF would otherwise use a version that lacks the edits.
+   */
+  const flushPendingChanges = async (): Promise<boolean> => {
+    clearPendingSave();
+    const snapshot = latestDraftRef.current;
+    if (!parseClaimedAmount(snapshot.claimedAmount).valid) {
+      toast.error("Fix the claimed amount before continuing.");
+      return false;
+    }
+    try {
+      await persistDraft(snapshot);
+      return true;
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to save the claim"));
+      return false;
+    }
+  };
 
   const toggleLine = (lineId: string, checked: boolean) => {
     const current = latestDraftRef.current.lineItemIds.filter((id) => id !== lineId);
@@ -122,7 +146,8 @@ export function WarrantyClaimEditor({
   ): Promise<boolean> => {
     setBusyAction(status);
     try {
-      await flushPendingChanges();
+      const saved = await flushPendingChanges();
+      if (!saved) return false;
       await updateClaim.mutateAsync({ orderId, claimId: claim.id, payload: { status, ...extra } });
       toast.success(`Claim ${STATUS_CHANGE_LABELS[status]}`);
       return true;
@@ -144,7 +169,11 @@ export function WarrantyClaimEditor({
     setBusyAction("PDF");
     const toastId = toast.loading("Generating claim PDF...");
     try {
-      await flushPendingChanges();
+      const saved = await flushPendingChanges();
+      if (!saved) {
+        toast.dismiss(toastId);
+        return;
+      }
       const blob = await downloadWarrantyClaimPdf(orderId, claim.id);
       triggerBlobDownload(blob, warrantyClaimPdfFileName(claim, orderNumber));
       toast.success("Claim PDF downloaded", { id: toastId });
@@ -167,7 +196,7 @@ export function WarrantyClaimEditor({
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id="warranty-claim-heading" className="text-lg font-semibold tracking-tight">
-              {WARRANTY_CLAIM_TYPE_OPTIONS.find((option) => option.value === claim.type)?.label} claim
+              {warrantyClaimTypeLabel(claim.type)} claim
             </h2>
             <StatusBadge status={claim.status} />
           </div>
@@ -185,8 +214,14 @@ export function WarrantyClaimEditor({
           {statusChanges.includes("SUBMITTED_EXTERNALLY") && (
             <Button
               onClick={() => void changeStatus("SUBMITTED_EXTERNALLY")}
-              disabled={isBusy || !canSubmitClaim(draft)}
-              title={canSubmitClaim(draft) ? undefined : "Needs a complaint, a claimed amount above zero and at least one line"}
+              disabled={isBusy || !canSubmitClaim(draft) || hasCancelledLine}
+              title={
+                hasCancelledLine
+                  ? "Remove the cancelled line from the claim first"
+                  : canSubmitClaim(draft)
+                    ? undefined
+                    : "Needs a complaint, a claimed amount above zero and at least one line"
+              }
             >
               Mark submitted
             </Button>
@@ -275,7 +310,7 @@ export function WarrantyClaimEditor({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => updateDraft({ claimedAmount: linesTotal.toFixed(2) })}
+                onClick={() => updateDraft({ claimedAmount: (selectedCents / 100).toFixed(2) })}
                 disabled={!contentEditable || draft.lineItemIds.length === 0}
               >
                 Use lines total
@@ -288,37 +323,45 @@ export function WarrantyClaimEditor({
         </div>
 
         <div className="space-y-5">
-          <div className="space-y-1.5">
-            <Label>Affected labor and parts</Label>
-            {lines.length === 0 ? (
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium leading-none">Affected labor and parts</legend>
+            {rows.length === 0 ? (
               <p className="rounded-md border border-dashed p-4 text-sm text-slate-500">
                 No labor or part lines on this order yet. Add lines to a task first.
               </p>
             ) : (
               <ul className="max-h-72 divide-y overflow-y-auto rounded-md border">
-                {lines.map((line) => {
-                  const claimedBy = lineClaimedElsewhere.get(line.id);
-                  const checked = draft.lineItemIds.includes(line.id);
-                  const disabled = !contentEditable || (Boolean(claimedBy) && !checked);
+                {rows.map((row) => {
+                  const claimedBy = lineClaimedElsewhere.get(row.id);
+                  const checked = draft.lineItemIds.includes(row.id);
+                  const disabled =
+                    !contentEditable ||
+                    (!checked && (Boolean(claimedBy) || row.cancelledOnOrder));
                   return (
-                    <li key={line.id} className="flex items-start gap-3 px-3 py-2.5">
+                    <li key={row.id} className="flex items-start gap-3 px-3 py-2.5">
                       <Checkbox
-                        id={`warranty-line-${line.id}`}
+                        id={`warranty-line-${row.id}`}
                         className="mt-1"
                         checked={checked}
                         disabled={disabled}
-                        onCheckedChange={(value) => toggleLine(line.id, value === true)}
-                        aria-label={`Include ${line.itemNo} ${line.description}`}
+                        onCheckedChange={(value) => toggleLine(row.id, value === true)}
+                        aria-label={`Include ${row.itemNo} ${row.description}`}
                       />
-                      <label htmlFor={`warranty-line-${line.id}`} className="flex-1 space-y-0.5 text-sm">
+                      <label htmlFor={`warranty-line-${row.id}`} className="flex-1 space-y-0.5 text-sm">
                         <span className="block font-medium text-slate-900">
-                          {line.itemNo} · {line.description}
+                          {row.itemNo} · {row.description}
                         </span>
                         <span className="block text-slate-500">
-                          {line.type === "LABOR" ? "Labor" : "Part"} · {line.taskTitle} · {line.quantity} ×{" "}
-                          {formatEur(line.unitPrice)} = {formatEur(line.netAmount)}
+                          {row.type === "LABOR" ? "Labor" : "Part"}
+                          {row.taskTitle ? ` · ${row.taskTitle}` : ""} · {row.quantity} ×{" "}
+                          {formatEur(row.unitPrice)} = {formatEur(row.netCents / 100)}
                         </span>
-                        {claimedBy && (
+                        {row.cancelledOnOrder && (
+                          <span className="block text-xs text-red-700">
+                            Cancelled on the order. Uncheck to remove it from the claim.
+                          </span>
+                        )}
+                        {claimedBy && !checked && (
                           <span className="block text-xs text-amber-700">Already on {claimedBy}</span>
                         )}
                       </label>
@@ -328,9 +371,9 @@ export function WarrantyClaimEditor({
               </ul>
             )}
             <p className="text-sm text-slate-600">
-              Selected lines (net): <span className="font-medium tabular-nums">{formatEur(linesTotal)}</span>
+              Selected lines (net): <span className="font-medium tabular-nums">{formatEur(selectedCents / 100)}</span>
             </p>
-          </div>
+          </fieldset>
 
           <div className="space-y-1.5">
             <Label htmlFor="warranty-claim-reference">Reference at the OEM</Label>

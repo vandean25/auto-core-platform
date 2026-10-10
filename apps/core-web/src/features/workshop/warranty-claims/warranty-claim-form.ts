@@ -1,6 +1,7 @@
 import type {
   UpdateWarrantyClaimPayload,
   WarrantyClaim,
+  WarrantyClaimLine,
   WarrantyClaimStatus,
   WarrantyClaimType,
   WorkshopLineItemType,
@@ -25,13 +26,13 @@ export const WARRANTY_CLAIM_STATUS_FILTER_OPTIONS: ReadonlyArray<{
   { value: 'CLOSED', label: 'Closed' },
 ]
 
-const TYPE_LABELS: Record<WarrantyClaimType, string> = Object.fromEntries(
-  WARRANTY_CLAIM_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-) as Record<WarrantyClaimType, string>
-
 /** Same look as the other multi-line inputs in the workshop UI. */
 export const TEXTAREA_CLASS_NAME =
   'flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+
+const TYPE_LABELS: Record<WarrantyClaimType, string> = Object.fromEntries(
+  WARRANTY_CLAIM_TYPE_OPTIONS.map((option) => [option.value, option.label]),
+) as Record<WarrantyClaimType, string>
 
 const TYPE_FILE_SLUGS: Record<WarrantyClaimType, string> = {
   GARANTIE: 'garantie',
@@ -148,46 +149,108 @@ export function buildClaimPatch(
   return Object.keys(payload).length > 0 ? payload : null
 }
 
-export type ClaimableLine = {
+/** Euro amount to whole cents, for a value the API sent with two decimals. */
+export function toCents(value: string | number): number {
+  return Math.round(Number(value) * 100)
+}
+
+/**
+ * Net amount of one line in whole cents, rounded half up, computed in integers so that no float
+ * error creeps in. Quantity has at most 3 decimals and unit price at most 2, as on the API.
+ */
+export function lineNetCents(quantity: number, unitPrice: number): number {
+  const quantityMilli = Math.round(quantity * 1000)
+  const priceCents = Math.round(unitPrice * 100)
+  return Math.floor((quantityMilli * priceCents + 500) / 1000)
+}
+
+/**
+ * One row of the line picker. Lines already on the claim show the snapshot the API stored for them.
+ * Lines that are not on the claim show the current order values. Cancelled lines appear only when
+ * they are on the claim, so they can be removed.
+ */
+export type ClaimLineRow = {
   id: string
   type: WorkshopLineItemType
   itemNo: string
   description: string
+  taskTitle: string
   quantity: number
   unitPrice: number
-  netAmount: number
-  taskTitle: string
+  netCents: number
+  attached: boolean
+  cancelledOnOrder: boolean
 }
 
-/** Rounds to cents the same way the API does for a line. The API value is authoritative. */
-export function lineNetAmount(quantity: number, unitPrice: number): number {
-  return Math.round(quantity * unitPrice * 100) / 100
+export function buildClaimLineRows(
+  tasks: readonly WorkshopTask[] | undefined,
+  attachedLines: readonly WarrantyClaimLine[],
+): ClaimLineRow[] {
+  const attachedById = new Map(attachedLines.map((line) => [line.workshopTaskLineItemId, line]))
+  const rows: ClaimLineRow[] = []
+  const listed = new Set<string>()
+
+  for (const task of tasks ?? []) {
+    for (const item of task.lineItems ?? []) {
+      const attached = attachedById.get(item.id)
+      const cancelledOnOrder = item.partExecutionStatus === 'CANCELLED'
+      if (!attached && cancelledOnOrder) continue
+      listed.add(item.id)
+
+      if (attached) {
+        rows.push({
+          id: item.id,
+          type: attached.lineType,
+          itemNo: attached.itemNo,
+          description: attached.description,
+          taskTitle: task.title,
+          quantity: Number(attached.quantity),
+          unitPrice: Number(attached.unitPrice),
+          netCents: toCents(attached.netAmount),
+          attached: true,
+          cancelledOnOrder,
+        })
+      } else {
+        rows.push({
+          id: item.id,
+          type: item.type,
+          itemNo: item.itemNo,
+          description: item.description,
+          taskTitle: task.title,
+          quantity: item.qty,
+          unitPrice: item.unitPrice,
+          netCents: lineNetCents(item.qty, item.unitPrice),
+          attached: false,
+          cancelledOnOrder: false,
+        })
+      }
+    }
+  }
+
+  // A claim line whose order line is no longer listed stays visible, so it can still be removed.
+  for (const line of attachedLines) {
+    if (listed.has(line.workshopTaskLineItemId)) continue
+    rows.push({
+      id: line.workshopTaskLineItemId,
+      type: line.lineType,
+      itemNo: line.itemNo,
+      description: line.description,
+      taskTitle: '',
+      quantity: Number(line.quantity),
+      unitPrice: Number(line.unitPrice),
+      netCents: toCents(line.netAmount),
+      attached: true,
+      cancelledOnOrder: false,
+    })
+  }
+
+  return rows
 }
 
-/** Lines of the order that a claim can cover. Cancelled part lines are excluded. */
-export function toClaimableLines(tasks: readonly WorkshopTask[] | undefined): ClaimableLine[] {
-  return (tasks ?? []).flatMap((task) =>
-    (task.lineItems ?? [])
-      .filter((item) => item.partExecutionStatus !== 'CANCELLED')
-      .map((item) => ({
-        id: item.id,
-        type: item.type,
-        itemNo: item.itemNo,
-        description: item.description,
-        quantity: item.qty,
-        unitPrice: item.unitPrice,
-        netAmount: lineNetAmount(item.qty, item.unitPrice),
-        taskTitle: task.title,
-      })),
-  )
-}
-
-export function selectedLinesTotal(lines: readonly ClaimableLine[], selectedIds: readonly string[]): number {
+/** Sum of the selected rows in cents. This is what the API stores, so the total shown matches it. */
+export function selectedNetCents(rows: readonly ClaimLineRow[], selectedIds: readonly string[]): number {
   const selected = new Set(selectedIds)
-  const total = lines
-    .filter((line) => selected.has(line.id))
-    .reduce((sum, line) => sum + line.netAmount, 0)
-  return Math.round(total * 100) / 100
+  return rows.filter((row) => selected.has(row.id)).reduce((sum, row) => sum + row.netCents, 0)
 }
 
 /** Client-side hint for the submit button. The API applies the same rule and is authoritative. */

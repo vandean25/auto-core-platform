@@ -135,6 +135,9 @@ export const mockPrisma = {
     findMany: jest.fn(),
     updateMany: jest.fn(),
   },
+  warrantyClaimLine: {
+    findFirst: jest.fn().mockResolvedValue(null),
+  },
   laborOperation: {
     count: jest.fn(),
   },

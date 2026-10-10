@@ -568,6 +568,7 @@ describe('workshop-task.helpers', () => {
     it('hard-deletes lines that have no operational history and are unconsumed', async () => {
       const ctx = {
         tx: {
+          warrantyClaimLine: { findFirst: jest.fn().mockResolvedValue(null) },
           workshopTaskLineItem: {
             deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
             updateMany: jest.fn(),
@@ -967,9 +968,42 @@ describe('workshop-task.helpers', () => {
   });
 
   describe('executeLineDeletionsAndCancellations', () => {
+    it('refuses to hard-delete a line that a warranty claim still references', async () => {
+      const ctx = {
+        tx: {
+          warrantyClaimLine: {
+            findFirst: jest.fn().mockResolvedValue({
+              warranty_claim: { status: 'DRAFT' },
+            }),
+          },
+          workshopTaskLineItem: {
+            deleteMany: jest.fn(),
+            updateMany: jest.fn(),
+          },
+        } as any,
+        tenantId: 'ten-1',
+        siteId: 'site-1',
+        taskId: 'task-1',
+      };
+
+      await expect(
+        executeLineDeletionsAndCancellations(ctx, ['hard-1'], []),
+      ).rejects.toThrow(ConflictException);
+
+      expect(ctx.tx.warrantyClaimLine.findFirst).toHaveBeenCalledWith({
+        where: {
+          tenant_id: 'ten-1',
+          workshop_task_line_item_id: { in: ['hard-1'] },
+        },
+        select: { warranty_claim: { select: { status: true } } },
+      });
+      expect(ctx.tx.workshopTaskLineItem.deleteMany).not.toHaveBeenCalled();
+    });
+
     it('executes deleteMany and updateMany scoped to tenant and site', async () => {
       const ctx = {
         tx: {
+          warrantyClaimLine: { findFirst: jest.fn().mockResolvedValue(null) },
           workshopTaskLineItem: {
             deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
             updateMany: jest.fn().mockResolvedValue({ count: 1 }),

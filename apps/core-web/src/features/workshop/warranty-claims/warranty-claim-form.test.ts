@@ -2,19 +2,31 @@ import { describe, expect, it } from "vitest";
 import type { WarrantyClaim, WorkshopTask } from "@/api/types";
 import {
   availableStatusChanges,
+  buildClaimLineRows,
   buildClaimPatch,
   canSubmitClaim,
   draftFromClaim,
   formatEur,
   isWarrantyClaimContentEditable,
   isWarrantyClaimMetadataEditable,
-  lineNetAmount,
+  lineNetCents,
   parseClaimedAmount,
-  selectedLinesTotal,
-  toClaimableLines,
+  selectedNetCents,
+  toCents,
   warrantyClaimPdfFileName,
   type WarrantyClaimDraft,
 } from "./warranty-claim-form";
+
+const laborLine = {
+  id: "wcl-1",
+  workshopTaskLineItemId: "item-labor",
+  lineType: "LABOR" as const,
+  itemNo: "LAB-1",
+  description: "Kupplung entlüften",
+  quantity: "2.500",
+  unitPrice: "100.00",
+  netAmount: "250.00",
+};
 
 function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
   return {
@@ -25,7 +37,7 @@ function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
     complaint: "Kupplung rutscht",
     causeCorrection: null,
     claimedAmountNet: "1250.00",
-    linesNetAmount: "1250.00",
+    linesNetAmount: "250.00",
     externalReference: null,
     decisionDate: null,
     decisionNote: null,
@@ -33,18 +45,7 @@ function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
     closedAt: null,
     createdAt: "2026-10-09T10:00:00.000Z",
     updatedAt: "2026-10-10T08:00:00.000Z",
-    lines: [
-      {
-        id: "wcl-1",
-        workshopTaskLineItemId: "item-labor",
-        lineType: "LABOR",
-        itemNo: "LAB-1",
-        description: "Kupplung entlüften",
-        quantity: "2.500",
-        unitPrice: "100.00",
-        netAmount: "250.00",
-      },
-    ],
+    lines: [laborLine],
     ...overrides,
   };
 }
@@ -175,22 +176,57 @@ describe("warranty claim form helpers", () => {
     });
   });
 
-  describe("lines", () => {
-    it("lists the order lines a claim can cover and leaves out cancelled parts", () => {
-      const lines = toClaimableLines(tasksFixture());
-      expect(lines.map((line) => line.id)).toEqual(["item-labor", "item-part"]);
-      expect(lines[0]).toMatchObject({ netAmount: 250, quantity: 2.5, taskTitle: "Kupplung" });
+  describe("line amounts", () => {
+    it("rounds a line to whole cents half up, without float error", () => {
+      expect(lineNetCents(1.5, 9.99)).toBe(1499)
+      expect(lineNetCents(1.005, 1)).toBe(101)
+      expect(lineNetCents(1.333, 10)).toBe(1333)
+      expect(lineNetCents(2.5, 100)).toBe(25000)
     });
 
-    it("sums only the selected lines", () => {
-      const lines = toClaimableLines(tasksFixture());
-      expect(selectedLinesTotal(lines, ["item-labor", "item-part"])).toBe(1250);
-      expect(selectedLinesTotal(lines, [])).toBe(0);
+    it("reads API amounts into cents", () => {
+      expect(toCents("250.00")).toBe(25000)
+      expect(toCents("0.10")).toBe(10)
     });
 
-    it("rounds a line net amount to cents", () => {
-      expect(lineNetAmount(1.5, 9.99)).toBe(14.99);
-      expect(lineNetAmount(1.333, 10)).toBe(13.33);
+    it("shows the snapshot for lines already on the claim and the live order values for the rest", () => {
+      const claim = claimFixture({
+        lines: [{ ...laborLine, unitPrice: "90.00", netAmount: "225.00" }],
+      })
+      const rows = buildClaimLineRows(tasksFixture(), claim.lines)
+
+      const labor = rows.find((row) => row.id === "item-labor")
+      expect(labor).toMatchObject({ attached: true, netCents: 22500, unitPrice: 90 })
+      const part = rows.find((row) => row.id === "item-part")
+      expect(part).toMatchObject({ attached: false, netCents: 100000, cancelledOnOrder: false })
+    });
+
+    it("leaves a cancelled line out unless it is on the claim, and flags it when it is", () => {
+      const notAttached = buildClaimLineRows(tasksFixture(), [laborLine])
+      expect(notAttached.map((row) => row.id)).toEqual(["item-labor", "item-part"])
+
+      const attached = buildClaimLineRows(tasksFixture(), [
+        laborLine,
+        { ...laborLine, id: "wcl-2", workshopTaskLineItemId: "item-cancelled", lineType: "PART", itemNo: "B7654321", description: "Dichtsatz", netAmount: "30.00" },
+      ])
+      expect(attached.find((row) => row.id === "item-cancelled")).toMatchObject({
+        attached: true,
+        cancelledOnOrder: true,
+        netCents: 3000,
+      })
+    });
+
+    it("keeps a claim line whose order line is no longer listed, so it can still be removed", () => {
+      const rows = buildClaimLineRows([], [laborLine]);
+      expect(rows).toEqual([
+        expect.objectContaining({ id: "item-labor", attached: true, taskTitle: "", netCents: 25000 }),
+      ]);
+    });
+
+    it("totals the selected rows in cents", () => {
+      const rows = buildClaimLineRows(tasksFixture(), [laborLine]);
+      expect(selectedNetCents(rows, ["item-labor", "item-part"])).toBe(125000);
+      expect(selectedNetCents(rows, [])).toBe(0);
     });
   });
 

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -35,6 +36,23 @@ function uniqueSuffix(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
+/** Plain text of every page, read the same way the invoice render fixtures read theirs. */
+async function readPdfText(pdfBytes: Buffer): Promise<string> {
+  const loadingTask = getDocument({ data: new Uint8Array(pdfBytes) });
+  const document = await loadingTask.promise;
+  const pages = await Promise.all(
+    Array.from({ length: document.numPages }, async (_, index) => {
+      const page = await document.getPage(index + 1);
+      const content = await page.getTextContent();
+      return content.items
+        .flatMap((item) => ('str' in item ? [item.str] : []))
+        .join(' ');
+    }),
+  );
+  await loadingTask.destroy();
+  return pages.join(' ');
+}
+
 describe('Warranty claims (AUT-464, e2e)', () => {
   let app: INestApplication;
   let basePrisma: PrismaService;
@@ -44,6 +62,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
   let siteId: string;
   let adminUserId: string;
   let adminToken: string;
+  const extraTenantIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -73,6 +92,9 @@ describe('Warranty claims (AUT-464, e2e)', () => {
 
   afterEach(async () => {
     await cleanupTestTenantGraph(basePrisma, tenant.tenantId).catch(() => undefined);
+    for (const tenantId of extraTenantIds.splice(0)) {
+      await cleanupTestTenantGraph(basePrisma, tenantId).catch(() => undefined);
+    }
   });
 
   afterAll(async () => {
@@ -150,7 +172,54 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     };
   }
 
-  async function createMemberToken(role: 'SALES' | 'TECH'): Promise<string> {
+  /** A part line of an order that belongs to a different tenant. */
+  async function seedForeignPartLine(): Promise<string> {
+    const foreign = await createTestTenant(basePrisma, 'warranty-foreign');
+    extraTenantIds.push(foreign.tenantId);
+    const foreignPrisma = createTenantAwarePrisma(basePrisma, foreign.tenantId);
+    const foreignSiteId = await resolveTestMainSiteId(basePrisma, foreign.tenantId);
+    const customer = await foreignPrisma.customer.create({
+      data: { first_name: 'Demo', last_name: 'Fremd', type: 'PRIVATE' },
+    });
+    const vehicle = await foreignPrisma.vehicle.create({
+      data: {
+        customer_id: customer.id,
+        make: 'Demo',
+        model: 'Roadster',
+        year: 2021,
+        vin: `DEMO${randomUUID().replace(/-/g, '').slice(0, 13)}`.toUpperCase(),
+        plate: 'W-FREMD-1',
+      },
+    });
+    const order = await foreignPrisma.workshopOrder.create({
+      data: {
+        site_id: foreignSiteId,
+        customer_id: customer.id,
+        vehicle_id: vehicle.id,
+        order_number: `WO-FREMD-${uniqueSuffix()}`,
+        status: 'INTAKE',
+        odometer: 1000,
+        fuel_level: 50,
+      },
+    });
+    const task = await foreignPrisma.workshopTask.create({
+      data: { workshop_order_id: order.id, title: 'Fremde Aufgabe' },
+    });
+    const line = await foreignPrisma.workshopTaskLineItem.create({
+      data: {
+        workshop_task_id: task.id,
+        type: 'PART',
+        item_no: 'FREMD-1',
+        description: 'Fremdteil',
+        quantity: 1,
+        unit_price: 10,
+        part_execution_status: 'PENDING_PICK',
+      },
+    });
+    return line.id;
+  }
+
+  async function createMemberToken(role: 'OWNER' | 'SALES' | 'TECH'): Promise<string> {
     const uid = `warranty-${role.toLowerCase()}-${uniqueSuffix()}`;
     const email = `${uid}@test.local`;
     const user = await basePrisma.user.create({ data: { firebaseUid: uid, email } });
@@ -555,6 +624,177 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     });
   });
 
+  describe('line sync, concurrency and task deletion', () => {
+    it('keeps the snapshot of a line that stays on the claim when the line set changes', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, { lineItemIds: [fixture.partLineId] });
+      await prisma.workshopTaskLineItem.updateMany({
+        where: { id: fixture.partLineId },
+        data: { unit_price: 1200 },
+      });
+
+      const response = await patchClaim(fixture.orderId, claimId, {
+        lineItemIds: [fixture.partLineId, fixture.laborLineId],
+      });
+
+      const lines = response.body.lines as Array<Record<string, string>>;
+      expect(lines.find((line) => line.workshopTaskLineItemId === fixture.partLineId)).toMatchObject({
+        unitPrice: '1000.00',
+        netAmount: '1000.00',
+      });
+      expect(lines.find((line) => line.workshopTaskLineItemId === fixture.laborLineId)).toMatchObject({
+        netAmount: '250.00',
+      });
+    });
+
+    it('audits a change of the line set as a diff of the lines', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+
+      await patchClaim(fixture.orderId, claimId, { lineItemIds: [fixture.partLineId] });
+
+      const entries = await auditEntries(claimId);
+      expect(entries.map((entry) => entry.action)).toEqual(['CREATE', 'UPDATE']);
+      expect(entries[1].diff).toHaveProperty('lines');
+    });
+
+    it('locks the line set once the claim is submitted', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+      await patchClaim(fixture.orderId, claimId, { status: 'SUBMITTED_EXTERNALLY' });
+
+      const response = await patchClaim(
+        fixture.orderId,
+        claimId,
+        { lineItemIds: [fixture.partLineId] },
+        409,
+      );
+      expect(response.body.code).toBe('WARRANTY_CLAIM_LOCKED');
+    });
+
+    it('keeps a cancelled line that stays on the claim, but will not submit with it', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, { lineItemIds: [fixture.partLineId] });
+      await prisma.workshopTaskLineItem.updateMany({
+        where: { id: fixture.partLineId },
+        data: { part_execution_status: 'CANCELLED' },
+      });
+
+      // Only added lines are checked, so the cancelled line does not block this save.
+      await patchClaim(fixture.orderId, claimId, {
+        complaint: 'Kupplung rutscht',
+        claimedAmountNet: 1000,
+        lineItemIds: [fixture.partLineId, fixture.laborLineId],
+      });
+
+      const response = await patchClaim(
+        fixture.orderId,
+        claimId,
+        { status: 'SUBMITTED_EXTERNALLY' },
+        422,
+      );
+      expect(response.body.code).toBe('WARRANTY_CLAIM_LINE_CANCELLED');
+    });
+
+    it('refuses a line from another tenant', async () => {
+      const fixture = await seedOrder();
+      const foreignLineId = await seedForeignPartLine();
+
+      const response = await request(app.getHttpServer())
+        .post(claimsPath(fixture.orderId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ type: 'KULANZ', lineItemIds: [foreignLineId] })
+        .expect(422);
+      expect(response.body.code).toBe('WARRANTY_CLAIM_LINE_NOT_ON_ORDER');
+    });
+
+    it('lets only one of two claims take a line when both are saved at the same time', async () => {
+      const fixture = await seedOrder();
+      const firstId = await createClaim(fixture.orderId);
+      const secondId = await createClaim(fixture.orderId, { type: 'GARANTIE' });
+
+      const outcomes = await Promise.all([
+        request(app.getHttpServer())
+          .patch(claimsPath(fixture.orderId, firstId))
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ lineItemIds: [fixture.partLineId] }),
+        request(app.getHttpServer())
+          .patch(claimsPath(fixture.orderId, secondId))
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ lineItemIds: [fixture.partLineId] }),
+      ]);
+
+      expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([200, 409]);
+      const refused = outcomes.find((outcome) => outcome.status === 409);
+      expect(refused?.body.code).toBe('WARRANTY_CLAIM_LINE_ALREADY_CLAIMED');
+    });
+
+    it('keeps both fields when two saves of one claim run at the same time', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId);
+
+      await Promise.all([
+        patchClaim(fixture.orderId, claimId, { complaint: 'Nachricht A' }),
+        patchClaim(fixture.orderId, claimId, { causeCorrection: 'Ursache B' }),
+      ]);
+
+      const stored = await request(app.getHttpServer())
+        .get(claimsPath(fixture.orderId, claimId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(stored.body).toMatchObject({
+        complaint: 'Nachricht A',
+        causeCorrection: 'Ursache B',
+      });
+    });
+
+    it('refuses to delete a task whose line is on a claim', async () => {
+      const fixture = await seedOrder();
+      await createClaim(fixture.orderId, { lineItemIds: [fixture.partLineId] });
+      const line = await prisma.workshopTaskLineItem.findFirstOrThrow({
+        where: { id: fixture.partLineId },
+        select: { workshop_task_id: true },
+      });
+
+      const response = await request(app.getHttpServer())
+        .delete(`/api/workshop/orders/${fixture.orderId}/tasks/${line.workshop_task_id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(409);
+      expect(response.body.code).toBe('WARRANTY_CLAIM_LINE_REFERENCED');
+    });
+  });
+
+  describe('roles for changes', () => {
+    it('lets an owner file and edit a claim', async () => {
+      const fixture = await seedOrder();
+      const ownerToken = await createMemberToken('OWNER');
+
+      const created = await request(app.getHttpServer())
+        .post(claimsPath(fixture.orderId))
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ type: 'GARANTIE' })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(claimsPath(fixture.orderId, created.body.id as string))
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ complaint: 'Eingetragen vom Inhaber' })
+        .expect(200);
+    });
+
+    it('refuses a mechanic (TECH) to change a claim', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId);
+      const mechanicToken = await createMemberToken('TECH');
+
+      await request(app.getHttpServer())
+        .patch(claimsPath(fixture.orderId, claimId))
+        .set('Authorization', `Bearer ${mechanicToken}`)
+        .send({ complaint: 'nicht erlaubt' })
+        .expect(403);
+    });
+  });
+
   describe('printable summary', () => {
     it('renders a branded PDF summary of the claim', async () => {
       const fixture = await seedOrder();
@@ -574,6 +814,34 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       expect(download.headers['content-type']).toContain('application/pdf');
       expect(download.headers['content-disposition']).toMatch(/^attachment; filename="kulanz-wo-aut464-.*\.pdf"$/);
       expect((download.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    });
+
+    it('prints the order, the claim type, the affected lines and the EUR amounts', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, completeClaimBody(fixture));
+      const order = await prisma.workshopOrder.findFirstOrThrow({
+        where: { id: fixture.orderId },
+        select: { order_number: true },
+      });
+
+      const download = await request(app.getHttpServer())
+        .get(`${claimsPath(fixture.orderId, claimId)}/pdf`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .buffer(true)
+        .parse((response, callback) => {
+          const chunks: Buffer[] = [];
+          response.on('data', (chunk: Buffer) => chunks.push(chunk));
+          response.on('end', () => callback(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+
+      const text = await readPdfText(download.body as Buffer);
+      expect(text).toContain('Kulanzantrag');
+      expect(text).toContain(order.order_number);
+      expect(text).toContain('LAB-KUPPLUNG');
+      expect(text).toContain('A1234567');
+      expect(text).toContain('250,00');
+      expect(text).toContain('1.250,00');
     });
 
     it('does not hand the PDF to mechanics', async () => {
