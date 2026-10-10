@@ -141,7 +141,11 @@ export function WarrantyClaimEditor({
   useEffect(() => {
     saveOnUnmount.current = () => {
       const snapshot = latestDraftRef.current;
-      if (!parseClaimedAmount(snapshot.claimedAmount).valid) return;
+      // The save leaves an amount that cannot be read out, so the other edits still go through. The
+      // advisor is told, because this editor is gone and cannot show the field error any more.
+      if (!parseClaimedAmount(snapshot.claimedAmount).valid) {
+        toast.error("The claimed amount could not be read, so it was not saved.");
+      }
       persistDraft(snapshot).catch((error: unknown) => {
         toast.error(getErrorMessage(error, "Failed to save the claim"));
       });
@@ -432,7 +436,8 @@ export function WarrantyClaimEditor({
         initialDecisionNote={draft.decisionNote}
         isSubmitting={busyAction === decisionOutcome}
         onOpenChange={(open) => {
-          if (!open) setDecisionOutcome(null);
+          // Escape and a click outside must not close the dialog while its decision is being saved.
+          if (!open && busyAction !== decisionOutcome) setDecisionOutcome(null);
         }}
         onConfirm={(values) => void handleDecision(values)}
       />

@@ -264,6 +264,14 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     });
   }
 
+  async function updatedAtOf(claimId: string): Promise<Date | undefined> {
+    const row = await prisma.warrantyClaim.findFirst({
+      where: { id: claimId, tenant_id: tenant.tenantId },
+      select: { updatedAt: true },
+    });
+    return row?.updatedAt;
+  }
+
   function completeClaimBody(fixture: OrderFixture) {
     return {
       complaint: 'Kupplung rutscht bei Kaltstart',
@@ -398,6 +406,23 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       });
       expect(after?.updatedAt).toEqual(before?.updatedAt);
       expect((await auditEntries(claimId)).map((entry) => entry.action)).toEqual(['CREATE']);
+    });
+
+    it('leaves updatedAt alone when the same lines in another order and the same reference are sent', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, {
+        lineItemIds: [fixture.laborLineId, fixture.partLineId],
+      });
+      await patchClaim(fixture.orderId, claimId, { externalReference: 'OEM-1' });
+      const before = await updatedAtOf(claimId);
+
+      await patchClaim(fixture.orderId, claimId, {
+        lineItemIds: [fixture.partLineId, fixture.laborLineId],
+        externalReference: 'OEM-1',
+      });
+
+      expect(await updatedAtOf(claimId)).toEqual(before);
+      expect((await auditEntries(claimId)).map((entry) => entry.action)).toEqual(['CREATE', 'UPDATE']);
     });
 
     it('will not submit a claim that is missing its complaint, amount or lines', async () => {
@@ -540,6 +565,26 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const replaced = await patchClaim(fixture.orderId, claimId, { lineItemIds: [fixture.partLineId] });
       expect(replaced.body.lines).toHaveLength(1);
       expect(replaced.body.linesNetAmount).toBe('1000.00');
+    });
+
+    it('refuses a null line set, which would otherwise clear every line of a DRAFT claim', async () => {
+      const fixture = await seedOrder();
+      const claimId = await createClaim(fixture.orderId, {
+        lineItemIds: [fixture.laborLineId, fixture.partLineId],
+      });
+
+      await patchClaim(fixture.orderId, claimId, { lineItemIds: null }, 400);
+      await request(app.getHttpServer())
+        .post(claimsPath(fixture.orderId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ type: 'KULANZ', lineItemIds: null })
+        .expect(400);
+
+      const kept = await request(app.getHttpServer())
+        .get(claimsPath(fixture.orderId, claimId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(kept.body.lines).toHaveLength(2);
     });
   });
 

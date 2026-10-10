@@ -12,6 +12,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import {
   WarrantyClaimStatus,
@@ -80,7 +81,8 @@ export class CreateWarrantyClaimDto {
     description:
       'Labor and part lines of this workshop order that the claim covers.',
   })
-  @IsOptional()
+  // Not @IsOptional(): that would let null through, and null would clear every line.
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
   @IsArray()
   @ArrayMaxSize(WARRANTY_CLAIM_MAX_LINES)
   @IsUUID('all', { each: true })
@@ -135,7 +137,8 @@ export class UpdateWarrantyClaimDto {
     description:
       'Labor and part lines of this workshop order that the claim covers. Replaces the current set.',
   })
-  @IsOptional()
+  // Not @IsOptional(): that would let null through, and null would clear every line.
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
   @IsArray()
   @ArrayMaxSize(WARRANTY_CLAIM_MAX_LINES)
   @IsUUID('all', { each: true })

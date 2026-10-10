@@ -419,4 +419,63 @@ describe("WarrantyClaimEditor", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0][0])).not.toMatch(/\/pdf$/);
   });
+
+  it("keeps the decision dialog open, with the advisor's entries, while the decision is being saved", async () => {
+    const pendingStatus: { answer?: (response: Response) => void } = {};
+    fetchMock.mockImplementation(async (_input, init) => {
+      const payload = init?.body ? JSON.parse(String(init.body)) : {};
+      if ("status" in payload) {
+        return new Promise<Response>((resolve) => {
+          pendingStatus.answer = resolve;
+        });
+      }
+      return jsonResponse(claimFixture(payload));
+    });
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.change(screen.getByLabelText("Decision note"), { target: { value: "80% goodwill share" } });
+    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Mark approved" }));
+    await waitFor(() => expect(pendingStatus.answer).toBeDefined());
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    pendingStatus.answer?.(jsonResponse({ message: "The claim changed." }, 409));
+    const settled = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(within(settled).getByRole("button", { name: "Mark approved" })).toBeEnabled(),
+    );
+    expect(within(settled).getByLabelText("Decision note")).toHaveValue("80% goodwill share");
+  });
+
+  it("saves the other edits when the claimed amount cannot be read and the editor unmounts", async () => {
+    const { unmount } = renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), {
+      target: { value: "Kupplung rutscht bei Kaltstart" },
+    });
+    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+      target: { value: "12,345" },
+    });
+    unmount();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht bei Kaltstart" });
+  });
+
+  it("does not save on unmount when nothing is pending", async () => {
+    const { unmount } = renderEditor(claimFixture());
+
+    unmount();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
