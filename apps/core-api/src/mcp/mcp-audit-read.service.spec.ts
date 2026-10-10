@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { AgentActionLogAuthorization } from '../agent-action-log/agent-action-log.authorization.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
@@ -38,13 +37,9 @@ function build(options: { role?: string; tenantId?: string } = {}): Built {
       role: options.role ?? 'OWNER',
     }),
   };
-  const authorization = new AgentActionLogAuthorization(
-    tenantContext as unknown as TenantContextService,
-  );
   const service = new McpAuditReadService(
     prisma as unknown as PrismaService,
     tenantContext as unknown as TenantContextService,
-    authorization,
   );
   return { service, prisma, tenantContext };
 }
@@ -68,7 +63,59 @@ function auditRow(index: number, occurredAt: string) {
   };
 }
 
+function agentLogRow() {
+  return {
+    id: ROW_ID,
+    trace_id: TRACE_ID,
+    created_at: new Date('2026-10-10T08:00:00.000Z'),
+    input_summary_json: null,
+    result_summary_json: null,
+    agent_id: 'mcp:cursor',
+    on_behalf_of_user_id: USER_ID,
+    action_type: 'workshop_order.create',
+    tier: 'AUTO',
+    status: 'EXECUTED',
+    entity_type: null,
+    entity_id: null,
+  };
+}
+
 describe('McpAuditReadService', () => {
+  describe('supervisor gate', () => {
+    it.each([
+      ['list_audit_events', (service: McpAuditReadService) => service.listAuditEvents({})],
+      [
+        'get_entity_history',
+        (service: McpAuditReadService) =>
+          service.getEntityHistory({ entity_type: 'Customer', entity_id: 'cust-1' }),
+      ],
+      [
+        'get_agent_action',
+        (service: McpAuditReadService) => service.getAgentAction({ trace_id: TRACE_ID }),
+      ],
+      ['list_agent_actions', (service: McpAuditReadService) => service.listAgentActions({})],
+    ])(
+      'refuses SALES and TECH callers in %s before any query runs',
+      async (_tool, call) => {
+        for (const role of ['SALES', 'TECH']) {
+          const { service, prisma } = build({ role });
+
+          await expect(call(service)).rejects.toBeInstanceOf(ForbiddenException);
+          expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
+          expect(prisma.agentActionLog.findMany).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it.each(['OWNER', 'ADMIN'])('allows %s callers', async (role) => {
+      const { service } = build({ role });
+
+      await expect(service.listAuditEvents({})).resolves.toMatchObject({
+        data: [],
+      });
+    });
+  });
+
   describe('listAuditEvents', () => {
     it('scopes every query to the session tenant and maps each filter', async () => {
       const { service, prisma } = build();
@@ -99,6 +146,16 @@ describe('McpAuditReadService', () => {
       });
       expect(args.take).toBe(6);
       expect(args.orderBy).toEqual([{ occurred_at: 'desc' }, { id: 'desc' }]);
+    });
+
+    it('lowercases a trace filter so it matches rows correlated under the lowercase trace', async () => {
+      const { service, prisma } = build();
+
+      await service.listAuditEvents({ trace_id: TRACE_ID.toUpperCase() });
+
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where.request_id).toBe(
+        TRACE_ID,
+      );
     });
 
     it('defaults to 10 rows per page and fetches one extra row to detect more pages', async () => {
@@ -162,26 +219,6 @@ describe('McpAuditReadService', () => {
         TENANT_A,
       );
     });
-
-    it.each(['SALES', 'TECH'])(
-      'refuses %s callers before any query runs',
-      async (role) => {
-        const { service, prisma } = build({ role });
-
-        await expect(service.listAuditEvents({})).rejects.toBeInstanceOf(
-          ForbiddenException,
-        );
-        expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
-      },
-    );
-
-    it.each(['OWNER', 'ADMIN'])('allows %s callers', async (role) => {
-      const { service } = build({ role });
-
-      await expect(service.listAuditEvents({})).resolves.toMatchObject({
-        data: [],
-      });
-    });
   });
 
   describe('getEntityHistory', () => {
@@ -204,6 +241,26 @@ describe('McpAuditReadService', () => {
         take: 11,
       });
     });
+
+    it('applies a keyset cursor as a strictly older position', async () => {
+      const { service, prisma } = build();
+      const at = '2026-10-10T08:00:00.000Z';
+
+      await service.getEntityHistory({
+        entity_type: 'Customer',
+        entity_id: 'cust-1',
+        cursor: encodeMcpKeysetCursor({ at, id: ROW_ID }),
+      });
+
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where.AND).toEqual([
+        {
+          OR: [
+            { occurred_at: { lt: new Date(at) } },
+            { occurred_at: new Date(at), id: { lt: ROW_ID } },
+          ],
+        },
+      ]);
+    });
   });
 
   describe('getAgentAction', () => {
@@ -221,22 +278,7 @@ describe('McpAuditReadService', () => {
 
     it('correlates audit entries on the trace within the session tenant and limits them to 25', async () => {
       const { service, prisma } = build();
-      prisma.agentActionLog.findMany.mockResolvedValue([
-        {
-          id: ROW_ID,
-          trace_id: TRACE_ID,
-          created_at: new Date('2026-10-10T08:00:00.000Z'),
-          input_summary_json: null,
-          result_summary_json: null,
-          agent_id: 'mcp:cursor',
-          on_behalf_of_user_id: USER_ID,
-          action_type: 'workshop_order.create',
-          tier: 'AUTO',
-          status: 'EXECUTED',
-          entity_type: null,
-          entity_id: null,
-        },
-      ]);
+      prisma.agentActionLog.findMany.mockResolvedValue([agentLogRow()]);
       prisma.auditLog.findMany.mockResolvedValue(
         Array.from({ length: 26 }, (_, index) =>
           auditRow(index + 1, '2026-10-10T08:00:00.000Z'),
@@ -253,18 +295,45 @@ describe('McpAuditReadService', () => {
         trace_id: TRACE_ID,
         audit_truncated: true,
       });
-      expect((page as { audit_entries: unknown[] }).audit_entries).toHaveLength(
-        25,
-      );
+      expect(page.audit_entries).toHaveLength(25);
     });
 
-    it('refuses callers outside OWNER and ADMIN', async () => {
-      const { service, prisma } = build({ role: 'SALES' });
+    it('reads the trace in lowercase form whatever case the caller used', async () => {
+      const { service, prisma } = build();
+      prisma.agentActionLog.findMany.mockResolvedValue([agentLogRow()]);
 
-      await expect(
-        service.getAgentAction({ trace_id: TRACE_ID }),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(prisma.agentActionLog.findMany).not.toHaveBeenCalled();
+      const page = await service.getAgentAction({
+        trace_id: TRACE_ID.toUpperCase(),
+      });
+
+      expect(prisma.agentActionLog.findMany.mock.calls[0][0].where).toEqual({
+        tenant_id: TENANT_A,
+        trace_id: TRACE_ID,
+      });
+      expect(prisma.auditLog.findMany.mock.calls[0][0].where).toEqual({
+        tenant_id: TENANT_A,
+        request_id: TRACE_ID,
+      });
+      expect(page).toMatchObject({ trace_id: TRACE_ID });
+    });
+
+    it('applies a keyset cursor as a strictly newer position for the trace log rows', async () => {
+      const { service, prisma } = build();
+      const at = '2026-10-10T08:00:00.000Z';
+
+      await service.getAgentAction({
+        trace_id: TRACE_ID,
+        cursor: encodeMcpKeysetCursor({ at, id: ROW_ID }),
+      });
+
+      expect(prisma.agentActionLog.findMany.mock.calls[0][0].where.AND).toEqual([
+        {
+          OR: [
+            { created_at: { gt: new Date(at) } },
+            { created_at: new Date(at), id: { gt: ROW_ID } },
+          ],
+        },
+      ]);
     });
   });
 
@@ -298,12 +367,22 @@ describe('McpAuditReadService', () => {
       expect(args.orderBy).toEqual([{ created_at: 'desc' }, { id: 'desc' }]);
     });
 
-    it('refuses callers outside OWNER and ADMIN', async () => {
-      const { service } = build({ role: 'TECH' });
+    it('applies a keyset cursor as a strictly older position', async () => {
+      const { service, prisma } = build();
+      const at = '2026-10-10T08:00:00.000Z';
 
-      await expect(service.listAgentActions({})).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await service.listAgentActions({
+        cursor: encodeMcpKeysetCursor({ at, id: ROW_ID }),
+      });
+
+      expect(prisma.agentActionLog.findMany.mock.calls[0][0].where.AND).toEqual([
+        {
+          OR: [
+            { created_at: { lt: new Date(at) } },
+            { created_at: new Date(at), id: { lt: ROW_ID } },
+          ],
+        },
+      ]);
     });
   });
 });

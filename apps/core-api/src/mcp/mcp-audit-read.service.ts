@@ -1,16 +1,17 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { z } from 'zod';
-import { AgentActionLogAuthorization } from '../agent-action-log/agent-action-log.authorization.js';
 import { buildAgentActionWhere } from '../agent-action-log/agent-action-log-query.builder.js';
 import { AuditQueryBuilder } from '../audit/audit-query.builder.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MCP_DEFAULT_PAGE_SIZE, MCP_MAX_PAGE_SIZE } from './mcp.constants.js';
+import { isMcpSupervisorRole } from './mcp.authorization.js';
 import {
   decodeMcpKeysetCursor,
   normalizeMcpRangeEnd,
@@ -94,19 +95,18 @@ function agentActionOlderThan(
 
 /**
  * Read-only audit and agent action tools. Every query is scoped by the tenant
- * from the session and is limited to OWNER and ADMIN, the same rule the REST
- * agent action log applies.
+ * from the session. The reads show other users' activity, so they are limited
+ * to the roles in MCP_SUPERVISOR_ROLES (OWNER and ADMIN).
  */
 @Injectable()
 export class McpAuditReadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
-    private readonly authorization: AgentActionLogAuthorization,
   ) {}
 
   async listAuditEvents(input: ListAuditEventsInput) {
-    this.authorization.assertSupervisorOrAdmin();
+    this.assertSupervisor();
     const tenantId = await this.tenantContext.getTenantId();
     const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
 
@@ -119,7 +119,7 @@ export class McpAuditReadService {
       endDate: input.to ? normalizeMcpRangeEnd(input.to) : undefined,
     });
     if (input.trace_id) {
-      where.request_id = input.trace_id;
+      where.request_id = input.trace_id.toLowerCase();
     }
     if (input.cursor) {
       where.AND = [auditOlderThan(decodeCursorOrThrow(input.cursor))];
@@ -139,7 +139,7 @@ export class McpAuditReadService {
   }
 
   async getEntityHistory(input: GetEntityHistoryInput) {
-    this.authorization.assertSupervisorOrAdmin();
+    this.assertSupervisor();
     const tenantId = await this.tenantContext.getTenantId();
     const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
 
@@ -166,13 +166,14 @@ export class McpAuditReadService {
 
   /** Log rows for one trace, oldest first, with the audit entries correlated on request_id. */
   async getAgentAction(input: GetAgentActionInput) {
-    this.authorization.assertSupervisorOrAdmin();
+    this.assertSupervisor();
     const tenantId = await this.tenantContext.getTenantId();
     const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
+    const traceId = input.trace_id.toLowerCase();
 
     const logWhere: Prisma.AgentActionLogWhereInput = {
       tenant_id: tenantId,
-      trace_id: input.trace_id,
+      trace_id: traceId,
     };
     if (input.cursor) {
       logWhere.AND = [agentActionNewerThan(decodeCursorOrThrow(input.cursor))];
@@ -184,12 +185,12 @@ export class McpAuditReadService {
     });
     if (logs.length === 0 && !input.cursor) {
       throw new NotFoundException(
-        `No agent action log entries found for trace ${input.trace_id}`,
+        `No agent action log entries found for trace ${traceId}`,
       );
     }
 
     const auditRecords = await this.prisma.auditLog.findMany({
-      where: { tenant_id: tenantId, request_id: input.trace_id },
+      where: { tenant_id: tenantId, request_id: traceId },
       orderBy: AUDIT_OLDEST_FIRST,
       take: TRACE_AUDIT_ENTRY_LIMIT + 1,
     });
@@ -199,7 +200,7 @@ export class McpAuditReadService {
       cursorOf: (record) => keysetCursorOf(record.created_at, record.id),
       mapRow: toMcpAgentActionDetailRow,
       extra: {
-        trace_id: input.trace_id,
+        trace_id: traceId,
         audit_entries: auditRecords
           .slice(0, TRACE_AUDIT_ENTRY_LIMIT)
           .map(toMcpAuditEventRow),
@@ -209,7 +210,7 @@ export class McpAuditReadService {
   }
 
   async listAgentActions(input: ListAgentActionsInput) {
-    this.authorization.assertSupervisorOrAdmin();
+    this.assertSupervisor();
     const tenantId = await this.tenantContext.getTenantId();
     const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
 
@@ -238,5 +239,15 @@ export class McpAuditReadService {
       cursorOf: (record) => keysetCursorOf(record.created_at, record.id),
       mapRow: toMcpAgentActionRow,
     });
+  }
+
+  /** The session's role decides access. The check runs before any query. */
+  private assertSupervisor(): void {
+    const role = this.tenantContext.getAuthenticatedUser()?.role;
+    if (!isMcpSupervisorRole(role)) {
+      throw new ForbiddenException(
+        'Tenant owner or admin access is required for audit and agent action reads.',
+      );
+    }
   }
 }

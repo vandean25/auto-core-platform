@@ -9,6 +9,6 @@ import { AgentActionLogService } from './agent-action-log.service.js';
   imports: [PrismaModule, CommonModule],
   controllers: [AgentActionLogController],
   providers: [AgentActionLogService, AgentActionLogAuthorization],
-  exports: [AgentActionLogService, AgentActionLogAuthorization],
+  exports: [AgentActionLogService],
 })
 export class AgentActionLogModule {}

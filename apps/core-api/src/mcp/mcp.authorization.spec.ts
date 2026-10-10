@@ -1,5 +1,8 @@
 import { ForbiddenException } from '@nestjs/common';
-import { assertMcpTenantAccess } from './mcp.authorization.js';
+import {
+  assertMcpTenantAccess,
+  isMcpSupervisorRole,
+} from './mcp.authorization.js';
 
 describe('assertMcpTenantAccess', () => {
   it('allows OWNER, ADMIN, and SALES (ADVISOR)', () => {
@@ -32,5 +35,20 @@ describe('assertMcpTenantAccess', () => {
         role: 'ADMIN',
       }),
     ).toThrow(ForbiddenException);
+  });
+});
+
+describe('isMcpSupervisorRole', () => {
+  it('allows only the tenant owner and admin', () => {
+    expect(isMcpSupervisorRole('OWNER')).toBe(true);
+    expect(isMcpSupervisorRole('ADMIN')).toBe(true);
+  });
+
+  it('refuses sales, technician, unknown, and missing roles', () => {
+    expect(isMcpSupervisorRole('SALES')).toBe(false);
+    expect(isMcpSupervisorRole('TECH')).toBe(false);
+    expect(isMcpSupervisorRole('ADVISOR')).toBe(false);
+    expect(isMcpSupervisorRole(undefined)).toBe(false);
+    expect(isMcpSupervisorRole(null)).toBe(false);
   });
 });

@@ -1,6 +1,9 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 
+// ADVISOR is not a TenantMemberRole value (the enum has SALES), so no member
+// holds it. It stays so this REST list is unchanged. The MCP supervisor reads
+// use MCP_SUPERVISOR_ROLES, which names only OWNER and ADMIN.
 export const AGENT_ACTION_LOG_ROLES = ['OWNER', 'ADMIN', 'ADVISOR'] as const;
 
 @Injectable()

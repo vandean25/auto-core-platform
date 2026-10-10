@@ -381,19 +381,25 @@ describe('buildMcpKeysetPage', () => {
     });
   });
 
-  it('keeps extra envelope fields and counts them against the cap', () => {
+  it('counts extra envelope fields against the cap when deciding how many rows fit', () => {
+    const blob = 'z'.repeat(4000);
     const page = buildMcpKeysetPage({
-      records: [item(1)],
+      records: [item(3, blob), item(2, blob), item(1, blob)],
       pageSize: 10,
       cursorOf: (record) => keysetCursorOf(record.at, record.id),
-      mapRow: (record) => ({ id: record.id }),
-      extra: { trace_id: TRACE_ID, audit_truncated: false },
+      mapRow: (record) => ({ id: record.id, blob: record.blob }),
+      extra: {
+        trace_id: TRACE_ID,
+        audit_entries: [{ note: 'x'.repeat(23_000) }],
+      },
     });
 
-    expect(page).toMatchObject({
-      trace_id: TRACE_ID,
-      audit_truncated: false,
-      truncated: false,
-    });
+    // Three rows would be about 35 KB with the extra field, so only two fit.
+    expect(page.data).toHaveLength(2);
+    expect(page.truncated).toBe(true);
+    expect(page).toMatchObject({ trace_id: TRACE_ID });
+    expect(
+      Buffer.byteLength(JSON.stringify(page), 'utf8'),
+    ).toBeLessThanOrEqual(MCP_TOOL_RESULT_MAX_BYTES);
   });
 });

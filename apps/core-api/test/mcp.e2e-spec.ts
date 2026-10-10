@@ -791,9 +791,9 @@ describe('MCP server (e2e)', () => {
       };
       expect(payload.status).toBe('needs_approval');
       expect(payload.trace_id).toBe('00000000-0000-4000-8000-000000000200');
-      expect(responseTraceIds[responseTraceIds.length - 1]).toBe(
-        payload.trace_id,
-      );
+      // Requests on one MCP session can complete in any order, so the tool's
+      // response is one of the echoed headers, not necessarily the last.
+      expect(responseTraceIds).toContain(payload.trace_id);
 
       // Ensure no line item row was created (dry run is rolled back)
       const lineItemCountAfter = await prismaA.workshopTaskLineItem.count({
@@ -870,9 +870,9 @@ describe('MCP server (e2e)', () => {
       expect(payload.trace_id).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
       );
-      expect(responseTraceIds[responseTraceIds.length - 1]).toBe(
-        payload.trace_id,
-      );
+      // Requests on one MCP session can complete in any order, so the tool's
+      // response is one of the echoed headers, not necessarily the last.
+      expect(responseTraceIds).toContain(payload.trace_id);
 
       const log = await prismaA.agentActionLog.findFirst({
         where: {
@@ -2038,6 +2038,108 @@ describe('MCP server (e2e)', () => {
        const ids = rowIds(result);
        expect(ids).toEqual([agentRowA]);
        expect(ids).not.toContain(agentRowB);
+     });
+
+     it('pages agent action rows with a keyset cursor until the last row', async () => {
+       const agent = 'mcp:e2e-agent-page';
+       const newer = await inTenant(tenantA, () =>
+         prisma.agentActionLog.create({
+           data: {
+             tenant_id: tenantA,
+             trace_id: '00000000-0000-4000-8000-000000000911',
+             actor_type: 'AGENT',
+             agent_id: agent,
+             action_type: 'mcp.search_customers',
+             tier: 'AUTO',
+             status: 'EXECUTED',
+             input_summary_json: { tool: 'search_customers', args: {} },
+             created_at: new Date('2026-10-10T08:01:00.000Z'),
+           },
+         }),
+       );
+       const older = await inTenant(tenantA, () =>
+         prisma.agentActionLog.create({
+           data: {
+             tenant_id: tenantA,
+             trace_id: '00000000-0000-4000-8000-000000000912',
+             actor_type: 'AGENT',
+             agent_id: agent,
+             action_type: 'mcp.search_customers',
+             tier: 'AUTO',
+             status: 'EXECUTED',
+             input_summary_json: { tool: 'search_customers', args: {} },
+             created_at: new Date('2026-10-10T08:00:00.000Z'),
+           },
+         }),
+       );
+
+       const first = await callAs(
+         adminHeaderA,
+         'e2e-agent-page-read',
+         'list_agent_actions',
+         { agent, tool: 'search_customers', pageSize: 1 },
+       );
+       const firstPage = JSON.parse(toolPayloadText(first)) as {
+         meta: { next_cursor: string | null };
+       };
+       expect(rowIds(first)).toEqual([newer.id]);
+       expect(firstPage.meta.next_cursor).toEqual(expect.any(String));
+
+       const second = await callAs(
+         adminHeaderA,
+         'e2e-agent-page-read',
+         'list_agent_actions',
+         {
+           agent,
+           tool: 'search_customers',
+           pageSize: 1,
+           cursor: firstPage.meta.next_cursor,
+         },
+       );
+       const secondPage = JSON.parse(toolPayloadText(second)) as {
+         meta: { next_cursor: string | null };
+       };
+       expect(rowIds(second)).toEqual([older.id]);
+       expect(secondPage.meta.next_cursor).toBeNull();
+     });
+
+     it('lists the supervisor-only reads as disabled in get_capabilities for SALES callers', async () => {
+       await inTenant(tenantA, () =>
+         prisma.tenantMember.update({
+           where: {
+             tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
+           },
+           data: { role: 'SALES' },
+         }),
+       );
+       try {
+         const result = await callAs(
+           salesHeaderA,
+           'e2e-caps-sales',
+           'get_capabilities',
+           {},
+         );
+
+         expect(result.isError).not.toBe(true);
+         const page = JSON.parse(toolPayloadText(result)) as {
+           data: Array<{ tool: string; enabled: boolean; disabled_reason?: string }>;
+         };
+         const byTool = new Map(page.data.map((entry) => [entry.tool, entry]));
+         expect(byTool.get('get_agent_action')).toMatchObject({
+           enabled: false,
+           disabled_reason: 'role_not_permitted',
+         });
+         expect(byTool.get('get_customer')).toMatchObject({ enabled: true });
+       } finally {
+         await inTenant(tenantA, () =>
+           prisma.tenantMember.update({
+             where: {
+               tenant_id_user_id: { tenant_id: tenantA, user_id: tenantAUserId },
+             },
+             data: { role: 'ADMIN' },
+           }),
+         );
+       }
      });
 
      it('pages audit events with a keyset cursor until the last row', async () => {

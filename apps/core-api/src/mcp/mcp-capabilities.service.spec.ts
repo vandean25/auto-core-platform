@@ -68,7 +68,7 @@ const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
   'workshop_order.propose_line': policyRule('workshop_order.propose_line'),
 };
 
-// Visible tools: 15 read tools plus 3 write tools (release_reservation is HUMAN_ONLY).
+// Visible tools: every read tool plus 3 write tools (release_reservation is HUMAN_ONLY).
 const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 3;
 
 function createService() {
@@ -246,6 +246,51 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       enabled: true,
     });
   });
+
+  it.each(['OWNER', 'ADMIN'])(
+    'lists the supervisor-only reads as enabled for %s',
+    async (role) => {
+      const { service, authenticated } = createService();
+      authenticated.user = { ...AGENT_USER, role };
+
+      const tools = byTool((await service.getCapabilities({})).data);
+
+      expect(tools.get('get_agent_action')).toEqual({
+        tool: 'get_agent_action',
+        description: expect.any(String),
+        tier: 'AUTO',
+        access: 'read',
+        enabled: true,
+      });
+    },
+  );
+
+  it.each(['SALES', 'TECH'])(
+    'lists the supervisor-only reads as disabled for %s with the reason, and keeps other reads enabled',
+    async (role) => {
+      const { service, authenticated } = createService();
+      authenticated.user = { ...AGENT_USER, role };
+
+      const tools = byTool((await service.getCapabilities({})).data);
+
+      for (const tool of [
+        'list_audit_events',
+        'get_entity_history',
+        'get_agent_action',
+        'list_agent_actions',
+      ]) {
+        expect(tools.get(tool)).toEqual({
+          tool,
+          description: expect.any(String),
+          tier: 'AUTO',
+          access: 'read',
+          enabled: false,
+          disabled_reason: 'role_not_permitted',
+        });
+      }
+      expect(tools.get('get_customer')).toMatchObject({ enabled: true });
+    },
+  );
 
   it('marks a disabled write rule as enabled false with a reason and keeps its configured tier', async () => {
     const { service } = createService();

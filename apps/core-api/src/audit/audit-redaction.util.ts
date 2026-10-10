@@ -90,7 +90,13 @@ export const MASKED_PII_VALUE = '***';
 
 type AuditPiiKind = 'email' | 'phone' | 'address';
 
-const EMAIL_IN_TEXT_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+/**
+ * An email address inside free text. The lookbehind starts a match only at the
+ * first character of a run, so a long run of letters with no @ is scanned once
+ * rather than from every position.
+ */
+const EMAIL_IN_TEXT_PATTERN =
+  /(?<![\p{L}\p{N}._%+'-])[\p{L}\p{N}._%+'-]+@[\p{L}\p{N}.-]+\.\p{L}{2,}/gu;
 const PHONE_CHARACTERS_PATTERN = /^[+\d ()/-]+$/;
 const ADDRESS_FIELD_NAMES = new Set([
   'city',
@@ -139,9 +145,12 @@ const classifyPiiFieldName = (fieldName: string): AuditPiiKind | null => {
   return null;
 };
 
-/** Keeps the first letter of the local part and the domain: john.doe@example.com becomes j***@example.com. */
+/**
+ * Keeps the first letter of the local part and the domain after the last @:
+ * john.doe@example.com becomes j***@example.com.
+ */
 export const maskEmailAddress = (email: string): string => {
-  const atIndex = email.indexOf('@');
+  const atIndex = email.lastIndexOf('@');
   if (atIndex <= 0) {
     return MASKED_PII_VALUE;
   }
@@ -184,11 +193,8 @@ const maskPiiString = (
     return { value: MASKED_PII_VALUE, masked: true };
   }
   if (kind === 'email') {
-    const scrubbed = value.replace(EMAIL_IN_TEXT_PATTERN, maskEmailAddress);
-    return {
-      value: scrubbed === value ? MASKED_PII_VALUE : scrubbed,
-      masked: true,
-    };
+    // An email-named field holds one address, so the whole value is masked.
+    return { value: maskEmailAddress(value), masked: true };
   }
   if (kind === 'phone') {
     return { value: maskPhoneNumber(value), masked: true };

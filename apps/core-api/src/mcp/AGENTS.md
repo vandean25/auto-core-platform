@@ -57,7 +57,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 ### Identity and capability checks
 
 - `whoami` takes no input. For an agent session, `caller.type` is `agent` and `caller.id` is the agent identifier; `human_on_behalf` appears only when no agent identity is present. `role`, `tenant`, and `site` describe the human the agent acts for, and `mode` is the effective decision apply mode, `shadow` or `live`.
-- `get_capabilities` lists the tools the caller can use with `tier`, `enabled`, and `disabled_reason`. Read tools are `AUTO` and enabled. A write tool whose policy rule is off is listed with `enabled: false` and `disabled_reason: policy_disabled`; its `tier` is the configured base tier, which is not permission to run it. A call can still escalate an `AUTO` tier to `PROPOSE` from its amount or customer-facing context.
+- `get_capabilities` lists the tools the caller can use with `tier`, `enabled`, and `disabled_reason`. Read tools are `AUTO` and enabled, except the four audit and agent-action reads, which are `enabled: false` with `disabled_reason: role_not_permitted` for any caller who is not OWNER or ADMIN. A write tool whose policy rule is off is listed with `enabled: false` and `disabled_reason: policy_disabled`; its `tier` is the configured base tier, which is not permission to run it. A call can still escalate an `AUTO` tier to `PROPOSE` from its amount or customer-facing context.
 - `human_only_actions` names policy actions that are never MCP tools for this caller, including the never-exposed actions. Ask a person to perform them and do not look for another route.
 - Check `get_capabilities` before planning a write, and still act on the status each write call returns.
 
@@ -72,7 +72,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 ### Audit and agent-action reads
 
-- These four tools need OWNER or ADMIN. A SALES caller gets a `ForbiddenException`, the same rule the REST agent action log applies.
+- These four tools need OWNER or ADMIN. For a SALES caller, `get_capabilities` lists them with `enabled: false` and `disabled_reason: role_not_permitted`, and a direct call returns a `ForbiddenException`. The REST agent action log has the same effective rule.
 - Every call writes its own agent action row with the trace ID, like the other reads.
 - Audit rows identify the actor by user ID. Email addresses, IP addresses, and user agents are never returned.
 - `get_entity_history` returns field changes newest first. Email addresses keep their first letter and domain, such as `j***@example.com`. Phone numbers keep their last two digits. Address fields are replaced with `***`. Personal names are not masked. Each value is capped, and a long value reports `__truncated__`.
@@ -107,7 +107,7 @@ The MCP write pipeline evaluates policy before doing any work. Disabled actions 
 
 ## Trace IDs
 
-The HTTP middleware accepts a UUID in the `X-Trace-Id` request header. If absent, it generates one and echoes the effective value in the `X-Trace-Id` response header. Quote the ID when reporting a result or problem. Successful write-tool results also include `trace_id`; use that returned value. The ID connects the action log and related audit entries and can be looked up at `/api/agent-actions/:traceId` by an authorized caller. `get_agent_action` returns the same log rows for a trace over MCP.
+The HTTP middleware accepts a UUID in the `X-Trace-Id` request header. If absent, it generates one and echoes the effective value in the `X-Trace-Id` response header. Quote the ID when reporting a result or problem. Successful write-tool results also include `trace_id`; use that returned value. The ID connects the action log and related audit entries and can be looked up at `/api/agent-actions/:traceId` by an authorized caller. `get_agent_action` returns the same log rows for a trace over MCP. Audit rows store the trace in lowercase form, and the audit reads lowercase their trace input, so the case of `X-Trace-Id` does not change what is found.
 
 ## Untrusted input
 

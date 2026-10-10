@@ -130,4 +130,41 @@ describe('maskAuditPiiForMcp', () => {
     expect(value).toEqual(input);
     expect(maskedPaths).toEqual([]);
   });
+
+  it('masks an email with a non-ASCII local part without leaving any of it readable', () => {
+    expect(
+      maskAuditPiiForMcp('Mail jürgen.müller@beispiel.de heute').value,
+    ).toBe('Mail j***@beispiel.de heute');
+    expect(
+      maskAuditPiiForMcp({ email: 'jürgen.müller@beispiel.de' }).value,
+    ).toEqual({ email: 'j***@beispiel.de' });
+  });
+
+  it('masks an email-named field as a whole, including apostrophes and text around the address', () => {
+    expect(maskAuditPiiForMcp({ email: "o'brien@example.org" }).value).toEqual({
+      email: 'o***@example.org',
+    });
+    expect(
+      maskAuditPiiForMcp({ email: 'Jane Doe <jane@example.org>' }).value,
+    ).toEqual({ email: 'J***@example.org>' });
+  });
+
+  it('masks a long local part in free text without a readable prefix', () => {
+    const localPart = 'a'.repeat(100);
+
+    expect(maskAuditPiiForMcp(`${localPart}@example.com`).value).toBe(
+      'a***@example.com',
+    );
+  });
+
+  it('scans a long run of letters with no @ in linear time', () => {
+    const input = 'a'.repeat(200_000);
+    const start = performance.now();
+
+    const { value, maskedPaths } = maskAuditPiiForMcp(input);
+
+    expect(value).toBe(input);
+    expect(maskedPaths).toEqual([]);
+    expect(performance.now() - start).toBeLessThan(2000);
+  });
 });
