@@ -70,7 +70,8 @@ export function WorkshopOrderWarrantyClaims() {
   const handleCreate = async () => {
     try {
       const created = await createClaim.mutateAsync({ orderId: id, payload: { type: "GARANTIE" } });
-      updateSearchParams({ [CLAIM_PARAM]: created.id });
+      // Clears the status filter too, so the new draft is visible in the list.
+      updateSearchParams({ [STATUS_PARAM]: null, [CLAIM_PARAM]: created.id });
       toast.success("Warranty claim created");
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, "Failed to create the warranty claim"));

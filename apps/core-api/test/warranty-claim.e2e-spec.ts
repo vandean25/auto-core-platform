@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { AppModule } from '../src/app.module.js';
@@ -256,6 +257,36 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send(body)
       .expect(expectedStatus);
+  }
+
+  /**
+   * Holds a row lock in its own transaction until the returned function is called. Saves that need the
+   * row queue behind it, so a test can check that they really wait instead of relying on request timing.
+   */
+  async function holdRowLock(
+    lock: (tx: Prisma.TransactionClient) => Promise<unknown>,
+  ): Promise<() => Promise<void>> {
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let acquired!: () => void;
+    const lockTaken = new Promise<void>((resolve) => {
+      acquired = resolve;
+    });
+    const holder = basePrisma.$transaction(
+      async (tx) => {
+        await lock(tx);
+        acquired();
+        await released;
+      },
+      { timeout: 30_000 },
+    );
+    await Promise.race([lockTaken, holder]);
+    return async () => {
+      release();
+      await holder;
+    };
   }
 
   async function auditEntries(claimId: string) {
@@ -778,7 +809,12 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const firstId = await createClaim(fixture.orderId);
       const secondId = await createClaim(fixture.orderId, { type: 'GARANTIE' });
 
-      const outcomes = await Promise.all([
+      // Both saves need the line's row lock, so they wait on it until the test releases it.
+      const releaseLine = await holdRowLock((tx) =>
+        tx.$queryRaw`SELECT id FROM workshop_task_line_items WHERE id = ${fixture.partLineId} FOR UPDATE`,
+      );
+      let answered = false;
+      const outcomesReady = Promise.all([
         request(app.getHttpServer())
           .patch(claimsPath(fixture.orderId, firstId))
           .set('Authorization', `Bearer ${adminToken}`)
@@ -787,7 +823,16 @@ describe('Warranty claims (AUT-464, e2e)', () => {
           .patch(claimsPath(fixture.orderId, secondId))
           .set('Authorization', `Bearer ${adminToken}`)
           .send({ lineItemIds: [fixture.partLineId] }),
-      ]);
+      ]).then((outcomes) => {
+        answered = true;
+        return outcomes;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      expect(answered).toBe(false);
+
+      await releaseLine();
+      const outcomes = await outcomesReady;
 
       expect(outcomes.map((outcome) => outcome.status).sort()).toEqual([200, 409]);
       const refused = outcomes.find((outcome) => outcome.status === 409);
@@ -798,10 +843,23 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const fixture = await seedOrder();
       const claimId = await createClaim(fixture.orderId);
 
-      await Promise.all([
+      // Both saves need the claim's row lock, so they wait on it until the test releases it.
+      const releaseClaim = await holdRowLock((tx) =>
+        tx.$queryRaw`SELECT id FROM warranty_claims WHERE id = ${claimId} FOR UPDATE`,
+      );
+      let answered = false;
+      const savesDone = Promise.all([
         patchClaim(fixture.orderId, claimId, { complaint: 'Nachricht A' }),
         patchClaim(fixture.orderId, claimId, { causeCorrection: 'Ursache B' }),
-      ]);
+      ]).then(() => {
+        answered = true;
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      expect(answered).toBe(false);
+
+      await releaseClaim();
+      await savesDone;
 
       const stored = await request(app.getHttpServer())
         .get(claimsPath(fixture.orderId, claimId))

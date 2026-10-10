@@ -91,12 +91,29 @@ export async function updateWarrantyClaim(
   }
 }
 
+/** The server renders the PDF within 15 seconds. The download gives up after this long, so Print cannot stay busy. */
+export const WARRANTY_CLAIM_PDF_TIMEOUT_MS = 45_000
+
 export async function downloadWarrantyClaimPdf(orderId: string, claimId: string): Promise<Blob> {
-  const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}/pdf`, {
-    headers: { Accept: 'application/pdf' },
-  })
-  if (!response.ok) throw await readErrorMessage(response, 'Failed to generate the claim PDF')
-  return response.blob()
+  const controller = new AbortController()
+  const timer = setTimeout(
+    () =>
+      controller.abort(
+        new DOMException('The PDF took too long to generate. Try again.', 'TimeoutError'),
+      ),
+    WARRANTY_CLAIM_PDF_TIMEOUT_MS,
+  )
+  try {
+    const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}/pdf`, {
+      headers: { Accept: 'application/pdf' },
+      signal: controller.signal,
+    })
+    if (!response.ok) throw await readErrorMessage(response, 'Failed to generate the claim PDF')
+    // Awaited inside try, so the timer also covers reading the body.
+    return await response.blob()
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export function useWarrantyClaims(orderId: string, status?: WarrantyClaimStatus) {

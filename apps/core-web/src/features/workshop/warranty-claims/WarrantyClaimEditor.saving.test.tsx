@@ -4,6 +4,7 @@ import {
   claimFixture,
   failSavesWith,
   fetchMock,
+  jsonResponse,
   payloadOf,
   renderEditor,
   settle,
@@ -52,6 +53,69 @@ describe("WarrantyClaimEditor: saving", () => {
     expect(screen.getByText("Enter an amount in EUR with at most two decimals.")).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 900));
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps saving the other edits while the amount cannot be read", async () => {
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Claimed amount (EUR, net)"), {
+      target: { value: "12,345" },
+    });
+    fireEvent.change(screen.getByLabelText("Complaint"), {
+      target: { value: "Kupplung rutscht stark" },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht stark" });
+  });
+
+  it("locks the fields while a status change is being saved", async () => {
+    let answer!: (response: Response) => void;
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    renderEditor(claimFixture());
+
+    fireEvent.click(screen.getByRole("button", { name: "Mark submitted" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Complaint")).toBeDisabled());
+    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toBeDisabled();
+    expect(screen.getByLabelText("Reference at the OEM")).toBeDisabled();
+
+    answer(
+      jsonResponse(
+        claimFixture({ status: "SUBMITTED_EXTERNALLY", submittedAt: "2026-10-10T09:00:00.000Z" }),
+      ),
+    );
+    await settle();
+  });
+
+  it("sends the next save only after the previous one has been answered", async () => {
+    const answers: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          answers.push(resolve);
+        }),
+    );
+    renderEditor(claimFixture());
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "a" } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+
+    fireEvent.change(screen.getByLabelText("Complaint"), { target: { value: "ab" } });
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    answers[0](jsonResponse(claimFixture({ complaint: "a" })));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 2000 });
+    expect(payloadOf(fetchMock.mock.calls[1])).toEqual({ complaint: "ab" });
+
+    answers[1](jsonResponse(claimFixture({ complaint: "ab" })));
+    await settle();
   });
 
   it("saves pending edits before it closes the claim", async () => {

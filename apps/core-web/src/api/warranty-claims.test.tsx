@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAuth } from "./client";
 import {
+  WARRANTY_CLAIM_PDF_TIMEOUT_MS,
   WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
+  downloadWarrantyClaimPdf,
   fetchWarrantyClaims,
   updateWarrantyClaim,
   useCreateWarrantyClaim,
@@ -186,6 +188,29 @@ describe("warranty claim API", () => {
       expect(error).toBeInstanceOf(DOMException);
       expect((error as DOMException).name).toBe("TimeoutError");
       expect((error as DOMException).message).toMatch(/may still have been saved/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up on a PDF that does not come back, so Print cannot stay busy", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockImplementation(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            signal?.addEventListener("abort", () => reject(signal.reason));
+          }),
+      );
+
+      const outcome = downloadWarrantyClaimPdf("order-1", "claim-1").catch(
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(WARRANTY_CLAIM_PDF_TIMEOUT_MS);
+
+      const error = await outcome;
+      expect((error as DOMException).name).toBe("TimeoutError");
     } finally {
       vi.useRealTimers();
     }

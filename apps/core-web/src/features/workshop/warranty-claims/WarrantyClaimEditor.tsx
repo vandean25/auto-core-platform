@@ -95,17 +95,32 @@ export function WarrantyClaimEditor({
   const statusChanges = availableStatusChanges(claim.status);
   const isBusy = busyAction !== null;
   const isSavingDecision = decisionOutcome !== null && busyAction === decisionOutcome;
+  // Locked while a status change or a decision is in flight, so an edit cannot be sent to a claim that is about to lock.
+  const contentLocked = !contentEditable || isBusy;
+  const metadataLocked = !metadataEditable || isBusy;
 
-  const persistDraft = async (snapshot: WarrantyClaimDraft) => {
-    const payload = buildClaimPatch(savedDraftRef.current, snapshot);
+  // The diff is taken when a save runs, against the last draft the API acknowledged.
+  const sendDraft = async (snapshot: WarrantyClaimDraft) => {
+    const acknowledged = savedDraftRef.current;
+    const payload = buildClaimPatch(acknowledged, snapshot);
     if (!payload) return;
     await updateClaim.mutateAsync({ orderId, claimId: claim.id, payload });
-    savedDraftRef.current = snapshot;
+    // An amount that cannot be read is left out of the payload, so the acknowledged amount stays the old one.
+    savedDraftRef.current = parseClaimedAmount(snapshot.claimedAmount).valid
+      ? snapshot
+      : { ...snapshot, claimedAmount: acknowledged.claimedAmount };
+  };
+
+  // Saves run one after another, so a slow earlier save cannot land after a newer one.
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const persistDraft = (snapshot: WarrantyClaimDraft): Promise<void> => {
+    const run = saveQueueRef.current.then(() => sendDraft(snapshot));
+    saveQueueRef.current = run.catch(() => undefined);
+    return run;
   };
 
   const { saveStatus, triggerAutoSave, clearPendingSave } = useDebouncedAutoSave<WarrantyClaimDraft>({
     save: persistDraft,
-    shouldSave: (snapshot) => parseClaimedAmount(snapshot.claimedAmount).valid,
     onError: (error) => toast.error(getErrorMessage(error, "Failed to save the claim")),
   });
 
@@ -272,7 +287,7 @@ export function WarrantyClaimEditor({
             <Select
               value={draft.type}
               onValueChange={(value) => updateDraft({ type: value as WarrantyClaimType })}
-              disabled={!contentEditable}
+              disabled={contentLocked}
             >
               <SelectTrigger id="warranty-claim-type" aria-label="Claim type">
                 <SelectValue />
@@ -294,7 +309,7 @@ export function WarrantyClaimEditor({
               className={TEXTAREA_CLASS_NAME}
               value={draft.complaint}
               maxLength={4000}
-              disabled={!contentEditable}
+              disabled={contentLocked}
               onChange={(event) => updateDraft({ complaint: event.target.value })}
               placeholder="Customer complaint in the words of the workshop"
             />
@@ -307,7 +322,7 @@ export function WarrantyClaimEditor({
               className={TEXTAREA_CLASS_NAME}
               value={draft.causeCorrection}
               maxLength={4000}
-              disabled={!contentEditable}
+              disabled={contentLocked}
               onChange={(event) => updateDraft({ causeCorrection: event.target.value })}
               placeholder="Diagnosed cause and the repair that was carried out"
             />
@@ -321,8 +336,9 @@ export function WarrantyClaimEditor({
                 inputMode="decimal"
                 className="tabular-nums"
                 value={draft.claimedAmount}
-                disabled={!contentEditable}
+                disabled={contentLocked}
                 aria-invalid={!amount.valid}
+                aria-describedby={amount.valid ? undefined : "warranty-claim-amount-error"}
                 onChange={(event) => updateDraft({ claimedAmount: event.target.value })}
                 placeholder="0,00"
               />
@@ -330,13 +346,15 @@ export function WarrantyClaimEditor({
                 variant="ghost"
                 size="sm"
                 onClick={() => updateDraft({ claimedAmount: (selectedCents / 100).toFixed(2) })}
-                disabled={!contentEditable || draft.lineItemIds.length === 0}
+                disabled={contentLocked || draft.lineItemIds.length === 0}
               >
                 Use lines total
               </Button>
             </div>
             {!amount.valid && (
-              <p className="text-sm text-red-600">Enter an amount in EUR with at most two decimals.</p>
+              <p id="warranty-claim-amount-error" role="alert" className="text-sm text-red-600">
+                Enter an amount in EUR with at most two decimals.
+              </p>
             )}
           </div>
         </div>
@@ -354,8 +372,7 @@ export function WarrantyClaimEditor({
                   const claimedBy = lineClaimedElsewhere.get(row.id);
                   const checked = draft.lineItemIds.includes(row.id);
                   const disabled =
-                    !contentEditable ||
-                    (!checked && (Boolean(claimedBy) || row.cancelledOnOrder));
+                    contentLocked || (!checked && (Boolean(claimedBy) || row.cancelledOnOrder));
                   return (
                     <li key={row.id} className="flex items-start gap-3 px-3 py-2.5">
                       <Checkbox
@@ -399,7 +416,7 @@ export function WarrantyClaimEditor({
               id="warranty-claim-reference"
               value={draft.externalReference}
               maxLength={120}
-              disabled={!metadataEditable}
+              disabled={metadataLocked}
               onChange={(event) => updateDraft({ externalReference: event.target.value })}
               placeholder="Claim number from the OEM portal"
             />
@@ -412,7 +429,7 @@ export function WarrantyClaimEditor({
                 id="warranty-claim-decision-date"
                 type="date"
                 value={draft.decisionDate}
-                disabled={!metadataEditable}
+                disabled={metadataLocked}
                 onChange={(event) => updateDraft({ decisionDate: event.target.value })}
               />
             </div>
@@ -422,7 +439,7 @@ export function WarrantyClaimEditor({
                 id="warranty-claim-decision-note"
                 value={draft.decisionNote}
                 maxLength={2000}
-                disabled={!metadataEditable}
+                disabled={metadataLocked}
                 onChange={(event) => updateDraft({ decisionNote: event.target.value })}
               />
             </div>
