@@ -115,7 +115,9 @@ describe('AgentActionLogService characterization', () => {
     });
 
     it('persists FAILED with the error text when work throws a string, then rethrows it as an Error', async () => {
+      // Rejecting with a bare string is the case under test: the row stores the text, not an Error.
       const error = await inRequestContext(() =>
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
         service.record(baseInput, () => Promise.reject('boom')),
       ).catch((caught: unknown) => caught);
 
@@ -130,7 +132,9 @@ describe('AgentActionLogService characterization', () => {
     });
 
     it('persists FAILED with the generic message when work throws a value that is neither an Error nor a string', async () => {
+      // A non-Error, non-string rejection is the case under test: the row gets the generic message.
       const error = await inRequestContext(() =>
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
         service.record(baseInput, () => Promise.reject(42)),
       ).catch((caught: unknown) => caught);
 

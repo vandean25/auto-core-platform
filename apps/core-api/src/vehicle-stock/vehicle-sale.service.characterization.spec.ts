@@ -337,7 +337,7 @@ describe('VehicleSaleService characterization', () => {
       const error = await rejectionOf(
         service.updateDraft(saleId, {
           sale_price: 1,
-        } as PatchVehicleSaleDto),
+        }),
       );
       expect(error).toBeInstanceOf(UnprocessableEntityException);
       expect(error).toMatchObject({
@@ -353,7 +353,7 @@ describe('VehicleSaleService characterization', () => {
       const error = await rejectionOf(
         service.updateDraft(saleId, {
           customer_id: 'customer-2',
-        } as PatchVehicleSaleDto),
+        }),
       );
       expect(error).toBeInstanceOf(UnprocessableEntityException);
       expect(error).toMatchObject({
@@ -369,7 +369,7 @@ describe('VehicleSaleService characterization', () => {
       const error = await rejectionOf(
         service.updateDraft(saleId, {
           sale_price: 1500,
-        } as PatchVehicleSaleDto),
+        }),
       );
       expect(error).toMatchObject({
         response: { code: 'TRADE_IN_ALLOWANCE_INVALID' },
@@ -385,7 +385,7 @@ describe('VehicleSaleService characterization', () => {
           reason: '   ',
           buyer_is_consumer: true,
           gewaehrleistung_shortened_negotiated: false,
-        } as CorrectGewaehrleistungSnapshotDto),
+        }),
       );
       expect(error).toBeInstanceOf(UnprocessableEntityException);
       expect(error).toMatchObject({

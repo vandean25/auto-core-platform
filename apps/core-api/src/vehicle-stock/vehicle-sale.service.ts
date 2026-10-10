@@ -372,7 +372,12 @@ export class VehicleSaleService {
         tenantId,
         commitmentContext.ownership.siteId,
       );
-      await this.assertSellable(tenantId, sale.vehicle_id, sale.customer_id, tx);
+      await this.assertSellable(
+        tenantId,
+        sale.vehicle_id,
+        sale.customer_id,
+        tx,
+      );
 
       const warrantySnapshot = computeSaleWarrantySnapshot(
         finalizeWarrantyInput(sale),

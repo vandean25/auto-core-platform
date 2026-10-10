@@ -158,7 +158,10 @@ export async function assignInvoiceNumber(
 }
 
 /** Margin figures for the sale: the cost basis, the margin VAT, the net amount and the snapshot. */
-export function buildFinalizeFigures(sale: FinalizeSale, entries: LedgerEntries) {
+export function buildFinalizeFigures(
+  sale: FinalizeSale,
+  entries: LedgerEntries,
+) {
   const basis = costBasis(entries);
   const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
   return {

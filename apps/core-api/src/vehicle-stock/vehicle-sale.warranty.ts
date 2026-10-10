@@ -1,9 +1,5 @@
 import { UnprocessableEntityException } from '@nestjs/common';
-import {
-  Prisma,
-  VehicleSaleStatus,
-  type VehicleSale,
-} from '@prisma/client';
+import { Prisma, VehicleSaleStatus, type VehicleSale } from '@prisma/client';
 import type { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
@@ -127,8 +123,7 @@ export function buildDraftWarrantyFacts(
       dto.handed_over_at !== undefined
         ? dto.handed_over_at
         : sale.handed_over_at,
-    buyer_is_consumer:
-      dto.buyer_is_consumer ?? sale.buyer_is_consumer ?? false,
+    buyer_is_consumer: dto.buyer_is_consumer ?? sale.buyer_is_consumer ?? false,
     gewaehrleistung_shortened_negotiated:
       dto.gewaehrleistung_shortened_negotiated ??
       sale.gewaehrleistung_shortened_negotiated ??
@@ -184,7 +179,9 @@ export function buildCorrectedWarrantyFacts(
 type CorrectableSale = WarrantySale &
   Pick<
     VehicleSale,
-    'gewaehrleistung_ends_on' | 'presumption_ends_on' | 'gewaehrleistung_rule_version'
+    | 'gewaehrleistung_ends_on'
+    | 'presumption_ends_on'
+    | 'gewaehrleistung_rule_version'
   >;
 
 /** The before and after snapshots a correction audits; the reason is trimmed on the way in. */

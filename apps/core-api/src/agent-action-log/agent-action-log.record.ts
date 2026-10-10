@@ -56,7 +56,9 @@ export function resolveWorkRecordFields<T>(
   ) => Partial<AgentActionRecordInput>,
 ): WorkRecordFields {
   const resolvedSummary = resolveResultSummary(parsed, work.result);
-  const failureMessage = work.failed ? describeWorkError(work.error) : undefined;
+  const failureMessage = work.failed
+    ? describeWorkError(work.error)
+    : undefined;
   const resultMetadata: Partial<AgentActionRecordInput> = work.failed
     ? {}
     : (metadataFromResult?.(work.result) ?? {});
