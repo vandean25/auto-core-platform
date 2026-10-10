@@ -185,8 +185,31 @@ describe("warranty claim API", () => {
       const error = await outcome;
       expect(error).toBeInstanceOf(DOMException);
       expect((error as DOMException).name).toBe("TimeoutError");
+      expect((error as DOMException).message).toMatch(/may still have been saved/);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("reads the claim and the list again after a save fails, because the server may have applied it", async () => {
+    const queryClient = createQueryClient();
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    fetchMock.mockResolvedValueOnce(jsonResponse({ message: "The claim changed." }, 409));
+
+    const { result } = renderHook(() => useUpdateWarrantyClaim(), {
+      wrapper: createWrapper(queryClient),
+    });
+    await expect(
+      result.current.mutateAsync({
+        orderId: "order-1",
+        claimId: "claim-1",
+        payload: { status: "APPROVED" },
+      }),
+    ).rejects.toThrow("The claim changed.");
+
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: warrantyClaimKeys.detail("order-1", "claim-1"),
+    });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: warrantyClaimKeys.lists("order-1") });
   });
 });

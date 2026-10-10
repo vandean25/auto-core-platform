@@ -70,7 +70,10 @@ export async function updateWarrantyClaim(
 ): Promise<WarrantyClaim> {
   const controller = new AbortController()
   const timer = setTimeout(
-    () => controller.abort(new DOMException('The save timed out. Try again.', 'TimeoutError')),
+    () =>
+      controller.abort(
+        new DOMException('The save timed out. It may still have been saved, so reload the claim to check.', 'TimeoutError'),
+      ),
     WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
   )
   try {
@@ -138,6 +141,12 @@ export function useUpdateWarrantyClaim() {
     }) => updateWarrantyClaim(orderId, claimId, payload),
     onSuccess: (claim, { orderId, claimId }) => {
       queryClient.setQueryData(warrantyClaimKeys.detail(orderId, claimId), claim)
+      void queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
+    },
+    // A save that failed may still have been applied, and a timeout does not say whether it was. The
+    // claim is read again instead of trusting the cache.
+    onError: (_error, { orderId, claimId }) => {
+      void queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.detail(orderId, claimId) })
       void queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
     },
   })

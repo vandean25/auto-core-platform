@@ -470,6 +470,22 @@ describe("WarrantyClaimEditor", () => {
     expect(within(settled).getByLabelText("Decision note")).toHaveValue("80% goodwill share");
   });
 
+  it("closes the decision dialog when nothing is being saved", async () => {
+    renderEditor(
+      claimFixture({
+        status: "SUBMITTED_EXTERNALLY",
+        submittedAt: "2026-10-10T09:00:00.000Z",
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Record approval" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(toastMock.message).not.toHaveBeenCalled();
+  });
+
   it("saves the other edits when the claimed amount cannot be read and the editor unmounts", async () => {
     const { unmount } = renderEditor(claimFixture());
 
