@@ -412,29 +412,3 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: npm run repowise:gate -- --base "${BASE_SHA:-origin/main}"
-
-  repowise-dead-code:
-    name: Repowise Dead Code (Advisory)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.13'
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-
-      - name: Initialize Repowise Index
-        run: uvx --from repowise==0.49.0 repowise init --no-prose --no-agents --no-claude-md --yes
-
-      - name: Check Dead Code (Advisory)
-        # Informational analysis: frontend path aliases (e.g. `@/`) are recognized as candidates
-        # until upstream path alias resolution lands; do not hard-gate PR merges on candidates.
-        run: uvx --from repowise==0.49.0 repowise dead-code || true
-
