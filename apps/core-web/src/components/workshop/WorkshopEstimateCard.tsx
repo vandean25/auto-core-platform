@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { AlertTriangle, Download, Loader2, Plus, Send } from 'lucide-react'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   fetchWorkshopEstimatePdfError,
+  workshopEstimateKeys,
   useCreateWorkshopEstimate,
   useReviseWorkshopEstimate,
   useSendWorkshopEstimateVersion,
@@ -84,6 +86,11 @@ export interface WorkshopEstimateCardProps {
   orderId: string
   orderStatus: string
   isLocked: boolean
+  /**
+   * Changes whenever the order's tasks or lines change. The overrun warning and the
+   * DRAFT totals depend on them, so the estimate is re-read when this value changes.
+   */
+  orderRevision?: string
 }
 
 interface VersionRowProps {
@@ -172,7 +179,15 @@ function VersionRow({
  * only for OWNER, ADMIN and SALES. The backend enforces the same roles, the open-order
  * rule and the send flag; this card mirrors them so the advisor sees the right controls.
  */
-export function WorkshopEstimateCard({ orderId, orderStatus, isLocked }: WorkshopEstimateCardProps) {
+export function WorkshopEstimateCard({ orderId, orderStatus, isLocked, orderRevision }: WorkshopEstimateCardProps) {
+  const queryClient = useQueryClient()
+  const lastOrderRevision = useRef(orderRevision)
+  useEffect(() => {
+    if (lastOrderRevision.current === orderRevision) return
+    lastOrderRevision.current = orderRevision
+    void queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.all })
+  }, [orderRevision, queryClient])
+
   const estimateQuery = useWorkshopOrderEstimate(orderId)
   const estimate = estimateQuery.data ?? null
   const versions = estimate?.versions ?? []

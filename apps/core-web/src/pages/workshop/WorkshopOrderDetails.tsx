@@ -436,6 +436,7 @@ export function WorkshopOrderDetails() {
                 orderId={order.id}
                 orderStatus={order.status}
                 isLocked={!!isLocked}
+                orderRevision={JSON.stringify(order.tasks ?? [])}
               />
             )}
           </motion.div>

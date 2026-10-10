@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   WorkshopEstimate,
@@ -30,6 +31,7 @@ vi.mock('sonner', () => ({
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>
 
 const ORDER_ID = 'order-1'
+let queryClient = new QueryClient()
 const SENT_AT = '2026-10-10T08:05:00.000Z'
 const VALID_UNTIL = '2026-10-24T08:05:00.000Z'
 
@@ -109,10 +111,16 @@ const sendMutateAsync = vi.fn(async ({ versionId }: { orderId: string; versionId
   })
   return { ...DRAFT_V2 } as WorkshopEstimateVersionDetail
 })
-const downloadMock = vi.fn(async () => true)
+const downloadMock = vi.fn(async (_config?: unknown) => true)
 
-function card(orderStatus = 'IN_PROGRESS', isLocked = false): ReactElement {
-  return <WorkshopEstimateCard orderId={ORDER_ID} orderStatus={orderStatus} isLocked={isLocked} />
+function card(orderStatus = 'IN_PROGRESS', isLocked = false, orderRevision?: string): ReactElement {
+  return (
+    <WorkshopEstimateCard orderId={ORDER_ID} orderStatus={orderStatus} isLocked={isLocked} orderRevision={orderRevision} />
+  )
+}
+
+function withClient(ui: ReactElement): ReactElement {
+  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
 }
 
 /** Feeds the current store into the hook mocks. Call before every render or rerender. */
@@ -129,15 +137,16 @@ function syncStore(): void {
 
 function renderCard(orderStatus = 'IN_PROGRESS', isLocked = false) {
   syncStore()
-  return render(card(orderStatus, isLocked))
+  return render(withClient(card(orderStatus, isLocked)))
 }
 
 function rerenderCard(view: ReturnType<typeof render>, orderStatus = 'IN_PROGRESS', isLocked = false) {
   syncStore()
-  view.rerender(card(orderStatus, isLocked))
+  view.rerender(withClient(card(orderStatus, isLocked)))
 }
 
 beforeEach(() => {
+  queryClient = new QueryClient()
   store.versions = null
   store.sendEnabled = false
   createMutateAsync.mockClear()
@@ -222,7 +231,7 @@ describe('WorkshopEstimateCard', () => {
       isError: false,
       error: null,
     })
-    render(card())
+    render(withClient(card()))
 
     const banner = screen.getByTestId('estimate-overrun-banner')
     expect(within(banner).getByText('Auftrag weicht vom Kostenvoranschlag ab')).toBeTruthy()
@@ -288,6 +297,14 @@ describe('WorkshopEstimateCard', () => {
         filename: 'kostenvoranschlag_kv_2026_0001_v1.pdf',
       }),
     )
+
+    // Each download polls its own version: the failure check reads that version's detail.
+    const v2Config = downloadMock.mock.calls[0]?.[0] as unknown as { checkGenerationFailed: () => Promise<unknown> }
+    const v1Config = downloadMock.mock.calls[1]?.[0] as unknown as { checkGenerationFailed: () => Promise<unknown> }
+    await v2Config.checkGenerationFailed()
+    await v1Config.checkGenerationFailed()
+    expect(estimateApi.fetchWorkshopEstimatePdfError).toHaveBeenNthCalledWith(1, 'v2')
+    expect(estimateApi.fetchWorkshopEstimatePdfError).toHaveBeenNthCalledWith(2, 'v1')
   })
 
   it('shows a failed render with its safe message and still allows a retry', () => {
@@ -302,6 +319,24 @@ describe('WorkshopEstimateCard', () => {
     const row = screen.getByTestId('estimate-version-1')
     expect(within(row).getByRole('alert').textContent).toBe('PDF generation failed. Please try again or contact support.')
     expect(within(row).getByRole('button', { name: 'PDF herunterladen' })).toBeTruthy()
+  })
+})
+
+describe('WorkshopEstimateCard order refresh', () => {
+  it('re-reads the estimate when the order tasks change, so the overrun warning stays current', () => {
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    store.versions = [sentVersion('v1', 1)]
+    syncStore()
+    const view = render(withClient(card('IN_PROGRESS', false, '[]')))
+    expect(invalidate).not.toHaveBeenCalled()
+
+    view.rerender(withClient(card('IN_PROGRESS', false, '[{"id":"task-1"}]')))
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: estimateApi.workshopEstimateKeys.all })
+    expect(invalidate).toHaveBeenCalledTimes(1)
+
+    // The same revision again does not trigger another read.
+    view.rerender(withClient(card('IN_PROGRESS', false, '[{"id":"task-1"}]')))
+    expect(invalidate).toHaveBeenCalledTimes(1)
   })
 })
 
