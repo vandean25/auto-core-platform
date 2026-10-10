@@ -197,6 +197,65 @@ describe('McpOrderHistoryReadService', () => {
       ]);
     });
 
+    it('shows no total while the linked invoice is still a draft', async () => {
+      workshopOrder.findMany.mockResolvedValue([
+        {
+          id: WORKSHOP_ORDER_ID,
+          order_number: 'WO-2026-0007',
+          status: 'COMPLETED',
+          createdAt: new Date('2026-09-01T08:00:00.000Z'),
+          vehicle: VEHICLE,
+        },
+      ]);
+      salesOrder.findMany.mockResolvedValue([]);
+      invoice.findMany.mockResolvedValue([
+        {
+          workshop_order_id: WORKSHOP_ORDER_ID,
+          sales_order_id: null,
+          status: 'DRAFT',
+          total_gross: new Prisma.Decimal('174.00'),
+          snapshot: null,
+        },
+      ]);
+
+      const result = await service.getCustomer({ customer_id: CUSTOMER_ID });
+
+      expect(result.orders.data).toEqual([
+        expect.objectContaining({ id: WORKSHOP_ORDER_ID, total_gross: null }),
+      ]);
+    });
+
+    it('keeps the total of a cancelled invoice, as list_invoices does', async () => {
+      workshopOrder.findMany.mockResolvedValue([
+        {
+          id: WORKSHOP_ORDER_ID,
+          order_number: 'WO-2026-0007',
+          status: 'INVOICED',
+          createdAt: new Date('2026-09-01T08:00:00.000Z'),
+          vehicle: VEHICLE,
+        },
+      ]);
+      salesOrder.findMany.mockResolvedValue([]);
+      invoice.findMany.mockResolvedValue([
+        {
+          workshop_order_id: WORKSHOP_ORDER_ID,
+          sales_order_id: null,
+          status: 'CANCELLED',
+          total_gross: new Prisma.Decimal('174.00'),
+          snapshot: null,
+        },
+      ]);
+
+      const result = await service.getCustomer({ customer_id: CUSTOMER_ID });
+
+      expect(result.orders.data).toEqual([
+        expect.objectContaining({
+          id: WORKSHOP_ORDER_ID,
+          total_gross: '174.00',
+        }),
+      ]);
+    });
+
     it('shows the last ten orders by default', async () => {
       workshopOrder.findMany.mockResolvedValue(
         Array.from({ length: 11 }, (_, index) => ({

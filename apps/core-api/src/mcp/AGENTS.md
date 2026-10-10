@@ -23,7 +23,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_customer`         | Get a tenant customer: contact data, vehicles, and a compact order history (paged) | Read   | AUTO                                                  |
 | `search_vehicles`      | Search tenant vehicles                                       | Read   | AUTO                                                  |
 | `get_vehicle`          | Get a tenant vehicle                                         | Read   | AUTO                                                  |
-| `get_vehicle_history` | Get a vehicle for the active site: compact orders (paged), Pickerl status, recent inspections, and the first page of documents | Read | AUTO |
+| `get_vehicle_history` | Get a tenant vehicle: Pickerl status, recent inspections, and compact orders (paged) and the first page of documents for the active site | Read | AUTO |
 | `list_workshop_orders` | List workshop orders for the active site                     | Read   | AUTO                                                  |
 | `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
@@ -104,7 +104,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 - `get_customer` returns the customer's contact data as before, the vehicles, and `orders`. The REST detail's nested workshop orders, sales orders, and invoices are not part of the MCP result. Use `list_invoices` with `customer_id` for invoices.
 - `orders` lists workshop orders and sales orders together, newest first, for the active site. Each row has `kind` (`workshop_order` or `sales_order`), `number`, `status`, `vehicle`, `date`, and `total_gross`.
-- `total_gross` is the gross total of the order's linked invoice, the figure `list_invoices` shows. An order without an invoice has no billed total, so `total_gross` is `null`. Never compute a gross total from order lines.
+- `total_gross` is the gross total of the order's linked invoice, the figure `list_invoices` shows, once that invoice is committed (finalized, issued, paid, or cancelled). A draft invoice, or no invoice, has no billed total, so `total_gross` is `null`. Never compute a gross total from order lines.
 - `get_vehicle_history` returns the vehicle's identity, `pickerl_due`, `orders` (the same rows and paging), the newest ten `inspections` with `meta.total`, and the first page of `documents`. Inspection dates are `YYYY-MM-DD`; a sticker's validity is `YYYY-MM`.
 - For more documents of a vehicle, call `list_documents` with `entity_type` `vehicle` and the same `entity_id`, and pass `documents.meta.next_cursor` as `cursor`.
 - `get_vehicle` is unchanged. It returns the full vehicle detail, which can be truncated for busy vehicles; prefer `get_vehicle_history` for the order and inspection history.

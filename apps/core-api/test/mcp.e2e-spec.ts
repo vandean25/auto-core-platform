@@ -2262,6 +2262,8 @@ describe('MCP server (e2e)', () => {
     let historyInvoiceId: string;
     let historyInvoiceNumber: string;
     let historyInvoiceArchiveKey: string;
+    let historyOtherSiteId: string;
+    let historyOtherSiteOrderId: string;
     let otherTenantCustomerId: string;
     let otherTenantVehicleId: string;
     let otherTenantDocumentId: string;
@@ -2291,11 +2293,28 @@ describe('MCP server (e2e)', () => {
       }
     }
 
+    /** The error text of a history call that must fail; empty when the call succeeds. */
+    async function historyCallErrorText(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<string> {
+      try {
+        const result = await historyCall(name, args);
+        return result.isError === true ? toolPayloadText(result) : '';
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    }
+
     afterAll(async () => {
       // The shared tenant cleanup does not remove sales orders, and they block the customer delete.
       await prismaA.salesOrder.deleteMany({
         where: { id: historySalesOrderId },
       });
+      await prismaA.workshopOrder.deleteMany({
+        where: { id: historyOtherSiteOrderId },
+      });
+      await prismaA.site.deleteMany({ where: { id: historyOtherSiteId } });
     });
 
     beforeAll(async () => {
@@ -2414,6 +2433,41 @@ describe('MCP server (e2e)', () => {
         },
         select: { id: true },
       });
+
+      // The same customer and vehicle, with a job card at a second site of this tenant.
+      const mainSite = await prismaA.site.findUniqueOrThrow({
+        where: { id: siteId },
+        select: { legal_entity_id: true },
+      });
+      const otherSite = await prismaA.site.create({
+        data: {
+          tenant_id: tenantA,
+          legal_entity_id: mainSite.legal_entity_id,
+          code: `E2E-OTHER-${Date.now()}`,
+          name: 'E2E other site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+          is_active: true,
+        },
+      });
+      const otherSiteOrder = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-OTHER-${historyToken}`,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: otherSite.id,
+          odometer: 2000,
+          fuel_level: 40,
+          status: 'INTAKE',
+          pdf_storage_bucket: 'e2e-pdf-archive',
+          pdf_storage_key: `job-cards/other-${historyToken}.pdf`,
+          pdf_generated_at: new Date('2026-10-04T09:00:00.000Z'),
+        },
+        select: { id: true },
+      });
+      historyOtherSiteId = otherSite.id;
+      historyOtherSiteOrderId = otherSiteOrder.id;
 
       historyCustomerId = customer.id;
       historyVehicleId = vehicle.id;
@@ -2626,17 +2680,39 @@ describe('MCP server (e2e)', () => {
       expect(summary).not.toContain('storage.example.test');
     });
 
+    it('does not reveal a document or order at another site of the same tenant', async () => {
+      const documentId = `workshop_order:${historyOtherSiteOrderId}`;
+      expect(
+        await historyCallErrorText('get_document_pdf', { id: documentId }),
+      ).toContain(`Document with ID ${documentId} not found`);
+
+      const listed = parsePayload<DocumentPage>(
+        await historyCall('list_documents', {
+          entity_type: 'customer',
+          entity_id: historyCustomerId,
+        }),
+      );
+      expect(listed.data.map((row) => row.id)).not.toContain(documentId);
+
+      const detail = parsePayload<{ orders: { data: OrderRow[] } }>(
+        await historyCall('get_customer', { customer_id: historyCustomerId }),
+      );
+      expect(detail.orders.data.map((row) => row.id)).not.toContain(
+        historyOtherSiteOrderId,
+      );
+    });
+
     it('does not reveal another tenant document, customer, or vehicle', async () => {
       expect(
-        await historyCallFails('get_document_pdf', {
+        await historyCallErrorText('get_document_pdf', {
           id: otherTenantDocumentId,
         }),
-      ).toBe(true);
+      ).toContain(`Document with ID ${otherTenantDocumentId} not found`);
       expect(
-        await historyCallFails('get_vehicle_history', {
+        await historyCallErrorText('get_vehicle_history', {
           vehicle_id: otherTenantVehicleId,
         }),
-      ).toBe(true);
+      ).toContain(`Vehicle with ID ${otherTenantVehicleId} not found`);
 
       const listed = parsePayload<DocumentPage>(
         await historyCall('list_documents', {

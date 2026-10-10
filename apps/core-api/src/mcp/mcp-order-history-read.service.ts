@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { InvoiceStatus, type Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import { attachPickerlDue } from '../vehicle/pickerl/attach-pickerl-due.js';
 import { CustomerService } from '../customer/customer.service.js';
@@ -339,6 +339,10 @@ export class McpOrderHistoryReadService {
       },
     });
     for (const invoice of invoices) {
+      // A draft is not billed yet, so its order shows no total until the invoice is committed.
+      if (invoice.status === InvoiceStatus.DRAFT) {
+        continue;
+      }
       const gross = listGrossTotal(invoice);
       if (invoice.workshop_order_id) {
         totals.set(invoice.workshop_order_id, gross);
