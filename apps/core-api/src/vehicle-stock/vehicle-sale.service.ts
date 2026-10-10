@@ -5,19 +5,13 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
-  InvoiceStatus,
-  InvoiceTaxMode,
+  AuditLogAction,
   Prisma,
-  VehicleAcquisitionKind,
   VehicleInventoryRole,
   VehicleLedgerEntryType,
-  VehiclePurchaseSellerType,
-  VehiclePurchaseStatus,
   VehicleSaleStatus,
-  VehicleStockStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
-  AuditLogAction,
   type VehiclePurchase,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -37,30 +31,51 @@ import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
-import {
-  assertTradeInIsNotSoldVehicle,
-  assertValidTradeInAllowance,
-  buildMarginSaleInvoiceLines,
-  netAmountDue,
-  tradeInLineDescription,
-} from './vehicle-trade-in.js';
+import { netAmountDue } from './vehicle-trade-in.js';
 import { daysInStock } from './vehicle-stock-reports.math.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
-import { computeGewaehrleistung } from './gewaehrleistung/compute-gewaehrleistung.js';
-import { resolveGewaehrleistungRuleSet } from './gewaehrleistung/gewaehrleistung-rule-sets.js';
 import { resolveGarantieFacts } from './kaufvertrag/kaufvertrag-garantie.js';
 import { omitKaufvertragArchiveInternals } from './kaufvertrag/kaufvertrag-sale-response.js';
 import type { CorrectGewaehrleistungSnapshotDto } from './dto/correct-gewaehrleistung-snapshot.dto.js';
 import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
+import {
+  SALE_STATE_CHANGED_MESSAGE,
+  SELLABLE_STATUSES,
+  assertDraftTradeInCompatible,
+  assertExpectedSaleSite,
+  assertVehicleIsSellable,
+  buildDraftUpdateData,
+  buildDraftUpdateWhere,
+} from './vehicle-sale.guards.js';
+import {
+  buildCorrectedWarrantyFacts,
+  buildCorrectionGuardWhere,
+  buildCreateWarrantyFacts,
+  buildDraftWarrantyFacts,
+  computeSaleWarrantySnapshot,
+  finalizeWarrantyInput,
+  resolveDraftGarantie,
+  toGewaehrleistungInput,
+  toGewaehrleistungSnapshot,
+} from './vehicle-sale.warranty.js';
+import {
+  DEFAULT_VAT_RATE,
+  assignInvoiceNumber,
+  buildFinalizeFigures,
+  buildFinalizeResponse,
+  buildMarginInvoiceData,
+  findFinalizeLedgerEntries,
+  findLockedDraftForFinalize,
+  findSaleForFinalize,
+  loadFinalizableTradeIn,
+  type FinalizeSale,
+} from './vehicle-sale.finalize.js';
 
-const DEFAULT_VAT_RATE = new Prisma.Decimal(20);
-const MARGIN_REVENUE_GROUP = 'Vehicle used (margin)';
-const SELLABLE_STATUSES: VehicleStockStatus[] = [
-  VehicleStockStatus.IN_STOCK,
-  VehicleStockStatus.RESERVED,
-];
+type DraftSaleForUpdate = Prisma.VehicleSaleGetPayload<{
+  include: { vehicle: { include: { location: true } } };
+}>;
 
 @Injectable()
 export class VehicleSaleService {
@@ -94,15 +109,8 @@ export class VehicleSaleService {
       );
     }
 
-    const warrantyFacts = {
-      contract_concluded_at: dto.contract_concluded_at ?? null,
-      handed_over_at: dto.handed_over_at ?? null,
-      buyer_is_consumer: dto.buyer_is_consumer ?? buyer.type === 'PRIVATE',
-      gewaehrleistung_shortened_negotiated:
-        dto.gewaehrleistung_shortened_negotiated ?? false,
-      gewaehrleistung_note: dto.gewaehrleistung_note ?? null,
-    };
-    const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+    const warrantyFacts = buildCreateWarrantyFacts(dto, buyer.type);
+    const warrantySnapshot = computeSaleWarrantySnapshot(
       warrantyFacts,
       vehicle.first_registration_date,
     );
@@ -175,161 +183,49 @@ export class VehicleSaleService {
   async updateDraft(id: string, dto: PatchVehicleSaleDto) {
     const tenantId = await this.tenantContext.getTenantId();
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
-    const sale = await this.prisma.vehicleSale.findFirst({
-      where: {
-        id,
-        tenant_id: tenantId,
-        site_id: { in: authorizedSiteIds },
-        vehicle: {
-          is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
-        },
-      },
-      include: { vehicle: { include: { location: true } } },
-    });
-    if (!sale) {
-      throw new NotFoundException(`Vehicle sale ${id} not found`);
-    }
-    if (sale.status !== VehicleSaleStatus.DRAFT) {
-      throw new UnprocessableEntityException('Only DRAFT sales can be updated');
-    }
+    const sale = await this.findDraftSaleForUpdate(
+      id,
+      tenantId,
+      authorizedSiteIds,
+    );
     const tradeIn = await this.findTradeInPurchase(
       sale.trade_in_purchase_id,
       tenantId,
       authorizedSiteIds,
     );
-    if (tradeIn) {
-      if (dto.customer_id && dto.customer_id !== sale.customer_id) {
-        throw new UnprocessableEntityException(
-          'Remove the trade-in before changing the buyer of this sale',
-        );
-      }
-      if (dto.sale_price !== undefined) {
-        assertValidTradeInAllowance(
-          tradeIn.purchase_price,
-          new Prisma.Decimal(dto.sale_price),
-        );
-      }
-    }
+    assertDraftTradeInCompatible(sale, dto, tradeIn);
+    assertExpectedSaleSite(sale, dto);
 
     const targetSiteId = dto.siteId ?? dto.site_id;
-    if (
-      dto.expectedSiteId !== undefined &&
-      sale.site_id &&
-      dto.expectedSiteId !== sale.site_id
-    ) {
-      throw new ConflictException(
-        'Vehicle sale site changed concurrently. Please refresh.',
-      );
-    }
-
     const isRetargeting =
       targetSiteId !== undefined && targetSiteId !== sale.site_id;
-    if (isRetargeting && tradeIn) {
-      // The trade-in purchase is site-owned and stays at the sale's site; moving the sale would strand it.
-      throw new UnprocessableEntityException(
-        'Remove the trade-in before moving this sale to another site',
-      );
-    }
-
     if (isRetargeting) {
-      await assertActiveTargetSiteMembership(
-        this.prisma,
-        this.tenantContext,
-        tenantId,
-        targetSiteId,
-      );
-
-      // Ruling 18: Parked vehicle's lot must already belong to target site; 422 otherwise
-      if (
-        !sale.vehicle?.location ||
-        sale.vehicle.location.site_id !== targetSiteId
-      ) {
-        throw new UnprocessableEntityException(
-          'Vehicle is parked on another site; move the vehicle before retargeting sale',
-        );
-      }
+      await this.assertRetargetAllowed(tenantId, sale, tradeIn, targetSiteId);
     }
-
     if (dto.customer_id) {
       await this.assertSellable(tenantId, sale.vehicle_id, dto.customer_id);
     }
 
-    const warrantyFacts = {
-      contract_concluded_at:
-        dto.contract_concluded_at !== undefined
-          ? dto.contract_concluded_at
-          : sale.contract_concluded_at,
-      handed_over_at:
-        dto.handed_over_at !== undefined
-          ? dto.handed_over_at
-          : sale.handed_over_at,
-      buyer_is_consumer:
-        dto.buyer_is_consumer ?? sale.buyer_is_consumer ?? false,
-      gewaehrleistung_shortened_negotiated:
-        dto.gewaehrleistung_shortened_negotiated ??
-        sale.gewaehrleistung_shortened_negotiated ??
-        false,
-      gewaehrleistung_note:
-        dto.gewaehrleistung_note !== undefined
-          ? dto.gewaehrleistung_note
-          : sale.gewaehrleistung_note,
-    };
-    const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+    const warrantyFacts = buildDraftWarrantyFacts(sale, dto);
+    const warrantySnapshot = computeSaleWarrantySnapshot(
       warrantyFacts,
       sale.vehicle?.first_registration_date ?? null,
     );
-    const garantie = resolveGarantieFacts({
-      months:
-        dto.garantie_months !== undefined
-          ? dto.garantie_months
-          : sale.garantie_months,
-      terms:
-        dto.garantie_terms !== undefined
-          ? dto.garantie_terms
-          : sale.garantie_terms,
-      termsProvided: dto.garantie_terms !== undefined,
-    });
-
-    await this.prisma.$transaction(async (tx) => {
-      if (isRetargeting) {
-        await lockSitesAndAssertActive(
-          tx,
-          tenantId,
-          [sale.site_id, targetSiteId].filter((s): s is string => Boolean(s)),
-        );
-      }
-
-      const updateData: Prisma.VehicleSaleUncheckedUpdateManyInput = {
-        customer_id: dto.customer_id,
-        sale_price:
-          dto.sale_price !== undefined
-            ? new Prisma.Decimal(dto.sale_price)
-            : undefined,
-        ...garantie,
-        ...warrantyFacts,
-        ...warrantySnapshot,
-      };
-      if (isRetargeting) {
-        updateData.site_id = targetSiteId;
-      }
-
-      const updated = await tx.vehicleSale.updateMany({
-        where: {
-          id,
-          tenant_id: tenantId,
-          status: VehicleSaleStatus.DRAFT,
-          ...(isRetargeting && sale.site_id ? { site_id: sale.site_id } : {}),
-          ...(dto.expectedSiteId ? { site_id: dto.expectedSiteId } : {}),
-        },
-        data: updateData,
-      });
-
-      if (updated.count === 0) {
-        throw new ConflictException(
-          'Vehicle sale state or site changed concurrently. Please refresh.',
-        );
-      }
-    });
+    const warrantyFields = {
+      ...resolveDraftGarantie(sale, dto),
+      ...warrantyFacts,
+      ...warrantySnapshot,
+    };
+    // A retarget locks both sites: the trade-in-free sale must not move while another request writes it.
+    const lockSiteIds = isRetargeting
+      ? [sale.site_id, targetSiteId].filter((s): s is string => Boolean(s))
+      : null;
+    await this.persistDraftUpdate(
+      tenantId,
+      lockSiteIds,
+      buildDraftUpdateWhere(id, tenantId, sale, dto, isRetargeting),
+      buildDraftUpdateData(dto, warrantyFields, targetSiteId, isRetargeting),
+    );
 
     return this.findOne(id);
   }
@@ -357,30 +253,14 @@ export class VehicleSaleService {
         throw new NotFoundException(`Vehicle sale ${id} not found`);
       }
 
-      const warrantyFacts = {
-        contract_concluded_at:
-          dto.contract_concluded_at !== undefined
-            ? dto.contract_concluded_at
-            : sale.contract_concluded_at,
-        handed_over_at:
-          dto.handed_over_at !== undefined
-            ? dto.handed_over_at
-            : sale.handed_over_at,
-        buyer_is_consumer: dto.buyer_is_consumer,
-        gewaehrleistung_shortened_negotiated:
-          dto.gewaehrleistung_shortened_negotiated,
-        gewaehrleistung_note:
-          dto.gewaehrleistung_note !== undefined
-            ? dto.gewaehrleistung_note
-            : sale.gewaehrleistung_note,
-      };
-      const warrantySnapshot = this.computeGewaehrleistungSnapshot(
+      const warrantyFacts = buildCorrectedWarrantyFacts(sale, dto);
+      const warrantySnapshot = computeSaleWarrantySnapshot(
         warrantyFacts,
         sale.vehicle.first_registration_date,
       );
       const before = {
-        input: this.toGewaehrleistungInput(sale),
-        snapshot: this.toGewaehrleistungSnapshot(sale),
+        input: toGewaehrleistungInput(sale),
+        snapshot: toGewaehrleistungSnapshot(sale),
         reason: null,
       };
       const after = {
@@ -395,46 +275,19 @@ export class VehicleSaleService {
       }
 
       const updated = await tx.vehicleSale.updateMany({
-        where: {
-          id,
-          tenant_id: tenantId,
-          site_id: { in: authorizedSiteIds },
-          status: VehicleSaleStatus.INVOICED,
-          contract_concluded_at: sale.contract_concluded_at,
-          handed_over_at: sale.handed_over_at,
-          buyer_is_consumer: sale.buyer_is_consumer,
-          gewaehrleistung_shortened_negotiated:
-            sale.gewaehrleistung_shortened_negotiated,
-          gewaehrleistung_note: sale.gewaehrleistung_note,
-          gewaehrleistung_ends_on: sale.gewaehrleistung_ends_on,
-          presumption_ends_on: sale.presumption_ends_on,
-          gewaehrleistung_rule_version: sale.gewaehrleistung_rule_version,
-        },
+        where: buildCorrectionGuardWhere(id, tenantId, authorizedSiteIds, sale),
         data: { ...warrantyFacts, ...warrantySnapshot },
       });
       if (updated.count !== 1) {
-        throw new ConflictException(
-          'Vehicle sale state or site changed concurrently. Please refresh.',
-        );
+        throw new ConflictException(SALE_STATE_CHANGED_MESSAGE);
       }
-
-      const authUser = this.tenantContext.getAuthenticatedUser();
-      const actor = authUser?.userId
-        ? await tx.user.findFirst({
-            where: {
-              firebaseUid: authUser.userId,
-              active_tenant_id: tenantId,
-            },
-            select: { id: true },
-          })
-        : null;
 
       await this.auditService.recordTenantMutation(
         {
           entityType: 'VehicleSale',
           entityId: sale.id,
           action: AuditLogAction.UPDATE,
-          actorUserId: actor?.id,
+          actorUserId: await this.findAuditActorId(tx, tenantId),
           source: this.requestContext.getSource() ?? 'API',
           before,
           after,
@@ -450,22 +303,9 @@ export class VehicleSaleService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     return this.prisma.$transaction(async (tx) => {
-      let sale = await tx.vehicleSale.findFirst({
-        where: {
-          id,
-          tenant_id: tenantId,
-          site_id: siteId,
-          vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
-          customer: { is: { tenant_id: tenantId } },
-        },
-        include: { vehicle: true, customer: true },
-      });
-      if (!sale) {
-        throw new NotFoundException(`Vehicle sale ${id} not found`);
-      }
-
+      const draft = await findSaleForFinalize(tx, id, tenantId, siteId);
       const persistedSiteId = assertPersistedSiteId(
-        sale.site_id,
+        draft.site_id,
         'Vehicle sale site ownership is required',
       );
       const invoiceDate = new Date();
@@ -477,73 +317,31 @@ export class VehicleSaleService {
         {
           sales_order_id: null,
           workshop_order_id: null,
-          vehicle_sale_id: sale.id,
+          vehicle_sale_id: draft.id,
           site_id: persistedSiteId,
         },
         invoiceDate,
       );
 
-      const lockedSale = await tx.vehicleSale.findFirst({
-        where: {
-          id,
-          tenant_id: tenantId,
-          site_id: commitmentContext.ownership.siteId,
-          status: VehicleSaleStatus.DRAFT,
-          vehicle: {
-            is: {
-              tenant_id: tenantId,
-              site_id: commitmentContext.ownership.siteId,
-            },
-          },
-          customer: { is: { tenant_id: tenantId } },
-        },
-        include: { vehicle: true, customer: true },
-      });
-      if (!lockedSale) {
-        throw new ConflictException(
-          'Vehicle sale state or site changed concurrently. Please refresh.',
-        );
-      }
-      sale = lockedSale;
-      await this.assertSellable(
-        tenantId,
-        sale.vehicle_id,
-        sale.customer_id,
+      const sale = await findLockedDraftForFinalize(
         tx,
+        id,
+        tenantId,
+        commitmentContext.ownership.siteId,
       );
+      await this.assertSellable(tenantId, sale.vehicle_id, sale.customer_id, tx);
 
-      const warrantySnapshot = this.computeGewaehrleistungSnapshot(
-        {
-          contract_concluded_at: sale.contract_concluded_at,
-          handed_over_at: sale.handed_over_at,
-          buyer_is_consumer: sale.buyer_is_consumer ?? false,
-          gewaehrleistung_shortened_negotiated:
-            sale.gewaehrleistung_shortened_negotiated ?? false,
-        },
+      const warrantySnapshot = computeSaleWarrantySnapshot(
+        finalizeWarrantyInput(sale),
         sale.vehicle.first_registration_date,
       );
-
-      const entries = await tx.vehicleLedgerEntry.findMany({
-        where: {
-          tenant_id: tenantId,
-          vehicle_id: sale.vehicle_id,
-          vehicle: { is: { tenant_id: tenantId, site_id: persistedSiteId } },
-          ...(sale.vehicle.stock_received_at
-            ? { posting_date: { gte: sale.vehicle.stock_received_at } }
-            : {}),
-        },
-      });
-      const basis = costBasis(entries);
-      const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
-      const net = sale.sale_price.sub(vat);
-      const description =
-        `${sale.vehicle.year} ${sale.vehicle.make} ${sale.vehicle.model} VIN ${sale.vehicle.vin ?? ''}`.trim();
-      const margin = {
-        cost_basis: basis.toFixed(2),
-        margin_tax: vat.toFixed(2),
-        tax_rate: DEFAULT_VAT_RATE.toFixed(2),
-        calculation_profile: 'vehicle-margin-v1',
-      };
+      const entries = await findFinalizeLedgerEntries(
+        tx,
+        tenantId,
+        sale,
+        persistedSiteId,
+      );
+      const figures = buildFinalizeFigures(sale, entries);
 
       await guardedStatusUpdate(bindStatusUpdateMany(tx.vehicleSale), {
         id,
@@ -552,82 +350,35 @@ export class VehicleSaleService {
         to: VehicleSaleStatus.INVOICED,
         extraWhere: { site_id: persistedSiteId },
         extraData: warrantySnapshot,
-        conflictMessage:
-          'Vehicle sale state or site changed concurrently. Please refresh.',
+        conflictMessage: SALE_STATE_CHANGED_MESSAGE,
       });
 
       // Read after the guarded status update. The site row lock from lockCommitmentContext is held here, and a
       // trade-in save takes the same lock first, so no save can change the link before the invoice is written.
-      const tradeInPurchase = sale.trade_in_purchase_id
-        ? await tx.vehiclePurchase.findFirst({
-            where: {
-              id: sale.trade_in_purchase_id,
-              tenant_id: tenantId,
-              site_id: persistedSiteId,
-            },
-          })
-        : null;
-      const tradeIn = this.assertFinalizableTradeIn(
+      const tradeIn = await loadFinalizableTradeIn(
+        tx,
+        tenantId,
         sale,
-        tradeInPurchase,
         persistedSiteId,
       );
-
-      const posted = await tx.vehicleSale.findFirst({
-        where: {
-          id,
-          tenant_id: tenantId,
-          site_id: siteId,
-          vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
-          customer: { is: { tenant_id: tenantId } },
-        },
-        include: { vehicle: true, customer: true },
-      });
-      if (!posted) {
-        throw new NotFoundException(`Vehicle sale ${id} not found`);
-      }
+      const posted = await findSaleForFinalize(tx, id, tenantId, siteId);
 
       const amountDue = netAmountDue(
         sale.sale_price,
         tradeIn?.purchase_price ?? null,
       );
-      const invoiceLines = buildMarginSaleInvoiceLines({
-        vehicleDescription: description,
-        salePrice: sale.sale_price,
-        taxRate: DEFAULT_VAT_RATE,
-        revenueGroupName: MARGIN_REVENUE_GROUP,
-        tradeIn: tradeIn
-          ? {
-              description: tradeInLineDescription(tradeIn),
-              allowance: tradeIn.purchase_price,
-            }
-          : null,
-      });
-
       const invoice = await tx.invoice.create({
-        data: {
-          tenant_id: tenantId,
-          customer_id: posted.customer_id,
-          vehicle_id: posted.vehicle_id,
-          vehicle_sale_id: posted.id,
-          site_id: commitmentContext.ownership.siteId,
-          legal_entity_id: commitmentContext.ownership.legalEntityId,
-          currency: 'EUR',
-          tax_mode: InvoiceTaxMode.MARGIN_SCHEME,
-          status: InvoiceStatus.FINALIZED,
-          invoice_number: null,
-          date: invoiceDate,
-          due_date: dueDate,
-          total_net: net,
-          total_tax: vat,
-          total_gross: amountDue,
-          items: {
-            create: invoiceLines.map((line) => ({
-              tenant_id: tenantId,
-              ...line,
-            })),
-          },
-        },
+        data: buildMarginInvoiceData({
+          tenantId,
+          posted,
+          ownership: commitmentContext.ownership,
+          invoiceDate,
+          dueDate,
+          figures,
+          salePrice: sale.sale_price,
+          amountDue,
+          tradeIn,
+        }),
         include: { items: true, customer: true, vehicle: true },
       });
 
@@ -636,34 +387,18 @@ export class VehicleSaleService {
         tx,
         tenantId,
         invoice,
-        margin,
+        margin: figures.margin,
         commitmentContext,
         lockInvoiceRow: false,
         inKindCredit: tradeIn?.purchase_price,
       });
-      const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
-      const invoiceNumberUpdate = await tx.invoice.updateMany({
-        where: {
-          id: invoice.id,
-          tenant_id: tenantId,
-          status: InvoiceStatus.FINALIZED,
-          invoice_number: null,
-        },
-        data: { invoice_number: invoiceNumber },
-      });
-      if (invoiceNumberUpdate.count !== 1) {
-        throw new ConflictException(
-          'Invoice was already transitioned by another request',
-        );
-      }
-      const invoiceWithNumber = { ...invoice, invoice_number: invoiceNumber };
+      const invoiceNumber = await assignInvoiceNumber(tx, tenantId, invoice.id);
       await this.snapshotCommit.persistV2Snapshot(
         tx,
         tenantId,
         invoice.id,
         prepared,
       );
-      const snapshot = prepared.snapshot;
       if (tradeIn) {
         await this.recordTradeInNettedAudit(tx, tenantId, posted.id, {
           invoiceId: invoice.id,
@@ -678,8 +413,8 @@ export class VehicleSaleService {
       await tx.vehicleSale.update({
         where: { id: posted.id },
         data: {
-          cost_basis_snapshot: basis,
-          margin_vat_snapshot: vat,
+          cost_basis_snapshot: figures.basis,
+          margin_vat_snapshot: figures.vat,
           days_to_sell_snapshot: daysInStock(
             sale.vehicle.stock_received_at,
             invoiceDate,
@@ -687,50 +422,19 @@ export class VehicleSaleService {
         },
       });
 
-      const stockGuard = await tx.vehicle.updateMany({
-        where: {
-          id: posted.vehicle_id,
-          tenant_id: tenantId,
-          site_id: persistedSiteId,
-          inventory_role: VehicleInventoryRole.USED,
-          stock_status: { in: SELLABLE_STATUSES },
-          first_registration_date: sale.vehicle.first_registration_date,
-        },
-        data: {
-          stock_status: null,
-          stock_received_at: null,
-          stock_cost_basis: null,
-          inventory_role: VehicleInventoryRole.CUSTOMER,
-          customer_id: posted.customer_id,
-          reserved_for_customer_id: null,
-        },
-      });
-      if (stockGuard.count === 0) {
-        throw new ConflictException('Vehicle is no longer sellable');
-      }
-
-      await this.ledger.append(
-        {
-          vehicleId: posted.vehicle_id,
-          entryType: VehicleLedgerEntryType.SALE,
-          amount: posted.sale_price.negated(),
-          vehicleSaleId: posted.id,
-        },
+      await this.releaseStockAndPostLedger(
         tx,
+        tenantId,
+        posted,
+        persistedSiteId,
+        sale.vehicle.first_registration_date,
       );
 
-      return {
-        ...omitKaufvertragArchiveInternals(posted),
-        status: VehicleSaleStatus.INVOICED,
-        vehicle: stripVehicleIdentityResolutionState(posted.vehicle),
-        invoice: omitInvoiceSnapshot({
-          ...invoiceWithNumber,
-          vehicle: invoiceWithNumber.vehicle
-            ? stripVehicleIdentityResolutionState(invoiceWithNumber.vehicle)
-            : invoiceWithNumber.vehicle,
-          snapshot,
-        }),
-      };
+      return buildFinalizeResponse(
+        posted,
+        { ...invoice, invoice_number: invoiceNumber },
+        prepared.snapshot,
+      );
     });
   }
 
@@ -773,40 +477,95 @@ export class VehicleSaleService {
     });
   }
 
-  /**
-   * Re-validates the attached trade-in at finalize: the sale may have changed since it was set.
-   * Returns the trade-in purchase whose purchase_price is the allowance, or null without a trade-in.
-   */
-  private assertFinalizableTradeIn(
-    sale: {
-      trade_in_purchase_id: string | null;
-      customer_id: string;
-      sale_price: Prisma.Decimal;
-      vehicle: { vin: string | null };
-    },
-    purchase: VehiclePurchase | null,
-    siteId: string,
-  ): VehiclePurchase | null {
-    if (!sale.trade_in_purchase_id) {
-      return null;
+  private async findDraftSaleForUpdate(
+    id: string,
+    tenantId: string,
+    authorizedSiteIds: string[],
+  ): Promise<DraftSaleForUpdate> {
+    const sale = await this.prisma.vehicleSale.findFirst({
+      where: {
+        id,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+        vehicle: {
+          is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
+        },
+      },
+      include: { vehicle: { include: { location: true } } },
+    });
+    if (!sale) {
+      throw new NotFoundException(`Vehicle sale ${id} not found`);
     }
-    // A link that cannot be read at this site must not finalize as a sale without its trade-in.
-    if (
-      !purchase ||
-      purchase.status === VehiclePurchaseStatus.CANCELLED ||
-      purchase.acquisition_kind !== VehicleAcquisitionKind.TRADE_IN ||
-      purchase.seller_type !== VehiclePurchaseSellerType.CUSTOMER ||
-      purchase.customer_id !== sale.customer_id ||
-      purchase.site_id !== siteId ||
-      !purchase.vin
-    ) {
-      throw new ConflictException(
-        'The trade-in vehicle is no longer valid for this sale. Please refresh.',
+    if (sale.status !== VehicleSaleStatus.DRAFT) {
+      throw new UnprocessableEntityException('Only DRAFT sales can be updated');
+    }
+    return sale;
+  }
+
+  /** A sale with a trade-in cannot move sites, and the vehicle must already sit on a lot of the target site. */
+  private async assertRetargetAllowed(
+    tenantId: string,
+    sale: DraftSaleForUpdate,
+    tradeIn: VehiclePurchase | null,
+    targetSiteId: string,
+  ): Promise<void> {
+    // The trade-in purchase is site-owned and stays at the sale's site; moving the sale would strand it.
+    if (tradeIn) {
+      throw new UnprocessableEntityException(
+        'Remove the trade-in before moving this sale to another site',
       );
     }
-    assertValidTradeInAllowance(purchase.purchase_price, sale.sale_price);
-    assertTradeInIsNotSoldVehicle(purchase.vin, sale.vehicle.vin);
-    return purchase;
+    await assertActiveTargetSiteMembership(
+      this.prisma,
+      this.tenantContext,
+      tenantId,
+      targetSiteId,
+    );
+
+    // Ruling 18: Parked vehicle's lot must already belong to target site; 422 otherwise
+    if (
+      !sale.vehicle?.location ||
+      sale.vehicle.location.site_id !== targetSiteId
+    ) {
+      throw new UnprocessableEntityException(
+        'Vehicle is parked on another site; move the vehicle before retargeting sale',
+      );
+    }
+  }
+
+  private async persistDraftUpdate(
+    tenantId: string,
+    lockSiteIds: string[] | null,
+    where: Prisma.VehicleSaleWhereInput,
+    data: Prisma.VehicleSaleUncheckedUpdateManyInput,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      if (lockSiteIds) {
+        await lockSitesAndAssertActive(tx, tenantId, lockSiteIds);
+      }
+
+      const updated = await tx.vehicleSale.updateMany({ where, data });
+      if (updated.count === 0) {
+        throw new ConflictException(SALE_STATE_CHANGED_MESSAGE);
+      }
+    });
+  }
+
+  private async findAuditActorId(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+  ): Promise<string | undefined> {
+    const authUser = this.tenantContext.getAuthenticatedUser();
+    const actor = authUser?.userId
+      ? await tx.user.findFirst({
+          where: {
+            firebaseUid: authUser.userId,
+            active_tenant_id: tenantId,
+          },
+          select: { id: true },
+        })
+      : null;
+    return actor?.id;
   }
 
   private async recordTradeInNettedAudit(
@@ -822,23 +581,12 @@ export class VehicleSaleService {
       amountDue: Prisma.Decimal;
     },
   ) {
-    const authUser = this.tenantContext.getAuthenticatedUser();
-    const actor = authUser?.userId
-      ? await tx.user.findFirst({
-          where: {
-            firebaseUid: authUser.userId,
-            active_tenant_id: tenantId,
-          },
-          select: { id: true },
-        })
-      : null;
-
     await this.auditService.recordTenantMutation(
       {
         entityType: 'VehicleSale',
         entityId: saleId,
         action: AuditLogAction.UPDATE,
-        actorUserId: actor?.id,
+        actorUserId: await this.findAuditActorId(tx, tenantId),
         source: this.requestContext.getSource() ?? 'API',
         before: null,
         after: {
@@ -850,6 +598,47 @@ export class VehicleSaleService {
           amount_due: netted.amountDue.toFixed(2),
         },
         diff: { status: VehicleSaleStatus.INVOICED },
+      },
+      tx,
+    );
+  }
+
+  /** Takes the vehicle out of stock for its buyer and posts the SALE ledger row, guarded by the stock state. */
+  private async releaseStockAndPostLedger(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    posted: FinalizeSale,
+    persistedSiteId: string,
+    firstRegistrationDate: Date | null,
+  ): Promise<void> {
+    const stockGuard = await tx.vehicle.updateMany({
+      where: {
+        id: posted.vehicle_id,
+        tenant_id: tenantId,
+        site_id: persistedSiteId,
+        inventory_role: VehicleInventoryRole.USED,
+        stock_status: { in: SELLABLE_STATUSES },
+        first_registration_date: firstRegistrationDate,
+      },
+      data: {
+        stock_status: null,
+        stock_received_at: null,
+        stock_cost_basis: null,
+        inventory_role: VehicleInventoryRole.CUSTOMER,
+        customer_id: posted.customer_id,
+        reserved_for_customer_id: null,
+      },
+    });
+    if (stockGuard.count === 0) {
+      throw new ConflictException('Vehicle is no longer sellable');
+    }
+
+    await this.ledger.append(
+      {
+        vehicleId: posted.vehicle_id,
+        entryType: VehicleLedgerEntryType.SALE,
+        amount: posted.sale_price.negated(),
+        vehicleSaleId: posted.id,
       },
       tx,
     );
@@ -868,24 +657,7 @@ export class VehicleSaleService {
     if (!vehicle) {
       throw new NotFoundException(`Vehicle ${vehicleId} not found`);
     }
-    if (vehicle.inventory_role !== VehicleInventoryRole.USED) {
-      throw new ConflictException('Vehicle is not dealer stock');
-    }
-    if (
-      !vehicle.stock_status ||
-      !SELLABLE_STATUSES.includes(vehicle.stock_status)
-    ) {
-      throw new ConflictException('Vehicle is not available for sale');
-    }
-    if (
-      vehicle.stock_status === VehicleStockStatus.RESERVED &&
-      vehicle.reserved_for_customer_id &&
-      vehicle.reserved_for_customer_id !== buyerId
-    ) {
-      throw new ConflictException(
-        'Vehicle is reserved for a different customer',
-      );
-    }
+    assertVehicleIsSellable(vehicle, buyerId);
     if (await this.hasOpenStockPrep(vehicleId, tx)) {
       throw new ConflictException(
         'Vehicle has an open stock-prep workshop order',
@@ -898,65 +670,6 @@ export class VehicleSaleService {
       throw new NotFoundException(`Customer ${buyerId} not found`);
     }
     return buyer;
-  }
-
-  private computeGewaehrleistungSnapshot(
-    input: {
-      contract_concluded_at: Date | null;
-      handed_over_at: Date | null;
-      buyer_is_consumer: boolean;
-      gewaehrleistung_shortened_negotiated: boolean;
-    },
-    firstRegistrationDate: Date | null,
-  ) {
-    const ruleSet =
-      input.contract_concluded_at && input.handed_over_at
-        ? resolveGewaehrleistungRuleSet(input.contract_concluded_at)
-        : null;
-    const result = computeGewaehrleistung({
-      contractConcludedAt: input.contract_concluded_at,
-      handedOverAt: input.handed_over_at,
-      buyerIsConsumer: input.buyer_is_consumer,
-      shortenedNegotiated: input.gewaehrleistung_shortened_negotiated,
-      firstRegistrationDate,
-    });
-    if (result.error) {
-      throw new UnprocessableEntityException(result.error);
-    }
-    return {
-      gewaehrleistung_ends_on: result.baseEndsOn,
-      presumption_ends_on: result.presumptionEndsOn,
-      gewaehrleistung_rule_version: ruleSet?.id ?? result.ruleVersion,
-    };
-  }
-
-  private toGewaehrleistungInput(sale: {
-    contract_concluded_at: Date | null;
-    handed_over_at: Date | null;
-    buyer_is_consumer: boolean | null;
-    gewaehrleistung_shortened_negotiated: boolean | null;
-    gewaehrleistung_note: string | null;
-  }) {
-    return {
-      contract_concluded_at: sale.contract_concluded_at,
-      handed_over_at: sale.handed_over_at,
-      buyer_is_consumer: sale.buyer_is_consumer,
-      gewaehrleistung_shortened_negotiated:
-        sale.gewaehrleistung_shortened_negotiated,
-      gewaehrleistung_note: sale.gewaehrleistung_note,
-    };
-  }
-
-  private toGewaehrleistungSnapshot(sale: {
-    gewaehrleistung_ends_on: Date | null;
-    presumption_ends_on: Date | null;
-    gewaehrleistung_rule_version: string | null;
-  }) {
-    return {
-      gewaehrleistung_ends_on: sale.gewaehrleistung_ends_on,
-      presumption_ends_on: sale.presumption_ends_on,
-      gewaehrleistung_rule_version: sale.gewaehrleistung_rule_version,
-    };
   }
 
   private async nextSaleNumber(tenantId: string) {
@@ -979,19 +692,5 @@ export class VehicleSaleService {
       });
     });
     return `${prefix}${String(settings.next_vehicle_sale_number - 1).padStart(4, '0')}`;
-  }
-
-  private async generateInvoiceNumber(
-    tx: Prisma.TransactionClient,
-    tenantId: string,
-  ) {
-    const year = new Date().getFullYear();
-    const prefix = `RE-${year}-`;
-    const sequence = await tx.invoiceSequence.upsert({
-      where: { tenant_id_year: { tenant_id: tenantId, year } },
-      update: { current: { increment: 1 } },
-      create: { tenant_id: tenantId, year, current: 1 },
-    });
-    return `${prefix}${sequence.current.toString().padStart(4, '0')}`;
   }
 }
