@@ -28,3 +28,21 @@ export function clampMcpPage(page?: number): number {
   }
   return Math.floor(page);
 }
+
+/** Opaque cursor for offset paging over a static list. */
+export function encodeMcpCursor(offset: number): string {
+  return Buffer.from(String(offset), 'utf8').toString('base64url');
+}
+
+/** Offset encoded by a cursor from encodeMcpCursor, or null when it is not one. */
+export function decodeMcpCursor(cursor: string): number | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
+    return null;
+  }
+  const decoded = Buffer.from(cursor, 'base64url').toString('utf8');
+  if (!/^\d+$/.test(decoded)) {
+    return null;
+  }
+  const offset = Number(decoded);
+  return Number.isSafeInteger(offset) ? offset : null;
+}

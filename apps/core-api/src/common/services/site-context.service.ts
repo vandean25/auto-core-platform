@@ -15,12 +15,25 @@ export class SiteContextService {
   ) {}
 
   async getSiteId(): Promise<string> {
+    const siteId = await this.findSiteId();
+    if (!siteId) {
+      throw this.createActiveSiteRequiredException();
+    }
+    return siteId;
+  }
+
+  /**
+   * Active site for the session when its membership is still valid, otherwise
+   * null. Unlike getSiteId this never throws, so read-only callers can report
+   * "no active site" without treating it as an error.
+   */
+  async findSiteId(): Promise<string | null> {
     const user = this.tenantContext.getAuthenticatedUser();
     const activeSiteId =
       user && 'activeSiteId' in user ? user.activeSiteId : undefined;
 
     if (!user?.tenantId || !activeSiteId) {
-      throw this.createActiveSiteRequiredException();
+      return null;
     }
 
     const activeSite = await this.systemPrisma.user.findFirst({
@@ -46,11 +59,7 @@ export class SiteContextService {
       select: { active_site_id: true },
     });
 
-    if (!activeSite?.active_site_id) {
-      throw this.createActiveSiteRequiredException();
-    }
-
-    return activeSite.active_site_id;
+    return activeSite?.active_site_id ?? null;
   }
 
   private createActiveSiteRequiredException(): UnprocessableEntityException {

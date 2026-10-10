@@ -42,8 +42,12 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `list_bays` | AUTO | Paged active bays for the active site |
 | `list_bins` | AUTO | Paged bin storage locations for the active site |
 | `list_workshop_tasks` | AUTO | Paged tasks visible to the caller with line IDs for MCP actions |
+| `whoami` | AUTO | Caller identity, role, tenant, active site, and decision apply mode (no input) |
+| `get_capabilities` | AUTO | Paged tools for the caller with policy tier, enabled state, and disabled reason; HUMAN_ONLY action names |
 
 Outputs are page-limited (max 25 rows) and JSON size-capped before returning to the client. Summaries written to the action log are redacted per AE2.
+
+`whoami` and `get_capabilities` (AUT-454) are identity and capability reads, and both are logged like other reads. `whoami` takes no input: an agent session reports itself as `caller` with `type: agent`, while `role`, `tenant`, `site`, and `mode` come from the session and the tenant's decision apply mode, never from tool arguments. `get_capabilities` reads each write tool's tier and enabled state from the agent policy (tenant override, else platform default), reports a disabled rule as `enabled: false` with `disabled_reason: policy_disabled`, and never lists a HUMAN_ONLY action as a tool; those action names appear in `human_only_actions`. It pages with `pageSize` (max 25) and an opaque `cursor`, the one exception to the `page` and `page_size` convention.
 
 ## Write tools (phase 2)
 

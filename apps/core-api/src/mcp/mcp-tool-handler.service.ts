@@ -25,6 +25,7 @@ import {
   clampMcpPageSize,
 } from './mcp-output.util.js';
 import {
+  getCapabilitiesInputSchema,
   getCustomerInputSchema,
   getStockLevelInputSchema,
   getVehicleStockAgeReportInputSchema,
@@ -42,6 +43,7 @@ import {
   searchVehiclesInputSchema,
 } from './mcp-tool-schemas.js';
 import { formatMcpAgentId } from './mcp-agent-id.util.js';
+import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 
 export type McpToolCallContext = {
@@ -67,6 +69,7 @@ export class McpToolHandlerService {
     private readonly locationService: LocationService,
     private readonly workshopBoardService: WorkshopBoardService,
     private readonly workshopTaskService: WorkshopTaskService,
+    private readonly capabilities: McpCapabilitiesService,
   ) {}
 
   async executeTool(
@@ -92,7 +95,7 @@ export class McpToolHandlerService {
       },
       async () => {
         const parsed = schema.parse(rawArgs ?? {});
-        return this.runTool(toolName, parsed);
+        return this.runTool(toolName, parsed, context);
       },
     );
 
@@ -194,6 +197,7 @@ export class McpToolHandlerService {
   private async runTool(
     toolName: McpReadToolName,
     parsed: unknown,
+    context: McpToolCallContext,
   ): Promise<unknown> {
     switch (toolName) {
       case 'search_customers':
@@ -240,6 +244,12 @@ export class McpToolHandlerService {
       case 'list_workshop_tasks':
         return this.listWorkshopTasks(
           listWorkshopTasksInputSchema.parse(parsed),
+        );
+      case 'whoami':
+        return this.capabilities.whoami(context);
+      case 'get_capabilities':
+        return this.capabilities.getCapabilities(
+          getCapabilitiesInputSchema.parse(parsed),
         );
     }
   }

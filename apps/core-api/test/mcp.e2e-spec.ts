@@ -50,6 +50,8 @@ const TRACE_IDS: Record<(typeof MCP_READ_TOOL_NAMES)[number], string> = {
   list_workshop_tasks: '00000000-0000-4000-8000-000000000111',
   get_vehicle_stock_age_report: '00000000-0000-4000-8000-000000000112',
   get_vehicle_stock_margin_report: '00000000-0000-4000-8000-000000000113',
+  whoami: '00000000-0000-4000-8000-000000000116',
+  get_capabilities: '00000000-0000-4000-8000-000000000117',
 };
 
 describe('MCP server (e2e)', () => {
@@ -416,7 +418,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists all seventeen tools (13 read + 4 write)', async () => {
+  it('lists all nineteen tools (15 read + 4 write)', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
@@ -459,6 +461,8 @@ describe('MCP server (e2e)', () => {
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
+      { name: 'whoami', arguments: {} },
+      { name: 'get_capabilities', arguments: {} },
     ];
     expect(toolCalls.map((call) => call.name).sort()).toEqual(
       [...MCP_READ_TOOL_NAMES].sort(),
@@ -596,6 +600,8 @@ describe('MCP server (e2e)', () => {
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
+      { name: 'whoami', arguments: {} },
+      { name: 'get_capabilities', arguments: {} },
     ];
     expect(calls.map((call) => call.name).sort()).toEqual(
       [...MCP_READ_TOOL_NAMES].sort(),
@@ -624,6 +630,90 @@ describe('MCP server (e2e)', () => {
 
      await transport.close();
    });
+
+    it('whoami and get_capabilities for tenant B never show tenant A identity', async () => {
+      const { client, transport } = await connectMcpClient(
+        adminHeaderB,
+        'e2e-tenant-b-identity',
+      );
+      try {
+        const whoami = await client.callTool({ name: 'whoami', arguments: {} });
+        expect(JSON.parse(toolPayloadText(whoami))).toMatchObject({
+          tenant: { id: tenantB },
+        });
+        expect(toolPayloadText(whoami)).not.toContain(tenantA);
+
+        const capabilities = await client.callTool({
+          name: 'get_capabilities',
+          arguments: { pageSize: 25 },
+        });
+        expect(toolPayloadText(capabilities)).not.toContain(tenantA);
+      } finally {
+        await transport.close();
+      }
+    });
+
+    it('whoami reports the agent caller, the session tenant, and the decision mode', async () => {
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-whoami',
+      );
+      try {
+        const result = await client.callTool({ name: 'whoami', arguments: {} });
+
+        expect(result.isError).not.toBe(true);
+        expect(JSON.parse(toolPayloadText(result))).toMatchObject({
+          caller: { id: 'mcp:e2e-whoami', name: 'e2e-whoami', type: 'agent' },
+          tenant: { id: tenantA },
+          mode: expect.stringMatching(/^(shadow|live)$/),
+        });
+      } finally {
+        await transport.close();
+      }
+    });
+
+    it('get_capabilities reports a write rule switched Off as disabled with a reason', async () => {
+      await setPolicyTier('inventory.part_reserve', 'AUTO', { amount_max: 250 });
+      await request(app.getHttpServer())
+        .put('/api/agent-policy/rules/workshop_order.create')
+        .set('Authorization', adminHeaderA)
+        .send({ tier: 'AUTO', enabled: false })
+        .expect(200);
+
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-capabilities',
+      );
+      try {
+        const result = await client.callTool({
+          name: 'get_capabilities',
+          arguments: { pageSize: 25 },
+        });
+
+        expect(result.isError).not.toBe(true);
+        const page = JSON.parse(toolPayloadText(result)) as {
+          data: Array<{ tool: string; enabled: boolean; disabled_reason?: string }>;
+          human_only_actions: string[];
+        };
+        const byTool = new Map(page.data.map((entry) => [entry.tool, entry]));
+        expect(byTool.get('draft_workshop_order')).toMatchObject({
+          enabled: false,
+          disabled_reason: 'policy_disabled',
+          tier: 'AUTO',
+        });
+        expect(byTool.get('reserve_part')).toMatchObject({
+          enabled: true,
+          tier: 'AUTO',
+        });
+        expect(byTool.get('reserve_part')).not.toHaveProperty('disabled_reason');
+        expect(page.human_only_actions).toEqual(
+          expect.arrayContaining([...MCP_NEVER_EXPOSED_ACTIONS]),
+        );
+      } finally {
+        await transport.close();
+      }
+    });
+
     // Write tool e2e cases
     it('propose_line_item PROPOSE → needs_approval with a pending ID and no line item row', async () => {
       await setPolicyTier('workshop_order.propose_line', 'PROPOSE');

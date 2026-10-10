@@ -124,4 +124,32 @@ describe('SiteContextService', () => {
       }
     }
   });
+
+  it('findSiteId returns the validated active site', async () => {
+    const { service, findFirst, tenantContext } = createContext();
+    findFirst.mockResolvedValue({ active_site_id: SITE_ID });
+
+    await runWithAuthenticatedUser(tenantContext, SITE_ID, async () => {
+      await expect(service.findSiteId()).resolves.toBe(SITE_ID);
+    });
+  });
+
+  it('findSiteId returns null instead of throwing when the session has no site', async () => {
+    const { service, findFirst, tenantContext } = createContext();
+
+    await runWithAuthenticatedUser(tenantContext, undefined, async () => {
+      await expect(service.findSiteId()).resolves.toBeNull();
+    });
+
+    expect(findFirst).not.toHaveBeenCalled();
+  });
+
+  it('findSiteId returns null when the session site no longer has a valid membership', async () => {
+    const { service, findFirst, tenantContext } = createContext();
+    findFirst.mockResolvedValue(null);
+
+    await runWithAuthenticatedUser(tenantContext, SITE_ID, async () => {
+      await expect(service.findSiteId()).resolves.toBeNull();
+    });
+  });
 });
