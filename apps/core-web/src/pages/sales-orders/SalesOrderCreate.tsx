@@ -176,7 +176,7 @@ export default function SalesOrderCreate() {
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild>
-                        <button onClick={() => navigate(-1)}>
+                        <button aria-label="Go back" onClick={() => navigate(-1)}>
                             <ArrowLeft className="h-4 w-4" />
                         </button>
                     </Button>
@@ -319,7 +319,7 @@ export default function SalesOrderCreate() {
                                                     {formatCurrency(Number(form.watch(`items.${index}.quantity`)) * Number(form.watch(`items.${index}.unit_price`)))}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Remove line ${index + 1}`} onClick={() => remove(index)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </TableCell>

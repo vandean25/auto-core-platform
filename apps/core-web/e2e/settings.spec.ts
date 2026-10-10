@@ -121,7 +121,9 @@ test.describe('Blueprint: Settings Page', () => {
 
     // 5. Tab Navigation to Brands
     await page.getByRole('tab', { name: 'Brands' }).click();
-    await expect(page.getByRole('cell', { name: 'Stellantis' })).toBeVisible();
+    // exact: the row actions are named "Edit brand Stellantis" / "Delete brand Stellantis" (AUT-471),
+    // so a substring match would also resolve to the actions cell.
+    await expect(page.getByRole('cell', { name: 'Stellantis', exact: true })).toBeVisible();
 
     // Verify Brand Create dialog opens
     await page.getByRole('button', { name: /Brand/i, exact: false }).filter({ hasText: 'Brand' }).click();

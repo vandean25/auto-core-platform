@@ -285,7 +285,7 @@ export default function StockTransferDetail() {
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to="/stock-transfers">
+            <Link to="/stock-transfers" aria-label="Back to stock transfers">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

@@ -71,7 +71,7 @@ export default function SalesOrderDetail() {
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild>
-                        <Link to="/sales-orders">
+                        <Link to="/sales-orders" aria-label="Back to sales orders">
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>

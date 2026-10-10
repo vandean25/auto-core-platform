@@ -303,7 +303,7 @@ export default function InvoiceDraftEditPage() {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
-            <Link to={`/sales-orders/${invoice.sales_order_id}`}>
+            <Link to={`/sales-orders/${invoice.sales_order_id}`} aria-label="Back to sales order">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -419,6 +419,7 @@ export default function InvoiceDraftEditPage() {
                         variant="ghost"
                         size="icon"
                         className="absolute right-0 top-0 h-full text-muted-foreground hover:text-foreground"
+                        aria-label={`Search part for line ${index + 1}`}
                         onClick={() => openPartSearch(index)}
                       >
                         <Search className="h-4 w-4" />
@@ -455,7 +456,7 @@ export default function InvoiceDraftEditPage() {
                     €{((item.quantity * item.unit_price) * (1 + item.tax_rate / 100)).toFixed(2)}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => editor.removeItem(index)}>
+                    <Button variant="ghost" size="icon" aria-label={`Remove line ${index + 1}`} onClick={() => editor.removeItem(index)}>
                       <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
                     </Button>
                   </TableCell>

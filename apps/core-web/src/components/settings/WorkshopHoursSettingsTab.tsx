@@ -327,6 +327,7 @@ export function WorkshopHoursSettingsTab() {
               />
               <datalist id='workshop-timezone-options'>
                 {COMMON_TIMEZONES.map((timezone) => (
+                  // eslint-disable-next-line jsx-a11y/control-has-associated-label -- datalist suggestions are named by their value
                   <option key={timezone} value={timezone} />
                 ))}
               </datalist>

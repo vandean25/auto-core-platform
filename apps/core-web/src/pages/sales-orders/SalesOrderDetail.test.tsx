@@ -113,3 +113,42 @@ describe('SalesOrderDetail create invoice', () => {
     })
   })
 })
+
+describe('SalesOrderDetail header navigation', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    asMock(salesOrdersApi.useSalesOrder).mockReturnValue({
+      data: baseOrder,
+      isLoading: false,
+    })
+    asMock(salesOrdersApi.useUpdateSalesOrder).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+    asMock(salesOrdersApi.useCreateInvoiceFromOrder).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    })
+  })
+
+  it('names the icon-only back link so it points to the sales order list', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/sales-orders/so-1']}>
+          <Routes>
+            <Route path="/sales-orders/:id" element={<SalesOrderDetail />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Back to sales orders' })).toHaveAttribute(
+      'href',
+      '/sales-orders',
+    )
+  })
+})

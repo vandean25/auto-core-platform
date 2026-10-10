@@ -238,6 +238,7 @@ export function AuditLogsTab() {
               e.stopPropagation()
               handleRowClick(row.original)
             }}
+            aria-label="View Details"
             title="View Details"
           >
             <Eye className="h-4 w-4" />

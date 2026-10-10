@@ -453,6 +453,7 @@ export function EmployeeTable({ activeRole, createOpen, onCreateOpenChange }: Em
         accessorKey: 'isActive',
         header: ({ column }) => <DataTableColumnHeader column={column} title='Active' />,
         cell: ({ row }) => (
+          // eslint-disable-next-line jsx-a11y/control-has-associated-label -- accessible name is the StatusBadge text
           <Button
             variant='outline'
             size='sm'
