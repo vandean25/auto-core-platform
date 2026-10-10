@@ -169,6 +169,54 @@ describe("warranty claim API", () => {
     });
   });
 
+  it("adds the new draft at the end of the lists it belongs to, and leaves other lists alone", async () => {
+    const existing = claimFixture({ id: "claim-old", status: "APPROVED" });
+    const created = claimFixture({ id: "claim-new", status: "DRAFT" });
+    fetchMock.mockResolvedValue(jsonResponse(created, 201));
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(warrantyClaimKeys.list("order-1"), { data: [existing], meta: { total: 1 } });
+    queryClient.setQueryData(warrantyClaimKeys.list("order-1", "APPROVED"), {
+      data: [existing],
+      meta: { total: 1 },
+    });
+    queryClient.setQueryData(warrantyClaimKeys.list("order-2"), { data: [], meta: { total: 0 } });
+
+    const { result } = renderHook(() => useCreateWarrantyClaim(), {
+      wrapper: createWrapper(queryClient),
+    });
+    await result.current.mutateAsync({ orderId: "order-1", payload: { type: "GARANTIE" } });
+
+    expect(queryClient.getQueryData(warrantyClaimKeys.list("order-1"))).toEqual({
+      data: [existing, created],
+      meta: { total: 2 },
+    });
+    expect(queryClient.getQueryData(warrantyClaimKeys.list("order-1", "APPROVED"))).toEqual({
+      data: [existing],
+      meta: { total: 1 },
+    });
+    expect(queryClient.getQueryData(warrantyClaimKeys.list("order-2"))).toEqual({
+      data: [],
+      meta: { total: 0 },
+    });
+  });
+
+  it("does not add a claim that a cached list already holds", async () => {
+    const created = claimFixture({ id: "claim-new", status: "DRAFT" });
+    fetchMock.mockResolvedValue(jsonResponse(created, 201));
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(warrantyClaimKeys.list("order-1"), { data: [created], meta: { total: 1 } });
+
+    const { result } = renderHook(() => useCreateWarrantyClaim(), {
+      wrapper: createWrapper(queryClient),
+    });
+    await result.current.mutateAsync({ orderId: "order-1", payload: { type: "GARANTIE" } });
+
+    expect(queryClient.getQueryData(warrantyClaimKeys.list("order-1"))).toEqual({
+      data: [created],
+      meta: { total: 1 },
+    });
+  });
+
   it("resolves the create without waiting for a list read that never answers", async () => {
     const created = claimFixture({ id: "claim-new" });
     fetchMock.mockImplementation(async (_input, init) => {

@@ -166,7 +166,8 @@ export function useCreateWarrantyClaim() {
         (old) => {
           if (!old || old.data.some((item) => item.id === claim.id)) return old
           const total = old.meta.total ?? old.data.length
-          return { data: [claim, ...old.data], meta: { total: total + 1 } }
+          // The server lists claims oldest first, so the new draft goes at the end.
+          return { data: [...old.data, claim], meta: { total: total + 1 } }
         },
       )
       void queryClient.invalidateQueries({ queryKey: warrantyClaimKeys.lists(orderId) })
