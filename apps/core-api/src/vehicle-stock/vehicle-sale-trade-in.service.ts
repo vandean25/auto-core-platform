@@ -53,7 +53,10 @@ export class VehicleSaleTradeInService {
 
   async upsert(saleId: string, dto: UpsertVehicleSaleTradeInDto) {
     const tenantId = await this.tenantContext.getTenantId();
-    const sale = await this.loadDraftSale(tenantId, saleId);
+    const { sale, tradeIn: existing } = await this.loadDraftSale(
+      tenantId,
+      saleId,
+    );
     const siteId = assertPersistedSiteId(
       sale.site_id,
       'Vehicle sale site ownership is required',
@@ -67,7 +70,6 @@ export class VehicleSaleTradeInService {
       new Date(),
     );
 
-    const existing = sale.trade_in_purchase;
     if (existing && existing.status !== VehiclePurchaseStatus.DRAFT) {
       throw new ConflictException(
         'The trade-in vehicle is already received and can no longer be changed on this sale.',
@@ -126,7 +128,7 @@ export class VehicleSaleTradeInService {
       }
 
       const saved = await tx.vehiclePurchase.findFirstOrThrow({
-        where: { id: purchaseId, tenant_id: tenantId },
+        where: { id: purchaseId, tenant_id: tenantId, site_id: siteId },
       });
       await this.recordAudit(tx, tenantId, saleId, {
         before: existing ? tradeInAuditSnapshot(existing) : null,
@@ -139,8 +141,10 @@ export class VehicleSaleTradeInService {
 
   async remove(saleId: string) {
     const tenantId = await this.tenantContext.getTenantId();
-    const sale = await this.loadDraftSale(tenantId, saleId);
-    const existing = sale.trade_in_purchase;
+    const { sale, tradeIn: existing } = await this.loadDraftSale(
+      tenantId,
+      saleId,
+    );
     if (!existing) {
       return this.sales.findOne(saleId);
     }
@@ -205,7 +209,7 @@ export class VehicleSaleTradeInService {
           is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
         },
       },
-      include: { vehicle: true, trade_in_purchase: true },
+      include: { vehicle: true },
     });
     if (!sale) {
       throw new NotFoundException(`Vehicle sale ${saleId} not found`);
@@ -213,7 +217,16 @@ export class VehicleSaleTradeInService {
     if (sale.status !== VehicleSaleStatus.DRAFT) {
       throw new UnprocessableEntityException('Only DRAFT sales can be updated');
     }
-    return sale;
+    const tradeIn = sale.trade_in_purchase_id
+      ? await this.prisma.vehiclePurchase.findFirst({
+          where: {
+            id: sale.trade_in_purchase_id,
+            tenant_id: tenantId,
+            site_id: { in: authorizedSiteIds },
+          },
+        })
+      : null;
+    return { sale, tradeIn };
   }
 
   private async recordAudit(

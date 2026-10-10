@@ -98,25 +98,26 @@ export class VehiclePurchaseService {
 
   async cancel(id: string) {
     const { tenantId, siteId } = await this.currentScope();
-    await this.assertNotTradeInById(tenantId, id, 'cancelled');
+    await this.assertNotTradeInById(tenantId, siteId, id, 'cancelled');
     await ops.executeCancelDraftPurchase(this.prisma, tenantId, siteId, id);
     return this.findOne(id);
   }
 
   async remove(id: string) {
     const { tenantId, siteId } = await this.currentScope();
-    await this.assertNotTradeInById(tenantId, id, 'deleted');
+    await this.assertNotTradeInById(tenantId, siteId, id, 'deleted');
     return ops.executeRemovePurchaseFlow(this.prisma, tenantId, siteId, id);
   }
 
   /** Missing rows fall through so the existing not-found and DRAFT-state errors still apply. */
   private async assertNotTradeInById(
     tenantId: string,
+    siteId: string,
     id: string,
     action: TradeInGuardAction,
   ): Promise<void> {
     const purchase = await this.prisma.vehiclePurchase.findFirst({
-      where: { id, tenant_id: tenantId },
+      where: { id, tenant_id: tenantId, site_id: siteId },
       select: { acquisition_kind: true },
     });
     assertNotTradeInKind(purchase?.acquisition_kind, action);

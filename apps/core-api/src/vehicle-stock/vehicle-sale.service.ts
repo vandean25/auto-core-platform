@@ -145,16 +145,16 @@ export class VehicleSaleService {
         },
         customer: { is: { tenant_id: tenantId } },
       },
-      include: {
-        vehicle: true,
-        customer: true,
-        invoice: true,
-        trade_in_purchase: true,
-      },
+      include: { vehicle: true, customer: true, invoice: true },
     });
     if (!sale) {
       throw new NotFoundException(`Vehicle sale ${id} not found`);
     }
+    const tradeIn = await this.findTradeInPurchase(
+      sale.trade_in_purchase_id,
+      tenantId,
+      authorizedSiteIds,
+    );
     const entries = await this.ledger.listForVehicle(sale.vehicle_id);
     const basis = costBasis(entries);
     const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
@@ -162,11 +162,12 @@ export class VehicleSaleService {
       ...omitKaufvertragArchiveInternals(sale),
       invoice: sale.invoice ? omitInvoiceSnapshot(sale.invoice) : sale.invoice,
       vehicle: stripVehicleIdentityResolutionState(sale.vehicle),
+      trade_in_purchase: tradeIn,
       cost_basis_preview: basis,
       margin_vat_preview: vat,
       amount_due_preview: netAmountDue(
         sale.sale_price,
-        sale.trade_in_purchase?.purchase_price ?? null,
+        tradeIn?.purchase_price ?? null,
       ),
     };
   }
@@ -183,10 +184,7 @@ export class VehicleSaleService {
           is: { tenant_id: tenantId, site_id: { in: authorizedSiteIds } },
         },
       },
-      include: {
-        vehicle: { include: { location: true } },
-        trade_in_purchase: true,
-      },
+      include: { vehicle: { include: { location: true } } },
     });
     if (!sale) {
       throw new NotFoundException(`Vehicle sale ${id} not found`);
@@ -194,7 +192,12 @@ export class VehicleSaleService {
     if (sale.status !== VehicleSaleStatus.DRAFT) {
       throw new UnprocessableEntityException('Only DRAFT sales can be updated');
     }
-    if (sale.trade_in_purchase) {
+    const tradeIn = await this.findTradeInPurchase(
+      sale.trade_in_purchase_id,
+      tenantId,
+      authorizedSiteIds,
+    );
+    if (tradeIn) {
       if (dto.customer_id && dto.customer_id !== sale.customer_id) {
         throw new UnprocessableEntityException(
           'Remove the trade-in before changing the buyer of this sale',
@@ -202,7 +205,7 @@ export class VehicleSaleService {
       }
       if (dto.sale_price !== undefined) {
         assertValidTradeInAllowance(
-          sale.trade_in_purchase.purchase_price,
+          tradeIn.purchase_price,
           new Prisma.Decimal(dto.sale_price),
         );
       }
@@ -449,7 +452,7 @@ export class VehicleSaleService {
           vehicle: { is: { tenant_id: tenantId, site_id: siteId } },
           customer: { is: { tenant_id: tenantId } },
         },
-        include: { vehicle: true, customer: true, trade_in_purchase: true },
+        include: { vehicle: true, customer: true },
       });
       if (!sale) {
         throw new NotFoundException(`Vehicle sale ${id} not found`);
@@ -488,7 +491,7 @@ export class VehicleSaleService {
           },
           customer: { is: { tenant_id: tenantId } },
         },
-        include: { vehicle: true, customer: true, trade_in_purchase: true },
+        include: { vehicle: true, customer: true },
       });
       if (!lockedSale) {
         throw new ConflictException(
@@ -502,7 +505,20 @@ export class VehicleSaleService {
         sale.customer_id,
         tx,
       );
-      const tradeIn = this.assertFinalizableTradeIn(sale, persistedSiteId);
+      const tradeInPurchase = sale.trade_in_purchase_id
+        ? await tx.vehiclePurchase.findFirst({
+            where: {
+              id: sale.trade_in_purchase_id,
+              tenant_id: tenantId,
+              site_id: persistedSiteId,
+            },
+          })
+        : null;
+      const tradeIn = this.assertFinalizableTradeIn(
+        sale,
+        tradeInPurchase,
+        persistedSiteId,
+      );
 
       const warrantySnapshot = this.computeGewaehrleistungSnapshot(
         {
@@ -729,24 +745,44 @@ export class VehicleSaleService {
     return open > 0;
   }
 
+  /** Trade-in purchase of a sale, read through the authorized sites: never a tenant-only include. */
+  private async findTradeInPurchase(
+    tradeInPurchaseId: string | null,
+    tenantId: string,
+    authorizedSiteIds: string[],
+  ): Promise<VehiclePurchase | null> {
+    if (!tradeInPurchaseId) {
+      return null;
+    }
+    return this.prisma.vehiclePurchase.findFirst({
+      where: {
+        id: tradeInPurchaseId,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+      },
+    });
+  }
+
   /**
    * Re-validates the attached trade-in at finalize: the sale may have changed since it was set.
    * Returns the trade-in purchase whose purchase_price is the allowance, or null without a trade-in.
    */
   private assertFinalizableTradeIn(
     sale: {
+      trade_in_purchase_id: string | null;
       customer_id: string;
       sale_price: Prisma.Decimal;
       vehicle: { vin: string | null };
-      trade_in_purchase: VehiclePurchase | null;
     },
+    purchase: VehiclePurchase | null,
     siteId: string,
   ): VehiclePurchase | null {
-    const purchase = sale.trade_in_purchase;
-    if (!purchase) {
+    if (!sale.trade_in_purchase_id) {
       return null;
     }
+    // A link that cannot be read at this site must not finalize as a sale without its trade-in.
     if (
+      !purchase ||
       purchase.status === VehiclePurchaseStatus.CANCELLED ||
       purchase.acquisition_kind !== VehicleAcquisitionKind.TRADE_IN ||
       purchase.seller_type !== VehiclePurchaseSellerType.CUSTOMER ||
