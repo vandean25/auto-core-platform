@@ -19,7 +19,6 @@ import {
 } from './workshop-order.helpers.js';
 import { formatLocalDate, parseLocalDate } from './workshop-planner.time.js';
 import { isTaskBlockedByParts } from '../parts-requisition/parts-requisition.helpers.js';
-import { assertNoWarrantyClaimLines } from './workshop-warranty-claim-guard.js';
 import type { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto.js';
 import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto.js';
 import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
@@ -417,11 +416,6 @@ export async function executeTaskDeletion(params: ExecuteTaskDeletionParams) {
       'Tasks with reservation or inventory activity cannot be hard-deleted.',
     );
   }
-
-  await assertNoWarrantyClaimLines(tx, {
-    tenant_id: tenantId,
-    workshop_task_line_item: { workshop_task_id: taskId },
-  });
 
   const deleteResult = await tx.workshopTask.deleteMany({
     where: {

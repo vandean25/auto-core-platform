@@ -16,7 +16,6 @@ import {
   type ReservationSliceState,
 } from '../parts-requisition/parts-requisition.helpers.js';
 import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
-import { assertNoWarrantyClaimLines } from './workshop-warranty-claim-guard.js';
 
 export interface DeleteLineItemsContext {
   tx: Prisma.TransactionClient;
@@ -363,10 +362,6 @@ export async function executeLineDeletionsAndCancellations(
   cancelIds: string[],
 ): Promise<void> {
   if (hardDeleteIds.length > 0) {
-    await assertNoWarrantyClaimLines(ctx.tx, {
-      tenant_id: ctx.tenantId,
-      workshop_task_line_item_id: { in: hardDeleteIds },
-    });
     await ctx.tx.workshopTaskLineItem.deleteMany({
       where: {
         tenant_id: ctx.tenantId,

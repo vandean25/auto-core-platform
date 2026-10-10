@@ -4,7 +4,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { AppModule } from '../src/app.module.js';
-import { createGlobalValidationPipe } from '../src/common/index.js';
+import { createGlobalValidationPipe, GlobalExceptionFilter } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -72,6 +72,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
+    app.useGlobalFilters(new GlobalExceptionFilter());
     await app.init();
 
     basePrisma = app.get(PrismaService);
@@ -437,7 +438,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       );
       expect(response.body).toMatchObject({
         code: 'WARRANTY_CLAIM_SUBMISSION_INCOMPLETE',
-        missingFields: ['complaint', 'claimedAmountNet', 'lines'],
+        message: expect.stringMatching(/complaint.*claimed amount.*affected line/),
       });
     });
 
@@ -814,7 +815,7 @@ describe('Warranty claims (AUT-464, e2e)', () => {
 
     it('refuses to delete a task whose line is on a claim', async () => {
       const fixture = await seedOrder();
-      await createClaim(fixture.orderId, { lineItemIds: [fixture.partLineId] });
+      const claimId = await createClaim(fixture.orderId, { lineItemIds: [fixture.partLineId] });
       const line = await prisma.workshopTaskLineItem.findFirstOrThrow({
         where: { id: fixture.partLineId },
         select: { workshop_task_id: true },
@@ -823,8 +824,18 @@ describe('Warranty claims (AUT-464, e2e)', () => {
       const response = await request(app.getHttpServer())
         .delete(`/api/workshop/orders/${fixture.orderId}/tasks/${line.workshop_task_id}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(409);
-      expect(response.body.code).toBe('WARRANTY_CLAIM_LINE_REFERENCED');
+        .expect(422);
+      expect(response.body.message).toBe(
+        'This operation cannot be completed because of a related record.',
+      );
+
+      const claim = await request(app.getHttpServer())
+        .get(claimsPath(fixture.orderId, claimId))
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(claim.body.lines).toEqual([
+        expect.objectContaining({ workshopTaskLineItemId: fixture.partLineId }),
+      ]);
     });
   });
 
