@@ -20,6 +20,8 @@ import {
 const AUTO_SAVE_DEBOUNCE_MS = 750
 const STORED_TRADE_IN_INCOMPLETE_MESSAGE =
   'Remove the trade-in or complete its details before finalizing.'
+const TRADE_IN_REMOVAL_FAILED_MESSAGE =
+  'The trade-in could not be removed and is still on this sale. Remove it again before finalizing.'
 
 export type VehicleSaleTradeInHandle = {
   /**
@@ -66,8 +68,8 @@ export function VehicleSaleTradeInSection({
   const saveTimer = useRef<number | null>(null)
   // Saves and removals share this queue, so an autosave, a finalize flush and a removal never interleave.
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
-  // From the removal request until it settles. The removal decides the trade-in, so a flush waits for it.
-  const removalPending = useRef(false)
+  // The removal in flight, if any. The removal decides the trade-in, so a flush waits on it.
+  const pendingRemoval = useRef<Promise<void> | null>(null)
   const [isRemoving, setIsRemoving] = useState(false)
 
   useEffect(() => {
@@ -126,9 +128,14 @@ export function VehicleSaleTradeInSection({
         window.clearTimeout(saveTimer.current)
         saveTimer.current = null
       }
-      if (removalPending.current) {
+      if (pendingRemoval.current) {
         // The form on screen is being removed; saving it here would bring the trade-in back on the invoice.
-        await saveQueue.current
+        // If the removal fails, the trade-in is still on the sale, so stop rather than invoice it unseen.
+        try {
+          await pendingRemoval.current
+        } catch {
+          throw new Error(TRADE_IN_REMOVAL_FAILED_MESSAGE)
+        }
         return
       }
       if (result.status === 'invalid') throw new Error(result.message)
@@ -142,24 +149,26 @@ export function VehicleSaleTradeInSection({
   }))
 
   const handleRemoveTradeIn = async () => {
-    if (!saleId || !purchase || removalPending.current) return
+    if (!saleId || !purchase || pendingRemoval.current) return
     if (saveTimer.current !== null) {
       window.clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
-    removalPending.current = true
-    setIsRemoving(true)
-    try {
-      await runInOrder(saveQueue, () => removeTradeIn(saleId))
+    const removal = runInOrder(saveQueue, () => removeTradeIn(saleId)).then(() => {
       hydratedPurchaseId.current = null
       lastSavedSerialized.current = null
       setDraft(EMPTY_TRADE_IN_DRAFT)
       setSaveStatus('idle')
       toast.success('Trade-in removed')
+    })
+    pendingRemoval.current = removal
+    setIsRemoving(true)
+    try {
+      await removal
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to remove trade-in'))
     } finally {
-      removalPending.current = false
+      pendingRemoval.current = null
       setIsRemoving(false)
     }
   }

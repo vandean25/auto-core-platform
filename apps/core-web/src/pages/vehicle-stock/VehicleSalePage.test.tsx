@@ -671,6 +671,37 @@ describe('VehicleSalePage trade-in', () => {
     expect(removeTradeIn.mock.invocationCallOrder[0]).toBeLessThan(finalizeSale.mock.invocationCallOrder[0])
   })
 
+  it('stops finalize when the removal it waited for fails, so the trade-in is not invoiced unseen', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, trade_in_purchase: savedTradeIn, amount_due_preview: '7000.00' },
+    })
+    let failRemoval: (reason: unknown) => void = () => undefined
+    removeTradeIn.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => {
+        failRemoval = reject
+      }),
+    )
+    renderSalePage()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    await act(async () => {
+      failRemoval(new Error('Trade-in is locked'))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(finalizeSale).not.toHaveBeenCalled()
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+    expect(toast.error).toHaveBeenCalledWith(
+      'The trade-in could not be removed and is still on this sale. Remove it again before finalizing.',
+    )
+  })
+
   it('announces the save status and the validation message to assistive technology', () => {
     renderSalePage()
     const section = screen.getByRole('region', { name: 'Trade-in' })
