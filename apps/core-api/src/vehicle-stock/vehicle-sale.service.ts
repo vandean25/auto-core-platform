@@ -639,6 +639,7 @@ export class VehicleSaleService {
         margin,
         commitmentContext,
         lockInvoiceRow: false,
+        inKindCredit: tradeIn?.purchase_price,
       });
       const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
       const invoiceNumberUpdate = await tx.invoice.updateMany({

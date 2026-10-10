@@ -66,6 +66,9 @@ export function VehicleSaleTradeInSection({
   const saveTimer = useRef<number | null>(null)
   // Saves and removals share this queue, so an autosave, a finalize flush and a removal never interleave.
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  // From the removal request until it settles. The removal decides the trade-in, so a flush waits for it.
+  const removalPending = useRef(false)
+  const [isRemoving, setIsRemoving] = useState(false)
 
   useEffect(() => {
     const purchaseId = purchase?.id ?? null
@@ -79,7 +82,7 @@ export function VehicleSaleTradeInSection({
   }, [purchase, salePrice])
 
   const result = buildTradeInInput(draft, salePrice)
-  const canEdit = editable && saleId !== ''
+  const canEdit = editable && saleId !== '' && !isRemoving
 
   const saveTradeIn = (snapshot: { saleId: string; input: VehicleSaleTradeInInput; serialized: string }) =>
     runInOrder(saveQueue, async () => {
@@ -123,6 +126,11 @@ export function VehicleSaleTradeInSection({
         window.clearTimeout(saveTimer.current)
         saveTimer.current = null
       }
+      if (removalPending.current) {
+        // The form on screen is being removed; saving it here would bring the trade-in back on the invoice.
+        await saveQueue.current
+        return
+      }
       if (result.status === 'invalid') throw new Error(result.message)
       if (result.status === 'empty') {
         // A blank form with a stored trade-in would still be netted on the invoice, so stop instead.
@@ -134,11 +142,13 @@ export function VehicleSaleTradeInSection({
   }))
 
   const handleRemoveTradeIn = async () => {
-    if (!saleId || !purchase) return
+    if (!saleId || !purchase || removalPending.current) return
     if (saveTimer.current !== null) {
       window.clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
+    removalPending.current = true
+    setIsRemoving(true)
     try {
       await runInOrder(saveQueue, () => removeTradeIn(saleId))
       hydratedPurchaseId.current = null
@@ -148,6 +158,9 @@ export function VehicleSaleTradeInSection({
       toast.success('Trade-in removed')
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to remove trade-in'))
+    } finally {
+      removalPending.current = false
+      setIsRemoving(false)
     }
   }
 

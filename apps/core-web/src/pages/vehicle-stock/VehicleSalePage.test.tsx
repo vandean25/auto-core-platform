@@ -638,6 +638,39 @@ describe('VehicleSalePage trade-in', () => {
     expect(toast.error).toHaveBeenCalledWith('The VIN must have 17 characters and no I, O or Q.')
   })
 
+  it('waits for an in-flight trade-in removal before finalizing, instead of saving the removed form', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, trade_in_purchase: savedTradeIn, amount_due_preview: '7000.00' },
+    })
+    let settleRemoval: (value: unknown) => void = () => undefined
+    removeTradeIn.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        settleRemoval = resolve
+      }),
+    )
+    finalizeSale.mockResolvedValue({ invoice: { id: 'invoice-1' } })
+    renderSalePage()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Remove trade-in' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(finalizeSale).not.toHaveBeenCalled()
+
+    await act(async () => {
+      settleRemoval({ ...existingSale, trade_in_purchase: null })
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(upsertTradeIn).not.toHaveBeenCalled()
+    expect(removeTradeIn).toHaveBeenCalledWith('sale-1')
+    expect(finalizeSale).toHaveBeenCalledWith('sale-1')
+    expect(removeTradeIn.mock.invocationCallOrder[0]).toBeLessThan(finalizeSale.mock.invocationCallOrder[0])
+  })
+
   it('announces the save status and the validation message to assistive technology', () => {
     renderSalePage()
     const section = screen.getByRole('region', { name: 'Trade-in' })
