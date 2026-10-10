@@ -1,10 +1,27 @@
+import { jest } from '@jest/globals';
 import { ForbiddenException } from '@nestjs/common';
 import type { AuditService } from '../audit/audit.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
-import { WarrantyClaimPdfService } from './warranty-claim-pdf.service.js';
-import { WarrantyClaimService } from './warranty-claim.service.js';
+
+// Access is checked before any of these is used. Their real modules (browser, fonts, storage, branding) are
+// heavy to load for every run, so empty stand-ins replace them before the services are imported.
+jest.unstable_mockModule('./warranty-claim-pdf.renderer.js', () => ({
+  WarrantyClaimPdfRenderer: class {},
+}));
+jest.unstable_mockModule('../document-branding/document-branding-asset-storage.js', () => ({
+  DocumentBrandingAssetStorage: class {},
+}));
+jest.unstable_mockModule('../invoices/invoice-snapshot-v2.helpers.js', () => ({
+  resolveBrandingSnapshot: jest.fn(),
+}));
+jest.unstable_mockModule('../invoices/invoice-pdf-branding.helpers.js', () => ({
+  brandRenderInputUnavailable: jest.fn(),
+}));
+
+const { WarrantyClaimPdfService } = await import('./warranty-claim-pdf.service.js');
+const { WarrantyClaimService } = await import('./warranty-claim.service.js');
 
 /**
  * A dependency that fails the test as soon as anything touches it. The access check must run before
