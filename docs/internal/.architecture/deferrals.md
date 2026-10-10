@@ -102,7 +102,7 @@ When triggered:
 
 ### Vehicle trade-in (phase B)
 
-**Status**: Deferred
+**Status**: Implemented (AUT-443: allowance netting on the sale invoice; credit notes on trade-in invoices are refused until the credit engine supports negative lines)
 **Deferred Date**: 2026-08-15
 **Category**: Architecture
 **Priority**: Medium

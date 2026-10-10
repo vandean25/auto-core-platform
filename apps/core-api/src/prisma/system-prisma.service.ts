@@ -27,6 +27,7 @@ import {
  * - PlatformAdminService — Tenant, FinanceSettings, InspectionTemplate, InspectionTemplateItem (new-tenant bootstrap only)
  * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
  * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)
+ * - ApiKeyLookupService — TenantApiKey (findUnique by key id, before tenant context exists; ADR-0026)
  *
  * Tenant-scoped models (Customer, Vehicle, WorkshopOrder, …) are omitted from
  * the type and undefined at runtime. Use PrismaService so isolation applies.
@@ -90,6 +91,10 @@ export class SystemPrismaService
 
   get agentPolicyRule(): PrismaClient['agentPolicyRule'] {
     return this.prisma.agentPolicyRule;
+  }
+
+  get tenantApiKey(): PrismaClient['tenantApiKey'] {
+    return this.prisma.tenantApiKey;
   }
 
   $transaction<Result>(

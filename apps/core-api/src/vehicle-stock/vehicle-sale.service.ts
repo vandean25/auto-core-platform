@@ -8,13 +8,17 @@ import {
   InvoiceStatus,
   InvoiceTaxMode,
   Prisma,
+  VehicleAcquisitionKind,
   VehicleInventoryRole,
   VehicleLedgerEntryType,
+  VehiclePurchaseSellerType,
+  VehiclePurchaseStatus,
   VehicleSaleStatus,
   VehicleStockStatus,
   WorkshopOrderPurpose,
   WorkshopOrderStatus,
   AuditLogAction,
+  type VehiclePurchase,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -33,6 +37,13 @@ import { omitInvoiceSnapshot } from '../invoices/invoice-response.mapper.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { VehicleLedgerService } from './vehicle-ledger.service.js';
 import { costBasis, marginVatGross } from './vehicle-cost.js';
+import {
+  assertTradeInIsNotSoldVehicle,
+  assertValidTradeInAllowance,
+  buildMarginSaleInvoiceLines,
+  netAmountDue,
+  tradeInLineDescription,
+} from './vehicle-trade-in.js';
 import { daysInStock } from './vehicle-stock-reports.math.js';
 import { AuditService } from '../audit/audit.service.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
@@ -139,6 +150,11 @@ export class VehicleSaleService {
     if (!sale) {
       throw new NotFoundException(`Vehicle sale ${id} not found`);
     }
+    const tradeIn = await this.findTradeInPurchase(
+      sale.trade_in_purchase_id,
+      tenantId,
+      authorizedSiteIds,
+    );
     const entries = await this.ledger.listForVehicle(sale.vehicle_id);
     const basis = costBasis(entries);
     const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
@@ -146,8 +162,13 @@ export class VehicleSaleService {
       ...omitKaufvertragArchiveInternals(sale),
       invoice: sale.invoice ? omitInvoiceSnapshot(sale.invoice) : sale.invoice,
       vehicle: stripVehicleIdentityResolutionState(sale.vehicle),
+      trade_in_purchase: tradeIn,
       cost_basis_preview: basis,
       margin_vat_preview: vat,
+      amount_due_preview: netAmountDue(
+        sale.sale_price,
+        tradeIn?.purchase_price ?? null,
+      ),
     };
   }
 
@@ -171,6 +192,24 @@ export class VehicleSaleService {
     if (sale.status !== VehicleSaleStatus.DRAFT) {
       throw new UnprocessableEntityException('Only DRAFT sales can be updated');
     }
+    const tradeIn = await this.findTradeInPurchase(
+      sale.trade_in_purchase_id,
+      tenantId,
+      authorizedSiteIds,
+    );
+    if (tradeIn) {
+      if (dto.customer_id && dto.customer_id !== sale.customer_id) {
+        throw new UnprocessableEntityException(
+          'Remove the trade-in before changing the buyer of this sale',
+        );
+      }
+      if (dto.sale_price !== undefined) {
+        assertValidTradeInAllowance(
+          tradeIn.purchase_price,
+          new Prisma.Decimal(dto.sale_price),
+        );
+      }
+    }
 
     const targetSiteId = dto.siteId ?? dto.site_id;
     if (
@@ -185,6 +224,12 @@ export class VehicleSaleService {
 
     const isRetargeting =
       targetSiteId !== undefined && targetSiteId !== sale.site_id;
+    if (isRetargeting && tradeIn) {
+      // The trade-in purchase is site-owned and stays at the sale's site; moving the sale would strand it.
+      throw new UnprocessableEntityException(
+        'Remove the trade-in before moving this sale to another site',
+      );
+    }
 
     if (isRetargeting) {
       await assertActiveTargetSiteMembership(
@@ -511,6 +556,23 @@ export class VehicleSaleService {
           'Vehicle sale state or site changed concurrently. Please refresh.',
       });
 
+      // Read after the guarded status update. The site row lock from lockCommitmentContext is held here, and a
+      // trade-in save takes the same lock first, so no save can change the link before the invoice is written.
+      const tradeInPurchase = sale.trade_in_purchase_id
+        ? await tx.vehiclePurchase.findFirst({
+            where: {
+              id: sale.trade_in_purchase_id,
+              tenant_id: tenantId,
+              site_id: persistedSiteId,
+            },
+          })
+        : null;
+      const tradeIn = this.assertFinalizableTradeIn(
+        sale,
+        tradeInPurchase,
+        persistedSiteId,
+      );
+
       const posted = await tx.vehicleSale.findFirst({
         where: {
           id,
@@ -524,6 +586,23 @@ export class VehicleSaleService {
       if (!posted) {
         throw new NotFoundException(`Vehicle sale ${id} not found`);
       }
+
+      const amountDue = netAmountDue(
+        sale.sale_price,
+        tradeIn?.purchase_price ?? null,
+      );
+      const invoiceLines = buildMarginSaleInvoiceLines({
+        vehicleDescription: description,
+        salePrice: sale.sale_price,
+        taxRate: DEFAULT_VAT_RATE,
+        revenueGroupName: MARGIN_REVENUE_GROUP,
+        tradeIn: tradeIn
+          ? {
+              description: tradeInLineDescription(tradeIn),
+              allowance: tradeIn.purchase_price,
+            }
+          : null,
+      });
 
       const invoice = await tx.invoice.create({
         data: {
@@ -541,17 +620,12 @@ export class VehicleSaleService {
           due_date: dueDate,
           total_net: net,
           total_tax: vat,
-          total_gross: posted.sale_price,
+          total_gross: amountDue,
           items: {
-            create: {
+            create: invoiceLines.map((line) => ({
               tenant_id: tenantId,
-              description,
-              quantity: new Prisma.Decimal(1),
-              unit_price: posted.sale_price,
-              tax_rate: DEFAULT_VAT_RATE,
-              line_total: posted.sale_price,
-              revenue_group_name: MARGIN_REVENUE_GROUP,
-            },
+              ...line,
+            })),
           },
         },
         include: { items: true, customer: true, vehicle: true },
@@ -565,6 +639,7 @@ export class VehicleSaleService {
         margin,
         commitmentContext,
         lockInvoiceRow: false,
+        inKindCredit: tradeIn?.purchase_price,
       });
       const invoiceNumber = await this.generateInvoiceNumber(tx, tenantId);
       const invoiceNumberUpdate = await tx.invoice.updateMany({
@@ -589,6 +664,16 @@ export class VehicleSaleService {
         prepared,
       );
       const snapshot = prepared.snapshot;
+      if (tradeIn) {
+        await this.recordTradeInNettedAudit(tx, tenantId, posted.id, {
+          invoiceId: invoice.id,
+          invoiceNumber,
+          tradeInPurchaseId: tradeIn.id,
+          allowance: tradeIn.purchase_price,
+          salePrice: sale.sale_price,
+          amountDue,
+        });
+      }
 
       await tx.vehicleSale.update({
         where: { id: posted.id },
@@ -668,6 +753,106 @@ export class VehicleSaleService {
       },
     });
     return open > 0;
+  }
+
+  /** Trade-in purchase of a sale, read through the authorized sites: never a tenant-only include. */
+  private async findTradeInPurchase(
+    tradeInPurchaseId: string | null,
+    tenantId: string,
+    authorizedSiteIds: string[],
+  ): Promise<VehiclePurchase | null> {
+    if (!tradeInPurchaseId) {
+      return null;
+    }
+    return this.prisma.vehiclePurchase.findFirst({
+      where: {
+        id: tradeInPurchaseId,
+        tenant_id: tenantId,
+        site_id: { in: authorizedSiteIds },
+      },
+    });
+  }
+
+  /**
+   * Re-validates the attached trade-in at finalize: the sale may have changed since it was set.
+   * Returns the trade-in purchase whose purchase_price is the allowance, or null without a trade-in.
+   */
+  private assertFinalizableTradeIn(
+    sale: {
+      trade_in_purchase_id: string | null;
+      customer_id: string;
+      sale_price: Prisma.Decimal;
+      vehicle: { vin: string | null };
+    },
+    purchase: VehiclePurchase | null,
+    siteId: string,
+  ): VehiclePurchase | null {
+    if (!sale.trade_in_purchase_id) {
+      return null;
+    }
+    // A link that cannot be read at this site must not finalize as a sale without its trade-in.
+    if (
+      !purchase ||
+      purchase.status === VehiclePurchaseStatus.CANCELLED ||
+      purchase.acquisition_kind !== VehicleAcquisitionKind.TRADE_IN ||
+      purchase.seller_type !== VehiclePurchaseSellerType.CUSTOMER ||
+      purchase.customer_id !== sale.customer_id ||
+      purchase.site_id !== siteId ||
+      !purchase.vin
+    ) {
+      throw new ConflictException(
+        'The trade-in vehicle is no longer valid for this sale. Please refresh.',
+      );
+    }
+    assertValidTradeInAllowance(purchase.purchase_price, sale.sale_price);
+    assertTradeInIsNotSoldVehicle(purchase.vin, sale.vehicle.vin);
+    return purchase;
+  }
+
+  private async recordTradeInNettedAudit(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    saleId: string,
+    netted: {
+      invoiceId: string;
+      invoiceNumber: string;
+      tradeInPurchaseId: string;
+      allowance: Prisma.Decimal;
+      salePrice: Prisma.Decimal;
+      amountDue: Prisma.Decimal;
+    },
+  ) {
+    const authUser = this.tenantContext.getAuthenticatedUser();
+    const actor = authUser?.userId
+      ? await tx.user.findFirst({
+          where: {
+            firebaseUid: authUser.userId,
+            active_tenant_id: tenantId,
+          },
+          select: { id: true },
+        })
+      : null;
+
+    await this.auditService.recordTenantMutation(
+      {
+        entityType: 'VehicleSale',
+        entityId: saleId,
+        action: AuditLogAction.UPDATE,
+        actorUserId: actor?.id,
+        source: this.requestContext.getSource() ?? 'API',
+        before: null,
+        after: {
+          invoice_id: netted.invoiceId,
+          invoice_number: netted.invoiceNumber,
+          trade_in_purchase_id: netted.tradeInPurchaseId,
+          sale_price: netted.salePrice.toFixed(2),
+          trade_in_allowance: netted.allowance.toFixed(2),
+          amount_due: netted.amountDue.toFixed(2),
+        },
+        diff: { status: VehicleSaleStatus.INVOICED },
+      },
+      tx,
+    );
   }
 
   private async assertSellable(

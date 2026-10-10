@@ -24,6 +24,7 @@ Calling it on a tenant model (for example `systemPrisma.customer`) silently bypa
 | `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem` | Platform-admin new-tenant bootstrap only; writes use the new tenant ID |
 | `attendanceEvent` | HR attendance scheduler nightly close only |
 | `agentPolicyRule` | Agent policy platform-default rows (`tenant_id` null) only |
+| `tenantApiKey` | Public API key verification only: one `findUnique` by key id before any tenant context exists (ADR-0026). The key row names its tenant. Every later query runs through `PrismaService`. |
 
 Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELEGATES` **and** documented here with an explicit caller.
 
@@ -39,5 +40,6 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 | `MechanicSchedulerService` | `laborEntry` |
 | `HrAttendanceSchedulerService` | `attendanceEvent` |
 | `AgentPolicyService` | `agentPolicyRule` (read platform defaults only) |
+| `ApiKeyLookupService` | `tenantApiKey` (`findUnique` by id, pre-tenant key verification only; ADR-0026) |
 
 Do not inject `SystemPrismaService` into feature modules (customers, workshop, inventory, …). Use `PrismaService`.

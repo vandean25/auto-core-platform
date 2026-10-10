@@ -51,6 +51,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
 | User | No direct delete | Identity record persists for auditability; deactivate memberships instead of deleting the user. |
 | TenantMember | Conditional (soft-disable preferred) | Set `is_active = false` first; hard delete only when no audit or access-history requirement remains. |
+| TenantApiKey | No (revoke only) | Revoke by setting `revoked_at` (idempotent, immediate). No hard delete through any API. Rows stay for the audit trail and are removed only by tenant purge (ADR-0026). |
 | PlatformAdmin | No direct delete | Remove elevated claims and deactivate the record instead of deleting it. |
 | Bay | Conditional (future API) | DB FK is `ON DELETE SET NULL` from `WorkshopOrder.bay_id`; if delete API is added, default to deactivation (`is_active = false`) and allow hard delete only under explicit business rules. |
 | WorkshopSettings | No (removed) | Tenant singleton is replaced by per-site fields on `Site` (ADR-0022). Do not reintroduce a tenant-wide hours singleton. |
@@ -70,8 +71,8 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VoiceNoteRateLimit | No API delete | Ephemeral per-mechanic voice-note upload counter. Rows expire by TTL window and cascade-delete with `Tenant` or `Employee`. |
 | LaborEntry | No | Immutable audit trail of mechanic time intervals; never hard-deleted through the API. The nightly close-out job may set `ended_at` and `pause_reason = AUTO_SHIFT_CLOSE` on open entries, but does not delete records. |
 | InvoiceSequence | No | Numbering integrity record; never deleted. |
-| VehiclePurchase | Draft-only | Allow only in `DRAFT` with no `VehicleLedgerEntry` and `status != RECEIVED`. Received purchases are financial/stock history. |
-| VehicleSale | Draft-only | Allow only in `DRAFT` with no linked `Invoice`. Invoiced sales are financial documents. |
+| VehiclePurchase | Draft-only | Allow only in `DRAFT` with no `VehicleLedgerEntry` and `status != RECEIVED`. Received purchases are financial/stock history. A `TRADE_IN` purchase (AUT-443) is owned by its `VehicleSale`: it is created, edited and removed only through the sale's trade-in endpoints while the sale is `DRAFT`; cancel and generic delete/patch are refused, and `VehicleSale.trade_in_purchase_id` is a `RESTRICT` foreign key. |
+| VehicleSale | Draft-only | Allow only in `DRAFT` with no linked `Invoice`. Invoiced sales are financial documents. A draft sale may hold one trade-in (`trade_in_purchase_id`); removing it unlinks the sale first and then deletes the draft trade-in purchase. |
 | VehicleLedgerEntry | No | Immutable vehicle cost/movement audit trail; never deleted through ordinary APIs. |
 | LaborCategory | Conditional | Allow only when no `LaborOperation` references it, no child categories exist, and it is not `CatalogProviderSettings.default_labor_category_id`. `WorkshopTaskLineItem.labor_category_id` uses `ON DELETE SET NULL` (hourly/cost rates are snapshotted on the line). |
 | LaborOperation | Soft-delete only | Set `is_active = false`; hard delete is not allowed through the API. |
@@ -88,6 +89,13 @@ This document defines when deletion is allowed in Auto Core Platform.
 | VendorArticle | Conditional / Hard delete allowed | Hard delete allowed; mapping between vendor article and catalog item. Unlinking vendor article does not affect catalog item or historical documents. |
 | MarginRule | Soft-disable preferred | Soft-disable via `is_active = false` preferred. Hard delete allowed if unused. |
 | CatalogPriceHistory | No | Immutable price audit trail; never deleted through ordinary APIs. |
+
+## ADR-0026 — Tenant API keys (AUT-411)
+
+- `TenantApiKey` is never hard-deleted through an API. Revocation sets `revoked_at` and takes effect on the next request. Expiry is a time-based state (`expires_at`), not a deletion.
+- Revocation is the only lifecycle exit. A revoked row keeps its `secret_hash` so the audit history stays verifiable. The hash is never returned by any API.
+- `AgentActionLog` rows that carry an `api_key_id` are business audit records. They are never deleted through ordinary APIs.
+- Tenant purge removes `tenant_api_keys` (generated purge SQL, `tools/tenant-restore/`).
 
 ## ADR-0023 — Legal invoicing and accounting export
 

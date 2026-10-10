@@ -1444,6 +1444,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicle-sales/{id}/trade-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["VehicleSaleController_upsertTradeIn"];
+        post?: never;
+        delete: operations["VehicleSaleController_removeTradeIn"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-sales/{id}/gewaehrleistung-correction": {
         parameters: {
             query?: never;
@@ -3734,6 +3750,197 @@ export interface paths {
         patch: operations["McpController_handleMcp_patch"];
         trace?: never;
     };
+    "/api/tenant-api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TenantApiKeyController_list"];
+        put?: never;
+        post: operations["TenantApiKeyController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tenant-api-keys/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TenantApiKeyController_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List customers of the key tenant */
+        get: operations["PublicCustomersController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one customer of the key tenant */
+        get: operations["PublicCustomersController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vehicle identities of the key tenant
+         * @description Identity fields only. Dealer-stock lot, status and cost fields are never returned.
+         */
+        get: operations["PublicVehiclesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one vehicle identity of the key tenant */
+        get: operations["PublicVehiclesController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List invoice headers of the key tenant */
+        get: operations["PublicInvoicesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/invoices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one invoice header of the key tenant */
+        get: operations["PublicInvoicesController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/workshop-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List workshop orders of the key tenant (active sites) */
+        get: operations["PublicWorkshopOrdersController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/workshop-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one workshop order of the key tenant (active sites) */
+        get: operations["PublicWorkshopOrdersController_findOne"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/public/v1/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List parts stock levels per storage location (active sites)
+         * @description Parts inventory only. Dealer vehicle stock is not part of this scope.
+         */
+        get: operations["PublicStockController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5446,6 +5653,20 @@ export interface components {
             /** @description Voluntary Garantie duration in months. Null removes the Garantie block (DRAFT only). */
             garantie_months?: number | null;
             garantie_terms?: string | null;
+        };
+        UpsertVehicleSaleTradeInDto: {
+            /** @description Trade-in allowance credited to the buyer for their own vehicle (EUR). Greater than zero and not above the sale price. */
+            allowance: number;
+            /** @description VIN of the trade-in vehicle (17 characters). */
+            vin: string;
+            make: string;
+            model: string;
+            year: number;
+            mileage?: number;
+            /** Format: date */
+            first_registration_date?: string;
+            plate?: string;
+            color?: string;
         };
         CorrectGewaehrleistungSnapshotDto: {
             reason: string;
@@ -7536,9 +7757,10 @@ export interface components {
             /** Format: uuid */
             parentTraceId?: Record<string, never> | null;
             /** @enum {string} */
-            actorType: "AGENT" | "USER" | "SYSTEM";
+            actorType: "AGENT" | "USER" | "SYSTEM" | "API_KEY";
             agentId?: Record<string, never> | null;
             onBehalfOfUserId?: Record<string, never> | null;
+            apiKeyId?: Record<string, never> | null;
             actionType: string;
             /** @enum {string} */
             tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
@@ -8124,6 +8346,208 @@ export interface components {
             data: components["schemas"]["DecisionShadowLogResponseDto"][];
             /** @description Cursor for the next page when more results exist */
             nextCursor: string | null;
+        };
+        TenantApiKeyResponseDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description Display prefix only. The secret is never returned again after creation.
+             * @example acp_live_3f9a2c1b
+             */
+            keyPrefix: string;
+            scopes: ("customers:read" | "vehicles:read" | "invoices:read" | "workshop-orders:read" | "stock:read")[];
+            /** @enum {string} */
+            status: "ACTIVE" | "REVOKED" | "EXPIRED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: email */
+            createdByEmail?: string | null;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            /** Format: date-time */
+            revokedAt?: string | null;
+        };
+        TenantApiKeyListResponseDto: {
+            data: components["schemas"]["TenantApiKeyResponseDto"][];
+        };
+        CreateTenantApiKeyDto: {
+            /** @description Label shown in the key list. */
+            name: string;
+            /** @description Read scopes granted to the key. Write scopes are not available in v1. */
+            scopes: ("customers:read" | "vehicles:read" | "invoices:read" | "workshop-orders:read" | "stock:read")[];
+            /**
+             * Format: date-time
+             * @description Optional expiry. Must be in the future.
+             */
+            expiresAt?: string;
+        };
+        TenantApiKeyCreatedResponseDto: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /**
+             * @description Display prefix only. The secret is never returned again after creation.
+             * @example acp_live_3f9a2c1b
+             */
+            keyPrefix: string;
+            scopes: ("customers:read" | "vehicles:read" | "invoices:read" | "workshop-orders:read" | "stock:read")[];
+            /** @enum {string} */
+            status: "ACTIVE" | "REVOKED" | "EXPIRED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: email */
+            createdByEmail?: string | null;
+            /** Format: date-time */
+            lastUsedAt?: string | null;
+            /** Format: date-time */
+            expiresAt?: string | null;
+            /** Format: date-time */
+            revokedAt?: string | null;
+            /**
+             * @description Full API key. Returned exactly once, at creation. Store it now; it cannot be retrieved again.
+             * @example acp_live_3f9a2c1b-7d4e-4f2a-9b8c-1234567890ab_<64 hex characters>
+             */
+            token: string;
+        };
+        PublicAddressDto: {
+            street?: string | null;
+            zip?: string | null;
+            city?: string | null;
+            country?: string | null;
+        };
+        PublicCustomerDto: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            type: "PRIVATE" | "COMPANY";
+            companyName?: string | null;
+            firstName: string;
+            lastName: string;
+            email?: string | null;
+            phone?: string | null;
+            vatId?: string | null;
+            address: components["schemas"]["PublicAddressDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PublicVehicleDto: {
+            /** Format: uuid */
+            id: string;
+            make: string;
+            model: string;
+            year: number;
+            vin?: string | null;
+            plate?: string | null;
+            hsn?: string | null;
+            tsn?: string | null;
+            engineCode?: string | null;
+            fuelType?: string | null;
+            powerKw?: number | null;
+            mileage?: number | null;
+            color?: string | null;
+            /** Format: date */
+            firstRegistrationDate?: string | null;
+            /** Format: uuid */
+            customerId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PublicInvoiceDto: {
+            /** Format: uuid */
+            id: string;
+            invoiceNumber?: string | null;
+            status: string;
+            taxMode: string;
+            /** Format: date-time */
+            date: string;
+            /** Format: date-time */
+            dueDate: string;
+            currency?: string | null;
+            /** Format: uuid */
+            customerId: string;
+            /** Format: uuid */
+            vehicleId?: string | null;
+            /** Format: uuid */
+            workshopOrderId?: string | null;
+            /** Format: uuid */
+            salesOrderId?: string | null;
+            /** Format: uuid */
+            siteId?: string | null;
+            /**
+             * @description Decimal string, two places.
+             * @example 100.00
+             */
+            totalNet: string;
+            /**
+             * @description Decimal string, two places.
+             * @example 20.00
+             */
+            totalTax: string;
+            /**
+             * @description Decimal string, two places.
+             * @example 120.00
+             */
+            totalGross: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PublicWorkshopOrderDto: {
+            /** Format: uuid */
+            id: string;
+            orderNumber: string;
+            status: string;
+            purpose: string;
+            /** Format: uuid */
+            siteId?: string | null;
+            /** Format: uuid */
+            customerId?: string | null;
+            /** Format: uuid */
+            vehicleId: string;
+            odometer: number;
+            fuelLevel: number;
+            reportedIssue?: string | null;
+            /** Format: date-time */
+            scheduledStartAt?: string | null;
+            /** Format: date-time */
+            scheduledEndAt?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        PublicStockLevelDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            catalogItemId: string;
+            sku: string;
+            name: string;
+            /** Format: uuid */
+            siteId: string;
+            /** Format: uuid */
+            locationId: string;
+            locationCode: string;
+            locationName: string;
+            /** @example 5.000 */
+            quantityOnHand: string;
+            /** @example 1.500 */
+            quantityReserved: string;
+            /**
+             * @description On hand minus reserved.
+             * @example 3.500
+             */
+            quantityAvailable: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
     };
     responses: never;
@@ -11194,6 +11618,48 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_upsertTradeIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertVehicleSaleTradeInDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    VehicleSaleController_removeTradeIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15826,6 +16292,311 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    TenantApiKeyController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantApiKeyListResponseDto"];
+                };
+            };
+        };
+    };
+    TenantApiKeyController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTenantApiKeyDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantApiKeyCreatedResponseDto"];
+                };
+            };
+        };
+    };
+    TenantApiKeyController_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantApiKeyResponseDto"];
+                };
+            };
+        };
+    };
+    PublicCustomersController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Case-insensitive contains match on the entity’s identifying fields. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PublicCustomerDto"][];
+                    };
+                };
+            };
+        };
+    };
+    PublicCustomersController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCustomerDto"];
+                };
+            };
+            /** @description Not found in the key tenant. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicVehiclesController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Case-insensitive contains match on the entity’s identifying fields. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PublicVehicleDto"][];
+                    };
+                };
+            };
+        };
+    };
+    PublicVehiclesController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicVehicleDto"];
+                };
+            };
+            /** @description Not found in the key tenant. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicInvoicesController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Case-insensitive contains match on the entity’s identifying fields. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PublicInvoiceDto"][];
+                    };
+                };
+            };
+        };
+    };
+    PublicInvoicesController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicInvoiceDto"];
+                };
+            };
+            /** @description Not found in the key tenant or active sites. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicWorkshopOrdersController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Case-insensitive contains match on the entity’s identifying fields. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PublicWorkshopOrderDto"][];
+                    };
+                };
+            };
+        };
+    };
+    PublicWorkshopOrdersController_findOne: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicWorkshopOrderDto"];
+                };
+            };
+            /** @description Not found in the key tenant or active sites. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicStockController_list: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                /** @description Case-insensitive contains match on the entity’s identifying fields. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["PublicStockLevelDto"][];
+                    };
+                };
             };
         };
     };

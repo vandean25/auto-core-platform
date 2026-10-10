@@ -35,6 +35,7 @@ import { EmployeeSettingsTab } from "@/components/settings/EmployeeSettingsTab"
 import { BaySettingsTab } from "@/components/settings/BaySettingsTab"
 import { WorkshopHoursSettingsTab } from "@/components/settings/WorkshopHoursSettingsTab"
 import { TeamSettingsTab } from "@/components/settings/TeamSettingsTab"
+import { ApiKeysSettingsTab } from "@/components/settings/ApiKeysSettingsTab"
 import { VoiceTranslationSettingsTab } from "@/components/settings/VoiceTranslationSettingsTab"
 import { AuditLogsTab } from "@/components/settings/AuditLogsTab"
 import { AccountingExportSettingsTab } from "@/components/settings/AccountingExportSettingsTab"
@@ -279,7 +280,7 @@ function StorageLocationsTab() {
 }
 
 // ─── Main Settings Page ────────────────────────────────────────────────────
-const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "margin-rules", "data-import", "team", "audit-logs"] as const
+const VALID_TABS = ["finance", "voice-translation", "revenue-groups", "brands", "legal-entities", "sites", "locations", "employees", "bays", "hours", "labor", "vehicle-data", "margin-rules", "data-import", "team", "api-keys", "audit-logs"] as const
 type SettingsTab = typeof VALID_TABS[number]
 
 export default function SettingsPage() {
@@ -291,6 +292,7 @@ export default function SettingsPage() {
     const requestedTab = VALID_TABS.includes(rawTab as SettingsTab) ? (rawTab as SettingsTab) : "finance"
     const activeTab: SettingsTab =
         requestedTab === 'team' && !canManageTeam ? 'finance'
+        : requestedTab === 'api-keys' && !canManageTeam ? 'finance'
         : requestedTab === 'vehicle-data' && !canManageVehicleData ? 'finance'
         : requestedTab === 'margin-rules' && !canManageTeam ? 'finance'
         : requestedTab === 'data-import' && !canManageTeam ? 'finance'
@@ -386,6 +388,7 @@ export default function SettingsPage() {
                     {canManageTeam ? <TabsTrigger className="shrink-0" value="margin-rules">Margenregeln</TabsTrigger> : null}
                     {canManageTeam ? <TabsTrigger className="shrink-0" value="data-import">Data import</TabsTrigger> : null}
                     {canManageTeam ? <TabsTrigger className="shrink-0" value="team">Team</TabsTrigger> : null}
+                    {canManageTeam ? <TabsTrigger className="shrink-0" value="api-keys">API keys</TabsTrigger> : null}
                     <TabsTrigger className="shrink-0" value="audit-logs">Audit Logs</TabsTrigger>
                 </TabsList>
 
@@ -565,6 +568,13 @@ export default function SettingsPage() {
                 {canManageTeam ? (
                     <TabsContent value="team" className="space-y-6">
                         <TeamSettingsTab />
+                    </TabsContent>
+                ) : null}
+
+                {/* ── API Keys Tab (OWNER/ADMIN; ADR-0026) ── */}
+                {canManageTeam ? (
+                    <TabsContent value="api-keys" className="space-y-6">
+                        <ApiKeysSettingsTab />
                     </TabsContent>
                 ) : null}
 

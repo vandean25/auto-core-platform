@@ -28,6 +28,7 @@ type GewaehrleistungDueResponse = components['schemas']['GewaehrleistungDueListR
 type GewaehrleistungDueRow = components['schemas']['GewaehrleistungDueListItemDto']
 type CreateVehicleSaleDto = components['schemas']['CreateVehicleSaleDto']
 type PatchVehicleSaleDto = components['schemas']['PatchVehicleSaleDto']
+export type VehicleSaleTradeInInput = components['schemas']['UpsertVehicleSaleTradeInDto']
 
 export function useGewaehrleistungDueList(days: 30 | 60 | 90) {
   return useQuery<GewaehrleistungDueResponse>({
@@ -205,6 +206,22 @@ type SaleWarrantyResponseFields = {
   kaufvertrag_generation_error?: string | null
 }
 
+/** Trade-in vehicle the buyer hands over on this sale; `purchase_price` is the allowance. */
+export type VehicleSaleTradeInPurchase = {
+  id: string
+  purchase_number: string
+  status: 'DRAFT' | 'RECEIVED' | 'CANCELLED'
+  vin: string | null
+  make: string
+  model: string
+  year: number
+  mileage: number | null
+  first_registration_date: string | null
+  plate: string | null
+  color: string | null
+  purchase_price: string | number
+}
+
 export type VehicleSale = Omit<SaleWarrantyInputs, keyof SaleWarrantyResponseFields> & SaleWarrantyResponseFields & {
   id: string
   sale_number: string
@@ -214,6 +231,8 @@ export type VehicleSale = Omit<SaleWarrantyInputs, keyof SaleWarrantyResponseFie
   sale_price: string | number
   cost_basis_preview?: string | number
   margin_vat_preview?: string | number
+  amount_due_preview?: string | number
+  trade_in_purchase?: VehicleSaleTradeInPurchase | null
   invoice?: { id: string; invoice_number: string | null; tax_mode: string }
   customer?: {
     id: string
@@ -453,6 +472,44 @@ export function useFinalizeVehicleSale() {
       void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
       void queryClient.invalidateQueries({ queryKey: vehicleKeys.all })
       void queryClient.invalidateQueries({ queryKey: vehicleGewaehrleistungKeys.all })
+    },
+  })
+}
+
+export function useUpsertVehicleSaleTradeIn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: VehicleSaleTradeInInput }) => {
+      const response = await fetchWithAuth(`/api/vehicle-sales/${id}/trade-in`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) await parseError(response, 'Failed to save trade-in')
+      return response.json() as Promise<VehicleSale>
+    },
+    onSuccess: (sale) => {
+      queryClient.setQueryData(vehicleStockKeys.sale(sale.id), sale)
+      void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.sale(sale.id) })
+      void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
+    },
+  })
+}
+
+export function useRemoveVehicleSaleTradeIn() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetchWithAuth(`/api/vehicle-sales/${id}/trade-in`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) await parseError(response, 'Failed to remove trade-in')
+      return response.json() as Promise<VehicleSale>
+    },
+    onSuccess: (sale) => {
+      queryClient.setQueryData(vehicleStockKeys.sale(sale.id), sale)
+      void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.sale(sale.id) })
+      void queryClient.invalidateQueries({ queryKey: vehicleStockKeys.all })
     },
   })
 }

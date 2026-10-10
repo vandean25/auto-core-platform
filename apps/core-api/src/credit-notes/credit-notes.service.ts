@@ -624,7 +624,18 @@ export class CreditNotesService {
         message: 'Invoice ownership or numbering evidence is incomplete.',
       });
     }
-    void originalSnapshot;
+    // The credit engine only reverses positive lines. On a vehicle sale the trade-in credit is a negative
+    // line; dropping it from a full credit would silently over-refund the buyer, so the sale is refused.
+    if (
+      invoice.vehicle_sale_id &&
+      originalSnapshot.items.some((item) => new Prisma.Decimal(item.net).lt(0))
+    ) {
+      throw new UnprocessableEntityException({
+        code: 'NEGATIVE_LINE_CREDIT_UNSUPPORTED',
+        message:
+          'Vehicle sale invoices with a negative line, such as a trade-in credit, cannot be credited yet.',
+      });
+    }
   }
 
   private parseCreditDate(value: string): Date {

@@ -11,7 +11,10 @@ import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessibl
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { AuthService } from './auth.service.js';
-import type { AuthenticatedUser } from './types/authenticated-user.js';
+import {
+  isApiKeyPrincipal,
+  type AuthenticatedUser,
+} from './types/authenticated-user.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -40,6 +43,13 @@ export class JwtAuthGuard implements CanActivate {
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: AuthenticatedUser }>();
+
+    // AUT-411: ApiKeyAuthGuard already verified this tenant API key, its scope and its budget (ADR-0026).
+    // The Firebase token path must not run for it, and it never reaches the session role checks below.
+    if (isApiKeyPrincipal(request.user)) {
+      return true;
+    }
+
     request.user = allowPlatformAdmin
       ? await this.authService.authenticateBearerToken(
           request.headers.authorization,
