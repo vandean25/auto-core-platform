@@ -417,6 +417,24 @@ describe('McpInvoiceReadService.listInvoices', () => {
       currency: 'EUR',
     });
   });
+  it('reads the frozen snapshot so a committed row reports its snapshot total', async () => {
+    const { service, prisma } = build();
+    prisma.invoice.findMany.mockResolvedValue([
+      listRecord({
+        total_gross: new Prisma.Decimal('173.99'),
+        snapshot: SNAPSHOT_V2,
+      }),
+    ]);
+
+    const page = await service.listInvoices({});
+
+    expect(prisma.invoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ snapshot: true }),
+      }),
+    );
+    expect(page.data[0]).toMatchObject({ total_gross: '174.00' });
+  });
 });
 
 describe('McpInvoiceReadService.getInvoice', () => {

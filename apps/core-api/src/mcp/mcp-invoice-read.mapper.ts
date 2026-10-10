@@ -96,10 +96,11 @@ export function mcpCustomerName(
 }
 
 /**
- * Gross total for a list row. A committed invoice shows its snapshot total, the
- * same figure the PDF prints and `get_invoice` reports. The stored column is
- * written once at draft creation and can differ from the snapshot, because the
- * snapshot rounds tax per line. A draft shows its stored total.
+ * Gross total for a list row. A committed invoice with a usable snapshot shows
+ * the snapshot total, the same figure the PDF prints and `get_invoice` reports.
+ * The stored column is written once at draft creation and can differ from the
+ * snapshot, because the snapshot rounds tax per line. A draft, or a committed
+ * invoice without a usable snapshot, shows its stored total.
  */
 function listGrossTotal(record: McpInvoiceListRecord): string {
   if (COMMITTED_STATUSES.has(record.status)) {

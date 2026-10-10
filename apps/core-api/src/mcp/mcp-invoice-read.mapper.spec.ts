@@ -180,6 +180,54 @@ describe('list total for committed and draft invoices', () => {
     }
   });
 
+  it('shows the snapshot total for a committed invoice with a legacy V1 snapshot', () => {
+    const legacySnapshot = {
+      id: INVOICE_ID,
+      invoice_number: 'RE-2025-0007',
+      date: '2025-06-01T00:00:00.000Z',
+      due_date: '2025-06-15T00:00:00.000Z',
+      total_net: '1.50',
+      total_tax: '0.30',
+      total_gross: '1.80',
+      notes: null,
+      tax_mode: 'STANDARD',
+      customer: {
+        type: 'PRIVATE',
+        company_name: null,
+        first_name: 'Erika',
+        last_name: 'Beispiel',
+        email: null,
+        phone: null,
+        vat_id: null,
+        address_street: null,
+        address_city: null,
+        address_zip: null,
+        address_country: null,
+      },
+      vehicle: null,
+      items: [
+        {
+          description: 'Position',
+          quantity: '3.00',
+          unit_price: '0.50',
+          tax_rate: '19.00',
+          line_discount_type: null,
+          line_discount_value: null,
+          line_total: '1.50',
+          revenue_group_name: null,
+        },
+      ],
+      snapshot_created_at: '2025-06-01T12:00:00.000Z',
+    };
+
+    expect(
+      toMcpInvoiceListRow({
+        ...listRecord(InvoiceStatus.ISSUED),
+        snapshot: legacySnapshot,
+      }),
+    ).toMatchObject({ total_gross: '1.80' });
+  });
+
   it('shows the stored total for a draft even when a snapshot is present', () => {
     expect(toMcpInvoiceListRow(listRecord(InvoiceStatus.DRAFT))).toMatchObject({
       total_gross: '1.79',
