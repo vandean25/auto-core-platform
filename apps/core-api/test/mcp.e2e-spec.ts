@@ -2307,14 +2307,21 @@ describe('MCP server (e2e)', () => {
     }
 
     afterAll(async () => {
-      // The shared tenant cleanup does not remove sales orders, and they block the customer delete.
-      await prismaA.salesOrder.deleteMany({
-        where: { id: historySalesOrderId },
-      });
-      await prismaA.workshopOrder.deleteMany({
-        where: { id: historyOtherSiteOrderId },
-      });
-      await prismaA.site.deleteMany({ where: { id: historyOtherSiteId } });
+      // Each delete is guarded: an undefined id would match every row of the tenant.
+      if (historySalesOrderId) {
+        // The shared tenant cleanup does not remove sales orders, and they block the customer delete.
+        await prismaA.salesOrder.deleteMany({
+          where: { id: historySalesOrderId },
+        });
+      }
+      if (historyOtherSiteOrderId) {
+        await prismaA.workshopOrder.deleteMany({
+          where: { id: historyOtherSiteOrderId },
+        });
+      }
+      if (historyOtherSiteId) {
+        await prismaA.site.deleteMany({ where: { id: historyOtherSiteId } });
+      }
     });
 
     beforeAll(async () => {
@@ -2435,8 +2442,8 @@ describe('MCP server (e2e)', () => {
       });
 
       // The same customer and vehicle, with a job card at a second site of this tenant.
-      const mainSite = await prismaA.site.findUniqueOrThrow({
-        where: { id: siteId },
+      const mainSite = await prismaA.site.findFirstOrThrow({
+        where: { id: siteId, tenant_id: tenantA },
         select: { legal_entity_id: true },
       });
       const otherSite = await prismaA.site.create({
