@@ -21,6 +21,7 @@ import {
 import type { AgentProposal } from '@/api/agent-proposals'
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import { resolveDecidedByLabel, resolveProposalAgentName } from '../agent-labels'
 import { RejectProposalDialog } from './RejectProposalDialog'
 
 interface ProposedLine {
@@ -228,8 +229,10 @@ export function ApprovalsTab({
               string,
               unknown
             >
-            const agentId =
-              typeof payload.agent_id === 'string' ? payload.agent_id : 'agent'
+            const agentName = resolveProposalAgentName(
+              proposal.created_by_agent,
+              payload,
+            )
             const summary = proposal.effective_summary
             const entityType =
               summary?.target_type ??
@@ -284,8 +287,22 @@ export function ApprovalsTab({
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
                       <span>
                         {getCopy(t.agent, language)}:{' '}
-                        <strong className="text-slate-700">{agentId}</strong>
+                        <strong className="text-slate-700">{agentName}</strong>
                       </span>
+                      {proposal.decided_by ? (
+                        <span data-testid={`decided-by-${proposal.id}`}>
+                          {getCopy(t.decidedBy, language)}:{' '}
+                          <strong className="text-slate-700">
+                            {resolveDecidedByLabel(
+                              {
+                                name: proposal.decided_by_name,
+                                email: proposal.decided_by_email,
+                              },
+                              getCopy(common.unknownUser, language),
+                            )}
+                          </strong>
+                        </span>
+                      ) : null}
                       {isWorkshopOrderLine ? (
                         <>
                           <span>
@@ -538,6 +555,14 @@ export function ApprovalsTab({
                     className="rounded-md border border-slate-200 bg-slate-900 p-4 text-xs font-mono text-slate-100 overflow-x-auto space-y-2"
                     data-testid={`preview-panel-${proposal.id}`}
                   >
+                    {proposal.decided_by ? (
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                          {getCopy(t.decidedById, language)}:
+                        </div>
+                        <div>{proposal.decided_by}</div>
+                      </div>
+                    ) : null}
                     {workshopOrderId ? (
                       <div>
                         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">

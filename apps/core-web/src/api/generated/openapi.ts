@@ -7760,6 +7760,10 @@ export interface components {
             actorType: "AGENT" | "USER" | "SYSTEM" | "API_KEY";
             agentId?: Record<string, never> | null;
             onBehalfOfUserId?: Record<string, never> | null;
+            /** @description Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set. */
+            onBehalfOfUserName?: string | null;
+            /** @description Email of the on-behalf-of user. Null when the user is not a member of the tenant. */
+            onBehalfOfUserEmail?: string | null;
             apiKeyId?: Record<string, never> | null;
             actionType: string;
             /** @enum {string} */
@@ -8263,6 +8267,10 @@ export interface components {
             } | null;
             created_by_agent: string | null;
             decided_by: string | null;
+            /** @description Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set. */
+            decided_by_name: string | null;
+            /** @description Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant. */
+            decided_by_email: string | null;
             decided_at: string | null;
             reason: string | null;
             expires_at: string;

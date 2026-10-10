@@ -25804,6 +25804,16 @@
             "type": "object",
             "nullable": true
           },
+          "onBehalfOfUserName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set."
+          },
+          "onBehalfOfUserEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the on-behalf-of user. Null when the user is not a member of the tenant."
+          },
           "apiKeyId": {
             "type": "object",
             "nullable": true
@@ -27311,6 +27321,16 @@
             "type": "string",
             "nullable": true
           },
+          "decided_by_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set."
+          },
+          "decided_by_email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant."
+          },
           "decided_at": {
             "type": "string",
             "nullable": true
@@ -27342,6 +27362,8 @@
           "preview_json",
           "created_by_agent",
           "decided_by",
+          "decided_by_name",
+          "decided_by_email",
           "decided_at",
           "reason",
           "expires_at",

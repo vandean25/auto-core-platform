@@ -3,10 +3,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type AgentActionLog } from '@prisma/client';
 import { AuditQueryBuilder } from '../audit/audit-query.builder.js';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { loadTenantUserContacts } from '../common/services/tenant-user-contact.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { runWithAgentAuditTrace } from './agent-action-log-audit.context.js';
 import {
@@ -22,6 +23,7 @@ import { redactAgentActionSummary } from './agent-action-summary.util.js';
 import { isTraceIdUuid } from '../common/services/trace-id.util.js';
 import type {
   AgentActionLogListResponseDto,
+  AgentActionLogResponseDto,
   AgentActionTraceDetailResponseDto,
 } from './dto/index.js';
 import type { QueryAgentActionsDto } from './dto/query-agent-actions.dto.js';
@@ -182,7 +184,7 @@ export class AgentActionLogService {
     const last = page.at(-1);
 
     return {
-      data: page.map(mapAgentActionLog),
+      data: await this.mapWithOnBehalfOfContacts(tenantId, page),
       nextCursor:
         hasMore && last
           ? encodeAgentActionCursor({
@@ -218,11 +220,31 @@ export class AgentActionLogService {
     });
 
     return {
-      logs: logs.map(mapAgentActionLog),
+      logs: await this.mapWithOnBehalfOfContacts(tenantId, logs),
       auditEntries: auditRecords.map((record) =>
         AuditQueryBuilder.mapRecordToDto(record),
       ),
     };
+  }
+
+  /** One contact lookup per page, so rows never query users one by one. */
+  private async mapWithOnBehalfOfContacts(
+    tenantId: string,
+    records: AgentActionLog[],
+  ): Promise<AgentActionLogResponseDto[]> {
+    const contacts = await loadTenantUserContacts(
+      this.prisma,
+      tenantId,
+      records.map((record) => record.on_behalf_of_user_id),
+    );
+    return records.map((record) =>
+      mapAgentActionLog(
+        record,
+        record.on_behalf_of_user_id
+          ? contacts.get(record.on_behalf_of_user_id)
+          : undefined,
+      ),
+    );
   }
 
   private requireTraceId(): string {

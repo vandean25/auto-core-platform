@@ -56,6 +56,8 @@ const mockProposal: AgentProposal = {
   preview_json: { description: 'Brake pads' },
   created_by_agent: null,
   decided_by: null,
+  decided_by_name: null,
+  decided_by_email: null,
   decided_at: null,
   reason: null,
   expires_at: '2026-10-05T12:00:00.000Z',

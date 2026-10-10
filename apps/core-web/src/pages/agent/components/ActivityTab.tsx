@@ -15,6 +15,11 @@ import { useAgentActions } from '@/api/agent-actions'
 import type { AgentActionStatus, AgentActionTier } from '@/api/agent-actions'
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import {
+  resolveActivityAgentName,
+  resolveDecidedByLabel,
+  resolveUserId,
+} from '../agent-labels'
 
 interface ActivityTabProps {
   language?: Language
@@ -248,12 +253,8 @@ export function ActivityTab({
             </TableHeader>
             <TableBody>
               {logs.map((log) => {
-                const agentName =
-                  typeof log.agentId === 'string' ? log.agentId : 'agent'
-                const approver =
-                  typeof log.onBehalfOfUserId === 'string'
-                    ? log.onBehalfOfUserId
-                    : null
+                const agentName = resolveActivityAgentName(log.agentId)
+                const approverId = resolveUserId(log.onBehalfOfUserId)
 
                 return (
                   <TableRow key={log.id} data-testid={`activity-row-${log.id}`}>
@@ -273,7 +274,32 @@ export function ActivityTab({
                       <StatusBadge status={log.status} />
                     </TableCell>
                     <TableCell className="text-xs text-slate-500">
-                      {approver ?? '—'}
+                      {approverId ? (
+                        <div
+                          className="space-y-1"
+                          data-testid={`activity-decided-by-${log.id}`}
+                        >
+                          <div className="text-slate-700">
+                            {resolveDecidedByLabel(
+                              {
+                                name: log.onBehalfOfUserName,
+                                email: log.onBehalfOfUserEmail,
+                              },
+                              getCopy(common.unknownUser, language),
+                            )}
+                          </div>
+                          <details className="text-[11px] text-slate-500">
+                            <summary className="cursor-pointer hover:text-slate-600">
+                              {getCopy(t.showDetails, language)}
+                            </summary>
+                            <div className="mt-1 break-all font-mono">
+                              {approverId}
+                            </div>
+                          </details>
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell>
                       {log.traceId ? (

@@ -11,6 +11,11 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
+import {
+  resolveActivityAgentName,
+  resolveDecidedByLabel,
+  resolveUserId,
+} from '../agent-labels'
 
 interface TraceAuditDetailDialogProps {
   traceId: string | null
@@ -60,8 +65,8 @@ export function TraceAuditDetailDialog({
               </h3>
               <div className="space-y-2">
                 {data.logs?.map((act) => {
-                  const agentName = typeof act.agentId === 'string' ? act.agentId : 'agent'
-                  const onBehalfOf = typeof act.onBehalfOfUserId === 'string' ? act.onBehalfOfUserId : null
+                  const agentName = resolveActivityAgentName(act.agentId)
+                  const onBehalfOfId = resolveUserId(act.onBehalfOfUserId)
 
                   return (
                     <div
@@ -77,8 +82,24 @@ export function TraceAuditDetailDialog({
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-500">
                         <span>Agent: <strong className="text-slate-700">{agentName}</strong></span>
-                        {onBehalfOf && (
-                          <span>On behalf of: <strong className="text-slate-700">{onBehalfOf}</strong></span>
+                        {onBehalfOfId && (
+                          <div className="space-y-1">
+                            <span>
+                              On behalf of:{' '}
+                              <strong className="text-slate-700">
+                                {resolveDecidedByLabel(
+                                  { name: act.onBehalfOfUserName, email: act.onBehalfOfUserEmail },
+                                  getCopy(SUPERVISION_COPY.common.unknownUser, language),
+                                )}
+                              </strong>
+                            </span>
+                            <details className="text-[11px] text-slate-500">
+                              <summary className="cursor-pointer hover:text-slate-600">
+                                {getCopy(SUPERVISION_COPY.activity.showDetails, language)}
+                              </summary>
+                              <div className="mt-1 break-all font-mono">{onBehalfOfId}</div>
+                            </details>
+                          </div>
                         )}
                         <span>Time: {new Date(act.createdAt).toLocaleString()}</span>
                       </div>
