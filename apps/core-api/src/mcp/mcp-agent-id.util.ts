@@ -7,6 +7,13 @@ export function formatMcpAgentId(clientName: string): string {
   return `${MCP_AGENT_ID_PREFIX}${safeName}`;
 }
 
+/** Client name inside an agent id such as `mcp:cursor`, or null for any other shape. */
+export function resolveMcpAgentName(agentId: string): string | null {
+  return agentId.startsWith(MCP_AGENT_ID_PREFIX)
+    ? agentId.slice(MCP_AGENT_ID_PREFIX.length)
+    : null;
+}
+
 export function resolveMcpClientNameFromInitializeBody(
   body: unknown,
 ): string | undefined {

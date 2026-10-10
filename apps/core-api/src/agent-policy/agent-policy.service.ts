@@ -210,6 +210,19 @@ export class AgentPolicyService {
     return evaluateAgentPolicy(actionType, context, rule);
   }
 
+  /**
+   * Configured rule for an action in the active tenant: the tenant override when
+   * one exists, else the platform default, else null. Unlike evaluateAction this
+   * keeps the configured tier and enabled flag, which evaluation collapses to
+   * HUMAN_ONLY when a rule is disabled. Enforcement still goes through evaluateAction.
+   */
+  async getEffectiveRule(
+    actionType: string,
+  ): Promise<ResolvedAgentPolicyRule | null> {
+    const tenantId = await this.tenantContext.getTenantId();
+    return this.resolveEffectiveRule(tenantId, actionType);
+  }
+
   private async loadEffectiveRules(
     tenantId: string,
   ): Promise<ResolvedAgentPolicyRule[]> {

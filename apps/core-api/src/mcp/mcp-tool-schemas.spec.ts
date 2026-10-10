@@ -1,12 +1,15 @@
 import { MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
+import { encodeMcpCursor } from './mcp-output.util.js';
 import {
   draftWorkshopOrderInputSchema,
+  getCapabilitiesInputSchema,
   getCustomerInputSchema,
   getStockLevelInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
   mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
+  whoamiInputSchema,
 } from './mcp-tool-schemas.js';
 
 describe('MCP tool input schemas', () => {
@@ -84,6 +87,31 @@ describe('MCP tool input schemas', () => {
     ).toThrow();
     expect(() =>
       draftWorkshopOrderInputSchema.parse({ ...validDraft, status: 'INTAKE' }),
+    ).toThrow();
+  });
+
+  it('accepts whoami with no input', () => {
+    expect(whoamiInputSchema.parse({})).toEqual({});
+  });
+
+  it('bounds get_capabilities pageSize to 1 through 25', () => {
+    expect(getCapabilitiesInputSchema.parse({ pageSize: 25 })).toEqual({
+      pageSize: 25,
+    });
+    expect(() => getCapabilitiesInputSchema.parse({ pageSize: 26 })).toThrow();
+    expect(() => getCapabilitiesInputSchema.parse({ pageSize: 0 })).toThrow();
+  });
+
+  it('accepts only cursors issued by encodeMcpCursor for get_capabilities', () => {
+    const cursor = encodeMcpCursor(10);
+    expect(getCapabilitiesInputSchema.parse({ cursor })).toEqual({ cursor });
+    expect(() =>
+      getCapabilitiesInputSchema.parse({ cursor: 'bad cursor!' }),
+    ).toThrow();
+    expect(() =>
+      getCapabilitiesInputSchema.parse({
+        cursor: Buffer.from('abc').toString('base64url'),
+      }),
     ).toThrow();
   });
 });

@@ -15,6 +15,7 @@ import {
   MCP_AGENT_FACING_CODES,
   type McpWriteToolName,
 } from './mcp.constants.js';
+import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -96,15 +97,8 @@ export class McpWritePipelineService {
         execution.policyActionType,
         policyContext,
       );
-      tier = evaluation.tier;
+      tier = effectiveMcpWriteTier(execution.toolName, evaluation.tier);
       reasons = evaluation.reasons;
-
-      if (
-        execution.toolName === 'propose_line_item' &&
-        tier === AgentPolicyTier.AUTO
-      ) {
-        tier = AgentPolicyTier.PROPOSE;
-      }
     } catch (error) {
       await recordFailure(error);
       throw error;

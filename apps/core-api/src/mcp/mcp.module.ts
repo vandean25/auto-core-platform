@@ -12,6 +12,7 @@ import { PendingActionExecutorModule } from '../pending-action-executor/pending-
 import { VehicleModule } from '../vehicle/vehicle.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
+import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
@@ -37,6 +38,7 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
   providers: [
     McpToolHandlerService,
     McpWritePipelineService,
+    McpCapabilitiesService,
     McpSessionService,
   ],
 })
