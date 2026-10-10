@@ -24,6 +24,8 @@ export const WORKSHOP_ESTIMATE_VERSION_SUMMARY_SELECT = {
   legal_text_version: true,
   retain_until: true,
   legal_hold: true,
+  pdf_generated_at: true,
+  pdf_generation_error: true,
 } satisfies Prisma.WorkshopEstimateVersionSelect;
 
 export type WorkshopEstimateVersionSummaryRow =
@@ -68,6 +70,8 @@ export function toWorkshopEstimateVersionSummaryDto(
     legal_text_version: row.legal_text_version,
     retain_until: toIso(row.retain_until),
     legal_hold: row.legal_hold,
+    pdf_generated_at: toIso(row.pdf_generated_at),
+    pdf_generation_error: row.pdf_generation_error,
   };
 }
 
