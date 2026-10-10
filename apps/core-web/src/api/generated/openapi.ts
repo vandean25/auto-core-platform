@@ -1332,6 +1332,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{id}/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_list"];
+        put?: never;
+        post: operations["WorkshopEstimateController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/estimates/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopEstimateController_revise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/estimates/{versionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_getVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/estimates/{versionId}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopEstimateController_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-purchases": {
         parameters: {
             query?: never;
@@ -5575,6 +5639,133 @@ export interface components {
             meta: components["schemas"]["WorkshopKpiReportMetaDto"];
             totals: components["schemas"]["WorkshopKpiReportRowDto"];
             parts_turnover: components["schemas"]["WorkshopKpiPartsTurnoverDto"];
+        };
+        WorkshopEstimateVersionSummaryDto: {
+            id: string;
+            version: number;
+            /** @enum {string} */
+            status: "DRAFT" | "SENT" | "APPROVED" | "DECLINED" | "EXPIRED" | "SUPERSEDED";
+            sent_at: string | null;
+            valid_from: string | null;
+            valid_until: string | null;
+            total_net: string | null;
+            total_tax: string | null;
+            total_gross: string | null;
+            snapshot_sha256: string | null;
+            legal_text_version: string | null;
+            retain_until: string | null;
+            legal_hold: boolean;
+        };
+        WorkshopEstimateOverrunWarningDto: {
+            total_over_threshold: boolean;
+            new_work_lines: boolean;
+            approved_total_gross: string;
+            current_total_gross: string;
+            threshold_pct: string;
+            new_line_count: number;
+        };
+        WorkshopEstimateResponseDto: {
+            id: string;
+            workshop_order_id: string;
+            estimate_number: string;
+            year: number;
+            created_at: string;
+            versions: components["schemas"]["WorkshopEstimateVersionSummaryDto"][];
+            overrun_warning: components["schemas"]["WorkshopEstimateOverrunWarningDto"] | null;
+            /** @description False until CUSTOMER_ESTIMATE_SEND_ENABLED is on (legal copy approval pending). Sending is refused with 503 while false. */
+            send_enabled: boolean;
+            overrun_threshold_pct: string;
+        };
+        WorkshopEstimateListResponseDto: {
+            data: components["schemas"]["WorkshopEstimateResponseDto"][];
+        };
+        WorkshopEstimateDocumentDto: {
+            /** @enum {string} */
+            kind: "WORKSHOP_ESTIMATE";
+            title: string;
+            estimate_number: string;
+            version: number;
+            issued_at: string;
+            valid_from: string;
+            valid_until: string;
+            validity_days: number;
+            /** @enum {boolean} */
+            non_binding: true;
+            free_of_charge: boolean;
+            /** @enum {string} */
+            price_display: "GROSS" | "NET_WITH_VAT";
+        };
+        WorkshopEstimateLineDto: {
+            source_line_id: string;
+            /** @enum {string} */
+            type: "LABOR" | "PART";
+            item_no: string;
+            description: string;
+            quantity: string;
+            unit_price: string;
+            tax_rate: string;
+            net: string;
+            tax: string;
+            gross: string;
+        };
+        WorkshopEstimateTaxBucketDto: {
+            rate: string;
+            net: string;
+            tax: string;
+            gross: string;
+        };
+        WorkshopEstimateTotalsDto: {
+            total_net: string;
+            total_tax: string;
+            total_gross: string;
+            tax_breakdown: components["schemas"]["WorkshopEstimateTaxBucketDto"][];
+        };
+        WorkshopEstimateSnapshotDto: {
+            schema_version: number;
+            document: components["schemas"]["WorkshopEstimateDocumentDto"];
+            seller: {
+                [key: string]: unknown;
+            };
+            customer: {
+                [key: string]: unknown;
+            };
+            vehicle: {
+                [key: string]: unknown;
+            };
+            order: {
+                [key: string]: unknown;
+            };
+            lines: components["schemas"]["WorkshopEstimateLineDto"][];
+            totals: components["schemas"]["WorkshopEstimateTotalsDto"];
+            branding: {
+                [key: string]: unknown;
+            };
+            legal: Record<string, never>;
+        };
+        WorkshopEstimateDraftPreviewDto: {
+            lines: components["schemas"]["WorkshopEstimateLineDto"][];
+            totals: components["schemas"]["WorkshopEstimateTotalsDto"];
+        };
+        WorkshopEstimateVersionDetailDto: {
+            id: string;
+            version: number;
+            /** @enum {string} */
+            status: "DRAFT" | "SENT" | "APPROVED" | "DECLINED" | "EXPIRED" | "SUPERSEDED";
+            sent_at: string | null;
+            valid_from: string | null;
+            valid_until: string | null;
+            total_net: string | null;
+            total_tax: string | null;
+            total_gross: string | null;
+            snapshot_sha256: string | null;
+            legal_text_version: string | null;
+            retain_until: string | null;
+            legal_hold: boolean;
+            estimate_id: string;
+            estimate_number: string;
+            workshop_order_id: string;
+            snapshot?: components["schemas"]["WorkshopEstimateSnapshotDto"] | null;
+            draft_preview?: components["schemas"]["WorkshopEstimateDraftPreviewDto"] | null;
         };
         CreateVehiclePurchaseDto: {
             /** @enum {string} */
@@ -11405,6 +11596,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopKpiReportResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateListResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_revise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_getVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
                 };
             };
         };
