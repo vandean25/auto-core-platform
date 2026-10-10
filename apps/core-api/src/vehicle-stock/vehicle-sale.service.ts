@@ -224,6 +224,12 @@ export class VehicleSaleService {
 
     const isRetargeting =
       targetSiteId !== undefined && targetSiteId !== sale.site_id;
+    if (isRetargeting && tradeIn) {
+      // The trade-in purchase is site-owned and stays at the sale's site; moving the sale would strand it.
+      throw new UnprocessableEntityException(
+        'Remove the trade-in before moving this sale to another site',
+      );
+    }
 
     if (isRetargeting) {
       await assertActiveTargetSiteMembership(
@@ -505,20 +511,6 @@ export class VehicleSaleService {
         sale.customer_id,
         tx,
       );
-      const tradeInPurchase = sale.trade_in_purchase_id
-        ? await tx.vehiclePurchase.findFirst({
-            where: {
-              id: sale.trade_in_purchase_id,
-              tenant_id: tenantId,
-              site_id: persistedSiteId,
-            },
-          })
-        : null;
-      const tradeIn = this.assertFinalizableTradeIn(
-        sale,
-        tradeInPurchase,
-        persistedSiteId,
-      );
 
       const warrantySnapshot = this.computeGewaehrleistungSnapshot(
         {
@@ -563,6 +555,23 @@ export class VehicleSaleService {
         conflictMessage:
           'Vehicle sale state or site changed concurrently. Please refresh.',
       });
+
+      // Read after the guarded status update. The site row lock from lockCommitmentContext is held here, and a
+      // trade-in save takes the same lock first, so no save can change the link before the invoice is written.
+      const tradeInPurchase = sale.trade_in_purchase_id
+        ? await tx.vehiclePurchase.findFirst({
+            where: {
+              id: sale.trade_in_purchase_id,
+              tenant_id: tenantId,
+              site_id: persistedSiteId,
+            },
+          })
+        : null;
+      const tradeIn = this.assertFinalizableTradeIn(
+        sale,
+        tradeInPurchase,
+        persistedSiteId,
+      );
 
       const posted = await tx.vehicleSale.findFirst({
         where: {

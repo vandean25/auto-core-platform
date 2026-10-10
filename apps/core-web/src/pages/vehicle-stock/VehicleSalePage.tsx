@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
-import { VehicleSaleTradeInSection } from '@/components/vehicle-stock/VehicleSaleTradeInSection'
+import {
+  VehicleSaleTradeInSection,
+  type VehicleSaleTradeInHandle,
+} from '@/components/vehicle-stock/VehicleSaleTradeInSection'
 import {
   VEHICLE_SALES_API,
   fetchVehicleSaleKaufvertragGenerationError,
@@ -105,6 +108,7 @@ export default function VehicleSalePage() {
   const saveTimer = useRef<number | null>(null)
   const pendingSave = useRef<Promise<void> | null>(null)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  const tradeInRef = useRef<VehicleSaleTradeInHandle>(null)
   const { download: downloadKaufvertrag, isLoading: isDownloadingKaufvertrag } = usePdfDownload({
     postUrl: () => `${VEHICLE_SALES_API}/${saleIdRef.current}/kaufvertrag/pdf`,
     getUrl: () => `${VEHICLE_SALES_API}/${saleIdRef.current}/kaufvertrag/pdf`,
@@ -282,6 +286,8 @@ export default function VehicleSalePage() {
       if (serialized !== lastSavedSerialized.current) {
         await persistSaleFacts(currentFacts, serialized)
       }
+      // A trade-in typed inside the autosave window must be saved first, or the invoice would bill the full price.
+      await tradeInRef.current?.flush()
       const result = await finalizeSale.mutateAsync(saleId)
       toast.success('Sale invoiced')
       if (result.invoice?.id) {
@@ -399,6 +405,7 @@ export default function VehicleSalePage() {
             <CustomerSearch value={customer} onChange={handleCustomerChange} />
           </div>
           <VehicleSaleTradeInSection
+            ref={tradeInRef}
             saleId={saleId}
             salePrice={priceNumber}
             purchase={existing?.trade_in_purchase ?? null}

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useImperativeHandle, useRef, useState, type ChangeEvent, type Ref } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   useRemoveVehicleSaleTradeIn,
   useUpsertVehicleSaleTradeIn,
+  type VehicleSaleTradeInInput,
   type VehicleSaleTradeInPurchase,
 } from '@/api/vehicle-stock'
 import { formatCurrency } from '@/lib/utils'
@@ -17,6 +18,26 @@ import {
 } from '@/lib/vehicle-sale-trade-in'
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
+const STORED_TRADE_IN_INCOMPLETE_MESSAGE =
+  'Remove the trade-in or complete its details before finalizing.'
+
+export type VehicleSaleTradeInHandle = {
+  /**
+   * Saves a trade-in that has changes still inside the autosave window. Rejects when the trade-in on the form
+   * is incomplete or the save fails, so the sale is not invoiced without a trade-in the user has entered.
+   */
+  flush: () => Promise<void>
+}
+
+/** Runs tasks one after another. A failed task does not block the tasks queued after it. */
+function runInOrder<T>(queue: { current: Promise<void> }, task: () => Promise<T>): Promise<T> {
+  const run = queue.current.then(task)
+  queue.current = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  return run
+}
 
 type VehicleSaleTradeInSectionProps = {
   /** Empty until the sale has been saved once; the trade-in can only be entered after that. */
@@ -25,6 +46,7 @@ type VehicleSaleTradeInSectionProps = {
   salePrice: number
   purchase: VehicleSaleTradeInPurchase | null
   editable: boolean
+  ref?: Ref<VehicleSaleTradeInHandle>
 }
 
 export function VehicleSaleTradeInSection({
@@ -32,6 +54,7 @@ export function VehicleSaleTradeInSection({
   salePrice,
   purchase,
   editable,
+  ref,
 }: VehicleSaleTradeInSectionProps) {
   const { mutateAsync: upsertTradeIn } = useUpsertVehicleSaleTradeIn()
   const { mutateAsync: removeTradeIn } = useRemoveVehicleSaleTradeIn()
@@ -41,6 +64,8 @@ export function VehicleSaleTradeInSection({
   const hydratedPurchaseId = useRef<string | null | undefined>(undefined)
   const lastSavedSerialized = useRef<string | null>(null)
   const saveTimer = useRef<number | null>(null)
+  // Saves and removals share this queue, so an autosave, a finalize flush and a removal never interleave.
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
 
   useEffect(() => {
     const purchaseId = purchase?.id ?? null
@@ -56,23 +81,29 @@ export function VehicleSaleTradeInSection({
   const result = buildTradeInInput(draft, salePrice)
   const canEdit = editable && saleId !== ''
 
+  const saveTradeIn = (snapshot: { saleId: string; input: VehicleSaleTradeInInput; serialized: string }) =>
+    runInOrder(saveQueue, async () => {
+      if (snapshot.serialized === lastSavedSerialized.current) return
+      setSaveStatus('saving')
+      try {
+        const sale = await upsertTradeIn({ id: snapshot.saleId, data: snapshot.input })
+        hydratedPurchaseId.current = sale.trade_in_purchase?.id ?? null
+        lastSavedSerialized.current = snapshot.serialized
+        setSaveStatus('saved')
+      } catch (error) {
+        setSaveStatus('error')
+        throw error
+      }
+    })
+
   useEffect(() => {
     if (!canEdit || result.status !== 'valid') return
     const serialized = JSON.stringify(result.input)
     if (serialized === lastSavedSerialized.current) return
+    const snapshot = { saleId, input: result.input, serialized }
     const handle = window.setTimeout(() => {
       saveTimer.current = null
-      setSaveStatus('saving')
-      upsertTradeIn({ id: saleId, data: result.input })
-        .then((sale) => {
-          hydratedPurchaseId.current = sale.trade_in_purchase?.id ?? null
-          lastSavedSerialized.current = serialized
-          setSaveStatus('saved')
-        })
-        .catch((error) => {
-          setSaveStatus('error')
-          toast.error(getErrorMessage(error, 'Failed to save trade-in'))
-        })
+      saveTradeIn(snapshot).catch((error) => toast.error(getErrorMessage(error, 'Failed to save trade-in')))
     }, AUTO_SAVE_DEBOUNCE_MS)
     saveTimer.current = handle
     return () => {
@@ -83,6 +114,25 @@ export function VehicleSaleTradeInSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canEdit, draft, salePrice, saleId, upsertTradeIn])
 
+  // Re-created on every render, so the page always flushes the form it is showing.
+  useImperativeHandle(ref, () => ({
+    flush: async () => {
+      // Not gated on `editable`: the page turns editing off before it flushes, to stop further edits.
+      if (saleId === '') return
+      if (saveTimer.current !== null) {
+        window.clearTimeout(saveTimer.current)
+        saveTimer.current = null
+      }
+      if (result.status === 'invalid') throw new Error(result.message)
+      if (result.status === 'empty') {
+        // A blank form with a stored trade-in would still be netted on the invoice, so stop instead.
+        if (purchase) throw new Error(STORED_TRADE_IN_INCOMPLETE_MESSAGE)
+        return
+      }
+      await saveTradeIn({ saleId, input: result.input, serialized: JSON.stringify(result.input) })
+    },
+  }))
+
   const handleRemoveTradeIn = async () => {
     if (!saleId || !purchase) return
     if (saveTimer.current !== null) {
@@ -90,7 +140,7 @@ export function VehicleSaleTradeInSection({
       saveTimer.current = null
     }
     try {
-      await removeTradeIn(saleId)
+      await runInOrder(saveQueue, () => removeTradeIn(saleId))
       hydratedPurchaseId.current = null
       lastSavedSerialized.current = null
       setDraft(EMPTY_TRADE_IN_DRAFT)
@@ -115,9 +165,11 @@ export function VehicleSaleTradeInSection({
     <section aria-labelledby="trade-in-form-title" className="space-y-3 rounded-lg border p-4">
       <div className="flex items-center justify-between">
         <h2 id="trade-in-form-title" className="font-medium">Trade-in</h2>
-        {saveStatus === 'saving' && <span className="text-sm text-slate-500">Saving...</span>}
-        {saveStatus === 'saved' && <span className="text-sm text-emerald-600">Saved</span>}
-        {saveStatus === 'error' && <span className="text-sm text-rose-600">Save failed</span>}
+        <div role="status" aria-live="polite" className="text-sm">
+          {saveStatus === 'saving' && <span className="text-slate-500">Saving...</span>}
+          {saveStatus === 'saved' && <span className="text-emerald-600">Saved</span>}
+          {saveStatus === 'error' && <span className="text-rose-600">Save failed</span>}
+        </div>
       </div>
       <p className="text-xs text-slate-500">
         {saleId
@@ -128,7 +180,6 @@ export function VehicleSaleTradeInSection({
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Allowance (EUR)</span>
           <Input
-            aria-label="Trade-in allowance"
             type="number"
             min={0}
             step="0.01"
@@ -139,36 +190,23 @@ export function VehicleSaleTradeInSection({
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">VIN</span>
-          <Input
-            aria-label="Trade-in VIN"
-            maxLength={17}
-            disabled={!canEdit}
-            value={draft.vin}
-            onChange={handleFieldChange('vin')}
-          />
+          <Input maxLength={17} disabled={!canEdit} value={draft.vin} onChange={handleFieldChange('vin')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Make</span>
-          <Input aria-label="Trade-in make" disabled={!canEdit} value={draft.make} onChange={handleFieldChange('make')} />
+          <Input disabled={!canEdit} value={draft.make} onChange={handleFieldChange('make')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Model</span>
-          <Input aria-label="Trade-in model" disabled={!canEdit} value={draft.model} onChange={handleFieldChange('model')} />
+          <Input disabled={!canEdit} value={draft.model} onChange={handleFieldChange('model')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Model year</span>
-          <Input
-            aria-label="Trade-in model year"
-            type="number"
-            disabled={!canEdit}
-            value={draft.year}
-            onChange={handleFieldChange('year')}
-          />
+          <Input type="number" disabled={!canEdit} value={draft.year} onChange={handleFieldChange('year')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Mileage (km)</span>
           <Input
-            aria-label="Trade-in mileage"
             type="number"
             min={0}
             disabled={!canEdit}
@@ -179,7 +217,6 @@ export function VehicleSaleTradeInSection({
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">First registration</span>
           <Input
-            aria-label="Trade-in first registration"
             type="date"
             disabled={!canEdit}
             value={draft.firstRegistrationDate}
@@ -188,10 +225,12 @@ export function VehicleSaleTradeInSection({
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Plate (optional)</span>
-          <Input aria-label="Trade-in plate" disabled={!canEdit} value={draft.plate} onChange={handleFieldChange('plate')} />
+          <Input disabled={!canEdit} value={draft.plate} onChange={handleFieldChange('plate')} />
         </label>
       </div>
-      {validationMessage ? <p className="text-xs text-rose-600">{validationMessage}</p> : null}
+      <p aria-live="polite" className="text-xs text-rose-600">
+        {validationMessage}
+      </p>
       {amountDue ? (
         <p className="text-sm">
           Amount due after trade-in: <span className="font-medium">{amountDue}</span>

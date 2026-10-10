@@ -85,6 +85,20 @@ export class VehicleSaleTradeInService {
 
       let purchaseId: string;
       if (existing) {
+        // Lock the sale row first, the order finalize uses, so a save cannot race an invoice.
+        const sold = await tx.vehicleSale.updateMany({
+          where: {
+            id: sale.id,
+            tenant_id: tenantId,
+            site_id: siteId,
+            status: VehicleSaleStatus.DRAFT,
+            trade_in_purchase_id: existing.id,
+          },
+          data: { trade_in_purchase_id: existing.id },
+        });
+        if (sold.count !== 1) {
+          throw new ConflictException(SALE_CHANGED_MESSAGE);
+        }
         const guarded = await tx.vehiclePurchase.updateMany({
           where: {
             id: existing.id,

@@ -630,7 +630,7 @@ export class CreditNotesService {
       originalSnapshot.items.some((item) => new Prisma.Decimal(item.net).lt(0))
     ) {
       throw new UnprocessableEntityException({
-        code: 'TRADE_IN_CREDIT_UNSUPPORTED',
+        code: 'NEGATIVE_LINE_CREDIT_UNSUPPORTED',
         message:
           'Invoices with a negative line, such as a vehicle trade-in credit, cannot be credited yet.',
       });

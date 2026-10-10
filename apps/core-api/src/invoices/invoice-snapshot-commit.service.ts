@@ -158,10 +158,16 @@ export class InvoiceSnapshotCommitService {
       ownership.legalEntityId,
     );
     assertCustomerComplete(invoice.customer);
+    // In-kind credits (a vehicle trade-in) lower the amount billed but belong to the sale's consideration,
+    // so the high-value recipient UID threshold applies to the amount before those credits.
+    const inKindCredits = invoice.items.reduce((sum, item) => {
+      const total = item.line_total ?? new Prisma.Decimal(0);
+      return total.isNegative() ? sum.add(total.abs()) : sum;
+    }, new Prisma.Decimal(0));
     assertAtHighValueBusinessRecipientUid({
       seller,
       customer: invoice.customer,
-      totalGross: invoice.total_gross,
+      totalGross: invoice.total_gross.add(inKindCredits),
     });
     const profile = await loadAccountingProfile(
       tx,

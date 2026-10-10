@@ -352,7 +352,7 @@ describe('Vehicle sale trade-in (e2e)', () => {
         mode: 'FULL',
       })
       .expect(422);
-    expect(credit.body.code).toBe('TRADE_IN_CREDIT_UNSUPPORTED');
+    expect(credit.body.code).toBe('NEGATIVE_LINE_CREDIT_UNSUPPORTED');
   });
 
   it('hides another tenant\'s sale from the trade-in endpoints', async () => {
