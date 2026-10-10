@@ -11,6 +11,7 @@ import {
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
 import { omitInvoiceSnapshot } from './invoice-response.mapper.js';
 import { generateInvoiceNumber } from '../sales/helpers/invoice-number.helpers.js';
+import { extendEstimateRetentionForInvoicedOrder } from '../workshop/workshop-estimate-retention.helpers.js';
 
 export function assertInvoiceEligibleForIssue(invoice: {
   status: InvoiceStatus;
@@ -95,6 +96,12 @@ export async function executeIssueInvoice(
     conflictMessage:
       'Workshop order was already invoiced or is no longer COMPLETED',
   });
+  // ADR-0025 §10: sent estimates of an invoiced order keep the longer retention period.
+  await extendEstimateRetentionForInvoicedOrder(
+    tx,
+    tenantId,
+    invoice.workshop_order_id!,
+  );
 
   const updated = await tx.invoice.findFirst({
     where: { id: invoiceId, tenant_id: tenantId },

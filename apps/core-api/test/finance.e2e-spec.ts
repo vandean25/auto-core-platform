@@ -29,6 +29,19 @@ describe('FinanceModule (e2e)', () => {
     const testTenant = await createTestTenant(prisma);
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(prisma, tenantId);
+    // sales_orders.order_number is globally unique in the database (init migration), so every tenant
+    // starting at SO-2026-1001 collides with other suites that share this database. Start this tenant's
+    // counter at a per-run value instead.
+    const salesOrderStart = 100_000 + Math.floor(Math.random() * 800_000);
+    await prisma.financeSettings.upsert({
+      where: { tenant_id: tenantId },
+      update: { next_sales_order_number: salesOrderStart },
+      create: {
+        tenant_id: tenantId,
+        workshop_order_prefix: 'WO-2026-',
+        next_sales_order_number: salesOrderStart,
+      },
+    });
     authHeader = `Bearer ${createTestAuthToken(authService, testTenant)}`;
   });
 

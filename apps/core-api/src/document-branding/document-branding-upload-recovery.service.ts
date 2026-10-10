@@ -106,6 +106,9 @@ export class DocumentBrandingUploadRecoveryService {
       where: {
         expires_at: { lte: now },
         state: { in: ['READY', 'QUARANTINED', 'REJECTED', 'DELETING'] },
+        // A sent estimate version pins its logo (ADR-0025 §3). Skip pinned logos here so
+        // they do not fill the batch on every run.
+        workshopEstimateReferences: { none: {} },
       },
       select: { id: true, tenant_id: true, legal_entity_id: true },
       take: 100,
@@ -214,6 +217,8 @@ export class DocumentBrandingUploadRecoveryService {
             legal_entity_id: asset.legal_entity_id,
             state: current.state,
             expires_at: { lte: new Date() },
+            // A sent estimate version pins its logo (ADR-0025 §3).
+            workshopEstimateReferences: { none: {} },
           },
           data: { state: 'DELETING' },
         });
@@ -255,6 +260,8 @@ export class DocumentBrandingUploadRecoveryService {
           tenant_id: asset.tenant_id,
           legal_entity_id: asset.legal_entity_id,
           state: 'DELETING',
+          // A sent estimate version pins its logo (ADR-0025 §3).
+          workshopEstimateReferences: { none: {} },
         },
       });
       if (!current || (await this.hasCleanupReferences(tx, asset))) return null;

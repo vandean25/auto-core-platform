@@ -64,6 +64,9 @@ describe('invoice-issue.helpers', () => {
       workshopOrder: {
         updateMany: jest.fn(),
       },
+      workshopEstimate: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
       invoiceSequence: {
         upsert: jest.fn(),
       },

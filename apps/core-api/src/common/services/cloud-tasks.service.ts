@@ -17,6 +17,8 @@ import { SideEffectGuard } from '../../dry-run/side-effect-guard.js';
 const PDF_WORKER_PATH: Record<PdfTaskKind, (resourceId: string) => string> = {
   invoice: (resourceId) => `invoices/${resourceId}/pdf/worker`,
   'workshop-order': (resourceId) => `workshop/orders/${resourceId}/pdf/worker`,
+  'workshop-estimate': (resourceId) =>
+    `workshop/estimates/${resourceId}/pdf/worker`,
   'credit-note': (resourceId) => `credit-notes/${resourceId}/pdf/worker`,
   'vehicle-sale-kaufvertrag': (resourceId) =>
     `vehicle-sales/${resourceId}/kaufvertrag/pdf/worker`,

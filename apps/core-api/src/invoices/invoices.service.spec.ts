@@ -13,6 +13,11 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceSnapshotCommitService } from './invoice-snapshot-commit.service.js';
 import { InvoicesService } from './invoices.service.js';
 
+function expectNoIdentityResolutionState(vehicleView: object) {
+  expect(vehicleView).not.toHaveProperty('identity_resolution_generation');
+  expect(vehicleView).not.toHaveProperty('identity_resolution_token');
+}
+
 describe('InvoicesService', () => {
   let service: InvoicesService;
 
@@ -26,6 +31,9 @@ describe('InvoicesService', () => {
     workshopOrder: {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
+    },
+    workshopEstimate: {
+      findFirst: jest.fn().mockResolvedValue(null),
     },
     site: {
       findFirst: jest.fn(),
@@ -152,8 +160,7 @@ describe('InvoicesService', () => {
 
     const result = await service.createDraftInvoice('wo-1');
 
-    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
-    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
+    expectNoIdentityResolutionState(result.vehicle);
   });
 
   it('does not expose identity resolution state from issued invoice vehicles', async () => {
@@ -171,8 +178,7 @@ describe('InvoicesService', () => {
 
     const result = await service.issueInvoice('inv-1');
 
-    expect(result.vehicle).not.toHaveProperty('identity_resolution_generation');
-    expect(result.vehicle).not.toHaveProperty('identity_resolution_token');
+    expectNoIdentityResolutionState(result.vehicle);
   });
 
   it('returns 409 when issuing a stale DRAFT invoice', async () => {
