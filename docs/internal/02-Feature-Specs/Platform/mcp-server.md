@@ -90,7 +90,7 @@ The following actions are intentionally never exposed as MCP tools, as they requ
 - User/role/consent changes (`tenant_member.role_change`, `tenant_member.invite`, `consent.update`, `consent.revoke`)
 - Sending customer messages (`estimate.send_customer_message`)
 
-These align with the `MCP_NEVER_EXPOSED_ACTIONS` constant in the MCP implementation. `invoice.cancel`, `invoice.send`, and `credit_note.create` are not in the agent policy catalog yet, so they fail closed as HUMAN_ONLY (unknown action types) and are withheld from the tool list.
+These align with the `MCP_NEVER_EXPOSED_ACTIONS` constant in the MCP implementation. `invoice.cancel` and `invoice.send` are not in the agent policy catalog yet, so they fail closed as HUMAN_ONLY (unknown action types). `credit_note.create` falls under the `credit_note.` hard floor, so it is HUMAN_ONLY by category. All three are withheld from the tool list.
 
 ## Agent identity
 

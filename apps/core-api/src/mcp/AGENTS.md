@@ -91,7 +91,8 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `get_invoice` sets `amount_source`. `snapshot` means the frozen data the PDF renders: lines, totals, and the seller block as printed. `stored` means the invoice's current rows, which apply to drafts and to invoices without a usable snapshot. Drafts have no seller block.
 - Legacy invoices with an older snapshot report totals and unit prices, and their line `net` and `gross` are `null`. A draft with an invoice-level discount also reports `null` line amounts.
 - `lines_truncated: true` means some lines did not fit the result cap, and `lines_total` is the full count. Say so and point the person to the invoice in the app. Lines cannot be paged.
-- `customer` carries the ID and the name as the PDF prints it. Contact data, internal notes, and PDF storage keys are never returned.
+- `customer` carries the ID and the name as the PDF prints it. Customer contact data, internal notes, and PDF storage keys are never returned.
+- `seller` carries the seller identity as the PDF prints it, including the company's address, contact details, and bank details. These are the company's own details, not customer data.
 - Finalizing, cancelling, sending, and creating credit notes are `HUMAN_ONLY`. They are never tools. Ask a person to do them.
 
 ## Outcomes and errors

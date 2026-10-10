@@ -1,4 +1,5 @@
 import { DiscountType, InvoiceStatus, Prisma } from '@prisma/client';
+import { buildInvoiceSnapshotV2 } from '../invoices/invoice-snapshot-v2.js';
 import {
   mcpCustomerName,
   toMcpInvoiceDetail,
@@ -172,6 +173,127 @@ describe('stored draft line amounts', () => {
     );
 
     expect(firstLine(detail)).toMatchObject({ net: '0.00', gross: '0.00' });
+  });
+});
+
+describe('stored lines against the snapshot builder', () => {
+  const SITE_ID = '00000000-0000-4000-8000-0000000000a1';
+  const LEGAL_ENTITY_ID = '00000000-0000-4000-8000-0000000000e1';
+  const SELLER = {
+    name: 'Musterwerkstatt Nord GmbH',
+    country_iso: 'DE',
+    address_street: 'Testgasse 1',
+    address_line2: null,
+    address_zip: '10115',
+    address_city: 'Berlin',
+    tax_number: null,
+    vat_id: 'DE000000000',
+    iban: null,
+    bic: null,
+    bank_name: null,
+    email: null,
+    phone: null,
+    registration_number: null,
+    registration_court: null,
+    representatives: null,
+    payment_terms_days: 14,
+    payment_terms_text: 'Zahlbar innerhalb von 14 Tagen.',
+  };
+
+  type LineInput = {
+    quantity: string;
+    unit_price: string;
+    tax_rate: string;
+    line_discount_type?: DiscountType | null;
+    line_discount_value?: string | null;
+  };
+
+  /** Net and gross that the snapshot builder, the PDF source, gives for the same lines. */
+  function builderLines(items: LineInput[], taxMode: 'STANDARD' | 'MARGIN_SCHEME') {
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: {
+        id: INVOICE_ID,
+        tax_mode: taxMode,
+        global_discount_type: null,
+        global_discount_value: null,
+        date: new Date('2026-09-20T00:00:00.000Z'),
+        due_date: new Date('2026-10-04T00:00:00.000Z'),
+        supply_date_from: null,
+        supply_date_to: null,
+        notes: null,
+        total_gross: new Prisma.Decimal('0'),
+        customer: { type: 'PRIVATE', first_name: 'Erika', last_name: 'Beispiel' },
+        vehicle: null,
+      } as never,
+      seller: SELLER as never,
+      siteId: SITE_ID,
+      legalEntityId: LEGAL_ENTITY_ID,
+      lineAllocations: items.map((item, index) => ({
+        id: `line-${index + 1}`,
+        description: 'Position',
+        quantity: new Prisma.Decimal(item.quantity),
+        unitPrice: new Prisma.Decimal(item.unit_price),
+        taxRate: new Prisma.Decimal(item.tax_rate),
+        lineDiscountType: item.line_discount_type ?? null,
+        lineDiscountValue:
+          item.line_discount_value == null
+            ? null
+            : new Prisma.Decimal(item.line_discount_value),
+        revenueGroupName: null,
+        accountingAllocation: {} as never,
+      })),
+    });
+    return snapshot.items.map((item) => ({ net: item.net, gross: item.gross }));
+  }
+
+  it('matches the builder for three-decimal quantities, cent prices, and both discount kinds', () => {
+    const items: LineInput[] = [
+      { quantity: '1.500', unit_price: '8.23', tax_rate: '10.00' },
+      {
+        quantity: '2.000',
+        unit_price: '25.00',
+        tax_rate: '20.00',
+        line_discount_type: DiscountType.PERCENTAGE,
+        line_discount_value: '10.00',
+      },
+      {
+        quantity: '1.000',
+        unit_price: '40.00',
+        tax_rate: '20.00',
+        line_discount_type: DiscountType.FLAT_AMOUNT,
+        line_discount_value: '50.00',
+      },
+      {
+        quantity: '3.000',
+        unit_price: '3.33',
+        tax_rate: '20.00',
+        line_discount_type: DiscountType.PERCENTAGE,
+        line_discount_value: '15.00',
+      },
+    ];
+
+    const stored = toMcpInvoiceDetail(draftWithItems(items), new Map());
+
+    expect(
+      stored.lines.map((line) => ({ net: line.net, gross: line.gross })),
+    ).toEqual(builderLines(items, 'STANDARD'));
+    expect(stored.lines[0]).toMatchObject({ net: '12.35', gross: '13.58' });
+  });
+
+  it('gives a margin-scheme line a gross equal to its net, as the builder does', () => {
+    const items: LineInput[] = [
+      { quantity: '1.000', unit_price: '100.00', tax_rate: '20.00' },
+    ];
+
+    const stored = toMcpInvoiceDetail(
+      { ...draftWithItems(items), tax_mode: 'MARGIN_SCHEME' },
+      new Map(),
+    );
+
+    expect(
+      stored.lines.map((line) => ({ net: line.net, gross: line.gross })),
+    ).toEqual(builderLines(items, 'MARGIN_SCHEME'));
+    expect(stored.lines[0]).toMatchObject({ net: '100.00', gross: '100.00' });
   });
 });
 

@@ -223,13 +223,17 @@ function fromSnapshotV1(snapshot: InvoiceSnapshot): ResolvedAmounts {
 }
 
 /**
- * Drafts and invoices without a usable snapshot. Line amounts use the snapshot
- * builder's arithmetic: quantity times unit price, less the line discount, with
- * tax rounded half-up per line. An invoice-level discount is not allocated to
- * lines here, so its lines report null amounts; the stored totals still apply.
+ * Drafts and invoices without a usable snapshot. Each line follows the snapshot
+ * builder's arithmetic: quantity times unit price, less the line discount. Tax
+ * is computed from the unrounded net and rounded half-up, and gross is the
+ * unrounded net plus that tax; the displayed net and gross are rounded only for
+ * output. Margin-scheme lines carry no tax, so their gross equals their net. An
+ * invoice-level discount is not allocated to lines here, so its lines report
+ * null amounts; the stored totals still apply.
  */
 function fromStoredRows(invoice: McpInvoiceDetailRecord): ResolvedAmounts {
   const hasGlobalDiscount = invoice.global_discount_type !== null;
+  const isMarginScheme = invoice.tax_mode === 'MARGIN_SCHEME';
   return {
     source: 'stored',
     totals: {
@@ -238,19 +242,23 @@ function fromStoredRows(invoice: McpInvoiceDetailRecord): ResolvedAmounts {
       gross: invoice.total_gross.toFixed(2),
     },
     lines: invoice.items.map((item) => {
-      const net = hasGlobalDiscount
-        ? null
-        : storedLineNet(item).toDecimalPlaces(2);
-      return {
+      const base = {
         description: item.description,
         quantity: item.quantity.toFixed(3),
         unit_net: item.unit_price.toFixed(2),
         tax_rate: item.tax_rate.toFixed(2),
-        net: net === null ? null : net.toFixed(2),
-        gross:
-          net === null
-            ? null
-            : net.add(halfUpTax(net, item.tax_rate)).toFixed(2),
+      };
+      if (hasGlobalDiscount) {
+        return { ...base, net: null, gross: null };
+      }
+      const lineNet = storedLineNet(item);
+      const tax = isMarginScheme
+        ? new Prisma.Decimal(0)
+        : halfUpTax(lineNet, item.tax_rate);
+      return {
+        ...base,
+        net: lineNet.toFixed(2),
+        gross: lineNet.add(tax).toFixed(2),
       };
     }),
     seller: null,
