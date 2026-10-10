@@ -1230,6 +1230,8 @@ describe('MCP server (e2e)', () => {
     title: string;
     clientName: string;
     traceId: string;
+    /** Orders on the vehicle after the refused call. The fixture vehicle keeps its seeded order. */
+    expectedOrders: number;
     /** Prefix for a new tenant A vehicle to draft against. Without it, the fixture vehicle is used. */
     newVehicle?: string;
     args: (vehicle: DraftVehicle) => Record<string, unknown>;
@@ -1240,12 +1242,14 @@ describe('MCP server (e2e)', () => {
         'rejects an active INTAKE status for draft_workshop_order without creating an order',
       clientName: 'e2e-draft-active-status-rejected',
       traceId: '00000000-0000-4000-8000-000000000213',
+      expectedOrders: 1,
       args: (vehicle) => ({ vehicle_id: vehicle.vehicleId, status: 'INTAKE' }),
     },
     {
       title: 'requires an explicit SCHEDULED status for draft_workshop_order',
       clientName: 'e2e-draft-workshop-order-missing-status',
       traceId: '00000000-0000-4000-8000-000000000214',
+      expectedOrders: 0,
       newVehicle: 'draft-missing-status',
       args: (vehicle) => ({
         ...vehicleRefs(vehicle),
@@ -1259,6 +1263,7 @@ describe('MCP server (e2e)', () => {
         'rejects dry_run on draft_workshop_order without creating an order',
       clientName: 'e2e-draft-workshop-order-dry-run-rejected',
       traceId: '00000000-0000-4000-8000-000000000215',
+      expectedOrders: 0,
       newVehicle: 'draft-dry-run-rejected',
       args: (vehicle) => ({
         ...vehicleRefs(vehicle),
@@ -1276,6 +1281,7 @@ describe('MCP server (e2e)', () => {
         'logs a DRAFT status for draft_workshop_order as FAILED NOT_EVALUATED, never PROPOSE',
       clientName: 'e2e-draft-workshop-order-status-draft-rejected',
       traceId: '00000000-0000-4000-8000-000000000217',
+      expectedOrders: 0,
       newVehicle: 'draft-status-draft-rejected',
       args: (vehicle) => ({
         ...vehicleRefs(vehicle),
@@ -1290,10 +1296,6 @@ describe('MCP server (e2e)', () => {
     const vehicle: DraftVehicle = row.newVehicle
       ? await createDraftVehicle(row.newVehicle)
       : { customerId: fixtures.customerId, vehicleId: fixtures.vehicleId };
-    const ordersBefore = await prismaA.workshopOrder.count({
-      where: { vehicle_id: vehicle.vehicleId },
-    });
-
     const result = await callMcpTool(
       caller(adminHeaderA, row.clientName),
       'draft_workshop_order',
@@ -1309,7 +1311,7 @@ describe('MCP server (e2e)', () => {
       await prismaA.workshopOrder.count({
         where: { vehicle_id: vehicle.vehicleId },
       }),
-    ).toBe(ordersBefore);
+    ).toBe(row.expectedOrders);
     const failures = await prismaA.agentActionLog.findMany({
       where: {
         trace_id: row.traceId,
