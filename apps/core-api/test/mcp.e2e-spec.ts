@@ -53,6 +53,13 @@ type McpSession = {
   responseTraceIds: Array<string | null>;
 };
 
+/** The MCP client making a call: its bearer header, and the client name the agent log records. */
+type McpCaller = { authHeader: string; clientName: string };
+
+function caller(authHeader: string, clientName: string): McpCaller {
+  return { authHeader, clientName };
+}
+
 /** One trace ID per read tool, in declaration order, so every read call can be found in the log by its trace. */
 const TRACE_IDS = Object.fromEntries(
   MCP_READ_TOOL_NAMES.map((name, index) => [
@@ -156,15 +163,14 @@ describe('MCP server (e2e)', () => {
 
   /** One tool call on its own session. */
   function callMcpTool(
-    authHeader: string,
-    clientName: string,
+    who: McpCaller,
     name: string,
     args: Record<string, unknown>,
     traceId?: string,
   ): Promise<CallToolResult> {
     return withMcpSession(
-      authHeader,
-      clientName,
+      who.authHeader,
+      who.clientName,
       (session) => session.call(name, args),
       traceId,
     );
@@ -191,8 +197,7 @@ describe('MCP server (e2e)', () => {
     traceId: string,
   ): Promise<number> {
     const result = await callMcpTool(
-      adminHeaderA,
-      clientName,
+      caller(adminHeaderA, clientName),
       'get_stock_level',
       { sku: fixtures.sku },
       traceId,
@@ -755,8 +760,7 @@ describe('MCP server (e2e)', () => {
     for (const call of toolCalls) {
       const traceId = TRACE_IDS[call.name];
       const result = await callMcpTool(
-        adminHeaderA,
-        clientName,
+        caller(adminHeaderA, clientName),
         call.name,
         call.arguments,
         traceId,
@@ -774,8 +778,7 @@ describe('MCP server (e2e)', () => {
     'returns empty data for %s on tenant B',
     async (toolName) => {
       const result = await callMcpTool(
-        adminHeaderB,
-        `e2e-empty-${toolName}`,
+        caller(adminHeaderB, `e2e-empty-${toolName}`),
         toolName,
         {},
       );
@@ -1028,8 +1031,7 @@ describe('MCP server (e2e)', () => {
     const draftVehicle = await createDraftVehicle('draft-propose');
     const siteId = await resolveTestMainSiteId(prisma, tenantA);
     const result = await callMcpTool(
-      adminHeaderA,
-      'e2e-draft-workshop-order-propose',
+      caller(adminHeaderA, 'e2e-draft-workshop-order-propose'),
       'draft_workshop_order',
       draftOrderArgs(draftVehicle, 13),
       '00000000-0000-4000-8000-000000000216',
@@ -1149,8 +1151,7 @@ describe('MCP server (e2e)', () => {
     const draftVehicle = await createDraftVehicle('draft-auto');
 
     const result = await callMcpTool(
-      adminHeaderA,
-      'e2e-draft-workshop-order',
+      caller(adminHeaderA, 'e2e-draft-workshop-order'),
       'draft_workshop_order',
       { ...draftOrderArgs(draftVehicle, 12), notes: 'MCP draft test' },
       '00000000-0000-4000-8000-000000000201',
@@ -1198,8 +1199,7 @@ describe('MCP server (e2e)', () => {
     const draftVehicle = await createDraftVehicle('draft-human');
 
     const result = await callMcpTool(
-      adminHeaderA,
-      'e2e-human-only-refuse',
+      caller(adminHeaderA, 'e2e-human-only-refuse'),
       'draft_workshop_order',
       { ...draftOrderArgs(draftVehicle), notes: 'MCP human-only test' },
       '00000000-0000-4000-8000-000000000202',
@@ -1295,8 +1295,7 @@ describe('MCP server (e2e)', () => {
     });
 
     const result = await callMcpTool(
-      adminHeaderA,
-      row.clientName,
+      caller(adminHeaderA, row.clientName),
       'draft_workshop_order',
       row.args(vehicle),
       row.traceId,
@@ -1334,8 +1333,7 @@ describe('MCP server (e2e)', () => {
     );
 
     const reserveResult = await callMcpTool(
-      adminHeaderA,
-      'e2e-reserve-part',
+      caller(adminHeaderA, 'e2e-reserve-part'),
       'reserve_part',
       {
         workshop_task_line_item_id: fixtures.workshopTaskLineItemId,
@@ -1381,8 +1379,7 @@ describe('MCP server (e2e)', () => {
       return_location_id: fixtures.locationId,
     };
     const releaseResult = await callMcpTool(
-      adminHeaderA,
-      'e2e-release-reservation',
+      caller(adminHeaderA, 'e2e-release-reservation'),
       'release_reservation',
       releaseArgs,
       '00000000-0000-4000-8000-000000000209',
@@ -1401,8 +1398,7 @@ describe('MCP server (e2e)', () => {
 
     await setPolicyTier('inventory.part_release', 'AUTO');
     const approvedReleaseResult = await callMcpTool(
-      adminHeaderA,
-      'e2e-release-reservation-approved',
+      caller(adminHeaderA, 'e2e-release-reservation-approved'),
       'release_reservation',
       releaseArgs,
       '00000000-0000-4000-8000-000000000215',
@@ -1486,8 +1482,7 @@ describe('MCP server (e2e)', () => {
 
     // Now try to use this vehicle ID with tenant A token in a write tool (e.g., draft_workshop_order)
     const result = await callMcpTool(
-      adminHeaderA,
-      'e2e-cross-tenant-vehicle',
+      caller(adminHeaderA, 'e2e-cross-tenant-vehicle'),
       'draft_workshop_order',
       draftOrderArgs({
         customerId: tenantBCustomer.id,
@@ -1558,8 +1553,7 @@ describe('MCP server (e2e)', () => {
     );
 
     const result = await callMcpTool(
-      adminHeaderA,
-      'e2e-cross-site-proposal',
+      caller(adminHeaderA, 'e2e-cross-site-proposal'),
       'propose_line_item',
       {
         workshop_order_id: otherSiteOrder.id,
@@ -1686,34 +1680,31 @@ describe('MCP server (e2e)', () => {
       );
     }
 
-    /** Pages through two rows one page at a time: the newer row, then the older row, then no cursor. */
+    /** Pages through two rows one page at a time: the newer row with a next cursor, then the older row with none. */
     async function expectKeysetPaging(
-      clientName: string,
+      who: McpCaller,
       name: string,
       args: Record<string, unknown>,
-      newerId: string,
-      olderId: string,
+      [newerId, olderId]: [string, string],
     ): Promise<void> {
-      const first = await callMcpTool(adminHeaderA, clientName, name, {
-        ...args,
-        pageSize: 1,
-      });
-      const firstPage = parsePayload<{ meta: { next_cursor: string | null } }>(
-        first,
-      );
-      expect(rowIds(first)).toEqual([newerId]);
-      expect(firstPage.meta.next_cursor).toEqual(expect.any(String));
-
-      const second = await callMcpTool(adminHeaderA, clientName, name, {
-        ...args,
-        pageSize: 1,
-        cursor: firstPage.meta.next_cursor,
-      });
-      const secondPage = parsePayload<{ meta: { next_cursor: string | null } }>(
-        second,
-      );
-      expect(rowIds(second)).toEqual([olderId]);
-      expect(secondPage.meta.next_cursor).toBeNull();
+      const expectedPages: Array<{ id: string; nextCursor: unknown }> = [
+        { id: newerId, nextCursor: expect.any(String) },
+        { id: olderId, nextCursor: null },
+      ];
+      let cursor: string | null = null;
+      for (const expected of expectedPages) {
+        const result = await callMcpTool(who, name, {
+          ...args,
+          pageSize: 1,
+          ...(cursor ? { cursor } : {}),
+        });
+        const page = parsePayload<{ meta: { next_cursor: string | null } }>(
+          result,
+        );
+        expect(rowIds(result)).toEqual([expected.id]);
+        expect(page.meta.next_cursor).toEqual(expected.nextCursor);
+        cursor = page.meta.next_cursor;
+      }
     }
 
     /** A customer UPDATE audit row for the tenant. The actor is set only when a user made the change. */
@@ -1809,8 +1800,7 @@ describe('MCP server (e2e)', () => {
 
     it('lists audit events for the session tenant only', async () => {
       const result = await callMcpTool(
-        adminHeaderA,
-        'e2e-audit-list',
+        caller(adminHeaderA, 'e2e-audit-list'),
         'list_audit_events',
         { entity_type: 'Customer', entity_id: fixtures.customerId },
       );
@@ -1830,8 +1820,7 @@ describe('MCP server (e2e)', () => {
 
     it('masks contact values in entity history before they leave the server', async () => {
       const result = await callMcpTool(
-        adminHeaderA,
-        'e2e-audit-history',
+        caller(adminHeaderA, 'e2e-audit-history'),
         'get_entity_history',
         { entity_type: 'Customer', entity_id: fixtures.customerId },
       );
@@ -1849,8 +1838,7 @@ describe('MCP server (e2e)', () => {
 
     it('keeps tenant B out of tenant A history and shows only its own rows', async () => {
       const otherTenantView = await callMcpTool(
-        adminHeaderB,
-        'e2e-audit-cross',
+        caller(adminHeaderB, 'e2e-audit-cross'),
         'get_entity_history',
         { entity_type: 'Customer', entity_id: fixtures.customerId },
       );
@@ -1859,8 +1847,7 @@ describe('MCP server (e2e)', () => {
       expect(toolPayloadText(otherTenantView)).not.toMatch(/j\*\*\*@example/);
 
       const ownView = await callMcpTool(
-        adminHeaderB,
-        'e2e-audit-cross',
+        caller(adminHeaderB, 'e2e-audit-cross'),
         'get_entity_history',
         { entity_type: 'Customer', entity_id: 'cust-b-1' },
       );
@@ -1870,8 +1857,7 @@ describe('MCP server (e2e)', () => {
 
     it('treats a trace from another tenant as not found', async () => {
       const result = await callMcpTool(
-        adminHeaderB,
-        'e2e-audit-cross',
+        caller(adminHeaderB, 'e2e-audit-cross'),
         'get_agent_action',
         { trace_id: traceA },
       );
@@ -1881,8 +1867,7 @@ describe('MCP server (e2e)', () => {
 
     it('returns the log rows and correlated audit entries for an own trace', async () => {
       const result = await callMcpTool(
-        adminHeaderA,
-        'e2e-audit-trace',
+        caller(adminHeaderA, 'e2e-audit-trace'),
         'get_agent_action',
         { trace_id: traceA },
       );
@@ -1907,8 +1892,7 @@ describe('MCP server (e2e)', () => {
 
     it('filters agent actions by tool and never returns another tenant rows', async () => {
       const result = await callMcpTool(
-        adminHeaderA,
-        'e2e-audit-filter',
+        caller(adminHeaderA, 'e2e-audit-filter'),
         'list_agent_actions',
         { agent: 'mcp:e2e-audit-a', tool: 'search_customers' },
       );
@@ -1933,19 +1917,17 @@ describe('MCP server (e2e)', () => {
       );
 
       await expectKeysetPaging(
-        'e2e-agent-page-read',
+        caller(adminHeaderA, 'e2e-agent-page-read'),
         'list_agent_actions',
         { agent, tool: 'search_customers' },
-        newer.id,
-        older.id,
+        [newer.id, older.id],
       );
     });
 
     it('lists the supervisor-only reads as disabled in get_capabilities for SALES callers', async () => {
       await asRole('SALES', async () => {
         const result = await callMcpTool(
-          salesHeaderA,
-          'e2e-caps-sales',
+          caller(salesHeaderA, 'e2e-caps-sales'),
           'get_capabilities',
           {},
         );
@@ -1969,11 +1951,10 @@ describe('MCP server (e2e)', () => {
 
     it('pages audit events with a keyset cursor until the last row', async () => {
       await expectKeysetPaging(
-        'e2e-audit-page',
+        caller(adminHeaderA, 'e2e-audit-page'),
         'list_audit_events',
         { entity_type: probeEntityType },
-        probeNewerId,
-        probeOlderId,
+        [probeNewerId, probeOlderId],
       );
     });
 
@@ -1991,8 +1972,7 @@ describe('MCP server (e2e)', () => {
       await asRole('SALES', async () => {
         for (const [name, args] of reads) {
           const result = await callMcpTool(
-            salesHeaderA,
-            'e2e-audit-sales',
+            caller(salesHeaderA, 'e2e-audit-sales'),
             name,
             args,
           );
@@ -2022,7 +2002,7 @@ describe('MCP server (e2e)', () => {
       name: string,
       args: Record<string, unknown>,
     ): Promise<CallToolResult> {
-      return callMcpTool(authHeader, 'e2e-invoice-reads', name, args);
+      return callMcpTool(caller(authHeader, 'e2e-invoice-reads'), name, args);
     }
 
     /** A schema-rejected call is either an error result or a protocol error. */
