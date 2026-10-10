@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
   UnprocessableEntityException,
@@ -54,6 +55,11 @@ import {
   toWorkshopEstimateVersionDetailDto,
 } from './workshop-estimate-response.mapper.js';
 import { lockWorkshopRows } from './workshop-task.helpers.js';
+import {
+  WorkshopEstimatePdfService,
+  type WorkshopEstimatePdfRequestResponse,
+  type WorkshopEstimatePdfStream,
+} from './workshop-estimate-pdf.service.js';
 
 /** Estimate actions are for back-office roles. TECH sessions are refused (ADR-0014 §8.2 and AUT-354). */
 const ESTIMATE_ROLES: ReadonlySet<string> = new Set([
@@ -101,6 +107,10 @@ type OrderForEstimate = Prisma.WorkshopOrderGetPayload<{
 
 type EstimateDbClient = Pick<Prisma.TransactionClient, 'workshopOrder'>;
 
+function cloudTasksTargetBaseUrl(): string {
+  return process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
+}
+
 function mapEstimateWriteError(error: unknown): never {
   if (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -128,12 +138,16 @@ function isDueForExpiry(
 
 @Injectable()
 export class WorkshopEstimateService {
+  private readonly logger = new Logger(WorkshopEstimateService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TenantContextService)
     private readonly tenantContext: TenantContextService,
     @Inject(SiteContextService)
     private readonly siteContext: SiteContextService,
+    @Inject(WorkshopEstimatePdfService)
+    private readonly pdf: WorkshopEstimatePdfService,
   ) {}
 
   /** Create the estimate (KV number, version 1 as DRAFT) for an open workshop order. */
@@ -449,7 +463,45 @@ export class WorkshopEstimateService {
       })
       .catch(mapEstimateWriteError);
 
+    await this.queuePdfAfterSend(scope, versionId);
     return this.readVersion(scope, versionId);
+  }
+
+  /** POST estimates/:versionId/pdf. Only a sent version has an archive. */
+  async requestVersionPdf(
+    versionId: string,
+  ): Promise<WorkshopEstimatePdfRequestResponse> {
+    const scope = await this.resolveScope();
+    return this.pdf.requestGeneration(scope, versionId, {
+      targetBaseUrl: cloudTasksTargetBaseUrl(),
+    });
+  }
+
+  /** GET estimates/:versionId/pdf. The archived bytes are checked against the stored hash and identity. */
+  async getVersionPdf(versionId: string): Promise<WorkshopEstimatePdfStream> {
+    const scope = await this.resolveScope();
+    return this.pdf.getPdf(scope, versionId);
+  }
+
+  /**
+   * The send is committed before this runs. A PDF that cannot be queued leaves the
+   * version without an archive, and the workshop can request it again, so the send
+   * itself still succeeds.
+   */
+  private async queuePdfAfterSend(
+    scope: EstimateScope,
+    versionId: string,
+  ): Promise<void> {
+    try {
+      await this.pdf.requestGeneration(scope, versionId, {
+        targetBaseUrl: cloudTasksTargetBaseUrl(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Estimate PDF was not queued after send for ${versionId}: ${message}`,
+      );
+    }
   }
 
   private assertEstimateRole(): void {

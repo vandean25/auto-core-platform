@@ -4,9 +4,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
+import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
+import { WorkshopEstimatePdfRenderer } from '../src/workshop/workshop-estimate-pdf.renderer.js';
+import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
 import {
   cleanupTestUsers,
   createTenantAwarePrisma,
@@ -130,9 +133,18 @@ describe('Workshop estimates (e2e)', () => {
     previousWriterFlag = process.env.INVOICE_BRANDING_WRITER_ENABLED;
     process.env[SEND_FLAG] = 'true';
 
+    // A send queues the estimate archive. Stub the render and the storage so this suite
+    // stays off Chromium and GCS. The PDF pipeline has its own suite (workshop-estimate-pdf).
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PdfStorage)
+      .useValue(createInMemoryPdfArchive('e2e-estimate-kv-archive'))
+      .overrideProvider(WorkshopEstimatePdfRenderer)
+      .useValue({
+        render: async () => Buffer.from('%PDF-1.4 workshop estimate stub'),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
