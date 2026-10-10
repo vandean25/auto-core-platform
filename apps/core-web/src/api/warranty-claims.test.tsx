@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAuth } from "./client";
 import {
+  WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
   fetchWarrantyClaims,
+  updateWarrantyClaim,
   useCreateWarrantyClaim,
   useUpdateWarrantyClaim,
   useWarrantyClaim,
@@ -162,5 +164,29 @@ describe("warranty claim API", () => {
     });
     expect(result.current.fetchStatus).toBe("idle");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("gives up on a save that does not answer, so the editor is never left waiting", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockImplementation(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            signal?.addEventListener("abort", () => reject(signal.reason));
+          }),
+      );
+
+      const outcome = updateWarrantyClaim("order-1", "claim-1", { complaint: "Kupplung" }).catch(
+        (error: unknown) => error,
+      );
+      await vi.advanceTimersByTimeAsync(WARRANTY_CLAIM_SAVE_TIMEOUT_MS);
+
+      const error = await outcome;
+      expect(error).toBeInstanceOf(DOMException);
+      expect((error as DOMException).name).toBe("TimeoutError");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

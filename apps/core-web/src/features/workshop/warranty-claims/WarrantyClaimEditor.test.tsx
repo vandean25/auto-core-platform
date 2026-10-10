@@ -4,13 +4,25 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchWithAuth } from "@/api/client";
 import type { WarrantyClaim, WorkshopTask } from "@/api/types";
+import { toast } from "sonner";
 import { WarrantyClaimEditor } from "./WarrantyClaimEditor";
 
 vi.mock("@/api/client", () => ({
   fetchWithAuth: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: {
+    error: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  },
+}));
+
 const fetchMock = vi.mocked(fetchWithAuth);
+const toastMock = vi.mocked(toast);
 
 function claimFixture(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
   return {
@@ -111,6 +123,8 @@ function payloadOf(call: unknown[] | undefined): Record<string, unknown> {
 }
 
 beforeEach(() => {
+  toastMock.error.mockClear();
+  toastMock.message.mockClear();
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (_input, init) => {
     const payload = init?.body ? JSON.parse(String(init.body)) : {};
@@ -446,6 +460,7 @@ describe("WarrantyClaimEditor", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(toastMock.message).toHaveBeenCalledWith("The decision is still being saved.");
 
     pendingStatus.answer?.(jsonResponse({ message: "The claim changed." }, 409));
     const settled = await screen.findByRole("dialog");
@@ -468,6 +483,9 @@ describe("WarrantyClaimEditor", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ complaint: "Kupplung rutscht bei Kaltstart" });
+    expect(toastMock.error).toHaveBeenCalledWith(
+      "The claimed amount could not be read, so it was not saved.",
+    );
   });
 
   it("does not save on unmount when nothing is pending", async () => {
@@ -477,5 +495,6 @@ describe("WarrantyClaimEditor", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(toastMock.error).not.toHaveBeenCalled();
   });
 });

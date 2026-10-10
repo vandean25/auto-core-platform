@@ -94,6 +94,7 @@ export function WarrantyClaimEditor({
   );
   const statusChanges = availableStatusChanges(claim.status);
   const isBusy = busyAction !== null;
+  const isSavingDecision = decisionOutcome !== null && busyAction === decisionOutcome;
 
   const persistDraft = async (snapshot: WarrantyClaimDraft) => {
     const payload = buildClaimPatch(savedDraftRef.current, snapshot);
@@ -434,10 +435,15 @@ export function WarrantyClaimEditor({
         outcome={decisionOutcome}
         initialDecisionDate={draft.decisionDate}
         initialDecisionNote={draft.decisionNote}
-        isSubmitting={busyAction === decisionOutcome}
+        isSubmitting={isSavingDecision}
         onOpenChange={(open) => {
-          // Escape and a click outside must not close the dialog while its decision is being saved.
-          if (!open && busyAction !== decisionOutcome) setDecisionOutcome(null);
+          if (open) return;
+          // Closing mid-save would drop the entries, so the close is refused and the advisor is told why.
+          if (isSavingDecision) {
+            toast.message("The decision is still being saved.");
+            return;
+          }
+          setDecisionOutcome(null);
         }}
         onConfirm={(values) => void handleDecision(values)}
       />

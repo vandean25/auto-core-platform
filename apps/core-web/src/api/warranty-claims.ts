@@ -60,18 +60,32 @@ export async function createWarrantyClaim(
   return response.json() as Promise<WarrantyClaim>
 }
 
+/** A save that does not answer in this time fails, so the editor and its decision dialog never wait forever. */
+export const WARRANTY_CLAIM_SAVE_TIMEOUT_MS = 30_000
+
 export async function updateWarrantyClaim(
   orderId: string,
   claimId: string,
   payload: UpdateWarrantyClaimPayload,
 ): Promise<WarrantyClaim> {
-  const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!response.ok) throw await readErrorMessage(response, 'Failed to save warranty claim')
-  return response.json() as Promise<WarrantyClaim>
+  const controller = new AbortController()
+  const timer = setTimeout(
+    () => controller.abort(new DOMException('The save timed out. Try again.', 'TimeoutError')),
+    WARRANTY_CLAIM_SAVE_TIMEOUT_MS,
+  )
+  try {
+    const response = await fetchWithAuth(`${claimsUrl(orderId)}/${claimId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    if (!response.ok) throw await readErrorMessage(response, 'Failed to save warranty claim')
+    // Awaited inside try, so the timer also covers reading the body.
+    return (await response.json()) as WarrantyClaim
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export async function downloadWarrantyClaimPdf(orderId: string, claimId: string): Promise<Blob> {
