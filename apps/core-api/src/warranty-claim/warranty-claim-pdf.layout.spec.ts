@@ -134,8 +134,8 @@ describe('warranty claim PDF layout', () => {
   });
 
   it('carries the seller and order number into the header and footer', () => {
-    const content = contentFixture({ seller: { name: 'Müller & Söhne', addressLines: [], vatId: null } });
-    expect(buildWarrantyClaimHeaderTemplate(content, '')).toContain('Müller &amp; Söhne');
+    const content = contentFixture({ seller: { name: 'Demo Werkstatt & Söhne GmbH', addressLines: [], vatId: null } });
+    expect(buildWarrantyClaimHeaderTemplate(content, '')).toContain('Demo Werkstatt &amp; Söhne GmbH');
     const footer = buildWarrantyClaimFooterTemplate(content, '');
     expect(footer).toContain('Auftrag WO-2026-0007');
     expect(footer).toContain('class="pageNumber"');
