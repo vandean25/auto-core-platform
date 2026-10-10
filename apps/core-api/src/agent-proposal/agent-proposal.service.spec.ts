@@ -320,6 +320,23 @@ describe('AgentProposalService', () => {
       expect(result.decided_by_email).toBeNull();
     });
 
+    it('fails before any claim when the approver lookup fails, so nothing executes or is marked FAILED', async () => {
+      mockPrisma.agentProposal.findFirst.mockResolvedValueOnce(
+        createMockProposal(),
+      );
+      mockPrisma.user.findMany.mockRejectedValueOnce(
+        new Error('connection lost'),
+      );
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'connection lost',
+      );
+
+      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).not.toHaveBeenCalled();
+    });
+
     it('returns the approver name and email on a successful approve', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst
