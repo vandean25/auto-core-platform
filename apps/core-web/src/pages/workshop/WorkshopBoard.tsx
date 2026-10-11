@@ -2,12 +2,18 @@ import * as React from 'react'
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import type {
+  Announcements,
+  DragEndEvent,
+  DragStartEvent,
+  UniqueIdentifier,
+} from '@dnd-kit/core'
 import { useDroppable } from '@dnd-kit/core'
 import { useNavigate } from 'react-router-dom'
 import { Wrench } from 'lucide-react'
@@ -46,6 +52,42 @@ function readViewMode(): BoardViewMode {
   return 'mechanic'
 }
 
+// ─── Drag announcements ───────────────────────────────────────────────────────
+
+const UNASSIGNED_COLUMN_ID = '__unassigned__'
+
+/**
+ * Screen-reader messages for board drags. dnd-kit's defaults read out raw ids, so these name the
+ * order number and the column (mechanic, bay or Unassigned) instead.
+ */
+function createBoardAnnouncements(
+  orders: BoardOrder[],
+  columns: Array<{ id: string; label: string }>,
+  viewMode: BoardViewMode,
+): Announcements {
+  const resourceNoun = viewMode === 'mechanic' ? 'mechanic' : 'bay'
+  const orderLabel = (id: UniqueIdentifier) =>
+    orders.find((order) => order.id === String(id))?.orderNumber ?? 'Workshop order'
+  const columnLabel = (id: UniqueIdentifier) => {
+    const column = columns.find((candidate) => candidate.id === String(id))
+    if (!column) return 'an unknown column'
+    return column.id === UNASSIGNED_COLUMN_ID ? 'Unassigned' : `${resourceNoun} ${column.label}`
+  }
+
+  return {
+    onDragStart: ({ active }) => `Picked up ${orderLabel(active.id)}.`,
+    onDragOver: ({ active, over }) =>
+      over
+        ? `${orderLabel(active.id)} is over ${columnLabel(over.id)}.`
+        : `${orderLabel(active.id)} is no longer over a column.`,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `${orderLabel(active.id)} was dropped on ${columnLabel(over.id)}.`
+        : `${orderLabel(active.id)} was dropped outside a column and not moved.`,
+    onDragCancel: ({ active }) => `Dragging was cancelled. ${orderLabel(active.id)} was not moved.`,
+  }
+}
+
 // ─── Droppable Column ─────────────────────────────────────────────────────────
 
 function DroppableColumn({
@@ -70,7 +112,7 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      data-testid={`board-column-${id === '__unassigned__' ? 'unassigned' : id}`}
+      data-testid={`board-column-${id === UNASSIGNED_COLUMN_ID ? 'unassigned' : id}`}
       className={`flex flex-col rounded-lg border bg-slate-50 transition-colors min-w-[240px] w-72 flex-shrink-0 ${
         isOver ? 'border-slate-400 bg-slate-100' : 'border-slate-200'
       }`}
@@ -152,7 +194,11 @@ export default function WorkshopBoard() {
   const { data: boardData, isLoading: boardLoading } = useBoardActive()
   const assignBoard = useAssignBoard()
 
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(TouchSensor))
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(TouchSensor),
+    useSensor(KeyboardSensor),
+  )
 
   const quickAssignTargets = React.useMemo<BoardAssignmentTarget[]>(() => {
     const mechanicTargets = (resourcesData?.mechanics ?? []).map((mechanic) => ({
@@ -191,9 +237,14 @@ export default function WorkshopBoard() {
 
     return [
       ...resourceCols,
-      { id: '__unassigned__', label: 'Unassigned', orders: unassignedOrders },
+      { id: UNASSIGNED_COLUMN_ID, label: 'Unassigned', orders: unassignedOrders },
     ]
   }, [resources, orders, viewMode])
+
+  const accessibility = React.useMemo(
+    () => ({ announcements: createBoardAnnouncements(orders, columns, viewMode) }),
+    [orders, columns, viewMode],
+  )
 
   const activeOrder = activeId ? orders.find((o) => o.id === activeId) ?? null : null
 
@@ -265,7 +316,7 @@ export default function WorkshopBoard() {
 
     const orderId = String(active.id)
     const targetColumnId = String(over.id)
-    if (targetColumnId === '__unassigned__') {
+    if (targetColumnId === UNASSIGNED_COLUMN_ID) {
       performBoardAssign(orderId, null)
       return
     }
@@ -299,7 +350,12 @@ export default function WorkshopBoard() {
         <>
           {resources.length === 0 && <EmptyResourcesCard mode={viewMode} />}
 
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            accessibility={accessibility}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
             <HorizontalScrollArea contentClassName="gap-4">
               {columns.map((col) => (
                 <DroppableColumn

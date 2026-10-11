@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
+import { expectNoAxeViolationsForRules } from './utils/a11y'
 import {
   createMockEmployee,
   createMockBay,
@@ -388,9 +389,8 @@ test.describe('Blueprint: Workshop Board', () => {
         response.request().method() === 'PATCH',
     )
 
-    await card.getByTestId('assign-mechanic-emp-mech-001').evaluate((element: HTMLElement) => {
-      element.click()
-    })
+    await card.getByRole('button', { name: 'Assign WO-2026-0002' }).click()
+    await page.getByTestId('assign-mechanic-emp-mech-001').click()
     await responsePromise
 
     expect(assignCalled).toBe(true)
@@ -494,9 +494,8 @@ test.describe('Blueprint: Workshop Board', () => {
         response.request().method() === 'PATCH',
     )
 
-    await card.getByTestId('assign-mechanic-emp-mech-001').evaluate((element: HTMLElement) => {
-      element.click()
-    })
+    await card.getByRole('button', { name: 'Assign WO-2026-0002' }).click()
+    await page.getByTestId('assign-mechanic-emp-mech-001').click()
     const response = await responsePromise
 
     expect(response.status()).toBe(422)
@@ -600,5 +599,116 @@ test.describe('Blueprint: Workshop Board', () => {
     await expect(targetColumn).toContainText('WO-2026-0002')
     await expect(targetColumn.getByTestId('workshop-order-card-ws-board-002')).toBeVisible()
     await expect(page.getByTestId('board-column-unassigned')).not.toContainText('WO-2026-0002')
+  })
+
+  test('Assign button is a visible target of at least 24px and passes axe target-size', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Workshop Board')
+
+    await setupBoardRoutes(page)
+
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('workshop-board-view-mode')
+    })
+
+    await corePage.navigate('/workshop/board')
+
+    const assignButton = page.getByRole('button', { name: 'Assign WO-2026-0002' })
+    await expect(assignButton).toBeVisible()
+
+    const box = await assignButton.boundingBox()
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24)
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(24)
+
+    await expectNoAxeViolationsForRules(page, ['target-size'])
+  })
+
+  test('Keyboard drag announces the order number and column, not the order id', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Workshop Board')
+    const MECHANIC_ID_2 = 'emp-mech-002'
+    const mockMechanic2 = createMockEmployee({
+      id: MECHANIC_ID_2,
+      name: 'Grok Bot',
+      role: 'MECHANIC',
+      isActive: true,
+      sortOrder: 2,
+    })
+
+    let assignPayload: Record<string, unknown> = {}
+    let boardData = structuredClone(mockBoardActiveResponse)
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/resources'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ mechanics: [mockMechanic, mockMechanic2], bays: [mockBay] }),
+        })
+      },
+    )
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/board/active'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(boardData),
+        })
+      },
+    )
+
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/workshop/board/assign'),
+      async (route) => {
+        assignPayload = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>
+        boardData = {
+          ...boardData,
+          data: boardData.data.map((order) =>
+            order.id === ORDER_ID_2 ? { ...order, mechanicId: MECHANIC_ID, bayId: null } : order,
+          ),
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ id: ORDER_ID_2, mechanicId: MECHANIC_ID, bayId: null, updatedAt: new Date().toISOString() }),
+        })
+      },
+    )
+
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('workshop-board-view-mode')
+    })
+
+    await corePage.navigate('/workshop/board')
+
+    // Columns run Alex Novak, Grok Bot, Unassigned, so the card moves left until it is over Alex Novak.
+    const handle = page
+      .getByTestId('workshop-order-card-ws-board-002')
+      .getByRole('button', { name: 'Move WO-2026-0002' })
+    const liveRegion = page.locator('[id^="DndLiveRegion"]')
+    await handle.focus()
+    await page.keyboard.press('Space')
+    // dnd-kit announces the pick-up and the first over-change back to back, so assert the order number only.
+    await expect(liveRegion).toContainText('WO-2026-0002')
+
+    for (let step = 0; step < 80; step += 1) {
+      await page.keyboard.press('ArrowLeft')
+      if ((await liveRegion.textContent())?.includes('is over mechanic Alex Novak.')) break
+    }
+
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/workshop/board/assign') &&
+        response.request().method() === 'PATCH',
+    )
+    await page.keyboard.press('Space')
+    await responsePromise
+
+    await expect(liveRegion).toHaveText('WO-2026-0002 was dropped on mechanic Alex Novak.')
+    await expect(liveRegion).not.toContainText(ORDER_ID_2)
+    expect(assignPayload.orderId).toBe(ORDER_ID_2)
+    expect(assignPayload.mechanicId).toBe(MECHANIC_ID)
+    await expect(page.getByTestId('board-column-emp-mech-001')).toContainText('WO-2026-0002')
   })
 })

@@ -4,6 +4,29 @@ import { AutoCorePage } from './pom/AutoCorePage'
 import { createMockListResponse, createMockWorkshopOrder } from './utils/mock-factories'
 
 test.describe('Workshop Orders list', () => {
+  test('row link keeps a 24px minimum hit area', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Order')
+    const order = createMockWorkshopOrder({
+      id: 'workshop-order-hit-area-1',
+      order_number: 'WO-2026-0310',
+    })
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/workshop/orders'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createMockListResponse([order])),
+      })
+    })
+
+    await corePage.navigate('/workshop/orders')
+    await expect(corePage.dataTable).toBeVisible()
+
+    const rowLink = page.getByRole('link', { name: 'Workshop order WO-2026-0310' })
+    const box = await rowLink.boundingBox()
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24)
+  })
+
   test('opens the workshop order detail when a row is clicked', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Order')
     const order = createMockWorkshopOrder({

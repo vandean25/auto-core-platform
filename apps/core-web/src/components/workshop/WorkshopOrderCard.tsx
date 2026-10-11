@@ -1,6 +1,15 @@
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical } from 'lucide-react'
+import type { SyntheticEvent } from 'react'
 import { StatusBadge, formatStatusLabel } from '@/components/status/StatusBadge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type {
   BoardAssignmentTarget,
@@ -14,6 +23,7 @@ interface WorkshopOrderCardContentProps {
   quickAssignTargets?: BoardAssignmentTarget[]
   onQuickAssign?: (target: BoardAssignmentTarget) => void
   setNodeRef?: (element: HTMLElement | null) => void
+  setActivatorNodeRef?: (element: HTMLElement | null) => void
   dragAttributes?: ReturnType<typeof useDraggable>['attributes']
   dragListeners?: ReturnType<typeof useDraggable>['listeners']
 }
@@ -33,12 +43,19 @@ function getCustomerName(order: BoardOrder): string {
   return `${order.customer.firstName ?? ''} ${order.customer.lastName ?? ''}`.trim()
 }
 
+// The pointer and touch sensors start a drag from any element inside the card, so the Assign
+// trigger and its menu stop those events before they reach the draggable root.
+function stopEventFromStartingDrag(event: SyntheticEvent) {
+  event.stopPropagation()
+}
+
 export function WorkshopOrderCardContent({
   order,
   isDragging = false,
   quickAssignTargets = [],
   onQuickAssign,
   setNodeRef,
+  setActivatorNodeRef,
   dragAttributes,
   dragListeners,
 }: WorkshopOrderCardContentProps) {
@@ -53,19 +70,30 @@ export function WorkshopOrderCardContent({
         borderColor,
         isDragging && 'shadow-lg ring-2 ring-slate-300',
       )}
-      {...dragAttributes}
       {...dragListeners}
     >
-      {/* Drag handle visual */}
-      <div className="absolute top-2 right-2 text-slate-300 pointer-events-none">
-        <GripVertical className="h-4 w-4" />
-      </div>
+      {/* Keyboard drag handle. It is a sibling of the Assign control, so no button sits inside another. */}
+      {dragAttributes ? (
+        <button
+          ref={setActivatorNodeRef}
+          type="button"
+          aria-label={`Move ${order.orderNumber}`}
+          className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-sm text-slate-400 cursor-grab hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          {...dragAttributes}
+        >
+          <GripVertical className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : (
+        <div className="absolute top-2 right-2 text-slate-300 pointer-events-none" aria-hidden="true">
+          <GripVertical className="h-4 w-4" />
+        </div>
+      )}
 
       {/* Order number */}
       <p className="text-xs font-mono text-slate-500 mb-1">{order.orderNumber}</p>
 
       {/* Customer */}
-      <p className="text-sm font-semibold text-slate-900 truncate pr-5 leading-snug">
+      <p className="text-sm font-semibold text-slate-900 truncate pr-7 leading-snug">
         {getCustomerName(order)}
       </p>
 
@@ -77,36 +105,47 @@ export function WorkshopOrderCardContent({
         )}
       </p>
 
-      {/* Badges */}
+      {/* Badges and quick assign */}
       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
         <StatusBadge status={order.status} label={formatStatusLabel(order.status)} />
         <StatusBadge
           status={order.partsStatus}
           label={formatStatusLabel(order.partsStatus)}
         />
-      </div>
-
-      {quickAssignTargets.length > 0 ? (
-        <div className="sr-only">
-          {quickAssignTargets.map((target) => (
-            <button
-              key={`${target.kind}-${target.id}`}
-              type="button"
-              data-testid={`assign-${target.kind}-${target.id}`}
-              aria-label={`Assign to ${target.label}`}
-              onPointerDown={(event) => event.stopPropagation()}
-              onMouseDown={(event) => event.stopPropagation()}
-              onTouchStart={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation()
-                onQuickAssign?.(target)
-              }}
+        {quickAssignTargets.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={`Assign ${order.orderNumber}`}
+                className="ml-auto"
+                onPointerDown={stopEventFromStartingDrag}
+                onTouchStart={stopEventFromStartingDrag}
+              >
+                Assign
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              onPointerDown={stopEventFromStartingDrag}
+              onTouchStart={stopEventFromStartingDrag}
             >
-              Assign to {target.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+              <DropdownMenuLabel>Assign to</DropdownMenuLabel>
+              {quickAssignTargets.map((target) => (
+                <DropdownMenuItem
+                  key={`${target.kind}-${target.id}`}
+                  data-testid={`assign-${target.kind}-${target.id}`}
+                  onSelect={() => onQuickAssign?.(target)}
+                >
+                  {target.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -122,7 +161,7 @@ export function WorkshopOrderCard({
   quickAssignTargets = [],
   onQuickAssign,
 }: WorkshopOrderCardProps) {
-  const { attributes, listeners, setNodeRef } = useDraggable({ id: order.id })
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef } = useDraggable({ id: order.id })
 
   return (
     <WorkshopOrderCardContent
@@ -130,6 +169,7 @@ export function WorkshopOrderCard({
       quickAssignTargets={quickAssignTargets}
       onQuickAssign={onQuickAssign}
       setNodeRef={setNodeRef}
+      setActivatorNodeRef={setActivatorNodeRef}
       dragAttributes={attributes}
       dragListeners={listeners}
     />
