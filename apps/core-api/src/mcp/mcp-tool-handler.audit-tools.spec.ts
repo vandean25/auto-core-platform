@@ -2,6 +2,7 @@ import { ZodError } from 'zod';
 import type { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import type { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 import type { McpAuditReadService } from './mcp-audit-read.service.js';
+import { McpReadToolService } from './mcp-read-tool.service.js';
 import {
   McpToolHandlerService,
   type McpToolCallContext,
@@ -56,11 +57,7 @@ describe('McpToolHandlerService audit and agent action reads', () => {
       agentActionLog as unknown as AgentActionLogService,
       {} as unknown as McpWritePipelineService,
       pendingActionExecutors,
-      unused,
-      auditReads as unknown as McpAuditReadService,
-      unused,
-      unused,
-      unused,
+      new McpReadToolService(unused, auditReads as unknown as McpAuditReadService, unused, unused, unused, unused, unused),
     );
   });
 

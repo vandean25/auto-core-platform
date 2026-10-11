@@ -15,7 +15,10 @@ export const MCP_DEFAULT_PAGE = 1;
 export const MCP_DEFAULT_PAGE_SIZE = 10;
 export const MCP_MAX_PAGE_SIZE = 25;
 
-/** get_capabilities returns the whole current catalog on one page by default. */
+/**
+ * get_capabilities pages the catalog at MCP_MAX_PAGE_SIZE. After AUT-459 the catalog holds
+ * 28 tools, so a default call returns the first 25 and `meta.next_cursor` leads to the rest.
+ */
 export const MCP_CAPABILITIES_DEFAULT_PAGE_SIZE = MCP_MAX_PAGE_SIZE;
 
 /** Max serialized tool result bytes returned to the MCP client. */
@@ -47,6 +50,9 @@ export const MCP_READ_TOOL_NAMES = [
   'get_entity_history',
   'get_agent_action',
   'list_agent_actions',
+  'get_vehicle_history',
+  'list_documents',
+  'get_document_pdf',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];

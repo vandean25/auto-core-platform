@@ -16,7 +16,6 @@
     "apps/core-api/src/loaner-vehicles/loaner-vehicles.service.ts": 5.65,
     "apps/core-api/src/mcp/mcp-output.util.ts": 5.94,
     "apps/core-api/src/mcp/mcp-write-pipeline.service.spec.ts": 5.9,
-    "apps/core-api/src/mcp/mcp.constants.ts": 5.9,
     "apps/core-api/src/stock-transfer/stock-transfer.service.ts": 5.65,
     "apps/core-api/src/tyre-storage/tyre-storage.service.ts": 5.65,
     "apps/core-api/src/vehicle/vehicle.controller.ts": 5.98,

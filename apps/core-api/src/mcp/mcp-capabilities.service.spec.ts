@@ -13,6 +13,7 @@ import {
 } from './mcp.constants.js';
 import {
   McpCapabilitiesService,
+  type McpCapabilitiesPage,
   type McpCapability,
 } from './mcp-capabilities.service.js';
 import { decodeMcpCursor } from './mcp-output.util.js';
@@ -214,11 +215,34 @@ describe('McpCapabilitiesService.whoami', () => {
   });
 });
 
+/**
+ * Reads every page of the catalog. A default page holds 25 tools and the catalog holds 28,
+ * so a check that depends on a write tool follows `next_cursor` rather than the first page.
+ */
+async function allCapabilityPages(
+  service: McpCapabilitiesService,
+): Promise<McpCapabilitiesPage> {
+  const pages: McpCapabilitiesPage[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await service.getCapabilities(
+      cursor === undefined ? {} : { cursor },
+    );
+    pages.push(page);
+    cursor = page.meta.next_cursor ?? undefined;
+  } while (cursor !== undefined);
+  return {
+    ...pages[0],
+    data: pages.flatMap((page) => page.data),
+    meta: { ...pages[0].meta, next_cursor: null },
+  };
+}
+
 describe('McpCapabilitiesService.getCapabilities', () => {
   it('lists read tools as enabled AUTO and write tools from the configured policy', async () => {
     const { service } = createService();
 
-    const page = await service.getCapabilities({});
+    const page = await allCapabilityPages(service);
     const tools = byTool(page.data);
 
     expect(page.data.map((entry) => entry.tool)).toEqual([
@@ -317,7 +341,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
         : (TENANT_A_RULES[actionType] ?? null),
     );
 
-    const page = await service.getCapabilities({});
+    const page = await allCapabilityPages(service);
 
     expect(byTool(page.data).get('reserve_part')).toMatchObject({
       tier: 'PROPOSE',
@@ -347,7 +371,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
   it('never lists a HUMAN_ONLY write action as a tool and names it in human_only_actions', async () => {
     const { service } = createService();
 
-    const page = await service.getCapabilities({});
+    const page = await allCapabilityPages(service);
 
     expect(page.data.map((entry) => entry.tool)).not.toContain(
       'release_reservation',
@@ -365,7 +389,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
         : (TENANT_A_RULES[actionType] ?? null),
     );
 
-    const page = await service.getCapabilities({});
+    const page = await allCapabilityPages(service);
 
     expect(page.data.map((entry) => entry.tool)).not.toContain('reserve_part');
     expect(page.human_only_actions).toContain('inventory.part_reserve');
@@ -373,7 +397,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
 
   it('pages through the catalog with pageSize and an opaque cursor without gaps or repeats', async () => {
     const { service } = createService();
-    const full = await service.getCapabilities({});
+    const full = await allCapabilityPages(service);
 
     const first = await service.getCapabilities({ pageSize: 5 });
     expect(first.data).toHaveLength(5);

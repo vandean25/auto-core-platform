@@ -8,35 +8,12 @@ import type {
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution } from './mcp-write-pipeline.service.js';
 import { capMcpToolPayload } from './mcp-output.util.js';
+import { summarizeMcpDocumentPdfForLog } from './mcp-document-read.mapper.js';
+import { McpReadToolService } from './mcp-read-tool.service.js';
 import {
-  getAgentActionInputSchema,
-  getCapabilitiesInputSchema,
-  getCustomerInputSchema,
-  getEntityHistoryInputSchema,
-  getInvoiceInputSchema,
-  listAgentActionsInputSchema,
-  listAuditEventsInputSchema,
-  listInvoicesInputSchema,
-  getStockLevelInputSchema,
-  getVehicleStockAgeReportInputSchema,
-  getVehicleStockMarginReportInputSchema,
-  getVehicleInputSchema,
-  getWorkshopOrderInputSchema,
-  listBaysInputSchema,
-  listBinsInputSchema,
-  listWorkshopOrdersInputSchema,
-  listWorkshopTasksInputSchema,
   mcpToolInputSchemas,
   mcpWriteToolInputSchemas,
-  searchCustomersInputSchema,
-  searchPartsInputSchema,
-  searchVehiclesInputSchema,
 } from './mcp-tool-schemas.js';
-import { McpCapabilitiesService } from './mcp-capabilities.service.js';
-import { McpAuditReadService } from './mcp-audit-read.service.js';
-import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
-import { McpRecordReadService } from './mcp-record-read.service.js';
-import { McpStockReadService } from './mcp-stock-read.service.js';
 import { PendingActionExecutorService } from '../pending-action-executor/pending-action-executor.service.js';
 
 export type McpToolCallContext = {
@@ -44,16 +21,23 @@ export type McpToolCallContext = {
   onBehalfOfUserId: string;
 };
 
+/**
+ * Action-log summaries for read tools whose full result must not be stored. A
+ * document link is a bearer credential, so its row keeps the document and the
+ * expiry only. Tools without an entry keep the default empty summary.
+ */
+const READ_RESULT_SUMMARIES: Partial<
+  Record<McpReadToolName, (result: unknown) => unknown>
+> = {
+  get_document_pdf: summarizeMcpDocumentPdfForLog,
+};
+
 @Injectable()
 export class McpToolHandlerService {
   private readonly agentActionLog: AgentActionLogService;
   private readonly writePipeline: McpWritePipelineService;
   private readonly pendingActionExecutors: PendingActionExecutorService;
-  private readonly capabilities: McpCapabilitiesService;
-  private readonly auditReads: McpAuditReadService;
-  private readonly invoiceReads: McpInvoiceReadService;
-  private readonly recordReads: McpRecordReadService;
-  private readonly stockReads: McpStockReadService;
+  private readonly readTools: McpReadToolService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -61,20 +45,12 @@ export class McpToolHandlerService {
     agentActionLog: AgentActionLogService,
     writePipeline: McpWritePipelineService,
     pendingActionExecutors: PendingActionExecutorService,
-    capabilities: McpCapabilitiesService,
-    auditReads: McpAuditReadService,
-    invoiceReads: McpInvoiceReadService,
-    recordReads: McpRecordReadService,
-    stockReads: McpStockReadService,
+    readTools: McpReadToolService,
   ) {
     this.agentActionLog = agentActionLog;
     this.writePipeline = writePipeline;
     this.pendingActionExecutors = pendingActionExecutors;
-    this.capabilities = capabilities;
-    this.auditReads = auditReads;
-    this.invoiceReads = invoiceReads;
-    this.recordReads = recordReads;
-    this.stockReads = stockReads;
+    this.readTools = readTools;
   }
 
   async executeTool(
@@ -87,20 +63,17 @@ export class McpToolHandlerService {
     }
 
     const schema = mcpToolInputSchemas[toolName];
-    const actionType = `mcp.${toolName}`;
+    const resultSummary = READ_RESULT_SUMMARIES[toolName];
     const record = await this.agentActionLog.record(
       {
-        actorType: 'AGENT',
-        agentId: context.agentId,
-        onBehalfOfUserId: context.onBehalfOfUserId,
-        actionType,
+        ...this.agentLogRow(toolName, rawArgs, context),
         tier: 'AUTO',
         status: 'EXECUTED',
-        inputSummary: { tool: toolName, args: rawArgs },
+        ...(resultSummary ? { resultSummary } : {}),
       },
       async () => {
         const parsed = schema.parse(rawArgs ?? {});
-        return this.runTool(toolName, parsed, context);
+        return this.readTools.run(toolName, parsed, context);
       },
     );
 
@@ -156,17 +129,28 @@ export class McpToolHandlerService {
     // Schema validation runs before policy, so no tier was evaluated. Logging
     // PROPOSE here would read as a proposal awaiting approval.
     await this.agentActionLog.record({
-      actorType: 'AGENT',
-      agentId: context.agentId,
-      onBehalfOfUserId: context.onBehalfOfUserId,
-      actionType: `mcp.${toolName}`,
+      ...this.agentLogRow(toolName, rawArgs, context),
       tier: 'NOT_EVALUATED',
       status: 'FAILED',
-      inputSummary: { tool: toolName, args: rawArgs },
       resultSummary: {
         error: error instanceof Error ? error.message : 'Invalid input',
       },
     });
+  }
+
+  /** The action-log fields every MCP call shares. The caller adds the tier, status, and result. */
+  private agentLogRow(
+    toolName: McpToolName,
+    rawArgs: unknown,
+    context: McpToolCallContext,
+  ) {
+    return {
+      actorType: 'AGENT' as const,
+      agentId: context.agentId,
+      onBehalfOfUserId: context.onBehalfOfUserId,
+      actionType: `mcp.${toolName}`,
+      inputSummary: { tool: toolName, args: rawArgs },
+    };
   }
 
   private buildWriteExecution(toolName: McpWriteToolName): McpWriteExecution {
@@ -193,91 +177,6 @@ export class McpToolHandlerService {
         ? (result) => executor.buildLogMetadata!(result)
         : undefined,
     };
-  }
-
-  private async runTool(
-    toolName: McpReadToolName,
-    parsed: unknown,
-    context: McpToolCallContext,
-  ): Promise<unknown> {
-    switch (toolName) {
-      case 'search_customers':
-        return this.recordReads.searchCustomers(
-          searchCustomersInputSchema.parse(parsed),
-        );
-      case 'get_customer':
-        return this.recordReads.getCustomer(
-          getCustomerInputSchema.parse(parsed),
-        );
-      case 'search_vehicles':
-        return this.recordReads.searchVehicles(
-          searchVehiclesInputSchema.parse(parsed),
-        );
-      case 'get_vehicle':
-        return this.recordReads.getVehicle(getVehicleInputSchema.parse(parsed));
-      case 'list_workshop_orders':
-        return this.recordReads.listWorkshopOrders(
-          listWorkshopOrdersInputSchema.parse(parsed),
-        );
-      case 'get_workshop_order':
-        return this.recordReads.getWorkshopOrder(
-          getWorkshopOrderInputSchema.parse(parsed),
-        );
-      case 'search_parts':
-        return this.stockReads.searchParts(
-          searchPartsInputSchema.parse(parsed),
-        );
-      case 'get_stock_level':
-        return this.stockReads.getStockLevel(
-          getStockLevelInputSchema.parse(parsed),
-        );
-      case 'get_vehicle_stock_age_report':
-        return this.stockReads.vehicleStockAgeReport(
-          getVehicleStockAgeReportInputSchema.parse(parsed),
-        );
-      case 'get_vehicle_stock_margin_report':
-        return this.stockReads.vehicleStockMarginReport(
-          getVehicleStockMarginReportInputSchema.parse(parsed),
-        );
-      case 'list_invoices':
-        return this.invoiceReads.listInvoices(
-          listInvoicesInputSchema.parse(parsed),
-        );
-      case 'get_invoice':
-        return this.invoiceReads.getInvoice(
-          getInvoiceInputSchema.parse(parsed),
-        );
-      case 'list_bays':
-        return this.recordReads.listBays(listBaysInputSchema.parse(parsed));
-      case 'list_bins':
-        return this.recordReads.listBins(listBinsInputSchema.parse(parsed));
-      case 'list_workshop_tasks':
-        return this.recordReads.listWorkshopTasks(
-          listWorkshopTasksInputSchema.parse(parsed),
-        );
-      case 'whoami':
-        return this.capabilities.whoami(context);
-      case 'get_capabilities':
-        return this.capabilities.getCapabilities(
-          getCapabilitiesInputSchema.parse(parsed),
-        );
-      case 'list_audit_events':
-        return this.auditReads.listAuditEvents(
-          listAuditEventsInputSchema.parse(parsed),
-        );
-      case 'get_entity_history':
-        return this.auditReads.getEntityHistory(
-          getEntityHistoryInputSchema.parse(parsed),
-        );
-      case 'get_agent_action':
-        return this.auditReads.getAgentAction(
-          getAgentActionInputSchema.parse(parsed),
-        );
-      case 'list_agent_actions':
-        return this.auditReads.listAgentActions(
-          listAgentActionsInputSchema.parse(parsed),
-        );
-    }
   }
 }
 

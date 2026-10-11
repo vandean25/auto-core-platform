@@ -37,6 +37,9 @@ export type ImmutablePdfObject = {
   customMetadata: PdfArchiveObjectMetadata & { pdf_sha256: string };
 };
 
+/** Hard ceiling for a read link handed to a caller. Longer requests are clamped to it. */
+export const PDF_READ_LINK_MAX_TTL_SECONDS = 15 * 60;
+
 @Injectable()
 export class PdfStorage {
   private readonly logger = new Logger(PdfStorage.name);
@@ -250,24 +253,32 @@ export class PdfStorage {
         body,
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (getStorageErrorCode(error) === 404) {
-        throw new NotFoundException('PDF archive generation not found');
-      }
-      if (error instanceof InternalServerErrorException) {
-        throw error;
-      }
-
-      this.logger.error(
-        `Failed to read immutable PDF archive (bucket=${params.bucket}, key=${params.key}, generation=${params.generation})`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw new InternalServerErrorException(
-        'Failed to read immutable PDF archive',
-      );
+      throw this.toGenerationReadError(error, params);
     }
+  }
+
+  /** Maps a failed generation read to the error the caller sees. */
+  private toGenerationReadError(
+    error: unknown,
+    params: { bucket: string; key: string; generation: string },
+  ): Error {
+    if (error instanceof NotFoundException) {
+      return error;
+    }
+    if (getStorageErrorCode(error) === 404) {
+      return new NotFoundException('PDF archive generation not found');
+    }
+    if (error instanceof InternalServerErrorException) {
+      return error;
+    }
+
+    this.logger.error(
+      `Failed to read immutable PDF archive (bucket=${params.bucket}, key=${params.key}, generation=${params.generation})`,
+      error instanceof Error ? error.stack : undefined,
+    );
+    return new InternalServerErrorException(
+      'Failed to read immutable PDF archive',
+    );
   }
 
   async readImmutablePdfByKey(params: {
@@ -318,19 +329,24 @@ export class PdfStorage {
       }
       return archive;
     } catch (error) {
-      if (getStorageErrorCode(error) === 404) {
-        throw new NotFoundException('PDF archive object not found');
-      }
-      if (
-        error instanceof NotFoundException ||
-        error instanceof InternalServerErrorException
-      ) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        'Failed to verify immutable PDF archive object',
-      );
+      throw this.toObjectReadError(error);
     }
+  }
+
+  /** Maps a failed read by key to the error the caller sees. */
+  private toObjectReadError(error: unknown): Error {
+    if (getStorageErrorCode(error) === 404) {
+      return new NotFoundException('PDF archive object not found');
+    }
+    if (
+      error instanceof NotFoundException ||
+      error instanceof InternalServerErrorException
+    ) {
+      return error;
+    }
+    return new InternalServerErrorException(
+      'Failed to verify immutable PDF archive object',
+    );
   }
 
   async getPdfStream(params: { bucket?: string; key: string }): Promise<{
@@ -371,6 +387,51 @@ export class PdfStorage {
       );
       throw new InternalServerErrorException(
         'Failed to fetch PDF from storage',
+      );
+    }
+  }
+
+  /**
+   * Short-lived read link for one stored PDF. The URL is a bearer credential
+   * that needs no session, so callers must take bucket and key from a row they
+   * have already scoped to the tenant, and must never log the returned URL.
+   * The TTL is clamped to PDF_READ_LINK_MAX_TTL_SECONDS.
+   */
+  async createSignedReadUrl(params: {
+    bucket?: string | null;
+    key: string;
+    filename: string;
+    ttlSeconds?: number;
+  }): Promise<{ url: string; expiresAt: Date }> {
+    const bucketName = params.bucket ?? this.getBucketName();
+    const requested = params.ttlSeconds ?? PDF_READ_LINK_MAX_TTL_SECONDS;
+    const ttlSeconds = Math.min(
+      Math.max(Math.floor(requested), 1),
+      PDF_READ_LINK_MAX_TTL_SECONDS,
+    );
+    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+    const safeFilename = params.filename.replace(/["\r\n]+/g, '_');
+
+    try {
+      const [url] = await this.storage
+        .bucket(bucketName)
+        .file(params.key)
+        .getSignedUrl({
+          version: 'v4',
+          action: 'read',
+          expires: expiresAt,
+          responseType: 'application/pdf',
+          responseDisposition: `inline; filename="${safeFilename}"`,
+        });
+      return { url, expiresAt };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to sign PDF read link (bucket=${bucketName}, key=${params.key}): ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException(
+        'Failed to create PDF download link',
       );
     }
   }

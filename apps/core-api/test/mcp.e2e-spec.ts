@@ -22,6 +22,8 @@ import {
   runWithTenantContext,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
 
 type ReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];
 
@@ -73,6 +75,7 @@ const TENANT_B_PROBE_ARGUMENTS: Partial<
   Record<ReadToolName, Record<string, unknown>>
 > = {
   list_invoices: {},
+  list_documents: {},
   list_audit_events: {},
   get_entity_history: {
     entity_type: 'Customer',
@@ -88,6 +91,8 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_stock_level',
   'get_invoice',
   'get_agent_action',
+  'get_vehicle_history',
+  'get_document_pdf',
 ];
 
 describe('MCP server (e2e)', () => {
@@ -106,6 +111,7 @@ describe('MCP server (e2e)', () => {
   let tenantAUserId: string;
   let fixtures: TenantFixtures;
   let workshopBayId: string;
+  let pdfArchive: ReturnType<typeof createInMemoryPdfArchive>;
 
   const mcpBaseUrl = () =>
     `http://127.0.0.1:${(app.getHttpServer().address() as { port: number }).port}/api/mcp`;
@@ -185,6 +191,40 @@ describe('MCP server (e2e)', () => {
 
   function parsePayload<T>(result: CallToolResult): T {
     return JSON.parse(toolPayloadText(result)) as T;
+  }
+
+  type CapabilityEntry = {
+    tool: string;
+    enabled: boolean;
+    disabled_reason?: string;
+  };
+  type CapabilityPage = {
+    data: CapabilityEntry[];
+    meta: { next_cursor: string | null };
+    human_only_actions: string[];
+  };
+
+  /**
+   * Reads every get_capabilities page. The catalog holds more tools than one default page,
+   * so a check on a write tool has to follow `meta.next_cursor`.
+   */
+  async function readAllCapabilities(
+    callPage: (args: Record<string, unknown>) => Promise<CallToolResult>,
+  ): Promise<CapabilityPage> {
+    const pages: CapabilityPage[] = [];
+    let cursor: string | null = null;
+    do {
+      const result = await callPage(cursor === null ? {} : { cursor });
+      expect(result.isError).not.toBe(true);
+      const page = parsePayload<CapabilityPage>(result);
+      pages.push(page);
+      cursor = page.meta.next_cursor;
+    } while (cursor !== null);
+    return {
+      data: pages.flatMap((page) => page.data),
+      meta: { next_cursor: null },
+      human_only_actions: pages[0].human_only_actions,
+    };
   }
 
   function stockAvailability(payload: string): number {
@@ -351,6 +391,10 @@ describe('MCP server (e2e)', () => {
         odometer: 1000,
         fuel_level: 50,
         status: 'INTAKE',
+        // A generated job card, so the document reads have a PDF to list and link.
+        pdf_storage_bucket: 'e2e-pdf-archive',
+        pdf_storage_key: `job-cards/${searchToken}.pdf`,
+        pdf_generated_at: new Date('2026-10-02T09:00:00.000Z'),
       },
     });
     const sku = `SKU-${searchToken}`;
@@ -619,6 +663,18 @@ describe('MCP server (e2e)', () => {
         arguments: { trace_id: TRACE_IDS.search_customers },
       },
       { name: 'list_agent_actions', arguments: {} },
+      {
+        name: 'get_vehicle_history',
+        arguments: { vehicle_id: fixtures.vehicleId },
+      },
+      {
+        name: 'list_documents',
+        arguments: { entity_type: 'customer', entity_id: fixtures.customerId },
+      },
+      {
+        name: 'get_document_pdf',
+        arguments: { id: `workshop_order:${fixtures.workshopOrderId}` },
+      },
     ];
   }
 
@@ -627,9 +683,14 @@ describe('MCP server (e2e)', () => {
     previousMcpFlag = process.env.MCP_SERVER_ENABLED;
     process.env.MCP_SERVER_ENABLED = 'true';
 
+    // Read links are signed by an in-memory store, so the suite needs no GCS credentials.
+    pdfArchive = createInMemoryPdfArchive();
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PdfStorage)
+      .useValue(pdfArchive)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -735,7 +796,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists all twenty-five tools (21 read + 4 write)', async () => {
+  it('lists every registered tool (24 read + 4 write)', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
@@ -878,9 +939,7 @@ describe('MCP server (e2e)', () => {
         });
         expect(toolPayloadText(whoami)).not.toContain(tenantA);
 
-        const capabilities = await session.call('get_capabilities', {
-          pageSize: 25,
-        });
+        const capabilities = await session.call('get_capabilities', {});
         expect(toolPayloadText(capabilities)).not.toContain(tenantA);
       },
     );
@@ -907,17 +966,9 @@ describe('MCP server (e2e)', () => {
     });
 
     await withMcpSession(adminHeaderA, 'e2e-capabilities', async (session) => {
-      const result = await session.call('get_capabilities', { pageSize: 25 });
-
-      expect(result.isError).not.toBe(true);
-      const page = parsePayload<{
-        data: Array<{
-          tool: string;
-          enabled: boolean;
-          disabled_reason?: string;
-        }>;
-        human_only_actions: string[];
-      }>(result);
+      const page = await readAllCapabilities((args) =>
+        session.call('get_capabilities', args),
+      );
       const byTool = new Map(page.data.map((entry) => [entry.tool, entry]));
       expect(byTool.get('draft_workshop_order')).toMatchObject({
         enabled: false,
@@ -1928,20 +1979,13 @@ describe('MCP server (e2e)', () => {
 
     it('lists the supervisor-only reads as disabled in get_capabilities for SALES callers', async () => {
       await asRole('SALES', async () => {
-        const result = await callMcpTool(
-          caller(salesHeaderA, 'e2e-caps-sales'),
-          'get_capabilities',
-          {},
+        const page = await readAllCapabilities((args) =>
+          callMcpTool(
+            caller(salesHeaderA, 'e2e-caps-sales'),
+            'get_capabilities',
+            args,
+          ),
         );
-
-        expect(result.isError).not.toBe(true);
-        const page = parsePayload<{
-          data: Array<{
-            tool: string;
-            enabled: boolean;
-            disabled_reason?: string;
-          }>;
-        }>(result);
         const byTool = new Map(page.data.map((entry) => [entry.tool, entry]));
         expect(byTool.get('get_agent_action')).toMatchObject({
           enabled: false,
@@ -2179,6 +2223,521 @@ describe('MCP server (e2e)', () => {
           to: '2026-10-01',
         }),
       ).toBe(true);
+    });
+  });
+
+  describe('customer, vehicle history, and document reads (AUT-459)', () => {
+    type OrderRow = {
+      id: string;
+      kind: string;
+      number: string;
+      status: string;
+      vehicle: { id: string } | null;
+      date: string;
+      total_gross: string | null;
+    };
+    type DocumentRow = {
+      id: string;
+      type: string;
+      name: string;
+      created_at: string;
+      entity: { type: string; id: string };
+    };
+    type DocumentPage = {
+      data: DocumentRow[];
+      meta: { page_size: number; next_cursor: string | null };
+      truncated: boolean;
+    };
+
+    /** Trace IDs for the calls whose log rows this block checks. */
+    const AUT459_TRACE_IDS = {
+      documentLink: '00000000-0000-4000-8000-0000000004a1',
+    };
+
+    let historyToken: string;
+    let historyCustomerId: string;
+    let historyVehicleId: string;
+    let historyWorkshopOrderId: string;
+    let historySalesOrderId: string;
+    let historyInvoiceId: string;
+    let historyInvoiceNumber: string;
+    let historyInvoiceArchiveKey: string;
+    let historyOtherSiteId: string;
+    let historyOtherSiteOrderId: string;
+    let otherTenantCustomerId: string;
+    let otherTenantVehicleId: string;
+    let otherTenantDocumentId: string;
+
+    function historyCall(
+      name: string,
+      args: Record<string, unknown>,
+      traceId?: string,
+    ): Promise<CallToolResult> {
+      return callMcpTool(
+        caller(adminHeaderA, 'e2e-history-reads'),
+        name,
+        args,
+        traceId,
+      );
+    }
+
+    /** A schema-rejected call is either an error result or a protocol error. */
+    async function historyCallFails(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<boolean> {
+      try {
+        return (await historyCall(name, args)).isError === true;
+      } catch {
+        return true;
+      }
+    }
+
+    /** The error text of a history call that must fail; empty when the call succeeds. */
+    async function historyCallErrorText(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<string> {
+      try {
+        const result = await historyCall(name, args);
+        return result.isError === true ? toolPayloadText(result) : '';
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    afterAll(async () => {
+      // Each delete is guarded: an undefined id would match every row of the tenant.
+      if (historySalesOrderId) {
+        // The shared tenant cleanup does not remove sales orders, and they block the customer delete.
+        await prismaA.salesOrder.deleteMany({
+          where: { id: historySalesOrderId },
+        });
+      }
+      if (historyOtherSiteOrderId) {
+        await prismaA.workshopOrder.deleteMany({
+          where: { id: historyOtherSiteOrderId },
+        });
+      }
+      if (historyOtherSiteId) {
+        await prismaA.site.deleteMany({ where: { id: historyOtherSiteId } });
+      }
+    });
+
+    beforeAll(async () => {
+      const siteId = await resolveTestMainSiteId(prisma, tenantA);
+      historyToken = `History${Date.now()}`;
+
+      const customer = await prismaA.customer.create({
+        data: {
+          first_name: 'History',
+          last_name: historyToken,
+          email: `history-${Date.now()}@example.com`,
+        },
+      });
+      const vehicle = await prismaA.vehicle.create({
+        data: {
+          make: 'Test',
+          model: 'History',
+          year: 2019,
+          vin: `VIN-${historyToken}`,
+          plate: `HX-${Date.now()}`,
+          customer_id: customer.id,
+        },
+      });
+      await prismaA.vehicleInspectionRecord.create({
+        data: {
+          vehicle_id: vehicle.id,
+          inspection_type: 'PICKERL_57A',
+          inspected_on: new Date('2026-03-01T00:00:00.000Z'),
+          plaketten_valid_until_year: 2028,
+          plaketten_valid_until_month: 3,
+          station_name: 'Pruefstelle Test',
+        },
+      });
+      const workshopOrder = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-${historyToken}`,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: siteId,
+          odometer: 2000,
+          fuel_level: 60,
+          status: 'INTAKE',
+          pdf_storage_bucket: 'e2e-pdf-archive',
+          pdf_storage_key: `job-cards/${historyToken}.pdf`,
+          pdf_generated_at: new Date('2026-10-02T09:00:00.000Z'),
+        },
+        select: { id: true },
+      });
+      historyInvoiceNumber = `RE-${historyToken}`;
+      historyInvoiceArchiveKey = `invoices/archive/${historyToken}.pdf`;
+      const invoice = await prismaA.invoice.create({
+        data: {
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          workshop_order_id: workshopOrder.id,
+          site_id: siteId,
+          status: 'FINALIZED',
+          invoice_number: historyInvoiceNumber,
+          date: new Date('2026-10-01T09:00:00.000Z'),
+          due_date: new Date('2026-12-31T00:00:00.000Z'),
+          currency: 'EUR',
+          total_net: 200,
+          total_tax: 40,
+          total_gross: 240,
+          pdf_archive_bucket: 'e2e-pdf-archive',
+          pdf_archive_key: historyInvoiceArchiveKey,
+          pdf_archive_generation: '1',
+          pdf_archive_sha256: 'a'.repeat(64),
+          pdf_generated_at: new Date('2026-10-01T09:00:00.000Z'),
+        },
+        select: { id: true },
+      });
+      // Created after the work order, so the sales order is the newest order.
+      const salesOrder = await prismaA.salesOrder.create({
+        data: {
+          order_number: `SO-${historyToken}`,
+          customer_id: customer.id,
+          site_id: siteId,
+          status: 'DRAFT',
+          total_amount: 100,
+        },
+        select: { id: true },
+      });
+
+      // Another tenant's customer, vehicle, and job card, to probe isolation.
+      const prismaB = createTenantAwarePrisma(prisma, tenantB);
+      const siteIdB = await resolveTestMainSiteId(prisma, tenantB);
+      const customerB = await prismaB.customer.create({
+        data: {
+          first_name: 'Other',
+          last_name: `Tenant${historyToken}`,
+          email: `other-tenant-${Date.now()}@example.com`,
+        },
+      });
+      const vehicleB = await prismaB.vehicle.create({
+        data: {
+          make: 'Test',
+          model: 'Other',
+          year: 2018,
+          vin: `VIN-B-${historyToken}`,
+          customer_id: customerB.id,
+        },
+      });
+      const orderB = await prismaB.workshopOrder.create({
+        data: {
+          order_number: `WO-B-${historyToken}`,
+          customer_id: customerB.id,
+          vehicle_id: vehicleB.id,
+          site_id: siteIdB,
+          odometer: 500,
+          fuel_level: 40,
+          status: 'INTAKE',
+          pdf_storage_bucket: 'e2e-pdf-archive',
+          pdf_storage_key: `job-cards/b-${historyToken}.pdf`,
+          pdf_generated_at: new Date('2026-10-03T09:00:00.000Z'),
+        },
+        select: { id: true },
+      });
+
+      // The same customer and vehicle, with a job card at a second site of this tenant.
+      const mainSite = await prismaA.site.findFirstOrThrow({
+        where: { id: siteId, tenant_id: tenantA },
+        select: { legal_entity_id: true },
+      });
+      const otherSite = await prismaA.site.create({
+        data: {
+          tenant_id: tenantA,
+          legal_entity_id: mainSite.legal_entity_id,
+          code: `E2E-OTHER-${Date.now()}`,
+          name: 'E2E other site',
+          timezone: 'Europe/Vienna',
+          slot_minutes: 30,
+          holiday_country_iso: 'AT',
+          is_active: true,
+        },
+      });
+      historyOtherSiteId = otherSite.id;
+      const otherSiteOrder = await prismaA.workshopOrder.create({
+        data: {
+          order_number: `WO-OTHER-${historyToken}`,
+          customer_id: customer.id,
+          vehicle_id: vehicle.id,
+          site_id: otherSite.id,
+          odometer: 2000,
+          fuel_level: 40,
+          status: 'INTAKE',
+          pdf_storage_bucket: 'e2e-pdf-archive',
+          pdf_storage_key: `job-cards/other-${historyToken}.pdf`,
+          pdf_generated_at: new Date('2026-10-04T09:00:00.000Z'),
+        },
+        select: { id: true },
+      });
+      historyOtherSiteOrderId = otherSiteOrder.id;
+
+      historyCustomerId = customer.id;
+      historyVehicleId = vehicle.id;
+      historyWorkshopOrderId = workshopOrder.id;
+      historySalesOrderId = salesOrder.id;
+      historyInvoiceId = invoice.id;
+      otherTenantCustomerId = customerB.id;
+      otherTenantVehicleId = vehicleB.id;
+      otherTenantDocumentId = `workshop_order:${orderB.id}`;
+    });
+
+    it.each<[string, () => Record<string, unknown>, string[]]>([
+      [
+        'get_vehicle_history',
+        () => ({ vehicle_id: historyVehicleId }),
+        ['vehicle', 'pickerl_due', 'orders', 'inspections', 'documents'],
+      ],
+      [
+        'list_documents',
+        () => ({ entity_type: 'customer', entity_id: historyCustomerId }),
+        ['data', 'meta', 'truncated'],
+      ],
+      [
+        'get_document_pdf',
+        () => ({ id: `invoice:${historyInvoiceId}` }),
+        ['id', 'type', 'name', 'created_at', 'entity', 'content_type', 'link'],
+      ],
+      [
+        'get_customer',
+        () => ({ customer_id: historyCustomerId }),
+        ['vehicles', 'orders', 'email', 'first_name'],
+      ],
+    ])('returns the documented shape from %s', async (toolName, args, keys) => {
+      const result = await historyCall(toolName, args());
+
+      expect(result.isError).not.toBe(true);
+      expect(
+        Object.keys(parsePayload<Record<string, unknown>>(result)),
+      ).toEqual(expect.arrayContaining(keys));
+    });
+
+    it.each<[string, () => Record<string, unknown>]>([
+      ['list_documents', () => ({ pageSize: 26 })],
+      ['list_documents', () => ({ entity_type: 'vehicle' })],
+      ['list_documents', () => ({ cursor: 'not-a-cursor' })],
+      ['get_document_pdf', () => ({ id: 'invoice:123' })],
+      ['get_vehicle_history', () => ({ vehicle_id: 'not-a-uuid' })],
+      [
+        'get_customer',
+        () => ({ customer_id: historyCustomerId, orders_page_size: 26 }),
+      ],
+    ])(
+      'rejects an invalid %s call before any lookup',
+      async (toolName, args) => {
+        expect(await historyCallFails(toolName, args())).toBe(true);
+      },
+    );
+
+    it('lists the customer orders newest first, with the gross total of the linked invoice', async () => {
+      const payload = parsePayload<{
+        vehicles: Array<{ id: string }>;
+        orders: { data: OrderRow[] };
+        workshop_orders?: unknown;
+        sales_orders?: unknown;
+        invoices?: unknown;
+      }>(await historyCall('get_customer', { customer_id: historyCustomerId }));
+
+      expect(payload.vehicles.map((vehicle) => vehicle.id)).toEqual([
+        historyVehicleId,
+      ]);
+      expect(payload.orders.data).toEqual([
+        expect.objectContaining({
+          id: historySalesOrderId,
+          kind: 'sales_order',
+          total_gross: null,
+          vehicle: null,
+        }),
+        expect.objectContaining({
+          id: historyWorkshopOrderId,
+          kind: 'workshop_order',
+          total_gross: '240.00',
+          vehicle: expect.objectContaining({ id: historyVehicleId }),
+        }),
+      ]);
+      expect(payload).not.toHaveProperty('workshop_orders');
+      expect(payload).not.toHaveProperty('sales_orders');
+      expect(payload).not.toHaveProperty('invoices');
+    });
+
+    it('returns the vehicle orders, Pickerl status, inspection, and documents', async () => {
+      const payload = parsePayload<{
+        vehicle: { id: string };
+        pickerl_due: { last_inspected_on: string | null };
+        orders: { data: OrderRow[] };
+        inspections: {
+          data: Array<Record<string, unknown>>;
+          meta: { total: number };
+        };
+        documents: DocumentPage;
+      }>(
+        await historyCall('get_vehicle_history', {
+          vehicle_id: historyVehicleId,
+        }),
+      );
+
+      expect(payload.vehicle.id).toBe(historyVehicleId);
+      expect(payload.pickerl_due.last_inspected_on).toBe('2026-03-01');
+      expect(payload.orders.data.map((order) => order.id)).toEqual([
+        historyWorkshopOrderId,
+      ]);
+      expect(payload.inspections.meta).toEqual({ total: 1 });
+      expect(payload.inspections.data).toEqual([
+        expect.objectContaining({
+          inspection_type: 'PICKERL_57A',
+          inspected_on: '2026-03-01',
+          plaketten_valid_until: '2028-03',
+          station_name: 'Pruefstelle Test',
+        }),
+      ]);
+      expect(payload.documents.data.map((document) => document.id)).toEqual([
+        `workshop_order:${historyWorkshopOrderId}`,
+        `invoice:${historyInvoiceId}`,
+      ]);
+    });
+
+    it('lists documents newest first and pages them across both sources without repeats', async () => {
+      const filter = {
+        entity_type: 'customer',
+        entity_id: historyCustomerId,
+      };
+      const everything = parsePayload<DocumentPage>(
+        await historyCall('list_documents', filter),
+      );
+      const firstPage = parsePayload<DocumentPage>(
+        await historyCall('list_documents', { ...filter, pageSize: 1 }),
+      );
+      const secondPage = parsePayload<DocumentPage>(
+        await historyCall('list_documents', {
+          ...filter,
+          pageSize: 1,
+          cursor: firstPage.meta.next_cursor ?? undefined,
+        }),
+      );
+
+      expect(everything.data.map((document) => document.id)).toEqual([
+        `workshop_order:${historyWorkshopOrderId}`,
+        `invoice:${historyInvoiceId}`,
+      ]);
+      expect(firstPage.data.map((document) => document.id)).toEqual([
+        `workshop_order:${historyWorkshopOrderId}`,
+      ]);
+      expect(firstPage.meta.next_cursor).not.toBeNull();
+      expect(secondPage.data.map((document) => document.id)).toEqual([
+        `invoice:${historyInvoiceId}`,
+      ]);
+      expect(secondPage.meta.next_cursor).toBeNull();
+    });
+
+    it('returns metadata and a read link that expires within 15 minutes, with no PDF bytes', async () => {
+      const result = await historyCall(
+        'get_document_pdf',
+        { id: `invoice:${historyInvoiceId}` },
+        AUT459_TRACE_IDS.documentLink,
+      );
+
+      expect(result.isError).not.toBe(true);
+      expect(toolPayloadText(result)).not.toContain('%PDF');
+      const payload = parsePayload<{
+        id: string;
+        type: string;
+        name: string;
+        content_type: string;
+        entity: { type: string; id: string };
+        link: { url: string; expires_at: string };
+      }>(result);
+      expect(payload).toMatchObject({
+        id: `invoice:${historyInvoiceId}`,
+        type: 'invoice',
+        name: `invoice-${historyInvoiceNumber}.pdf`,
+        content_type: 'application/pdf',
+        entity: { type: 'invoice', id: historyInvoiceId },
+      });
+      expect(payload.link.url).toMatch(/^https:\/\/storage\.example\.test\//);
+      const expiresInMs = Date.parse(payload.link.expires_at) - Date.now();
+      expect(expiresInMs).toBeGreaterThan(0);
+      expect(expiresInMs).toBeLessThanOrEqual(15 * 60 * 1000);
+      // The immutable archive is signed, for at most 15 minutes.
+      expect(pdfArchive.signedReads.at(-1)).toMatchObject({
+        bucket: 'e2e-pdf-archive',
+        key: historyInvoiceArchiveKey,
+        filename: `invoice-${historyInvoiceNumber}.pdf`,
+        ttlSeconds: 900,
+      });
+    });
+
+    it('logs the link generation with the document and expiry, and never the URL', async () => {
+      const row = await prismaA.agentActionLog.findFirst({
+        where: {
+          trace_id: AUT459_TRACE_IDS.documentLink,
+          action_type: 'mcp.get_document_pdf',
+        },
+      });
+
+      expect(row).toBeTruthy();
+      expect(row?.tier).toBe('AUTO');
+      const summary = JSON.stringify(row?.result_summary_json ?? null);
+      expect(summary).toContain(`invoice:${historyInvoiceId}`);
+      expect(summary).toContain('link_expires_at');
+      expect(summary).not.toContain('X-Goog-Signature');
+      expect(summary).not.toContain('storage.example.test');
+    });
+
+    it('does not reveal a document or order at another site of the same tenant', async () => {
+      const documentId = `workshop_order:${historyOtherSiteOrderId}`;
+      expect(
+        await historyCallErrorText('get_document_pdf', { id: documentId }),
+      ).toContain(`Document with ID ${documentId} not found`);
+
+      const listed = parsePayload<DocumentPage>(
+        await historyCall('list_documents', {
+          entity_type: 'customer',
+          entity_id: historyCustomerId,
+        }),
+      );
+      expect(listed.data.map((row) => row.id)).not.toContain(documentId);
+
+      const detail = parsePayload<{ orders: { data: OrderRow[] } }>(
+        await historyCall('get_customer', { customer_id: historyCustomerId }),
+      );
+      expect(detail.orders.data.map((row) => row.id)).not.toContain(
+        historyOtherSiteOrderId,
+      );
+    });
+
+    it('does not reveal another tenant document, customer, or vehicle', async () => {
+      expect(
+        await historyCallErrorText('get_document_pdf', {
+          id: otherTenantDocumentId,
+        }),
+      ).toContain(`Document with ID ${otherTenantDocumentId} not found`);
+      expect(
+        await historyCallErrorText('get_vehicle_history', {
+          vehicle_id: otherTenantVehicleId,
+        }),
+      ).toContain(`Vehicle with ID ${otherTenantVehicleId} not found`);
+
+      const listed = parsePayload<DocumentPage>(
+        await historyCall('list_documents', {
+          entity_type: 'customer',
+          entity_id: otherTenantCustomerId,
+        }),
+      );
+      expect(listed.data).toEqual([]);
+
+      const reverse = await withMcpSession(
+        adminHeaderB,
+        'e2e-history-tenant-b',
+        (session) =>
+          session.call('get_document_pdf', {
+            id: `invoice:${historyInvoiceId}`,
+          }),
+      );
+      expect(reverse.isError).toBe(true);
     });
   });
 
