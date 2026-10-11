@@ -1,8 +1,7 @@
 import { DashboardWidgetsGrid } from '@/features/dashboard-widgets/DashboardWidgetsGrid'
 import { dashboardWidgetSourcesByKey } from '@/features/dashboard-widgets/sources'
-import { PickerlDueDashboardWidget } from '@/components/vehicles/PickerlDueDashboardWidget'
-import { AgedStockDashboardWidget } from '@/components/vehicles/AgedStockDashboardWidget'
-import { WorkshopKpiDashboardWidget } from '@/components/workshop/WorkshopKpiDashboardWidget'
+import { OnboardingChecklist } from '@/features/onboarding-checklist/OnboardingChecklist'
+import { DashboardKpiRow } from '@/components/dashboard/DashboardKpiRow'
 
 export default function DashboardPage() {
   return (
@@ -14,13 +13,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
-        <PickerlDueDashboardWidget window={30} />
-        <PickerlDueDashboardWidget window={60} />
-        <PickerlDueDashboardWidget window={90} />
-        <AgedStockDashboardWidget />
-        <WorkshopKpiDashboardWidget />
-      </div>
+      <OnboardingChecklist />
+
+      <DashboardKpiRow />
 
       <DashboardWidgetsGrid sourcesByKey={dashboardWidgetSourcesByKey} />
     </div>

@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/auth/AuthProvider'
+import { DOCUMENTATION_URL } from '@/lib/external-links'
 
 const DEMO_HOSTNAME = 'auto-core-platform-vande.web.app'
-const DOCUMENTATION_URL = 'https://autocore-platform.mintlify.site/'
+const HIGHLIGHTS = ['Parts on the shelf', 'Jobs on the board', 'Invoices with a paper trail']
 
 function isDemoHost() {
   return typeof globalThis.location !== 'undefined' && globalThis.location.hostname === DEMO_HOSTNAME
@@ -58,6 +59,13 @@ export default function LoginPage() {
   const [googleSubmitting, setGoogleSubmitting] = React.useState(false)
   const [resetSubmitting, setResetSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+
+  const handleFieldChange = (setValue: (value: string) => void) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(event.target.value)
+    if (error) {
+      setError(null)
+    }
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -126,9 +134,9 @@ export default function LoginPage() {
           </div>
 
           <ul className="space-y-3 text-sm font-medium text-slate-700">
-            <li className="flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-slate-900" />Parts on the shelf</li>
-            <li className="flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-slate-900" />Jobs on the board</li>
-            <li className="flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-slate-900" />Invoices with a paper trail</li>
+            {HIGHLIGHTS.map((highlight) => (
+              <li key={highlight} className="flex items-center gap-3"><span className="h-2 w-2 rounded-full bg-slate-900" />{highlight}</li>
+            ))}
           </ul>
 
           {demoHost ? (
@@ -188,12 +196,7 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value)
-                      if (error) {
-                        setError(null)
-                      }
-                    }}
+                    onChange={handleFieldChange(setEmail)}
                   />
                 </div>
 
@@ -206,12 +209,7 @@ export default function LoginPage() {
                     id="password"
                     type="password"
                     value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value)
-                      if (error) {
-                        setError(null)
-                      }
-                    }}
+                    onChange={handleFieldChange(setPassword)}
                   />
                   <Button
                     className="h-auto px-0 text-slate-600"
