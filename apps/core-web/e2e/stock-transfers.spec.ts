@@ -340,7 +340,7 @@ test.describe('Stock Transfers — MAIN <-> GRZ (AUT-466)', () => {
       onCreate: (body) => bodies.push(body),
     })
 
-    const corePage = new AutoCorePage(page, 'Transfer')
+    const corePage = new AutoCorePage(page, 'New transfer')
     await corePage.navigate('/stock-transfers')
     await corePage.createButton.click()
 
@@ -383,7 +383,7 @@ test.describe('Stock Transfers — MAIN <-> GRZ (AUT-466)', () => {
       onCreate: (body) => bodies.push(body),
     })
 
-    const corePage = new AutoCorePage(page, 'Transfer')
+    const corePage = new AutoCorePage(page, 'New transfer')
     await corePage.navigate('/stock-transfers')
     await corePage.createButton.click()
 
