@@ -394,7 +394,7 @@ Update `docs/deletion-policy.md` (this PR). See ADR-0005.
 
 ### List Pages
 
-- [ ] Create button `+ Site`, `+ Legal entity`, `+ Transfer`.
+- [ ] Create button `+ Site`, `+ Legal entity`, `New transfer`.
 - [ ] DataTable search/sort; `StatusBadge`; row click → detail.
 
 ### Form Handling

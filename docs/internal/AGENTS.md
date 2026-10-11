@@ -116,7 +116,7 @@ These are the rules a Feature Spec's UX Compliance section must validate:
 
 - **Page-level actions** (Create, Save, Delete, Print, Export) → **top-right**, always.
 - **Top-left** → reserved for title, subtitle, breadcrumbs, badges.
-- **Create button format** → `+ <Entity>` (e.g., `+ Customer`). Never "Add", "New", or "Create".
+- **Create button format** → `+ <Entity>` (e.g., `+ Customer`) or sentence-case `New <entity>` (e.g., `New transfer`). Never "Add" or "Create".
 - **List pages** → DataTable with sortable headers, global search across all visible columns, StatusBadge for status cells, row click opens detail, right-click for contextual Delete.
 - **Form auto-save** → Multi-field forms: debounced 750ms with Saving/Saved indicator. Single fields: save-on-blur via `InlineEdit`.
 - **Status rendering** → Always use the shared `StatusBadge` component. New statuses must be added to `statusClassMap`.

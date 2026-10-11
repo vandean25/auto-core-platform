@@ -127,7 +127,7 @@ auto-core-platform/
 
 ### List Page UI Standard (Required for New Lists)
 - **Header**: Use the standard title/subtitle block with `text-2xl font-semibold tracking-tight` and `text-slate-500`.
-- **Top-right create action**: Use a plus icon with entity-only label format: `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`). Do not use `Add`, `New`, or `Create` in the button label.
+- **Top-right create action**: Use a plus icon with either the entity-only label format `+ <Entity>` (examples: `+ Customer`, `+ Vendor`, `+ Order`, `+ Purchase Order`) or a sentence-case `New <entity>` label (examples: `New order`, `New transfer`). Do not use `Add` or `Create` in the button label.
 - **Search behavior**: Every list must include a search bar and it must search across all relevant visible fields (not only a single column), matching the Item list behavior.
 - **Sorting**: Every list must support sortable column headers via the shared `DataTable`/`DataTableColumnHeader` pattern, consistent with other primary lists.
 - **Column sizing**: Keep column widths consistent across lists and use the Item list proportions as the reference baseline to avoid layout drift between modules.
