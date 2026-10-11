@@ -18,6 +18,7 @@ import { Printer, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { fetchInvoicePdfGenerationError } from '@/api/invoices'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const INVOICES_API = '/api/invoices'
 
@@ -139,6 +140,7 @@ export default function InvoiceDetailPage() {
   const sessionQuery = useAuthSession()
   const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
+  useDocumentTitle(invoice?.invoice_number)
   const { data: creditContext } = useInvoiceCreditContext(
     canManageCreditNote ? id : '',
   )

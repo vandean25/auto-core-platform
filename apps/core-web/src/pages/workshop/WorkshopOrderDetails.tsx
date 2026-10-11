@@ -53,6 +53,7 @@ import {
 import { useAuthSession } from "@/api/auth-session";
 import { useVehicleInspectionRecords } from "@/api/vehicle-inspection-records";
 import { canRecordVehicleInspection } from "@/components/vehicles/vehicle-pickerl-permissions";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   createEmptyCatalogSearchSession,
   findOemConcernForMakeBrandId,
@@ -66,6 +67,7 @@ export function WorkshopOrderDetails() {
   const queryClient = useQueryClient();
   const { id = "" } = useParams<{ id: string }>();
   const { data: order, isLoading } = useWorkshopOrder(id);
+  useDocumentTitle(order?.order_number);
   const workshopResourcesQuery = useWorkshopResources();
   const workshopResources = workshopResourcesQuery?.data;
 

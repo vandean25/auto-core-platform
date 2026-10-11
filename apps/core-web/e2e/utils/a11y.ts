@@ -79,6 +79,21 @@ export async function expectNoCriticalA11yViolations(page: Page) {
 }
 
 /**
+ * Fails on any violation of the given axe rules, whatever their impact. For focused checks
+ * (e.g. `document-title`, AUT-473) where the rest of the page is out of scope.
+ */
+export async function expectNoAxeViolationsForRules(page: Page, ruleIds: string[]) {
+  const { violations } = await new AxeBuilder({ page }).withRules(ruleIds).analyze();
+
+  expect(
+    violations.map((violation) => ({
+      id: violation.id,
+      nodes: violation.nodes.map((node) => node.html),
+    })),
+  ).toEqual([]);
+}
+
+/**
  * Heading outline (axe `heading-order`): a heading may only be one level deeper than the
  * heading before it, so h1 → h3 fails. axe rates the rule "moderate", so the helper above does
  * not enforce it; pages with a clean outline call this helper in addition.

@@ -1,17 +1,15 @@
-import { useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useLoanerBooking, getLoanerBookingCustomerLabel } from '@/api/loaner-vehicles'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export default function LoanerBookingPrintPage() {
   const { id = '' } = useParams<{ id: string }>()
   const { data: booking, isLoading, isError } = useLoanerBooking(id)
 
-  useEffect(() => {
-    document.title = booking ? `Ersatzwagen Protokoll ${booking.id}` : 'Ersatzwagen Protokoll'
-  }, [booking])
+  useDocumentTitle(booking?.id)
 
   if (isLoading) {
     return <p className='p-8 text-muted-foreground'>Protokoll wird geladen…</p>

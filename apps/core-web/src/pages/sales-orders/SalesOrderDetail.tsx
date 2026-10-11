@@ -16,6 +16,7 @@ import { ArrowLeft, FileText, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { getErrorMessage } from '@/lib/error-utils'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,6 +33,7 @@ export default function SalesOrderDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
     const { data: order, isLoading } = useSalesOrder(id!)
+    useDocumentTitle(order?.order_number)
     const createInvoiceMutation = useCreateInvoiceFromOrder()
     const updateSalesOrder = useUpdateSalesOrder()
 

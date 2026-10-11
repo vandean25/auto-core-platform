@@ -6,11 +6,13 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { parseLocalDate } from '@/lib/date-utils'
 import { toast } from 'sonner'
 import { PurchaseBillForm } from '@/components/purchase-bills/PurchaseBillForm'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export default function PurchaseBillDetailPage() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
     const { data: invoice, isLoading, error } = usePurchaseInvoice(id || '')
+    useDocumentTitle(invoice?.vendor_invoice_number)
     const payMutation = usePayPurchaseInvoice()
 
     if (isLoading) {
