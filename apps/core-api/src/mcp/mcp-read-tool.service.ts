@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { McpReadToolName } from './mcp.constants.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
+import { McpCatalogReadService } from './mcp-catalog-read.service.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
@@ -13,6 +14,7 @@ import type { McpToolCallContext } from './mcp-tool-handler.service.js';
 import {
   getAgentActionInputSchema,
   getCapabilitiesInputSchema,
+  getCatalogItemInputSchema,
   getCustomerInputSchema,
   getDocumentPdfInputSchema,
   getEntityHistoryInputSchema,
@@ -29,8 +31,11 @@ import {
   listAuditEventsInputSchema,
   listBaysInputSchema,
   listBinsInputSchema,
+  listCatalogItemsInputSchema,
   listDocumentsInputSchema,
   listInvoicesInputSchema,
+  listMarginRulesInputSchema,
+  listPriceListsInputSchema,
   listSitesInputSchema,
   listPurchaseOrdersInputSchema,
   listVendorsInputSchema,
@@ -57,6 +62,7 @@ export class McpReadToolService {
   private readonly documentReads: McpDocumentReadService;
   private readonly settingsReads: McpSettingsReadService;
   private readonly purchasingReads: McpPurchasingReadService;
+  private readonly catalogReads: McpCatalogReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -70,6 +76,7 @@ export class McpReadToolService {
     documentReads: McpDocumentReadService,
     settingsReads: McpSettingsReadService,
     purchasingReads: McpPurchasingReadService,
+    catalogReads: McpCatalogReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -80,6 +87,7 @@ export class McpReadToolService {
     this.documentReads = documentReads;
     this.settingsReads = settingsReads;
     this.purchasingReads = purchasingReads;
+    this.catalogReads = catalogReads;
   }
 
   async run(
@@ -195,6 +203,22 @@ export class McpReadToolService {
       case 'get_legal_entity':
         return this.settingsReads.getLegalEntity(
           getLegalEntityInputSchema.parse(parsed),
+        );
+      case 'list_catalog_items':
+        return this.catalogReads.listCatalogItems(
+          listCatalogItemsInputSchema.parse(parsed),
+        );
+      case 'get_catalog_item':
+        return this.catalogReads.getCatalogItem(
+          getCatalogItemInputSchema.parse(parsed),
+        );
+      case 'list_price_lists':
+        return this.catalogReads.listPriceLists(
+          listPriceListsInputSchema.parse(parsed),
+        );
+      case 'list_margin_rules':
+        return this.catalogReads.listMarginRules(
+          listMarginRulesInputSchema.parse(parsed),
         );
     }
   }

@@ -105,6 +105,7 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_document_pdf',
   'get_legal_entity',
   'get_purchase_order',
+  'get_catalog_item',
 ];
 
 describe('MCP server (e2e)', () => {
@@ -743,6 +744,10 @@ describe('MCP server (e2e)', () => {
         arguments: { id: fixtures.purchaseOrderId },
       },
       { name: 'list_vendors', arguments: {} },
+      { name: 'list_catalog_items', arguments: { pageSize: 5 } },
+      { name: 'get_catalog_item', arguments: { id: fixtures.catalogItemId } },
+      { name: 'list_price_lists', arguments: {} },
+      { name: 'list_margin_rules', arguments: {} },
     ];
   }
 
@@ -3405,6 +3410,366 @@ describe('MCP server (e2e)', () => {
       expect(toolPayloadText(result)).toContain(
         `Purchase order with ID ${missingId} not found`,
       );
+    });
+  });
+
+  describe('catalog and price reads (AUT-460)', () => {
+    /**
+     * Fictional supplier, rule, and labor values, written for this suite only.
+     * Names and codes carry a per-run suffix: the labor code and revenue group
+     * name indexes are still unique across tenants (migrations 20260303151000
+     * and the revenue group name key), so fixed values would collide with a
+     * previous run's rows.
+     */
+    const RUN = Date.now().toString(36);
+    const SUPPLIER_NAME = `E2E Catalog Supplier ${RUN}`;
+    const TAX_GROUP_NAME = `E2E Catalog 20% ${RUN}`;
+    const PRICE_LIST_NAME = 'e2e-catalog-price-list.csv';
+    const DRAFT_LIST_NAME = 'e2e-catalog-draft-list.csv';
+    const RULE_NAME = 'e2e-catalog-brake-35';
+    const OTHER_TENANT_RULE = 'e2e-catalog-tenant-b-rule';
+    const LABOR_CODE = `E2E-CAT-OIL-${RUN}`;
+    const BRAKE_SKU = `E2E-CAT-BRK-${RUN}`;
+
+    let vendorId: string;
+    let brakeItemId: string;
+
+    beforeAll(async () => {
+      await inTenant(tenantA, async () => {
+        const vendor = await prisma.vendor.create({
+          data: {
+            tenant_id: tenantA,
+            name: SUPPLIER_NAME,
+            email: 'catalog-supplier@example.test',
+            account_number: `E2E-CAT-${RUN}`,
+          },
+        });
+        vendorId = vendor.id;
+        const revenueGroup = await prisma.revenueGroup.create({
+          data: {
+            tenant_id: tenantA,
+            name: TAX_GROUP_NAME,
+            tax_rate: 20,
+            account_number: `8400-${RUN}`,
+          },
+        });
+        const brakeItem = await prisma.catalogItem.create({
+          data: {
+            tenant_id: tenantA,
+            sku: BRAKE_SKU,
+            name: 'E2E catalog brake pad',
+            unit: 'pcs',
+            cost_price: 7.4,
+            retail_price: 12.5,
+            oem_numbers: ['E2E-OEM-1'],
+            revenue_group_id: revenueGroup.id,
+          },
+        });
+        brakeItemId = brakeItem.id;
+        await prisma.vendorArticle.create({
+          data: {
+            tenant_id: tenantA,
+            vendor_id: vendor.id,
+            catalog_item_id: brakeItem.id,
+            vendor_article_no: 'E2E-CAT-SUP-1',
+            last_cost: 7.4,
+            last_rrp: 12.5,
+          },
+        });
+        const appliedJob = await prisma.importJob.create({
+          data: {
+            tenant_id: tenantA,
+            entity_type: 'SUPPLIER_PRICE_LIST',
+            source_system: 'e2e',
+            file_name: PRICE_LIST_NAME,
+            file_sha256: 'e2e-catalog-applied',
+            status: 'APPLIED',
+            mapping_json: {},
+            options_json: { vendor_id: vendor.id },
+            totals_json: { rows: 3, create: 0, update: 3, skip: 0, error: 0 },
+            appliedAt: new Date('2026-09-15T10:00:00.000Z'),
+          },
+        });
+        await prisma.catalogPriceHistory.create({
+          data: {
+            tenant_id: tenantA,
+            catalog_item_id: brakeItem.id,
+            old_cost: null,
+            new_cost: 7.4,
+            old_retail: null,
+            new_retail: 12.5,
+            import_job_id: appliedJob.id,
+          },
+        });
+        await prisma.importJob.create({
+          data: {
+            tenant_id: tenantA,
+            entity_type: 'SUPPLIER_PRICE_LIST',
+            source_system: 'e2e',
+            file_name: DRAFT_LIST_NAME,
+            file_sha256: 'e2e-catalog-draft',
+            status: 'DRY_RUN_DONE',
+            mapping_json: {},
+            options_json: {},
+            totals_json: { rows: 9, create: 9, update: 0, skip: 0, error: 0 },
+          },
+        });
+        await prisma.marginRule.create({
+          data: {
+            tenant_id: tenantA,
+            name: RULE_NAME,
+            priority: 10,
+            markup_percent: 35,
+            rounding: 'ROUND_90',
+          },
+        });
+        await prisma.laborOperation.create({
+          data: {
+            tenant_id: tenantA,
+            code: LABOR_CODE,
+            description: 'E2E catalog oil service',
+            standard_aw: 0.5,
+            hourly_rate: 95,
+          },
+        });
+      });
+      await inTenant(tenantB, () =>
+        prisma.marginRule.create({
+          data: {
+            tenant_id: tenantB,
+            name: OTHER_TENANT_RULE,
+            priority: 1,
+            markup_percent: 99,
+            rounding: 'NONE',
+          },
+        }),
+      );
+    });
+
+    afterAll(async () => {
+      // The shared tenant cleanup does not know these rows, and it deletes catalog
+      // items before the vendor links and price history that reference them.
+      await inTenant(tenantA, async () => {
+        await prisma.catalogPriceHistory.deleteMany({
+          where: { tenant_id: tenantA, catalog_item_id: brakeItemId },
+        });
+        await prisma.vendorArticle.deleteMany({
+          where: { tenant_id: tenantA, catalog_item_id: brakeItemId },
+        });
+        await prisma.catalogItem.deleteMany({
+          where: { tenant_id: tenantA, id: brakeItemId },
+        });
+        await prisma.revenueGroup.deleteMany({
+          where: { tenant_id: tenantA, name: TAX_GROUP_NAME },
+        });
+        await prisma.marginRule.deleteMany({
+          where: { tenant_id: tenantA, name: RULE_NAME },
+        });
+        await prisma.laborOperation.deleteMany({
+          where: { tenant_id: tenantA, code: LABOR_CODE },
+        });
+      });
+      await inTenant(tenantB, () =>
+        prisma.marginRule.deleteMany({
+          where: { tenant_id: tenantB, name: OTHER_TENANT_RULE },
+        }),
+      );
+    });
+
+    const catalogCall = (
+      name: string,
+      args: Record<string, unknown> = {},
+      header = adminHeaderA,
+    ) => callMcpTool(caller(header, 'e2e-catalog-reads'), name, args);
+
+    /** Every row of a paged read, walking meta.next_cursor. */
+    async function walkAll<T>(
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<T[]> {
+      const rows: T[] = [];
+      let cursor: string | undefined;
+      for (let guard = 0; guard < 500; guard += 1) {
+        const page = parsePayload<{
+          data: T[];
+          meta: { next_cursor: string | null };
+        }>(await catalogCall(toolName, cursor ? { ...args, cursor } : args));
+        rows.push(...page.data);
+        if (!page.meta.next_cursor) {
+          return rows;
+        }
+        cursor = page.meta.next_cursor;
+      }
+      throw new Error(`${toolName} did not finish paging`);
+    }
+
+    it.each<[string, () => Record<string, unknown>, string[]]>([
+      ['list_catalog_items', () => ({}), ['data', 'meta']],
+      [
+        'get_catalog_item',
+        () => ({ id: fixtures.catalogItemId }),
+        [
+          'id',
+          'sku',
+          'tax_class',
+          'cost_price',
+          'price_net',
+          'default_vendor',
+          'price_history',
+        ],
+      ],
+      ['list_price_lists', () => ({}), ['data', 'meta']],
+      ['list_margin_rules', () => ({}), ['data', 'meta']],
+    ])('returns the documented shape from %s', async (toolName, args, keys) => {
+      const result = await catalogCall(toolName, args());
+
+      expect(result.isError).not.toBe(true);
+      expect(
+        Object.keys(parsePayload<Record<string, unknown>>(result)),
+      ).toEqual(expect.arrayContaining(keys));
+    });
+
+    it('lets the SALES role read the catalog and price reads too', async () => {
+      for (const toolName of [
+        'list_catalog_items',
+        'list_price_lists',
+        'list_margin_rules',
+      ]) {
+        const result = await catalogCall(toolName, {}, salesHeaderA);
+        expect(result.isError).not.toBe(true);
+      }
+    });
+
+    it('lists the applied price list with its vendor, applied date, and row count, and not the dry run', async () => {
+      const lists = await walkAll<{
+        name: string;
+        vendor: { id: string; name: string } | null;
+        valid_from: string | null;
+        items_count: number;
+      }>('list_price_lists', { pageSize: 7 });
+
+      const names = lists.map((row) => row.name);
+      expect(names).toContain(PRICE_LIST_NAME);
+      expect(names).not.toContain(DRAFT_LIST_NAME);
+      const listed = lists.find((row) => row.name === PRICE_LIST_NAME);
+      expect(listed).toMatchObject({
+        vendor: { id: vendorId, name: SUPPLIER_NAME },
+        valid_from: '2026-09-15T10:00:00.000Z',
+        items_count: 3,
+      });
+    });
+
+    it("lists this tenant's margin rule with its markup and rounding, and not tenant B's rule", async () => {
+      const rules = await walkAll<{
+        name: string;
+        priority: number;
+        markup: { percent: string | null; use_supplier_rrp: boolean };
+        rounding: string;
+      }>('list_margin_rules', { pageSize: 7 });
+
+      expect(rules.find((rule) => rule.name === RULE_NAME)).toMatchObject({
+        priority: 10,
+        markup: { percent: '35.00', use_supplier_rrp: false },
+        rounding: 'ROUND_90',
+      });
+      expect(rules.map((rule) => rule.name)).not.toContain(OTHER_TENANT_RULE);
+    });
+
+    it('lists labor operations as type labor with the hourly rate as net price', async () => {
+      const labor = await walkAll<{
+        sku: string;
+        type: string;
+        unit: string;
+        price_net: string;
+      }>('list_catalog_items', {
+        type: 'labor',
+        query: LABOR_CODE,
+        pageSize: 5,
+      });
+
+      expect(labor).toEqual([
+        expect.objectContaining({
+          sku: LABOR_CODE,
+          type: 'labor',
+          unit: 'h',
+          price_net: '95.00',
+        }),
+      ]);
+    });
+
+    it('returns the item with its tax class, EUR amounts, default vendor, and price history', async () => {
+      const detail = parsePayload<Record<string, unknown>>(
+        await catalogCall('get_catalog_item', { id: brakeItemId }),
+      );
+
+      expect(detail).toMatchObject({
+        sku: BRAKE_SKU,
+        active: true,
+        cost_price: '7.40',
+        price_net: '12.50',
+        tax_class: { name: TAX_GROUP_NAME, tax_rate: '20.00' },
+        oem_numbers: ['E2E-OEM-1'],
+        default_vendor: {
+          name: SUPPLIER_NAME,
+          vendor_article_no: 'E2E-CAT-SUP-1',
+          last_cost: '7.40',
+        },
+        price_history: [
+          expect.objectContaining({ new_cost: '7.40', new_retail: '12.50' }),
+        ],
+      });
+    });
+
+    it('walks every catalog part exactly once, whatever the page size', async () => {
+      const small = await walkAll<{ id: string }>('list_catalog_items', {
+        pageSize: 3,
+      });
+      const large = await walkAll<{ id: string }>('list_catalog_items', {
+        pageSize: 25,
+      });
+
+      expect(small.map((row) => row.id)).toEqual(large.map((row) => row.id));
+      expect(new Set(small.map((row) => row.id)).size).toBe(small.length);
+    });
+
+    it("shows tenant B none of tenant A's price lists, margin rules, or labor operations", async () => {
+      const session = caller(adminHeaderB, 'e2e-catalog-tenant-b');
+      const payload = [
+        toolPayloadText(
+          await callMcpTool(session, 'list_price_lists', { pageSize: 25 }),
+        ),
+        toolPayloadText(
+          await callMcpTool(session, 'list_margin_rules', { pageSize: 25 }),
+        ),
+        toolPayloadText(
+          await callMcpTool(session, 'list_catalog_items', {
+            type: 'labor',
+            query: LABOR_CODE,
+          }),
+        ),
+      ].join('\n');
+
+      expect(payload).not.toContain(PRICE_LIST_NAME);
+      expect(payload).not.toContain(RULE_NAME);
+      expect(payload).not.toContain(LABOR_CODE);
+      expect(payload).not.toContain(SUPPLIER_NAME);
+      const detail = await callMcpTool(session, 'get_catalog_item', {
+        id: fixtures.catalogItemId,
+      });
+      expect(detail.isError).toBe(true);
+    });
+
+    it.each<[string, Record<string, unknown>]>([
+      ['list_catalog_items', { pageSize: 26 }],
+      ['list_catalog_items', { type: 'service' }],
+      ['list_catalog_items', { cursor: 'not a cursor!' }],
+      ['get_catalog_item', { id: 'not-a-uuid' }],
+      ['list_price_lists', { pageSize: 26 }],
+      ['list_margin_rules', { cursor: 'not a cursor!' }],
+    ])('rejects an invalid %s call: %j', async (toolName, args) => {
+      const result = await catalogCall(toolName, args);
+
+      expect(result.isError).toBe(true);
     });
   });
 

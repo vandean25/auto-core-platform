@@ -21,6 +21,7 @@ import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js'
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpReadToolService } from './mcp-read-tool.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpCatalogReadService } from './mcp-catalog-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import { McpController } from './mcp.controller.js';
@@ -57,6 +58,7 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
     McpPurchasingReadService,
     McpReadToolService,
     McpRecordReadService,
+    McpCatalogReadService,
     McpSettingsReadService,
     McpStockReadService,
     McpSessionService,
