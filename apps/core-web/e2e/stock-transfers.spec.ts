@@ -158,7 +158,7 @@ test.describe('Stock Transfers — destination-only request and cancel', () => {
       })
     })
 
-    const corePage = new AutoCorePage(page, 'Transfer')
+    const corePage = new AutoCorePage(page, 'New transfer')
     await corePage.navigate('/stock-transfers')
 
     await expect(page.getByRole('heading', { name: 'Transfers', exact: true })).toBeVisible()

@@ -83,7 +83,7 @@ const modules: ModuleConfig[] = [
   {
     name: 'Sales Orders',
     path: '/sales-orders',
-    entity: 'Order',
+    entity: 'New order',
     seed: 'SO-2026-0001',
     mockFactory: () => createMockSalesOrder({ order_number: 'SO-2026-0001' }),
     apiPath: '/api/sales-orders',
