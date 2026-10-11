@@ -118,7 +118,8 @@ test.describe("Blueprint: Purchase Order Detail", () => {
     await expect(page.getByText("Vendor: Bosch Automotive")).toBeVisible();
     await expect(page.getByText(/DRAFT/i)).toBeVisible();
 
-    await expect(page.getByRole("cell", { name: "TEST-SKU-1" })).toBeVisible();
+    // exact: the row's delete action is named "Delete item TEST-SKU-1 Test Part" (AUT-471), so a substring match would also resolve to the actions cell.
+    await expect(page.getByRole("cell", { name: "TEST-SKU-1", exact: true })).toBeVisible();
     // exact: the row's delete action is named "Delete item Test Part" (AUT-471), so a substring match would also resolve to the actions cell.
     await expect(page.getByRole("cell", { name: "Test Part", exact: true })).toBeVisible();
   });

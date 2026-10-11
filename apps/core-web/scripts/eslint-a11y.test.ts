@@ -8,11 +8,16 @@ const webRoot = path.resolve(import.meta.dirname, '..')
 const ruleId = 'jsx-a11y/control-has-associated-label'
 const eslint = new ESLint({ cwd: webRoot })
 
-async function namingViolations(code: string) {
+async function lintMessages(code: string) {
   const [result] = await eslint.lintText(code, {
     filePath: path.join(webRoot, 'src/__fixtures__/icon-control.tsx'),
   })
-  return result.messages.filter((message) => message.ruleId === ruleId)
+  return result.messages
+}
+
+async function namingViolations(code: string) {
+  const messages = await lintMessages(code)
+  return messages.filter((message) => message.ruleId === ruleId)
 }
 
 describe('jsx-a11y control naming (AUT-471)', () => {
@@ -43,8 +48,10 @@ describe('jsx-a11y control naming (AUT-471)', () => {
     expect(violations.length).toBeGreaterThan(0)
   })
 
+  // The pass cases assert on every message, not only this rule's, so a parse error or an
+  // ignored fixture file cannot pass by accident.
   it('passes when the icon-only button is named with aria-label', async () => {
-    const violations = await namingViolations(`
+    const messages = await lintMessages(`
       export const RemoveBrand = ({ name, onRemove }: { name: string; onRemove: () => void }) => (
         <Button variant="ghost" size="icon" aria-label={\`Delete brand \${name}\`} onClick={onRemove}>
           <Trash2 className="h-4 w-4" />
@@ -52,11 +59,11 @@ describe('jsx-a11y control naming (AUT-471)', () => {
       )
     `)
 
-    expect(violations).toEqual([])
+    expect(messages).toEqual([])
   })
 
   it('passes when the icon-only back link carries an aria-label', async () => {
-    const violations = await namingViolations(`
+    const messages = await lintMessages(`
       export const BackToOrders = () => (
         <Button variant="ghost" size="icon" asChild>
           <Link to="/sales-orders" aria-label="Back to sales orders">
@@ -66,11 +73,11 @@ describe('jsx-a11y control naming (AUT-471)', () => {
       )
     `)
 
-    expect(violations).toEqual([])
+    expect(messages).toEqual([])
   })
 
   it('passes for a button whose visible text names it', async () => {
-    const violations = await namingViolations(`
+    const messages = await lintMessages(`
       export const CreateInvoice = () => (
         <Button size="lg" className="gap-2">
           <FileText className="h-4 w-4" /> Create Invoice
@@ -78,6 +85,6 @@ describe('jsx-a11y control naming (AUT-471)', () => {
       )
     `)
 
-    expect(violations).toEqual([])
+    expect(messages).toEqual([])
   })
 })
