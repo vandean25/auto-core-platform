@@ -61,6 +61,8 @@ const IntakeDashboard = lazyWithRetry(() =>
   import('./pages/workshop/IntakeDashboard').then((m) => ({ default: m.IntakeDashboard })),
 )
 const WorkshopOrderDetails = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderDetails'))
+const WorkshopOrderLayout = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderLayout'))
+const WorkshopOrderWarrantyClaims = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderWarrantyClaims'))
 const WorkshopOrderList = lazyWithRetry(() => import('./pages/workshop/WorkshopOrderList'))
 const WorkshopPickList = lazyWithRetry(() => import('./pages/workshop/WorkshopPickList'))
 const WorkshopBoard = lazyWithRetry(() => import('./pages/workshop/WorkshopBoard'))
@@ -186,7 +188,10 @@ export function AppRoutes() {
               <Route path={APP_ROUTE_PATHS.workshopPlanner} element={<WorkshopPlannerPage />} />
               <Route path={APP_ROUTE_PATHS.workshopLoanerVehicles} element={<LoanerVehiclesPage />} />
               <Route path={APP_ROUTE_PATHS.workshopLoanerBookingPrint} element={<LoanerBookingPrintPage />} />
-              <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<WorkshopOrderDetails />} />
+              <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<WorkshopOrderLayout />}>
+                <Route index element={<WorkshopOrderDetails />} />
+                <Route path="garantie-kulanz" element={<WorkshopOrderWarrantyClaims />} />
+              </Route>
               <Route path={APP_ROUTE_PATHS.tyreStorage} element={<TyreStorageListPage />} />
               <Route path={APP_ROUTE_PATHS.tyreStorageDetail} element={<TyreSetDetailPage />} />
               <Route path="*" element={<NotFoundPage />} />

@@ -50,6 +50,7 @@ import { StockTransferModule } from './stock-transfer/stock-transfer.module.js';
 import { DocumentBrandingModule } from './document-branding/document-branding.module.js';
 import { AppObservabilityModule } from './common/observability/observability.module.js';
 import { LoanerVehiclesModule } from './loaner-vehicles/loaner-vehicles.module.js';
+import { WarrantyClaimModule } from './warranty-claim/warranty-claim.module.js';
 import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
@@ -77,6 +78,7 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
     SalesOrderModule,
     WorkshopModule,
     LoanerVehiclesModule,
+    WarrantyClaimModule,
     MechanicModule,
     InvoicesModule,
     CreditNotesModule,

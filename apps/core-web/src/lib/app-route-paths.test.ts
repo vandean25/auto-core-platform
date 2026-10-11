@@ -8,6 +8,7 @@ describe('isKnownAppPath', () => {
     expect(isKnownAppPath(APP_ROUTE_PATHS.hrEmployees)).toBe(true)
     expect(isKnownAppPath(MECHANIC_ROUTE_PATHS.queue)).toBe(true)
     expect(isKnownAppPath('/workshop/orders/abc-123')).toBe(true)
+    expect(isKnownAppPath('/workshop/orders/abc-123/garantie-kulanz')).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.workshopPick)).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.workshopPickList)).toBe(true)
     expect(isKnownAppPath(APP_ROUTE_PATHS.vehicleStockAlias)).toBe(true)
