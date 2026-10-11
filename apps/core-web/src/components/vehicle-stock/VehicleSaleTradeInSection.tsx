@@ -19,6 +19,7 @@ import {
 } from '@/lib/vehicle-sale-trade-in'
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
+const VALIDATION_MESSAGE_ID = 'trade-in-validation-message'
 const STORED_TRADE_IN_INCOMPLETE_MESSAGE =
   'Remove the trade-in or complete its details before finalizing.'
 const TRADE_IN_REMOVAL_FAILED_MESSAGE =
@@ -181,7 +182,7 @@ export function VehicleSaleTradeInSection({
   const invalidField = result.status === 'invalid' ? result.field : null
   const fieldErrorProps = (field: TradeInField) => ({
     'aria-invalid': invalidField === field,
-    'aria-describedby': invalidField === field ? 'trade-in-validation-message' : undefined,
+    'aria-describedby': invalidField === field ? VALIDATION_MESSAGE_ID : undefined,
   })
   const canRemoveTradeIn = purchase !== null && editable
   const amountDue =
@@ -259,7 +260,7 @@ export function VehicleSaleTradeInSection({
           <Input disabled={!canEdit} value={draft.plate} onChange={handleFieldChange('plate')} />
         </label>
       </div>
-      <p id="trade-in-validation-message" aria-live="polite" className="text-xs text-rose-600">
+      <p id={VALIDATION_MESSAGE_ID} aria-live="polite" className="text-xs text-rose-600">
         {validationMessage}
       </p>
       {amountDue ? (

@@ -280,6 +280,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
   const [form, setForm] = React.useState<FormState>(EMPTY_FORM)
   const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saved' | 'saving' | 'error'>('idle')
   const [errors, setErrors] = React.useState<ValidationState>({})
+  const [saveErrorMessage, setSaveErrorMessage] = React.useState<string | null>(null)
   const [dirty, setDirty] = React.useState(false)
   const [isHydrating, setIsHydrating] = React.useState(false)
   const createdOperationIdRef = React.useRef<string | null>(null)
@@ -311,6 +312,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
       setSaveStatus('idle')
     }
     setErrors({})
+    setSaveErrorMessage(null)
     setDirty(false)
     const hydrationTimeout = window.setTimeout(() => {
       setIsHydrating(false)
@@ -365,6 +367,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
       const currentErrors = validateLaborOperationForm(formToSave)
       if (Object.keys(currentErrors).length > 0) {
+        setSaveErrorMessage(null)
         setErrors(currentErrors)
         setSaveStatus('error')
         return
@@ -390,6 +393,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
         const latestSnapshot = serializeFormState(formRef.current)
         if (latestSnapshot === saveSnapshot) {
           setErrors({})
+          setSaveErrorMessage(null)
           lastSavedSnapshotRef.current = saveSnapshot
           setDirty(false)
           setSaveStatus('saved')
@@ -399,7 +403,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
           error instanceof Error ? error.message : 'Failed to save labor operation'
         if (serializeFormState(formRef.current) === saveSnapshot) {
           setSaveStatus('error')
-          setErrors((prev) => ({ ...prev, code: message }))
+          setSaveErrorMessage(message)
         }
       } finally {
         isSavingRef.current = false
@@ -463,6 +467,10 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
             </div>
           </div>
 
+          {saveErrorMessage ? (
+            <p role="alert" className="text-xs text-red-600">{saveErrorMessage}</p>
+          ) : null}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="lo-code">Code</Label>
@@ -475,7 +483,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 placeholder="e.g. ENG-OIL-01"
                 required
               />
-              {errors.code && <p id="lo-code-error" role="alert" className="text-xs text-red-600">{errors.code}</p>}
+              {errors.code && <p id="lo-code-error" className="text-xs text-red-600">{errors.code}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-description">Description</Label>
@@ -488,7 +496,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 placeholder="Operation description"
                 required
               />
-              {errors.description && <p id="lo-description-error" role="alert" className="text-xs text-red-600">{errors.description}</p>}
+              {errors.description && <p id="lo-description-error" className="text-xs text-red-600">{errors.description}</p>}
             </div>
           </div>
 
@@ -507,7 +515,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 placeholder="0.00"
                 required
               />
-              {errors.standardAw && <p id="lo-standardAw-error" role="alert" className="text-xs text-red-600">{errors.standardAw}</p>}
+              {errors.standardAw && <p id="lo-standardAw-error" className="text-xs text-red-600">{errors.standardAw}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-hourlyRate">Hourly Rate</Label>
@@ -523,7 +531,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 placeholder="0.00"
                 required
               />
-              {errors.hourlyRate && <p id="lo-hourlyRate-error" role="alert" className="text-xs text-red-600">{errors.hourlyRate}</p>}
+              {errors.hourlyRate && <p id="lo-hourlyRate-error" className="text-xs text-red-600">{errors.hourlyRate}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-internalCost">Internal Cost</Label>
@@ -538,7 +546,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 onChange={(e) => setField('internalCost', e.target.value)}
                 placeholder="Optional"
               />
-              {errors.internalCost && <p id="lo-internalCost-error" role="alert" className="text-xs text-red-600">{errors.internalCost}</p>}
+              {errors.internalCost && <p id="lo-internalCost-error" className="text-xs text-red-600">{errors.internalCost}</p>}
             </div>
           </div>
 
@@ -601,7 +609,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       value={fitment.make}
                       onChange={(e) => setFitmentField(index, 'make', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.make && <p id={`fitment-make-${index}-error`} role="alert" className="text-xs text-red-600">{errors.fitments[index]?.make}</p>}
+                    {errors.fitments?.[index]?.make && <p id={`fitment-make-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.make}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-model-${index}`}>Model</Label>
@@ -612,7 +620,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       value={fitment.model}
                       onChange={(e) => setFitmentField(index, 'model', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.model && <p id={`fitment-model-${index}-error`} role="alert" className="text-xs text-red-600">{errors.fitments[index]?.model}</p>}
+                    {errors.fitments?.[index]?.model && <p id={`fitment-model-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.model}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-year-from-${index}`}>Year From</Label>
@@ -624,7 +632,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       value={fitment.yearFrom}
                       onChange={(e) => setFitmentField(index, 'yearFrom', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.yearFrom && <p id={`fitment-year-from-${index}-error`} role="alert" className="text-xs text-red-600">{errors.fitments[index]?.yearFrom}</p>}
+                    {errors.fitments?.[index]?.yearFrom && <p id={`fitment-year-from-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.yearFrom}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-year-to-${index}`}>Year To</Label>
@@ -636,7 +644,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                       value={fitment.yearTo}
                       onChange={(e) => setFitmentField(index, 'yearTo', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.yearTo && <p id={`fitment-year-to-${index}-error`} role="alert" className="text-xs text-red-600">{errors.fitments[index]?.yearTo}</p>}
+                    {errors.fitments?.[index]?.yearTo && <p id={`fitment-year-to-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.yearTo}</p>}
                   </div>
                   <div className="col-span-3 space-y-1">
                     <Label htmlFor={`fitment-engine-code-${index}`}>Engine Code</Label>

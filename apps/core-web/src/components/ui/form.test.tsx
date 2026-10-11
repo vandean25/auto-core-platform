@@ -45,5 +45,6 @@ describe('Form', () => {
     fireEvent.change(input, { target: { value: 'Ada' } })
     await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'false'))
     expect(screen.queryByText('Name is required')).not.toBeInTheDocument()
+    expect(input.getAttribute('aria-describedby') ?? '').not.toContain(`${input.id}-message`)
   })
 })

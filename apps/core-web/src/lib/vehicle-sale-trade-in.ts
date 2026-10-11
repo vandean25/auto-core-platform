@@ -43,7 +43,7 @@ export function tradeInDraftFromPurchase(purchase: VehicleSaleTradeInPurchase | 
 }
 
 /** The draft field an invalid result is about, so the form can mark that input invalid. */
-export type TradeInField = keyof TradeInDraft
+export type TradeInField = Exclude<keyof TradeInDraft, 'plate' | 'color'>
 
 export type TradeInDraftResult =
   | { status: 'empty' }

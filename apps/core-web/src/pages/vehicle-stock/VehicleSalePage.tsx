@@ -466,6 +466,7 @@ export default function VehicleSalePage() {
                   isFinalizing ||
                   (shorteningBlockReason !== null && !shorteningNegotiated)
                 }
+                aria-invalid={shorteningNegotiated && shorteningBlockReason !== null}
                 aria-describedby={shorteningBlockReason ? 'shortening-block-reason' : undefined}
                 onChange={(event) => setShorteningNegotiated(event.target.checked)}
               />

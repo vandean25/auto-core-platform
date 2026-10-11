@@ -136,18 +136,31 @@ describe('LaborOperationFormDialog', () => {
     expect(updateMutateAsync).not.toHaveBeenCalled()
   })
 
-  it('links each inline validation error to the field it describes', async () => {
+  it('links each inline validation error to the field it describes, and clears it when fixed', async () => {
     updateMutateAsync.mockResolvedValue(baseOperation)
     render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
 
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: '' } })
+    fireEvent.change(screen.getByLabelText('Standard AW (hrs)'), { target: { value: '' } })
     fireEvent.change(screen.getByLabelText('Hourly Rate'), { target: { value: '0' } })
 
     await waitFor(() => {
       expect(screen.getByText('Hourly Rate must be greater than 0')).toBeInTheDocument()
     }, { timeout: 2000 })
+    expectFieldErrorLinked(screen.getByLabelText('Code'), 'Code is required')
+    expectFieldErrorLinked(screen.getByLabelText('Description'), 'Description is required')
+    expectFieldErrorLinked(screen.getByLabelText('Standard AW (hrs)'), 'Standard AW is required')
     expectFieldErrorLinked(screen.getByLabelText('Hourly Rate'), 'Hourly Rate must be greater than 0')
-    expect(screen.getByText('Hourly Rate must be greater than 0')).toHaveAttribute('role', 'alert')
-    expectFieldValid(screen.getByLabelText('Standard AW (hrs)'))
+    expect(updateMutateAsync).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: 'LO-001' } })
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Oil change' } })
+    fireEvent.change(screen.getByLabelText('Standard AW (hrs)'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Hourly Rate'), { target: { value: '100' } })
+
+    await waitFor(() => expectFieldValid(screen.getByLabelText('Code')), { timeout: 2000 })
+    expectFieldValid(screen.getByLabelText('Hourly Rate'))
   })
 
   it('links fitment field errors to their own inputs', async () => {
@@ -164,5 +177,34 @@ describe('LaborOperationFormDialog', () => {
     }, { timeout: 2000 })
     expectFieldErrorLinked(screen.getByLabelText('Year From'), 'Year From must be between 1900 and 2100')
     expectFieldValid(screen.getByLabelText('Make'))
+  })
+
+  it('keeps fitment error ids unique and linked when several rows are invalid', async () => {
+    updateMutateAsync.mockResolvedValue(baseOperation)
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add fitment' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add fitment' }))
+    fireEvent.change(screen.getAllByLabelText('Year From')[0], { target: { value: '1800' } })
+    fireEvent.change(screen.getAllByLabelText('Year From')[1], { target: { value: '1700' } })
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Year From must be between 1900 and 2100')).toHaveLength(2)
+    }, { timeout: 2000 })
+    const [firstYearFrom, secondYearFrom] = screen.getAllByLabelText('Year From')
+    expectFieldErrorLinked(firstYearFrom, 'Year From must be between 1900 and 2100')
+    expectFieldErrorLinked(secondYearFrom, 'Year From must be between 1900 and 2100')
+    expect(firstYearFrom.getAttribute('aria-describedby')).not.toBe(secondYearFrom.getAttribute('aria-describedby'))
+    expect(updateMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('shows a failed save as an alert next to the save status, not as a Code error', async () => {
+    updateMutateAsync.mockRejectedValueOnce(new Error('Request failed with status code 500'))
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Oil and filter' } })
+
+    expect(await screen.findByRole('alert', {}, { timeout: 2000 })).toHaveTextContent('Request failed with status code 500')
+    expectFieldValid(screen.getByLabelText('Code'))
   })
 })

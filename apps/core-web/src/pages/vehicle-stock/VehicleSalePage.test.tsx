@@ -417,6 +417,29 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toHaveAccessibleDescription(
       'Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.',
     )
+    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toHaveAttribute('aria-invalid', 'false')
+  })
+
+  it('marks the shortening checkbox invalid when it is ticked and its reason applies', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: {
+        ...existingSale,
+        buyer_is_consumer: true,
+        handed_over_at: '2026-10-08T00:00:00.000Z',
+        gewaehrleistung_shortened_negotiated: true,
+      },
+    })
+    asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({
+      data: { ...stockVehicle, first_registration_date: '2026-06-01' },
+    })
+
+    renderSalePage()
+
+    const checkbox = screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')
+    expect(checkbox).toBeChecked()
+    expect(checkbox).toBeEnabled()
+    expect(checkbox).toHaveAttribute('aria-invalid', 'true')
+    expect(checkbox).toHaveAccessibleDescription('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.')
   })
 
   it('generates and downloads the Kaufvertrag PDF through the shared download hook', async () => {
