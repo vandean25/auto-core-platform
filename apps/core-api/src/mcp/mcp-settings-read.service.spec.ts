@@ -813,6 +813,14 @@ describe('McpSettingsReadService (AUT-457)', () => {
       expect(JSON.stringify(result)).not.toContain('Kopf A');
     });
 
+    it('does not read the timezone of an active site that belongs to another tenant', async () => {
+      const { service } = createService({ activeSiteId: SITE_B_MAIN });
+
+      const result = await service.getTenantSettings();
+
+      expect(result.active_site_timezone).toBeNull();
+    });
+
     it('reports no active site timezone when the session has no valid active site', async () => {
       const { service } = createService({ activeSiteId: null });
 

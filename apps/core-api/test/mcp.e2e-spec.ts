@@ -813,7 +813,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists every registered tool (24 read + 4 write)', async () => {
+  it('lists every registered tool, read and write', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
