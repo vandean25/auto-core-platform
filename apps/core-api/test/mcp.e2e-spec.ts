@@ -1577,6 +1577,199 @@ describe('MCP server (e2e)', () => {
     expect(approvedReleaseLog?.status).toBe('EXECUTED');
   });
 
+  /**
+   * AUT-426: a write preview runs in a rollback, so the id of a row it creates is not the id the
+   * committed write returns. Each test checks that the preview id is provisional, that it is not a
+   * row, and that the caller's committed id is a different row.
+   */
+  type WouldChangeEntry = {
+    entity: string;
+    id: string;
+    op: string;
+    provisional: boolean;
+  };
+
+  function previewCreatedRow(
+    wouldChange: WouldChangeEntry[],
+    entity: string,
+  ): WouldChangeEntry {
+    const entry = wouldChange.find(
+      (item) => item.entity === entity && item.op === 'create',
+    );
+    if (!entry) {
+      throw new Error(`would_change has no created ${entity} row`);
+    }
+    return entry;
+  }
+
+  /**
+   * A fresh part line on the fixture task. The round-trip test releases the fixture line's only
+   * reservation, which cancels that line, so the reserve cases below cannot reuse it.
+   */
+  function createReservableLine() {
+    return createPartLine(prismaA, fixtures.workshopTaskId, {
+      item_no: fixtures.sku,
+      description: 'Provisional preview part',
+      unit_price: 2,
+      catalog_item_id: fixtures.catalogItemId,
+    });
+  }
+
+  it('draft_workshop_order AUTO: the preview order id is provisional, and result.id is the committed order', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-provisional-auto');
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-draft-provisional-auto'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle, 15),
+        notes: 'MCP provisional auto test',
+      },
+      '00000000-0000-4000-8000-000000000218',
+    );
+    const executed = parsePayload<{
+      status: string;
+      would_change: WouldChangeEntry[];
+      result: { id: string };
+    }>(result);
+    expect(executed.status).toBe('executed');
+
+    const previewOrder = previewCreatedRow(
+      executed.would_change,
+      'WorkshopOrder',
+    );
+    expect(previewOrder.provisional).toBe(true);
+    expect(
+      await prismaA.workshopOrder.findFirst({ where: { id: previewOrder.id } }),
+    ).toBeNull();
+    expect(executed.result.id).not.toBe(previewOrder.id);
+    expect(
+      await prismaA.workshopOrder.findFirst({
+        where: { id: executed.result.id, notes: 'MCP provisional auto test' },
+      }),
+    ).toBeTruthy();
+  });
+
+  it('draft_workshop_order PROPOSE: the proposal is provisional, and approval commits an order with a different id', async () => {
+    await setPolicyTier('workshop_order.create', 'PROPOSE');
+    const draftVehicle = await createDraftVehicle('draft-provisional-propose');
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-draft-provisional-propose'),
+      'draft_workshop_order',
+      draftOrderArgs(draftVehicle, 16),
+      '00000000-0000-4000-8000-000000000219',
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      would_change: WouldChangeEntry[];
+      proposal: { provisional: boolean };
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+    expect(proposed.proposal.provisional).toBe(true);
+    const previewOrder = previewCreatedRow(
+      proposed.would_change,
+      'WorkshopOrder',
+    );
+    expect(previewOrder.provisional).toBe(true);
+
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const committed = await prismaA.workshopOrder.findFirst({
+      where: { vehicle_id: draftVehicle.vehicleId },
+      select: { id: true },
+    });
+    expect(committed).toBeTruthy();
+    expect(committed?.id).not.toBe(previewOrder.id);
+    expect(
+      await prismaA.workshopOrder.findFirst({ where: { id: previewOrder.id } }),
+    ).toBeNull();
+  });
+
+  it('reserve_part AUTO: the preview reservation id is provisional, and result.id is the committed reservation', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const line = await createReservableLine();
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-reserve-provisional-auto'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: line.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-000000000220',
+    );
+    const executed = parsePayload<{
+      status: string;
+      would_change: WouldChangeEntry[];
+      result: { id: string };
+    }>(result);
+    expect(executed.status).toBe('executed');
+
+    const previewReservation = previewCreatedRow(
+      executed.would_change,
+      'PartsReservation',
+    );
+    expect(previewReservation.provisional).toBe(true);
+    expect(
+      await prismaA.partsReservation.findFirst({
+        where: { id: previewReservation.id },
+      }),
+    ).toBeNull();
+    expect(executed.result.id).not.toBe(previewReservation.id);
+    expect(
+      await prismaA.partsReservation.findFirst({
+        where: { id: executed.result.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: 'OPEN' });
+  });
+
+  it('reserve_part PROPOSE: the proposal is provisional, and approval commits a reservation with a different id', async () => {
+    await setPolicyTier('inventory.part_reserve', 'PROPOSE');
+    const line = await createReservableLine();
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-reserve-provisional-propose'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: line.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-000000000221',
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      would_change: WouldChangeEntry[];
+      proposal: { provisional: boolean };
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+    expect(proposed.proposal.provisional).toBe(true);
+    const previewReservation = previewCreatedRow(
+      proposed.would_change,
+      'PartsReservation',
+    );
+    expect(previewReservation.provisional).toBe(true);
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const committed = await prismaA.partsReservation.findMany({
+      where: { workshop_task_line_item_id: line.id },
+      select: { id: true },
+    });
+    expect(committed).toHaveLength(1);
+    expect(committed[0].id).not.toBe(previewReservation.id);
+    expect(
+      await prismaA.partsReservation.findFirst({
+        where: { id: previewReservation.id },
+      }),
+    ).toBeNull();
+  });
+
   it('cross-tenant: tenant A token cannot use tenant B vehicle/line/reservation IDs', async () => {
     await setPolicyTier('inventory.part_reserve', 'AUTO');
     await setPolicyTier('inventory.part_release', 'AUTO');

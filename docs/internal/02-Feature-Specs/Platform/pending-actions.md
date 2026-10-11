@@ -17,7 +17,7 @@ Unknown action keys fail closed. Policy context is built by the executor from th
 
 ## Queue and lifecycle
 
-- Store the policy action key in `AgentProposal.action_type`, the original operation in `payload_json`, and the simulation result plus `would_change` list in `preview_json`.
+- Store the policy action key in `AgentProposal.action_type`, the original operation in `payload_json`, and the simulation result, the `would_change` list, and `provisional: true` in `preview_json`. The preview is not committed, so its created-row ids are provisional until the action is applied.
 - `created_by_agent` retains optional MCP provenance. The action log remains authoritative for actor and trace history.
 - Successful application ends with `EXECUTED`; existing expiry, rejection, and failure states remain in use.
 - Submission and every queue lookup/update include the active `tenant_id`.
@@ -29,7 +29,7 @@ Unknown action keys fail closed. Policy context is built by the executor from th
 - `POST /api/agent-proposals/:id/apply` re-evaluates policy and applies one action through the same executor.
 - `POST /api/agent-proposals/batch-apply` accepts `{ "ids": ["..."] }`. Each ID is applied independently and the response contains an `applied` or `failed` result for each ID.
 - The existing proposal list exposes pending MCP actions in Approvals.
-- MCP `PROPOSE` results return `status: "needs_approval"`, `pending_action_id`, `would_change`, and the simulation summary. Agents should continue planning and must not claim the write is complete.
+- MCP `PROPOSE` results return `status: "needs_approval"`, `pending_action_id`, `would_change`, and the simulation summary. The `proposal` object sets `provisional: true`, and each `would_change` item carries `provisional`. Agents should continue planning and must not claim the write is complete.
 - `AUTO` MCP calls retain the existing execute path. Disabled and `HUMAN_ONLY` actions are refused.
 
 ## Authorization and apply safety

@@ -263,12 +263,14 @@ describe('McpWritePipelineService', () => {
         payload: input,
         would_change: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
         preview: { id: 'created-id' },
+        provisional: true,
       });
       expect(result.trace_id).toBe(traceId);
       expect(mockAgentProposals.persistPendingAction).toHaveBeenCalledWith(
         expect.objectContaining({
           preview_json: expect.objectContaining({
             execution_context: { site_id: 'site-preview' },
+            provisional: true,
           }),
           trace_id: traceId,
         }),

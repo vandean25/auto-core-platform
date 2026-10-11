@@ -20,11 +20,13 @@ This enables agents to validate inputs, preview affected entities, verify busine
       {
         "entity": "Customer",
         "id": "123e4567-e89b-12d3-a456-426614174000",
-        "op": "create"
+        "op": "create",
+        "provisional": true
       }
     ]
   }
   ```
+- **Provisional ids**: The preview rolls back, so a row it creates has an id that the committed write does not reuse. Such an id, and a change to such a row, is `provisional: true`, and the preview id is not a row. A change to a row that existed before the preview keeps its committed id and is `provisional: false`. Do not reuse a provisional id as the row to act on; use the id the committed write returns.
 - **Error responses**: Validation errors (`400 BadRequestException`), conflicts (`409 ConflictException`), and authorization failures (`401`/`403`) return their standard HTTP statuses and error payloads without alteration.
 
 ## Architecture

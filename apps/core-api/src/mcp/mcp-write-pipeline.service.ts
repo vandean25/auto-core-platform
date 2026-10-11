@@ -193,10 +193,12 @@ export class McpWritePipelineService {
     call: WriteCall,
     simulation: WriteSimulation,
   ): Promise<McpWriteToolResult> {
+    // Nothing is committed until the pending action is applied, so the whole preview is provisional.
     const proposal = {
       payload: call.input,
       would_change: simulation.wouldChange,
       preview: simulation.preview,
+      provisional: true,
     };
     const record = await this.agentActionLog.record({
       actorType: 'AGENT',
