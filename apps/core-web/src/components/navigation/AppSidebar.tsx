@@ -1,23 +1,21 @@
-import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
 import type { components } from '@/api/generated/openapi'
 import type { AuthSessionMembership, AuthSessionTenant } from '@/api/auth-session'
 import type { MeSite } from '@/api/sites'
 import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
 import { SiteSwitcher } from '@/components/navigation/SiteSwitcher'
+import { AppSidebarFooter } from '@/components/navigation/AppSidebarFooter'
+import { moduleLinkBaseClass } from '@/components/navigation/app-sidebar-styles'
 import {
   Bot,
   Building2,
   Car,
-  ChevronsLeft,
-  ChevronsRight,
   ClipboardList,
   FileText,
   LayoutDashboard,
-  LogOut,
   Package,
   ReceiptText,
-  Search,
   Settings,
   Star,
   Truck,
@@ -32,7 +30,6 @@ import {
   ArrowLeftRight,
   X,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
@@ -282,9 +279,6 @@ type AppSidebarProps = {
   onSignOut: () => void
 }
 
-const moduleLinkBaseClass =
-  'group flex items-center rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950'
-
 function normalizePathWithQuery(pathname: string, search: string): string {
   const params = new URLSearchParams(search)
   params.sort()
@@ -445,78 +439,13 @@ export function AppSidebar({
           </section>
         </div>
 
-        <div className={cn('border-t border-slate-800 space-y-2', collapsed ? 'p-2' : 'p-3')}>
-          <button
-            type="button"
-            onClick={onOpenSearch}
-            title="Search"
-            aria-label="Open search"
-            className={cn(
-              moduleLinkBaseClass,
-              collapsed ? 'h-10 w-full justify-center' : 'h-10 w-full justify-start gap-3 px-3',
-              'text-slate-300 hover:bg-slate-900 hover:text-white',
-            )}
-          >
-            <Search aria-hidden="true" className="h-4 w-4 shrink-0" />
-            <span className={collapsed ? 'sr-only' : ''}>Search</span>
-          </button>
-
-          <NavLink
-            to="/settings"
-            title="Settings"
-            className={({ isActive }) =>
-              cn(
-                moduleLinkBaseClass,
-                collapsed ? 'h-10 justify-center px-0' : 'h-10 gap-3 px-3',
-                isActive
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-300 hover:bg-slate-900 hover:text-white',
-              )
-            }
-          >
-            <Settings aria-hidden="true" className="h-4 w-4 shrink-0" />
-            <span className={collapsed ? 'sr-only' : ''}>Settings</span>
-          </NavLink>
-
-          <Button
-            variant="ghost"
-            onClick={onSignOut}
-            className={cn(
-              'text-slate-300 hover:bg-slate-900 hover:text-white',
-              collapsed ? 'h-10 w-full justify-center px-0' : 'h-10 w-full justify-start gap-3 px-3',
-            )}
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />
-            <span className={collapsed ? 'sr-only' : ''}>Sign out</span>
-          </Button>
-
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className={cn(
-              moduleLinkBaseClass,
-              collapsed ? 'h-10 w-full justify-center' : 'h-10 w-full justify-start gap-3 px-3',
-              'text-slate-300 hover:bg-slate-900 hover:text-white',
-            )}
-          >
-            {collapsed ? (
-              <ChevronsRight aria-hidden="true" className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronsLeft aria-hidden="true" className="h-4 w-4 shrink-0" />
-            )}
-            <span className={collapsed ? 'sr-only' : ''}>{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
-          </button>
-
-          {!collapsed && userEmail ? (
-            <p className="truncate px-3 pt-1 text-xs text-slate-400" title={userEmail}>
-              {userEmail}
-            </p>
-          ) : null}
-        </div>
+        <AppSidebarFooter
+          userEmail={userEmail}
+          collapsed={collapsed}
+          onToggleCollapsed={onToggleCollapsed}
+          onOpenSearch={onOpenSearch}
+          onSignOut={onSignOut}
+        />
       </div>
     </aside>
   )
