@@ -22,6 +22,7 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'WARRANTY_CLAIM_LINE_CANCELLED',
   'WARRANTY_CLAIM_LINE_ALREADY_CLAIMED',
   'WARRANTY_CLAIM_STATE_CHANGED',
+  'NOT_A_CATALOG_LINE',
 ]);
 
 export function isClientSafeOperationalHttpError(

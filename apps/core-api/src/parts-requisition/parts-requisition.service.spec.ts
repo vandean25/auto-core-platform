@@ -545,6 +545,64 @@ describe('PartsRequisitionService', () => {
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
   });
 
+  it('rejects a non-catalog PART line on the active site with NOT_A_CATALOG_LINE before locking or reserving', async () => {
+    // Models the database: only a lookup that does not filter on catalog_item_id returns a free-text line.
+    tx.workshopTaskLineItem.findFirst.mockImplementation(async ({ where }) =>
+      where.catalog_item_id ? null : buildLine({ catalog_item_id: null }),
+    );
+
+    const error = await service
+      .createOnHandReservation({
+        workshopTaskLineItemId: lineId,
+        quantity: 1,
+        locationId,
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      response: { code: 'NOT_A_CATALOG_LINE' },
+    });
+    expect((error as Error).message).toMatch(/catalog-backed part line/);
+    expect((error as Error).message).not.toMatch(/site/i);
+    expect(tx.$queryRaw).not.toHaveBeenCalled();
+    expect(atpService.reserveOnHand).not.toHaveBeenCalled();
+    expect(tx.partsReservation.create).not.toHaveBeenCalled();
+    expect(tx.workshopTask.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps the active-site error for a line on another site, without a catalog code', async () => {
+    tx.workshopTaskLineItem.findFirst.mockResolvedValue(null);
+
+    const error = await service
+      .createOnHandReservation({
+        workshopTaskLineItemId: lineId,
+        quantity: 1,
+        locationId,
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(UnprocessableEntityException);
+    expect((error as Error).message).toBe(
+      'Workshop task line is not available in the active site.',
+    );
+    expect(error).not.toMatchObject({ response: { code: expect.anything() } });
+    expect(tx.workshopTaskLineItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: lineId,
+          tenant_id: tenantId,
+          workshop_task: expect.objectContaining({
+            workshop_order: expect.objectContaining({
+              tenant_id: tenantId,
+              site_id: siteId,
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(atpService.reserveOnHand).not.toHaveBeenCalled();
+  });
+
   it('rejects cancelled workshop lines before reserving ATP or creating a reservation', async () => {
     tx.workshopTaskLineItem.findFirst.mockImplementation(async ({ where }) =>
       where.part_execution_status

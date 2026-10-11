@@ -1791,6 +1791,124 @@ describe('MCP server (e2e)', () => {
     ).toBeNull();
   });
 
+  it('reserve_part rejects a free-text PART line with NOT_A_CATALOG_LINE and reserves nothing', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const freeTextLine = await createPartLine(
+      prismaA,
+      fixtures.workshopTaskId,
+      {
+        item_no: 'FREE-TEXT-DEMO',
+        description: 'Free-text demo part',
+        unit_price: 2,
+      },
+    );
+    const stockBefore = await readStockAvailability(
+      'e2e-free-text-stock-before',
+      '00000000-0000-4000-8000-000000000220',
+    );
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-reserve-free-text-line'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: freeTextLine.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-000000000221',
+    );
+
+    expect(result.isError).toBe(true);
+    const text = toolPayloadText(result);
+    expect(text).toContain('NOT_A_CATALOG_LINE');
+    expect(text).toContain('catalog-backed part line');
+    expect(text).not.toMatch(/site/i);
+    expect(
+      await prismaA.partsReservation.count({
+        where: { workshop_task_line_item_id: freeTextLine.id },
+      }),
+    ).toBe(0);
+    expect(
+      await readStockAvailability(
+        'e2e-free-text-stock-after',
+        '00000000-0000-4000-8000-000000000222',
+      ),
+    ).toBe(stockBefore);
+    await expectActionLogRow(
+      '00000000-0000-4000-8000-000000000221',
+      'mcp.reserve_part',
+      { status: 'FAILED' },
+    );
+  });
+
+  it('reserve_part keeps the active-site error for catalog and free-text lines at another site', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const mainSite = await prismaA.site.findFirstOrThrow({
+      where: { id: fixtures.siteId },
+      select: { legal_entity_id: true },
+    });
+    const otherSite = await prismaA.site.create({
+      data: {
+        legal_entity_id: mainSite.legal_entity_id,
+        code: `MCP-RESERVE-OTHER-${Date.now()}`,
+        name: 'MCP reserve other site',
+        timezone: 'Europe/Vienna',
+        slot_minutes: 30,
+        holiday_country_iso: 'AT',
+      },
+    });
+    const otherSiteOrder = await createIntakeOrder(prismaA, {
+      label: 'MCP-RESERVE-OTHER',
+      siteId: otherSite.id,
+      customerId: fixtures.customerId,
+      vehicleId: fixtures.vehicleId,
+    });
+    const otherSiteTask = await createOpenTask(
+      'Other site reserve task',
+      otherSiteOrder.id,
+    );
+    const catalogLine = await createPartLine(prismaA, otherSiteTask.id, {
+      item_no: fixtures.sku,
+      description: 'Other site catalog line',
+      unit_price: 2,
+      catalog_item_id: fixtures.catalogItemId,
+    });
+    const freeTextLine = await createPartLine(prismaA, otherSiteTask.id, {
+      item_no: 'OTHER-SITE-FREE-TEXT',
+      description: 'Other site free-text line',
+      unit_price: 2,
+    });
+
+    const lines = [
+      { line: catalogLine, traceId: '00000000-0000-4000-8000-000000000223' },
+      { line: freeTextLine, traceId: '00000000-0000-4000-8000-000000000224' },
+    ];
+    for (const { line, traceId } of lines) {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-reserve-other-site-line'),
+        'reserve_part',
+        {
+          workshop_task_line_item_id: line.id,
+          quantity: 1,
+          location_id: fixtures.locationId,
+        },
+        traceId,
+      );
+
+      expect(result.isError).toBe(true);
+      const text = toolPayloadText(result);
+      expect(text).toContain(
+        'Workshop task line is not available in the active site.',
+      );
+      expect(text).not.toContain('NOT_A_CATALOG_LINE');
+      expect(
+        await prismaA.partsReservation.count({
+          where: { workshop_task_line_item_id: line.id },
+        }),
+      ).toBe(0);
+    }
+  });
+
   it('cross-tenant: tenant A token cannot use tenant B vehicle/line/reservation IDs', async () => {
     await setPolicyTier('inventory.part_reserve', 'AUTO');
     await setPolicyTier('inventory.part_release', 'AUTO');

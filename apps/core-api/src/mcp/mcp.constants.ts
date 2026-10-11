@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ZodError } from 'zod';
+import { NOT_A_CATALOG_LINE_CODE } from '../parts-requisition/parts-requisition.helpers.js';
 
 export const MCP_SERVER_IMPLEMENTATION = {
   name: 'auto-core-platform-mcp',
@@ -100,6 +101,7 @@ export const MCP_AGENT_FACING_CODES = {
   needsApprovalStatus: 'needs_approval',
   refusedLogStatus: 'REFUSED',
   notPermitted: 'not_permitted',
+  notCatalogLine: NOT_A_CATALOG_LINE_CODE,
   forbidden: ForbiddenException.name,
   forbiddenHttpStatus: HttpStatus.FORBIDDEN,
   invalidInput: ZodError.name,
