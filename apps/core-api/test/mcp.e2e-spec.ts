@@ -160,6 +160,23 @@ describe('MCP server (e2e)', () => {
     return { client, transport, responseTraceIds };
   }
 
+  /**
+   * Ends the server session with a DELETE, then closes the client. The client's close() only aborts
+   * the local request, so without the DELETE the server keeps the session until its idle sweep, and
+   * the server refuses new sessions once MCP_MAX_OPEN_SESSIONS are open.
+   */
+  async function endMcpSession(
+    transport: StreamableHTTPClientTransport,
+  ): Promise<void> {
+    try {
+      if (transport.sessionId) {
+        await transport.terminateSession();
+      }
+    } finally {
+      await transport.close();
+    }
+  }
+
   /** Opens a session, runs the callback, and closes the session even when it throws. */
   async function withMcpSession<T>(
     authHeader: string,
@@ -177,7 +194,7 @@ describe('MCP server (e2e)', () => {
     try {
       return await run({ client, call, responseTraceIds });
     } finally {
-      await transport.close();
+      await endMcpSession(transport);
     }
   }
 
@@ -862,7 +879,7 @@ describe('MCP server (e2e)', () => {
         salesHeaderA,
         'e2e-sales-advisor',
       );
-      await transport.close();
+      await endMcpSession(transport);
     });
   });
 
@@ -873,14 +890,18 @@ describe('MCP server (e2e)', () => {
     );
     const sessionId = transport.sessionId;
     expect(sessionId).toBeTruthy();
-    await transport.close();
 
-    await request(app.getHttpServer())
-      .post('/api/mcp')
-      .set('Authorization', adminHeaderB)
-      .set('mcp-session-id', sessionId!)
-      .send({ jsonrpc: '2.0', method: 'tools/list', id: 2 })
-      .expect(404);
+    // The session stays open for the cross-tenant request, so the 404 proves the owner check.
+    try {
+      await request(app.getHttpServer())
+        .post('/api/mcp')
+        .set('Authorization', adminHeaderB)
+        .set('mcp-session-id', sessionId!)
+        .send({ jsonrpc: '2.0', method: 'tools/list', id: 2 })
+        .expect(404);
+    } finally {
+      await endMcpSession(transport);
+    }
   });
 
   it('lists every registered tool, read and write', async () => {
@@ -895,7 +916,7 @@ describe('MCP server (e2e)', () => {
     for (const neverExposed of MCP_NEVER_EXPOSED_ACTIONS) {
       expect(toolNames).not.toContain(neverExposed);
     }
-    await transport.close();
+    await endMcpSession(transport);
   });
 
   it('calls each read tool and records agent action logs for tenant A', async () => {
@@ -2383,7 +2404,7 @@ describe('MCP server (e2e)', () => {
       const tools = new Map(
         (await client.listTools()).tools.map((tool) => [tool.name, tool]),
       );
-      await transport.close();
+      await endMcpSession(transport);
 
       for (const name of [
         'get_vehicle_stock_age_report',
