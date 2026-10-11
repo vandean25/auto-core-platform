@@ -59,7 +59,7 @@ Support needs to move both ways: from an agent action row to the Sentry trace th
 ### Neutral
 
 - QA sets `SENTRY_TRACES_SAMPLE_RATE=1` and `VITE_SENTRY_TRACES_SAMPLE_RATE=1` (see `docs/sentry-tracing.md`).
-- Import spans (`import.parse`, `import.validate`, `import.commit`) are deferred until AUT-449 has split `import.service.ts`.
+- Import spans (`import.parse`, `import.validate`, `import.commit`) are deferred to a follow-up PR. The AUT-449 split of `import.service.ts` has merged, so that PR can add them.
 
 ## References
 

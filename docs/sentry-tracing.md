@@ -35,14 +35,14 @@ Names and ops are stable, so dashboards and saved searches can rely on them.
 | Parse document branding source | `branding.extract.parse` | same worker, around PDF validation and rasterizing | `source_kind` (`pdf` or `image`), `byte_size_bucket`, `status` |
 | Extract branding with provider | `branding.extract.provider` | same worker, around the provider call | `provider`, `model_id`, `status` |
 | Agent action | `agent.action` | `mcp/mcp-write-pipeline.service.ts`, one per write call | `agent.action.type`, `agent.policy.tier`, `agent.trace_id` |
-| Evaluate agent policy | `agent.policy.evaluate` | `agent-policy/agent-policy.evaluator.ts` | `agent.policy.tier`, `agent.policy.outcome` (`allowed`, `proposed`, `refused`). The action type is not recorded here; the `agent.action` span carries the trusted tool name. This span also runs, without an `agent.action` parent, when the MCP capability listing or `POST /agent-policy/evaluate` evaluates a policy |
+| Evaluate agent policy | `agent.policy.evaluate` | `agent-policy/agent-policy.evaluator.ts` | `agent.policy.tier`, `agent.policy.outcome` (`allowed`, `proposed`, `refused`). The action type is not recorded here; the `agent.action` span carries the trusted tool name. It runs without an `agent.action` parent whenever policy is evaluated outside an MCP write call: the MCP capability listing, `POST /agent-policy/evaluate`, proposal submit and apply, and live decisions |
 | Agent decision | `agent.decision` | MCP pipeline branch (refuse, propose or execute), and each provider call in `decision/decision-provider-span.ts` | MCP: `agent.policy.outcome`. Provider: `agent.decision.provider`, `agent.decision.use_case`, `agent.decision.choice_count`, `agent.decision.outcome` (`suggested` or `none`) |
 
 Existing spans are unchanged: `cloudtasks.enqueue`, `pdf.generate`, and the PDF renderer spans.
 
 ### Import spans
 
-`import.parse`, `import.validate` and `import.commit` are not in this change. `import/import.service.ts` is being split under AUT-449, so those spans follow in a separate PR after that split merges.
+`import.parse`, `import.validate` and `import.commit` are not in this change. They follow in a separate PR, since the AUT-449 split of `import/import.service.ts` has merged.
 
 ## Attribute rules
 
