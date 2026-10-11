@@ -41,6 +41,12 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'List stored PDFs for the active site (invoice, credit_note, workshop_order, vehicle_sale_contract), filtered by type, customer, vehicle, or owner record; newest first (keyset cursor, max 25)',
   get_document_pdf:
     'Metadata and a read link for one stored PDF by document ID (<type>:<uuid>). The link expires within 15 minutes; PDF bytes are never returned',
+  get_tenant_settings:
+    'Non-secret tenant settings: currency, active site timezone, feature flags (decision apply mode, voice and catalog configuration as booleans, tyre storage), and a document branding summary per active legal entity. Secrets are never returned',
+  list_sites:
+    'Sites for the session tenant with an address summary and active flag (paged: pageSize max 25, opaque cursor). Inactive sites are listed for OWNER and ADMIN only',
+  get_legal_entity:
+    'Seller identity as printed on invoices (name, UID, address, contact, registration), bank details reduced to their last 4 characters, accounting profile status, revenue group tax rates, and number ranges. Defaults to the active site legal entity',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:

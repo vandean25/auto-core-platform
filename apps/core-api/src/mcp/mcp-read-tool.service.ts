@@ -6,6 +6,7 @@ import { McpDocumentReadService } from './mcp-document-read.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import type { McpToolCallContext } from './mcp-tool-handler.service.js';
 import {
@@ -15,6 +16,7 @@ import {
   getDocumentPdfInputSchema,
   getEntityHistoryInputSchema,
   getInvoiceInputSchema,
+  getLegalEntityInputSchema,
   getStockLevelInputSchema,
   getVehicleHistoryInputSchema,
   getVehicleInputSchema,
@@ -27,6 +29,7 @@ import {
   listBinsInputSchema,
   listDocumentsInputSchema,
   listInvoicesInputSchema,
+  listSitesInputSchema,
   listWorkshopOrdersInputSchema,
   listWorkshopTasksInputSchema,
   searchCustomersInputSchema,
@@ -48,6 +51,7 @@ export class McpReadToolService {
   private readonly stockReads: McpStockReadService;
   private readonly orderHistoryReads: McpOrderHistoryReadService;
   private readonly documentReads: McpDocumentReadService;
+  private readonly settingsReads: McpSettingsReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -59,6 +63,7 @@ export class McpReadToolService {
     stockReads: McpStockReadService,
     orderHistoryReads: McpOrderHistoryReadService,
     documentReads: McpDocumentReadService,
+    settingsReads: McpSettingsReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -67,6 +72,7 @@ export class McpReadToolService {
     this.stockReads = stockReads;
     this.orderHistoryReads = orderHistoryReads;
     this.documentReads = documentReads;
+    this.settingsReads = settingsReads;
   }
 
   async run(
@@ -162,6 +168,14 @@ export class McpReadToolService {
       case 'list_agent_actions':
         return this.auditReads.listAgentActions(
           listAgentActionsInputSchema.parse(parsed),
+        );
+      case 'get_tenant_settings':
+        return this.settingsReads.getTenantSettings();
+      case 'list_sites':
+        return this.settingsReads.listSites(listSitesInputSchema.parse(parsed));
+      case 'get_legal_entity':
+        return this.settingsReads.getLegalEntity(
+          getLegalEntityInputSchema.parse(parsed),
         );
     }
   }

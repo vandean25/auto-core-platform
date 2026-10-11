@@ -53,6 +53,9 @@ export const MCP_READ_TOOL_NAMES = [
   'get_vehicle_history',
   'list_documents',
   'get_document_pdf',
+  'get_tenant_settings',
+  'list_sites',
+  'get_legal_entity',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];
@@ -116,4 +119,7 @@ export const MCP_NEVER_EXPOSED_ACTIONS = [
   'consent.update',
   'consent.revoke',
   'estimate.send_customer_message',
+  'legal_entity.update',
+  'tax_rate.update',
+  'number_range.update',
 ] as const;
