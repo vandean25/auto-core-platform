@@ -356,6 +356,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     async (formToSave: FormState) => {
       const saveSnapshot = serializeFormState(formToSave)
       if (saveSnapshot === lastSavedSnapshotRef.current) {
+        setSaveErrorMessage(null)
         setDirty(false)
         setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
         return
@@ -424,6 +425,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
     }
 
     if (serializeFormState(form) === lastSavedSnapshotRef.current) {
+      setSaveErrorMessage(null)
       setDirty(false)
       setSaveStatus(createdOperationIdRef.current ? 'saved' : 'idle')
       return
