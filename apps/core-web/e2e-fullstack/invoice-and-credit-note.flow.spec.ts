@@ -11,6 +11,12 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
     const fixture = loadE2eFullstackFixture()
     const apiBase = `http://127.0.0.1:${E2E_FULLSTACK_API_PORT}/api`
     const authHeaders = { Authorization: `Bearer ${fixture.authToken}` }
+    const pdfGenerationRequests: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'POST' && request.url().includes('/pdf')) {
+        pdfGenerationRequests.push(request.url())
+      }
+    })
 
     const orderResponse = await request.post(`${apiBase}/sales-orders`, {
       headers: authHeaders,
@@ -52,10 +58,10 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
     await page.getByRole('button', { name: 'Create Invoice' }).last().click()
     await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+\/edit/)
 
-    await page.getByRole('button', { name: 'Finalize & Print' }).click()
+    await page.getByRole('button', { name: 'Finalize', exact: true }).click()
     await page
-      .getByRole('button', { name: 'Finalize & Print' })
-      .last()
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Finalize', exact: true })
       .click()
 
     await expect(page).toHaveURL(/\/sales\/invoices\/[0-9a-f-]+$/)
@@ -63,11 +69,16 @@ test.describe('Full-stack sales invoice and credit note flows', () => {
     await expect(invoiceHeading).toBeVisible()
     finalizedInvoiceNumber = (await invoiceHeading.textContent())?.trim() ?? ''
     expect(finalizedInvoiceNumber.length).toBeGreaterThan(0)
+    expect(pdfGenerationRequests).toEqual([])
 
-    await page.getByRole('button', { name: 'Print' }).click()
+    const downloadPromise = page.waitForEvent('download', { timeout: 90_000 })
+    await page.getByRole('button', { name: 'Download PDF', exact: true }).click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toMatch(/^invoice_.*\.pdf$/)
     await expect(page.getByText('Invoice PDF downloaded successfully')).toBeVisible({
       timeout: 90_000,
     })
+    expect(pdfGenerationRequests).toHaveLength(1)
 
     const invoiceId = page.url().split('/').pop()!
     const pdfResponse = await request.get(`${apiBase}/invoices/${invoiceId}/pdf`, {

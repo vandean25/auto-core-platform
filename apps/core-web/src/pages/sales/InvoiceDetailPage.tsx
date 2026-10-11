@@ -14,7 +14,7 @@ import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
 import { formatCurrency } from '@/lib/utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { canManageCreditNotes } from '@/lib/credit-note-quantity'
-import { Printer, Loader2, Plus } from 'lucide-react'
+import { Download, Loader2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { fetchInvoicePdfGenerationError } from '@/api/invoices'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
@@ -147,7 +147,7 @@ export default function InvoiceDetailPage() {
     canManageCreditNote ? id : '',
   )
   const [creditDialogOpen, setCreditDialogOpen] = useState(false)
-  const { download: handlePrint, isLoading: isPrinting } = usePdfDownload({
+  const { download: handleDownloadPdf, isLoading: isDownloadingPdf } = usePdfDownload({
     postUrl: () => `${INVOICES_API}/${invoice?.id}/pdf`,
     getUrl: () => `${INVOICES_API}/${invoice?.id}/pdf`,
     filename: () =>
@@ -326,13 +326,13 @@ export default function InvoiceDetailPage() {
               Credit Note
             </Button>
           ) : null}
-          <Button onClick={() => void handlePrint()} disabled={isPrinting}>
-            {isPrinting ? (
+          <Button onClick={() => void handleDownloadPdf()} disabled={isDownloadingPdf}>
+            {isDownloadingPdf ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
-              <Printer className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 mr-2" />
             )}
-            {isPrinting ? 'Generating...' : 'Print'}
+            {isDownloadingPdf ? 'Generating...' : 'Download PDF'}
           </Button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
@@ -9,6 +9,7 @@ import * as salesOrdersApi from '@/api/sales-orders'
 import * as inventoryApi from '@/api/inventory'
 import type { Customer } from '@/api/types'
 import { DOCUMENT_AUTOSAVE_DEBOUNCE_MS } from '@/hooks/useDebouncedAutoSave'
+import { triggerBlobDownload } from '@/lib/download'
 
 const mockNavigate = vi.fn()
 
@@ -23,6 +24,10 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/api/sales')
 vi.mock('@/api/sales-orders')
 vi.mock('@/api/inventory')
+vi.mock('@/lib/download', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/download')>()),
+  triggerBlobDownload: vi.fn(),
+}))
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -129,6 +134,16 @@ describe('InvoiceDraftEditPage autosave', () => {
       </QueryClientProvider>,
     )
 
+  const openFinalizeDialog = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Finalize' }))
+  }
+
+  const confirmFinalize = () => {
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Finalize' }),
+    )
+  }
+
   it('auto-saves draft updates for a sales-order-sourced invoice', async () => {
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
@@ -231,8 +246,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+    openFinalizeDialog()
+    confirmFinalize()
 
     await waitFor(() => {
       expect(queryClient.getQueryData(invoiceKeys.detail('inv-1'))).toEqual(finalized)
@@ -256,7 +271,7 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    const finalizeButton = await screen.findByRole('button', { name: /Finalize & Print/i })
+    const finalizeButton = await screen.findByRole('button', { name: 'Finalize' })
     expect(finalizeButton).not.toBeDisabled()
     fireEvent.click(finalizeButton)
     expect(await screen.findByText(/Finalize invoice\?/i)).toBeInTheDocument()
@@ -280,8 +295,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+    openFinalizeDialog()
+    confirmFinalize()
 
     await waitFor(() => {
       expect(updateMutation).toHaveBeenCalledWith(
@@ -293,11 +308,30 @@ describe('InvoiceDraftEditPage autosave', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
       expect(toast.success).toHaveBeenCalledWith('Invoice finalized and number generated!')
     })
+    expect(triggerBlobDownload).not.toHaveBeenCalled()
+  })
+
+  it('labels the finalize action Finalize and offers no Print action', async () => {
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockInvoice),
+      isPending: false,
+    })
+
+    renderPage()
+
+    expect(await screen.findByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
+
+    openFinalizeDialog()
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('button', { name: 'Finalize' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
   })
 
   it('surfaces the branding writer gate message when finalize is blocked', async () => {
     const brandingGateMessage =
-      'Branded invoice issuance is disabled in this environment. Finalize and print will work after operations enable the invoice branding writer.'
+      'Branded invoice issuance is disabled in this environment. Finalize will work after operations enable the invoice branding writer.'
     const updateMutation = vi.fn().mockResolvedValue(mockInvoice)
     const finalizeMutation = vi.fn().mockRejectedValue(new Error(brandingGateMessage))
     asMock(salesApi.useUpdateInvoice).mockReturnValue({
@@ -311,8 +345,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+    openFinalizeDialog()
+    confirmFinalize()
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(brandingGateMessage)
@@ -337,8 +371,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+    openFinalizeDialog()
+    confirmFinalize()
 
     await waitFor(() => {
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
@@ -368,8 +402,8 @@ describe('InvoiceDraftEditPage autosave', () => {
 
     renderPage()
 
-    fireEvent.click(screen.getByRole('button', { name: /Finalize & Print/i }))
-    fireEvent.click(screen.getByRole('button', { name: /^Finalize & Print$/i }))
+    openFinalizeDialog()
+    confirmFinalize()
 
     await waitFor(() => {
       expect(screen.getByText(/Insufficient ATP for item OF-1031-BMW/i)).toBeInTheDocument()
