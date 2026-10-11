@@ -88,10 +88,10 @@ export default function WorkshopCapacityPage() {
           >
             <ChevronRight />
           </Button>
-          {shownWeekStart && week ? (
+          {week ? (
             <p className="ml-2 text-sm font-medium text-slate-700">
-              {formatDateLabel(shownWeekStart, week.timezone)} –{' '}
-              {formatDateLabel(addLocalDays(shownWeekStart, 5), week.timezone)}
+              {formatDateLabel(week.weekStart, week.timezone)} –{' '}
+              {formatDateLabel(addLocalDays(week.weekStart, 5), week.timezone)}
             </p>
           ) : null}
         </div>
@@ -113,11 +113,16 @@ export default function WorkshopCapacityPage() {
         <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">
           <p>No active bays for this site yet.</p>
           <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate('/settings?tab=bays')}>
-            Add bays in Settings
+            Open bay settings
           </Button>
         </div>
       ) : (
-        <CapacityWeekGrid week={week} />
+        <div
+          aria-busy={capacity.isPlaceholderData}
+          className={capacity.isPlaceholderData ? 'opacity-50 transition-opacity' : undefined}
+        >
+          <CapacityWeekGrid week={week} />
+        </div>
       )}
     </div>
   )

@@ -231,4 +231,15 @@ describe('WorkshopCapacityPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(refetch).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps the date range in step with the week on screen while another week loads', () => {
+    mockCapacity({ isPlaceholderData: true })
+    renderPage()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next week' }))
+
+    expect(screen.getByText(/12 Oct 2026 –/)).toBeInTheDocument()
+    expect(screen.queryByText(/19 Oct 2026/)).not.toBeInTheDocument()
+    expect(screen.getByRole('table').closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
+  })
 })
