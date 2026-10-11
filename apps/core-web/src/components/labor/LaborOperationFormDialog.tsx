@@ -468,23 +468,27 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
               <Label htmlFor="lo-code">Code</Label>
               <Input
                 id="lo-code"
+                aria-invalid={Boolean(errors.code)}
+                aria-describedby={errors.code ? 'lo-code-error' : undefined}
                 value={form.code}
                 onChange={(e) => setField('code', e.target.value)}
                 placeholder="e.g. ENG-OIL-01"
                 required
               />
-              {errors.code && <p className="text-xs text-red-600">{errors.code}</p>}
+              {errors.code && <p id="lo-code-error" className="text-xs text-red-600">{errors.code}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-description">Description</Label>
               <Input
                 id="lo-description"
+                aria-invalid={Boolean(errors.description)}
+                aria-describedby={errors.description ? 'lo-description-error' : undefined}
                 value={form.description}
                 onChange={(e) => setField('description', e.target.value)}
                 placeholder="Operation description"
                 required
               />
-              {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
+              {errors.description && <p id="lo-description-error" className="text-xs text-red-600">{errors.description}</p>}
             </div>
           </div>
 
@@ -496,12 +500,14 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 type="number"
                 step="0.01"
                 min="0"
+                aria-invalid={Boolean(errors.standardAw)}
+                aria-describedby={errors.standardAw ? 'lo-standardAw-error' : undefined}
                 value={form.standardAw}
                 onChange={(e) => setField('standardAw', e.target.value)}
                 placeholder="0.00"
                 required
               />
-              {errors.standardAw && <p className="text-xs text-red-600">{errors.standardAw}</p>}
+              {errors.standardAw && <p id="lo-standardAw-error" className="text-xs text-red-600">{errors.standardAw}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-hourlyRate">Hourly Rate</Label>
@@ -510,12 +516,14 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 type="number"
                 step="0.01"
                 min="0.01"
+                aria-invalid={Boolean(errors.hourlyRate)}
+                aria-describedby={errors.hourlyRate ? 'lo-hourlyRate-error' : undefined}
                 value={form.hourlyRate}
                 onChange={(e) => setField('hourlyRate', e.target.value)}
                 placeholder="0.00"
                 required
               />
-              {errors.hourlyRate && <p className="text-xs text-red-600">{errors.hourlyRate}</p>}
+              {errors.hourlyRate && <p id="lo-hourlyRate-error" className="text-xs text-red-600">{errors.hourlyRate}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lo-internalCost">Internal Cost</Label>
@@ -524,11 +532,13 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                 type="number"
                 step="0.01"
                 min="0"
+                aria-invalid={Boolean(errors.internalCost)}
+                aria-describedby={errors.internalCost ? 'lo-internalCost-error' : undefined}
                 value={form.internalCost}
                 onChange={(e) => setField('internalCost', e.target.value)}
                 placeholder="Optional"
               />
-              {errors.internalCost && <p className="text-xs text-red-600">{errors.internalCost}</p>}
+              {errors.internalCost && <p id="lo-internalCost-error" className="text-xs text-red-600">{errors.internalCost}</p>}
             </div>
           </div>
 
@@ -586,39 +596,47 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
                     <Label htmlFor={`fitment-make-${index}`}>Make</Label>
                     <Input
                       id={`fitment-make-${index}`}
+                      aria-invalid={Boolean(errors.fitments?.[index]?.make)}
+                      aria-describedby={errors.fitments?.[index]?.make ? `fitment-make-${index}-error` : undefined}
                       value={fitment.make}
                       onChange={(e) => setFitmentField(index, 'make', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.make && <p className="text-xs text-red-600">{errors.fitments[index]?.make}</p>}
+                    {errors.fitments?.[index]?.make && <p id={`fitment-make-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.make}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-model-${index}`}>Model</Label>
                     <Input
                       id={`fitment-model-${index}`}
+                      aria-invalid={Boolean(errors.fitments?.[index]?.model)}
+                      aria-describedby={errors.fitments?.[index]?.model ? `fitment-model-${index}-error` : undefined}
                       value={fitment.model}
                       onChange={(e) => setFitmentField(index, 'model', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.model && <p className="text-xs text-red-600">{errors.fitments[index]?.model}</p>}
+                    {errors.fitments?.[index]?.model && <p id={`fitment-model-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.model}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-year-from-${index}`}>Year From</Label>
                     <Input
                       id={`fitment-year-from-${index}`}
                       type="number"
+                      aria-invalid={Boolean(errors.fitments?.[index]?.yearFrom)}
+                      aria-describedby={errors.fitments?.[index]?.yearFrom ? `fitment-year-from-${index}-error` : undefined}
                       value={fitment.yearFrom}
                       onChange={(e) => setFitmentField(index, 'yearFrom', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.yearFrom && <p className="text-xs text-red-600">{errors.fitments[index]?.yearFrom}</p>}
+                    {errors.fitments?.[index]?.yearFrom && <p id={`fitment-year-from-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.yearFrom}</p>}
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label htmlFor={`fitment-year-to-${index}`}>Year To</Label>
                     <Input
                       id={`fitment-year-to-${index}`}
                       type="number"
+                      aria-invalid={Boolean(errors.fitments?.[index]?.yearTo)}
+                      aria-describedby={errors.fitments?.[index]?.yearTo ? `fitment-year-to-${index}-error` : undefined}
                       value={fitment.yearTo}
                       onChange={(e) => setFitmentField(index, 'yearTo', e.target.value)}
                     />
-                    {errors.fitments?.[index]?.yearTo && <p className="text-xs text-red-600">{errors.fitments[index]?.yearTo}</p>}
+                    {errors.fitments?.[index]?.yearTo && <p id={`fitment-year-to-${index}-error`} className="text-xs text-red-600">{errors.fitments[index]?.yearTo}</p>}
                   </div>
                   <div className="col-span-3 space-y-1">
                     <Label htmlFor={`fitment-engine-code-${index}`}>Engine Code</Label>

@@ -19,6 +19,21 @@ Tracked items that are **not** enforced in CI (moderate/minor) or explicitly all
 | `AlertTitle` outside the estimate card (HR clock and leave, planner, data import, mechanic away) | Default `h5` can follow a heading with a jump. Not scanned. | Pass `as` per call site, or render a non-heading element where the title is not a section. |
 | Other pages with cards under a section heading | Audited for AUT-472 in the same file only: `MarginRulesTab`, `LaborCategoriesTab`, `SettingsPage`, `CheckoutSummary`. Not scanned. | Add the page to `e2e/a11y-heading-order.spec.ts` when it changes. |
 
+## Form inline errors (AUT-478)
+
+- A field with an inline validation error carries `aria-invalid="true"` and an `aria-describedby` that points at its error element. Error elements get a stable id (`<field>-error`). The reference is only set while the error is shown.
+- shadcn `FormControl` and `FormMessage` do this for react-hook-form forms. Raw `register` forms and hand-rolled validation set the attributes per field.
+- Covered: `InlineEdit` (text and textarea), `StartServiceDialog`, `QuickRegisterDialog`, `LaborOperationFormDialog` (including fitment rows), the credit-note quantity inputs on `CreateCreditNoteDialog` and `CreditNoteDetailPage`, the Garantie duration input and the shortening checkbox on `VehicleSalePage`, and the trade-in field behind the validation message on `VehicleSaleTradeInSection`.
+- Enforced: unit tests with `expectFieldErrorLinked` and `expectFieldValid` from `src/test/form-a11y.ts`.
+
+| Area | Finding | Follow-up |
+| --- | --- | --- |
+| `LaborOperationFormDialog` | "Save now" and auto-save show field errors without moving focus or announcing them. A screen reader user hears the error only when they reach the field. | On an explicit save, move focus to the first invalid field, or add `role="alert"` to the error element. |
+| Credit-note quantity inputs | No accessible name. The column header is the only label. | Add an `aria-label` per line. |
+| `LoginPage` | Both fields reference the single login alert. Only the email field is marked invalid, and only while it is empty. | Confirm the intended behavior before changing it. |
+| shadcn `FormControl` | Always references its description id, even when no `FormDescription` is rendered. Harmless to assistive technology, not an axe failure. | Reference the description only when one is rendered. |
+| Credit-note dialogs | No unit test. Opening the partial-credit Radix Select in jsdom needs pointer shims the repo does not have. | Cover in e2e, or add the shims. |
+
 ## Moderate / minor (report-only in Playwright)
 
 Moderate and minor findings are attached per test run as `accessibility-backlog-violations` and summarized in the AUT-379 PR. Triage new entries here when promoting them to enforced checks.

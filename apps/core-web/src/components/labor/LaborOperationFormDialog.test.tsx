@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { LaborOperationFormDialog } from './LaborOperationFormDialog'
 import * as laborApi from '@/api/labor'
+import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
 
 vi.mock('@/api/labor')
 vi.mock('sonner', () => ({
@@ -133,5 +134,34 @@ describe('LaborOperationFormDialog', () => {
       expect(screen.getByText('Year From must be between 1900 and 2100')).toBeInTheDocument()
     }, { timeout: 2000 })
     expect(updateMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('links each inline validation error to the field it describes', async () => {
+    updateMutateAsync.mockResolvedValue(baseOperation)
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.change(screen.getByLabelText('Hourly Rate'), { target: { value: '0' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Hourly Rate must be greater than 0')).toBeInTheDocument()
+    }, { timeout: 2000 })
+    expectFieldErrorLinked(screen.getByLabelText('Hourly Rate'), 'Hourly Rate must be greater than 0')
+    expectFieldValid(screen.getByLabelText('Standard AW (hrs)'))
+  })
+
+  it('links fitment field errors to their own inputs', async () => {
+    updateMutateAsync.mockResolvedValue(baseOperation)
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add fitment' }))
+    fireEvent.change(screen.getByLabelText('Make'), { target: { value: 'Toyota' } })
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'Yaris' } })
+    fireEvent.change(screen.getByLabelText('Year From'), { target: { value: '1800' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Year From must be between 1900 and 2100')).toBeInTheDocument()
+    }, { timeout: 2000 })
+    expectFieldErrorLinked(screen.getByLabelText('Year From'), 'Year From must be between 1900 and 2100')
+    expectFieldValid(screen.getByLabelText('Make'))
   })
 })

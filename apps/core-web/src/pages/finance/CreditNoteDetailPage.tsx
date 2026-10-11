@@ -446,7 +446,9 @@ export default function CreditNoteDetailPage() {
                             <div className="ml-auto max-w-[160px]">
                               <Input
                                 className="text-right"
+                                id={`credit-line-quantity-${item.originalInvoiceItemId}`}
                                 aria-invalid={Boolean(lineError)}
+                                aria-describedby={lineError ? `credit-line-quantity-${item.originalInvoiceItemId}-error` : undefined}
                                 value={
                                   lines.find(
                                     (line) =>
@@ -464,7 +466,7 @@ export default function CreditNoteDetailPage() {
                                 }}
                               />
                               {lineError ? (
-                                <p className="mt-1 text-xs text-destructive">{lineError}</p>
+                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} className="mt-1 text-xs text-destructive">{lineError}</p>
                               ) : null}
                             </div>
                           ) : (

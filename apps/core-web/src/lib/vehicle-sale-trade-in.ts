@@ -42,9 +42,12 @@ export function tradeInDraftFromPurchase(purchase: VehicleSaleTradeInPurchase | 
   }
 }
 
+/** The draft field an invalid result is about, so the form can mark that input invalid. */
+export type TradeInField = keyof TradeInDraft
+
 export type TradeInDraftResult =
   | { status: 'empty' }
-  | { status: 'invalid'; message: string }
+  | { status: 'invalid'; field: TradeInField; message: string }
   | { status: 'valid'; input: VehicleSaleTradeInInput }
 
 /**
@@ -58,40 +61,44 @@ export function buildTradeInInput(draft: TradeInDraft, salePrice: number, today:
   const allowanceText = draft.allowance.trim()
   const allowance = Number(allowanceText)
   if (!allowanceText || !Number.isFinite(allowance) || allowance <= 0) {
-    return { status: 'invalid', message: 'Enter a trade-in allowance greater than zero.' }
+    return { status: 'invalid', field: 'allowance', message: 'Enter a trade-in allowance greater than zero.' }
   }
   if (!/^\d+(\.\d{1,2})?$/.test(allowanceText)) {
-    return { status: 'invalid', message: 'The allowance can have at most two decimal places.' }
+    return { status: 'invalid', field: 'allowance', message: 'The allowance can have at most two decimal places.' }
   }
   if (Number.isFinite(salePrice) && salePrice > 0 && allowance > salePrice) {
-    return { status: 'invalid', message: 'The allowance cannot exceed the sale price.' }
+    return { status: 'invalid', field: 'allowance', message: 'The allowance cannot exceed the sale price.' }
   }
 
   const vin = draft.vin.trim().toUpperCase()
   if (!TRADE_IN_VIN_PATTERN.test(vin)) {
-    return { status: 'invalid', message: 'The VIN must have 17 characters and no I, O or Q.' }
+    return { status: 'invalid', field: 'vin', message: 'The VIN must have 17 characters and no I, O or Q.' }
   }
 
   const make = draft.make.trim()
   const model = draft.model.trim()
   if (!make || !model) {
-    return { status: 'invalid', message: 'Enter the make and model of the trade-in vehicle.' }
+    return {
+      status: 'invalid',
+      field: make ? 'model' : 'make',
+      message: 'Enter the make and model of the trade-in vehicle.',
+    }
   }
 
   const year = Number(draft.year)
   if (!Number.isInteger(year) || year < 1900 || year > 2100) {
-    return { status: 'invalid', message: 'Enter a valid model year.' }
+    return { status: 'invalid', field: 'year', message: 'Enter a valid model year.' }
   }
 
   const mileageText = draft.mileage.trim()
   const mileage = mileageText === '' ? undefined : Number(mileageText)
   if (mileage !== undefined && (!Number.isInteger(mileage) || mileage < 0)) {
-    return { status: 'invalid', message: 'Mileage must be a whole number of zero or more.' }
+    return { status: 'invalid', field: 'mileage', message: 'Mileage must be a whole number of zero or more.' }
   }
 
   const firstRegistration = draft.firstRegistrationDate.trim()
   if (firstRegistration && new Date(firstRegistration).getTime() > today.getTime()) {
-    return { status: 'invalid', message: 'First registration cannot be in the future.' }
+    return { status: 'invalid', field: 'firstRegistrationDate', message: 'First registration cannot be in the future.' }
   }
 
   return {

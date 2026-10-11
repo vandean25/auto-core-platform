@@ -466,12 +466,13 @@ export default function VehicleSalePage() {
                   isFinalizing ||
                   (shorteningBlockReason !== null && !shorteningNegotiated)
                 }
+                aria-describedby={shorteningBlockReason ? 'shortening-block-reason' : undefined}
                 onChange={(event) => setShorteningNegotiated(event.target.checked)}
               />
               Verkürzung wurde ausdrücklich vereinbart
             </label>
             {shorteningBlockReason ? (
-              <p className="text-xs text-rose-600">{shorteningBlockReason}</p>
+              <p id="shortening-block-reason" className="text-xs text-rose-600">{shorteningBlockReason}</p>
             ) : null}
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Notiz zur Gewährleistung</span>
@@ -494,6 +495,8 @@ export default function VehicleSalePage() {
                   max={120}
                   step={1}
                   disabled={!isDraft || isFinalizing}
+                  aria-invalid={!garantie.valid}
+                  aria-describedby={garantie.valid ? undefined : 'garantie-months-error'}
                   value={garantieMonthsInput}
                   onChange={(event) => {
                     setGarantieMonthsInput(event.target.value)
@@ -503,7 +506,7 @@ export default function VehicleSalePage() {
                 />
               </label>
               {garantie.valid ? null : (
-                <p className="text-xs text-rose-600">{GARANTIE_MONTHS_MESSAGE}</p>
+                <p id="garantie-months-error" className="text-xs text-rose-600">{GARANTIE_MONTHS_MESSAGE}</p>
               )}
               <label className="block space-y-1 text-sm">
                 <span className="text-slate-500">Garantiebedingungen</span>

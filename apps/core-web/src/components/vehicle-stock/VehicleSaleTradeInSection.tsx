@@ -15,6 +15,7 @@ import {
   buildTradeInInput,
   tradeInDraftFromPurchase,
   type TradeInDraft,
+  type TradeInField,
 } from '@/lib/vehicle-sale-trade-in'
 
 const AUTO_SAVE_DEBOUNCE_MS = 750
@@ -177,6 +178,11 @@ export function VehicleSaleTradeInSection({
     setDraft((current) => ({ ...current, [field]: event.target.value }))
 
   const validationMessage = result.status === 'invalid' ? result.message : null
+  const invalidField = result.status === 'invalid' ? result.field : null
+  const fieldErrorProps = (field: TradeInField) => ({
+    'aria-invalid': invalidField === field,
+    'aria-describedby': invalidField === field ? 'trade-in-validation-message' : undefined,
+  })
   const canRemoveTradeIn = purchase !== null && editable
   const amountDue =
     result.status === 'valid' && Number.isFinite(salePrice) && salePrice > 0
@@ -206,25 +212,26 @@ export function VehicleSaleTradeInSection({
             min={0}
             step="0.01"
             disabled={!canEdit}
+            {...fieldErrorProps('allowance')}
             value={draft.allowance}
             onChange={handleFieldChange('allowance')}
           />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">VIN</span>
-          <Input maxLength={17} disabled={!canEdit} value={draft.vin} onChange={handleFieldChange('vin')} />
+          <Input maxLength={17} disabled={!canEdit} {...fieldErrorProps('vin')} value={draft.vin} onChange={handleFieldChange('vin')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Make</span>
-          <Input disabled={!canEdit} value={draft.make} onChange={handleFieldChange('make')} />
+          <Input disabled={!canEdit} {...fieldErrorProps('make')} value={draft.make} onChange={handleFieldChange('make')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Model</span>
-          <Input disabled={!canEdit} value={draft.model} onChange={handleFieldChange('model')} />
+          <Input disabled={!canEdit} {...fieldErrorProps('model')} value={draft.model} onChange={handleFieldChange('model')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Model year</span>
-          <Input type="number" disabled={!canEdit} value={draft.year} onChange={handleFieldChange('year')} />
+          <Input type="number" disabled={!canEdit} {...fieldErrorProps('year')} value={draft.year} onChange={handleFieldChange('year')} />
         </label>
         <label className="space-y-1 text-sm">
           <span className="text-slate-500">Mileage (km)</span>
@@ -232,6 +239,7 @@ export function VehicleSaleTradeInSection({
             type="number"
             min={0}
             disabled={!canEdit}
+            {...fieldErrorProps('mileage')}
             value={draft.mileage}
             onChange={handleFieldChange('mileage')}
           />
@@ -241,6 +249,7 @@ export function VehicleSaleTradeInSection({
           <Input
             type="date"
             disabled={!canEdit}
+            {...fieldErrorProps('firstRegistrationDate')}
             value={draft.firstRegistrationDate}
             onChange={handleFieldChange('firstRegistrationDate')}
           />
@@ -250,7 +259,7 @@ export function VehicleSaleTradeInSection({
           <Input disabled={!canEdit} value={draft.plate} onChange={handleFieldChange('plate')} />
         </label>
       </div>
-      <p aria-live="polite" className="text-xs text-rose-600">
+      <p id="trade-in-validation-message" aria-live="polite" className="text-xs text-rose-600">
         {validationMessage}
       </p>
       {amountDue ? (
