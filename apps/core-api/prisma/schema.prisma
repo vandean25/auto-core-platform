@@ -3250,5 +3250,7 @@ model WarrantyClaimLine {
   @@unique([tenant_id, warranty_claim_id, workshop_task_line_item_id], map: "warranty_claim_lines_claim_item_key")
   @@index([tenant_id])
   @@index([tenant_id, workshop_task_line_item_id])
+  // The foreign key is checked on every delete of a workshop line; this index keeps that check off a full scan.
+  @@index([workshop_task_line_item_id])
   @@map("warranty_claim_lines")
 }

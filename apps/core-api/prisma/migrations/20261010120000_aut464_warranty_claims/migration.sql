@@ -59,6 +59,7 @@ CREATE INDEX "warranty_claim_lines_tenant_id_idx" ON "warranty_claim_lines"("ten
 
 -- CreateIndex
 CREATE INDEX "warranty_claim_lines_tenant_id_workshop_task_line_item_id_idx" ON "warranty_claim_lines"("tenant_id", "workshop_task_line_item_id");
+CREATE INDEX "warranty_claim_lines_workshop_task_line_item_id_idx" ON "warranty_claim_lines"("workshop_task_line_item_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "warranty_claim_lines_claim_item_key" ON "warranty_claim_lines"("tenant_id", "warranty_claim_id", "workshop_task_line_item_id");
