@@ -26,6 +26,7 @@ import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
+import { RouteTitle } from '@/components/RouteTitle'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
@@ -576,6 +577,7 @@ function AuthenticatedApp() {
 function App() {
   return (
     <Router>
+      <RouteTitle />
       <Routes>
         <Route path={LOGIN_PATH} element={<LoginRoute />} />
         <Route path="*" element={<AuthenticatedApp />} />

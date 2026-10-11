@@ -77,3 +77,18 @@ export async function expectNoCriticalA11yViolations(page: Page) {
     ).toEqual([]);
   }
 }
+
+/**
+ * Fails on any violation of the given axe rules, whatever their impact. For focused checks
+ * (e.g. `document-title`, AUT-473) where the rest of the page is out of scope.
+ */
+export async function expectNoAxeViolationsForRules(page: Page, ruleIds: string[]) {
+  const { violations } = await new AxeBuilder({ page }).withRules(ruleIds).analyze();
+
+  expect(
+    violations.map((violation) => ({
+      id: violation.id,
+      nodes: violation.nodes.map((node) => node.html),
+    })),
+  ).toEqual([]);
+}

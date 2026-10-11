@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/status/StatusBadge";
 import { DocumentSaveIndicator } from "@/components/document-save/DocumentSaveIndicator";
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import {
   Command,
   CommandList,
@@ -65,6 +66,7 @@ export default function PurchaseOrderDetail() {
   const navigate = useNavigate();
   const markAsSent = useMarkPOSent();
   const { data: po, isLoading, error } = usePurchaseOrder(id!);
+  useDocumentTitle(po?.order_number);
   const [isReceiveDialogOpen, setIsReceiveDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingQty, setEditingQty] = useState<string>("");
