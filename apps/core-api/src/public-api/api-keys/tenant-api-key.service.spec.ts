@@ -1,10 +1,12 @@
 import {
+  ArgumentsHost,
   BadRequestException,
   ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { AuditLogAction } from '@prisma/client';
+import { GlobalExceptionFilter } from '../../common/filters/global-exception.filter.js';
 import { TenantApiKeyService } from './tenant-api-key.service.js';
 import {
   API_KEY_HASH_VERSION,
@@ -210,16 +212,44 @@ describe('TenantApiKeyService', () => {
       expect(auditPayload).not.toContain(created.token);
     });
 
-    it('fails closed with 503 when the pepper is not configured', async () => {
-      process.env.NODE_ENV = 'production';
-      delete process.env.API_KEY_PEPPER;
-      const { service, prisma } = createHarness(ownerUser());
+    const unusablePeppers: Array<[string, () => void]> = [
+      [
+        'is unset',
+        () => {
+          delete process.env.API_KEY_PEPPER;
+        },
+      ],
+      [
+        'is shorter than 32 bytes',
+        () => {
+          process.env.API_KEY_PEPPER = Buffer.alloc(16, 1).toString('base64');
+        },
+      ],
+    ];
 
-      await expect(
-        service.create({ name: 'x', scopes: ['stock:read'] }, NOW),
-      ).rejects.toBeInstanceOf(ServiceUnavailableException);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
-    });
+    it.each(unusablePeppers)(
+      'fails closed when the pepper %s: the client gets the clear 503 and no key is stored',
+      async (_state, setPepper) => {
+        process.env.NODE_ENV = 'production';
+        setPepper();
+        const { service, prisma } = createHarness(ownerUser());
+
+        const failure = await service
+          .create({ name: 'x', scopes: ['stock:read'] }, NOW)
+          .catch((error: unknown) => error);
+
+        expect(failure).toBeInstanceOf(ServiceUnavailableException);
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(productionClientResponse(failure)).toEqual({
+          status: 503,
+          body: expect.objectContaining({
+            statusCode: 503,
+            message: 'API keys are not configured for this environment.',
+            code: 'API_KEYS_NOT_CONFIGURED',
+          }),
+        });
+      },
+    );
 
     it('rejects an expiry that is not in the future', async () => {
       const { service, prisma } = createHarness(ownerUser());
@@ -298,4 +328,20 @@ function restoreEnv(key: 'API_KEY_PEPPER' | 'NODE_ENV', value: string | undefine
   } else {
     process.env[key] = value;
   }
+}
+
+/** Runs an error through the global filter, so the assertion sees the body a production client receives. */
+function productionClientResponse(error: unknown) {
+  const json = jest.fn();
+  const status = jest.fn().mockReturnValue({ json });
+  const host = {
+    switchToHttp: () => ({ getRequest: () => ({}), getResponse: () => ({ status }) }),
+  } as unknown as ArgumentsHost;
+  const filter = new GlobalExceptionFilter();
+  jest.spyOn((filter as any).logger, 'error').mockImplementation();
+  jest.spyOn((filter as any).logger, 'warn').mockImplementation();
+
+  filter.catch(error, host);
+
+  return { status: status.mock.calls[0]?.[0], body: json.mock.calls[0]?.[0] };
 }

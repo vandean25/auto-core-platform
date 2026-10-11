@@ -81,9 +81,10 @@ export class TenantApiKeyService {
 
     const pepper = resolveApiKeyPepper();
     if (!pepper) {
-      throw new ServiceUnavailableException(
-        'API keys are not configured for this environment.',
-      );
+      throw new ServiceUnavailableException({
+        code: 'API_KEYS_NOT_CONFIGURED',
+        message: 'API keys are not configured for this environment.',
+      });
     }
 
     const expiresAt = parseExpiry(dto.expiresAt, now);
