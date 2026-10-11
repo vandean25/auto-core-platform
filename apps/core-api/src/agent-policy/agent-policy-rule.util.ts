@@ -33,8 +33,8 @@ export function toResolvedRule(
 }
 
 /**
- * Keeps the newest version of each action type. Rows must be ordered by
- * action type, then version descending, so the first row seen wins.
+ * Keeps the newest version of each action type. Within each action type the
+ * rows must be version-descending, so the first row seen is the newest.
  */
 export function latestRowPerAction(
   rows: AgentPolicyRuleRow[],
@@ -68,7 +68,7 @@ export function mergeEffectiveRules(
   );
 }
 
-/** Plain string order (UTF-16 code units), the order the list has always used. */
+/** Plain string order (UTF-16 code units), matching the default Array#sort. */
 function compareCodeUnits(left: string, right: string): number {
   if (left === right) {
     return 0;
