@@ -133,6 +133,10 @@ function buildHarness({
   return { service, prisma, systemPrisma, audit, tx, tenantContext };
 }
 
+type Harness = ReturnType<typeof buildHarness>;
+
+type HttpExceptionType = new (...args: never[]) => HttpException;
+
 async function captureRejection(promise: Promise<unknown>): Promise<unknown> {
   try {
     await promise;
@@ -144,12 +148,36 @@ async function captureRejection(promise: Promise<unknown>): Promise<unknown> {
 
 async function expectRejection(
   promise: Promise<unknown>,
-  type: new (...args: never[]) => HttpException,
+  type: HttpExceptionType,
   response: object,
 ): Promise<void> {
   const error = await captureRejection(promise);
   expect(error).toBeInstanceOf(type);
   expect((error as HttpException).getResponse()).toMatchObject(response);
+}
+
+/** A rejection that must happen before any transaction opens. */
+async function expectRejectedWithoutWrite(
+  h: Harness,
+  promise: Promise<unknown>,
+  type: HttpExceptionType,
+  response: object,
+): Promise<void> {
+  await expectRejection(promise, type, response);
+  expect(h.prisma.$transaction).not.toHaveBeenCalled();
+}
+
+function expectRuleWritten(h: Harness, data: Record<string, unknown>): void {
+  expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
+    data: expect.objectContaining(data),
+  });
+}
+
+function expectLatestRuleLookup(
+  query: jest.Mock,
+  where: Record<string, unknown>,
+): void {
+  expect(query).toHaveBeenCalledWith({ where, orderBy: { version: 'desc' } });
 }
 
 /** The DTO a row with `ruleRow()` defaults maps to, with per-test overrides. */
@@ -168,6 +196,30 @@ function expectedDto(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** An audit snapshot of the rule on `ACTION_TYPE`, with per-test overrides. */
+function snapshot(fields: Record<string, unknown>) {
+  return { action_type: ACTION_TYPE, enabled: true, ...fields };
+}
+
+/** The UPDATE audit entry the upsert writes for a before/after pair. */
+function auditEntry(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+) {
+  return {
+    entityType: 'AgentPolicyRule',
+    entityId: NEW_ROW_ID,
+    action: AuditLogAction.UPDATE,
+    actorUserId: USER_ROW_ID,
+    source: 'agent_policy',
+    before,
+    after,
+    diff: {
+      tier: { before: before.tier, after: after.tier },
+      version: { before: before.version, after: after.version },
+    },
+  };
+}
 describe('AgentPolicyService.getEffectiveRule', () => {
   it('prefers the tenant override over the platform default', async () => {
     const { service, tenantContext, tenantFindFirst, platformFindFirst } =
@@ -439,7 +491,8 @@ describe('AgentPolicyService.upsertRule', () => {
   it('rejects an action type without a platform default with the unknown-action code', async () => {
     const h = buildHarness();
 
-    await expectRejection(
+    await expectRejectedWithoutWrite(
+      h,
       h.service.upsertRule('made.up', { tier: AgentPolicyTier.PROPOSE }),
       BadRequestException,
       {
@@ -447,7 +500,6 @@ describe('AgentPolicyService.upsertRule', () => {
         message: 'Unknown action type: made.up',
       },
     );
-    expect(h.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('trims the action type before the platform lookup and before writing', async () => {
@@ -458,13 +510,11 @@ describe('AgentPolicyService.upsertRule', () => {
       tier: AgentPolicyTier.PROPOSE,
     });
 
-    expect(h.systemPrisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: null, action_type: ACTION_TYPE },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.systemPrisma.agentPolicyRule.findFirst, {
+      tenant_id: null,
+      action_type: ACTION_TYPE,
     });
-    expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ action_type: ACTION_TYPE }),
-    });
+    expectRuleWritten(h, { action_type: ACTION_TYPE });
   });
 
   it.each([
@@ -479,7 +529,8 @@ describe('AgentPolicyService.upsertRule', () => {
         ruleRow({ tier: platformTier }),
       );
 
-      await expectRejection(
+      await expectRejectedWithoutWrite(
+        h,
         h.service.upsertRule(ACTION_TYPE, { tier }),
         UnprocessableEntityException,
         {
@@ -488,7 +539,6 @@ describe('AgentPolicyService.upsertRule', () => {
             'Tenant policy tier must be at least as strict as the platform default.',
         },
       );
-      expect(h.prisma.$transaction).not.toHaveBeenCalled();
     },
   );
 
@@ -510,9 +560,7 @@ describe('AgentPolicyService.upsertRule', () => {
       await expect(
         h.service.upsertRule(ACTION_TYPE, { tier }),
       ).resolves.toMatchObject({ tier, source: 'tenant' });
-      expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ tier }),
-      });
+      expectRuleWritten(h, { tier });
     },
   );
 
@@ -522,7 +570,8 @@ describe('AgentPolicyService.upsertRule', () => {
       const h = buildHarness();
       h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(ruleRow());
 
-      await expectRejection(
+      await expectRejectedWithoutWrite(
+        h,
         h.service.upsertRule(ACTION_TYPE, {
           tier: AgentPolicyTier.AUTO,
           conditions: { amount_max: amountMax },
@@ -534,7 +583,6 @@ describe('AgentPolicyService.upsertRule', () => {
             'Tenant policy amount_max must be at least as strict as the platform default.',
         },
       );
-      expect(h.prisma.$transaction).not.toHaveBeenCalled();
     },
   );
 
@@ -569,10 +617,8 @@ describe('AgentPolicyService.upsertRule', () => {
       conditions: { amount_max: 100 },
     });
 
-    expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        conditions_json: { amount_max: 100, customer_facing: true },
-      }),
+    expectRuleWritten(h, {
+      conditions_json: { amount_max: 100, customer_facing: true },
     });
   });
 
@@ -590,9 +636,7 @@ describe('AgentPolicyService.upsertRule', () => {
 
     await h.service.upsertRule(ACTION_TYPE, { tier: AgentPolicyTier.PROPOSE });
 
-    expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ conditions_json: { amount_max: 250 } }),
-    });
+    expectRuleWritten(h, { conditions_json: { amount_max: 250 } });
   });
 
   it('writes the first tenant override as version 1, enabled by default, attributed to the caller', async () => {
@@ -626,9 +670,7 @@ describe('AgentPolicyService.upsertRule', () => {
       enabled: false,
     });
 
-    expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ version: 5, enabled: false }),
-    });
+    expectRuleWritten(h, { version: 5, enabled: false });
   });
 
   it('returns the stored override as a tenant-source rule', async () => {
@@ -671,36 +713,20 @@ describe('AgentPolicyService.upsertRule', () => {
     });
 
     expect(h.audit.recordTenantMutation).toHaveBeenCalledWith(
-      {
-        entityType: 'AgentPolicyRule',
-        entityId: NEW_ROW_ID,
-        action: AuditLogAction.UPDATE,
-        actorUserId: USER_ROW_ID,
-        source: 'agent_policy',
-        before: {
-          action_type: ACTION_TYPE,
+      auditEntry(
+        snapshot({
           tier: AgentPolicyTier.PROPOSE,
           conditions: { amount_max: 200 },
-          enabled: true,
           version: 4,
           source: 'tenant',
-        },
-        after: {
-          action_type: ACTION_TYPE,
+        }),
+        snapshot({
           tier: AgentPolicyTier.HUMAN_ONLY,
           conditions: { amount_max: 250 },
-          enabled: true,
           version: 5,
           source: 'tenant',
-        },
-        diff: {
-          tier: {
-            before: AgentPolicyTier.PROPOSE,
-            after: AgentPolicyTier.HUMAN_ONLY,
-          },
-          version: { before: 4, after: 5 },
-        },
-      },
+        }),
+      ),
       h.tx,
     );
   });
@@ -715,36 +741,20 @@ describe('AgentPolicyService.upsertRule', () => {
     });
 
     expect(h.audit.recordTenantMutation).toHaveBeenCalledWith(
-      {
-        entityType: 'AgentPolicyRule',
-        entityId: NEW_ROW_ID,
-        action: AuditLogAction.UPDATE,
-        actorUserId: USER_ROW_ID,
-        source: 'agent_policy',
-        before: {
-          action_type: ACTION_TYPE,
+      auditEntry(
+        snapshot({
           tier: AgentPolicyTier.AUTO,
           conditions: { amount_max: 250 },
-          enabled: true,
           version: 1,
           source: 'platform',
-        },
-        after: {
-          action_type: ACTION_TYPE,
+        }),
+        snapshot({
           tier: AgentPolicyTier.PROPOSE,
           conditions: { amount_max: 100 },
-          enabled: true,
           version: 1,
           source: 'tenant',
-        },
-        diff: {
-          tier: {
-            before: AgentPolicyTier.AUTO,
-            after: AgentPolicyTier.PROPOSE,
-          },
-          version: { before: 1, after: 1 },
-        },
-      },
+        }),
+      ),
       h.tx,
     );
   });
@@ -804,12 +814,12 @@ describe('AgentPolicyService.upsertRule', () => {
     h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(ruleRow());
     h.prisma.user.findUnique.mockResolvedValue(null);
 
-    await expectRejection(
+    await expectRejectedWithoutWrite(
+      h,
       h.service.upsertRule(ACTION_TYPE, { tier: AgentPolicyTier.PROPOSE }),
       ForbiddenException,
       { message: 'Active tenant membership is required.' },
     );
-    expect(h.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejects a caller whose tenant membership is not active', async () => {
@@ -817,12 +827,12 @@ describe('AgentPolicyService.upsertRule', () => {
     h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(ruleRow());
     h.prisma.tenantMember.findFirst.mockResolvedValue(null);
 
-    await expectRejection(
+    await expectRejectedWithoutWrite(
+      h,
       h.service.upsertRule(ACTION_TYPE, { tier: AgentPolicyTier.PROPOSE }),
       ForbiddenException,
       { message: 'Active tenant membership is required.' },
     );
-    expect(h.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('validates the tier before checking tenant membership', async () => {
@@ -879,13 +889,13 @@ describe('AgentPolicyService.evaluate', () => {
 
     await h.service.evaluate({ action_type: '  inventory.part_reserve  ' });
 
-    expect(h.prisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: TENANT_ID, action_type: ACTION_TYPE },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.prisma.agentPolicyRule.findFirst, {
+      tenant_id: TENANT_ID,
+      action_type: ACTION_TYPE,
     });
-    expect(h.systemPrisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: null, action_type: ACTION_TYPE },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.systemPrisma.agentPolicyRule.findFirst, {
+      tenant_id: null,
+      action_type: ACTION_TYPE,
     });
   });
 
@@ -1041,13 +1051,13 @@ describe('AgentPolicyService.evaluateAction', () => {
       tier: AgentPolicyTier.HUMAN_ONLY,
       reasons: ['unknown_action_fail_closed'],
     });
-    expect(h.prisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: TENANT_ID, action_type: padded },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.prisma.agentPolicyRule.findFirst, {
+      tenant_id: TENANT_ID,
+      action_type: padded,
     });
-    expect(h.systemPrisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: null, action_type: padded },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.systemPrisma.agentPolicyRule.findFirst, {
+      tenant_id: null,
+      action_type: padded,
     });
   });
 });
@@ -1058,14 +1068,13 @@ describe('AgentPolicyService tenant isolation', () => {
 
     await h.service.listRules();
 
-    const orderBy = [{ action_type: 'asc' }, { version: 'desc' }];
     expect(h.prisma.agentPolicyRule.findMany).toHaveBeenCalledWith({
       where: { tenant_id: OTHER_TENANT_ID },
-      orderBy,
+      orderBy: [{ action_type: 'asc' }, { version: 'desc' }],
     });
     expect(h.systemPrisma.agentPolicyRule.findMany).toHaveBeenCalledWith({
       where: { tenant_id: null },
-      orderBy,
+      orderBy: [{ action_type: 'asc' }, { version: 'desc' }],
     });
   });
 
@@ -1082,9 +1091,9 @@ describe('AgentPolicyService tenant isolation', () => {
     await expect(h.service.evaluateAction(ACTION_TYPE)).resolves.toMatchObject({
       rule_id: 'other-tenant-row',
     });
-    expect(h.prisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: OTHER_TENANT_ID, action_type: ACTION_TYPE },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.prisma.agentPolicyRule.findFirst, {
+      tenant_id: OTHER_TENANT_ID,
+      action_type: ACTION_TYPE,
     });
   });
 
@@ -1097,12 +1106,10 @@ describe('AgentPolicyService tenant isolation', () => {
       tenant_id: OTHER_TENANT_ID,
     } as UpsertAgentPolicyRuleDto);
 
-    expect(h.prisma.agentPolicyRule.findFirst).toHaveBeenCalledWith({
-      where: { tenant_id: TENANT_ID, action_type: ACTION_TYPE },
-      orderBy: { version: 'desc' },
+    expectLatestRuleLookup(h.prisma.agentPolicyRule.findFirst, {
+      tenant_id: TENANT_ID,
+      action_type: ACTION_TYPE,
     });
-    expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ tenant_id: TENANT_ID }),
-    });
+    expectRuleWritten(h, { tenant_id: TENANT_ID });
   });
 });
