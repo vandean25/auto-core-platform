@@ -16,6 +16,10 @@ const HUMAN_ONLY_FLOOR_ACTION_TYPES = new Set([
   'tenant_member.invite',
   'consent.update',
   'consent.revoke',
+  // Settings writes stay with a person. No MCP tool exists for them (AUT-457).
+  'legal_entity.update',
+  'tax_rate.update',
+  'number_range.update',
 ]);
 
 const HUMAN_ONLY_FLOOR_PREFIXES = [

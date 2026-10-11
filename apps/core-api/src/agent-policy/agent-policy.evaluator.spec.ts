@@ -17,6 +17,9 @@ const floorCases = [
   'user.role_change',
   'invoice.finalize_batch',
   'vat.update_wording',
+  'legal_entity.update',
+  'tax_rate.update',
+  'number_range.update',
 ];
 
 function rule(

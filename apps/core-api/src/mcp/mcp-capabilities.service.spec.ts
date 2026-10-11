@@ -90,7 +90,8 @@ function createService() {
   const prisma = {
     tenant: {
       findUnique: jest.fn(
-        async (args: { where: { id: string } }) => tenants[args.where.id] ?? null,
+        async (args: { where: { id: string } }) =>
+          tenants[args.where.id] ?? null,
       ),
     },
     site: {
@@ -154,7 +155,9 @@ describe('McpCapabilitiesService.whoami', () => {
   it('returns no contact details from the session', async () => {
     const { service } = createService();
 
-    const serialized = JSON.stringify(await service.whoami({ agentId: 'mcp:cursor' }));
+    const serialized = JSON.stringify(
+      await service.whoami({ agentId: 'mcp:cursor' }),
+    );
 
     expect(serialized).not.toContain(SESSION_EMAIL);
     expect(serialized).not.toContain(FIREBASE_UID);
@@ -216,7 +219,7 @@ describe('McpCapabilitiesService.whoami', () => {
 });
 
 /**
- * Reads every page of the catalog. A default page holds 25 tools and the catalog holds 28,
+ * Reads every page of the catalog. A default page holds 25 tools and the catalog holds more,
  * so a check that depends on a write tool follows `next_cursor` rather than the first page.
  */
 async function allCapabilityPages(
@@ -319,7 +322,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
   it('marks a disabled write rule as enabled false with a reason and keeps its configured tier', async () => {
     const { service } = createService();
 
-    const page = await service.getCapabilities({});
+    const page = await allCapabilityPages(service);
 
     expect(byTool(page.data).get('draft_workshop_order')).toEqual({
       tool: 'draft_workshop_order',
@@ -333,12 +336,13 @@ describe('McpCapabilitiesService.getCapabilities', () => {
 
   it('reports a rule-level customer_facing escalation as PROPOSE, the tier every call enforces', async () => {
     const { service, agentPolicy } = createService();
-    agentPolicy.getEffectiveRule.mockImplementation(async (actionType: string) =>
-      actionType === 'inventory.part_reserve'
-        ? policyRule('inventory.part_reserve', {
-            conditions: { customer_facing: true },
-          })
-        : (TENANT_A_RULES[actionType] ?? null),
+    agentPolicy.getEffectiveRule.mockImplementation(
+      async (actionType: string) =>
+        actionType === 'inventory.part_reserve'
+          ? policyRule('inventory.part_reserve', {
+              conditions: { customer_facing: true },
+            })
+          : (TENANT_A_RULES[actionType] ?? null),
     );
 
     const page = await allCapabilityPages(service);
@@ -381,12 +385,33 @@ describe('McpCapabilitiesService.getCapabilities', () => {
     );
   });
 
+  it('lists the settings reads as enabled AUTO read tools for every role', async () => {
+    const { service } = createService();
+
+    const tools = byTool((await allCapabilityPages(service)).data);
+
+    for (const tool of [
+      'get_tenant_settings',
+      'list_sites',
+      'get_legal_entity',
+    ]) {
+      expect(tools.get(tool)).toEqual({
+        tool,
+        description: expect.any(String),
+        tier: 'AUTO',
+        access: 'read',
+        enabled: true,
+      });
+    }
+  });
+
   it('treats a missing policy rule as fail-closed: not a tool, named as human only', async () => {
     const { service, agentPolicy } = createService();
-    agentPolicy.getEffectiveRule.mockImplementation(async (actionType: string) =>
-      actionType === 'inventory.part_reserve'
-        ? null
-        : (TENANT_A_RULES[actionType] ?? null),
+    agentPolicy.getEffectiveRule.mockImplementation(
+      async (actionType: string) =>
+        actionType === 'inventory.part_reserve'
+          ? null
+          : (TENANT_A_RULES[actionType] ?? null),
     );
 
     const page = await allCapabilityPages(service);
@@ -437,15 +462,17 @@ describe('McpCapabilitiesService.getCapabilities', () => {
         enabled: true,
       }),
     };
-    agentPolicy.getEffectiveRule.mockImplementation(async (actionType: string) => {
-      const rules =
-        authenticated.user?.tenantId === TENANT_B.id
-          ? tenantBRules
-          : TENANT_A_RULES;
-      return rules[actionType] ?? null;
-    });
+    agentPolicy.getEffectiveRule.mockImplementation(
+      async (actionType: string) => {
+        const rules =
+          authenticated.user?.tenantId === TENANT_B.id
+            ? tenantBRules
+            : TENANT_A_RULES;
+        return rules[actionType] ?? null;
+      },
+    );
 
-    const tenantA = byTool((await service.getCapabilities({})).data);
+    const tenantA = byTool((await allCapabilityPages(service)).data);
     expect(tenantA.get('draft_workshop_order')).toMatchObject({
       enabled: false,
       disabled_reason: 'policy_disabled',
@@ -458,7 +485,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       role: 'ADMIN',
       activeSiteId: 'site-b1',
     };
-    const tenantB = await service.getCapabilities({});
+    const tenantB = await allCapabilityPages(service);
     expect(byTool(tenantB.data).get('draft_workshop_order')).toMatchObject({
       enabled: true,
     });

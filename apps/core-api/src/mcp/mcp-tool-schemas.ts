@@ -113,7 +113,8 @@ export const listWorkshopTasksInputSchema = z.object({
 
 export const whoamiInputSchema = z.object({});
 
-const capabilityCursorSchema = z
+/** Offset cursor from encodeMcpCursor, for static lists: the tool catalog and the site directory. */
+const offsetCursorSchema = z
   .string()
   .regex(/^[A-Za-z0-9_-]+$/, 'cursor is invalid')
   .refine((cursor) => decodeMcpCursor(cursor) !== null, 'cursor is invalid');
@@ -121,7 +122,7 @@ const capabilityCursorSchema = z
 /** AUT-454 contract: camelCase `pageSize` and an opaque `cursor`. */
 export const getCapabilitiesInputSchema = z.object({
   pageSize: z.number().int().min(1).max(MCP_MAX_PAGE_SIZE).optional(),
-  cursor: capabilityCursorSchema.optional(),
+  cursor: offsetCursorSchema.optional(),
 });
 
 /** AUT-455 contract: camelCase `pageSize` and a keyset `cursor` from `meta.next_cursor`. */
@@ -322,6 +323,27 @@ export const getDocumentPdfInputSchema = z.object({
   id: z.string().refine(isMcpDocumentId, 'id must be <type>:<uuid>'),
 });
 
+/**
+ * AUT-457 settings reads. The tenant comes from the session and no argument
+ * names one, except the legal entity, which must belong to that tenant.
+ */
+export const getTenantSettingsInputSchema = z.object({});
+
+export const listSitesInputSchema = z.object({
+  pageSize: pageSizeCamelSchema.describe('Sites per page: default 10, max 25'),
+  cursor: offsetCursorSchema
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+export const getLegalEntityInputSchema = z.object({
+  legal_entity_id: uuidSchema
+    .optional()
+    .describe(
+      'Legal entity ID in the session tenant. Omit to read the legal entity of the active site',
+    ),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -350,6 +372,9 @@ export const mcpToolInputSchemas: Record<
   get_vehicle_history: getVehicleHistoryInputSchema,
   list_documents: listDocumentsInputSchema,
   get_document_pdf: getDocumentPdfInputSchema,
+  get_tenant_settings: getTenantSettingsInputSchema,
+  list_sites: listSitesInputSchema,
+  get_legal_entity: getLegalEntityInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);

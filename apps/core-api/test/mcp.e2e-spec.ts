@@ -38,6 +38,8 @@ type TenantFixtures = {
   workshopTaskId: string;
   locationId: string;
   invoiceId: string;
+  legalEntityId: string;
+  siteId: string;
 };
 
 type DraftVehicle = { customerId: string; vehicleId: string };
@@ -93,6 +95,7 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_agent_action',
   'get_vehicle_history',
   'get_document_pdf',
+  'get_legal_entity',
 ];
 
 describe('MCP server (e2e)', () => {
@@ -251,6 +254,8 @@ describe('MCP server (e2e)', () => {
     expect(payload).not.toContain(fixtures.vehicleId);
     expect(payload).not.toContain(fixtures.workshopOrderId);
     expect(payload).not.toContain(fixtures.catalogItemId);
+    expect(payload).not.toContain(fixtures.legalEntityId);
+    expect(payload).not.toContain(fixtures.siteId);
   }
 
   /** Runs a Prisma query with the tenant context active while the query is awaited. */
@@ -442,6 +447,10 @@ describe('MCP server (e2e)', () => {
       siteId,
       description: 'Ölwechsel inkl. Filter',
     });
+    const mainSite = await prismaA.site.findFirstOrThrow({
+      where: { id: siteId },
+      select: { legal_entity_id: true },
+    });
     return {
       searchToken,
       customerId: customer.id,
@@ -453,6 +462,8 @@ describe('MCP server (e2e)', () => {
       workshopTaskId: task.id,
       locationId: location.id,
       invoiceId: invoice.id,
+      legalEntityId: mainSite.legal_entity_id,
+      siteId,
     };
   }
 
@@ -675,6 +686,12 @@ describe('MCP server (e2e)', () => {
         name: 'get_document_pdf',
         arguments: { id: `workshop_order:${fixtures.workshopOrderId}` },
       },
+      { name: 'get_tenant_settings', arguments: {} },
+      { name: 'list_sites', arguments: {} },
+      {
+        name: 'get_legal_entity',
+        arguments: { legal_entity_id: fixtures.legalEntityId },
+      },
     ];
   }
 
@@ -796,7 +813,7 @@ describe('MCP server (e2e)', () => {
       .expect(404);
   });
 
-  it('lists every registered tool (24 read + 4 write)', async () => {
+  it('lists every registered tool, read and write', async () => {
     const { client, transport } = await connectMcpClient(
       adminHeaderA,
       'e2e-list-tools',
@@ -2738,6 +2755,221 @@ describe('MCP server (e2e)', () => {
           }),
       );
       expect(reverse.isError).toBe(true);
+    });
+  });
+
+  describe('settings reads (AUT-457)', () => {
+    /** Fictional bank and voice values, written for this suite only. */
+    const BANK_IBAN = 'AT611904300234573201';
+    const VOICE_PROJECT = 'e2e-settings-voice-project';
+    const VOICE_SERVICE_ACCOUNT = 'e2e-settings-encrypted-service-account';
+
+    let tenantBSiteId: string;
+    let tenantBLegalEntityId: string;
+    let tenantBLegalEntityName: string;
+    let secondSiteId: string;
+
+    beforeAll(async () => {
+      await inTenant(tenantA, async () => {
+        await prisma.legalEntity.update({
+          where: { id: fixtures.legalEntityId },
+          data: {
+            iban: BANK_IBAN,
+            bic: 'TESTATWW',
+            bank_name: 'Testbank Wien',
+          },
+        });
+        await prisma.voiceTranslationSettings.upsert({
+          where: { tenant_id: tenantA },
+          update: {
+            google_project_id: VOICE_PROJECT,
+            google_service_account_encrypted: VOICE_SERVICE_ACCOUNT,
+          },
+          create: {
+            tenant_id: tenantA,
+            google_project_id: VOICE_PROJECT,
+            google_service_account_encrypted: VOICE_SERVICE_ACCOUNT,
+          },
+        });
+      });
+
+      // A second active site, so list_sites has more than one page to walk.
+      const second = await inTenant(tenantA, () =>
+        prisma.site.create({
+          data: {
+            legal_entity_id: fixtures.legalEntityId,
+            code: 'E2E-2',
+            name: 'Zweigstelle E2E',
+          },
+        }),
+      );
+      secondSiteId = second.id;
+
+      tenantBSiteId = await resolveTestMainSiteId(prisma, tenantB);
+      const site = await inTenant(tenantB, () =>
+        prisma.site.findFirstOrThrow({
+          where: { id: tenantBSiteId },
+          select: { legal_entity: { select: { id: true, name: true } } },
+        }),
+      );
+      tenantBLegalEntityId = site.legal_entity.id;
+      tenantBLegalEntityName = site.legal_entity.name;
+    });
+
+    // The tenant graph cleanup does not cover voice settings, so remove the row before it runs.
+    afterAll(async () => {
+      await inTenant(tenantA, () =>
+        prisma.voiceTranslationSettings.deleteMany({
+          where: { tenant_id: tenantA },
+        }),
+      );
+    });
+
+    const settingsCall = (name: string, args: Record<string, unknown> = {}) =>
+      callMcpTool(caller(adminHeaderA, 'e2e-settings-reads'), name, args);
+
+    it.each<[string, Record<string, unknown>, string[]]>([
+      [
+        'get_tenant_settings',
+        {},
+        [
+          'currency',
+          'active_site_timezone',
+          'feature_flags',
+          'document_branding',
+        ],
+      ],
+      ['list_sites', {}, ['data', 'meta']],
+      [
+        'get_legal_entity',
+        {},
+        [
+          'id',
+          'seller',
+          'bank',
+          'payment_terms',
+          'seller_readiness',
+          'accounting_profile',
+          'tax_rates',
+          'number_ranges',
+        ],
+      ],
+    ])('returns the documented shape from %s', async (toolName, args, keys) => {
+      const result = await settingsCall(toolName, args);
+
+      expect(result.isError).not.toBe(true);
+      expect(
+        Object.keys(parsePayload<Record<string, unknown>>(result)),
+      ).toEqual(expect.arrayContaining(keys));
+    });
+
+    it('reports the currency, the decision apply mode, and the active site timezone', async () => {
+      const settings = parsePayload<{
+        currency: string;
+        active_site_timezone: string | null;
+        feature_flags: { decision_apply_mode: string };
+      }>(await settingsCall('get_tenant_settings'));
+
+      expect(settings.currency).toBe('EUR');
+      expect(settings.feature_flags.decision_apply_mode).toMatch(
+        /^(shadow|live)$/,
+      );
+      expect(settings.active_site_timezone).toEqual(expect.any(String));
+    });
+
+    it('reports voice translation as configured without returning its secret material', async () => {
+      const result = await settingsCall('get_tenant_settings');
+
+      expect(
+        parsePayload<{
+          feature_flags: { voice_translation: { configured: boolean } };
+        }>(result).feature_flags.voice_translation.configured,
+      ).toBe(true);
+      expect(toolPayloadText(result)).not.toContain(VOICE_PROJECT);
+      expect(toolPayloadText(result)).not.toContain(VOICE_SERVICE_ACCOUNT);
+    });
+
+    it('masks the bank identifiers of the active legal entity to their last four characters', async () => {
+      const result = await settingsCall('get_legal_entity');
+
+      expect(
+        parsePayload<{ bank: Record<string, string> }>(result).bank,
+      ).toEqual({
+        iban: '****3201',
+        bic: '****ATWW',
+        bank_name: '****Wien',
+      });
+      expect(toolPayloadText(result)).not.toContain(BANK_IBAN);
+    });
+
+    it('lists only the session tenant sites, with an address summary and an active flag', async () => {
+      const page = parsePayload<{
+        data: { id: string; active: boolean; address_summary: string | null }[];
+      }>(await settingsCall('list_sites', { pageSize: 25 }));
+      const ids = page.data.map((row) => row.id);
+
+      expect(ids).toContain(fixtures.siteId);
+      expect(ids).not.toContain(tenantBSiteId);
+      expect(page.data.every((row) => typeof row.active === 'boolean')).toBe(
+        true,
+      );
+    });
+
+    it('pages list_sites with pageSize and an opaque cursor, without gaps or repeats', async () => {
+      const everySite = parsePayload<{ data: { id: string }[] }>(
+        await settingsCall('list_sites', { pageSize: 25 }),
+      ).data.map((row) => row.id);
+      expect(everySite).toEqual(
+        expect.arrayContaining([fixtures.siteId, secondSiteId]),
+      );
+      expect(everySite.length).toBeGreaterThanOrEqual(2);
+
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = parsePayload<{
+          data: { id: string }[];
+          meta: { next_cursor: string | null };
+        }>(await settingsCall('list_sites', { pageSize: 1, cursor }));
+        expect(page.data).toHaveLength(1);
+        seen.push(page.data[0].id);
+        cursor = page.meta.next_cursor ?? undefined;
+      } while (cursor !== undefined && seen.length <= everySite.length);
+
+      expect(seen).toEqual(everySite);
+    });
+
+    it.each<[string, Record<string, unknown>]>([
+      ['list_sites', { pageSize: 26 }],
+      ['list_sites', { cursor: 'not a cursor!' }],
+      ['get_legal_entity', { legal_entity_id: 'not-a-uuid' }],
+    ])('rejects an invalid %s call: %j', async (toolName, args) => {
+      const result = await settingsCall(toolName, args);
+
+      expect(result.isError).toBe(true);
+    });
+
+    it('returns an error for a legal entity of another tenant', async () => {
+      const result = await settingsCall('get_legal_entity', {
+        legal_entity_id: tenantBLegalEntityId,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).not.toContain(tenantBLegalEntityName);
+    });
+
+    it('shows tenant B none of the settings of tenant A', async () => {
+      const result = await withMcpSession(
+        adminHeaderB,
+        'e2e-settings-tenant-b',
+        (session) => session.call('get_tenant_settings', {}),
+      );
+      const payload = toolPayloadText(result);
+
+      expect(result.isError).not.toBe(true);
+      expect(payload).not.toContain(VOICE_PROJECT);
+      expect(payload).not.toContain(BANK_IBAN);
+      expect(payload).not.toContain(fixtures.legalEntityId);
     });
   });
 
