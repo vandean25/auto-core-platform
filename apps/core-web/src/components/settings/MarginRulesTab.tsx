@@ -297,7 +297,7 @@ export function MarginRulesTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-medium">Aktive Regeln</CardTitle>
+          <CardTitle as="h3" className="text-base font-medium">Aktive Regeln</CardTitle>
           <CardDescription>
             Regeln werden von oben nach unten (niedrigste Priorität zuerst) ausgewertet. Die erste passende Regel greift.
           </CardDescription>
