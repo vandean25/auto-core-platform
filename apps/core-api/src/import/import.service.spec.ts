@@ -1,5 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import {
   AuditLogAction,
   ImportEntityType,
@@ -7,116 +5,11 @@ import {
   ImportRowAction,
   Prisma,
 } from '@prisma/client';
-import { ImportService } from './import.service.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { DecisionUseCaseHooksService } from '../decision/decision-use-case-hooks.service.js';
-import { DecisionLiveApplyService } from '../decision/decision-live-apply.service.js';
-import { RequestContextService } from '../common/services/request-context.service.js';
 import { IMPORT_ERROR_CODES } from './import.constants.js';
+import { setupImportHarness } from './import.service.spec.support.js';
 
 describe('ImportService - Supplier Price List', () => {
-  let service: ImportService;
-
-  const mockPrisma: any = {
-    user: {
-      findUnique: jest.fn(),
-    },
-    tenantMember: {
-      findFirst: jest.fn(),
-    },
-    vendor: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-    },
-    marginRule: {
-      findMany: jest.fn(),
-    },
-    brand: {
-      findMany: jest.fn(),
-    },
-    financeSettings: {
-      findFirst: jest.fn(),
-    },
-    catalogItem: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
-      create: jest.fn(),
-    },
-    vendorArticle: {
-      findFirst: jest.fn(),
-      findMany: jest.fn(),
-      upsert: jest.fn(),
-    },
-    catalogPriceHistory: {
-      create: jest.fn(),
-    },
-    importJob: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-      findFirstOrThrow: jest.fn(),
-      updateMany: jest.fn(),
-      update: jest.fn(),
-    },
-    importJobRow: {
-      findMany: jest.fn(),
-      update: jest.fn(),
-    },
-    auditLog: {
-      create: jest.fn(),
-    },
-    $transaction: jest.fn((callback) => callback(mockPrisma)),
-  };
-
-  const mockTenantContext = {
-    getTenantId: jest.fn().mockResolvedValue('tenant-1'),
-    getAuthenticatedUser: jest.fn().mockReturnValue({
-      userId: 'user-admin-uid',
-      role: 'ADMIN',
-      email: 'admin@example.com',
-    }),
-  };
-
-  const mockDecisionHooks = {
-    scheduleCustomerImportDryRunShadows: jest.fn(),
-  };
-
-  const mockDecisionLive = {
-    applyCustomerImportDecisions: jest
-      .fn()
-      .mockResolvedValue({ mode: 'shadow' }),
-  };
-
-  const mockRequestContext = {
-    getTraceId: jest.fn().mockReturnValue('trace-123'),
-  };
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ImportService,
-        { provide: PrismaService, useValue: mockPrisma },
-        { provide: TenantContextService, useValue: mockTenantContext },
-        { provide: DecisionUseCaseHooksService, useValue: mockDecisionHooks },
-        { provide: DecisionLiveApplyService, useValue: mockDecisionLive },
-        { provide: RequestContextService, useValue: mockRequestContext },
-      ],
-    }).compile();
-
-    service = module.get<ImportService>(ImportService);
-    jest.clearAllMocks();
-
-    mockTenantContext.getTenantId.mockResolvedValue('tenant-1');
-    mockTenantContext.getAuthenticatedUser.mockReturnValue({
-      userId: 'user-admin-uid',
-      role: 'ADMIN',
-      email: 'admin@example.com',
-    });
-
-    mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-db-id' });
-    mockPrisma.tenantMember.findFirst.mockResolvedValue({ id: 'member-db-id' });
-  });
+  const h = setupImportHarness();
 
   describe('createDryRunFromUpload for SUPPLIER_PRICE_LIST', () => {
     const validCsv = Buffer.from(
@@ -132,11 +25,11 @@ describe('ImportService - Supplier Price List', () => {
     } as Express.Multer.File;
 
     it('throws SUPPLIER_VENDOR_REQUIRED if vendor is not found for tenant', async () => {
-      mockPrisma.vendor.findFirst.mockResolvedValue(null);
-      mockPrisma.vendor.findMany.mockResolvedValue([]);
+      h.prisma.vendor.findFirst.mockResolvedValue(null);
+      h.prisma.vendor.findMany.mockResolvedValue([]);
 
       await expect(
-        service.createDryRunFromUpload({
+        h.service.createDryRunFromUpload({
           file,
           entityType: ImportEntityType.SUPPLIER_PRICE_LIST,
           sourceSystem: 'non-existent-vendor',
@@ -155,7 +48,7 @@ describe('ImportService - Supplier Price List', () => {
         }),
       );
 
-      expect(mockPrisma.vendor.findMany).toHaveBeenCalledWith(
+      expect(h.prisma.vendor.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ tenant_id: 'tenant-1' }),
         }),
@@ -163,17 +56,17 @@ describe('ImportService - Supplier Price List', () => {
     });
 
     it('runs dry run with matching, margin calculation, and price jump flagging', async () => {
-      mockPrisma.vendor.findFirst.mockResolvedValue({
+      h.prisma.vendor.findFirst.mockResolvedValue({
         id: 'vendor-1',
         name: 'Autoteile Partner',
       });
-      mockPrisma.vendor.findMany.mockResolvedValue([
+      h.prisma.vendor.findMany.mockResolvedValue([
         {
           id: 'vendor-1',
           name: 'Autoteile Partner',
         },
       ]);
-      mockPrisma.marginRule.findMany.mockResolvedValue([
+      h.prisma.marginRule.findMany.mockResolvedValue([
         {
           id: 'rule-1',
           priority: 1,
@@ -187,14 +80,14 @@ describe('ImportService - Supplier Price List', () => {
           is_active: true,
         },
       ]);
-      mockPrisma.brand.findMany.mockResolvedValue([]);
-      mockPrisma.financeSettings.findFirst.mockResolvedValue({
+      h.prisma.brand.findMany.mockResolvedValue([]);
+      h.prisma.financeSettings.findFirst.mockResolvedValue({
         price_jump_threshold_percent: new Prisma.Decimal(20),
       });
 
       // Item 1 matches by EAN (old cost: 20 -> new cost 50 is a 150% jump!)
       // Item 2 unmatched
-      mockPrisma.catalogItem.findMany.mockResolvedValue([
+      h.prisma.catalogItem.findMany.mockResolvedValue([
         {
           id: 'item-1',
           sku: 'SKU-001',
@@ -206,9 +99,9 @@ describe('ImportService - Supplier Price List', () => {
           revenue_group_id: null,
         },
       ]);
-      mockPrisma.vendorArticle.findMany.mockResolvedValue([]);
+      h.prisma.vendorArticle.findMany.mockResolvedValue([]);
 
-      mockPrisma.importJob.create.mockImplementation(({ data }: any) => ({
+      h.prisma.importJob.create.mockImplementation(({ data }: any) => ({
         id: 'job-1',
         entity_type: data.entity_type,
         source_system: data.source_system,
@@ -223,7 +116,7 @@ describe('ImportService - Supplier Price List', () => {
         appliedAt: null,
       }));
 
-      const result = await service.createDryRunFromUpload({
+      const result = await h.service.createDryRunFromUpload({
         file,
         entityType: ImportEntityType.SUPPLIER_PRICE_LIST,
         sourceSystem: 'vendor-1',
@@ -239,8 +132,8 @@ describe('ImportService - Supplier Price List', () => {
         },
       });
 
-      expect(mockPrisma.importJob.create).toHaveBeenCalled();
-      const createdCall = mockPrisma.importJob.create.mock.calls[0][0];
+      expect(h.prisma.importJob.create).toHaveBeenCalled();
+      const createdCall = h.prisma.importJob.create.mock.calls[0][0];
 
       // Item 1 is UPDATE (price jump flagged), Item 2 is CREATE
       expect(createdCall.data.totals_json).toEqual({
@@ -263,7 +156,7 @@ describe('ImportService - Supplier Price List', () => {
 
   describe('applyJob for SUPPLIER_PRICE_LIST', () => {
     it('throws PRICE_JUMP_REQUIRES_ACCEPTANCE when flagged row is not accepted', async () => {
-      mockPrisma.importJob.findFirst.mockResolvedValue({
+      h.prisma.importJob.findFirst.mockResolvedValue({
         id: 'job-1',
         tenant_id: 'tenant-1',
         entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
@@ -272,7 +165,7 @@ describe('ImportService - Supplier Price List', () => {
         options_json: { vendor_id: 'vendor-1' },
       });
 
-      mockPrisma.importJobRow.findMany.mockResolvedValue([
+      h.prisma.importJobRow.findMany.mockResolvedValue([
         {
           tenant_id: 'tenant-1',
           import_job_id: 'job-1',
@@ -289,7 +182,7 @@ describe('ImportService - Supplier Price List', () => {
         },
       ]);
 
-      await expect(service.applyJob('job-1')).rejects.toThrow(
+      await expect(h.service.applyJob('job-1')).rejects.toThrow(
         expect.objectContaining({
           response: expect.objectContaining({
             code: IMPORT_ERROR_CODES.PRICE_JUMP_REQUIRES_ACCEPTANCE,
@@ -299,7 +192,7 @@ describe('ImportService - Supplier Price List', () => {
     });
 
     it('succeeds when accept_all_price_jumps is true and executes atomic transaction', async () => {
-      mockPrisma.importJob.findFirst.mockResolvedValue({
+      h.prisma.importJob.findFirst.mockResolvedValue({
         id: 'job-1',
         tenant_id: 'tenant-1',
         entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
@@ -307,14 +200,14 @@ describe('ImportService - Supplier Price List', () => {
         status: ImportJobStatus.DRY_RUN_DONE,
         options_json: { vendor_id: 'vendor-1' },
       });
-      mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.vendor.findFirst.mockResolvedValue({
+      h.prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+      h.prisma.vendor.findFirst.mockResolvedValue({
         id: 'vendor-1',
         name: 'Vendor 1',
       });
-      mockPrisma.vendorArticle.findFirst.mockResolvedValue(null);
+      h.prisma.vendorArticle.findFirst.mockResolvedValue(null);
 
-      mockPrisma.importJobRow.findMany.mockResolvedValue([
+      h.prisma.importJobRow.findMany.mockResolvedValue([
         {
           tenant_id: 'tenant-1',
           import_job_id: 'job-1',
@@ -349,19 +242,19 @@ describe('ImportService - Supplier Price List', () => {
         },
       ]);
 
-      mockPrisma.catalogItem.findFirst.mockResolvedValue({
+      h.prisma.catalogItem.findFirst.mockResolvedValue({
         id: 'item-1',
         cost_price: new Prisma.Decimal(50),
         retail_price: new Prisma.Decimal(80),
       });
 
-      mockPrisma.catalogItem.create.mockResolvedValue({
+      h.prisma.catalogItem.create.mockResolvedValue({
         id: 'item-2',
         sku: 'ART-200',
         name: 'New Oil Filter',
       });
 
-      mockPrisma.importJob.update.mockResolvedValue({
+      h.prisma.importJob.update.mockResolvedValue({
         id: 'job-1',
         status: ImportJobStatus.APPLIED,
         totals_json: { rows: 2, create: 1, update: 1, skip: 0, error: 0 },
@@ -369,16 +262,16 @@ describe('ImportService - Supplier Price List', () => {
         appliedAt: new Date(),
       });
 
-      const result = await service.applyJob('job-1', {
+      const result = await h.service.applyJob('job-1', {
         accept_all_price_jumps: true,
       });
 
       // UPDATE verification
-      expect(mockPrisma.catalogItem.update).toHaveBeenCalledWith({
+      expect(h.prisma.catalogItem.update).toHaveBeenCalledWith({
         where: { id: 'item-1' },
         data: { cost_price: 100, retail_price: 150 },
       });
-      expect(mockPrisma.catalogPriceHistory.create).toHaveBeenCalledWith({
+      expect(h.prisma.catalogPriceHistory.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: 'tenant-1',
           catalog_item_id: 'item-1',
@@ -389,7 +282,7 @@ describe('ImportService - Supplier Price List', () => {
           import_job_id: 'job-1',
         }),
       });
-      expect(mockPrisma.vendorArticle.upsert).toHaveBeenCalledWith({
+      expect(h.prisma.vendorArticle.upsert).toHaveBeenCalledWith({
         where: {
           tenant_id_vendor_id_vendor_article_no: {
             tenant_id: 'tenant-1',
@@ -413,7 +306,7 @@ describe('ImportService - Supplier Price List', () => {
       });
 
       // CREATE verification
-      expect(mockPrisma.catalogItem.create).toHaveBeenCalledWith({
+      expect(h.prisma.catalogItem.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenant_id: 'tenant-1',
           sku: 'ART-200',
@@ -423,7 +316,7 @@ describe('ImportService - Supplier Price List', () => {
         }),
       });
 
-      expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+      expect(h.prisma.auditLog.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
             tenant_id: 'tenant-1',
@@ -438,7 +331,7 @@ describe('ImportService - Supplier Price List', () => {
     });
 
     it('is idempotent: when prices are unchanged, skips CatalogItem update and CatalogPriceHistory, but upserts VendorArticle', async () => {
-      mockPrisma.importJob.findFirst.mockResolvedValue({
+      h.prisma.importJob.findFirst.mockResolvedValue({
         id: 'job-idempotent',
         tenant_id: 'tenant-1',
         entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
@@ -446,13 +339,13 @@ describe('ImportService - Supplier Price List', () => {
         status: ImportJobStatus.DRY_RUN_DONE,
         options_json: { vendor_id: 'vendor-1' },
       });
-      mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.vendor.findFirst.mockResolvedValue({
+      h.prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+      h.prisma.vendor.findFirst.mockResolvedValue({
         id: 'vendor-1',
         name: 'Vendor 1',
       });
 
-      mockPrisma.importJobRow.findMany.mockResolvedValue([
+      h.prisma.importJobRow.findMany.mockResolvedValue([
         {
           tenant_id: 'tenant-1',
           import_job_id: 'job-idempotent',
@@ -470,13 +363,13 @@ describe('ImportService - Supplier Price List', () => {
         },
       ]);
 
-      mockPrisma.catalogItem.findFirst.mockResolvedValue({
+      h.prisma.catalogItem.findFirst.mockResolvedValue({
         id: 'item-1',
         cost_price: new Prisma.Decimal(50),
         retail_price: new Prisma.Decimal(80),
       });
 
-      mockPrisma.importJob.update.mockResolvedValue({
+      h.prisma.importJob.update.mockResolvedValue({
         id: 'job-idempotent',
         status: ImportJobStatus.APPLIED,
         totals_json: { rows: 1, create: 0, update: 1, skip: 0, error: 0 },
@@ -484,14 +377,14 @@ describe('ImportService - Supplier Price List', () => {
         appliedAt: new Date(),
       });
 
-      const result = await service.applyJob('job-idempotent');
+      const result = await h.service.applyJob('job-idempotent');
 
       // Prices unchanged: CatalogItem not updated, no CatalogPriceHistory created
-      expect(mockPrisma.catalogItem.update).not.toHaveBeenCalled();
-      expect(mockPrisma.catalogPriceHistory.create).not.toHaveBeenCalled();
+      expect(h.prisma.catalogItem.update).not.toHaveBeenCalled();
+      expect(h.prisma.catalogPriceHistory.create).not.toHaveBeenCalled();
 
       // But VendorArticle IS upserted
-      expect(mockPrisma.vendorArticle.upsert).toHaveBeenCalledWith({
+      expect(h.prisma.vendorArticle.upsert).toHaveBeenCalledWith({
         where: {
           tenant_id_vendor_id_vendor_article_no: {
             tenant_id: 'tenant-1',
@@ -518,7 +411,7 @@ describe('ImportService - Supplier Price List', () => {
     });
 
     it('succeeds when all flagged rows are in accepted_row_numbers', async () => {
-      mockPrisma.importJob.findFirst.mockResolvedValue({
+      h.prisma.importJob.findFirst.mockResolvedValue({
         id: 'job-accepted-rows',
         tenant_id: 'tenant-1',
         entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
@@ -526,13 +419,13 @@ describe('ImportService - Supplier Price List', () => {
         status: ImportJobStatus.DRY_RUN_DONE,
         options_json: { vendor_id: 'vendor-1' },
       });
-      mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-      mockPrisma.vendor.findFirst.mockResolvedValue({
+      h.prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+      h.prisma.vendor.findFirst.mockResolvedValue({
         id: 'vendor-1',
         name: 'Vendor 1',
       });
 
-      mockPrisma.importJobRow.findMany.mockResolvedValue([
+      h.prisma.importJobRow.findMany.mockResolvedValue([
         {
           tenant_id: 'tenant-1',
           import_job_id: 'job-accepted-rows',
@@ -549,13 +442,13 @@ describe('ImportService - Supplier Price List', () => {
         },
       ]);
 
-      mockPrisma.catalogItem.findFirst.mockResolvedValue({
+      h.prisma.catalogItem.findFirst.mockResolvedValue({
         id: 'item-1',
         cost_price: new Prisma.Decimal(50),
         retail_price: new Prisma.Decimal(100),
       });
 
-      mockPrisma.importJob.update.mockResolvedValue({
+      h.prisma.importJob.update.mockResolvedValue({
         id: 'job-accepted-rows',
         status: ImportJobStatus.APPLIED,
         totals_json: { rows: 1, create: 0, update: 1, skip: 0, error: 0 },
@@ -564,16 +457,16 @@ describe('ImportService - Supplier Price List', () => {
       });
 
       // Passing accepted_row_numbers: [5] accepts row 5
-      const result = await service.applyJob('job-accepted-rows', {
+      const result = await h.service.applyJob('job-accepted-rows', {
         accepted_row_numbers: [5],
       });
 
       expect(result.status).toBe(ImportJobStatus.APPLIED);
-      expect(mockPrisma.catalogPriceHistory.create).toHaveBeenCalled();
+      expect(h.prisma.catalogPriceHistory.create).toHaveBeenCalled();
     });
 
     it('fails when accepted_row_numbers does not include a flagged row', async () => {
-      mockPrisma.importJob.findFirst.mockResolvedValue({
+      h.prisma.importJob.findFirst.mockResolvedValue({
         id: 'job-partial',
         tenant_id: 'tenant-1',
         entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
@@ -582,7 +475,7 @@ describe('ImportService - Supplier Price List', () => {
         options_json: { vendor_id: 'vendor-1' },
       });
 
-      mockPrisma.importJobRow.findMany.mockResolvedValue([
+      h.prisma.importJobRow.findMany.mockResolvedValue([
         {
           tenant_id: 'tenant-1',
           import_job_id: 'job-partial',
@@ -615,7 +508,7 @@ describe('ImportService - Supplier Price List', () => {
 
       // Only row 1 accepted, row 2 not accepted -> throws
       await expect(
-        service.applyJob('job-partial', {
+        h.service.applyJob('job-partial', {
           accepted_row_numbers: [1],
         }),
       ).rejects.toThrow(
@@ -647,7 +540,7 @@ describe('ImportService - Supplier Price List', () => {
       });
 
       const arrangeApply = (jobId: string, rows: unknown[]) => {
-        mockPrisma.importJob.findFirst.mockResolvedValue({
+        h.prisma.importJob.findFirst.mockResolvedValue({
           id: jobId,
           tenant_id: 'tenant-1',
           entity_type: ImportEntityType.SUPPLIER_PRICE_LIST,
@@ -655,26 +548,24 @@ describe('ImportService - Supplier Price List', () => {
           status: ImportJobStatus.DRY_RUN_DONE,
           options_json: { vendor_id: 'vendor-1' },
         });
-        mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 });
-        mockPrisma.vendor.findFirst.mockResolvedValue({
+        h.prisma.importJob.updateMany.mockResolvedValue({ count: 1 });
+        h.prisma.vendor.findFirst.mockResolvedValue({
           id: 'vendor-1',
           name: 'Vendor 1',
         });
-        mockPrisma.vendorArticle.findFirst.mockResolvedValue(null);
-        mockPrisma.vendorArticle.upsert.mockResolvedValue({});
-        mockPrisma.catalogPriceHistory.create.mockResolvedValue({});
-        mockPrisma.importJobRow.findMany.mockResolvedValue(rows);
-        mockPrisma.importJobRow.update.mockResolvedValue({});
-        mockPrisma.auditLog.create.mockResolvedValue({});
-        mockPrisma.importJob.update.mockImplementation(
-          async ({ data }: any) => ({
-            id: jobId,
-            status: data.status,
-            totals_json: data.totals_json,
-            createdAt: new Date(),
-            appliedAt: data.appliedAt ?? null,
-          }),
-        );
+        h.prisma.vendorArticle.findFirst.mockResolvedValue(null);
+        h.prisma.vendorArticle.upsert.mockResolvedValue({});
+        h.prisma.catalogPriceHistory.create.mockResolvedValue({});
+        h.prisma.importJobRow.findMany.mockResolvedValue(rows);
+        h.prisma.importJobRow.update.mockResolvedValue({});
+        h.prisma.auditLog.create.mockResolvedValue({});
+        h.prisma.importJob.update.mockImplementation(async ({ data }: any) => ({
+          id: jobId,
+          status: data.status,
+          totals_json: data.totals_json,
+          createdAt: new Date(),
+          appliedAt: data.appliedAt ?? null,
+        }));
       };
 
       const uniqueViolation = () =>
@@ -691,7 +582,7 @@ describe('ImportService - Supplier Price List', () => {
           createRow(4, 'ART-DUPLICATE'),
           createRow(5, 'ART-NEW-5'),
         ]);
-        mockPrisma.catalogItem.create.mockImplementation(
+        h.prisma.catalogItem.create.mockImplementation(
           async ({ data }: any) => {
             if (data.sku === 'ART-DUPLICATE') {
               throw uniqueViolation();
@@ -700,7 +591,7 @@ describe('ImportService - Supplier Price List', () => {
           },
         );
 
-        const result = await service.applyJob('job-chunk');
+        const result = await h.service.applyJob('job-chunk');
 
         const expectedTotals = {
           rows: 5,
@@ -710,7 +601,7 @@ describe('ImportService - Supplier Price List', () => {
           error: 2,
         };
         expect(result.totals).toEqual(expectedTotals);
-        expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+        expect(h.prisma.importJob.update).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({
               status: ImportJobStatus.APPLIED,
@@ -718,7 +609,7 @@ describe('ImportService - Supplier Price List', () => {
             }),
           }),
         );
-        expect(mockPrisma.importJobRow.update).toHaveBeenCalledWith({
+        expect(h.prisma.importJobRow.update).toHaveBeenCalledWith({
           where: {
             tenant_id_import_job_id_row_no: {
               tenant_id: 'tenant-1',
@@ -743,7 +634,7 @@ describe('ImportService - Supplier Price List', () => {
           createRow(1, 'ART-OK-1'),
           createRow(2, 'ART-CONN-2'),
         ]);
-        mockPrisma.catalogItem.create.mockImplementation(
+        h.prisma.catalogItem.create.mockImplementation(
           async ({ data }: any) => {
             if (data.sku === 'ART-CONN-2') {
               throw new Error('Connection lost');
@@ -752,18 +643,18 @@ describe('ImportService - Supplier Price List', () => {
           },
         );
 
-        await expect(service.applyJob('job-conn-lost')).rejects.toThrow(
+        await expect(h.service.applyJob('job-conn-lost')).rejects.toThrow(
           'Connection lost',
         );
 
-        expect(mockPrisma.importJob.updateMany).toHaveBeenCalledWith({
+        expect(h.prisma.importJob.updateMany).toHaveBeenCalledWith({
           where: { id: 'job-conn-lost', status: ImportJobStatus.APPLYING },
           data: {
             status: ImportJobStatus.FAILED,
             totals_json: { rows: 2, create: 1, update: 0, skip: 0, error: 0 },
           },
         });
-        expect(mockPrisma.importJob.update).not.toHaveBeenCalledWith(
+        expect(h.prisma.importJob.update).not.toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({ status: ImportJobStatus.APPLIED }),
           }),
@@ -775,23 +666,23 @@ describe('ImportService - Supplier Price List', () => {
           { ...createRow(1, 'ART-SKIP-1'), action: ImportRowAction.SKIP },
         ]);
         const serializeSpy = jest
-          .spyOn(service as any, 'serializeJob')
+          .spyOn(h.service as any, 'serializeJob')
           .mockImplementation(() => {
             throw new Error('serialization failed');
           });
 
-        await expect(service.applyJob('job-post-apply')).rejects.toThrow(
+        await expect(h.service.applyJob('job-post-apply')).rejects.toThrow(
           'serialization failed',
         );
 
-        expect(mockPrisma.importJob.update).toHaveBeenCalledWith(
+        expect(h.prisma.importJob.update).toHaveBeenCalledWith(
           expect.objectContaining({
             data: expect.objectContaining({ status: ImportJobStatus.APPLIED }),
           }),
         );
         const failedWrites = [
-          ...mockPrisma.importJob.update.mock.calls,
-          ...mockPrisma.importJob.updateMany.mock.calls,
+          ...h.prisma.importJob.update.mock.calls,
+          ...h.prisma.importJob.updateMany.mock.calls,
         ].filter(
           ([args]: any[]) => args?.data?.status === ImportJobStatus.FAILED,
         );

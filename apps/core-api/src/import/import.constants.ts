@@ -4,6 +4,9 @@ export const IMPORT_JOB_RETENTION_DAYS = 180;
 
 export const IMPORT_SOURCE = 'import';
 
+// Keeps log lines from the split collaborators under the same context as before.
+export const IMPORT_LOGGER_CONTEXT = 'ImportService';
+
 export const IMPORT_ERROR_CODES = {
   FILE_TOO_LARGE: 'IMPORT_FILE_TOO_LARGE',
   ROW_LIMIT_EXCEEDED: 'IMPORT_ROW_LIMIT_EXCEEDED',
