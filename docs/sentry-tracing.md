@@ -37,12 +37,13 @@ Names and ops are stable, so dashboards and saved searches can rely on them.
 | Agent action | `agent.action` | `mcp/mcp-write-pipeline.service.ts`, one per write call | `agent.action.type`, `agent.policy.tier`, `agent.trace_id` |
 | Evaluate agent policy | `agent.policy.evaluate` | `agent-policy/agent-policy.evaluator.ts` | `agent.policy.tier`, `agent.policy.outcome` (`allowed`, `proposed`, `refused`). The action type is not recorded here; the `agent.action` span carries the trusted tool name. It runs without an `agent.action` parent whenever policy is evaluated outside an MCP write call: the MCP capability listing, `POST /agent-policy/evaluate`, proposal submit and apply, and live decisions |
 | Agent decision | `agent.decision` | MCP pipeline branch (refuse, propose or execute), and each provider call in `decision/decision-provider-span.ts` | MCP: `agent.policy.outcome`. Provider: `agent.decision.provider`, `agent.decision.use_case`, `agent.decision.choice_count`, `agent.decision.outcome` (`suggested` or `none`) |
+| Parse import file | `import.parse` | `import/import.service.ts`, `createDryRunFromUpload`, around the CSV parse | `entity_type` (`CUSTOMER`, `VEHICLE` or `SUPPLIER_PRICE_LIST`), `row_count` (data rows in the file) |
+| Validate import rows | `import.validate` | same method, around the per-type dry run | `entity_type`, `row_count` (planned rows), `error_row_count` (rows with at least one error) |
+| Commit import rows | `import.commit` | `applyJob`, around the per-type apply | `entity_type`, `row_count` (rows the apply stage walks, including error and skip rows) |
 
 Existing spans are unchanged: `cloudtasks.enqueue`, `pdf.generate`, and the PDF renderer spans.
 
-### Import spans
-
-`import.parse`, `import.validate` and `import.commit` are not in this change. They follow in a separate PR, since the AUT-449 split of `import/import.service.ts` has merged.
+The import spans wrap the stages in the `ImportService` facade, which every entity type passes through. Their attributes are the entity type and counts only. Cell values, names, e-mail addresses, file names, row payloads and error text never reach a span. A rejected upload, such as an empty CSV, ends its `import.parse` span with error status, the same as any other thrown error.
 
 ## Attribute rules
 
