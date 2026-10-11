@@ -1,0 +1,133 @@
+import { Logger } from '@nestjs/common';
+import {
+  ImportEntityType,
+  ImportJobStatus,
+  ImportRowAction,
+  Prisma,
+} from '@prisma/client';
+import type { PrismaService } from '../prisma/prisma.service.js';
+import { toRowApplyError } from './import-apply.errors.js';
+import { assertApplyRowIsFresh } from './import-apply.freshness.js';
+import type { ImportAuditWriter } from './import-audit.writer.js';
+import { markImportRowFailed } from './import-job.store.js';
+import { IMPORT_LOGGER_CONTEXT } from './import.constants.js';
+import type {
+  SerializedImportJob,
+  SerializeImportJobFn,
+} from './import-job.serializer.js';
+import { createApplyTotals, tallyWrittenRow } from './import-totals.util.js';
+import type {
+  ImportApplyInput,
+  ImportApplyRow,
+} from './import-type-handler.js';
+import type { ImportJobTotals } from './import.types.js';
+
+/** Writes one planned row inside the transaction that also runs the freshness check. */
+export type ImportRowWriter = (
+  tx: Prisma.TransactionClient,
+  row: ImportApplyRow,
+) => Promise<void>;
+
+function describeCause(error: unknown): string {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code;
+  }
+  return error instanceof Error ? error.name : 'unknown';
+}
+
+/**
+ * Applies a job one row at a time, each row in its own transaction. Any row failure, whatever
+ * its cause, becomes an ERROR row. A failure outside the rows marks the job FAILED and is
+ * rethrown. Customer and vehicle imports use this runner.
+ */
+export class RowByRowApplyRunner {
+  private readonly logger = new Logger(IMPORT_LOGGER_CONTEXT);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: ImportAuditWriter,
+    private readonly serialize: SerializeImportJobFn,
+  ) {}
+
+  async run(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+  ): Promise<SerializedImportJob> {
+    const { tenantId, job, rows, actorUserId } = input;
+    const totals = createApplyTotals(rows.length);
+
+    try {
+      for (const row of rows) {
+        await this.applyOne(input, entityType, writeRow, row, totals);
+      }
+
+      const updated = await this.prisma.importJob.update({
+        where: { id: job.id },
+        data: {
+          status: ImportJobStatus.APPLIED,
+          appliedAt: new Date(),
+          totals_json: totals,
+        },
+      });
+      await this.audit.writeImportJobAudit(
+        this.prisma,
+        tenantId,
+        actorUserId,
+        job.id,
+        'applied',
+        totals,
+      );
+      return this.serialize(updated, totals);
+    } catch (error) {
+      await this.prisma.importJob.update({
+        where: { id: job.id },
+        data: { status: ImportJobStatus.FAILED, totals_json: totals },
+      });
+      throw error;
+    }
+  }
+
+  private async applyOne(
+    input: ImportApplyInput,
+    entityType: ImportEntityType,
+    writeRow: ImportRowWriter,
+    row: ImportApplyRow,
+    totals: ImportJobTotals,
+  ): Promise<void> {
+    if (row.action === ImportRowAction.ERROR) {
+      totals.error += 1;
+      return;
+    }
+    if (row.action === ImportRowAction.SKIP) {
+      totals.skip += 1;
+      return;
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await assertApplyRowIsFresh(
+          tx,
+          input.tenantId,
+          entityType,
+          input.job.source_system,
+          row,
+        );
+        await writeRow(tx, row);
+      });
+      tallyWrittenRow(totals, row.action);
+    } catch (error) {
+      this.logger.warn(
+        `Import apply row failed jobId=${input.job.id} rowNo=${row.row_no} cause=${describeCause(error)}`,
+      );
+      totals.error += 1;
+      await markImportRowFailed(
+        this.prisma,
+        input.tenantId,
+        input.job.id,
+        row.row_no,
+        toRowApplyError(error),
+      );
+    }
+  }
+}
