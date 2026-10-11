@@ -72,4 +72,8 @@ describe('route title table', () => {
     expect(getRouteDocumentTitle('/dashboard')).toBe('Dashboard - Auto Core')
     expect(getRouteDocumentTitle('/no-such-page')).toBe('Page not found - Auto Core')
   })
+
+  it('titles the parts pick queue page with its UI label', () => {
+    expect(getRouteDocumentTitle('/workshop/pick-list')).toBe('Parts pick queue - Auto Core')
+  })
 })
