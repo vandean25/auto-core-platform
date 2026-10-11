@@ -1390,7 +1390,7 @@ export class StockTransferService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     transferId: string,
-    siteIds: readonly string[],
+    siteIds: string[],
   ): Promise<StockTransferWithSitesAndLines> {
     const lines = await tx.stockTransferLine.findMany({
       where: {
@@ -1429,7 +1429,7 @@ export class StockTransferService {
     tx: Prisma.TransactionClient,
     tenantId: string,
     transferId: string,
-    siteIds: readonly string[],
+    siteIds: string[],
     action: StockTransferCommandAction,
     idempotencyKey: string,
     requestBody: unknown,
