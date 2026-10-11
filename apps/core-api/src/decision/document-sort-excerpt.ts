@@ -16,17 +16,18 @@ const DOCUMENT_SORT_EXCERPT_SCAN_CHARS = 4 * DOCUMENT_SORT_EXCERPT_MAX_CHARS;
  * Country code and check digits, then either 11 to 30 alphanumerics with no spaces
  * (the IBAN length range of 15 to 34) or groups of four separated by single spaces,
  * as printed. Spaces are not allowed anywhere else, so neighbouring identifiers
- * such as "RE2026000123 ATU12345678" are not joined into one match.
+ * such as "RE2026000123 ATU12345678" are not joined into one match. The optional last
+ * group must hold a digit, so a word that follows the IBAN is kept.
  */
 const IBAN_PATTERN =
-  /\b[A-Z]{2}\d{2}(?:[A-Z0-9]{11,30}|(?: [A-Z0-9]{4}){2,7}(?: [A-Z0-9]{1,4})?)\b/g;
+  /\b[A-Z]{2}\d{2}(?:[A-Z0-9]{11,30}|(?: [A-Z0-9]{4}){2,7}(?: (?=[A-Z0-9]{0,3}\d)[A-Z0-9]{1,4})?)\b/g;
 
 /**
  * The same form in lowercase. It is a separate pattern so that a lowercase word after
  * an uppercase IBAN is not swallowed by the optional last group.
  */
 const IBAN_LOWERCASE_PATTERN =
-  /\b[a-z]{2}\d{2}(?:[a-z0-9]{11,30}|(?: [a-z0-9]{4}){2,7}(?: [a-z0-9]{1,4})?)\b/g;
+  /\b[a-z]{2}\d{2}(?:[a-z0-9]{11,30}|(?: [a-z0-9]{4}){2,7}(?: (?=[a-z0-9]{0,3}\d)[a-z0-9]{1,4})?)\b/g;
 
 /**
  * A VIN as one unbroken string, or in the 3-3-3-3-5 groups printed with single spaces.

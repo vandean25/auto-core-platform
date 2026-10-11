@@ -137,6 +137,15 @@ describe('document sort excerpt', () => {
     );
   });
 
+  it('keeps a short word that follows an IBAN, in either case', () => {
+    expect(redactDocumentSortText('at61 1904 3002 3457 3201 und danach')).toBe(
+      '[IBAN] und danach',
+    );
+    expect(redactDocumentSortText('AT61 1904 3002 3457 3201 EUR danach')).toBe(
+      '[IBAN] EUR danach',
+    );
+  });
+
   it('stays within the cap for very long text', () => {
     const excerpt = buildDocumentSortExcerpt('Angebot '.repeat(100_000));
 
