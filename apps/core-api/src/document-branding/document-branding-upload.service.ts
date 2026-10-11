@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { DocumentBrandAsset } from '@prisma/client';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -34,6 +35,7 @@ export class DocumentBrandingUploadService {
     private readonly tenantContext: TenantContextService,
     private readonly storage: DocumentBrandingAssetStorage,
     private readonly tasks: DocumentBrandingUploadTaskService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async upload(
@@ -192,7 +194,11 @@ export class DocumentBrandingUploadService {
       throw error;
     }
     try {
-      await this.tasks.enqueue({ assetId, tenantId });
+      await this.tasks.enqueue({
+        assetId,
+        tenantId,
+        traceId: this.requestContext.getTraceId(),
+      });
       await this.prisma.documentBrandAsset.updateMany({
         where: { id: assetId, tenant_id: tenantId, state: 'QUARANTINED' },
         data: { validation_dispatched_at: new Date() },

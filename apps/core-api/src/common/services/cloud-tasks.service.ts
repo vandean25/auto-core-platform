@@ -320,6 +320,7 @@ export class CloudTasksService {
     assetId: string;
     tenantId: string;
     targetBaseUrl: string;
+    traceId?: string;
   }): Promise<{ taskId: string }> {
     SideEffectGuard.assertAllowed('QUEUE_ENQUEUE');
     if (!this.isEnabled()) {
@@ -362,6 +363,8 @@ export class CloudTasksService {
             'Content-Type': 'application/json',
             'x-cloud-tasks-secret': workerSecret,
             'x-tenant-id': params.tenantId,
+            // Carries the upload's trace id into the validation worker's request.
+            ...(params.traceId ? { 'x-trace-id': params.traceId } : {}),
           },
           body: Buffer.from(
             JSON.stringify(

@@ -39,8 +39,14 @@ import {
 import {
   buildDocumentSortCase,
   DecisionUseCaseHooksService,
+  type DocumentSortCase,
   type ImportRowMatchingCase,
 } from './decision-use-case-hooks.service.js';
+import {
+  buildDocumentSortExcerpt,
+  documentSortExcerptAudit,
+  type DocumentSortLiveInput,
+} from './document-sort-excerpt.js';
 import type {
   DecisionChoiceInput,
   DecisionResult,
@@ -93,7 +99,7 @@ type LiveDecision = {
   reason: DecisionLiveReason | null;
   entityType: string;
   entityId: string;
-  /** Redacted with redactShadowParams. Never raw customer data. */
+  /** Redacted with redactShadowParams. Never raw customer data or document text. */
   redactedInput: unknown;
   redactedChoices: string[];
   redactedRulesChoice: string;
@@ -209,8 +215,9 @@ export class DecisionLiveApplyService {
 
   /**
    * Doc sort: the heuristic is final unless it returns Sonstiges. Only that gap
-   * is sent to Jev. Runs after the asset is READY, so AUTO never writes a type to
-   * a rejected or quarantined asset.
+   * is sent to Jev, as the signals plus a redacted, capped text excerpt. The audit
+   * row keeps the excerpt's length and hash, never its text. Runs after the asset
+   * is READY, so AUTO never writes a type to a rejected or quarantined asset.
    */
   async applyDocumentSortForAsset(params: {
     tenantId: string;
@@ -242,10 +249,16 @@ export class DecisionLiveApplyService {
           source: 'heuristic_classifier',
         },
       });
+      const excerpt = buildDocumentSortExcerpt(params.text);
+      const signalsInput = redacted.input as DocumentSortCase['input'];
+      const providerInput = {
+        ...signalsInput,
+        text_excerpt: excerpt.text,
+      } satisfies DocumentSortLiveInput;
       const providerCall = await this.askProvider(
         {
           useCase: DECISION_USE_CASES.DOCUMENT_SORT,
-          input: redacted.input,
+          input: providerInput,
           choices: redacted.choices,
         },
         Date.now() + readDecisionHttpTimeoutMs(),
@@ -311,7 +324,10 @@ export class DecisionLiveApplyService {
         reason,
         entityType: 'DocumentBrandAsset',
         entityId: params.assetId,
-        redactedInput: redacted.input,
+        redactedInput: {
+          ...signalsInput,
+          ...documentSortExcerptAudit(excerpt),
+        },
         redactedChoices: redacted.choices,
         redactedRulesChoice: redacted.actualOutcome.choice,
         redactedSuggestedChoice: providerCall.ok

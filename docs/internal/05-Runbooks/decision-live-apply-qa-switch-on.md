@@ -51,3 +51,4 @@ A tenant policy rule can only be stricter than the platform row. It can set `HUM
 - Jev suggestions reach people only as PROPOSE items. The AE4 human-facing gate is not yet passed (see the decision spec), so testers should not treat a suggestion as correct.
 - A live import dry-run can take up to about 2× `DECISION_HTTP_TIMEOUT_MS` longer.
 - An approved document type is stored on the branding asset (`document_sort_type`). Nothing reads it yet.
+- Live document sort sends a redacted excerpt of the document text (at most 1500 characters) to Jev (AUT-491). Names and street addresses are not redacted. Get the data-protection sign-off for this flow before enabling live for a tenant with real documents. Only the excerpt's length and hash are stored in the audit row.
