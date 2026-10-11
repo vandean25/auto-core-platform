@@ -2767,6 +2767,7 @@ describe('MCP server (e2e)', () => {
     let tenantBSiteId: string;
     let tenantBLegalEntityId: string;
     let tenantBLegalEntityName: string;
+    let secondSiteId: string;
 
     beforeAll(async () => {
       await inTenant(tenantA, async () => {
@@ -2791,6 +2792,18 @@ describe('MCP server (e2e)', () => {
           },
         });
       });
+
+      // A second active site, so list_sites has more than one page to walk.
+      const second = await inTenant(tenantA, () =>
+        prisma.site.create({
+          data: {
+            legal_entity_id: fixtures.legalEntityId,
+            code: 'E2E-2',
+            name: 'Zweigstelle E2E',
+          },
+        }),
+      );
+      secondSiteId = second.id;
 
       tenantBSiteId = await resolveTestMainSiteId(prisma, tenantB);
       const site = await inTenant(tenantB, () =>
@@ -2902,24 +2915,28 @@ describe('MCP server (e2e)', () => {
       );
     });
 
-    it('pages list_sites with pageSize and an opaque cursor without repeating a site', async () => {
-      const first = parsePayload<{
-        data: { id: string }[];
-        meta: { next_cursor: string | null };
-      }>(await settingsCall('list_sites', { pageSize: 1 }));
-      expect(first.data).toHaveLength(1);
+    it('pages list_sites with pageSize and an opaque cursor, without gaps or repeats', async () => {
+      const everySite = parsePayload<{ data: { id: string }[] }>(
+        await settingsCall('list_sites', { pageSize: 25 }),
+      ).data.map((row) => row.id);
+      expect(everySite).toEqual(
+        expect.arrayContaining([fixtures.siteId, secondSiteId]),
+      );
+      expect(everySite.length).toBeGreaterThanOrEqual(2);
 
-      const seen = [first.data[0].id];
-      if (first.meta.next_cursor) {
-        const second = parsePayload<{ data: { id: string }[] }>(
-          await settingsCall('list_sites', {
-            pageSize: 1,
-            cursor: first.meta.next_cursor,
-          }),
-        );
-        seen.push(...second.data.map((row) => row.id));
-      }
-      expect(new Set(seen).size).toBe(seen.length);
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = parsePayload<{
+          data: { id: string }[];
+          meta: { next_cursor: string | null };
+        }>(await settingsCall('list_sites', { pageSize: 1, cursor }));
+        expect(page.data).toHaveLength(1);
+        seen.push(page.data[0].id);
+        cursor = page.meta.next_cursor ?? undefined;
+      } while (cursor !== undefined && seen.length <= everySite.length);
+
+      expect(seen).toEqual(everySite);
     });
 
     it.each<[string, Record<string, unknown>]>([

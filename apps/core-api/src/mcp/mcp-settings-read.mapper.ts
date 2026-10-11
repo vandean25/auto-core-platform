@@ -44,8 +44,9 @@ function isPresent(value: string | null): value is string {
 
 /**
  * A bank identifier reduced to its last four characters, so two accounts can
- * still be told apart without the full value reaching the agent. A value of
- * four characters or fewer shows only the mask.
+ * still be told apart without the full value reaching the agent. A short value
+ * shows at most half of its characters, and a value of four characters or
+ * fewer shows only the mask.
  */
 export function maskBankValue(value: string | null | undefined): string | null {
   const trimmed = trimmedOrNull(value);
@@ -55,7 +56,11 @@ export function maskBankValue(value: string | null | undefined): string | null {
   if (trimmed.length <= BANK_VISIBLE_CHARACTERS) {
     return BANK_MASK;
   }
-  return `${BANK_MASK}${trimmed.slice(-BANK_VISIBLE_CHARACTERS)}`;
+  const visible = Math.min(
+    BANK_VISIBLE_CHARACTERS,
+    Math.floor(trimmed.length / 2),
+  );
+  return `${BANK_MASK}${trimmed.slice(-visible)}`;
 }
 
 function formatMonthDay(month: number, day: number): string {

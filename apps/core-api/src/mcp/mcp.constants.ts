@@ -16,8 +16,8 @@ export const MCP_DEFAULT_PAGE_SIZE = 10;
 export const MCP_MAX_PAGE_SIZE = 25;
 
 /**
- * get_capabilities pages the catalog at MCP_MAX_PAGE_SIZE. After AUT-459 the catalog holds
- * 28 tools, so a default call returns the first 25 and `meta.next_cursor` leads to the rest.
+ * get_capabilities pages the catalog at MCP_MAX_PAGE_SIZE. The catalog holds more tools than
+ * one page, so a default call returns the first 25 and `meta.next_cursor` leads to the rest.
  */
 export const MCP_CAPABILITIES_DEFAULT_PAGE_SIZE = MCP_MAX_PAGE_SIZE;
 

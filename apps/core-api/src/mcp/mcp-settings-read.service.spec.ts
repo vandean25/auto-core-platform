@@ -230,13 +230,30 @@ const tables = {
       stock_transfer_prefix: 'TR-2026-',
       next_stock_transfer_number: 5,
     },
+    {
+      tenant_id: TENANT_B,
+      sales_order_prefix: 'SO-B-2026-',
+      next_sales_order_number: 7,
+      workshop_order_prefix: 'WO-B-2026-',
+      next_workshop_order_number: 3,
+      vehicle_purchase_prefix: 'VP-B-2026-',
+      next_vehicle_purchase_number: 1,
+      vehicle_sale_prefix: 'VS-B-2026-',
+      next_vehicle_sale_number: 1,
+      stock_transfer_prefix: 'TR-B-2026-',
+      next_stock_transfer_number: 1,
+    },
   ] as Row[],
   invoiceSequences: [
     { tenant_id: TENANT_A, year: CURRENT_YEAR, current: 41 },
     { tenant_id: TENANT_B, year: CURRENT_YEAR, current: 900 },
   ] as Row[],
-  creditNoteSequences: [] as Row[],
-  workshopEstimateSequences: [] as Row[],
+  creditNoteSequences: [
+    { tenant_id: TENANT_B, year: CURRENT_YEAR, current: 77 },
+  ] as Row[],
+  workshopEstimateSequences: [
+    { tenant_id: TENANT_B, year: CURRENT_YEAR, current: 5 },
+  ] as Row[],
   voiceTranslationSettings: [
     {
       tenant_id: TENANT_A,
@@ -263,7 +280,16 @@ const tables = {
       labor_aftermarket_credentials_secret_ref: null,
     },
   ] as Row[],
-  tyreStorageSettings: [] as Row[],
+  tyreStorageSettings: [
+    {
+      tenant_id: TENANT_B,
+      summer_swap_month: 4,
+      summer_swap_day: 15,
+      winter_swap_month: 11,
+      winter_swap_day: 1,
+      due_for_swap_days: 14,
+    },
+  ] as Row[],
   documentBrandProfiles: [
     {
       tenant_id: TENANT_A,
@@ -534,6 +560,83 @@ describe('McpSettingsReadService (AUT-457)', () => {
       );
     });
 
+    it('reads only the number ranges, tax rates, and seller of its own tenant', async () => {
+      const { service } = createService({
+        tenantId: TENANT_B,
+        role: 'ADMIN',
+        activeSiteId: SITE_B_MAIN,
+      });
+
+      const result = await service.getLegalEntity({});
+
+      expect(result.seller.name).toBe('Zweite Firma GmbH');
+      expect(result.tax_rates).toEqual([
+        {
+          name: 'Fremd',
+          tax_rate: '19.00',
+          account_number: '8000',
+          is_default: true,
+        },
+      ]);
+      expect(result.number_ranges).toEqual(
+        expect.arrayContaining([
+          {
+            document: 'invoice',
+            year: CURRENT_YEAR,
+            prefix: `RE-${CURRENT_YEAR}-`,
+            next_number: 901,
+          },
+          {
+            document: 'credit_note',
+            year: CURRENT_YEAR,
+            prefix: `CN-${CURRENT_YEAR}-`,
+            next_number: 78,
+          },
+          {
+            document: 'workshop_estimate',
+            year: CURRENT_YEAR,
+            prefix: `KV-${CURRENT_YEAR}-`,
+            next_number: 6,
+          },
+          {
+            document: 'sales_order',
+            year: null,
+            prefix: 'SO-B-2026-',
+            next_number: 7,
+          },
+        ]),
+      );
+    });
+
+    it('does not show another tenant sequence when the tenant has none', async () => {
+      const { service } = createService({});
+
+      const result = await service.getLegalEntity({});
+
+      expect(result.number_ranges).toEqual(
+        expect.arrayContaining([
+          {
+            document: 'credit_note',
+            year: CURRENT_YEAR,
+            prefix: `CN-${CURRENT_YEAR}-`,
+            next_number: 1,
+          },
+          {
+            document: 'workshop_estimate',
+            year: CURRENT_YEAR,
+            prefix: `KV-${CURRENT_YEAR}-`,
+            next_number: 1,
+          },
+          {
+            document: 'sales_order',
+            year: null,
+            prefix: 'SO-2026-',
+            next_number: 1001,
+          },
+        ]),
+      );
+    });
+
     it('reports a missing accounting profile as not configured', async () => {
       const { service } = createService({});
 
@@ -665,6 +768,7 @@ describe('McpSettingsReadService (AUT-457)', () => {
       expect(serialized).not.toContain(SECRET_PROJECT_B);
       expect(serialized).not.toContain('Berlin');
       expect(serialized).not.toContain('identity-b');
+      expect(result.feature_flags.tyre_storage.summer_swap_date).toBe('03-01');
     });
 
     it('never returns the voice service account, the project ID, or a credential secret reference', async () => {
@@ -678,7 +782,11 @@ describe('McpSettingsReadService (AUT-457)', () => {
       const serialized = JSON.stringify(result);
 
       expect(result.active_site_timezone).toBe('Europe/Berlin');
-      expect(result.feature_flags.voice_translation.configured).toBe(true);
+      expect(result.feature_flags.voice_translation).toEqual({
+        target_language_code: 'en',
+        configured: true,
+      });
+      expect(result.feature_flags.tyre_storage.summer_swap_date).toBe('04-15');
       expect(result.feature_flags.catalog.credentials_configured.identity).toBe(
         true,
       );

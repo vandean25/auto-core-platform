@@ -219,7 +219,7 @@ describe('McpCapabilitiesService.whoami', () => {
 });
 
 /**
- * Reads every page of the catalog. A default page holds 25 tools and the catalog holds 28,
+ * Reads every page of the catalog. A default page holds 25 tools and the catalog holds more,
  * so a check that depends on a write tool follows `next_cursor` rather than the first page.
  */
 async function allCapabilityPages(

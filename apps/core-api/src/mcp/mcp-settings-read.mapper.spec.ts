@@ -79,6 +79,15 @@ describe('maskBankValue', () => {
     expect(maskBankValue('  DE89370400440532013000  ')).toBe('****3000');
   });
 
+  it('shows at most half of a value of five to seven characters', () => {
+    expect(maskBankValue('ABCDE')).toBe('****DE');
+    expect(maskBankValue('ABCDEFG')).toBe('****EFG');
+  });
+
+  it('shows the last four characters of a value of eight or more characters', () => {
+    expect(maskBankValue('ABCDEFGH')).toBe('****EFGH');
+  });
+
   it('shows only the mask for a value of four characters or fewer', () => {
     expect(maskBankValue('ABCD')).toBe('****');
     expect(maskBankValue('BIC')).toBe('****');

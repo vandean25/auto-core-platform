@@ -46,7 +46,7 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   list_sites:
     'Sites for the session tenant with an address summary and active flag (paged: pageSize max 25, opaque cursor). Inactive sites are listed for OWNER and ADMIN only',
   get_legal_entity:
-    'Seller identity as printed on invoices (name, UID, address, contact, registration), bank details reduced to their last 4 characters, accounting profile status, revenue group tax rates, and number ranges. Defaults to the active site legal entity',
+    'Seller identity as printed on invoices (name, UID, address, contact, registration), bank details reduced to their last 4 characters (fewer for short values), accounting profile status, revenue group tax rates, and number ranges. Defaults to the active site legal entity',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:
