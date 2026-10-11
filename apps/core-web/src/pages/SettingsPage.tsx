@@ -97,7 +97,7 @@ const LocationTreeItem = ({
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        aria-label={`Delete storage location ${location.name}`}
+                        aria-label={`Delete storage location ${location.name} (${location.code})`}
                         onClick={(e) => {
                             e.stopPropagation()
                             if (confirm(`Delete ${location.name}?`)) {
