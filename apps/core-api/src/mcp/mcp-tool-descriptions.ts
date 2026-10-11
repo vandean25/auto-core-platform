@@ -47,6 +47,12 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Sites for the session tenant with an address summary and active flag (paged: pageSize max 25, opaque cursor). Inactive sites are listed for OWNER and ADMIN only',
   get_legal_entity:
     'Seller identity as printed on invoices (name, UID, address, contact, registration), bank details reduced to their last 4 characters (fewer for short values), accounting profile status, revenue group tax rates, and number ranges. Defaults to the active site legal entity',
+  list_purchase_orders:
+    'List purchase orders for the active site by status, vendor, order date range, or part, newest first (keyset cursor, max 25)',
+  get_purchase_order:
+    'Get a purchase order for the active site: status, lines with part, ordered and received quantities, net unit cost and line net, net total, vendor, and receipt summary',
+  list_vendors:
+    'List vendors, newest first (keyset cursor, max 25): id, name, and active. Bank and contact details are never returned',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:

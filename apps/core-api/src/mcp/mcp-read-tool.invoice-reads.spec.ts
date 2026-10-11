@@ -29,7 +29,7 @@ describe('McpToolHandlerService invoice reads', () => {
     };
     const unused = {} as never;
 
-    const readTools = new McpReadToolService(unused, unused, invoiceReads as unknown as McpInvoiceReadService, unused, unused, unused, unused);
+    const readTools = new McpReadToolService(unused, unused, invoiceReads as unknown as McpInvoiceReadService, unused, unused, unused, unused, unused, unused);
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,
       {} as unknown as McpWritePipelineService,

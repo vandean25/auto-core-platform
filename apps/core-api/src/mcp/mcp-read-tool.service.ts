@@ -5,6 +5,7 @@ import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
+import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
@@ -17,6 +18,7 @@ import {
   getEntityHistoryInputSchema,
   getInvoiceInputSchema,
   getLegalEntityInputSchema,
+  getPurchaseOrderInputSchema,
   getStockLevelInputSchema,
   getVehicleHistoryInputSchema,
   getVehicleInputSchema,
@@ -30,6 +32,8 @@ import {
   listDocumentsInputSchema,
   listInvoicesInputSchema,
   listSitesInputSchema,
+  listPurchaseOrdersInputSchema,
+  listVendorsInputSchema,
   listWorkshopOrdersInputSchema,
   listWorkshopTasksInputSchema,
   searchCustomersInputSchema,
@@ -52,6 +56,7 @@ export class McpReadToolService {
   private readonly orderHistoryReads: McpOrderHistoryReadService;
   private readonly documentReads: McpDocumentReadService;
   private readonly settingsReads: McpSettingsReadService;
+  private readonly purchasingReads: McpPurchasingReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -64,6 +69,7 @@ export class McpReadToolService {
     orderHistoryReads: McpOrderHistoryReadService,
     documentReads: McpDocumentReadService,
     settingsReads: McpSettingsReadService,
+    purchasingReads: McpPurchasingReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -73,6 +79,7 @@ export class McpReadToolService {
     this.orderHistoryReads = orderHistoryReads;
     this.documentReads = documentReads;
     this.settingsReads = settingsReads;
+    this.purchasingReads = purchasingReads;
   }
 
   async run(
@@ -106,6 +113,18 @@ export class McpReadToolService {
       case 'get_document_pdf':
         return this.documentReads.getDocumentPdf(
           getDocumentPdfInputSchema.parse(parsed),
+        );
+      case 'list_purchase_orders':
+        return this.purchasingReads.listPurchaseOrders(
+          listPurchaseOrdersInputSchema.parse(parsed),
+        );
+      case 'get_purchase_order':
+        return this.purchasingReads.getPurchaseOrder(
+          getPurchaseOrderInputSchema.parse(parsed),
+        );
+      case 'list_vendors':
+        return this.purchasingReads.listVendors(
+          listVendorsInputSchema.parse(parsed),
         );
       case 'list_workshop_orders':
         return this.recordReads.listWorkshopOrders(

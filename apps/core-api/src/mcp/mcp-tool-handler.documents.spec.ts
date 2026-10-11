@@ -74,6 +74,8 @@ describe('McpToolHandlerService documents and history reads', () => {
       unused,
       orderHistoryReads as unknown as McpOrderHistoryReadService,
       documentReads as unknown as McpDocumentReadService,
+      unused,
+      unused,
     );
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,

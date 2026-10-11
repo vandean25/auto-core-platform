@@ -40,6 +40,12 @@ type TenantFixtures = {
   invoiceId: string;
   legalEntityId: string;
   siteId: string;
+  vendorId: string;
+  vendorName: string;
+  vendorEmail: string;
+  vendorAccountNumber: string;
+  purchaseOrderId: string;
+  purchaseOrderNumber: string;
 };
 
 type DraftVehicle = { customerId: string; vehicleId: string };
@@ -78,6 +84,8 @@ const TENANT_B_PROBE_ARGUMENTS: Partial<
 > = {
   list_invoices: {},
   list_documents: {},
+  list_purchase_orders: {},
+  list_vendors: {},
   list_audit_events: {},
   get_entity_history: {
     entity_type: 'Customer',
@@ -96,6 +104,7 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_vehicle_history',
   'get_document_pdf',
   'get_legal_entity',
+  'get_purchase_order',
 ];
 
 describe('MCP server (e2e)', () => {
@@ -451,6 +460,33 @@ describe('MCP server (e2e)', () => {
       where: { id: siteId },
       select: { legal_entity_id: true },
     });
+    const vendor = await prismaA.vendor.create({
+      data: {
+        tenant_id: tenantA,
+        name: `Musterlieferant ${searchToken}`,
+        email: `orders-${searchToken}@example.com`,
+        account_number: `BANK-${searchToken}`,
+      },
+    });
+    const purchaseOrder = await prismaA.purchaseOrder.create({
+      data: {
+        tenant_id: tenantA,
+        site_id: siteId,
+        vendor_id: vendor.id,
+        status: 'SENT',
+        order_number: `PO-${searchToken}`,
+        items: {
+          create: [
+            {
+              tenant_id: tenantA,
+              catalog_item_id: catalogItem.id,
+              quantity: 4,
+              unit_cost: 12.5,
+            },
+          ],
+        },
+      },
+    });
     return {
       searchToken,
       customerId: customer.id,
@@ -464,6 +500,12 @@ describe('MCP server (e2e)', () => {
       invoiceId: invoice.id,
       legalEntityId: mainSite.legal_entity_id,
       siteId,
+      vendorId: vendor.id,
+      vendorName: vendor.name,
+      vendorEmail: vendor.email,
+      vendorAccountNumber: vendor.account_number,
+      purchaseOrderId: purchaseOrder.id,
+      purchaseOrderNumber: purchaseOrder.order_number,
     };
   }
 
@@ -692,6 +734,15 @@ describe('MCP server (e2e)', () => {
         name: 'get_legal_entity',
         arguments: { legal_entity_id: fixtures.legalEntityId },
       },
+      {
+        name: 'list_purchase_orders',
+        arguments: { vendor_id: fixtures.vendorId },
+      },
+      {
+        name: 'get_purchase_order',
+        arguments: { id: fixtures.purchaseOrderId },
+      },
+      { name: 'list_vendors', arguments: {} },
     ];
   }
 
@@ -2970,6 +3021,390 @@ describe('MCP server (e2e)', () => {
       expect(payload).not.toContain(VOICE_PROJECT);
       expect(payload).not.toContain(BANK_IBAN);
       expect(payload).not.toContain(fixtures.legalEntityId);
+    });
+  });
+
+  describe('purchasing reads (AUT-458)', () => {
+    type PurchasingPage = {
+      data: Array<{ id: string } & Record<string, unknown>>;
+      meta: { page_size: number; next_cursor: string | null };
+      truncated: boolean;
+    };
+
+    type PurchaseOrderDetail = {
+      id: string;
+      status: string;
+      currency: string;
+      vendor: { id: string; name: string };
+      totals: { net: string };
+      lines: Array<{
+        part: { id: string; sku: string; name: string };
+        quantity_ordered: string;
+        quantity_received: string;
+        unit_cost_net: string;
+        line_net: string;
+      }>;
+      lines_total: number;
+      lines_truncated: boolean;
+      receipts: { movement_count: number; last_received_at: string | null };
+    };
+
+    /** Orders and vendors this block adds, dated in 2024 so the date window excludes the seeded order. */
+    const DATE_WINDOW = { from: '2024-03-01', to: '2024-03-31' };
+    let partBId: string;
+    let olderVendorId: string;
+    let oldestVendorId: string;
+    let partialOrderId: string;
+    let completedOrderId: string;
+
+    function purchasingCall(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<CallToolResult> {
+      return callMcpTool(
+        caller(adminHeaderA, 'e2e-purchasing-reads'),
+        name,
+        args,
+      );
+    }
+
+    /** A schema-rejected call is either an error result or a protocol error. */
+    async function purchasingCallFails(
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<boolean> {
+      try {
+        return (await purchasingCall(name, args)).isError === true;
+      } catch {
+        return true;
+      }
+    }
+
+    /** Follows meta.next_cursor one page at a time and returns every row ID in order. */
+    async function walkPages(
+      name: string,
+      args: Record<string, unknown>,
+      pageSize: number,
+    ): Promise<string[]> {
+      const ids: string[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 20; page += 1) {
+        const result = await purchasingCall(name, {
+          ...args,
+          pageSize,
+          ...(cursor ? { cursor } : {}),
+        });
+        expect(result.isError).not.toBe(true);
+        const body = parsePayload<PurchasingPage>(result);
+        ids.push(...body.data.map((row) => row.id));
+        cursor = body.meta.next_cursor ?? undefined;
+        if (!cursor) {
+          return ids;
+        }
+      }
+      throw new Error('purchasing pages did not end within 20 pages');
+    }
+
+    beforeAll(async () => {
+      const siteId = await resolveTestMainSiteId(prisma, tenantA);
+      const token = fixtures.searchToken;
+      const partB = await prismaA.catalogItem.create({
+        data: {
+          sku: `SKU-${token}-B`,
+          name: `${token} B`,
+          cost_price: 1,
+          retail_price: 2,
+        },
+      });
+      partBId = partB.id;
+      const older = await prismaA.vendor.create({
+        data: {
+          tenant_id: tenantA,
+          name: `Musterlieferant Nord ${token}`,
+          email: `nord-${token}@example.com`,
+          account_number: `NORD-${token}`,
+          createdAt: new Date('2024-03-10T00:00:00.000Z'),
+        },
+      });
+      const oldest = await prismaA.vendor.create({
+        data: {
+          tenant_id: tenantA,
+          name: `Musterlieferant Alt ${token}`,
+          email: `alt-${token}@example.com`,
+          account_number: `ALT-${token}`,
+          createdAt: new Date('2024-03-05T00:00:00.000Z'),
+        },
+      });
+      olderVendorId = older.id;
+      oldestVendorId = oldest.id;
+
+      // 1.5 x 3.33 is 4.995 and rounds half-up to 5.00 on the line; the order total is 5.30.
+      const partial = await prismaA.purchaseOrder.create({
+        data: {
+          tenant_id: tenantA,
+          site_id: siteId,
+          vendor_id: older.id,
+          status: 'PARTIAL',
+          order_number: `PO-${token}-B`,
+          createdAt: new Date('2024-03-10T08:00:00.000Z'),
+          items: {
+            create: [
+              {
+                tenant_id: tenantA,
+                catalog_item_id: fixtures.catalogItemId,
+                quantity: 1.5,
+                unit_cost: 3.33,
+                createdAt: new Date('2024-03-10T08:00:00.000Z'),
+              },
+              {
+                tenant_id: tenantA,
+                catalog_item_id: partB.id,
+                quantity: 3,
+                unit_cost: 0.1,
+                createdAt: new Date('2024-03-10T08:01:00.000Z'),
+              },
+            ],
+          },
+        },
+      });
+      partialOrderId = partial.id;
+
+      const completed = await prismaA.purchaseOrder.create({
+        data: {
+          tenant_id: tenantA,
+          site_id: siteId,
+          vendor_id: oldest.id,
+          status: 'COMPLETED',
+          order_number: `PO-${token}-C`,
+          createdAt: new Date('2024-03-05T08:00:00.000Z'),
+          items: {
+            create: [
+              {
+                tenant_id: tenantA,
+                catalog_item_id: fixtures.catalogItemId,
+                quantity: 2,
+                quantity_received: 2,
+                unit_cost: 7,
+                createdAt: new Date('2024-03-05T08:00:00.000Z'),
+              },
+            ],
+          },
+        },
+      });
+      completedOrderId = completed.id;
+      // One goods-receipt movement, keyed by the order number as the receipt service writes it.
+      await prismaA.inventoryTransaction.create({
+        data: {
+          tenant_id: tenantA,
+          site_id: siteId,
+          item_id: fixtures.catalogItemId,
+          location_id: fixtures.locationId,
+          quantity: 2,
+          type: 'PURCHASE_RECEIPT',
+          reference_id: completed.order_number,
+          cost_basis: 7,
+          createdAt: new Date('2024-03-06T10:00:00.000Z'),
+        },
+      });
+    });
+
+    it('lists purchase orders for a vendor with compact rows and net EUR totals', async () => {
+      const result = await purchasingCall('list_purchase_orders', {
+        vendor_id: fixtures.vendorId,
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(parsePayload<PurchasingPage>(result).data).toEqual([
+        {
+          id: fixtures.purchaseOrderId,
+          number: fixtures.purchaseOrderNumber,
+          status: 'SENT',
+          vendor: { id: fixtures.vendorId, name: fixtures.vendorName },
+          ordered_at: expect.any(String),
+          total_net: '50.00',
+        },
+      ]);
+    });
+
+    it('filters by status, vendor, part, and an inclusive order date window', async () => {
+      const idsFor = async (args: Record<string, unknown>) =>
+        parsePayload<PurchasingPage>(
+          await purchasingCall('list_purchase_orders', args),
+        ).data.map((row) => row.id);
+
+      expect(await idsFor({ status: 'COMPLETED' })).toEqual([completedOrderId]);
+      expect(await idsFor({ vendor_id: olderVendorId })).toEqual([
+        partialOrderId,
+      ]);
+      expect(await idsFor({ part_id: partBId })).toEqual([partialOrderId]);
+      expect(await idsFor({ part_id: fixtures.catalogItemId })).toEqual([
+        fixtures.purchaseOrderId,
+        partialOrderId,
+        completedOrderId,
+      ]);
+      expect(await idsFor(DATE_WINDOW)).toEqual([
+        partialOrderId,
+        completedOrderId,
+      ]);
+      expect(await idsFor({ from: '2024-03-06', to: '2024-03-31' })).toEqual([
+        partialOrderId,
+      ]);
+      // Both bounds are inclusive: an order created on the bound day is listed.
+      expect(await idsFor({ to: '2024-03-10' })).toEqual([
+        partialOrderId,
+        completedOrderId,
+      ]);
+      expect(await idsFor({ from: '2024-03-10', to: '2024-03-10' })).toEqual([
+        partialOrderId,
+      ]);
+    });
+
+    it('pages purchase orders newest first with a keyset cursor', async () => {
+      expect(await walkPages('list_purchase_orders', DATE_WINDOW, 1)).toEqual([
+        partialOrderId,
+        completedOrderId,
+      ]);
+    });
+
+    it('returns one order with lines, net amounts, vendor, and an empty receipt summary', async () => {
+      const result = await purchasingCall('get_purchase_order', {
+        id: partialOrderId,
+      });
+
+      expect(result.isError).not.toBe(true);
+      const detail = parsePayload<PurchaseOrderDetail>(result);
+      expect(detail).toMatchObject({
+        id: partialOrderId,
+        status: 'PARTIAL',
+        currency: 'EUR',
+        vendor: { id: olderVendorId, name: expect.any(String) },
+        totals: { net: '5.30' },
+        lines_total: 2,
+        lines_truncated: false,
+        receipts: { movement_count: 0, last_received_at: null },
+      });
+      expect(detail.lines).toEqual([
+        {
+          id: expect.any(String),
+          part: {
+            id: fixtures.catalogItemId,
+            sku: fixtures.sku,
+            name: fixtures.searchToken,
+          },
+          quantity_ordered: '1.500',
+          quantity_received: '0.000',
+          unit_cost_net: '3.33',
+          line_net: '5.00',
+        },
+        {
+          id: expect.any(String),
+          part: {
+            id: partBId,
+            sku: `SKU-${fixtures.searchToken}-B`,
+            name: `${fixtures.searchToken} B`,
+          },
+          quantity_ordered: '3.000',
+          quantity_received: '0.000',
+          unit_cost_net: '0.10',
+          line_net: '0.30',
+        },
+      ]);
+    });
+
+    it('reports the goods-receipt movements booked against a completed order', async () => {
+      const result = await purchasingCall('get_purchase_order', {
+        id: completedOrderId,
+      });
+
+      expect(result.isError).not.toBe(true);
+      const detail = parsePayload<PurchaseOrderDetail>(result);
+      expect(detail).toMatchObject({
+        status: 'COMPLETED',
+        totals: { net: '14.00' },
+        receipts: {
+          movement_count: 1,
+          last_received_at: '2024-03-06T10:00:00.000Z',
+        },
+      });
+      expect(detail.lines[0].quantity_received).toBe('2.000');
+    });
+
+    it('lists vendors newest first with id, name, and active only, and no bank or contact details', async () => {
+      const result = await purchasingCall('list_vendors', {});
+
+      expect(result.isError).not.toBe(true);
+      expect(parsePayload<PurchasingPage>(result).data).toEqual([
+        { id: fixtures.vendorId, name: fixtures.vendorName, active: true },
+        { id: olderVendorId, name: expect.any(String), active: true },
+        { id: oldestVendorId, name: expect.any(String), active: true },
+      ]);
+      const text = toolPayloadText(result);
+      expect(text).not.toContain(fixtures.vendorAccountNumber);
+      expect(text).not.toContain(fixtures.vendorEmail);
+    });
+
+    it('pages vendors newest first with a keyset cursor', async () => {
+      expect(await walkPages('list_vendors', {}, 1)).toEqual([
+        fixtures.vendorId,
+        olderVendorId,
+        oldestVendorId,
+      ]);
+    });
+
+    it('rejects input outside the contract', async () => {
+      const cases: Array<[string, Record<string, unknown>]> = [
+        ['list_purchase_orders', { pageSize: 26 }],
+        ['list_purchase_orders', { status: 'CANCELLED' }],
+        ['list_purchase_orders', { from: '2024-03-10', to: '2024-03-01' }],
+        ['list_purchase_orders', { cursor: 'not a cursor' }],
+        ['list_purchase_orders', { part_id: 'FILTER-DEMO-01' }],
+        ['get_purchase_order', { id: 'PO-2024-0001' }],
+        ['list_vendors', { pageSize: 26 }],
+        ['list_vendors', { cursor: 'not a cursor' }],
+      ];
+      for (const [name, args] of cases) {
+        expect(await purchasingCallFails(name, args)).toBe(true);
+      }
+    });
+
+    it('does not show tenant A orders or vendors to tenant B', async () => {
+      const asTenantB = (name: string, args: Record<string, unknown>) =>
+        withMcpSession(adminHeaderB, 'e2e-purchasing-tenant-b', (session) =>
+          session.call(name, args),
+        );
+
+      const orders = await asTenantB('list_purchase_orders', {});
+      const vendors = await asTenantB('list_vendors', {});
+      expect(orders.isError).not.toBe(true);
+      expect(vendors.isError).not.toBe(true);
+      for (const id of [
+        fixtures.purchaseOrderId,
+        partialOrderId,
+        completedOrderId,
+      ]) {
+        expect(toolPayloadText(orders)).not.toContain(id);
+      }
+      for (const id of [fixtures.vendorId, olderVendorId, oldestVendorId]) {
+        expect(toolPayloadText(vendors)).not.toContain(id);
+      }
+
+      const detail = await asTenantB('get_purchase_order', {
+        id: partialOrderId,
+      });
+      expect(detail.isError).toBe(true);
+      expect(toolPayloadText(detail)).toContain('not found');
+    });
+
+    it('returns not found for a purchase order that does not exist', async () => {
+      const missingId = '00000000-0000-4000-8000-0000000000ff';
+      const result = await purchasingCall('get_purchase_order', {
+        id: missingId,
+      });
+
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toContain(
+        `Purchase order with ID ${missingId} not found`,
+      );
     });
   });
 

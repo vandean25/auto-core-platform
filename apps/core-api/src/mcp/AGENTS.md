@@ -37,6 +37,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_tenant_settings` | Non-secret tenant settings: currency, active site timezone, feature flags, and a document branding summary per active legal entity | Read | AUTO |
 | `list_sites` | List tenant sites with an address summary and active flag, paged with pageSize and cursor | Read | AUTO |
 | `get_legal_entity` | Seller identity as printed on invoices, bank details masked, accounting profile status, tax rates, and number ranges | Read | AUTO |
+| `list_purchase_orders` | List purchase orders for the active site by status, vendor, order date range, or part, newest first | Read | AUTO |
+| `get_purchase_order` | Get a purchase order for the active site: lines with part and quantities, net amounts, vendor, and receipt summary | Read | AUTO |
+| `list_vendors` | List the tenant's vendors, newest first: id, name, and active; no bank or contact details | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -73,11 +76,12 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. No other MCP tool accepts a cursor or a `limit` argument.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 31 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 34 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
 - `list_documents` pages with `pageSize` and a keyset `cursor` over generation time and record ID, with the same default and maximum. It is newest first. The order lists of `get_customer` and `get_vehicle_history` page with `orders_page_size` and `orders_cursor`, newest first, with the same default and maximum.
+- `list_purchase_orders` and `list_vendors` page the same way: `pageSize` and a keyset `cursor`, newest first, with the same default and maximum.
 
 The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 
@@ -132,6 +136,17 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `list_sites` follows the names-only directory rule: any caller with an active site membership sees the active sites. OWNER and ADMIN also see inactive sites, without needing a membership. Each row has an address summary of street, postcode and city, and country.
 - `get_legal_entity` returns the seller identity with the same field names as the `seller` block of `get_invoice`. Representatives are never returned, because they are personal names. Bank identifiers (IBAN, BIC, and bank name) are reduced to their last four characters, such as `****3201`. A short value shows at most half its characters, and a value of four characters or fewer shows only the mask. Accounting profile status reports whether a profile exists, whether it is enabled, and whether it is ready, with the missing fields. Advisor and client numbers are never returned. Tax rates are the revenue group rates. Number ranges give the next number for each document type. Invoice, credit note, and workshop estimate ranges use the current year's sequence.
 - Tax rates, number ranges, legal entity data, and roles are not writable through MCP. No write tool exists for them, and their action types are listed under never-exposed capabilities. Ask a person to change them.
+
+### Purchasing reads
+
+- `list_purchase_orders` and `get_purchase_order` read the active site's purchase orders only. An order at another site is not found. `list_vendors` lists the tenant's vendors, which are not tied to a site.
+- List filters take identifiers and dates: `status` (`DRAFT`, `SENT`, `PARTIAL`, or `COMPLETED`), `vendor_id`, `part_id` (a catalog part on at least one line), and `from` and `to` as an inclusive range of order dates in UTC.
+- `ordered_at` is the order's creation time. A purchase order has no separate order date.
+- Amounts are net EUR decimal strings, such as `"30.00"`. Purchase orders carry no tax. A line's `line_net` is its quantity times its net unit cost, rounded half-up to the cent, and `totals.net` sums those rounded lines. The list row's `total_net` is the same sum. Quantities are decimal strings with three places, such as `"2.000"`.
+- `receipts.movement_count` counts the goods-receipt ledger rows booked against the order at its site, and `last_received_at` is the newest of them, or `null` when nothing was received. Receipt detail is not returned. Each line's `quantity_received` is the received total.
+- `lines_truncated: true` means some lines did not fit the result cap, and `lines_total` is the full count. Say so and point the person to the order in the app. Lines cannot be paged.
+- A `list_vendors` row is `id`, `name`, and `active`. `active` is `true` for every vendor, because the vendor record has no deactivation flag and removing a vendor deletes it. Bank details, account numbers, and contact details are never returned.
+- Creating, sending, receiving, and approving purchase orders are not MCP tools. Leave them to a person.
 
 ## Outcomes and errors
 
@@ -215,7 +230,7 @@ All names and records below are fictional German examples.
 ### Parts reorder
 
 1. Use `search_parts` and `get_stock_level` to check fictional item “FILTER-DEMO-01” (AUTO).
-2. There is no purchase-order tool. Report the stock result and leave ordering to a person. Expected tier: AUTO for reads; no MCP write is available.
+2. Use `list_purchase_orders` with the item's `part_id` to list its orders (AUTO). Orders in `DRAFT`, `SENT`, or `PARTIAL` are open, and `COMPLETED` orders are closed. There is no purchase-order write tool. Report the stock and order results and leave ordering to a person. Expected tier: AUTO for reads; no MCP write is available.
 
 ### Ready notice / Pickerl reminder
 
