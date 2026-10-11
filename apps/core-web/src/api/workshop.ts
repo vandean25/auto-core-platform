@@ -58,6 +58,7 @@ export const workshopKeys = {
     from && to
       ? [...workshopKeys.all, 'planner', from, to, bayId ?? 'all'] as const
       : ([...workshopKeys.all, 'planner'] as const),
+  capacity: (weekStart?: string) => [...workshopKeys.all, 'capacity', weekStart ?? 'current'] as const,
   settings: () => [...workshopKeys.all, 'settings'] as const,
   holidays: (from?: string, to?: string) =>
     [...workshopKeys.all, 'holidays', from ?? 'year', to ?? 'year'] as const,
@@ -122,6 +123,10 @@ export type ImportWorkshopHolidaysResponse =
   components['schemas']['ImportWorkshopHolidaysResponseDto']
 export type PlannerGridResponse = components['schemas']['PlannerGridResponseDto']
 export type PlannerBooking = components['schemas']['PlannerBookingDto']
+export type WorkshopCapacityWeek = components['schemas']['WorkshopCapacityWeekDto']
+export type WorkshopCapacityBay = components['schemas']['WorkshopCapacityBayDto']
+export type WorkshopCapacityCell = components['schemas']['WorkshopCapacityCellDto']
+export type WorkshopCapacityOrder = components['schemas']['WorkshopCapacityOrderDto']
 export type UpdateWorkshopOrderSchedulePayload =
   components['schemas']['UpdateWorkshopOrderDto']
 
@@ -278,6 +283,23 @@ export function useWorkshopPlanner(from: string, to: string, bayId?: string) {
       return response.json()
     },
     enabled: Boolean(from && to),
+  })
+}
+
+/** Bays x days for one week of the active site; `weekStart` is any date in the week. */
+export function useWorkshopCapacityWeek(weekStart?: string) {
+  const params = new URLSearchParams()
+  if (weekStart) params.set('weekStart', weekStart)
+  const query = params.toString()
+
+  return useQuery<WorkshopCapacityWeek>({
+    queryKey: workshopKeys.capacity(weekStart),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/capacity${query ? `?${query}` : ''}`)
+      if (!response.ok) throw new Error('Failed to fetch workshop capacity')
+      return response.json()
+    },
+    placeholderData: keepPreviousData,
   })
 }
 

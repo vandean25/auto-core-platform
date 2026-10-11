@@ -56,6 +56,7 @@ export const APP_ROUTE_PATHS = {
   workshopPickList: '/workshop/pick-list',
   workshopBoard: '/workshop/board',
   workshopPlanner: '/workshop/planner',
+  workshopCapacity: '/workshop/capacity',
   workshopLoanerVehicles: '/workshop/loaner-vehicles',
   workshopLoanerBookingPrint: '/workshop/loaner-bookings/:id/print',
   workshopOrderDetail: '/workshop/orders/:id',
