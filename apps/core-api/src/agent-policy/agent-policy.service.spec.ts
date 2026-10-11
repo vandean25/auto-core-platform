@@ -12,7 +12,10 @@ import { TenantContextStorage } from '../common/services/tenant-context.storage.
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { AgentPolicyService } from './agent-policy.service.js';
-import type { UpsertAgentPolicyRuleDto } from './dto/agent-policy.dto.js';
+import type {
+  AgentPolicyEvaluateRequestDto,
+  UpsertAgentPolicyRuleDto,
+} from './dto/agent-policy.dto.js';
 
 const TENANT_ID = 'tenant-1';
 const ACTION_TYPE = 'inventory.part_reserve';
@@ -171,6 +174,24 @@ function expectRuleWritten(h: Harness, data: Record<string, unknown>): void {
   expect(h.tx.agentPolicyRule.create).toHaveBeenCalledWith({
     data: expect.objectContaining(data),
   });
+}
+
+/** Body validation rejects before the membership lookup runs. */
+async function expectValidationBeforeMembership(
+  platform: Record<string, unknown>,
+  body: UpsertAgentPolicyRuleDto,
+  response: object,
+): Promise<void> {
+  const h = buildHarness();
+  h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(ruleRow(platform));
+  h.prisma.user.findUnique.mockResolvedValue(null);
+
+  await expectRejection(
+    h.service.upsertRule(ACTION_TYPE, body),
+    UnprocessableEntityException,
+    response,
+  );
+  expect(h.prisma.user.findUnique).not.toHaveBeenCalled();
 }
 
 function expectLatestRuleLookup(
@@ -383,6 +404,23 @@ describe('AgentPolicyService.listRules', () => {
     ]);
   });
 
+  it('orders mixed-case action types by code unit, as the list has always done', async () => {
+    const h = buildHarness();
+    h.prisma.agentPolicyRule.findMany.mockResolvedValue([
+      ruleRow({ id: 't-b', tenant_id: TENANT_ID, action_type: 'b.rule' }),
+      ruleRow({ id: 't-a', tenant_id: TENANT_ID, action_type: 'a.rule' }),
+      ruleRow({ id: 't-upper', tenant_id: TENANT_ID, action_type: 'Z.rule' }),
+    ]);
+
+    const { data } = await h.service.listRules();
+
+    expect(data.map((rule) => rule.action_type)).toEqual([
+      'Z.rule',
+      'a.rule',
+      'b.rule',
+    ]);
+  });
+
   it('keeps only the newest platform version when the tenant has no override', async () => {
     const h = buildHarness();
     h.systemPrisma.agentPolicyRule.findMany.mockResolvedValue([
@@ -469,6 +507,7 @@ describe('AgentPolicyService.listRules', () => {
       await expectRejection(h.service.listRules(), ForbiddenException, {
         message: 'Tenant admin access is required.',
       });
+      expect(h.tenantContext.getTenantId).not.toHaveBeenCalled();
       expect(h.prisma.agentPolicyRule.findMany).not.toHaveBeenCalled();
       expect(h.systemPrisma.agentPolicyRule.findMany).not.toHaveBeenCalled();
     },
@@ -484,6 +523,7 @@ describe('AgentPolicyService.upsertRule', () => {
       ForbiddenException,
       { message: 'Tenant admin access is required.' },
     );
+    expect(h.tenantContext.getTenantId).not.toHaveBeenCalled();
     expect(h.systemPrisma.agentPolicyRule.findFirst).not.toHaveBeenCalled();
     expect(h.prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -844,18 +884,19 @@ describe('AgentPolicyService.upsertRule', () => {
   });
 
   it('validates the tier before checking tenant membership', async () => {
-    const h = buildHarness();
-    h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(
-      ruleRow({ tier: AgentPolicyTier.PROPOSE }),
-    );
-    h.prisma.user.findUnique.mockResolvedValue(null);
-
-    await expectRejection(
-      h.service.upsertRule(ACTION_TYPE, { tier: AgentPolicyTier.AUTO }),
-      UnprocessableEntityException,
+    await expectValidationBeforeMembership(
+      { tier: AgentPolicyTier.PROPOSE },
+      { tier: AgentPolicyTier.AUTO },
       { code: 'AGENT_POLICY_LOOSER_THAN_PLATFORM' },
     );
-    expect(h.prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('validates the conditions before checking tenant membership', async () => {
+    await expectValidationBeforeMembership(
+      {},
+      { tier: AgentPolicyTier.AUTO, conditions: { amount_max: 500 } },
+      { code: 'AGENT_POLICY_LOOSER_THAN_PLATFORM' },
+    );
   });
 });
 
@@ -870,6 +911,7 @@ describe('AgentPolicyService.evaluate', () => {
         ForbiddenException,
         { message: 'Tenant admin access is required.' },
       );
+      expect(h.tenantContext.getTenantId).not.toHaveBeenCalled();
       expect(h.prisma.agentPolicyRule.findFirst).not.toHaveBeenCalled();
     },
   );
@@ -913,6 +955,21 @@ describe('AgentPolicyService.evaluate', () => {
 
     await expect(
       h.service.evaluate({ action_type: ACTION_TYPE }),
+    ).resolves.toMatchObject({
+      tier: AgentPolicyTier.AUTO,
+      reasons: ['base_tier_auto'],
+    });
+  });
+
+  it('treats a null context as empty, as a JSON null body field can send', async () => {
+    const h = buildHarness();
+    h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(ruleRow());
+
+    await expect(
+      h.service.evaluate({
+        action_type: ACTION_TYPE,
+        context: null,
+      } as unknown as AgentPolicyEvaluateRequestDto),
     ).resolves.toMatchObject({
       tier: AgentPolicyTier.AUTO,
       reasons: ['base_tier_auto'],
@@ -1022,6 +1079,15 @@ describe('AgentPolicyService.evaluateAction', () => {
       });
     },
   );
+
+  it('passes a null context through unchanged, so an enabled rule throws (current behaviour)', async () => {
+    const h = buildHarness();
+    h.systemPrisma.agentPolicyRule.findFirst.mockResolvedValue(ruleRow());
+
+    await expect(
+      h.service.evaluateAction(ACTION_TYPE, null as never),
+    ).rejects.toThrow(TypeError);
+  });
 
   it('defaults the context to empty and applies escalations from a supplied context', async () => {
     const h = buildHarness();
