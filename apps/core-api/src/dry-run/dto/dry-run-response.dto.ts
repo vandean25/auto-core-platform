@@ -20,6 +20,13 @@ export class WouldChangeItemDto implements WouldChangeItem {
     example: 'create',
   })
   op!: 'create' | 'update' | 'delete';
+
+  @ApiProperty({
+    description:
+      'True when the id is not a committed row id: the preview rolled the row back, so the committed write creates a different id. Do not reuse this id; use the id the committed result returns.',
+    example: true,
+  })
+  provisional!: boolean;
 }
 
 export class DryRunMetaDto {

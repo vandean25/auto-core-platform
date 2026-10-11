@@ -688,6 +688,8 @@ export class AgentProposalService {
       preview_json: {
         result: simulation.result,
         would_change: simulation.wouldChange,
+        // Nothing is committed until the pending action is applied, so the whole preview is provisional.
+        provisional: true,
         ...(intendedSiteId
           ? { execution_context: { site_id: intendedSiteId } }
           : {}),

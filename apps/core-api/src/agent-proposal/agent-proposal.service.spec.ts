@@ -199,6 +199,7 @@ describe('AgentProposalService', () => {
           tier: AgentPolicyTier.PROPOSE,
           status: AgentProposalStatus.PENDING,
           trace_id: expect.any(String),
+          preview_json: expect.objectContaining({ provisional: true }),
         }),
       });
     });
