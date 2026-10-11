@@ -815,6 +815,29 @@ describe('DecisionLiveApplyService', () => {
       );
     });
   });
+  describe('document sort rationale', () => {
+    it('keeps the provider rationale out of the shadow row, because it can quote the excerpt', async () => {
+      const { service, shadow } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue({
+          ...suggestion('Sonstiges'),
+          rationale: 'Quotes Synthetic Customer and Synthetic Street 1.',
+        }),
+        shadowEnabled: true,
+      });
+
+      await service.applyDocumentSortForAsset(
+        documentText('Hallo Werkstatt, bitte Termin bestätigen.'),
+      );
+
+      const [, outcome] = shadow.writeShadowRecord.mock.calls[0];
+      expect(outcome.suggestion).toMatchObject({ choice: 'Sonstiges' });
+      expect(outcome.suggestion).not.toHaveProperty('rationale');
+      expect(JSON.stringify(shadow.writeShadowRecord.mock.calls)).not.toContain(
+        'Synthetic Street',
+      );
+    });
+  });
   describe('write failures stay audited and never escape', () => {
     it('AUTO: a job that left DRY_RUN_DONE during the Jev wait rolls the rows back and logs apply_failed', async () => {
       const harness = buildHarness({

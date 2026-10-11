@@ -95,7 +95,7 @@ With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_s
 | `refused` | `REFUSED` | HUMAN_ONLY: logged only |
 | `fallback` | `FALLBACK` | Rules outcome kept. The reason is in `result_summary_json.reason` |
 
-Approving a PROPOSE action writes an `EXECUTED` row through the AUT-404 path. Logs and proposal payloads hold ids, enums, and, for document sort, the excerpt's length and hash. They never contain names, emails, phones, VAT ids, addresses, document text, or provider rationale.
+Approving a PROPOSE action writes an `EXECUTED` row through the AUT-404 path. Logs and proposal payloads hold ids, enums, and, for document sort, the excerpt's length and hash. They never contain names, emails, phones, VAT ids, addresses or document text. The shadow row of a live document sort decision also omits the provider rationale, which can quote the excerpt. Other shadow rows keep the rationale as the provider returned it.
 
 ### Production gate
 

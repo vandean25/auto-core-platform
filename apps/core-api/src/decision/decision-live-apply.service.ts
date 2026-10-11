@@ -614,8 +614,9 @@ export class DecisionLiveApplyService {
 
   /**
    * One audit row per live decision, plus a shadow row when shadow logging is on.
-   * Failures are logged and swallowed. Log content is redacted, and it never
-   * carries provider rationale or raw model output.
+   * Failures are logged and swallowed. Log content is redacted. The audit row never
+   * carries provider rationale or raw model output. The shadow row drops the rationale
+   * for document sort, because the rationale can quote the excerpt.
    */
   private async recordDecision(decision: LiveDecision): Promise<void> {
     const suggestion = decision.providerCall.ok
@@ -660,6 +661,10 @@ export class DecisionLiveApplyService {
     if (!this.shadow.isShadowEnabled()) {
       return;
     }
+    const shadowSuggestion =
+      suggestion && decision.useCase === DECISION_USE_CASES.DOCUMENT_SORT
+        ? withoutRationale(suggestion)
+        : suggestion;
     try {
       await this.shadow.writeShadowRecord(
         {
@@ -677,7 +682,7 @@ export class DecisionLiveApplyService {
           },
         } satisfies DecisionShadowRecordParams,
         {
-          suggestion,
+          suggestion: shadowSuggestion,
           error: decision.providerCall.ok ? null : decision.providerCall.reason,
           providerId: decision.providerId,
         },
@@ -721,6 +726,12 @@ function planImportChange(call: ImportCall): ImportPlan {
     call,
     change: { row_no: matchingCase.row.row_no, customer_id: customerId },
   };
+}
+
+function withoutRationale(suggestion: DecisionResult): DecisionResult {
+  const copy = { ...suggestion };
+  delete copy.rationale;
+  return copy;
 }
 
 function errorName(error: unknown): string {

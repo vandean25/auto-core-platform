@@ -107,6 +107,36 @@ describe('document sort excerpt', () => {
     expect(excerpt.text).toBe('x'.repeat(1499));
   });
 
+  it('keeps a 17-digit number as a number, not a VIN', () => {
+    expect(redactDocumentSortText('Kontonr 12345678901234567')).toBe(
+      'Kontonr [NUMBER]',
+    );
+  });
+
+  it('labels dates as numbers, not phone numbers', () => {
+    expect(redactDocumentSortText('Datum 01.03.2026 Frist 05.04.2026')).toBe(
+      'Datum [NUMBER] Frist [NUMBER]',
+    );
+  });
+
+  it('redacts an IBAN written in lowercase', () => {
+    expect(redactDocumentSortText('IBAN gb29 nwbk 6016 1331 9268 19')).toBe(
+      'IBAN [IBAN]',
+    );
+  });
+
+  it('ignores invisible characters and list punctuation inside phone numbers', () => {
+    expect(redactDocumentSortText('Tel 0170​1234567')).toBe('Tel [PHONE]');
+    expect(redactDocumentSortText('Tel 0170 · 1234567')).toBe('Tel [PHONE]');
+    expect(redactDocumentSortText('Tel 0170, 1234567')).toBe('Tel [PHONE]');
+  });
+
+  it('redacts a VIN glued to the word before it', () => {
+    expect(redactDocumentSortText('FahrgestellnummerWVWZZZ1JZXW000001')).toBe(
+      'Fahrgestellnummer[VIN]',
+    );
+  });
+
   it('stays within the cap for very long text', () => {
     const excerpt = buildDocumentSortExcerpt('Angebot '.repeat(100_000));
 
