@@ -29,6 +29,11 @@ import {
   normalizeImportOptions,
 } from './import-options.util.js';
 import { RowByRowApplyRunner } from './import-row-apply.runner.js';
+import {
+  traceImportCommit,
+  traceImportParse,
+  traceImportValidate,
+} from './import-trace.js';
 import type { ImportTypeHandler } from './import-type-handler.js';
 import { ImportVendorResolver } from './import-vendor.resolver.js';
 import { parseImportUpload } from './import-upload.util.js';
@@ -118,18 +123,22 @@ export class ImportService {
       tenantId,
     );
 
-    const parsed = parseImportUpload(params.file);
+    const parsed = traceImportParse(params.entityType, () =>
+      parseImportUpload(params.file),
+    );
     const options = normalizeImportOptions(params.optionsJson);
     const handler = this.handlers[params.entityType];
     await handler.prepareCreate(tenantId, params.sourceSystem, options);
-    const dryRunRows = await handler.planDryRun(
-      {
-        tenantId,
-        sourceSystem: params.sourceSystem,
-        mapping: params.mappingJson,
-        options,
-      },
-      parsed,
+    const dryRunRows = await traceImportValidate(params.entityType, () =>
+      handler.planDryRun(
+        {
+          tenantId,
+          sourceSystem: params.sourceSystem,
+          mapping: params.mappingJson,
+          options,
+        },
+        parsed,
+      ),
     );
     const totals = computeDryRunTotals(dryRunRows);
 
@@ -244,14 +253,16 @@ export class ImportService {
       throw applyInProgress();
     }
 
-    return handler.apply({
-      tenantId,
-      job,
-      rows,
-      actorUserId: currentUser.id,
-      effectiveOptions,
-      preparation,
-    });
+    return traceImportCommit(job.entity_type, rows.length, () =>
+      handler.apply({
+        tenantId,
+        job,
+        rows,
+        actorUserId: currentUser.id,
+        effectiveOptions,
+        preparation,
+      }),
+    );
   }
 
   /** Response shape of an import job. Kept on the facade as the single place it is built. */
