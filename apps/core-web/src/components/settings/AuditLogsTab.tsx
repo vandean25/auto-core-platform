@@ -238,7 +238,7 @@ export function AuditLogsTab() {
               e.stopPropagation()
               handleRowClick(row.original)
             }}
-            aria-label="View Details"
+            aria-label={`View details for ${row.original.action} ${row.original.entityType} at ${formatAuditTimestamp(row.original.occurredAt, timezone)}`}
             title="View Details"
           >
             <Eye className="h-4 w-4" />

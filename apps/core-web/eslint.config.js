@@ -29,13 +29,14 @@ export default defineConfig([
       // AUT-471: icon-only buttons and links need an accessible name (aria-label or visible text).
       // `'*'` makes custom components without children (lucide icons such as <ArrowLeft />) count as
       // unlabelled. Without it the rule assumes they render text and misses icon-only controls.
-      // Form fields are ignored here because they are named through <label>, which
-      // label-has-associated-control already enforces.
+      // Form fields (input, textarea) are not checked by this rule. Their names come from <label>, and
+      // label-has-associated-control only checks that each <label> has a control. Media, canvas, embed
+      // and table-row elements are ignored because they are not buttons or links.
       'jsx-a11y/control-has-associated-label': [
         'error',
         {
           controlComponents: ['Button', 'Link', 'NavLink', '*'],
-          ignoreElements: ['audio', 'canvas', 'embed', 'input', 'select', 'textarea', 'tr', 'video'],
+          ignoreElements: ['audio', 'canvas', 'embed', 'input', 'textarea', 'tr', 'video'],
           // Cards and other wrappers nest the visible text deeper than the default depth of 2.
           depth: 5,
         },

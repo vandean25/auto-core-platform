@@ -16,7 +16,7 @@ Moderate and minor findings are attached per test run as `accessibility-backlog-
 
 - **Lint (enforced):** `jsx-a11y/control-has-associated-label` is an error in `apps/core-web/eslint.config.js`. It checks `Button`, `Link`, `NavLink`, and DOM buttons and links. Give an icon-only control an `aria-label` that names its action or target (for example `Back to sales orders`, `Delete brand Acme`). A `title` alone does not satisfy the rule.
 - **Why `'*'` is in `controlComponents`:** lucide icons such as `<ArrowLeft />` are custom components with no children. Without `'*'` the rule assumes they render text and misses icon-only controls.
-- **Ignored elements:** `input`, `select`, and `textarea` are named through `<label>`, which `label-has-associated-control` already enforces.
+- **Ignored elements:** `input` and `textarea` are not checked by this rule. Their names come from a `<label>`, and `label-has-associated-control` only checks that each `<label>` has a control, not that every field has a label. `audio`, `canvas`, `embed`, `tr`, and `video` are ignored because they are not buttons or links.
 - **Per-site exceptions (documented in place with `eslint-disable-next-line ... -- reason`):**
   - `components/hr/EmployeeTable.tsx`: the status toggle's name comes from the `StatusBadge` text.
   - `components/settings/WorkshopHoursSettingsTab.tsx`: datalist `<option>` suggestions are named by their value.
