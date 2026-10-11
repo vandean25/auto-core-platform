@@ -25,6 +25,6 @@ import { NovaCalculationService } from './nova-calculation.service.js';
       useExisting: SandboxVehicleIdentityProvider,
     },
   ],
-  exports: [VehicleService],
+  exports: [VehicleService, NovaCalculationService],
 })
 export class VehicleModule {}

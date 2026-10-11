@@ -12,9 +12,9 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Search parts by query; optional workshop_order_id uses workshop catalog context',
   get_stock_level: 'Stock levels for a catalog item id or SKU (active site)',
   get_vehicle_stock_age_report:
-    'Read paged dealer stock age and cost basis for the active site',
+    'Paged dealer stock age and cost basis for the active site or a given site (site_id); optional from/to stock-in window; pageSize max 25 with opaque cursor',
   get_vehicle_stock_margin_report:
-    'Read paged invoiced vehicle margins for the active site and date period',
+    'Paged invoiced vehicle margins by invoice date for the active site or a given site (site_id); from and to required; pageSize max 25 with opaque cursor',
   list_invoices:
     'List invoices for the active site by status, customer, order, issue date, or number (keyset cursor, newest first)',
   get_invoice:
@@ -61,6 +61,12 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Applied supplier price lists (import jobs) with vendor, applied date as valid_from, and item count, newest first (pageSize max 25, keyset cursor)',
   list_margin_rules:
     'Active margin rules, the ones the price engine applies, in priority order: scope (brand, revenue group, EUR cost bracket), markup percent or supplier RRP, and rounding (pageSize max 25, opaque cursor)',
+  get_workshop_kpi_report:
+    'Workshop KPIs for a period (from and to) at the active site or a given site (site_id): utilisation (Auslastung), productivity (Leistungsgrad), average net revenue per order, labor and parts net revenue, and parts turnover. Totals only; read only',
+  list_pickerl_due:
+    'Vehicles with a Pickerl due within 30, 60, or 90 days (window, default 30), overdue vehicles always included: vehicle, customer name, status, and due date (last day of the due month). Overdue first, then by due month (pageSize max 25, opaque cursor)',
+  get_nova_preview:
+    'Read-only NoVA calculation for a vehicle at a net EUR price. Nothing is saved and no invoice changes. The result always states that the Steuerberater must still confirm while an unconfirmed rule applies',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:

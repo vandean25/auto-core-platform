@@ -15,7 +15,7 @@ const ALLOWED_WRITE_TOOLS = names(
   'draft_workshop_order reserve_part release_reservation propose_line_item',
 );
 const ALLOWED_READ_TOOLS = names(
-  'search_customers get_customer search_vehicles get_vehicle list_workshop_orders get_workshop_order search_parts get_stock_level get_vehicle_stock_age_report get_vehicle_stock_margin_report list_invoices get_invoice list_bays list_bins list_workshop_tasks whoami get_capabilities list_audit_events get_entity_history get_agent_action list_agent_actions get_vehicle_history list_documents get_document_pdf get_tenant_settings list_sites get_legal_entity list_purchase_orders get_purchase_order list_vendors list_catalog_items get_catalog_item list_price_lists list_margin_rules',
+  'search_customers get_customer search_vehicles get_vehicle list_workshop_orders get_workshop_order search_parts get_stock_level get_vehicle_stock_age_report get_vehicle_stock_margin_report list_invoices get_invoice list_bays list_bins list_workshop_tasks whoami get_capabilities list_audit_events get_entity_history get_agent_action list_agent_actions get_vehicle_history list_documents get_document_pdf get_tenant_settings list_sites get_legal_entity list_purchase_orders get_purchase_order list_vendors list_catalog_items get_catalog_item list_price_lists list_margin_rules get_workshop_kpi_report list_pickerl_due get_nova_preview',
 );
 
 describe('MCP Constants - Never Exposed Actions', () => {

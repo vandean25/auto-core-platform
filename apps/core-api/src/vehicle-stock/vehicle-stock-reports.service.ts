@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import {
   InvoiceStatus,
   Prisma,
@@ -28,18 +32,40 @@ const DEALER_ROLES = [
 const DEFAULT_PAGE_SIZE = 25;
 const MAX_PAGE_SIZE = 100;
 
-function pageWindow(page?: number, limit?: number) {
+/**
+ * MCP scope on top of the REST query. The REST controller never sets these, so REST
+ * responses do not change. `siteId` must be a site the caller is authorized for; when
+ * it is absent the active site is used.
+ */
+type ReportScope = {
+  siteId?: string;
+  offset?: number;
+};
+
+export type VehicleStockAgeReportParams = VehicleStockAgeReportQueryDto &
+  ReportScope & {
+    /** Inclusive stock-in dates, both or neither. */
+    stockReceivedFrom?: string;
+    stockReceivedTo?: string;
+  };
+
+export type VehicleStockMarginReportParams = VehicleStockMarginReportQueryDto &
+  ReportScope;
+
+/** Page window for a REST page number, or for an MCP offset, which wins over the page number. */
+function pageWindow(page?: number, limit?: number, offset?: number) {
   const safePage = page && page > 0 ? Math.floor(page) : 1;
   const safeLimit = Math.min(
     limit && limit > 0 ? Math.floor(limit) : DEFAULT_PAGE_SIZE,
     MAX_PAGE_SIZE,
   );
-  const skip = (safePage - 1) * safeLimit;
-  if (!Number.isSafeInteger(skip)) {
+  const skip =
+    offset === undefined ? (safePage - 1) * safeLimit : Math.floor(offset);
+  if (!Number.isSafeInteger(skip) || skip < 0) {
     throw new BadRequestException('page is too large for a safe report offset');
   }
   return {
-    page: safePage,
+    page: Math.floor(skip / safeLimit) + 1,
     limit: safeLimit,
     skip,
   };
@@ -99,6 +125,19 @@ function validatePeriod(from: string, to: string) {
   return { start, end };
 }
 
+/** Inclusive stock-in window for MCP. Both bounds or neither, as ISO dates. */
+function stockReceivedWindow(
+  from?: string,
+  to?: string,
+): Prisma.VehicleWhereInput {
+  if (from === undefined && to === undefined) return {};
+  if (from === undefined || to === undefined) {
+    throw new BadRequestException('from and to must be given together');
+  }
+  const { start, end } = validatePeriod(from, to);
+  return { AND: [{ stock_received_at: { gte: start, lte: end } }] };
+}
+
 function asDecimal(value: Prisma.Decimal | null | undefined): Prisma.Decimal {
   return value ?? new Prisma.Decimal(0);
 }
@@ -134,10 +173,26 @@ export class VehicleStockReportsService {
     private readonly siteContext: SiteContextService,
   ) {}
 
-  async stockAge(params: VehicleStockAgeReportQueryDto) {
+  /** The requested site when the caller is authorized for it; otherwise the active site. */
+  private async resolveReportSiteId(siteId?: string): Promise<string> {
+    if (siteId === undefined) {
+      return this.siteContext.getSiteId();
+    }
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    if (!authorizedSiteIds.includes(siteId)) {
+      throw new NotFoundException('Vehicle stock report site not found');
+    }
+    return siteId;
+  }
+
+  async stockAge(params: VehicleStockAgeReportParams) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
-    const { page, limit, skip } = pageWindow(params.page, params.limit);
+    const siteId = await this.resolveReportSiteId(params.siteId);
+    const { page, limit, skip } = pageWindow(
+      params.page,
+      params.limit,
+      params.offset,
+    );
     const baseWhere: Prisma.VehicleWhereInput = {
       tenant_id: tenantId,
       site_id: siteId,
@@ -147,6 +202,7 @@ export class VehicleStockReportsService {
         ? { inventory_role: params.inventory_role }
         : {}),
       ...(params.stock_status ? { stock_status: params.stock_status } : {}),
+      ...stockReceivedWindow(params.stockReceivedFrom, params.stockReceivedTo),
     };
     const where: Prisma.VehicleWhereInput = {
       ...baseWhere,
@@ -239,11 +295,15 @@ export class VehicleStockReportsService {
     };
   }
 
-  async margin(params: VehicleStockMarginReportQueryDto) {
+  async margin(params: VehicleStockMarginReportParams) {
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+    const siteId = await this.resolveReportSiteId(params.siteId);
     const { start, end } = validatePeriod(params.from, params.to);
-    const { page, limit, skip } = pageWindow(params.page, params.limit);
+    const { page, limit, skip } = pageWindow(
+      params.page,
+      params.limit,
+      params.offset,
+    );
     const invoiceWhere: Prisma.InvoiceWhereInput = {
       tenant_id: tenantId,
       site_id: siteId,

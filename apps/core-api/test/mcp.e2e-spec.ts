@@ -106,6 +106,7 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_legal_entity',
   'get_purchase_order',
   'get_catalog_item',
+  'get_nova_preview',
 ];
 
 describe('MCP server (e2e)', () => {
@@ -394,6 +395,7 @@ describe('MCP server (e2e)', () => {
         year: 2020,
         vin: `VIN-${searchToken}`,
         customer_id: customer.id,
+        co2_wltp_g_km: 120,
       },
     });
     const workshopOrder = await prismaA.workshopOrder.create({
@@ -699,6 +701,18 @@ describe('MCP server (e2e)', () => {
         arguments: { customer_id: fixtures.customerId },
       },
       { name: 'get_invoice', arguments: { invoice_id: fixtures.invoiceId } },
+      {
+        name: 'get_workshop_kpi_report',
+        arguments: { from: '2026-10-01', to: '2026-10-31' },
+      },
+      { name: 'list_pickerl_due', arguments: {} },
+      {
+        name: 'get_nova_preview',
+        arguments: {
+          vehicle_id: fixtures.vehicleId,
+          net_price_eur: '12000.00',
+        },
+      },
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
@@ -2098,6 +2112,204 @@ describe('MCP server (e2e)', () => {
           expect(result.isError).toBe(true);
         }
       });
+    });
+  });
+
+  describe('report reads (AUT-461)', () => {
+    const PERIOD = { from: '2026-10-01', to: '2026-10-31' };
+    type PickerlRow = {
+      vehicle: { id: string };
+      customer_name: string | null;
+      status: string;
+      due_date: string | null;
+    };
+    type PickerlPage = {
+      data: PickerlRow[];
+      meta: { total: number; page_size: number; next_cursor: string | null };
+    };
+    let overdueVehicleId: string;
+
+    beforeAll(async () => {
+      // A sticker that expired in January 2020 makes this vehicle overdue on the Pickerl list.
+      // The engine reports UNKNOWN without a first registration date, so one is set.
+      const vehicle = await createDraftVehicle('pickerl-overdue');
+      overdueVehicleId = vehicle.vehicleId;
+      await prismaA.vehicle.update({
+        where: { id: overdueVehicleId },
+        data: { first_registration_date: new Date('2015-03-01T00:00:00.000Z') },
+      });
+      await prismaA.vehicleInspectionRecord.create({
+        data: {
+          tenant_id: tenantA,
+          vehicle_id: overdueVehicleId,
+          inspection_type: 'PICKERL_57A',
+          inspected_on: new Date('2020-01-15T00:00:00.000Z'),
+          plaketten_valid_until_year: 2020,
+          plaketten_valid_until_month: 1,
+        },
+      });
+    });
+
+    /** Whether a call fails, either as a tool error result or as a thrown error. */
+    async function callFails(
+      who: McpCaller,
+      name: string,
+      args: Record<string, unknown>,
+    ): Promise<boolean> {
+      try {
+        return (await callMcpTool(who, name, args)).isError === true;
+      } catch {
+        return true;
+      }
+    }
+
+    /** Every Pickerl row of the caller's tenant, followed through the opaque cursor. */
+    function allPickerlRows(who: McpCaller): Promise<PickerlRow[]> {
+      return withMcpSession(who.authHeader, who.clientName, async (session) => {
+        const rows: PickerlRow[] = [];
+        let cursor: string | undefined;
+        do {
+          const page = parsePayload<PickerlPage>(
+            await session.call('list_pickerl_due', {
+              pageSize: 25,
+              ...(cursor ? { cursor } : {}),
+            }),
+          );
+          rows.push(...page.data);
+          cursor = page.meta.next_cursor ?? undefined;
+        } while (cursor !== undefined && rows.length < 500);
+        return rows;
+      });
+    }
+
+    it('advertises one page contract for the paged report reads', async () => {
+      const { client, transport } = await connectMcpClient(
+        adminHeaderA,
+        'e2e-report-schemas',
+      );
+      const tools = new Map(
+        (await client.listTools()).tools.map((tool) => [tool.name, tool]),
+      );
+      await transport.close();
+
+      for (const name of [
+        'get_vehicle_stock_age_report',
+        'get_vehicle_stock_margin_report',
+        'list_pickerl_due',
+      ]) {
+        const properties = tools.get(name)?.inputSchema.properties ?? {};
+        expect(properties).toHaveProperty('pageSize');
+        expect(properties).toHaveProperty('cursor');
+        expect(properties).not.toHaveProperty('page_size');
+        expect(properties.pageSize).toMatchObject({ maximum: 25 });
+      }
+    });
+
+    it('returns the workshop KPI totals for the active site and period', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-kpi-own'),
+        'get_workshop_kpi_report',
+        PERIOD,
+      );
+
+      expect(result.isError).not.toBe(true);
+      expect(parsePayload(result)).toMatchObject({
+        site_id: fixtures.siteId,
+        period: { from: PERIOD.from, to: PERIOD.to },
+        parts_turnover: expect.any(Object),
+      });
+    });
+
+    it('lists the overdue Pickerl vehicle of the session tenant with its due date and customer name', async () => {
+      const rows = await allPickerlRows(
+        caller(adminHeaderA, 'e2e-pickerl-own'),
+      );
+
+      expect(
+        rows.find((row) => row.vehicle.id === overdueVehicleId),
+      ).toMatchObject({
+        status: 'OVERDUE',
+        due_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        customer_name: expect.any(String),
+      });
+    });
+
+    it('never lists another tenant vehicles on the Pickerl list', async () => {
+      const rows = await allPickerlRows(
+        caller(adminHeaderB, 'e2e-pickerl-other'),
+      );
+      const ids = rows.map((row) => row.vehicle.id);
+
+      expect(ids).not.toContain(overdueVehicleId);
+      expect(ids).not.toContain(fixtures.vehicleId);
+    });
+
+    it('previews NoVA for an own vehicle with EUR strings and the Steuerberater note', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-nova-own'),
+        'get_nova_preview',
+        { vehicle_id: fixtures.vehicleId, net_price_eur: '12000.00' },
+      );
+
+      expect(result.isError).not.toBe(true);
+      expect(parsePayload(result)).toMatchObject({
+        vehicle_id: fixtures.vehicleId,
+        net_price_eur: '12000.00',
+        nova_eur: expect.stringMatching(/^\d+\.\d{2}$/),
+        note: expect.stringContaining('Steuerberater'),
+      });
+    });
+
+    it('does not preview NoVA for a vehicle of another tenant', async () => {
+      expect(
+        await callFails(
+          caller(adminHeaderB, 'e2e-nova-cross'),
+          'get_nova_preview',
+          {
+            vehicle_id: fixtures.vehicleId,
+            net_price_eur: '12000.00',
+          },
+        ),
+      ).toBe(true);
+    });
+
+    it('refuses another tenant site on the KPI and stock reports', async () => {
+      const who = caller(adminHeaderB, 'e2e-site-cross');
+
+      expect(
+        await callFails(who, 'get_workshop_kpi_report', {
+          ...PERIOD,
+          site_id: fixtures.siteId,
+        }),
+      ).toBe(true);
+      expect(
+        await callFails(who, 'get_vehicle_stock_age_report', {
+          site_id: fixtures.siteId,
+        }),
+      ).toBe(true);
+      expect(
+        await callFails(who, 'get_vehicle_stock_margin_report', {
+          ...PERIOD,
+          site_id: fixtures.siteId,
+        }),
+      ).toBe(true);
+    });
+
+    it('caps the paged report reads at 25 rows', async () => {
+      const who = caller(adminHeaderA, 'e2e-report-cap');
+
+      expect(await callFails(who, 'list_pickerl_due', { pageSize: 26 })).toBe(
+        true,
+      );
+      expect(
+        await callFails(who, 'get_vehicle_stock_age_report', { pageSize: 26 }),
+      ).toBe(true);
+      expect(
+        await callFails(who, 'get_vehicle_stock_margin_report', {
+          ...PERIOD,
+          pageSize: 26,
+        }),
+      ).toBe(true);
     });
   });
 
