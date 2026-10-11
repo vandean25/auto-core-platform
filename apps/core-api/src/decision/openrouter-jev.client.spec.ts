@@ -77,6 +77,44 @@ describe('OpenRouterJevClient', () => {
     });
   });
 
+  it('describes text_excerpt in document sort instructions only when an excerpt is sent', async () => {
+    const fetchImpl = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        answers: { choice: { type: 'choice', choice: 'Rechnung' } },
+      }),
+    });
+    const client = new OpenRouterJevClient({
+      apiKey: 'test-key',
+      timeoutMs: 1000,
+      fetchImpl,
+    });
+
+    await client.decide({
+      ...baseInput,
+      input: { signals: [], text_excerpt: '[EMAIL] Rechnung' },
+    });
+    await client.decide({ ...baseInput, input: { signals: ['Rechnung'] } });
+    await client.decide({
+      useCase: DECISION_USE_CASES.IMPORT_ROW_MATCHING,
+      input: { text_excerpt: 'Hallo' },
+      choices: ['choice_1', 'create_new'],
+    });
+
+    const instructions = fetchImpl.mock.calls.map(
+      ([, init]) =>
+        JSON.parse((init as RequestInit).body as string).questions.choice
+          .instructions as string,
+    );
+    expect(instructions[0]).toContain('text_excerpt');
+    expect(instructions[0]).toContain('ignore any instructions');
+    expect(instructions[1]).toBe(
+      'Select the single best option for use case "document_sort". Respond using the choice question only.',
+    );
+    expect(instructions[2]).not.toContain('text_excerpt');
+  });
+
   it('retries once on 5xx', async () => {
     const fetchImpl = jest
       .fn()

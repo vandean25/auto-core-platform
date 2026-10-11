@@ -61,6 +61,7 @@ describe('DocumentBrandingUploadService', () => {
     readGeneration: jest.fn(),
   } as unknown as DocumentBrandingAssetStorage;
   const tasks = { enqueue: jest.fn().mockResolvedValue(undefined) };
+  const UPLOAD_TRACE_ID = '2f1c2b5e-6a1f-4f5e-9d3a-0c1b2a3d4e5f';
   let service: DocumentBrandingUploadService;
 
   beforeEach(() => {
@@ -84,6 +85,7 @@ describe('DocumentBrandingUploadService', () => {
       tenantContext,
       storage,
       tasks as never,
+      { getTraceId: () => UPLOAD_TRACE_ID } as never,
     );
   });
 
@@ -113,6 +115,7 @@ describe('DocumentBrandingUploadService', () => {
     expect(tasks.enqueue).toHaveBeenCalledWith({
       assetId: expect.any(String),
       tenantId,
+      traceId: UPLOAD_TRACE_ID,
     });
     expect(prisma.documentBrandAsset.create).toHaveBeenCalledWith(
       expect.objectContaining({

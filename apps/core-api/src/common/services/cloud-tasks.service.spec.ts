@@ -162,6 +162,46 @@ describe('CloudTasksService', () => {
     });
   });
 
+  it('sends the upload trace id to the validation worker as X-Trace-Id', async () => {
+    const { service, createTask } = createService();
+    createTask.mockResolvedValue([
+      {
+        name: 'projects/test/locations/europe-west3/queues/pdf-queue/tasks/brand-validation',
+      },
+    ]);
+    const traceId = '2f1c2b5e-6a1f-4f5e-9d3a-0c1b2a3d4e5f';
+
+    await service.enqueueDocumentBrandingAssetValidation({
+      assetId: 'asset-1',
+      tenantId: 'tenant-1',
+      targetBaseUrl: 'https://app.example.com/api',
+      traceId,
+    });
+
+    expect(createTask.mock.calls[0][0].task.httpRequest.headers).toMatchObject({
+      'x-trace-id': traceId,
+    });
+  });
+
+  it('omits X-Trace-Id when the enqueue has no trace id', async () => {
+    const { service, createTask } = createService();
+    createTask.mockResolvedValue([
+      {
+        name: 'projects/test/locations/europe-west3/queues/pdf-queue/tasks/brand-validation',
+      },
+    ]);
+
+    await service.enqueueDocumentBrandingAssetValidation({
+      assetId: 'asset-1',
+      tenantId: 'tenant-1',
+      targetBaseUrl: 'https://app.example.com/api',
+    });
+
+    expect(
+      createTask.mock.calls[0][0].task.httpRequest.headers,
+    ).not.toHaveProperty('x-trace-id');
+  });
+
   it('creates a tenant and entity bound extraction task with a worker deadline', async () => {
     const { service, createTask } = createService();
     createTask.mockResolvedValue([

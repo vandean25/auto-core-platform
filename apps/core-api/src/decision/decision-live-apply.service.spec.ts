@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import type { Customer } from '@prisma/client';
 import type { DryRunRowResult } from '../import/import.types.js';
 import { DecisionLiveApplyService } from './decision-live-apply.service.js';
 import { DecisionUseCaseHooksService } from './decision-use-case-hooks.service.js';
 import type { DecisionProvider } from './decision-provider.js';
-import type { DecisionResult } from './decision.types.js';
+import type { DecisionChoiceInput, DecisionResult } from './decision.types.js';
+import { DOCUMENT_SORT_EXCERPT_MAX_CHARS } from './document-sort-excerpt.js';
 
 const TENANT_ID = 'tenant-1';
 const TRACE_ID = '2f1c2b5e-6a1f-4f5e-9d3a-0c1b2a3d4e5f';
@@ -657,6 +659,183 @@ describe('DecisionLiveApplyService', () => {
 
       expect(decide).not.toHaveBeenCalled();
       expect(actionLog.record).not.toHaveBeenCalled();
+    });
+  });
+  describe('document sort live input', () => {
+    /** No heuristic keyword, so the heuristic leaves this document to Jev as Sonstiges. */
+    const MEMO =
+      'Hallo Werkstatt, bitte Termin bestätigen. Kontakt: max.muster@example.org, Tel +43 660 1234567. IBAN AT61 1904 3002 3457 3201. Auftragsnummer 20260011223.';
+    const REDACTED_MEMO =
+      'Hallo Werkstatt, bitte Termin bestätigen. Kontakt: [EMAIL], Tel [PHONE]. IBAN [IBAN]. Auftragsnummer [NUMBER].';
+
+    it('sends the signals and a redacted excerpt to Jev, never the raw identifiers', async () => {
+      const { service, decide } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue(suggestion('Sonstiges')),
+      });
+
+      await service.applyDocumentSortForAsset(documentText(MEMO));
+
+      const [sent] = decide.mock.calls[0] as [DecisionChoiceInput];
+      expect(sent.useCase).toBe('document_sort');
+      expect(sent.input).toEqual({ signals: [], text_excerpt: REDACTED_MEMO });
+      expect(JSON.stringify(sent)).not.toMatch(
+        /max\.muster|example\.org|1234567|1904|3002/,
+      );
+    });
+
+    it('caps the excerpt at the excerpt limit however long the document', async () => {
+      const { service, decide } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue(suggestion('Sonstiges')),
+      });
+
+      await service.applyDocumentSortForAsset(
+        documentText(`Hallo Werkstatt ${'Lauf '.repeat(2000)}`),
+      );
+
+      const [sent] = decide.mock.calls[0] as [DecisionChoiceInput];
+      const { text_excerpt } = sent.input as { text_excerpt: string };
+      expect(text_excerpt).toHaveLength(DOCUMENT_SORT_EXCERPT_MAX_CHARS);
+    });
+
+    it('audits the excerpt as its length and hash, never its text', async () => {
+      const { service, decide, actionLog } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue(suggestion('Sonstiges')),
+      });
+
+      await service.applyDocumentSortForAsset(documentText(MEMO));
+
+      const [sent] = decide.mock.calls[0] as [DecisionChoiceInput];
+      const { text_excerpt } = sent.input as { text_excerpt: string };
+      expect(actionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inputSummary: {
+            mode: 'live',
+            use_case: 'document_sort',
+            input: {
+              signals: [],
+              text_excerpt_length: text_excerpt.length,
+              text_excerpt_sha256: createHash('sha256')
+                .update(text_excerpt)
+                .digest('hex'),
+            },
+            choices: sent.choices,
+          },
+        }),
+      );
+      expect(JSON.stringify(actionLog.record.mock.calls)).not.toContain(
+        'Hallo Werkstatt',
+      );
+    });
+
+    it('writes the same audit form to the shadow row when shadow logging is on', async () => {
+      const { service, shadow } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue(suggestion('Sonstiges')),
+        shadowEnabled: true,
+      });
+
+      await service.applyDocumentSortForAsset(documentText(MEMO));
+
+      expect(shadow.writeShadowRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: {
+            signals: [],
+            text_excerpt_length: expect.any(Number),
+            text_excerpt_sha256: expect.any(String),
+          },
+        }),
+        expect.anything(),
+      );
+      expect(JSON.stringify(shadow.writeShadowRecord.mock.calls)).not.toMatch(
+        /Hallo Werkstatt|max\.muster/,
+      );
+    });
+
+    it('AUTO: applies a type Jev finds in text with no heuristic keyword', async () => {
+      const { service, prisma, actionLog } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue(suggestion('Rechnung')),
+      });
+
+      await service.applyDocumentSortForAsset(documentText(MEMO));
+
+      expect(prisma.documentBrandAsset.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { document_sort_type: 'Rechnung' } }),
+      );
+      expect(actionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'EXECUTED' }),
+      );
+    });
+
+    it('PROPOSE: creates a pending action for a type Jev finds in text with no heuristic keyword', async () => {
+      const { service, prisma, proposals, actionLog } = buildHarness({
+        tier: 'PROPOSE',
+        decide: jest.fn().mockResolvedValue(suggestion('Rechnung')),
+      });
+
+      await service.applyDocumentSortForAsset(documentText(MEMO));
+
+      expect(prisma.documentBrandAsset.updateMany).not.toHaveBeenCalled();
+      expect(proposals.persistPendingAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action_type: 'decision.document_sort',
+          payload_json: {
+            document_brand_asset_id: ASSET_ID,
+            document_sort_type: 'Rechnung',
+          },
+          preview_json: {
+            heuristic_type: 'Sonstiges',
+            suggested_type: 'Rechnung',
+          },
+        }),
+      );
+      expect(actionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'PROPOSED' }),
+      );
+    });
+
+    it('HUMAN_ONLY: refuses a type Jev finds in text with no heuristic keyword', async () => {
+      const { service, prisma, proposals, actionLog } = buildHarness({
+        tier: 'HUMAN_ONLY',
+        decide: jest.fn().mockResolvedValue(suggestion('Rechnung')),
+      });
+
+      await service.applyDocumentSortForAsset(documentText(MEMO));
+
+      expect(prisma.documentBrandAsset.updateMany).not.toHaveBeenCalled();
+      expect(proposals.persistPendingAction).not.toHaveBeenCalled();
+      expect(actionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'REFUSED',
+          resultSummary: expect.objectContaining({ reason: 'human_only' }),
+        }),
+      );
+    });
+  });
+  describe('document sort rationale', () => {
+    it('keeps the provider rationale out of the shadow row, because it can quote the excerpt', async () => {
+      const { service, shadow } = buildHarness({
+        tier: 'AUTO',
+        decide: jest.fn().mockResolvedValue({
+          ...suggestion('Sonstiges'),
+          rationale: 'Quotes Synthetic Customer and Synthetic Street 1.',
+        }),
+        shadowEnabled: true,
+      });
+
+      await service.applyDocumentSortForAsset(
+        documentText('Hallo Werkstatt, bitte Termin bestätigen.'),
+      );
+
+      const [, outcome] = shadow.writeShadowRecord.mock.calls[0];
+      expect(outcome.suggestion).toMatchObject({ choice: 'Sonstiges' });
+      expect(outcome.suggestion).not.toHaveProperty('rationale');
+      expect(JSON.stringify(shadow.writeShadowRecord.mock.calls)).not.toContain(
+        'Synthetic Street',
+      );
     });
   });
   describe('write failures stay audited and never escape', () => {

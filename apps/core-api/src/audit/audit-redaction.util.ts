@@ -95,7 +95,7 @@ export type AuditPiiKind = 'email' | 'phone' | 'address';
  * first character of a run, so a long run of letters with no @ is scanned once
  * rather than from every position.
  */
-const EMAIL_IN_TEXT_PATTERN =
+export const EMAIL_IN_TEXT_PATTERN =
   /(?<![\p{L}\p{N}._%+'-])[\p{L}\p{N}._%+'-]+@[\p{L}\p{N}.-]+\.\p{L}{2,}/gu;
 const PHONE_CHARACTERS_PATTERN = /^[+\d ()/-]+$/;
 const ADDRESS_FIELD_NAMES = new Set([

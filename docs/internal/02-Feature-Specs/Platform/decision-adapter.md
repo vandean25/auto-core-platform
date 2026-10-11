@@ -8,7 +8,9 @@ AUT-413 adds an opt-in **live-apply** mode. Live mode awaits Jev only where the 
 
 ## Data rule
 
-**Made-up data only** for provider calls in this phase. Fixtures and shadow `input_redacted_json` use synthetic German examples with obviously fake contact patterns (`@example.org`, invalid VIN-like strings). Nothing real or personal is sent to OpenRouter/Jev. Refer to the pilot deployment as **pilot customer** in docs and code comments, never by a real customer name.
+Shadow calls send only signals, hashed match features, and `choice_N` aliases. Fixtures and shadow `input_redacted_json` use synthetic German examples with obviously fake contact patterns (`@example.org`, invalid VIN-like strings). Refer to the pilot deployment as **pilot customer** in docs and code comments, never by a real customer name.
+
+The live document sort call (AUT-491) is the one exception. It also sends a redacted excerpt of the document text, at most 1500 characters. Emails, phone numbers, IBANs, VINs, and digit runs become placeholders. A VIN is detected only as one unbroken string or in 3-3-3-3-5 groups separated by spaces. Dashed or otherwise split VINs are not detected. **Names and street addresses are not detected, so they are sent as written.** Before live is enabled for a tenant whose documents hold real customer data, the data-protection position for this flow must be signed off. This is an open item.
 
 ## Architecture
 
@@ -26,7 +28,7 @@ AUT-413 adds an opt-in **live-apply** mode. Live mode awaits Jev only where the 
 ### Use cases
 
 1. **import_row_matching**: after a legacy customer import dry-run, for rows with an `IMPORT_POSSIBLE_DUPLICATE` warning only. Shadow compares Jev with the deterministic dry-run outcome. Live may adopt an existing customer match.
-2. **document_sort**: after document branding PDF validation. The heuristic classifier is final unless it returns `Sonstiges`. Only that gap is sent to Jev.
+2. **document_sort**: after document branding PDF validation. The heuristic classifier is final unless it returns `Sonstiges`. Only that gap is sent to Jev, as the signals plus the redacted excerpt described in the data rule.
 
 ## Configuration
 
@@ -74,6 +76,7 @@ Tenant rules must be at least as strict as the latest platform row. A DB trigger
   - **Document sort:** only the `Sonstiges` gap is consulted.
 - The choice must be in the allowed list (`choice_N` / `create_new` for import; the five document types for doc sort). Anything else is `invalid_choice` and is not applied.
 - Input is redacted before it leaves the process. Names, emails, phones, VAT ids and addresses are replaced by hashed match features, and candidates are sent as `choice_N` aliases (`redactShadowParams`, unchanged from AE4).
+- Document sort input is `{ signals, text_excerpt }`. `buildDocumentSortExcerpt` (`document-sort-excerpt.ts`) normalises whitespace, replaces identifiers, and caps the result at 1500 characters. The prompt tells Jev to treat the excerpt as document content, not instructions. Shadow calls send signals only, so their prompt is unchanged.
 
 ### Fallback
 
@@ -81,9 +84,9 @@ A timeout, provider error, empty answer, invalid choice, exhausted batch budget,
 
 ### Audit
 
-Every live decision writes one `agent_action_logs` row. It carries the request trace id, the tier, the redacted input and suggestion, and the outcome.
+Every live decision writes one `agent_action_logs` row. It carries the request trace id, the tier, the redacted input and suggestion, and the outcome. For document sort, the input is the signals plus `text_excerpt_length` and `text_excerpt_sha256`. The excerpt text is never stored. The first validation task carries the upload's `X-Trace-Id` (AUT-491), so its rows share the upload's trace id. A recovery re-enqueue has no request, so it gets a new trace id, as before.
 
-With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_shadow_logs` row from the same suggestion. Documents the heuristic already classified (not `Sonstiges`) never reach live, so they keep the ordinary shadow row. The AE7 comparison data therefore stays complete in live mode.
+With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_shadow_logs` row from the same suggestion. Documents the heuristic already classified (not `Sonstiges`) never reach live, so they keep the ordinary shadow row. The AE7 comparison data stays complete in live mode, but it is not uniform. A live `Sonstiges` row carries `text_excerpt_length`, and its suggestion was made with the excerpt. Its input and `input_hash` differ from a shadow-mode row for the same document, so compare live rows only with each other.
 
 | Outcome | `status` | Meaning |
 |---------|----------|---------|
@@ -92,7 +95,7 @@ With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_s
 | `refused` | `REFUSED` | HUMAN_ONLY: logged only |
 | `fallback` | `FALLBACK` | Rules outcome kept. The reason is in `result_summary_json.reason` |
 
-Approving a PROPOSE action writes an `EXECUTED` row through the AUT-404 path. Logs and proposal payloads hold ids and enums only. They never contain names, emails, phones, VAT ids, addresses, or provider rationale.
+Approving a PROPOSE action writes an `EXECUTED` row through the AUT-404 path. Logs and proposal payloads hold ids, enums, and, for document sort, the excerpt's length and hash. They never contain names, emails, phones, VAT ids, addresses or document text. The shadow row of a live document sort decision also omits the provider rationale, which can quote the excerpt. Other shadow rows keep the rationale as the provider returned it.
 
 ### Production gate
 

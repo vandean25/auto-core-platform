@@ -5,7 +5,7 @@ import { CloudTasksService } from '../common/services/cloud-tasks.service.js';
 export class DocumentBrandingUploadTaskService {
   constructor(private readonly cloudTasks: CloudTasksService) {}
 
-  enqueue(params: { assetId: string; tenantId: string }) {
+  enqueue(params: { assetId: string; tenantId: string; traceId?: string }) {
     return this.cloudTasks.enqueueDocumentBrandingAssetValidation({
       ...params,
       targetBaseUrl: process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '',
