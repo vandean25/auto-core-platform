@@ -17,6 +17,8 @@ import { toast } from 'sonner'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { getErrorMessage } from '@/lib/error-utils'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { usePageBreadcrumbs } from '@/hooks/usePageBreadcrumbs'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -34,6 +36,7 @@ export default function SalesOrderDetail() {
     const navigate = useNavigate()
     const { data: order, isLoading } = useSalesOrder(id!)
     useDocumentTitle(order?.order_number)
+    usePageBreadcrumbs({ listPath: APP_ROUTE_PATHS.salesOrders, currentLabel: order?.order_number ?? 'Sales order' })
     const createInvoiceMutation = useCreateInvoiceFromOrder()
     const updateSalesOrder = useUpdateSalesOrder()
 

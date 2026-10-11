@@ -27,7 +27,7 @@ import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import { NewVersionAvailableBanner } from '@/components/NewVersionAvailableBanner'
 import { RouteTitle } from '@/components/RouteTitle'
-import { PageContainer } from '@/components/layout/PageContainer'
+import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/components/layout/PageBreadcrumbs'
 import { PageLoader } from '@/components/ui/PageLoader'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
@@ -217,11 +217,13 @@ function AppMain({ sidebarCollapsed }: AppMainProps) {
       className={cn('min-h-screen transition-[padding-left] duration-200', sidebarCollapsed ? 'pl-20' : 'pl-72')}
       tabIndex={-1}
     >
-      <PageContainer>
-        <GlobalErrorBoundary>
-          <AppRoutes />
-        </GlobalErrorBoundary>
-      </PageContainer>
+      <PageBreadcrumbsProvider>
+        <PageContainerWithBreadcrumbs>
+          <GlobalErrorBoundary>
+            <AppRoutes />
+          </GlobalErrorBoundary>
+        </PageContainerWithBreadcrumbs>
+      </PageBreadcrumbsProvider>
       <Toaster />
     </main>
   )

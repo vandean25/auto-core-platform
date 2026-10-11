@@ -12,6 +12,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ClipboardList,
+  FileText,
   LayoutDashboard,
   LogOut,
   Package,
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 
@@ -128,7 +130,15 @@ const coreModules: SidebarModule[] = [
     to: '/sales-orders',
     icon: ClipboardList,
     isVisible: () => true,
-    isActive: (pathname) => pathname.startsWith('/sales-orders') || pathname.startsWith('/sales/invoices'),
+    isActive: (pathname) => pathname.startsWith('/sales-orders'),
+  },
+  {
+    id: 'sales-invoices',
+    label: 'Invoices',
+    to: APP_ROUTE_PATHS.salesInvoices,
+    icon: FileText,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/sales/invoices'),
   },
   {
     id: 'workshop-orders',
