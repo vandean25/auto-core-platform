@@ -11,6 +11,7 @@ import {
   useVoidCreditNote,
 } from '@/api/useCreditNotes'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import {
@@ -66,6 +67,7 @@ export default function CreditNoteDetailPage() {
   const sessionQuery = useAuthSession()
   const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: creditNote, isLoading, isError, error } = useCreditNote(id)
+  useDocumentTitle(creditNote?.creditNumber)
   const { data: originalInvoice } = useInvoice(creditNote?.originalInvoiceId ?? '')
   const updateDraft = useUpdateCreditNoteDraft()
   const finalizeCreditNote = useFinalizeCreditNote()

@@ -91,4 +91,22 @@ test.describe('Per-route document title (AUT-473)', () => {
     await expect(page.getByText('Navigated to Customers', { exact: true })).toHaveAttribute('aria-live', 'polite');
     await expect(customersLink).toBeFocused();
   });
+
+  test('leaving a detail page does not keep its entity in the next page title', async ({ page }) => {
+    await page.route(AutoCorePage.apiRouteMatcher('/api/sales-orders/so-123'), (route) =>
+      route.fulfill(jsonResponse({ ...createMockSalesOrder(), items: [] })),
+    );
+    await page.route(AutoCorePage.apiRouteMatcher('/api/customers'), (route) =>
+      route.fulfill(jsonResponse(createMockListResponse([]))),
+    );
+    await new AutoCorePage(page, 'Sales Order').navigate('/sales-orders/so-123');
+    await expect(page).toHaveTitle('SO-2026-0001 - Sales Orders - Auto Core');
+
+    await page.getByRole('link', { name: 'Customers', exact: true }).first().click();
+
+    // The list page mounts only after the outgoing page's exit animation has finished, so once its
+    // heading is visible any stale write from the outgoing page has already happened.
+    await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
+    await expect(page).toHaveTitle('Customers - Auto Core');
+  });
 });

@@ -84,4 +84,29 @@ describe('RouteTitle and useDocumentTitle', () => {
     expect(screen.getByText('Navigated to Customers')).toHaveAttribute('aria-live', 'polite')
     expect(document.activeElement).toBe(button)
   })
+
+  it('keeps an outgoing page on its own route after the router has moved on', () => {
+    // AnimatePresence keeps the outgoing page mounted during its exit animation, by which time the
+    // router already points at the next route. The page sits under a Routes provider that still
+    // holds its own location, so its section must not follow the router.
+    function OutgoingOrderPage() {
+      useDocumentTitle('WO-2026-0002')
+      return <h1>Order</h1>
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/workshop/orders/wo-2']}>
+        <RouteTitle />
+        <NavigateButton to={APP_ROUTE_PATHS.customers} />
+        <Routes location={{ pathname: '/workshop/orders/wo-2' }}>
+          <Route path={APP_ROUTE_PATHS.workshopOrderDetail} element={<OutgoingOrderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(document.title).toBe('WO-2026-0002 - Workshop Orders - Auto Core')
+
+    fireEvent.click(screen.getByRole('button', { name: `Go to ${APP_ROUTE_PATHS.customers}` }))
+
+    expect(document.title).toBe('Customers - Auto Core')
+  })
 })

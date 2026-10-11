@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { format } from 'date-fns'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
@@ -76,6 +77,7 @@ export default function StockTransferDetail() {
   const sessionQuery = useAuthSession(user?.uid ?? user?.email ?? null, Boolean(user))
   const { data: mySites = [] } = useMySites(Boolean(id))
   const { data: transfer, isLoading, error } = useStockTransfer(id)
+  useDocumentTitle(transfer?.transferNumber)
   const { data: inventoryResponse } = useInventory({ pageSize: 200 })
 
   const approveMutation = useApproveStockTransfer(id)
