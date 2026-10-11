@@ -32,6 +32,7 @@ import {
   type ImportRowMatchChange,
 } from './decision-live-apply.util.js';
 import type { DecisionProvider } from './decision-provider.js';
+import { traceDecisionProvider } from './decision-provider-span.js';
 import {
   DecisionShadowService,
   redactShadowParams,
@@ -581,7 +582,7 @@ export class DecisionLiveApplyService {
     });
     try {
       const suggestion = await Promise.race([
-        this.decisionProvider.decide(input),
+        traceDecisionProvider(this.decisionProvider, input),
         timeout,
       ]);
       if (!suggestion) {

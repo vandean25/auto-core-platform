@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { withSpan } from '../common/observability/trace.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -55,10 +56,20 @@ export class InvoicePdfService {
 
     assertInvoicePdfGenerationAllowed(invoice.status);
 
-    const outcome = await this.dispatchPdfGeneration(
-      invoiceId,
-      tenantId,
-      params.targetBaseUrl,
+    // The enqueue or inline fallback runs inside this span; cloudtasks.enqueue and pdf.generate nest below it.
+    const outcome = await withSpan(
+      'Enqueue invoice PDF',
+      'invoice.pdf.enqueue',
+      { invoiceId },
+      async (span) => {
+        const dispatched = await this.dispatchPdfGeneration(
+          invoiceId,
+          tenantId,
+          params.targetBaseUrl,
+        );
+        span.setAttribute('outcome', dispatched.mode);
+        return dispatched;
+      },
     );
     return helpers.formatRequestGenerationOutcome(
       outcome,

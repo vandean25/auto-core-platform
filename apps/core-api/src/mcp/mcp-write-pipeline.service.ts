@@ -7,6 +7,9 @@ import { AgentPolicyTier } from '@prisma/client';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
+import { agentPolicyOutcome } from '../agent-policy/agent-policy.evaluator.js';
+import { withSpan } from '../common/observability/trace.js';
+import { TenantContextStorage } from '../common/services/tenant-context.storage.js';
 import type { AgentActionRecordInput } from '../agent-action-log/agent-action-log.types.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
@@ -90,7 +93,10 @@ export class McpWritePipelineService {
     this.agentProposals = agentProposals;
   }
 
-  /** Runs one write call: policy, then refusal, a rollback preview, and either a proposal or the write. */
+  /**
+   * Runs one write call as one `agent.action` span: policy first, then an `agent.decision` span around
+   * refusal, a rollback preview, and either a proposal or the write.
+   */
   async run(
     execution: McpWriteExecution,
     input: unknown,
@@ -106,7 +112,33 @@ export class McpWritePipelineService {
       reasons: [],
     };
 
-    await this.evaluatePolicy(call);
+    return withSpan(
+      'Agent action',
+      'agent.action',
+      {
+        'agent.action.type': call.actionType,
+        'agent.trace_id': TenantContextStorage.getRequestMeta()?.traceId,
+      },
+      async (span) => {
+        await this.evaluatePolicy(call);
+        span.setAttribute('agent.policy.tier', call.tier);
+
+        const result = await withSpan(
+          'Agent decision',
+          'agent.decision',
+          { 'agent.policy.outcome': agentPolicyOutcome(call.tier) },
+          () => this.decideAndRun(call),
+        );
+        if (result.trace_id) {
+          span.setAttribute('agent.trace_id', result.trace_id);
+        }
+        return result;
+      },
+    );
+  }
+
+  /** Refuses, proposes, or executes a call whose tier is settled. Only AUTO and PROPOSE reach the preview. */
+  private async decideAndRun(call: WriteCall): Promise<McpWriteToolResult> {
     if (call.tier === AgentPolicyTier.HUMAN_ONLY) {
       return this.refuse(call);
     }

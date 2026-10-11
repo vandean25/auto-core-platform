@@ -6,6 +6,7 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { DECISION_PROVIDER_TOKEN } from './decision.constants.js';
 import { readDecisionShadowEnabled } from './decision-env.js';
 import type { DecisionProvider } from './decision-provider.js';
+import { traceDecisionProvider } from './decision-provider-span.js';
 import { hashDecisionInput } from './decision-input-hash.js';
 import type {
   DecisionResult,
@@ -76,7 +77,7 @@ export class DecisionShadowService {
     let error: string | null = null;
 
     try {
-      suggestion = await this.decisionProvider.decide({
+      suggestion = await traceDecisionProvider(this.decisionProvider, {
         useCase: params.useCase,
         input: params.input,
         choices: params.choices,

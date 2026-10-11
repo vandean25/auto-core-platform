@@ -32,5 +32,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0024 | LegalEntity Document Branding and Letterhead Extraction                | Accepted | 2026-09-27                      | [2026-09-27-legal-entity-document-branding.md](2026-09-27-legal-entity-document-branding.md)                       |
 | ADR-0025 | Customer Communication, Estimates and Transactional Notifications      | Proposed | 2026-10-02                      | [2026-10-02-customer-communication-and-approvals.md](2026-10-02-customer-communication-and-approvals.md)           |
 | ADR-0026 | Tenant API Keys and the Read-Only Public API                           | Accepted | 2026-10-09                      | [2026-10-09-public-api-keys.md](2026-10-09-public-api-keys.md)                                                     |
+| ADR-0027 | Sentry Spans and App Trace ID Linkage Without a Schema Change          | Accepted | 2026-10-11                      | [2026-10-11-sentry-app-trace-linkage.md](2026-10-11-sentry-app-trace-linkage.md)                                   |
 
-Next free number: **ADR-0027**.
+Next free number: **ADR-0028**.

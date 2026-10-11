@@ -25,6 +25,7 @@ import {
   resolveWorkRecordFields,
   type WorkOutcome,
 } from './agent-action-log.record.js';
+import { setActiveSpanAttributes } from '../common/observability/trace.js';
 import { isTraceIdUuid } from '../common/services/trace-id.util.js';
 import type {
   AgentActionLogListResponseDto,
@@ -67,6 +68,7 @@ export class AgentActionLogService {
     const parsed = agentActionRecordInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
     const traceId = parsed.traceId ?? this.requireTraceId();
+    setActiveSpanAttributes({ 'agent.trace_id': traceId });
 
     const outcome = await this.runWork(traceId, work);
     const created = await this.prisma.agentActionLog.create({
@@ -93,6 +95,7 @@ export class AgentActionLogService {
     const parsed = agentActionRecordInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
     const traceId = parsed.traceId ?? this.requireTraceId();
+    setActiveSpanAttributes({ 'agent.trace_id': traceId });
     const workResult = work
       ? await runWithAgentAuditTrace(traceId, work)
       : undefined;
