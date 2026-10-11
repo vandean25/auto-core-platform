@@ -87,6 +87,26 @@ describe('document sort excerpt', () => {
     expect(JSON.stringify(audit)).not.toContain('Werkstatt');
   });
 
+  it('redacts a VIN in any case, or printed in 3-3-3-3-5 groups', () => {
+    expect(redactDocumentSortText('VIN wvwzzz1jz3w386752 Halter')).toBe(
+      'VIN [VIN] Halter',
+    );
+    expect(redactDocumentSortText('FIN WVW ZZZ 1JZ 3W3 86752')).toBe('FIN [VIN]');
+  });
+
+  it('redacts phone numbers with colons, minus signs, longer separators and full-width digits', () => {
+    expect(redactDocumentSortText('Tel 0170: 1234567')).toBe('Tel [PHONE]');
+    expect(redactDocumentSortText('0664−123−45−67')).toBe('[PHONE]');
+    expect(redactDocumentSortText('0664 - - 1234567')).toBe('[PHONE]');
+    expect(redactDocumentSortText('０６６４ １２３４５６７')).toBe('[PHONE]');
+  });
+
+  it('never leaves half of an astral character at the cap', () => {
+    const excerpt = buildDocumentSortExcerpt(`${'x'.repeat(1499)}😀abc`);
+
+    expect(excerpt.text).toBe('x'.repeat(1499));
+  });
+
   it('stays within the cap for very long text', () => {
     const excerpt = buildDocumentSortExcerpt('Angebot '.repeat(100_000));
 

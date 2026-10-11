@@ -10,7 +10,7 @@ AUT-413 adds an opt-in **live-apply** mode. Live mode awaits Jev only where the 
 
 Shadow calls send only signals, hashed match features, and `choice_N` aliases. Fixtures and shadow `input_redacted_json` use synthetic German examples with obviously fake contact patterns (`@example.org`, invalid VIN-like strings). Refer to the pilot deployment as **pilot customer** in docs and code comments, never by a real customer name.
 
-The live document sort call (AUT-491) is the one exception. It also sends a redacted excerpt of the document text, at most 1500 characters. Emails, phone numbers, IBANs, VINs, and digit runs become placeholders. **Names and street addresses are not detected, so they are sent as written.** Before live is enabled for a tenant whose documents hold real customer data, the data-protection position for this flow must be signed off. This is an open item.
+The live document sort call (AUT-491) is the one exception. It also sends a redacted excerpt of the document text, at most 1500 characters. Emails, phone numbers, IBANs, VINs, and digit runs become placeholders. A VIN is detected only as one unbroken string or in 3-3-3-3-5 groups separated by spaces. Dashed or otherwise split VINs are not detected. **Names and street addresses are not detected, so they are sent as written.** Before live is enabled for a tenant whose documents hold real customer data, the data-protection position for this flow must be signed off. This is an open item.
 
 ## Architecture
 

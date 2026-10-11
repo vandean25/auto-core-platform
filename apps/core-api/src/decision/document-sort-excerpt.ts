@@ -20,13 +20,22 @@ const DOCUMENT_SORT_EXCERPT_SCAN_CHARS = 4 * DOCUMENT_SORT_EXCERPT_MAX_CHARS;
  */
 const IBAN_PATTERN =
   /\b[A-Z]{2}\d{2}(?:[A-Z0-9]{11,30}|(?: [A-Z0-9]{4}){2,7}(?: [A-Z0-9]{1,4})?)\b/g;
-const VIN_PATTERN = /\b(?=[A-HJ-NPR-Z0-9]*[A-Z])[A-HJ-NPR-Z0-9]{17}\b/g;
+
 /**
- * A run of digits, grouped by up to three spaces, brackets, slashes, dots or dashes
- * between digits. Letters next to the run do not stop it, so the digits of a VAT id
- * such as ATU12345678 are redacted and only its country prefix stays.
+ * A VIN as one unbroken string, or in the 3-3-3-3-5 groups printed with single spaces.
+ * Case-insensitive, and I, O and Q never occur in a VIN. The lookahead requires a digit
+ * within the length of the longest form. Dashed or otherwise split VINs are not detected.
  */
-const DIGIT_RUN_PATTERN = /(?<!\d)\+?\d(?:[ ()/.\-‐-―]{0,3}\d)*(?!\d)/g;
+const VIN_PATTERN =
+  /\b(?=[A-HJ-NPR-Z0-9 ]{0,21}\d)(?:[A-HJ-NPR-Z0-9]{17}|[A-HJ-NPR-Z0-9]{3}(?: [A-HJ-NPR-Z0-9]{3}){3} [A-HJ-NPR-Z0-9]{5})\b/gi;
+
+/**
+ * A run of digits, grouped by spaces, brackets, slashes, dots, colons or dashes
+ * (including en dashes and the minus sign) between digits. Letters next to the run
+ * do not stop it, so the digits of a VAT id such as ATU12345678 are redacted and only
+ * its country prefix stays.
+ */
+const DIGIT_RUN_PATTERN = /(?<!\d)\+?\d(?:[ ()/.:\-‐-―−]{0,6}\d)*(?!\d)/g;
 const DIGIT_RUN_MIN_DIGITS = 7;
 const PHONE_MAX_DIGITS = 15;
 
@@ -71,11 +80,13 @@ export function documentSortExcerptAudit(
 }
 
 /**
- * Replaces emails, IBANs, VINs and long digit runs with placeholders. Names and
- * street addresses are not detected and stay in the text.
+ * Replaces emails, IBANs, VINs and long digit runs with placeholders. Full-width
+ * characters are folded first. Names and street addresses are not detected and stay
+ * in the text.
  */
 export function redactDocumentSortText(text: string): string {
   return text
+    .normalize('NFKC')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, DOCUMENT_SORT_EXCERPT_SCAN_CHARS)
@@ -98,9 +109,13 @@ function capExcerpt(redacted: string): string {
   if (redacted.length <= DOCUMENT_SORT_EXCERPT_MAX_CHARS) {
     return redacted;
   }
-  // A placeholder the cap cut in half would leave a fragment such as "[EM", so it is dropped.
-  return redacted
-    .slice(0, DOCUMENT_SORT_EXCERPT_MAX_CHARS)
-    .replace(/\[[A-Z]*$/, '')
-    .trimEnd();
+  return (
+    redacted
+      .slice(0, DOCUMENT_SORT_EXCERPT_MAX_CHARS)
+      // A high surrogate at the cut would leave half of an astral character.
+      .replace(/[\uD800-\uDBFF]$/, '')
+      // A placeholder the cap cut in half would leave a fragment such as "[EM".
+      .replace(/\[[A-Z]*$/, '')
+      .trimEnd()
+  );
 }
