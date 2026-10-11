@@ -121,10 +121,6 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
 }
 
 /**
- * The autosave payload: only the fields that differ from the last saved draft. An amount that does
- * not parse is left out until it is fixed. Returns null when nothing needs saving.
- */
-/**
  * Lines that another open claim already covers, keyed by line id and labelled with that claim. The active claim
  * and closed claims do not count, so their lines stay available.
  */
@@ -142,6 +138,10 @@ export function linesClaimedElsewhere(
   return claimed
 }
 
+/**
+ * The autosave payload: only the fields that differ from the last saved draft. An amount that does
+ * not parse is left out until it is fixed. Returns null when nothing needs saving.
+ */
 export function buildClaimPatch(
   saved: WarrantyClaimDraft,
   next: WarrantyClaimDraft,

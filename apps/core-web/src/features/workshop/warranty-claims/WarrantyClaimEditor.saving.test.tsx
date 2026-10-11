@@ -179,6 +179,29 @@ describe("WarrantyClaimEditor: saving", () => {
     await settle();
   });
 
+  it("autosaves a line when it is ticked, and again when it is unticked", async () => {
+    renderEditor(claimFixture({ lines: [] }));
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Kupplung entlüften/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    expect(payloadOf(fetchMock.mock.calls[0])).toEqual({ lineItemIds: ["item-labor"] });
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Kupplung entlüften/ }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2), { timeout: 2000 });
+    expect(payloadOf(fetchMock.mock.calls[1])).toEqual({ lineItemIds: [] });
+    await settle();
+  });
+
+  it("sets the claimed amount to the total of the ticked lines", async () => {
+    renderEditor(claimFixture({ lines: [] }));
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /Kupplung entlüften/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Use lines total" }));
+
+    expect(screen.getByLabelText("Claimed amount (EUR, net)")).toHaveValue("250.00");
+    await settle();
+  });
+
   it("saves pending edits before it closes the claim", async () => {
     renderEditor(
       claimFixture({
