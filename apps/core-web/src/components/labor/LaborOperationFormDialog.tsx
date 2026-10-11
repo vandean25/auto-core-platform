@@ -376,6 +376,7 @@ export function LaborOperationFormDialog({ open, onOpenChange, operation }: Prop
 
       isSavingRef.current = true
       const payload = buildLaborOperationPayload(formToSave)
+      // The last failure stays visible while a retry runs. The revert and success paths clear it.
       setSaveStatus('saving')
 
       try {

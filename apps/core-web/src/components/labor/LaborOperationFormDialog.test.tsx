@@ -202,6 +202,10 @@ describe('LaborOperationFormDialog', () => {
     const [firstYearTo] = screen.getAllByLabelText('Year To')
     expectFieldErrorLinked(firstMake, 'Make is required')
     expectFieldErrorLinked(secondMake, 'Make is required')
+    const [firstModel, secondModel] = screen.getAllByLabelText('Model')
+    expectFieldErrorLinked(firstModel, 'Model is required')
+    expectFieldErrorLinked(secondModel, 'Model is required')
+    expect(firstModel.getAttribute('aria-describedby')).not.toBe(secondModel.getAttribute('aria-describedby'))
     expectFieldValid(firstYearFrom)
     expectFieldErrorLinked(secondYearFrom, 'Year From must be between 1900 and 2100')
     expectFieldErrorLinked(firstYearTo, 'Year To must be greater than or equal to Year From')
@@ -235,6 +239,29 @@ describe('LaborOperationFormDialog', () => {
     expect(screen.getByText('All changes saved')).toBeInTheDocument()
   })
 
+  it('keeps the failed-save alert while a retry is in flight, and clears it when a revert settles', async () => {
+    updateMutateAsync.mockRejectedValueOnce(new Error('Request failed with status code 500'))
+    let rejectRetry: (reason: Error) => void = () => undefined
+    updateMutateAsync.mockReturnValueOnce(
+      new Promise<laborApi.LaborOperation>((_resolve, reject) => {
+        rejectRetry = reject
+      }),
+    )
+    render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
+
+    fireEvent.change(screen.getByLabelText('Hourly Rate'), { target: { value: '120' } })
+    const alert = await screen.findByRole('alert', {}, { timeout: 2000 })
+
+    await waitFor(() => expect(screen.getByText('Saving...')).toBeInTheDocument(), { timeout: 2000 })
+    expect(screen.getByRole('alert')).toBe(alert)
+
+    fireEvent.change(screen.getByLabelText('Hourly Rate'), { target: { value: '100' } })
+    rejectRetry(new Error('Request failed with status code 500'))
+
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument(), { timeout: 2000 })
+    expect(screen.getByText('All changes saved')).toBeInTheDocument()
+  })
+
   it('clears a failed-save alert when the next edit fails validation', async () => {
     updateMutateAsync.mockRejectedValueOnce(new Error('Request failed with status code 500'))
     render(<LaborOperationFormDialog open onOpenChange={onOpenChange} operation={baseOperation} />)
@@ -244,7 +271,7 @@ describe('LaborOperationFormDialog', () => {
 
     fireEvent.change(screen.getByLabelText('Code'), { target: { value: '' } })
 
-    expect(await screen.findByText('Code is required')).toBeInTheDocument()
+    expect(await screen.findByText('Code is required', {}, { timeout: 2000 })).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
