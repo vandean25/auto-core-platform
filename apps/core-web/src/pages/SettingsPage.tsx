@@ -201,7 +201,7 @@ function StorageLocationsTab() {
             <div>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Add Location</CardTitle>
+                        <CardTitle as="h4">Add Location</CardTitle>
                         <CardDescription>Create a new storage unit.</CardDescription>
                     </CardHeader>
                     <CardContent>

@@ -593,7 +593,7 @@ export function LaborCategoriesTab() {
       <div>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle as="h4" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Add Category
             </CardTitle>

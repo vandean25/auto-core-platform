@@ -19,10 +19,10 @@ describe('LaborItemsCard', () => {
 
     render(<LaborItemsCard laborItems={laborItems} />)
 
-    expect(screen.getByText('Labor', { selector: 'h3' })).toBeInTheDocument()
+    expect(screen.getByText('Labor', { selector: 'h2' })).toBeInTheDocument()
     expect(screen.getByText('ENG-001 · Engine diagnostic')).toBeInTheDocument()
     expect(screen.getByText('1 hr')).toBeInTheDocument()
-    expect(screen.queryByText('Labour', { selector: 'h3' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Labour', { selector: 'h2' })).not.toBeInTheDocument()
   })
 
   it('falls back to the description when a labor code is missing', () => {

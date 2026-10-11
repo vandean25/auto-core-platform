@@ -15,9 +15,11 @@ type Props = {
   vehicleId?: string
   customerId?: string
   readOnly?: boolean
+  /** Level of the "Tyre storage" title: h3 inside a card (default), h2 directly under the page h1. */
+  as?: 'h2' | 'h3'
 }
 
-export function TyreSetsSummary({ vehicleId, customerId, readOnly = false }: Props) {
+export function TyreSetsSummary({ vehicleId, customerId, readOnly = false, as: Heading = 'h3' }: Props) {
   const byVehicle = useTyreSetsByVehicle(vehicleId)
   const byCustomer = useTyreSetsByCustomer(customerId)
   const { data, isLoading } = vehicleId ? byVehicle : byCustomer
@@ -35,7 +37,7 @@ export function TyreSetsSummary({ vehicleId, customerId, readOnly = false }: Pro
   return (
     <div className="space-y-2 border-t pt-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-700">Tyre storage</h3>
+        <Heading className="text-sm font-medium text-slate-700">Tyre storage</Heading>
         {resolvedCustomerId && !readOnly ? (
           <Button
             type="button"

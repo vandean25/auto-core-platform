@@ -262,7 +262,7 @@ export function MarginRulesTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-medium">Schwellenwert für Preissprünge</CardTitle>
+          <CardTitle as="h3" className="text-base font-medium">Schwellenwert für Preissprünge</CardTitle>
           <CardDescription>
             Definiert den maximalen prozentualen Preissprung vor Warnung und Genehmigungserfordernis beim Preislistenimport.
           </CardDescription>
