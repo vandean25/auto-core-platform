@@ -84,9 +84,9 @@ A timeout, provider error, empty answer, invalid choice, exhausted batch budget,
 
 ### Audit
 
-Every live decision writes one `agent_action_logs` row. It carries the request trace id, the tier, the redacted input and suggestion, and the outcome. For document sort, the input is the signals plus `text_excerpt_length` and `text_excerpt_sha256`. The excerpt text is never stored. The validation task carries the upload's `X-Trace-Id` (AUT-491), so the row shares the upload's trace id. Before AUT-491 it had a new one.
+Every live decision writes one `agent_action_logs` row. It carries the request trace id, the tier, the redacted input and suggestion, and the outcome. For document sort, the input is the signals plus `text_excerpt_length` and `text_excerpt_sha256`. The excerpt text is never stored. The first validation task carries the upload's `X-Trace-Id` (AUT-491), so its rows share the upload's trace id. A recovery re-enqueue has no request, so it gets a new trace id, as before.
 
-With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_shadow_logs` row from the same suggestion. Documents the heuristic already classified (not `Sonstiges`) never reach live, so they keep the ordinary shadow row. The AE7 comparison data therefore stays complete in live mode.
+With `DECISION_SHADOW_ENABLED=true`, a live decision also writes its `decision_shadow_logs` row from the same suggestion. Documents the heuristic already classified (not `Sonstiges`) never reach live, so they keep the ordinary shadow row. The AE7 comparison data stays complete in live mode, but it is not uniform. A live `Sonstiges` row carries `text_excerpt_length`, and its suggestion was made with the excerpt. Its input and `input_hash` differ from a shadow-mode row for the same document, so compare live rows only with each other.
 
 | Outcome | `status` | Meaning |
 |---------|----------|---------|

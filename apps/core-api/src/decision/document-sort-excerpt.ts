@@ -12,16 +12,21 @@ export const DOCUMENT_SORT_EXCERPT_MAX_CHARS = 1500;
  */
 const DOCUMENT_SORT_EXCERPT_SCAN_CHARS = 4 * DOCUMENT_SORT_EXCERPT_MAX_CHARS;
 
-/** Country code and check digits, then 11 to 30 alphanumerics: the IBAN length range of 15 to 34. */
-const IBAN_PATTERN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g;
+/**
+ * Country code and check digits, then either 11 to 30 alphanumerics with no spaces
+ * (the IBAN length range of 15 to 34) or groups of four separated by single spaces,
+ * as printed. Spaces are not allowed anywhere else, so neighbouring identifiers
+ * such as "RE2026000123 ATU12345678" are not joined into one match.
+ */
+const IBAN_PATTERN =
+  /\b[A-Z]{2}\d{2}(?:[A-Z0-9]{11,30}|(?: [A-Z0-9]{4}){2,7}(?: [A-Z0-9]{1,4})?)\b/g;
 const VIN_PATTERN = /\b(?=[A-HJ-NPR-Z0-9]*[A-Z])[A-HJ-NPR-Z0-9]{17}\b/g;
 /**
- * A run of digits, optionally grouped by one space, slash, dash or bracket between
- * digits. Letters on either side stop the run, so an identifier such as RE2026000123
- * is not split into digit runs.
+ * A run of digits, grouped by up to three spaces, brackets, slashes, dots or dashes
+ * between digits. Letters next to the run do not stop it, so the digits of a VAT id
+ * such as ATU12345678 are redacted and only its country prefix stays.
  */
-const DIGIT_RUN_PATTERN =
-  /(?<![\p{L}\p{N}])\+?\d(?:[ ()/-]?\d)*(?![\p{L}\p{N}])/gu;
+const DIGIT_RUN_PATTERN = /(?<!\d)\+?\d(?:[ ()/.\-‐-―]{0,3}\d)*(?!\d)/g;
 const DIGIT_RUN_MIN_DIGITS = 7;
 const PHONE_MAX_DIGITS = 15;
 
@@ -90,10 +95,12 @@ function redactDigitRun(run: string): string {
 }
 
 function capExcerpt(redacted: string): string {
-  const capped = redacted.slice(0, DOCUMENT_SORT_EXCERPT_MAX_CHARS);
-  // A placeholder cut by the cap would leave a fragment such as "[IB", so it is dropped.
-  const openBracket = capped.lastIndexOf('[');
-  return openBracket > capped.lastIndexOf(']')
-    ? capped.slice(0, openBracket).trimEnd()
-    : capped;
+  if (redacted.length <= DOCUMENT_SORT_EXCERPT_MAX_CHARS) {
+    return redacted;
+  }
+  // A placeholder the cap cut in half would leave a fragment such as "[EM", so it is dropped.
+  return redacted
+    .slice(0, DOCUMENT_SORT_EXCERPT_MAX_CHARS)
+    .replace(/\[[A-Z]*$/, '')
+    .trimEnd();
 }

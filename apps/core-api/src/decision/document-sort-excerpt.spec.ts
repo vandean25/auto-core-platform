@@ -17,10 +17,37 @@ describe('document sort excerpt', () => {
     );
   });
 
-  it('keeps short numbers, amounts and letter-led identifiers', () => {
-    const text = 'Angebot Pos 2 Menge 10 Stück, Summe 1.234,56 EUR, RE2026000123';
+  it('keeps short numbers and amounts', () => {
+    const text = 'Angebot Pos 2 Menge 10 Stück, Summe 1.234,56 EUR';
 
     expect(redactDocumentSortText(text)).toBe(text);
+  });
+
+  it('redacts the digits of identifiers that follow letters', () => {
+    expect(redactDocumentSortText('RE2026000123 ATU12345678 DE123456789')).toBe(
+      'RE[NUMBER] ATU[NUMBER] DE[NUMBER]',
+    );
+  });
+
+  it('redacts phone numbers written with dots, slashes, brackets and dashes', () => {
+    expect(
+      redactDocumentSortText(
+        '0664.123.45.67 | 0664 / 1234567 | +43 (0) 660 1234567 | +43–660–1234567',
+      ),
+    ).toBe('[PHONE] | [PHONE] | [PHONE] | [PHONE]');
+  });
+
+  it('keeps a stray bracket when the cap does not cut the text', () => {
+    const text = 'Rechnung Entwurf [ Anmerkung: bitte prüfen';
+
+    expect(buildDocumentSortExcerpt(text).text).toBe(text);
+  });
+
+  it('keeps a stray bracket in a long text unless the cap cuts a placeholder', () => {
+    const excerpt = buildDocumentSortExcerpt(`Entwurf [ ${'x'.repeat(2000)}`);
+
+    expect(excerpt.text).toHaveLength(DOCUMENT_SORT_EXCERPT_MAX_CHARS);
+    expect(excerpt.text.startsWith('Entwurf [ xxx')).toBe(true);
   });
 
   it('caps the excerpt at the excerpt limit', () => {
