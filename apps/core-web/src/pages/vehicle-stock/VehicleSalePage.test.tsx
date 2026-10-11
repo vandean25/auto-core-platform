@@ -397,6 +397,7 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     fireEvent.change(input, { target: { value: '0' } })
 
     expectFieldErrorLinked(input, 'Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')
+    expect(screen.getByText('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')).toHaveAttribute('role', 'alert')
   })
 
   it('blocks the negotiated one-year period in the UI when the vehicle is too new for the handover date', () => {

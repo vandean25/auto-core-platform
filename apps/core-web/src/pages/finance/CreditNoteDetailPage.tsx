@@ -466,7 +466,7 @@ export default function CreditNoteDetailPage() {
                                 }}
                               />
                               {lineError ? (
-                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} className="mt-1 text-xs text-destructive">{lineError}</p>
+                                <p id={`credit-line-quantity-${item.originalInvoiceItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{lineError}</p>
                               ) : null}
                             </div>
                           ) : (

@@ -506,7 +506,7 @@ export default function VehicleSalePage() {
                 />
               </label>
               {garantie.valid ? null : (
-                <p id="garantie-months-error" className="text-xs text-rose-600">{GARANTIE_MONTHS_MESSAGE}</p>
+                <p id="garantie-months-error" role="alert" className="text-xs text-rose-600">{GARANTIE_MONTHS_MESSAGE}</p>
               )}
               <label className="block space-y-1 text-sm">
                 <span className="text-slate-500">Garantiebedingungen</span>

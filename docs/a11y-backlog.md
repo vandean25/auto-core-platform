@@ -23,12 +23,12 @@ Tracked items that are **not** enforced in CI (moderate/minor) or explicitly all
 
 - A field with an inline validation error carries `aria-invalid="true"` and an `aria-describedby` that points at its error element. Error elements get a stable id (`<field>-error`). The reference is only set while the error is shown.
 - shadcn `FormControl` and `FormMessage` do this for react-hook-form forms. Raw `register` forms and hand-rolled validation set the attributes per field.
+- Submit-time announcements: manual validation announces its errors with `role="alert"`, matching `WarrantyClaimEditor`, `DocumentBrandingSettings` and `InlineEdit`. That covers `LaborOperationFormDialog`, the credit-note quantity inputs and the Garantie duration input. react-hook-form forms (`StartServiceDialog`, `QuickRegisterDialog`, `CustomerDialog`, `VehicleDialog`, `SalesOrderCreate`) keep react-hook-form's focus on the first invalid field, which they already do.
 - Covered: `InlineEdit` (text and textarea), `StartServiceDialog`, `QuickRegisterDialog`, `LaborOperationFormDialog` (including fitment rows), the credit-note quantity inputs on `CreateCreditNoteDialog` and `CreditNoteDetailPage`, the Garantie duration input and the shortening checkbox on `VehicleSalePage`, and the trade-in field behind the validation message on `VehicleSaleTradeInSection`.
 - Enforced: unit tests with `expectFieldErrorLinked` and `expectFieldValid` from `src/test/form-a11y.ts`.
 
 | Area | Finding | Follow-up |
 | --- | --- | --- |
-| `LaborOperationFormDialog` | "Save now" and auto-save show field errors without moving focus or announcing them. A screen reader user hears the error only when they reach the field. | On an explicit save, move focus to the first invalid field, or add `role="alert"` to the error element. |
 | Credit-note quantity inputs | No accessible name. The column header is the only label. | Add an `aria-label` per line. |
 | `LoginPage` | Both fields reference the single login alert. Only the email field is marked invalid, and only while it is empty. | Confirm the intended behavior before changing it. |
 | shadcn `FormControl` | Always references its description id, even when no `FormDescription` is rendered. Harmless to assistive technology, not an axe failure. | Reference the description only when one is rendered. |

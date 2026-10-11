@@ -146,6 +146,7 @@ describe('LaborOperationFormDialog', () => {
       expect(screen.getByText('Hourly Rate must be greater than 0')).toBeInTheDocument()
     }, { timeout: 2000 })
     expectFieldErrorLinked(screen.getByLabelText('Hourly Rate'), 'Hourly Rate must be greater than 0')
+    expect(screen.getByText('Hourly Rate must be greater than 0')).toHaveAttribute('role', 'alert')
     expectFieldValid(screen.getByLabelText('Standard AW (hrs)'))
   })
 
