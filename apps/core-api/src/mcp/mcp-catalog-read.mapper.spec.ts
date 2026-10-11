@@ -282,9 +282,6 @@ describe('MCP catalog and price read mappers', () => {
   describe('margin rules', () => {
     const baseRule = {
       id: ITEM_ID,
-      name: 'Brake parts 35%',
-      priority: 10,
-      is_active: true,
       cost_min: dec('0'),
       cost_max: dec('50'),
       markup_percent: dec('35'),
@@ -292,7 +289,7 @@ describe('MCP catalog and price read mappers', () => {
       rounding: 'ROUND_90',
     };
 
-    it('shows the scope as brand, revenue group, and EUR cost bracket, with the markup and rounding', () => {
+    it('shows the id, the scope as brand, revenue group, and EUR cost bracket, the markup, and the rounding', () => {
       const row = toMcpMarginRuleRow(baseRule, {
         brand: { id: 4, name: 'Acme Parts' },
         revenueGroup: { id: 2, name: 'Parts' },
@@ -300,9 +297,6 @@ describe('MCP catalog and price read mappers', () => {
 
       expect(row).toEqual({
         id: ITEM_ID,
-        name: 'Brake parts 35%',
-        priority: 10,
-        active: true,
         scope: {
           brand: { id: 4, name: 'Acme Parts' },
           revenue_group: { id: 2, name: 'Parts' },
@@ -314,7 +308,7 @@ describe('MCP catalog and price read mappers', () => {
       });
     });
 
-    it('shows an open scope and a supplier RRP rule with no markup percent', () => {
+    it('shows an open scope and a supplier RRP rule with no markup percent, and only the four contract fields', () => {
       const row = toMcpMarginRuleRow(
         {
           ...baseRule,
@@ -323,11 +317,16 @@ describe('MCP catalog and price read mappers', () => {
           markup_percent: null,
           use_supplier_rrp: true,
           rounding: 'NONE',
-          is_active: false,
         },
         { brand: null, revenueGroup: null },
       );
 
+      expect(Object.keys(row).sort()).toEqual([
+        'id',
+        'markup',
+        'rounding',
+        'scope',
+      ]);
       expect(row.scope).toEqual({
         brand: null,
         revenue_group: null,
@@ -335,7 +334,6 @@ describe('MCP catalog and price read mappers', () => {
         cost_max: null,
       });
       expect(row.markup).toEqual({ percent: null, use_supplier_rrp: true });
-      expect(row.active).toBe(false);
     });
   });
 

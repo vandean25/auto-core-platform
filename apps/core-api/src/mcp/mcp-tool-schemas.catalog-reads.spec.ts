@@ -114,13 +114,24 @@ describe('catalog and price read input schemas (AUT-460)', () => {
   });
 
   describe('list_price_lists', () => {
-    it('caps pageSize at 25 and takes the keyset cursor from the list', () => {
+    it('caps pageSize at 25', () => {
       expect(
         listPriceListsInputSchema.safeParse({ pageSize: 25 }).success,
       ).toBe(true);
       expect(
         listPriceListsInputSchema.safeParse({ pageSize: 26 }).success,
       ).toBe(false);
+    });
+
+    it('takes only its own position cursor, not a keyset cursor from another list or a priority cursor', () => {
+      expect(
+        listPriceListsInputSchema.safeParse({
+          cursor: encodeMcpPositionCursor({
+            applied_at: '2026-09-15T10:00:00.000Z',
+            id: ITEM_ID,
+          }),
+        }).success,
+      ).toBe(true);
       expect(
         listPriceListsInputSchema.safeParse({
           cursor: encodeMcpKeysetCursor({
@@ -128,7 +139,7 @@ describe('catalog and price read input schemas (AUT-460)', () => {
             id: ITEM_ID,
           }),
         }).success,
-      ).toBe(true);
+      ).toBe(false);
       expect(
         listPriceListsInputSchema.safeParse({
           cursor: encodeMcpPositionCursor({ priority: 10, id: ITEM_ID }),
@@ -150,6 +161,22 @@ describe('catalog and price read input schemas (AUT-460)', () => {
           cursor: encodeMcpPositionCursor({ priority: 10, id: RULE_ID }),
         }).success,
       ).toBe(true);
+      expect(
+        listMarginRulesInputSchema.safeParse({
+          cursor: encodeMcpPositionCursor({
+            priority: 2147483647,
+            id: RULE_ID,
+          }),
+        }).success,
+      ).toBe(true);
+      expect(
+        listMarginRulesInputSchema.safeParse({
+          cursor: encodeMcpPositionCursor({
+            priority: 2147483648,
+            id: RULE_ID,
+          }),
+        }).success,
+      ).toBe(false);
       expect(
         listMarginRulesInputSchema.safeParse({
           cursor: encodeMcpKeysetCursor({

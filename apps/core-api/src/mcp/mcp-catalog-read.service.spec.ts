@@ -40,6 +40,7 @@ const ids = {
   jobDryRun: '00000000-0000-4000-8000-0000000000e3',
   jobCustomer: '00000000-0000-4000-8000-0000000000e4',
   jobOther: '00000000-0000-4000-8000-0000000000e9',
+  jobTie: '00000000-0000-4000-8000-0000000000e0',
   vendorA: '00000000-0000-4000-8000-0000000000f1',
   vendorB: '00000000-0000-4000-8000-0000000000f9',
   ruleBrake: '00000000-0000-4000-8000-0000000000a1',
@@ -581,6 +582,24 @@ function buildTables() {
     ),
   ];
 
+  // An item whose only stock row holds nothing: it has no default bin.
+  const zeroStockLocation = location(
+    '00000000-0000-4000-8000-0000000000b4',
+    'W-01-01',
+    'bin',
+    null,
+    SITE_A,
+  );
+  inventoryStocks.push({
+    id: '00000000-0000-4000-8000-0000000000a6',
+    tenant_id: TENANT_A,
+    site_id: SITE_A,
+    catalog_item_id: ids.wiper,
+    location_id: zeroStockLocation.id,
+    location: zeroStockLocation,
+    quantity_on_hand: dec('0'),
+  });
+
   return {
     catalogItems: parts,
     laborOperations,
@@ -936,6 +955,15 @@ describe('McpCatalogReadService', () => {
       expect(detail.default_bin).toBeNull();
     });
 
+    it('reports no default bin for an item whose only bin stock is zero', async () => {
+      const { service } = createService();
+
+      const detail = await service.getCatalogItem({ id: ids.wiper });
+
+      expect(detail.default_bin).toBeNull();
+      expect(detail.sku).toBe('WPR-300');
+    });
+
     it("is not found for another tenant's item, and for a labor operation ID", async () => {
       const { service } = createService();
 
@@ -986,31 +1014,67 @@ describe('McpCatalogReadService', () => {
       expect(second.meta.next_cursor).toBeNull();
     });
 
-    it('rejects a cursor that is not a keyset cursor', async () => {
+    it('pages through price lists that share an applied time, by ID, with no gaps or repeats', async () => {
+      const tables = buildTables();
+      tables.importJobs.push({
+        id: ids.jobTie,
+        tenant_id: TENANT_A,
+        entity_type: 'SUPPLIER_PRICE_LIST',
+        status: 'APPLIED',
+        file_name: 'supplier-sep-same-time.csv',
+        appliedAt: at('2026-09-15T10:00:00.000Z'),
+        totals_json: { rows: 7 },
+        options_json: {},
+      });
+      const { service } = createService({ tables });
+      const seen: string[] = [];
+      let cursor: string | undefined;
+
+      do {
+        const page = await service.listPriceLists({
+          pageSize: 1,
+          ...(cursor ? { cursor } : {}),
+        });
+        seen.push(...page.data.map((row) => row.id));
+        cursor = page.meta.next_cursor ?? undefined;
+      } while (cursor);
+
+      expect(seen).toEqual([ids.jobSep, ids.jobTie, ids.jobAug]);
+    });
+
+    it('rejects a cursor that is not a position cursor', async () => {
       const { service } = createService();
 
       await expect(
         service.listPriceLists({ cursor: 'bad cursor!' }),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    it('rejects a keyset cursor from another list, such as list_invoices', async () => {
+      const { service } = createService();
+      const invoiceCursor = encodeMcpKeysetCursor({
+        at: '2026-09-15T10:00:00.000Z',
+        id: ids.jobSep,
+      });
+
+      await expect(
+        service.listPriceLists({ cursor: invoiceCursor }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   describe('list_margin_rules', () => {
-    it("lists this tenant's rules by priority, with brand and revenue group names and the EUR cost bracket", async () => {
+    it('lists only the active rules of this tenant, by priority, with scope, markup, and rounding', async () => {
       const { service } = createService();
 
       const page = await service.listMarginRules({});
 
-      expect(page.data.map((row) => row.name)).toEqual([
-        'Brake parts 35%',
-        'Supplier RRP',
-        'Fallback 40%',
+      expect(page.data.map((row) => row.id)).toEqual([
+        ids.ruleBrake,
+        ids.ruleRrp,
       ]);
       expect(page.data[0]).toEqual({
         id: ids.ruleBrake,
-        name: 'Brake parts 35%',
-        priority: 10,
-        active: true,
         scope: {
           brand: { id: 4, name: 'Acme Parts' },
           revenue_group: { id: 2, name: 'Parts 20%' },
@@ -1020,8 +1084,19 @@ describe('McpCatalogReadService', () => {
         markup: { percent: '35.00', use_supplier_rrp: false },
         rounding: 'ROUND_90',
       });
-      expect(page.data.some((row) => row.name === 'Other tenant rule')).toBe(
-        false,
+      expect(page.data.map((row) => row.id)).not.toContain(ids.ruleFallback);
+      expect(page.data.map((row) => row.id)).not.toContain(ids.ruleOther);
+    });
+
+    it('rejects a priority beyond the 32-bit range in the cursor', async () => {
+      const { service } = createService();
+      const cursor = encodeMcpPositionCursor({
+        priority: 2147483648,
+        id: ids.ruleBrake,
+      });
+
+      await expect(service.listMarginRules({ cursor })).rejects.toBeInstanceOf(
+        BadRequestException,
       );
     });
 
@@ -1046,11 +1121,11 @@ describe('McpCatalogReadService', () => {
           pageSize: 1,
           ...(cursor ? { cursor } : {}),
         });
-        seen.push(...page.data.map((row) => row.name));
+        seen.push(...page.data.map((row) => row.id));
         cursor = page.meta.next_cursor ?? undefined;
       } while (cursor);
 
-      expect(seen).toEqual(['Brake parts 35%', 'Supplier RRP', 'Fallback 40%']);
+      expect(seen).toEqual([ids.ruleBrake, ids.ruleRrp]);
     });
 
     it('rejects a cursor whose position is not a priority and ID', async () => {
@@ -1063,6 +1138,26 @@ describe('McpCatalogReadService', () => {
       await expect(
         service.listMarginRules({ cursor: badCursor }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('page size', () => {
+    it('caps every list at 25 rows in the service, whatever pageSize asks for', async () => {
+      const { service } = createService();
+
+      expect(
+        (await service.listCatalogItems({ pageSize: 100 })).meta.page_size,
+      ).toBe(25);
+      expect(
+        (await service.listCatalogItems({ type: 'labor', pageSize: 100 })).meta
+          .page_size,
+      ).toBe(25);
+      expect(
+        (await service.listPriceLists({ pageSize: 100 })).meta.page_size,
+      ).toBe(25);
+      expect(
+        (await service.listMarginRules({ pageSize: 100 })).meta.page_size,
+      ).toBe(25);
     });
   });
 

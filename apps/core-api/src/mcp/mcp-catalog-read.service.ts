@@ -8,11 +8,11 @@ import type { z } from 'zod';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { MCP_DEFAULT_PAGE_SIZE } from './mcp.constants.js';
 import {
   MCP_PRICE_HISTORY_LIMIT,
   mcpCatalogItemPositionSchema,
   mcpMarginRulePositionSchema,
+  mcpPriceListPositionSchema,
   toMcpCatalogItemDetail,
   toMcpLaborListRow,
   toMcpListPage,
@@ -22,13 +22,12 @@ import {
   vendorIdOfPriceList,
   type McpCatalogItemPosition,
   type McpMarginRulePosition,
+  type McpPriceListPosition,
 } from './mcp-catalog-read.mapper.js';
 import {
-  decodeMcpKeysetCursor,
+  clampMcpPageSize,
   decodeMcpPositionCursor,
-  encodeMcpKeysetCursor,
   encodeMcpPositionCursor,
-  type McpKeysetCursor,
 } from './mcp-output.util.js';
 import type {
   getCatalogItemInputSchema,
@@ -90,9 +89,7 @@ const PRICE_LIST_SELECT = {
 
 const MARGIN_RULE_SELECT = {
   id: true,
-  name: true,
   priority: true,
-  is_active: true,
   brand_id: true,
   revenue_group_id: true,
   cost_min: true,
@@ -112,14 +109,6 @@ function parsePositionOrThrow<T>(cursor: string, schema: z.ZodType<T>): T {
     throw new BadRequestException('cursor is invalid');
   }
   return parsed.data;
-}
-
-function parseKeysetOrThrow(cursor: string): McpKeysetCursor {
-  const decoded = decodeMcpKeysetCursor(cursor);
-  if (!decoded) {
-    throw new BadRequestException('cursor is invalid');
-  }
-  return decoded;
 }
 
 function uniqueIds<T extends string | number>(values: (T | null)[]): T[] {
@@ -144,7 +133,7 @@ export class McpCatalogReadService {
   async listCatalogItems(input: ListCatalogItemsInput) {
     const tenantId = await this.tenantContext.getTenantId();
     const type = input.type ?? 'part';
-    const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
+    const pageSize = clampMcpPageSize(input.pageSize);
     const position = input.cursor
       ? parsePositionOrThrow(input.cursor, mcpCatalogItemPositionSchema)
       : null;
@@ -375,20 +364,11 @@ export class McpCatalogReadService {
   /** Applied supplier price lists (SUPPLIER_PRICE_LIST import jobs), newest applied first. */
   async listPriceLists(input: ListPriceListsInput) {
     const tenantId = await this.tenantContext.getTenantId();
-    const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
-    const after = input.cursor ? parseKeysetOrThrow(input.cursor) : null;
-    const appliedBefore = after
-      ? {
-          AND: [
-            {
-              OR: [
-                { appliedAt: { lt: new Date(after.at) } },
-                { appliedAt: new Date(after.at), id: { lt: after.id } },
-              ],
-            },
-          ],
-        }
-      : {};
+    const pageSize = clampMcpPageSize(input.pageSize);
+    const after = input.cursor
+      ? parsePositionOrThrow(input.cursor, mcpPriceListPositionSchema)
+      : null;
+    const appliedBefore = after ? priceListAppliedBefore(after) : {};
 
     const records = await this.prisma.importJob.findMany({
       where: {
@@ -411,8 +391,8 @@ export class McpCatalogReadService {
     );
     return toMcpListPage(records, pageSize, {
       cursorOf: (record) =>
-        encodeMcpKeysetCursor({
-          at: record.appliedAt!.toISOString(),
+        encodeMcpPositionCursor({
+          applied_at: record.appliedAt!.toISOString(),
           id: record.id,
         }),
       mapRow: (record) => {
@@ -425,10 +405,13 @@ export class McpCatalogReadService {
     });
   }
 
-  /** Margin rules in evaluation order: priority ascending, then ID. Inactive rules are listed with active false. */
+  /**
+   * The active margin rules, the ones the price engine applies, in evaluation
+   * order: priority ascending, then ID. Inactive rules are not listed.
+   */
   async listMarginRules(input: ListMarginRulesInput) {
     const tenantId = await this.tenantContext.getTenantId();
-    const pageSize = input.pageSize ?? MCP_DEFAULT_PAGE_SIZE;
+    const pageSize = clampMcpPageSize(input.pageSize);
     const position = input.cursor
       ? parsePositionOrThrow(input.cursor, mcpMarginRulePositionSchema)
       : null;
@@ -436,6 +419,7 @@ export class McpCatalogReadService {
     const records = await this.prisma.marginRule.findMany({
       where: {
         tenant_id: tenantId,
+        is_active: true,
         ...(position ? { AND: [marginRuleAfter(position)] } : {}),
       },
       orderBy: [{ priority: 'asc' }, { id: 'asc' }],
@@ -514,6 +498,23 @@ export class McpCatalogReadService {
     });
     return new Map(vendors.map((vendor) => [vendor.id, vendor]));
   }
+}
+
+/** Applied price lists strictly before a position in (applied time desc, id desc) order. */
+function priceListAppliedBefore(
+  position: McpPriceListPosition,
+): Prisma.ImportJobWhereInput {
+  const appliedAt = new Date(position.applied_at);
+  return {
+    AND: [
+      {
+        OR: [
+          { appliedAt: { lt: appliedAt } },
+          { appliedAt, id: { lt: position.id } },
+        ],
+      },
+    ],
+  };
 }
 
 /** Rules strictly after a position in (priority, id) order. */

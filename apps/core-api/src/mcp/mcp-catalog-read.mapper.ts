@@ -31,12 +31,27 @@ export type McpCatalogItemPosition = z.infer<
   typeof mcpCatalogItemPositionSchema
 >;
 
-/** Keyset position of a margin rule list: the priority, then the row ID. */
+/**
+ * Keyset position of a margin rule list: the priority, then the row ID. The
+ * priority column is a 32-bit integer, so the cursor is bounded to that range.
+ */
 export const mcpMarginRulePositionSchema = z.object({
-  priority: z.number().int(),
+  priority: z.number().int().min(-2147483648).max(2147483647),
   id: z.string().uuid(),
 });
 export type McpMarginRulePosition = z.infer<typeof mcpMarginRulePositionSchema>;
+
+/**
+ * Keyset position of a price list: the applied time, then the row ID. Its own
+ * shape keeps a cursor from another list, such as list_invoices, from paging here.
+ */
+export const mcpPriceListPositionSchema = z.object({
+  applied_at: z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
+    message: 'applied_at must be an ISO-8601 date-time',
+  }),
+  id: z.string().uuid(),
+});
+export type McpPriceListPosition = z.infer<typeof mcpPriceListPositionSchema>;
 
 export type McpListPage<TRow> = {
   data: TRow[];
@@ -269,9 +284,6 @@ export function toMcpPriceListRow(
 
 export type McpMarginRuleRecord = {
   id: string;
-  name: string;
-  priority: number;
-  is_active: boolean;
   cost_min: Decimal | null;
   cost_max: Decimal | null;
   markup_percent: Decimal | null;
@@ -279,7 +291,10 @@ export type McpMarginRuleRecord = {
   rounding: string;
 };
 
-/** A margin rule's scope and markup. The brand and revenue group are resolved by the caller. */
+/**
+ * A margin rule's scope and markup, the four fields of the list_margin_rules
+ * contract. The brand and revenue group are resolved by the caller.
+ */
 export function toMcpMarginRuleRow(
   record: McpMarginRuleRecord,
   related: {
@@ -289,9 +304,6 @@ export function toMcpMarginRuleRow(
 ) {
   return {
     id: record.id,
-    name: record.name,
-    priority: record.priority,
-    active: record.is_active,
     scope: {
       brand: related.brand,
       revenue_group: related.revenueGroup,

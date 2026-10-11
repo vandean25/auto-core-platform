@@ -60,7 +60,7 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   list_price_lists:
     'Applied supplier price lists (import jobs) with vendor, applied date as valid_from, and item count, newest first (pageSize max 25, keyset cursor)',
   list_margin_rules:
-    'Margin rules in priority order with their scope (brand, revenue group, EUR cost bracket), markup percent or supplier RRP, and rounding (pageSize max 25, opaque cursor)',
+    'Active margin rules, the ones the price engine applies, in priority order: scope (brand, revenue group, EUR cost bracket), markup percent or supplier RRP, and rounding (pageSize max 25, opaque cursor)',
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:

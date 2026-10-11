@@ -3433,6 +3433,8 @@ describe('MCP server (e2e)', () => {
 
     let vendorId: string;
     let brakeItemId: string;
+    let marginRuleId: string;
+    let otherTenantRuleId: string;
 
     beforeAll(async () => {
       await inTenant(tenantA, async () => {
@@ -3514,7 +3516,7 @@ describe('MCP server (e2e)', () => {
             totals_json: { rows: 9, create: 9, update: 0, skip: 0, error: 0 },
           },
         });
-        await prisma.marginRule.create({
+        const marginRule = await prisma.marginRule.create({
           data: {
             tenant_id: tenantA,
             name: RULE_NAME,
@@ -3523,6 +3525,7 @@ describe('MCP server (e2e)', () => {
             rounding: 'ROUND_90',
           },
         });
+        marginRuleId = marginRule.id;
         await prisma.laborOperation.create({
           data: {
             tenant_id: tenantA,
@@ -3533,7 +3536,7 @@ describe('MCP server (e2e)', () => {
           },
         });
       });
-      await inTenant(tenantB, () =>
+      const otherRule = await inTenant(tenantB, () =>
         prisma.marginRule.create({
           data: {
             tenant_id: tenantB,
@@ -3544,6 +3547,7 @@ describe('MCP server (e2e)', () => {
           },
         }),
       );
+      otherTenantRuleId = otherRule.id;
     });
 
     afterAll(async () => {
@@ -3661,18 +3665,16 @@ describe('MCP server (e2e)', () => {
 
     it("lists this tenant's margin rule with its markup and rounding, and not tenant B's rule", async () => {
       const rules = await walkAll<{
-        name: string;
-        priority: number;
+        id: string;
         markup: { percent: string | null; use_supplier_rrp: boolean };
         rounding: string;
       }>('list_margin_rules', { pageSize: 7 });
 
-      expect(rules.find((rule) => rule.name === RULE_NAME)).toMatchObject({
-        priority: 10,
+      expect(rules.find((rule) => rule.id === marginRuleId)).toMatchObject({
         markup: { percent: '35.00', use_supplier_rrp: false },
         rounding: 'ROUND_90',
       });
-      expect(rules.map((rule) => rule.name)).not.toContain(OTHER_TENANT_RULE);
+      expect(rules.map((rule) => rule.id)).not.toContain(otherTenantRuleId);
     });
 
     it('lists labor operations as type labor with the hourly rate as net price', async () => {

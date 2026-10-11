@@ -14,6 +14,7 @@ import {
   MCP_CATALOG_ITEM_TYPES,
   mcpCatalogItemPositionSchema,
   mcpMarginRulePositionSchema,
+  mcpPriceListPositionSchema,
 } from './mcp-catalog-read.mapper.js';
 import {
   MCP_DOCUMENT_ENTITY_TYPES,
@@ -392,6 +393,9 @@ export const getPurchaseOrderInputSchema = z.object({
 export const listVendorsInputSchema = z.object({
   pageSize: pageSizeCamelSchema,
   cursor: keysetCursorSchema.optional(),
+});
+
+/**
  * AUT-460 catalog and price reads. Lists take pageSize (max 25) and an opaque
  * cursor from meta.next_cursor. The catalog and margin rule cursors are keyed on
  * a sort key rather than a timestamp, so they use the position form.
@@ -444,7 +448,7 @@ export const listPriceListsInputSchema = z.object({
   pageSize: pageSizeCamelSchema.describe(
     'Price lists per page: default 10, max 25',
   ),
-  cursor: keysetCursorSchema
+  cursor: positionCursorSchema(mcpPriceListPositionSchema)
     .optional()
     .describe('Cursor from meta.next_cursor'),
 });

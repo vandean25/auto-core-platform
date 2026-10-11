@@ -43,7 +43,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_catalog_items` | List catalog parts, or labor operations with `type` labor, by query, active flag, and type, with net prices | Read | AUTO |
 | `get_catalog_item` | Get a catalog part: tax class, brand, cost and net price, default bin and vendor, and the last five price history rows | Read | AUTO |
 | `list_price_lists` | List applied supplier price lists with vendor, applied date, and item count, newest first | Read | AUTO |
-| `list_margin_rules` | List margin rules in priority order with their scope, markup, and rounding | Read | AUTO |
+| `list_margin_rules` | List active margin rules in priority order with their scope, markup, and rounding | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -159,7 +159,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `list_catalog_items` lists parts by default. With `type` `labor` it lists labor operations: `sku` is the operation code, `unit` is `h`, and `price_net` is the hourly rate. A part is active unless another part supersedes it. A labor operation is active when `is_active` is set. `active` filters on that flag. `query` matches SKU, name, or EAN for parts, and code or description for labor, case-insensitively.
 - `get_catalog_item` takes a part ID from `list_catalog_items`. It returns the tax class (revenue group and tax rate), brand, cost and net price, supplier numbers, the default bin, the default vendor, and the five newest price history rows. The schema has no default bin or default vendor flag. The default bin is the bin at the active site that holds the most stock, and the default vendor is the supplier article link updated most recently. Either is `null` when none exists, and `default_bin` is `null` without an active site.
 - `list_price_lists` lists applied supplier price lists, the import jobs for `SUPPLIER_PRICE_LIST`, newest applied first. `valid_from` is the moment the list was applied, and `items_count` is the number of rows in the file. Dry runs and jobs that were never applied are not listed.
-- `list_margin_rules` lists the tenant's margin rules in evaluation order: priority, then ID. Inactive rules are listed with `active` false. `scope` names the brand, the revenue group, and the EUR cost bracket (`cost_min`, `cost_max`). `markup.percent` is set for a markup rule, and `markup.use_supplier_rrp` is `true` for a rule that uses the supplier RRP.
+- `list_margin_rules` lists the tenant's active margin rules, the ones the price engine applies, in evaluation order: priority, then ID. Inactive rules are not listed. `scope` names the brand, the revenue group, and the EUR cost bracket (`cost_min`, `cost_max`). `markup.percent` is set for a markup rule, and `markup.use_supplier_rrp` is `true` for a rule that uses the supplier RRP.
 - The lists page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. The paging is keyset over the sort key (SKU or labor code, priority, or applied time) and the row ID, so rows do not repeat or disappear between pages when data changes.
 
 ## Outcomes and errors
