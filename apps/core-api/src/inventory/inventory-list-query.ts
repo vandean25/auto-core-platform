@@ -4,7 +4,7 @@ import type { Prisma } from '@prisma/client';
 
 // Catalog columns the inventory list can be ordered by in the database. Derived
 // columns such as status and storage location are intentionally not sortable.
-export const INVENTORY_SORT_FIELDS = ['sku', 'name', 'price'] as const;
+const INVENTORY_SORT_FIELDS = ['sku', 'name', 'price'] as const;
 
 export function parsePositiveInt(
   value: string | undefined,
