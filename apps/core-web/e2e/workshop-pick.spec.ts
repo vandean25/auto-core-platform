@@ -26,7 +26,7 @@ async function seedWorkshopOrderForPick(page: Page) {
       vehicleId: vehicle.id,
       odometer: 123456,
       fuelLevel: 50,
-      reportedIssue: 'E2E pick queue smoke',
+      reportedIssue: 'E2E parts pick queue smoke',
     },
   });
   expect(createOrderResponse.ok(), 'Expected workshop order creation to succeed').toBeTruthy();
@@ -138,23 +138,23 @@ async function mockPickQueueBaseRoutes(page: Page, orderId = 'ws-123') {
   return { mockedOrder, mockedLocations };
 }
 
-test.describe('Workshop Pick Queue — Smoke Tests (seed-based)', () => {
+test.describe('Parts pick queue — Smoke Tests (seed-based)', () => {
   test.skip(
     !RUN_SEEDED_SMOKE_TESTS,
     'Seed-based smoke tests require E2E_LIVE_BACKEND=true and a seeded backend.',
   );
 
-  test('should open pick drawer from a seeded pick queue row', async ({ page }) => {
+  test('should open pick drawer from a seeded parts pick queue row', async ({ page }) => {
     const seededOrder = await seedWorkshopOrderForPick(page);
     const corePage = new AutoCorePage(page, 'Order');
 
     await corePage.navigate('/workshop/pick-list');
 
     await expect(
-      page.getByRole('heading', { name: 'Workshop Pick Queue', exact: true }),
+      page.getByRole('heading', { name: 'Parts pick queue', exact: true }),
     ).toBeVisible();
 
-    const searchInput = page.getByPlaceholder('Search pick queue...');
+    const searchInput = page.getByPlaceholder('Search parts pick queue...');
     await searchInput.fill(seededOrder.orderNumber);
 
     await corePage.openRowDetails(seededOrder.orderNumber);
@@ -168,7 +168,27 @@ test.describe('Workshop Pick Queue — Smoke Tests (seed-based)', () => {
   });
 });
 
-test.describe('Workshop Pick Queue — Blueprint Validation (mocked)', () => {
+test.describe('Parts pick queue — Entry From Workshop Orders (mocked)', () => {
+  test('should reach the parts pick queue from the orders header with the keyboard', async ({
+    page,
+  }) => {
+    await mockPickQueueBaseRoutes(page);
+
+    await page.goto('/workshop/orders');
+    await page.waitForLoadState('networkidle');
+    const pickQueueButton = page.getByRole('button', { name: 'Parts pick queue', exact: true });
+    await pickQueueButton.focus();
+    await expect(page.getByRole('tooltip')).toHaveText('Parts to pick for open workshop orders');
+
+    await page.keyboard.press('Enter');
+
+    await expect(page).toHaveURL(/\/workshop\/pick-list$/);
+    await expect(page.getByRole('heading', { name: 'Parts pick queue', exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder('Search parts pick queue...')).toBeVisible();
+  });
+});
+
+test.describe('Parts pick queue — Blueprint Validation (mocked)', () => {
   test('should prefill required quantities and restore defaults via Pick All', async ({ page }) => {
     const { mockedOrder } = await mockPickQueueBaseRoutes(page);
 

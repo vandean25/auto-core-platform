@@ -30,7 +30,7 @@ vi.mock('@/features/realtime/RealtimeDashboardSyncProvider', () => ({
 }))
 
 vi.mock('./pages/workshop/WorkshopPickList', () => ({
-  default: () => <div>Workshop Pick Queue</div>,
+  default: () => <div>Parts pick queue</div>,
 }))
 
 vi.mock('./pages/vehicle-stock/VehicleStockList', () => ({
@@ -109,7 +109,7 @@ describe('App authenticated unknown routes (AUT-222)', () => {
   it('redirects /workshop/pick to the pick list', async () => {
     renderAtPath('/workshop/pick')
 
-    expect(await screen.findByText('Workshop Pick Queue')).toBeInTheDocument()
+    expect(await screen.findByText('Parts pick queue')).toBeInTheDocument()
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.workshopPickList)
   })
 

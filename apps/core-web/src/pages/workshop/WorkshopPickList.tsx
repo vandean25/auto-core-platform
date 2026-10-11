@@ -97,7 +97,7 @@ export default function WorkshopPickList() {
     <div className='space-y-6'>
       <div className='flex items-center justify-between mb-8'>
         <div>
-          <h1 className='text-2xl font-semibold tracking-tight'>Workshop Pick Queue</h1>
+          <h1 className='text-2xl font-semibold tracking-tight'>Parts pick queue</h1>
           <p className='text-slate-500'>Select an order row to open the pick drawer and stage required parts.</p>
         </div>
         <div className='flex items-center gap-2'>
@@ -115,10 +115,10 @@ export default function WorkshopPickList() {
       <DataTable
         columns={columns}
         data={rows}
-        saveViewTitle='Workshop Pick Queue'
+        saveViewTitle='Parts pick queue'
         pageCount={responseData?.meta?.pageCount ?? 1}
         isLoading={isLoading}
-        searchPlaceholder='Search pick queue...'
+        searchPlaceholder='Search parts pick queue...'
         onRowClick={(row) => {
           setActiveOrderId(row.id)
           setIsDrawerOpen(true)
