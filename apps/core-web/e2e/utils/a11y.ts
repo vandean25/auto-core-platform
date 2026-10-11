@@ -92,3 +92,30 @@ export async function expectNoAxeViolationsForRules(page: Page, ruleIds: string[
     })),
   ).toEqual([]);
 }
+
+/**
+ * Heading outline (axe `heading-order`): a heading may only be one level deeper than the
+ * heading before it, so h1 → h3 fails. axe rates the rule "moderate", so the helper above does
+ * not enforce it; pages with a clean outline call this helper in addition.
+ */
+export async function expectNoHeadingOrderViolations(page: Page) {
+  const accessibilityScanResults = await new AxeBuilder({ page })
+    .withRules(['heading-order'])
+    .analyze();
+  const pathname = new URL(page.url()).pathname;
+
+  await test.info().attach('heading-order-scan-results', {
+    body: JSON.stringify(accessibilityScanResults, null, 2),
+    contentType: 'application/json',
+  });
+
+  const summary = accessibilityScanResults.violations.map((v) => ({
+    id: v.id,
+    impact: v.impact,
+    nodes: v.nodes.map((node) => ({ target: node.target, html: node.html })),
+  }));
+  expect(
+    summary,
+    `heading-order violations on ${pathname}:\n${JSON.stringify(summary, null, 2)}`,
+  ).toEqual([]);
+}

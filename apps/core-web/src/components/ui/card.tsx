@@ -29,21 +29,30 @@ const CardHeader = React.forwardRef<
 ))
 CardHeader.displayName = "CardHeader"
 
-const CardTitle = React.forwardRef<
-  HTMLHeadingElement,
-  React.HTMLAttributes<HTMLHeadingElement>
->(({ className, children, ...props }, ref) => (
-  <h3
-    ref={ref}
-    className={cn(
-      "text-2xl font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  >
-    {children}
-  </h3>
-))
+type CardTitleLevel = "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
+
+interface CardTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {
+  /**
+   * Heading level. Defaults to h2, the level for a card directly under the page h1.
+   * Pass a deeper level when the card sits under another section heading, e.g. `as="h3"`.
+   */
+  as?: CardTitleLevel
+}
+
+const CardTitle = React.forwardRef<HTMLHeadingElement, CardTitleProps>(
+  ({ as: Heading = "h2", className, children, ...props }, ref) => (
+    <Heading
+      ref={ref}
+      className={cn(
+        "text-2xl font-semibold leading-none tracking-tight",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </Heading>
+  )
+)
 CardTitle.displayName = "CardTitle"
 
 const CardDescription = React.forwardRef<
