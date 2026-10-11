@@ -52,7 +52,7 @@ describe('formatNestApiErrorMessage', () => {
         'Failed to finalize invoice',
       ),
     ).toBe(
-      'Branded invoice issuance is disabled in this environment. Finalize and print will work after operations enable the invoice branding writer.',
+      'Branded invoice issuance is disabled in this environment. Finalize will work after operations enable the invoice branding writer.',
     )
   })
 })
