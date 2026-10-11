@@ -61,6 +61,20 @@ describe('catalog and price read input schemas (AUT-460)', () => {
       ).toBe(false);
     });
 
+    it('accepts a cursor for a SKU longer than 200 characters, because the list can issue one', () => {
+      const longSku = 'X'.repeat(300);
+
+      expect(
+        listCatalogItemsInputSchema.safeParse({
+          cursor: encodeMcpPositionCursor({
+            type: 'part',
+            key: longSku,
+            id: ITEM_ID,
+          }),
+        }).success,
+      ).toBe(true);
+    });
+
     it('accepts a position cursor from meta.next_cursor and rejects other cursors', () => {
       const position = encodeMcpPositionCursor({
         type: 'part',

@@ -1183,6 +1183,23 @@ describe('McpCatalogReadService', () => {
       }
     });
 
+    it('does not name a superseded replacement that belongs to another tenant', async () => {
+      const tables = buildTables();
+      const superseded = tables.catalogItems.find(
+        (item) => item.id === ids.oilOld,
+      );
+      if (!superseded) {
+        throw new Error('fixture missing: oilOld');
+      }
+      superseded.superseded_by_id = ids.otherBrake;
+      const { service } = createService({ tables });
+
+      const detail = await service.getCatalogItem({ id: ids.oilOld });
+
+      expect(detail.active).toBe(false);
+      expect(detail.superseded_by).toBeNull();
+    });
+
     it('scopes the default bin to the active site and the tenant', async () => {
       const { service, prisma } = createService();
 

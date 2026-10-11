@@ -24,7 +24,7 @@ type Json = Prisma.JsonValue;
 /** Keyset position of a catalog list: the sort key (SKU or labor code), then the row ID. */
 export const mcpCatalogItemPositionSchema = z.object({
   type: z.enum(MCP_CATALOG_ITEM_TYPES),
-  key: z.string().min(1).max(200),
+  key: z.string(),
   id: z.string().uuid(),
 });
 export type McpCatalogItemPosition = z.infer<
