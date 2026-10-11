@@ -17,8 +17,13 @@ type WhereNode = Record<string, any>;
 
 const TEXT_FIELDS = ['first_name', 'last_name', 'company_name', 'phone'] as const;
 
-const containsIgnoreCase = (value: string | null, needle: string) =>
-  (value ?? '').toLowerCase().includes(needle.toLowerCase());
+/** Mirrors Prisma's `contains`: case-insensitive only when the condition asks for `mode: 'insensitive'`. */
+const containsMatch = (value: string | null, condition: { contains: string; mode?: string }) => {
+  const haystack = value ?? '';
+  return condition.mode === 'insensitive'
+    ? haystack.toLowerCase().includes(condition.contains.toLowerCase())
+    : haystack.includes(condition.contains);
+};
 
 /** Evaluates the subset of Prisma where input the customer search builds (tenant, OR, AND, contains, id equals). */
 function matchesWhere(where: WhereNode, row: CustomerRow): boolean {
@@ -32,8 +37,17 @@ function matchesWhere(where: WhereNode, row: CustomerRow): boolean {
   }
   return TEXT_FIELDS.every((field) => {
     const condition = where[field];
-    return condition?.contains === undefined || containsIgnoreCase(row[field], condition.contains);
+    return condition?.contains === undefined || containsMatch(row[field], condition);
   });
+}
+
+/** Collects every `{ contains, mode }` condition in a where tree, however it is nested. */
+function collectContainsConditions(node: unknown): Array<{ contains: string; mode?: string }> {
+  if (Array.isArray(node)) return node.flatMap(collectContainsConditions);
+  if (node === null || typeof node !== 'object') return [];
+  const record = node as Record<string, unknown>;
+  if (typeof record.contains === 'string') return [record as { contains: string; mode?: string }];
+  return Object.values(record).flatMap(collectContainsConditions);
 }
 
 const maxMustermann: CustomerRow = {
@@ -111,5 +125,14 @@ describe('buildCustomerSearchWhere full-name search', () => {
       AND: [customerNameTermWhere('max'), customerNameTermWhere('mustermann')],
     });
     expect(single.OR?.some((node) => 'AND' in node)).toBe(false);
+  });
+
+  it('asks for case-insensitive matching on every text condition', () => {
+    const conditions = collectContainsConditions(
+      buildCustomerSearchWhere('tenant-1', 'max mustermann'),
+    );
+
+    expect(conditions.length).toBeGreaterThan(3);
+    expect(conditions.every((condition) => condition.mode === 'insensitive')).toBe(true);
   });
 });

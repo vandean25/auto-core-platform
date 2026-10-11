@@ -15,6 +15,8 @@ export type QuickAction = {
   icon: LucideIcon
   label: string
   description: string
+  /** Extra phrases the palette search matches, such as the action's previous wording. */
+  keywords?: string[]
 }
 
 export type QuickActionSection = {
@@ -49,6 +51,7 @@ export const quickActionSections: QuickActionSection[] = [
         icon: ReceiptText,
         label: 'Find a sales order to invoice',
         description: 'Open a sales order and use Create Invoice to draft its invoice.',
+        keywords: ['create sales invoice', 'sales invoice'],
       },
       {
         href: '/workshop/intake',
@@ -90,7 +93,7 @@ export const quickActionSections: QuickActionSection[] = [
 ]
 
 /**
- * Keeps the actions whose label or description contains the query, dropping
+ * Keeps the actions whose label, description or keywords contain the query, dropping
  * sections that end up empty. An empty query returns every section.
  */
 export function filterQuickActionSections(
@@ -103,10 +106,10 @@ export function filterQuickActionSections(
   return sections
     .map((section) => ({
       ...section,
-      items: section.items.filter(
-        (item) =>
-          item.label.toLowerCase().includes(lower) ||
-          item.description.toLowerCase().includes(lower),
+      items: section.items.filter((item) =>
+        [item.label, item.description, ...(item.keywords ?? [])].some((text) =>
+          text.toLowerCase().includes(lower),
+        ),
       ),
     }))
     .filter((section) => section.items.length > 0)

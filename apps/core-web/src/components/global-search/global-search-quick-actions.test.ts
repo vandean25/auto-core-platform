@@ -26,6 +26,15 @@ describe('filterQuickActionSections', () => {
     expect(labels).not.toContain('Create Sales Invoice')
   })
 
+  it('keeps the previous Create Sales Invoice wording searchable', () => {
+    expect(labelsOf(filterQuickActionSections(quickActionSections, 'sales invoice'))).toContain(
+      'Find a sales order to invoice',
+    )
+    expect(
+      labelsOf(filterQuickActionSections(quickActionSections, 'Create Sales Invoice')),
+    ).toContain('Find a sales order to invoice')
+  })
+
   it('returns no sections when nothing matches', () => {
     expect(filterQuickActionSections(quickActionSections, 'zzz')).toEqual([])
   })
