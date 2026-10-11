@@ -134,8 +134,9 @@ function InlineEditorInput({
   inputClassName,
   rows,
 }: InlineEditorInputProps) {
+  const errorId = React.useId()
   const errorMarkup = validationError ? (
-    <p className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
+    <p id={errorId} className='mt-1 text-xs text-red-500' role='alert'>{validationError}</p>
   ) : null
 
   if (mode === 'textarea') {
@@ -156,6 +157,7 @@ function InlineEditorInput({
           placeholder={placeholder}
           aria-label={ariaLabel}
           aria-invalid={!!validationError}
+          aria-describedby={validationError ? errorId : undefined}
           disabled={isSaving}
         />
         {errorMarkup}
@@ -179,6 +181,7 @@ function InlineEditorInput({
         placeholder={placeholder}
         aria-label={ariaLabel}
         aria-invalid={!!validationError}
+        aria-describedby={validationError ? errorId : undefined}
         disabled={isSaving}
       />
       {errorMarkup}

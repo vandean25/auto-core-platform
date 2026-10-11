@@ -63,13 +63,25 @@ export function StartServiceDialog({
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="odometer">Odometer (km)</Label>
-                        <Input id="odometer" type="number" {...register('odometer', { required: true, min: 0 })} />
-                        {errors.odometer && <span className="text-red-500 text-xs">Required</span>}
+                        <Input
+                            id="odometer"
+                            type="number"
+                            aria-invalid={Boolean(errors.odometer)}
+                            aria-describedby={errors.odometer ? 'odometer-error' : undefined}
+                            {...register('odometer', { required: true, min: 0 })}
+                        />
+                        {errors.odometer && <span id="odometer-error" className="text-red-500 text-xs">Required</span>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="fuelLevel">Fuel Level (%)</Label>
-                        <Input id="fuelLevel" type="number" {...register('fuelLevel', { required: true, min: 0, max: 100 })} />
-                        {errors.fuelLevel && <span className="text-red-500 text-xs">0-100 required</span>}
+                        <Input
+                            id="fuelLevel"
+                            type="number"
+                            aria-invalid={Boolean(errors.fuelLevel)}
+                            aria-describedby={errors.fuelLevel ? 'fuelLevel-error' : undefined}
+                            {...register('fuelLevel', { required: true, min: 0, max: 100 })}
+                        />
+                        {errors.fuelLevel && <span id="fuelLevel-error" className="text-red-500 text-xs">0-100 required</span>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="notes">Intake Notes</Label>

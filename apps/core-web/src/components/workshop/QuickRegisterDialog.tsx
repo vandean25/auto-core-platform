@@ -49,31 +49,57 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="vin">VIN</Label>
-                            <Input id="vin" {...register('vin', { required: true })} />
-                            {errors.vin && <span className="text-red-500 text-xs">Required</span>}
+                            <Input
+                                id="vin"
+                                aria-invalid={Boolean(errors.vin)}
+                                aria-describedby={errors.vin ? 'vin-error' : undefined}
+                                {...register('vin', { required: true })}
+                            />
+                            {errors.vin && <span id="vin-error" className="text-red-500 text-xs">Required</span>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="plate">Plate</Label>
-                            <Input id="plate" {...register('plate', { required: true })} />
-                            {errors.plate && <span className="text-red-500 text-xs">Required</span>}
+                            <Input
+                                id="plate"
+                                aria-invalid={Boolean(errors.plate)}
+                                aria-describedby={errors.plate ? 'plate-error' : undefined}
+                                {...register('plate', { required: true })}
+                            />
+                            {errors.plate && <span id="plate-error" className="text-red-500 text-xs">Required</span>}
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                          <div className="space-y-2">
                             <Label htmlFor="make">Make</Label>
-                            <Input id="make" {...register('make', { required: true })} />
-                            {errors.make && <span className="text-red-500 text-xs">Required</span>}
+                            <Input
+                                id="make"
+                                aria-invalid={Boolean(errors.make)}
+                                aria-describedby={errors.make ? 'make-error' : undefined}
+                                {...register('make', { required: true })}
+                            />
+                            {errors.make && <span id="make-error" className="text-red-500 text-xs">Required</span>}
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="model">Model</Label>
-                            <Input id="model" {...register('model', { required: true })} />
-                            {errors.model && <span className="text-red-500 text-xs">Required</span>}
+                            <Input
+                                id="model"
+                                aria-invalid={Boolean(errors.model)}
+                                aria-describedby={errors.model ? 'model-error' : undefined}
+                                {...register('model', { required: true })}
+                            />
+                            {errors.model && <span id="model-error" className="text-red-500 text-xs">Required</span>}
                         </div>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="year">Year</Label>
-                        <Input id="year" type="number" {...register('year', { required: true, min: 1900 })} />
-                        {errors.year && <span className="text-red-500 text-xs">Valid year required</span>}
+                        <Input
+                            id="year"
+                            type="number"
+                            aria-invalid={Boolean(errors.year)}
+                            aria-describedby={errors.year ? 'year-error' : undefined}
+                            {...register('year', { required: true, min: 1900 })}
+                        />
+                        {errors.year && <span id="year-error" className="text-red-500 text-xs">Valid year required</span>}
                     </div>
 
                     <div className="pt-2 border-t">
@@ -81,13 +107,23 @@ export function QuickRegisterDialog({ open, onOpenChange, defaultVin }: QuickReg
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="firstName">First Name</Label>
-                                <Input id="firstName" {...register('firstName', { required: true })} />
-                                {errors.firstName && <span className="text-red-500 text-xs">Required</span>}
+                                <Input
+                                    id="firstName"
+                                    aria-invalid={Boolean(errors.firstName)}
+                                    aria-describedby={errors.firstName ? 'firstName-error' : undefined}
+                                    {...register('firstName', { required: true })}
+                                />
+                                {errors.firstName && <span id="firstName-error" className="text-red-500 text-xs">Required</span>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="lastName">Last Name</Label>
-                                <Input id="lastName" {...register('lastName', { required: true })} />
-                                {errors.lastName && <span className="text-red-500 text-xs">Required</span>}
+                                <Input
+                                    id="lastName"
+                                    aria-invalid={Boolean(errors.lastName)}
+                                    aria-describedby={errors.lastName ? 'lastName-error' : undefined}
+                                    {...register('lastName', { required: true })}
+                                />
+                                {errors.lastName && <span id="lastName-error" className="text-red-500 text-xs">Required</span>}
                             </div>
                         </div>
                          <div className="space-y-2 mt-2">

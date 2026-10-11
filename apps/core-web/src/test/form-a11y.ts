@@ -1,0 +1,25 @@
+import { expect } from 'vitest'
+
+/**
+ * Asserts an inline validation error is wired to its field: the control is marked
+ * `aria-invalid="true"`, and `aria-describedby` references an element whose text is `message`.
+ * Each referenced id must match at most one element, so a duplicate id fails the assertion.
+ */
+export function expectFieldErrorLinked(field: HTMLElement, message: string) {
+  expect(field).toHaveAttribute('aria-invalid', 'true')
+
+  const describedBy = field.getAttribute('aria-describedby') ?? ''
+  const ids = describedBy.split(/\s+/).filter(Boolean)
+  for (const id of ids) {
+    expect(document.querySelectorAll(`[id="${id}"]`).length, `duplicate id "${id}"`).toBeLessThanOrEqual(1)
+  }
+
+  const linkedText = ids.map((id) => document.getElementById(id)?.textContent ?? '')
+  expect(linkedText, `aria-describedby="${describedBy}" should reference "${message}"`).toContain(message)
+}
+
+/** Asserts a control has no validation error: `aria-invalid="false"` and no `aria-describedby`. */
+export function expectFieldValid(field: HTMLElement) {
+  expect(field).toHaveAttribute('aria-invalid', 'false')
+  expect(field).not.toHaveAttribute('aria-describedby')
+}

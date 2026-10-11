@@ -250,7 +250,9 @@ export function CreateCreditNoteDialog({
                             <Input
                               className="ml-auto max-w-[120px] text-right"
                               value={line.quantity}
+                              id={`credit-line-quantity-${line.originalItemId}`}
                               aria-invalid={Boolean(lineError)}
+                              aria-describedby={lineError ? `credit-line-quantity-${line.originalItemId}-error` : undefined}
                               onChange={(event) => {
                                 const nextQuantity = event.target.value
                                 setPartialLines((current) =>
@@ -263,7 +265,7 @@ export function CreateCreditNoteDialog({
                               }}
                             />
                             {lineError ? (
-                              <p className="mt-1 text-xs text-destructive">{lineError}</p>
+                              <p id={`credit-line-quantity-${line.originalItemId}-error`} role="alert" className="mt-1 text-xs text-destructive">{lineError}</p>
                             ) : null}
                           </TableCell>
                         </TableRow>

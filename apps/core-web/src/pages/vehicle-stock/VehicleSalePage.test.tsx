@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import VehicleSalePage from './VehicleSalePage'
 import * as vehicleStockApi from '@/api/vehicle-stock'
+import { expectFieldErrorLinked, expectFieldValid } from '@/test/form-a11y'
 import { toast } from 'sonner'
 
 const {
@@ -388,6 +389,17 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     expect(screen.getByText('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')).toBeTruthy()
   })
 
+  it('links the Garantie duration error to its input', () => {
+    renderSalePage()
+    const input = screen.getByLabelText('Garantiedauer in Monaten')
+    expectFieldValid(input)
+
+    fireEvent.change(input, { target: { value: '0' } })
+
+    expectFieldErrorLinked(input, 'Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')
+    expect(screen.getByText('Bitte eine Dauer zwischen 1 und 120 Monaten angeben.')).toHaveAttribute('role', 'alert')
+  })
+
   it('blocks the negotiated one-year period in the UI when the vehicle is too new for the handover date', () => {
     asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
       data: { ...existingSale, buyer_is_consumer: true, handed_over_at: '2026-10-08T00:00:00.000Z' },
@@ -402,6 +414,32 @@ describe('VehicleSalePage Kaufvertrag PDF and Garantie', () => {
     expect(
       screen.getByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.'),
     ).toBeTruthy()
+    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toHaveAccessibleDescription(
+      'Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.',
+    )
+    expect(screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')).toHaveAttribute('aria-invalid', 'false')
+  })
+
+  it('marks the shortening checkbox invalid when it is ticked and its reason applies', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: {
+        ...existingSale,
+        buyer_is_consumer: true,
+        handed_over_at: '2026-10-08T00:00:00.000Z',
+        gewaehrleistung_shortened_negotiated: true,
+      },
+    })
+    asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({
+      data: { ...stockVehicle, first_registration_date: '2026-06-01' },
+    })
+
+    renderSalePage()
+
+    const checkbox = screen.getByLabelText('Verkürzung wurde ausdrücklich vereinbart')
+    expect(checkbox).toBeChecked()
+    expect(checkbox).toBeEnabled()
+    expect(checkbox).toHaveAttribute('aria-invalid', 'true')
+    expect(checkbox).toHaveAccessibleDescription('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.')
   })
 
   it('generates and downloads the Kaufvertrag PDF through the shared download hook', async () => {
@@ -713,5 +751,16 @@ describe('VehicleSalePage trade-in', () => {
       'aria-live',
       'polite',
     )
+  })
+
+  it('marks the trade-in field behind the validation message as invalid', () => {
+    renderSalePage()
+    const section = screen.getByRole('region', { name: 'Trade-in' })
+    const allowance = within(section).getByLabelText('Allowance (EUR)')
+
+    fireEvent.change(allowance, { target: { value: '13000' } })
+
+    expectFieldErrorLinked(allowance, 'The allowance cannot exceed the sale price.')
+    expectFieldValid(within(section).getByLabelText('VIN'))
   })
 })

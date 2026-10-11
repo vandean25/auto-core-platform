@@ -58,6 +58,7 @@ describe('buildTradeInInput', () => {
   ])('rejects an allowance that is %s', (_label, allowance, message) => {
     expect(buildTradeInInput({ ...validDraft, allowance }, 20000, TODAY)).toEqual({
       status: 'invalid',
+      field: 'allowance',
       message,
     })
   })
@@ -74,13 +75,23 @@ describe('buildTradeInInput', () => {
   ])('rejects a VIN that is %s', (_label, vin) => {
     expect(buildTradeInInput({ ...validDraft, vin }, 20000, TODAY)).toEqual({
       status: 'invalid',
+      field: 'vin',
       message: 'The VIN must have 17 characters and no I, O or Q.',
     })
   })
 
-  it('requires make and model', () => {
+  it('requires the model', () => {
     expect(buildTradeInInput({ ...validDraft, model: '  ' }, 20000, TODAY)).toEqual({
       status: 'invalid',
+      field: 'model',
+      message: 'Enter the make and model of the trade-in vehicle.',
+    })
+  })
+
+  it('requires the make', () => {
+    expect(buildTradeInInput({ ...validDraft, make: '' }, 20000, TODAY)).toEqual({
+      status: 'invalid',
+      field: 'make',
       message: 'Enter the make and model of the trade-in vehicle.',
     })
   })
@@ -88,19 +99,29 @@ describe('buildTradeInInput', () => {
   it('rejects an implausible model year', () => {
     expect(buildTradeInInput({ ...validDraft, year: '1850' }, 20000, TODAY)).toEqual({
       status: 'invalid',
+      field: 'year',
       message: 'Enter a valid model year.',
     })
   })
 
   it('rejects negative or fractional mileage', () => {
     const message = 'Mileage must be a whole number of zero or more.'
-    expect(buildTradeInInput({ ...validDraft, mileage: '-1' }, 20000, TODAY)).toEqual({ status: 'invalid', message })
-    expect(buildTradeInInput({ ...validDraft, mileage: '10.5' }, 20000, TODAY)).toEqual({ status: 'invalid', message })
+    expect(buildTradeInInput({ ...validDraft, mileage: '-1' }, 20000, TODAY)).toEqual({
+      status: 'invalid',
+      field: 'mileage',
+      message,
+    })
+    expect(buildTradeInInput({ ...validDraft, mileage: '10.5' }, 20000, TODAY)).toEqual({
+      status: 'invalid',
+      field: 'mileage',
+      message,
+    })
   })
 
   it('rejects a first registration date in the future', () => {
     expect(buildTradeInInput({ ...validDraft, firstRegistrationDate: '2027-01-01' }, 20000, TODAY)).toEqual({
       status: 'invalid',
+      field: 'firstRegistrationDate',
       message: 'First registration cannot be in the future.',
     })
   })
