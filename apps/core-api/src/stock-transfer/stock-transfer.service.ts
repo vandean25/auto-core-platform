@@ -1288,7 +1288,7 @@ export class StockTransferService {
       transfer,
       movements,
     }: {
-      transfer: { id: string; from_site_id: string };
+      transfer: { id: string; from_site_id: string; to_site_id: string };
       movements: Array<{
         line: {
           id: string;
@@ -1356,6 +1356,9 @@ export class StockTransferService {
     }
     await this.ledgerService.recordTransactions(transactions, tx, {
       allowedLocationTypes: TRANSFER_ENABLED_LOCATION_TYPES,
+      // The caller passed the transfer access check, and the transit row and
+      // dest/source bins are derived from this transfer's own two sites.
+      authorizedSiteIds: [transfer.from_site_id, transfer.to_site_id],
     });
   }
 

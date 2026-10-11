@@ -135,12 +135,13 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
 
   function postAction(
     transferId: string,
-    action: 'approve' | 'ship' | 'receive',
+    action: 'approve' | 'ship' | 'receive' | 'return',
     body: Record<string, unknown>,
+    authToken: string = token(),
   ) {
     return request(app.getHttpServer())
       .post(`/api/stock-transfers/${transferId}/${action}`)
-      .set('Authorization', `Bearer ${token()}`)
+      .set('Authorization', `Bearer ${authToken}`)
       .send(body);
   }
 
@@ -328,6 +329,109 @@ describe('Stock transfers MAIN <-> GRZ (AUT-466, e2e)', () => {
       expect(received.body.status).toBe('COMPLETED');
       expect(await onHandAt(grzBinId)).toBe(1);
       expect(await onHandAt(mainBinId)).toBe(3);
+    });
+  });
+
+  describe('to-site-only member (AUT-466 review)', () => {
+    // A user with membership on GRZ only: receive and return both settle
+    // against the MAIN in-transit location, which this caller cannot see.
+    async function createGrzOnlyToken(): Promise<string> {
+      const unique = `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+      const firebaseUid = `e2e-grz-only-${unique}`;
+      const email = `grz-only-${unique}@example.com`;
+      const user = await prisma.user.create({
+        data: {
+          firebaseUid,
+          email,
+          active_tenant_id: tenant.tenantId,
+          memberships: {
+            create: {
+              tenant_id: tenant.tenantId,
+              role: 'SALES',
+              is_active: true,
+            },
+          },
+        },
+        select: { id: true },
+      });
+      await createTenantAwarePrisma(prisma, tenant.tenantId).siteMembership.create(
+        {
+          data: {
+            tenant_id: tenant.tenantId,
+            user_id: user.id,
+            site_id: grzSiteId,
+            is_active: true,
+          },
+        },
+      );
+      return authService.createTestToken({
+        sub: firebaseUid,
+        email,
+        tenantId: tenant.tenantId,
+        role: 'SALES',
+      });
+    }
+
+    async function shipMainToGrz(qty: number) {
+      await seedBinStock(mainSiteId, mainBinId, 5);
+      const created = await postTransfer({
+        fromSiteId: mainSiteId,
+        toSiteId: grzSiteId,
+        lines: [
+          { catalogItemId, requestedQty: qty, sourceLocationId: mainBinId },
+        ],
+      }).expect(201);
+      const transferId: string = created.body.id;
+      const lineId: string = created.body.lines[0].id;
+
+      await postAction(transferId, 'approve', { expectedVersion: 1 }).expect(
+        201,
+      );
+      await postAction(transferId, 'ship', {
+        expectedVersion: 2,
+        lines: [{ id: lineId }],
+      }).expect(201);
+      return { transferId, lineId };
+    }
+
+    it('receives a MAIN -> GRZ shipment without from-site membership (200, not 400)', async () => {
+      const grzOnlyToken = await createGrzOnlyToken();
+      const { transferId, lineId } = await shipMainToGrz(2);
+
+      const received = await postAction(
+        transferId,
+        'receive',
+        {
+          expectedVersion: 3,
+          idempotencyKey: 'aut466-grz-only-receive',
+          lines: [{ id: lineId, receiveQty: 2, destLocationId: grzBinId }],
+        },
+        grzOnlyToken,
+      ).expect(200);
+
+      expect(received.body.status).toBe('COMPLETED');
+      expect(await onHandAt(grzBinId)).toBe(2);
+      expect(await onHandAt(mainBinId)).toBe(3);
+    });
+
+    it('returns unreceived stock without from-site membership (200, back on the MAIN bin)', async () => {
+      const grzOnlyToken = await createGrzOnlyToken();
+      const { transferId, lineId } = await shipMainToGrz(2);
+
+      const returned = await postAction(
+        transferId,
+        'return',
+        {
+          expectedVersion: 3,
+          idempotencyKey: 'aut466-grz-only-return',
+          lines: [{ id: lineId, returnQty: 2 }],
+        },
+        grzOnlyToken,
+      ).expect(200);
+
+      expect(returned.body.status).toBe('COMPLETED');
+      expect(await onHandAt(mainBinId)).toBe(5);
+      expect(await onHandAt(grzBinId)).toBe(0);
     });
   });
 });

@@ -30,6 +30,13 @@ export interface RecordTransactionsOptions {
    * ledger rows against the system in_transit locations (ruling 34).
    */
   allowedLocationTypes?: ReadonlySet<LocationType>;
+  /**
+   * Overrides the sites whose locations the caller may write to. Only same-GmbH
+   * transfer settlement uses it, with the transfer's own two endpoint sites
+   * after the transfer access check: a to-site-only receiver settles against
+   * the from-site in-transit location. Never pass ids taken from a request body.
+   */
+  authorizedSiteIds?: readonly string[];
 }
 
 interface AggregatedStockDelta {
@@ -79,7 +86,9 @@ export class LedgerService {
 
     const tx = prismaVal || this.prisma;
     const tenantId = await this.tenantContext.getTenantId();
-    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    const authorizedSiteIds =
+      options?.authorizedSiteIds ??
+      (await this.siteContext.listAuthorizedSiteIds());
 
     const locationIds = [...new Set(paramsArray.map((p) => p.locationId))];
     const locationSiteIds = await this.validateLocations(
