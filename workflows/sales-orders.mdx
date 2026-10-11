@@ -18,7 +18,7 @@ Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, 
     Top-right **Create Invoice**, then confirm. From **DRAFT**, this confirms the sales order and creates a linked draft. From later statuses, it creates the linked draft without issuing it. The draft editor opens at `/sales/invoices/:id/edit`.
   </Step>
   <Step title="Review and finalize">
-    Review the linked draft and let its changes save. **Finalize & Print** issues the official invoice number. Finalization moves the sales order to **INVOICED**, after which the order cannot be edited.
+    Review the linked draft and let its changes save. **Finalize** issues the official invoice number. Finalizing does not download a PDF. Open the invoice and use **Download PDF** when you need a copy. Finalization moves the sales order to **INVOICED**, after which the order cannot be edited.
   </Step>
 </Steps>
 
@@ -26,4 +26,4 @@ Status badges include **DRAFT**, **CONFIRMED**, **IN_PROGRESS**, **COMPLETED**, 
 A locked [fiscal lock date](/settings/finance) blocks backdated invoices. Stock for catalog lines comes off the shelf when the invoice is finalized, through the inventory ledger — not a silent quantity edit.
 </Warning>
 
-Continue on [Invoices](/workflows/invoices) to print.
+Continue on [Invoices](/workflows/invoices) to download the PDF.

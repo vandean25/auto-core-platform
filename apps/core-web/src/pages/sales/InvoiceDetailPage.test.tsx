@@ -126,7 +126,7 @@ describe('InvoiceDetailPage draft routing', () => {
   })
 })
 
-describe('InvoiceDetailPage print action', () => {
+describe('InvoiceDetailPage download action', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsLoading = false
@@ -137,7 +137,7 @@ describe('InvoiceDetailPage print action', () => {
     cleanup()
   })
 
-  it('configures usePdfDownload and triggers download when clicking Print', async () => {
+  it('configures usePdfDownload and triggers download when clicking Download PDF', async () => {
     const invoice = makeInvoice({
       id: 'inv-123',
       invoice_number: 'RE-2026-0042',
@@ -145,11 +145,12 @@ describe('InvoiceDetailPage print action', () => {
     })
     renderPage(invoice)
 
-    const printButton = screen.getByRole('button', { name: /print/i })
-    expect(printButton).toBeInTheDocument()
-    expect(printButton).not.toBeDisabled()
+    const downloadButton = screen.getByRole('button', { name: 'Download PDF' })
+    expect(downloadButton).toBeInTheDocument()
+    expect(downloadButton).not.toBeDisabled()
+    expect(screen.queryByRole('button', { name: /print/i })).not.toBeInTheDocument()
 
-    fireEvent.click(printButton)
+    fireEvent.click(downloadButton)
     expect(mockDownload).toHaveBeenCalledTimes(1)
 
     expect(capturedPdfConfig).toBeDefined()
@@ -180,7 +181,7 @@ describe('InvoiceDetailPage print action', () => {
     expect(invoicesApi.fetchInvoicePdfGenerationError).toHaveBeenCalledWith('inv-123')
   })
 
-  it('renders disabled state with Generating... while printing', () => {
+  it('renders disabled state with Generating... while downloading', () => {
     mockIsLoading = true
     const invoice = makeInvoice({
       id: 'inv-123',
@@ -189,8 +190,8 @@ describe('InvoiceDetailPage print action', () => {
     })
     renderPage(invoice)
 
-    const printButton = screen.getByRole('button', { name: /generating\.\.\./i })
-    expect(printButton).toBeInTheDocument()
-    expect(printButton).toBeDisabled()
+    const generatingButton = screen.getByRole('button', { name: /generating\.\.\./i })
+    expect(generatingButton).toBeInTheDocument()
+    expect(generatingButton).toBeDisabled()
   })
 })

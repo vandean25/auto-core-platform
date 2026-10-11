@@ -1,13 +1,13 @@
 ---
 title: "Invoices"
-description: "Read a tax invoice, print the PDF, and know when the number is real."
+description: "Read a tax invoice, download the PDF, and know when the number is real."
 ---
 
 There is no dedicated invoice item in the sidebar, but you can browse drafts and finalized invoices at **`/sales/invoices`**. You can also open a tax invoice from a [sales order](/workflows/sales-orders), from workshop checkout, or from **Ctrl+K → Create Sales Invoice** (which opens the sales order list).
 
 The header shows the invoice number (or a short id while still draft) and a status badge: **DRAFT**, **FINALIZED**, **ISSUED**, **PAID**, **CANCELLED**.
 
-Top-right: **Print**. That generates or downloads a PDF. If the server queues it, the toast says generation is in the background — try Print again shortly.
+Top-right: **Download PDF**. That generates the PDF and downloads it. If the server queues it, the toast says generation is in the background — try Download PDF again shortly.
 
 <Steps>
   <Step title="From a sales order">
@@ -16,8 +16,8 @@ Top-right: **Print**. That generates or downloads a PDF. If the server queues it
   <Step title="From a completed job">
     On the workshop order, **Generate Invoice** / checkout. Issue the draft there. See [Workshop orders](/workflows/workshop-orders).
   </Step>
-  <Step title="Print">
-    **Print** on the invoice. Filename is based on the invoice number.
+  <Step title="Download the PDF">
+    **Download PDF** on the invoice. Filename is based on the invoice number. Finalizing an invoice does not download anything, so this is the step that saves a copy.
   </Step>
 </Steps>
 

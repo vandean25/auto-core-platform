@@ -339,7 +339,7 @@ export default function InvoiceDraftEditPage() {
             {(isFinalizing || finalizeInvoiceMutation.isPending) && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Finalize & Print
+            Finalize
           </Button>
         </div>
       </div>
@@ -523,7 +523,7 @@ export default function InvoiceDraftEditPage() {
                   Finalizing…
                 </>
               ) : (
-                "Finalize & Print"
+                "Finalize"
               )}
             </Button>
           </AlertDialogFooter>
