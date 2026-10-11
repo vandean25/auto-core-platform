@@ -113,7 +113,7 @@ export default function StockTransferList() {
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Transfer
+          <Plus className="mr-2 h-4 w-4" /> New transfer
         </Button>
       </div>
 

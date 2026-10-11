@@ -63,7 +63,7 @@ Destructive actions (Cancel, Delete, Void) inside the dropdown **must** follow t
 
 `ActionGroup` is designed for **detail/document pages** with multiple actions. Do **not** use it on:
 
-- **List pages:** The top-right of a list page uses a standalone `+ Entity` button (e.g., `+ Customer`, `+ Purchase Order`) per the List Page UI Standard. No dropdown is needed.
+- **List pages:** The top-right of a list page uses a standalone create button labelled `+ Entity` (e.g., `+ Customer`, `+ Purchase Order`) or `New entity` (e.g., `New transfer`) per the List Page UI Standard. No dropdown is needed.
 - **Settings pages:** Tab-based settings pages typically use inline save patterns (auto-save or save-on-blur), not header action buttons.
 - **Pages with a single action:** If a page has only one action, use a standalone `Button` instead of wrapping it in an ActionGroup.
 

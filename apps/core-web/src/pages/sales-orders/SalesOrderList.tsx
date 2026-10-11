@@ -86,7 +86,7 @@ export default function SalesOrderList() {
                 </div>
                 <Button asChild>
                     <Link to="/sales-orders/new">
-                        <Plus className="mr-2 h-4 w-4" /> Order
+                        <Plus className="mr-2 h-4 w-4" /> New order
                     </Link>
                 </Button>
             </div>

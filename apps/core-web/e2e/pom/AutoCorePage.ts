@@ -26,8 +26,10 @@ export class AutoCorePage {
   }
 
   /**
-   * Rule: The create button label is the entity name (with an optional leading `+ ` only when the
-   * button text explicitly contains it, e.g. `"+ Item"`).
+   * Rule: The create button label is the entity name, either `+ <Entity>` (with an optional leading
+   * `+ ` only when the button text explicitly contains it, e.g. `"+ Item"`) or a sentence-case
+   * `New <entity>` label (e.g. `"New transfer"`, AUT-474). Pass a `New <entity>` label in full as
+   * `entityName`.
    *
    * The regex is anchored (`^…$`) so that sidebar navigation links like "Vendors", "Purchase Orders",
    * or "Customers" do NOT accidentally match entity names like "Vendor", "Purchase Order", or

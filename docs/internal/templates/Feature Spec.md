@@ -76,7 +76,7 @@ tags:
 
 ### List Pages (if applicable)
 
-- [ ] Create button format: `+ <Entity>` (no "Add", "New", "Create" prefix).
+- [ ] Create button format: `+ <Entity>` or sentence-case `New <entity>`. No "Add" or "Create" prefix.
 - [ ] Search bar searches across all visible columns.
 - [ ] Sortable column headers via `DataTable` / `DataTableColumnHeader`.
 - [ ] Status cells use shared `StatusBadge` component.
