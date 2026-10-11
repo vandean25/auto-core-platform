@@ -70,7 +70,7 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   draft_workshop_order:
     'Create a DRAFT/SCHEDULED workshop order (policy-checked, logged)',
   reserve_part:
-    'Reserve a catalog part line from a bin; AUTO at or below policy amount_max (EUR 250 platform cap), PROPOSE above amount_max (reversible; counter-tool: release_reservation)',
+    'Reserve on-hand stock for a catalog-backed part line from a bin (the line needs a catalog_item_id; a free-text line fails with NOT_A_CATALOG_LINE); AUTO at or below policy amount_max (EUR 250 platform cap), PROPOSE above amount_max (reversible; counter-tool: release_reservation)',
   release_reservation:
     'Release a parts reservation (counter-tool of reserve_part)',
   propose_line_item:

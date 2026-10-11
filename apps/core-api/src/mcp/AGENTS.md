@@ -176,7 +176,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 ## Outcomes and errors
 
-Policy refusals return an MCP tool error with the code `not_permitted`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
+Policy refusals return an MCP tool error with the code `not_permitted`, and a free-text workshop line returns `NOT_A_CATALOG_LINE`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
 
 | Server value           | Meaning and response                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -189,6 +189,7 @@ Policy refusals return an MCP tool error with the code `not_permitted`. Other MC
 | `ZodError`             | Arguments did not match the tool schema. Report the validation failure and ask for corrected input if needed.                   |
 | `NotFoundException`    | The requested record or related entity was not found in the authorized scope. Report that result; do not guess an ID.           |
 | `ConflictException`    | The record changed or conflicts with the request. Reload current data before asking whether to retry.                           |
+| `NOT_A_CATALOG_LINE`   | `reserve_part` on a workshop PART line with no catalog item (free text). Nothing was reserved. Choose a catalog-backed part line; do not retry this line. |
 
 For pending action persistence, `needs_approval` responses, and apply semantics, see [implementation details](../../../../docs/internal/02-Feature-Specs/Platform/pending-actions.md).
 

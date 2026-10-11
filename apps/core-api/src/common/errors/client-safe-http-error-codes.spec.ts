@@ -9,4 +9,8 @@ describe('client-safe HTTP error codes', () => {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
     }
   });
+
+  it('lists the free-text part line code so agents and clients can tell it apart from a site error', () => {
+    expect(CLIENT_SAFE_HTTP_ERROR_CODES.has('NOT_A_CATALOG_LINE')).toBe(true);
+  });
 });
