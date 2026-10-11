@@ -386,7 +386,7 @@ export function AppSidebar({
             {savedViews.length === 0 ? (
               collapsed ? null : (
                 <p className="px-2 text-xs text-slate-400">
-                  No saved views yet. Apply filters on a table and click Save View.
+                  No saved views yet. Apply filters on a table and click Save as sidebar view.
                 </p>
               )
             ) : (

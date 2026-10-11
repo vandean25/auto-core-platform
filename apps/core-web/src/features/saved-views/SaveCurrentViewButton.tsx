@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { TooltipHint } from '@/components/ui/tooltip'
 import { useSavedViews } from '@/features/saved-views/SavedViewsProvider'
 
 const TABLE_STATE_KEYS = new Set(['page', 'pageSize', 'sortField', 'sortDirection'])
@@ -63,24 +64,26 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          aria-label={`Save current ${title.toLowerCase()} view`}
-          onClick={() => {
-            setName(`${title} View`)
-          }}
-        >
-          <Star className="h-4 w-4" />
-          Save View
-        </Button>
-      </DialogTrigger>
+      <TooltipHint hint="Saves these filters as a shortcut in the sidebar">
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            aria-label={`Save as sidebar view for ${title}`}
+            onClick={() => {
+              setName(`${title} View`)
+            }}
+          >
+            <Star className="h-4 w-4" />
+            Save as sidebar view
+          </Button>
+        </DialogTrigger>
+      </TooltipHint>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSave}>
           <DialogHeader>
-            <DialogTitle>Save View</DialogTitle>
+            <DialogTitle>Save as sidebar view</DialogTitle>
             <DialogDescription>
               Give this view a name to save it to your Favorites.
             </DialogDescription>
@@ -102,7 +105,7 @@ export function SaveCurrentViewButton({ title }: SaveCurrentViewButtonProps) {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Save View</Button>
+            <Button type="submit">Save</Button>
           </DialogFooter>
         </form>
       </DialogContent>

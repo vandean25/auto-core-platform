@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TooltipHint } from '@/components/ui/tooltip'
 import { useDashboardWidgets } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import type {
   DashboardWidgetDisplayType,
@@ -54,10 +55,12 @@ export function AddToDashboardButton({ source }: AddToDashboardButtonProps) {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2">
-        <Star className="h-4 w-4" />
-        Add to Dashboard
-      </Button>
+      <TooltipHint hint="Shows this result as a widget on your dashboard">
+        <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2">
+          <Star className="h-4 w-4" />
+          Add to dashboard
+        </Button>
+      </TooltipHint>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
