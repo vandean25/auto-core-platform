@@ -176,7 +176,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 ## Outcomes and errors
 
-Policy refusals return an MCP tool error with the code `not_permitted`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
+Policy refusals return an MCP tool error with the code `not_permitted`, and a free-text workshop line returns `NOT_A_CATALOG_LINE`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
 
 | Server value           | Meaning and response                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
