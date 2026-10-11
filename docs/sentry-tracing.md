@@ -35,7 +35,7 @@ Names and ops are stable, so dashboards and saved searches can rely on them.
 | Parse document branding source | `branding.extract.parse` | same worker, around PDF validation and rasterizing | `source_kind` (`pdf` or `image`), `byte_size_bucket`, `status` |
 | Extract branding with provider | `branding.extract.provider` | same worker, around the provider call | `provider`, `model_id`, `status` |
 | Agent action | `agent.action` | `mcp/mcp-write-pipeline.service.ts`, one per write call | `agent.action.type`, `agent.policy.tier`, `agent.trace_id` |
-| Evaluate agent policy | `agent.policy.evaluate` | `agent-policy/agent-policy.evaluator.ts` | `agent.action.type`, `agent.policy.tier`, `agent.policy.outcome` (`allowed`, `proposed`, `refused`) |
+| Evaluate agent policy | `agent.policy.evaluate` | `agent-policy/agent-policy.evaluator.ts` | `agent.policy.tier`, `agent.policy.outcome` (`allowed`, `proposed`, `refused`). The action type is not recorded here; the `agent.action` span carries the trusted tool name |
 | Agent decision | `agent.decision` | MCP pipeline branch (refuse, propose or execute), and each provider call in `decision/decision-provider-span.ts` | MCP: `agent.policy.outcome`. Provider: `agent.decision.provider`, `agent.decision.use_case`, `agent.decision.choice_count`, `agent.decision.outcome` (`suggested` or `none`) |
 
 Existing spans are unchanged: `cloudtasks.enqueue`, `pdf.generate`, and the PDF renderer spans.
@@ -51,6 +51,7 @@ Attributes leave the process for Sentry. Write only identifiers, enums and sizes
 - Record ids such as `invoiceId`, `asset_id`, `agent.trace_id`, and the enum values in the table above.
 - Record byte sizes as buckets through `toByteSizeBucket`. The buckets are `lt_100kb`, `100kb_1mb`, `1mb_5mb`, `5mb_10mb` and `gte_10mb`. Exact sizes are not recorded.
 - Never record document bytes, extracted text, prompts, provider replies, customer names, email addresses, phone numbers, or bank details.
+- Sentry marks a span as an error whenever its callback throws. That includes expected 4xx rejections (missing source, not found, conflict) and agent policy refusals. The error status alone does not mean a system failure. For invoice finalization, `outcome` is `rejected` for a 4xx business rejection and `failed` otherwise. For agent decisions, `agent.policy.outcome` is `refused` for a policy refusal.
 - Use `withSpan`, `withStatusSpan` and `setActiveSpanAttributes` from `common/observability/trace.ts`. They drop non-primitive values and keys that name personal data or content, and they cut strings to 200 characters. They do nothing when Sentry has no client.
 
 ## Linking an app trace id to Sentry

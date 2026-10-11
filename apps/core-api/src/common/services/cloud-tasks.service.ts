@@ -170,7 +170,7 @@ function calculateScheduleTime(
   return { seconds: Math.floor(Date.now() / 1000) + delay };
 }
 
-interface BuildTaskRequestParams {
+export interface BuildTaskRequestParams {
   url: string;
   workerSecret: string;
   tenantId: string;
@@ -181,7 +181,7 @@ interface BuildTaskRequestParams {
   dispatchDeadlineSeconds?: number;
 }
 
-function buildTaskRequest(params: BuildTaskRequestParams) {
+export function buildTaskRequest(params: BuildTaskRequestParams) {
   return {
     httpRequest: {
       httpMethod: 'POST' as const,

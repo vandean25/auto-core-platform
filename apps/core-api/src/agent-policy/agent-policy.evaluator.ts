@@ -85,10 +85,12 @@ export function evaluateAgentPolicy(
   context: AgentPolicyEvaluateContext,
   rule: ResolvedAgentPolicyRule | null,
 ): AgentPolicyEvaluationResult {
+  // The action type is not recorded here. Policy reads take it from free text, while the MCP
+  // agent.action span already carries the trusted tool name.
   return withSpan(
     'Evaluate agent policy',
     'agent.policy.evaluate',
-    { 'agent.action.type': actionType.trim() },
+    {},
     (span) => {
       const evaluation = evaluateAgentPolicyRules(actionType, context, rule);
       span.setAttributes({
