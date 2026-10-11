@@ -6,6 +6,7 @@ import {
 import { CloudTasksClient } from '@google-cloud/tasks';
 import { createHash, randomUUID } from 'node:crypto';
 import * as Sentry from '@sentry/node';
+import { getSentryTraceHeaders } from '../observability/trace.js';
 import {
   type PdfTaskKind,
   signPdfTaskPayload,
@@ -189,6 +190,8 @@ function buildTaskRequest(params: BuildTaskRequestParams) {
         'Content-Type': 'application/json',
         'x-cloud-tasks-secret': params.workerSecret,
         'x-tenant-id': params.tenantId,
+        // Continues the Sentry trace in the worker's request. Observability only, not part of the signed payload.
+        ...getSentryTraceHeaders(),
       },
       body: Buffer.from(JSON.stringify(params.payload)),
       oidcToken: {
@@ -365,6 +368,7 @@ export class CloudTasksService {
             'x-tenant-id': params.tenantId,
             // Carries the upload's trace id into the validation worker's request.
             ...(params.traceId ? { 'x-trace-id': params.traceId } : {}),
+            ...getSentryTraceHeaders(),
           },
           body: Buffer.from(
             JSON.stringify(

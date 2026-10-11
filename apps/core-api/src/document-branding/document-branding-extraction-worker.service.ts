@@ -18,6 +18,12 @@ import {
   type DocumentBrandingExtractionProvider,
 } from './document-branding-extraction-provider.js';
 import { parseDocumentBrandingExtractionResponse } from './document-branding-extraction-response.js';
+import {
+  toByteSizeBucket,
+  withSpan,
+  withStatusSpan,
+  type SpanHandle,
+} from '../common/observability/trace.js';
 
 const EXTRACTION_LEASE_MS = 120 * 1000;
 const MAX_WORKER_ATTEMPT_MS = 60 * 1000;
@@ -56,6 +62,24 @@ export class DocumentBrandingExtractionWorkerService {
       expectedAttemptCount,
     );
     if (!claimed) return;
+    const { providerId, modelId } = this.provider.getMetadata();
+    return withSpan(
+      'Extract document branding',
+      'branding.extract',
+      { provider: providerId, model_id: modelId },
+      (span) =>
+        this.runAttempt(extractionId, legalEntityId, tenantId, claimed, span),
+    );
+  }
+
+  /** One claimed attempt. The span records ids, status and size buckets only, never document bytes or text. */
+  private async runAttempt(
+    extractionId: string,
+    legalEntityId: string,
+    tenantId: string,
+    claimed: { leaseToken: string; attemptCount: number },
+    span: SpanHandle,
+  ): Promise<void> {
     const attemptStartedAt = Date.now();
     let publishedObject: {
       bucket: string;
@@ -70,12 +94,20 @@ export class DocumentBrandingExtractionWorkerService {
         tenantId,
         claimed.leaseToken,
       );
-      if (!extraction) return;
+      if (!extraction) {
+        span.setAttribute('status', 'skipped');
+        return;
+      }
+      span.setAttribute('asset_id', extraction.source_asset_id);
       const source = await this.readAuthorizedSource(extraction, tenantId);
       const sourceBytes = await this.storage.readGeneration(
         source.bucket!,
         source.object_key!,
         source.object_generation!,
+      );
+      span.setAttribute(
+        'byte_size_bucket',
+        toByteSizeBucket(sourceBytes.byteLength),
       );
       const raster = await this.rasterizeSource(
         source.detected_mime_type,
@@ -91,11 +123,10 @@ export class DocumentBrandingExtractionWorkerService {
       if (providerTimeoutMs <= 0) {
         throw new ExtractionFailure('BRAND_EXTRACTION_ATTEMPT_TIMEOUT');
       }
-      const providerResult = await this.provider.extract({
-        normalizedFirstPagePng: raster.bytes,
-        promptVersion: DOCUMENT_BRAND_EXTRACTION_PROMPT_VERSION,
-        signal: AbortSignal.timeout(providerTimeoutMs),
-      });
+      const providerResult = await this.extractWithProvider(
+        raster.bytes,
+        providerTimeoutMs,
+      );
       const proposal = parseDocumentBrandingExtractionResponse(providerResult);
       this.assertAttemptDeadline(attemptStartedAt);
       const logo = await this.imageProcessor.cropLogo(
@@ -127,7 +158,15 @@ export class DocumentBrandingExtractionWorkerService {
         extraWarningCodes: raster.warningCodes,
       });
       if (published) publishedObject = null;
+      span.setAttribute('status', published ? 'published' : 'not_published');
     } catch (error) {
+      span.setAttributes({
+        status:
+          retryDelaySeconds(error, claimed.attemptCount) !== undefined
+            ? 'retry'
+            : 'failed',
+        failure_code: failureCode(error),
+      });
       await this.failOrRetry({
         extractionId,
         legalEntityId,
@@ -137,6 +176,7 @@ export class DocumentBrandingExtractionWorkerService {
         error,
       });
     } finally {
+      span.setAttribute('duration_ms', Date.now() - attemptStartedAt);
       if (publishedObject) {
         await this.storage
           .deleteGeneration(
@@ -267,17 +307,46 @@ export class DocumentBrandingExtractionWorkerService {
     return source;
   }
 
+  /** The provider call. The span carries the provider and model ids and a status, never the image or the reply. */
+  private extractWithProvider(
+    normalizedFirstPagePng: Buffer,
+    timeoutMs: number,
+  ): Promise<unknown> {
+    const { providerId, modelId } = this.provider.getMetadata();
+    return withStatusSpan(
+      'Extract branding with provider',
+      'branding.extract.provider',
+      { provider: providerId, model_id: modelId },
+      () =>
+        this.provider.extract({
+          normalizedFirstPagePng,
+          promptVersion: DOCUMENT_BRAND_EXTRACTION_PROMPT_VERSION,
+          signal: AbortSignal.timeout(timeoutMs),
+        }),
+    );
+  }
+
   private async rasterizeSource(mimeType: string | null, sourceBytes: Buffer) {
-    if (mimeType === 'application/pdf') {
-      const pdf = await this.pdfParser.validateAndRasterize(sourceBytes);
-      const raster = await this.imageProcessor.normalizePng(pdf.raster);
-      return {
-        ...raster,
-        warningCodes: pdf.warning ? [pdf.warning] : [],
-      };
-    }
-    const raster = await this.imageProcessor.normalizePng(sourceBytes);
-    return { ...raster, warningCodes: [] as string[] };
+    return withStatusSpan(
+      'Parse document branding source',
+      'branding.extract.parse',
+      {
+        source_kind: mimeType === 'application/pdf' ? 'pdf' : 'image',
+        byte_size_bucket: toByteSizeBucket(sourceBytes.byteLength),
+      },
+      async () => {
+        if (mimeType === 'application/pdf') {
+          const pdf = await this.pdfParser.validateAndRasterize(sourceBytes);
+          const raster = await this.imageProcessor.normalizePng(pdf.raster);
+          return {
+            ...raster,
+            warningCodes: pdf.warning ? [pdf.warning] : [],
+          };
+        }
+        const raster = await this.imageProcessor.normalizePng(sourceBytes);
+        return { ...raster, warningCodes: [] as string[] };
+      },
+    );
   }
 
   private async publishProposal(params: {
@@ -413,9 +482,8 @@ export class DocumentBrandingExtractionWorkerService {
     attemptCount: number;
     error: unknown;
   }) {
-    const transient = isTransientError(params.error);
-    const retryDelay = TRANSIENT_RETRY_DELAYS_SECONDS[params.attemptCount - 1];
-    const retry = transient && retryDelay !== undefined;
+    const retryDelay = retryDelaySeconds(params.error, params.attemptCount);
+    const retry = retryDelay !== undefined;
     const now = new Date();
     const updated = await this.prisma.documentBrandExtraction.updateMany({
       where: {
@@ -466,6 +534,16 @@ class ExtractionFailure extends Error {
   constructor(readonly code: string) {
     super(code);
   }
+}
+
+/** Seconds until the next attempt, or undefined when this failure is final. */
+function retryDelaySeconds(
+  error: unknown,
+  attemptCount: number,
+): number | undefined {
+  return isTransientError(error)
+    ? TRANSIENT_RETRY_DELAYS_SECONDS[attemptCount - 1]
+    : undefined;
 }
 
 function isTransientError(error: unknown): boolean {

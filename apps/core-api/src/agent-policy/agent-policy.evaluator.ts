@@ -1,4 +1,5 @@
 import { AgentPolicyTier } from '@prisma/client';
+import { withSpan } from '../common/observability/trace.js';
 import { isHumanOnlyFloorAction } from './agent-policy-floor.js';
 import { maxTier } from './agent-policy-tier.util.js';
 import type {
@@ -70,7 +71,36 @@ function applyContextEscalations(
   return tier;
 }
 
+/** The policy outcome as the agent sees it. Used on `agent.policy.outcome` and `agent.decision` spans. */
+export function agentPolicyOutcome(
+  tier: AgentPolicyTier,
+): 'allowed' | 'proposed' | 'refused' {
+  if (tier === AgentPolicyTier.AUTO) return 'allowed';
+  if (tier === AgentPolicyTier.PROPOSE) return 'proposed';
+  return 'refused';
+}
+
 export function evaluateAgentPolicy(
+  actionType: string,
+  context: AgentPolicyEvaluateContext,
+  rule: ResolvedAgentPolicyRule | null,
+): AgentPolicyEvaluationResult {
+  return withSpan(
+    'Evaluate agent policy',
+    'agent.policy.evaluate',
+    { 'agent.action.type': actionType.trim() },
+    (span) => {
+      const evaluation = evaluateAgentPolicyRules(actionType, context, rule);
+      span.setAttributes({
+        'agent.policy.tier': evaluation.tier,
+        'agent.policy.outcome': agentPolicyOutcome(evaluation.tier),
+      });
+      return evaluation;
+    },
+  );
+}
+
+function evaluateAgentPolicyRules(
   actionType: string,
   context: AgentPolicyEvaluateContext,
   rule: ResolvedAgentPolicyRule | null,

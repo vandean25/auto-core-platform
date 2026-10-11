@@ -6,6 +6,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { TenantContextStorage } from './tenant-context.storage.js';
+import { linkAppTraceIdToSentry } from '../observability/trace.js';
 import { isTraceIdUuid } from './trace-id.util.js';
 
 function getNormalizedHeaderValue(
@@ -35,6 +36,7 @@ export class TenantContextMiddleware implements NestMiddleware {
         throw new BadRequestException('X-Trace-Id must be a valid UUID');
       }
       const traceId = inboundTraceId ?? randomUUID();
+      linkAppTraceIdToSentry(traceId);
 
       // Echo the effective request ID back to the caller.
       response.setHeader('x-request-id', requestId);
