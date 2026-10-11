@@ -165,6 +165,11 @@ export default function SalesOrderCreate() {
         setItemSearchOpen(false)
     }
 
+    const lineName = (index: number) => {
+        const description = String(form.watch(`items.${index}.description`) ?? '').trim()
+        return description ? `${description} (line ${index + 1})` : `line ${index + 1}`
+    }
+
     const calculateTotal = (items: SalesOrderItemForm[]) => {
         return items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
     }
@@ -319,7 +324,7 @@ export default function SalesOrderCreate() {
                                                     {formatCurrency(Number(form.watch(`items.${index}.quantity`)) * Number(form.watch(`items.${index}.unit_price`)))}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Remove ${form.watch(`items.${index}.description`) || `line ${index + 1}`}`} onClick={() => remove(index)}>
+                                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Remove ${lineName(index)}`} onClick={() => remove(index)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </TableCell>

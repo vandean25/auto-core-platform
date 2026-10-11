@@ -30,13 +30,12 @@ export default defineConfig([
       // `'*'` makes custom components without children (lucide icons such as <ArrowLeft />) count as
       // unlabelled. Without it the rule assumes they render text and misses icon-only controls.
       // Form fields (input, textarea) are not checked by this rule. Their names come from <label>, and
-      // label-has-associated-control only checks that each <label> has a control. Media, canvas, embed
-      // and table-row elements are ignored because they are not buttons or links.
+      // label-has-associated-control only checks that each <label> has a control.
       'jsx-a11y/control-has-associated-label': [
         'error',
         {
           controlComponents: ['Button', 'Link', 'NavLink', '*'],
-          ignoreElements: ['audio', 'canvas', 'embed', 'input', 'textarea', 'tr', 'video'],
+          ignoreElements: ['input', 'textarea'],
           // Cards and other wrappers nest the visible text deeper than the default depth of 2.
           depth: 5,
         },
