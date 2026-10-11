@@ -110,6 +110,23 @@ describe('warranty claim PDF layout', () => {
     expect(html).toContain('Tom &amp; Jerry &lt;script&gt;');
   });
 
+  it('escapes the decision note, the OEM reference and the line text too', () => {
+    const hostile = '<img src=x onerror=alert(1)>';
+    const html = buildWarrantyClaimHtml(
+      contentFixture({
+        claim: claimFixture({
+          decisionNote: hostile,
+          externalReference: hostile,
+          lines: [{ ...claimFixture().lines[0], description: hostile, itemNo: hostile }],
+        }),
+      }),
+      { fontFaceCss: '' },
+    );
+
+    expect(html).not.toContain('<img src=x');
+    expect(html.split('&lt;img src=x onerror=alert(1)&gt;').length - 1).toBeGreaterThanOrEqual(4);
+  });
+
   it('applies valid brand tokens and falls back to defaults for malformed colours', () => {
     const branded = buildWarrantyClaimHtml(contentFixture(), { fontFaceCss: '' });
     expect(branded).toContain('--primary: #0a7d4b;');

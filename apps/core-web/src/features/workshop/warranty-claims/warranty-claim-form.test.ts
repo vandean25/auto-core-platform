@@ -10,6 +10,7 @@ import {
   isWarrantyClaimContentEditable,
   isWarrantyClaimMetadataEditable,
   lineNetCents,
+  linesClaimedElsewhere,
   parseClaimedAmount,
   selectedNetCents,
   toCents,
@@ -268,5 +269,37 @@ describe("warranty claim form helpers", () => {
         warrantyClaimPdfFileName({ id: "claim-1234abcd-0000", type: "GEWAEHRLEISTUNG" }, "WO 2026/0007"),
       ).toBe("gewaehrleistung-wo-2026-0007-claim-12.pdf");
     });
+  });
+});
+
+describe("linesClaimedElsewhere", () => {
+  function claimWith(id: string, status: "DRAFT" | "SUBMITTED_EXTERNALLY" | "CLOSED", lineIds: string[]) {
+    return {
+      id,
+      type: "KULANZ",
+      status,
+      lines: lineIds.map((workshopTaskLineItemId) => ({ workshopTaskLineItemId })),
+    } as unknown as WarrantyClaim;
+  }
+
+  it("labels the lines of other open claims with their claim type", () => {
+    const claimed = linesClaimedElsewhere(
+      [claimWith("claim-active", "DRAFT", ["item-a"]), claimWith("claim-other", "SUBMITTED_EXTERNALLY", ["item-b"])],
+      "claim-active",
+    );
+
+    expect(claimed.get("item-b")).toBe("Kulanz claim");
+  });
+
+  it("leaves the lines of the active claim free, so they can be unchecked and checked again", () => {
+    const claimed = linesClaimedElsewhere([claimWith("claim-active", "DRAFT", ["item-a"])], "claim-active");
+
+    expect(claimed.has("item-a")).toBe(false);
+  });
+
+  it("ignores closed claims, so their lines stay available", () => {
+    const claimed = linesClaimedElsewhere([claimWith("claim-closed", "CLOSED", ["item-c"])], "claim-active");
+
+    expect(claimed.has("item-c")).toBe(false);
   });
 });

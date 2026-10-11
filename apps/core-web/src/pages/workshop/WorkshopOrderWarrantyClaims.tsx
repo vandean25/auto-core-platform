@@ -12,7 +12,7 @@ import { WarrantyClaimEditor } from "@/features/workshop/warranty-claims/Warrant
 import { WarrantyClaimList } from "@/features/workshop/warranty-claims/WarrantyClaimList";
 import {
   WARRANTY_CLAIM_STATUS_FILTER_OPTIONS,
-  warrantyClaimTypeLabel,
+  linesClaimedElsewhere,
 } from "@/features/workshop/warranty-claims/warranty-claim-form";
 import { getErrorMessage } from "@/lib/error-utils";
 
@@ -43,16 +43,7 @@ export function WorkshopOrderWarrantyClaims() {
   const activeClaimQuery = useWarrantyClaim(id, activeClaimId);
 
   // A line can sit on one open claim at a time. Other open claims mark their lines as taken.
-  const lineClaimedElsewhere = new Map<string, string>();
-  for (const claim of allClaims) {
-    if (claim.id === activeClaimId || claim.status === "CLOSED") continue;
-    for (const line of claim.lines) {
-      lineClaimedElsewhere.set(
-        line.workshopTaskLineItemId,
-        `${warrantyClaimTypeLabel(claim.type)} claim`,
-      );
-    }
-  }
+  const lineClaimedElsewhere = linesClaimedElsewhere(allClaims, activeClaimId);
 
   const updateSearchParams = (updates: Record<string, string | null>) => {
     setSearchParams(
