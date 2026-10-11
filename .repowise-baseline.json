@@ -2,7 +2,6 @@
   "version": 1,
   "files": {
     "apps/core-api/prisma/verify-seed.ts": 4.59,
-    "apps/core-api/src/agent-policy/agent-policy.service.ts": 3.36,
     "apps/core-api/src/agent-proposal/agent-proposal.service.spec.ts": 5.03,
     "apps/core-api/src/agent-proposal/agent-proposal.service.ts": 2,
     "apps/core-api/src/common/services/cloud-tasks.service.ts": 5.85,
