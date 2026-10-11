@@ -17,7 +17,7 @@ type InventoryApiResponse = {
 
 export const inventoryKeys = {
     all: ['inventory'] as const,
-    list: (params: { page?: number; pageSize?: number; search?: string; brand?: string; location?: string }) => [...inventoryKeys.all, 'list', params] as const,
+    list: (params: { page?: number; pageSize?: number; search?: string; brand?: string; location?: string; sortField?: string; sortDirection?: 'asc' | 'desc' }) => [...inventoryKeys.all, 'list', params] as const,
     history: (itemId: string) => [...inventoryKeys.all, 'history', itemId] as const,
     sku: (sku?: string, itemId?: string) => [...inventoryKeys.all, 'sku', sku ?? '', itemId ?? ''] as const,
 }

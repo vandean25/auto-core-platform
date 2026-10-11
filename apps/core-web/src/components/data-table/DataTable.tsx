@@ -53,8 +53,10 @@ function getTableRowId(record: object): string | undefined {
   return typeof id === 'string' && id.length > 0 ? id : undefined
 }
 
+// Only header render functions (the DataTableColumnHeader pattern) expose a sort control.
+// Plain-text headers do not, so they must not advertise sorting.
 function getAriaSort<TData extends object>(column: LegacyColumn<TData, unknown>) {
-  if (!column.getCanSort()) return undefined
+  if (typeof column.columnDef.header !== "function" || !column.getCanSort()) return undefined
 
   const sorted = column.getIsSorted()
   if (sorted === "asc") return "ascending" as const

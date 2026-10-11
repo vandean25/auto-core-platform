@@ -491,7 +491,7 @@ const partColumns: ColumnDef<PartRow>[] = [
   },
 ]
 
-function ColumnPickerHarness() {
+function ColumnPickerHarness({ columns = partColumns }: { columns?: ColumnDef<PartRow>[] }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
@@ -500,7 +500,7 @@ function ColumnPickerHarness() {
     <>
       <output data-testid="sorting">{JSON.stringify(sorting)}</output>
       <DataTable
-        columns={partColumns}
+        columns={columns}
         data={partRows}
         columnFilters={columnFilters}
         setColumnFilters={setColumnFilters}
@@ -604,6 +604,12 @@ describe('DataTable column picker and sorting', () => {
 
   it('omits aria-sort on columns that cannot be sorted', () => {
     render(<ColumnPickerHarness />)
+
+    expect(screen.getByRole('columnheader', { name: 'Notes' })).not.toHaveAttribute('aria-sort')
+  })
+
+  it('omits aria-sort on sortable columns whose header is plain text, which have no sort control', () => {
+    render(<ColumnPickerHarness columns={[{ accessorKey: 'notes', header: 'Notes' }]} />)
 
     expect(screen.getByRole('columnheader', { name: 'Notes' })).not.toHaveAttribute('aria-sort')
   })
