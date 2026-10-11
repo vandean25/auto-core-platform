@@ -1,5 +1,6 @@
 import {
   customerNameTermWhere,
+  MAX_CUSTOMER_NAME_TERMS,
   splitSearchTerms,
 } from './workshop-customer-name-search.helpers.js';
 import { buildCustomerSearchWhere } from './workshop-intake-query.helpers.js';
@@ -134,5 +135,13 @@ describe('buildCustomerSearchWhere full-name search', () => {
 
     expect(conditions.length).toBeGreaterThan(3);
     expect(conditions.every((condition) => condition.mode === 'insensitive')).toBe(true);
+  });
+
+  it('caps the words used for name matching so the where clause stays bounded', () => {
+    const query = Array.from({ length: MAX_CUSTOMER_NAME_TERMS + 3 }, (_, index) => `w${index}`).join(' ');
+    const conditions = collectContainsConditions(buildCustomerSearchWhere('tenant-1', query));
+
+    expect(splitSearchTerms(query)).toHaveLength(MAX_CUSTOMER_NAME_TERMS);
+    expect(conditions).toHaveLength(4 + 3 * MAX_CUSTOMER_NAME_TERMS);
   });
 });

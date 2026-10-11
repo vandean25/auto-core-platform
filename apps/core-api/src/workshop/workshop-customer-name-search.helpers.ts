@@ -1,12 +1,21 @@
 import type { Prisma } from '@prisma/client';
 
 /**
+ * Name matching uses at most this many words. Extra words are ignored, so one
+ * request cannot build an unbounded where clause.
+ */
+export const MAX_CUSTOMER_NAME_TERMS = 5;
+
+/**
  * Splits free-text search input on whitespace. Empty fragments are dropped, so
  * "  max   mustermann " yields ['max', 'mustermann'].
  */
 export function splitSearchTerms(query: string): string[] {
   if (!query) return [];
-  return query.split(/\s+/).filter((term) => term.length > 0);
+  return query
+    .split(/\s+/)
+    .filter((term) => term.length > 0)
+    .slice(0, MAX_CUSTOMER_NAME_TERMS);
 }
 
 /**
