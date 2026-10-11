@@ -213,11 +213,11 @@ export class StockTransferService {
           status: StockTransferStatus.REQUESTED,
           version: 1,
           requested_by_user_id: access.userId,
+          // tenant_id / from_site_id / to_site_id are columns of the composite
+          // transfer relation: Prisma fills them from the parent on a nested
+          // create and rejects them as unknown arguments (AUT-466).
           lines: {
             create: dto.lines.map((line) => ({
-              tenant_id: access.tenantId,
-              from_site_id: dto.fromSiteId,
-              to_site_id: dto.toSiteId,
               catalog_item_id: line.catalogItemId,
               requested_qty: line.requestedQty,
               ...(line.sourceLocationId
@@ -1094,7 +1094,9 @@ export class StockTransferService {
       select: { id: true, site_id: true, type: true, deletedAt: true },
     });
     if (locations.length !== unique.length) {
-      throw new UnprocessableEntityException('Source location not found.');
+      throw new UnprocessableEntityException(
+        'Source location not found on the from-site.',
+      );
     }
     for (const location of locations) {
       if (
@@ -1124,7 +1126,9 @@ export class StockTransferService {
       select: { id: true, site_id: true, type: true, deletedAt: true },
     });
     if (locations.length !== unique.length) {
-      throw new UnprocessableEntityException('Destination location not found');
+      throw new UnprocessableEntityException(
+        'Destination location not found on the to-site.',
+      );
     }
     for (const location of locations) {
       if (
@@ -1392,7 +1396,7 @@ export class StockTransferService {
       where: {
         tenant_id: tenantId,
         transfer_id: transferId,
-        stock_transfer: {
+        transfer: {
           OR: [
             { from_site_id: { in: siteIds } },
             { to_site_id: { in: siteIds } },

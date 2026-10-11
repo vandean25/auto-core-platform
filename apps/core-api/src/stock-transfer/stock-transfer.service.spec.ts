@@ -773,6 +773,82 @@ describe('StockTransferService', () => {
       );
     });
 
+    // AUT-466: MAIN <-> GRZ (same GmbH) failed with a 500 because the nested
+    // line create also carried the composite-relation columns. Lock the payload
+    // shape for both directions, with and without an optional source bin.
+    it.each([
+      {
+        direction: 'from -> to',
+        fromId: fromSiteId,
+        toId: toSiteId,
+        sourceLocationId: undefined,
+      },
+      {
+        direction: 'to -> from',
+        fromId: toSiteId,
+        toId: fromSiteId,
+        sourceLocationId: undefined,
+      },
+      {
+        direction: 'from -> to with a source bin',
+        fromId: fromSiteId,
+        toId: toSiteId,
+        sourceLocationId: sourceBinId,
+      },
+      {
+        direction: 'to -> from with a source bin',
+        fromId: toSiteId,
+        toId: fromSiteId,
+        sourceLocationId: sourceBinId,
+      },
+    ])(
+      'nests only item, quantity and optional bin under the transfer ($direction)',
+      async ({ fromId, toId, sourceLocationId }) => {
+        tx.catalogItem.findMany.mockResolvedValue([{ id: itemId }]);
+        tx.storageLocation.findMany.mockResolvedValue([
+          {
+            id: sourceBinId,
+            site_id: fromId,
+            type: LocationType.bin,
+            deletedAt: null,
+          },
+        ]);
+        tx.stockTransfer.create.mockResolvedValue(buildTransfer());
+
+        await service.create({
+          fromSiteId: fromId,
+          toSiteId: toId,
+          lines: [
+            {
+              catalogItemId: itemId,
+              requestedQty: 2,
+              ...(sourceLocationId ? { sourceLocationId } : {}),
+            },
+          ],
+        });
+
+        expect(tx.stockTransfer.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              from_site_id: fromId,
+              to_site_id: toId,
+              lines: {
+                create: [
+                  {
+                    catalog_item_id: itemId,
+                    requested_qty: 2,
+                    ...(sourceLocationId
+                      ? { source_location_id: sourceLocationId }
+                      : {}),
+                  },
+                ],
+              },
+            }),
+          }),
+        );
+      },
+    );
+
     it('rejects transfers between sites of different legal entities with 422 (ruling 25)', async () => {
       tx.site.findMany.mockResolvedValue([
         { id: fromSiteId, is_active: true, legal_entity_id: 'gmbh-1' },
