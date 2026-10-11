@@ -53,7 +53,7 @@ export default function TyreSetDetailPage() {
       <div className="no-print flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex items-start gap-3">
           <Button variant="ghost" size="icon" asChild className="mt-1">
-            <Link to={APP_ROUTE_PATHS.tyreStorage}>
+            <Link to={APP_ROUTE_PATHS.tyreStorage} aria-label="Back to tyre storage">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>

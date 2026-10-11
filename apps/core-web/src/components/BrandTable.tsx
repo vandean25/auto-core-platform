@@ -68,10 +68,10 @@ export function BrandTable({ brands, onEdit }: BrandTableProps) {
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex justify-end gap-2">
-                                    <Button variant="ghost" size="icon" onClick={() => onEdit(brand)}>
+                                    <Button variant="ghost" size="icon" aria-label={`Edit brand ${brand.name}`} onClick={() => onEdit(brand)}>
                                         <Edit2 className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(brand.id)}>
+                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Delete brand ${brand.name}`} onClick={() => handleDelete(brand.id)}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>

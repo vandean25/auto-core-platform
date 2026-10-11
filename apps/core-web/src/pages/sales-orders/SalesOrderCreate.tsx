@@ -165,6 +165,11 @@ export default function SalesOrderCreate() {
         setItemSearchOpen(false)
     }
 
+    const lineName = (index: number) => {
+        const description = String(form.watch(`items.${index}.description`) ?? '').trim()
+        return description ? `${description} (line ${index + 1})` : `line ${index + 1}`
+    }
+
     const calculateTotal = (items: SalesOrderItemForm[]) => {
         return items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_price)), 0)
     }
@@ -176,7 +181,7 @@ export default function SalesOrderCreate() {
             <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild>
-                        <button onClick={() => navigate(-1)}>
+                        <button aria-label="Go back" onClick={() => navigate(-1)}>
                             <ArrowLeft className="h-4 w-4" />
                         </button>
                     </Button>
@@ -271,6 +276,7 @@ export default function SalesOrderCreate() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-[50px]">#</TableHead>
                                         <TableHead className="w-[40%]">Description</TableHead>
                                         <TableHead className="w-[15%]">Qty</TableHead>
                                         <TableHead className="w-[15%]">Price</TableHead>
@@ -281,13 +287,14 @@ export default function SalesOrderCreate() {
                                 <TableBody>
                                     {fields.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                                 No items added. Click "Add Item" to start.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         fields.map((item, index) => (
                                             <TableRow key={item.id}>
+                                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                                 <TableCell>
                                                     <FormField
                                                         control={form.control}
@@ -319,7 +326,7 @@ export default function SalesOrderCreate() {
                                                     {formatCurrency(Number(form.watch(`items.${index}.quantity`)) * Number(form.watch(`items.${index}.unit_price`)))}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                                    <Button variant="ghost" size="icon" className="text-destructive" aria-label={`Remove ${lineName(index)}`} onClick={() => remove(index)}>
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </TableCell>

@@ -357,6 +357,7 @@ export default function VehicleSalePage() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label={vehicleId ? 'Back to vehicle' : 'Back to vehicle stock'}
             onClick={() => navigate(vehicleId ? `/vehicle-stock/${vehicleId}` : '/vehicle-stock')}
           >
             <ArrowLeft className="h-4 w-4" />

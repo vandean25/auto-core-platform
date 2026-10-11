@@ -200,6 +200,7 @@ export function PurchaseBillLineItemEditor({ form }: { form: PurchaseBillFormMod
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label={`Remove line ${index + 1}`}
                       onClick={() => void form.removeLine(line.tempId)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive opacity-60 hover:opacity-100" />

@@ -633,6 +633,7 @@ export default function PurchaseOrderDetail() {
                           <Button
                             size="icon"
                             variant="ghost"
+                            aria-label={`Delete item ${item.catalog_item?.sku || "N/A"} ${item.catalog_item?.name || "Unknown Item"}`}
                             onClick={() => handleDeleteItem(item.id)}
                             disabled={item.quantity_received > 0}
                             title={

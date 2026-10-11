@@ -248,7 +248,7 @@ export default function PurchaseInvoiceCreatePage() {
                                         ${(line.quantity * line.unitPrice).toFixed(2)}
                                     </TableCell>
                                     <TableCell>
-                                        <Button variant="ghost" size="icon" onClick={() => removeLine(index)}>
+                                        <Button variant="ghost" size="icon" aria-label={`Remove line ${index + 1}`} onClick={() => removeLine(index)}>
                                             <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
                                         </Button>
                                     </TableCell>

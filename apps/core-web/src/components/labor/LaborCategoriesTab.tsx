@@ -244,6 +244,7 @@ function CategoryTreeRow({
         <button
           onClick={e => { e.stopPropagation(); onEdit(category) }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-700 shrink-0"
+          aria-label={`Edit category ${category.name}`}
           title="Edit category"
         >
           <Pencil className="h-3.5 w-3.5" />
