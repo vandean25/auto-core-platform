@@ -7,17 +7,28 @@ import * as workshopApi from '@/api/workshop'
 
 vi.mock('@/api/workshop')
 
-let capturedOnDragEnd: ((event: { active: { id: string }; over: { id: string } | null }) => void) | null = null
+type DragEventLike = { active: { id: string }; over: { id: string } | null }
+type AnnouncementArgs = { active: { id: string }; over?: { id: string } | null }
+type BoardAnnouncements = Record<
+  'onDragStart' | 'onDragOver' | 'onDragEnd' | 'onDragCancel',
+  (args: AnnouncementArgs) => string | undefined
+>
+
+let capturedOnDragEnd: ((event: DragEventLike) => void) | null = null
+let capturedAnnouncements: BoardAnnouncements | null = null
 
 vi.mock('@dnd-kit/core', () => {
   const DndContext = ({
     children,
     onDragEnd,
+    accessibility,
   }: {
     children: React.ReactNode
-    onDragEnd?: (event: { active: { id: string }; over: { id: string } | null }) => void
+    onDragEnd?: (event: DragEventLike) => void
+    accessibility?: { announcements?: BoardAnnouncements }
   }) => {
     capturedOnDragEnd = onDragEnd ?? null
+    capturedAnnouncements = accessibility?.announcements ?? null
     return <div data-testid="mock-dnd-context">{children}</div>
   }
 
@@ -28,6 +39,7 @@ vi.mock('@dnd-kit/core', () => {
     DragOverlay,
     PointerSensor: function PointerSensor() {},
     TouchSensor: function TouchSensor() {},
+    KeyboardSensor: function KeyboardSensor() {},
     useSensor: () => ({}),
     useSensors: () => [],
     useDroppable: () => ({ isOver: false, setNodeRef: () => {} }),
@@ -57,12 +69,18 @@ function createQueryClient() {
   })
 }
 
+/** Radix opens a dropdown on Enter/Space, so keyboard events stand in for a click on the trigger. */
+function openAssignMenu(trigger: HTMLElement) {
+  fireEvent.keyDown(trigger, { key: 'Enter' })
+}
+
 describe('WorkshopBoard', () => {
   const assignMutate = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
     capturedOnDragEnd = null
+    capturedAnnouncements = null
 
     ;(workshopApi.useWorkshopResources as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
       data: {
@@ -121,7 +139,7 @@ describe('WorkshopBoard', () => {
     cleanup()
   })
 
-  it('sends selected mechanic id when quick-assigning an order', () => {
+  it('opens a visible Assign menu for the order and sends the chosen mechanic id', () => {
     const queryClient = createQueryClient()
 
     render(
@@ -130,7 +148,13 @@ describe('WorkshopBoard', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Assign to Demo Mechanic A' }))
+    const assignTrigger = screen.getByRole('button', { name: /Assign WO-/ })
+    expect(assignTrigger).toHaveTextContent('Assign')
+
+    openAssignMenu(assignTrigger)
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Demo Mechanic A' }))
 
     expect(assignMutate).toHaveBeenCalledWith(
       { orderId: 'order-1', mechanicId: 'mech-2' },
@@ -186,6 +210,39 @@ describe('WorkshopBoard', () => {
         onError: expect.any(Function),
         onSettled: expect.any(Function),
       }),
+    )
+  })
+
+  it('announces drag events with the order number and column label instead of ids', () => {
+    const queryClient = createQueryClient()
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkshopBoard />
+      </QueryClientProvider>,
+    )
+
+    expect(capturedAnnouncements).not.toBeNull()
+    const announcements = capturedAnnouncements as BoardAnnouncements
+
+    expect(announcements.onDragStart({ active: { id: 'order-1' } })).toBe('Picked up WO-2026-0001.')
+    expect(
+      announcements.onDragOver({ active: { id: 'order-1' }, over: { id: 'mech-2' } }),
+    ).toBe('WO-2026-0001 is over mechanic Demo Mechanic A.')
+    expect(announcements.onDragOver({ active: { id: 'order-1' }, over: null })).toBe(
+      'WO-2026-0001 is no longer over a column.',
+    )
+    expect(
+      announcements.onDragEnd({ active: { id: 'order-1' }, over: { id: 'mech-2' } }),
+    ).toBe('WO-2026-0001 was dropped on mechanic Demo Mechanic A.')
+    expect(
+      announcements.onDragEnd({ active: { id: 'order-1' }, over: { id: '__unassigned__' } }),
+    ).toBe('WO-2026-0001 was dropped on Unassigned.')
+    expect(announcements.onDragEnd({ active: { id: 'order-1' }, over: null })).toBe(
+      'WO-2026-0001 was dropped outside a column and not moved.',
+    )
+    expect(announcements.onDragCancel({ active: { id: 'order-1' } })).toBe(
+      'Dragging was cancelled. WO-2026-0001 was not moved.',
     )
   })
 })

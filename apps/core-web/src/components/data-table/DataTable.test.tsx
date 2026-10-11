@@ -200,6 +200,31 @@ describe('DataTable Characterization', () => {
     expect(onRowClick).not.toHaveBeenCalled()
   })
 
+  it('keeps the row detail link at least 24px tall so its hit area meets WCAG 2.5.8', () => {
+    const columnsWithRowLink = [
+      {
+        accessorKey: 'name',
+        header: 'Name',
+        meta: { rowLink: true },
+      },
+    ]
+
+    render(
+      <MemoryRouter>
+        <DataTable
+          {...defaultProps}
+          columns={columnsWithRowLink}
+          data={[{ id: 'item-1', name: 'Test Item' }]}
+          getRowHref={(row) => `/items/${row.id}`}
+          getRowAccessibleName={(row) => `Open ${row.name}`}
+          onRowClick={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Open Test Item' })).toHaveClass('inline-flex', 'min-h-6')
+  })
+
   it('navigates when the row detail link is clicked', () => {
     const onRowClick = vi.fn()
     const columnsWithRowLink = [

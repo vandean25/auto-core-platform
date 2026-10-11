@@ -7,6 +7,60 @@ import { createMockCustomer, createMockListResponse, createMockVehicleListItem }
  * Blueprint Validation Suite — Vehicles Module
  */
 test.describe('Blueprint: Vehicles Module', () => {
+  test('row link on the vehicle list keeps a 24px minimum hit area', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Vehicle');
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicles'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          createMockListResponse([
+            createMockVehicleListItem({ make: 'Honda', model: 'Civic', plate: 'HD-1234' }),
+          ])
+        ),
+      });
+    });
+
+    await corePage.navigate('/vehicles');
+    await expect(corePage.dataTable).toBeVisible();
+
+    const rowLink = page.getByRole('link', { name: 'Vehicle Honda Civic' });
+    const box = await rowLink.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+  });
+
+  test('row link on the Gewährleistung list keeps a 24px minimum hit area', async ({ page }) => {
+    const corePage = new AutoCorePage(page, 'Vehicle');
+
+    await page.route(AutoCorePage.apiRouteMatcher('/api/vehicle-stock/gewaehrleistung-due'), async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: [
+            {
+              id: 'gewaehrleistung-hit-area-1',
+              vehicle: { id: 'vehicle-gew-1', make: 'Skoda', model: 'Octavia', year: 2020, plate: 'GW-2020-OCT' },
+              customer: { first_name: 'Maria', last_name: 'Gruber', company_name: null },
+              handed_over_at: '2026-01-10T00:00:00.000Z',
+              gewaehrleistung_ends_on: '2027-01-10T00:00:00.000Z',
+              presumption_ends_on: '2026-07-10T00:00:00.000Z',
+            },
+          ],
+          meta: { total: 1, page: 1, limit: 25, pageCount: 1 },
+        }),
+      });
+    });
+
+    await corePage.navigate('/vehicles/gewaehrleistung-due');
+    await expect(page.getByRole('heading', { name: 'Gewährleistung fällig' })).toBeVisible();
+
+    const rowLink = page.getByRole('link', { name: 'Fahrzeug GW-2020-OCT · 2020' });
+    const box = await rowLink.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+  });
+
   test('list page renders and follows golden rules', async ({ page }) => {
     const corePage = new AutoCorePage(page, 'Vehicle');
 

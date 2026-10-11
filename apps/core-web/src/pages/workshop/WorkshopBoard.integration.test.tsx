@@ -104,8 +104,9 @@ describe('WorkshopBoard integration', () => {
       </QueryClientProvider>,
     )
 
-    const assignButton = await screen.findByTestId('assign-mechanic-mech-2')
-    fireEvent.click(assignButton)
+    const assignTrigger = await screen.findByRole('button', { name: 'Assign WO-2026-0001' })
+    fireEvent.keyDown(assignTrigger, { key: 'Enter' })
+    fireEvent.click(await screen.findByTestId('assign-mechanic-mech-2'))
 
     await waitFor(() => {
       const assignCall = vi

@@ -21,7 +21,7 @@ export function DataTableRowDetailLink({
       to={href}
       aria-label={accessibleName}
       className={cn(
-        'rounded-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'inline-flex min-h-6 items-center rounded-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className,
       )}
     >
