@@ -99,3 +99,27 @@ export function parseHhMm(value: string): { hour: number; minute: number } {
   const [hour, minute] = value.split(':').map(Number);
   return { hour, minute };
 }
+
+export function formatUtcDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+export function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const { year, month, day } = parseLocalDate(value);
+  return formatUtcDate(new Date(Date.UTC(year, month - 1, day))) === value;
+}
+
+/** Calendar arithmetic on a `YYYY-MM-DD` string; no timezone involved. */
+export function addIsoDays(isoDate: string, days: number): string {
+  const { year, month, day } = parseLocalDate(isoDate);
+  return formatUtcDate(new Date(Date.UTC(year, month - 1, day + days)));
+}
+
+/** Monday of the ISO week (Mon–Sun) that contains `isoDate`. */
+export function isoMondayOnOrBefore(isoDate: string): string {
+  const { year, month, day } = parseLocalDate(isoDate);
+  return addIsoDays(isoDate, 1 - isoWeekdayFromUtcDate(year, month, day));
+}

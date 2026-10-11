@@ -1075,6 +1075,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/capacity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopController_getCapacityWeek"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/register": {
         parameters: {
             query?: never;
@@ -5178,6 +5194,68 @@ export interface components {
             holidays: components["schemas"]["PlannerHolidayDto"][];
             employeesAway: components["schemas"]["PlannerEmployeeAwayDto"][];
             bookings: components["schemas"]["PlannerBookingDto"][];
+        };
+        WorkshopCapacityDayDto: {
+            /**
+             * Format: date
+             * @example 2026-10-12
+             */
+            date: string;
+            isClosed: boolean;
+            /** @example 07:30 */
+            openTime?: string | null;
+            /** @example 17:00 */
+            closeTime?: string | null;
+            /** @example 9.5 */
+            capacityHours: number;
+            holidayName?: string | null;
+        };
+        WorkshopCapacityOrderDto: {
+            orderId: string;
+            orderNumber: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "INTAKE" | "IN_PROGRESS";
+            /** @enum {string} */
+            occupancyKind: "BOOKING" | "UNSCHEDULED_ON_FLOOR";
+            plate?: string | null;
+            /**
+             * @description Sum of LABOR line quantities (hours).
+             * @example 2.5
+             */
+            plannedLaborHours: number;
+            /** Format: date-time */
+            scheduledStartAt?: string | null;
+        };
+        WorkshopCapacityCellDto: {
+            /** Format: date */
+            date: string;
+            /** @example 9.5 */
+            capacityHours: number;
+            /** @example 6.5 */
+            bookedHours: number;
+            /** @example 3 */
+            freeHours: number;
+            /** @description True when booked hours exceed capacity. */
+            isOverbooked: boolean;
+            orders: components["schemas"]["WorkshopCapacityOrderDto"][];
+        };
+        WorkshopCapacityBayDto: {
+            id: string;
+            name: string;
+            sortOrder: number;
+            days: components["schemas"]["WorkshopCapacityCellDto"][];
+        };
+        WorkshopCapacityWeekDto: {
+            timezone: string;
+            /** Format: date */
+            today: string;
+            /**
+             * Format: date
+             * @description Monday of the week.
+             */
+            weekStart: string;
+            days: components["schemas"]["WorkshopCapacityDayDto"][];
+            bays: components["schemas"]["WorkshopCapacityBayDto"][];
         };
         RegisterIntakeDto: {
             vin: string;
@@ -11203,6 +11281,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlannerGridResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopController_getCapacityWeek: {
+        parameters: {
+            query?: {
+                /** @description Any date in the wanted week; the server snaps it to that ISO week Monday. Defaults to the week containing today in the site timezone. */
+                weekStart?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCapacityWeekDto"];
                 };
             };
         };

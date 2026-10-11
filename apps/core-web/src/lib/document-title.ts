@@ -70,6 +70,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, string> = {
   [APP_ROUTE_PATHS.workshopPickList]: 'Pick List',
   [APP_ROUTE_PATHS.workshopBoard]: 'Workshop Board',
   [APP_ROUTE_PATHS.workshopPlanner]: 'Workshop Planner',
+  [APP_ROUTE_PATHS.workshopCapacity]: 'Workshop Capacity',
   [APP_ROUTE_PATHS.workshopLoanerVehicles]: 'Ersatzfahrzeuge',
   [APP_ROUTE_PATHS.workshopLoanerBookingPrint]: 'Ersatzwagen Protokoll',
   [APP_ROUTE_PATHS.workshopOrderDetail]: 'Workshop Orders',

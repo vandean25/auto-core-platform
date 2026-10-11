@@ -26,6 +26,7 @@ import {
   Warehouse,
   LayoutGrid,
   Calendar,
+  CalendarRange,
   CarFront,
   ArrowLeftRight,
   X,
@@ -152,6 +153,14 @@ const coreModules: SidebarModule[] = [
     icon: Calendar,
     isVisible: () => true,
     isActive: (pathname) => pathname.startsWith('/workshop/planner'),
+  },
+  {
+    id: 'workshop-capacity',
+    label: 'Workshop Capacity',
+    to: '/workshop/capacity',
+    icon: CalendarRange,
+    isVisible: () => true,
+    isActive: (pathname) => pathname.startsWith('/workshop/capacity'),
   },
   {
     id: 'workshop-kpi-reports',

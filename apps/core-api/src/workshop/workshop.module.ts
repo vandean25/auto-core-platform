@@ -27,6 +27,8 @@ import { WorkshopController } from './workshop.controller.js';
 import { WorkshopHolidayController } from './workshop-holidays.controller.js';
 import { WorkshopSettingsController } from './workshop-settings.controller.js';
 import { WorkshopPlannerController } from './workshop-planner.controller.js';
+import { WorkshopCapacityController } from './workshop-capacity.controller.js';
+import { WorkshopCapacityService } from './workshop-capacity.service.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
 import { WorkshopKpiReportsController } from './workshop-kpi-reports.controller.js';
 import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
@@ -45,6 +47,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopHolidayController,
     WorkshopSettingsController,
     WorkshopPlannerController,
+    WorkshopCapacityController,
     WorkshopController,
     WorkshopKpiReportsController,
     WorkshopEstimateController,
@@ -65,6 +68,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopSettingsService,
     WorkshopHolidayService,
     WorkshopPlannerService,
+    WorkshopCapacityService,
     WorkshopScheduleService,
     WorkshopKpiReportsService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },

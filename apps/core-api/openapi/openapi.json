@@ -3694,6 +3694,40 @@
         ]
       }
     },
+    "/api/workshop/capacity": {
+      "get": {
+        "operationId": "WorkshopController_getCapacityWeek",
+        "parameters": [
+          {
+            "name": "weekStart",
+            "required": false,
+            "in": "query",
+            "description": "Any date in the wanted week; the server snaps it to that ISO week Monday. Defaults to the week containing today in the site timezone.",
+            "schema": {
+              "format": "date",
+              "example": "2026-10-12",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCapacityWeekDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "",
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/register": {
       "post": {
         "operationId": "WorkshopController_register",
@@ -17311,6 +17345,190 @@
           "holidays",
           "employeesAway",
           "bookings"
+        ]
+      },
+      "WorkshopCapacityDayDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-10-12"
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "07:30"
+          },
+          "closeTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "17:00"
+          },
+          "capacityHours": {
+            "type": "number",
+            "example": 9.5
+          },
+          "holidayName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "date",
+          "isClosed",
+          "capacityHours"
+        ]
+      },
+      "WorkshopCapacityOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string"
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "SCHEDULED",
+              "INTAKE",
+              "IN_PROGRESS"
+            ]
+          },
+          "occupancyKind": {
+            "type": "string",
+            "enum": [
+              "BOOKING",
+              "UNSCHEDULED_ON_FLOOR"
+            ]
+          },
+          "plate": {
+            "type": "string",
+            "nullable": true
+          },
+          "plannedLaborHours": {
+            "type": "number",
+            "example": 2.5,
+            "description": "Sum of LABOR line quantities (hours)."
+          },
+          "scheduledStartAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "orderId",
+          "orderNumber",
+          "status",
+          "occupancyKind",
+          "plannedLaborHours"
+        ]
+      },
+      "WorkshopCapacityCellDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "capacityHours": {
+            "type": "number",
+            "example": 9.5
+          },
+          "bookedHours": {
+            "type": "number",
+            "example": 6.5
+          },
+          "freeHours": {
+            "type": "number",
+            "example": 3
+          },
+          "isOverbooked": {
+            "type": "boolean",
+            "description": "True when booked hours exceed capacity."
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCapacityOrderDto"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "capacityHours",
+          "bookedHours",
+          "freeHours",
+          "isOverbooked",
+          "orders"
+        ]
+      },
+      "WorkshopCapacityBayDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "number"
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCapacityCellDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "sortOrder",
+          "days"
+        ]
+      },
+      "WorkshopCapacityWeekDto": {
+        "type": "object",
+        "properties": {
+          "timezone": {
+            "type": "string"
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "weekStart": {
+            "type": "string",
+            "format": "date",
+            "description": "Monday of the week."
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCapacityDayDto"
+            }
+          },
+          "bays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopCapacityBayDto"
+            }
+          }
+        },
+        "required": [
+          "timezone",
+          "today",
+          "weekStart",
+          "days",
+          "bays"
         ]
       },
       "RegisterIntakeDto": {
