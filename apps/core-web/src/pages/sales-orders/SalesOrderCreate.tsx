@@ -276,6 +276,7 @@ export default function SalesOrderCreate() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-[50px]">#</TableHead>
                                         <TableHead className="w-[40%]">Description</TableHead>
                                         <TableHead className="w-[15%]">Qty</TableHead>
                                         <TableHead className="w-[15%]">Price</TableHead>
@@ -286,13 +287,14 @@ export default function SalesOrderCreate() {
                                 <TableBody>
                                     {fields.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                                 No items added. Click "Add Item" to start.
                                             </TableCell>
                                         </TableRow>
                                     ) : (
                                         fields.map((item, index) => (
                                             <TableRow key={item.id}>
+                                                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                                                 <TableCell>
                                                     <FormField
                                                         control={form.control}
