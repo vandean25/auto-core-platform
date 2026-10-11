@@ -153,7 +153,8 @@ test.describe('Blueprint: Workshop Planner', () => {
     await page.getByRole('button', { name: '+ Workshop Order' }).click()
 
     await expect(page.getByText('Workshop order scheduled.')).toBeVisible()
-    await expect(page.getByText('WO-2026-0200')).toBeVisible()
+    // The order page also repeats the number in its breadcrumb trail (AUT-475), so assert the heading.
+    await expect(page.getByRole('heading', { name: 'WO-2026-0200' })).toBeVisible()
   })
 
   test('Shows no bays empty state', async ({ page }) => {

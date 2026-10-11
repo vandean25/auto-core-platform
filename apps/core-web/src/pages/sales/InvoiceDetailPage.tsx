@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { fetchInvoicePdfGenerationError } from '@/api/invoices'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { usePageBreadcrumbs } from '@/hooks/usePageBreadcrumbs'
 
 const INVOICES_API = '/api/invoices'
 
@@ -141,6 +142,7 @@ export default function InvoiceDetailPage() {
   const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
   useDocumentTitle(invoice?.invoice_number)
+  usePageBreadcrumbs({ listPath: APP_ROUTE_PATHS.salesInvoices, currentLabel: invoice?.invoice_number ?? 'Invoice' })
   const { data: creditContext } = useInvoiceCreditContext(
     canManageCreditNote ? id : '',
   )

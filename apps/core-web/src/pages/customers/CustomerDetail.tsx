@@ -10,6 +10,8 @@ import { InlineEdit } from '@/components/inline-edit/InlineEdit'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { StartServiceDialog } from '@/components/workshop/StartServiceDialog'
 import { TyreSetsSummary } from '@/features/tyre-storage/TyreSetsSummary'
+import { usePageBreadcrumbs } from '@/hooks/usePageBreadcrumbs'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import {
   Dialog,
   DialogContent,
@@ -99,6 +101,10 @@ function getWorkshopOrderTotal(order: WorkshopOrderSummary) {
   }, 0)
 }
 
+function getCustomerDisplayName(customer: Pick<Customer, 'type' | 'company_name' | 'first_name' | 'last_name'>) {
+  return customer.type === 'COMPANY' ? customer.company_name : `${customer.first_name} ${customer.last_name}`
+}
+
 export default function CustomerDetail() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -106,6 +112,8 @@ export default function CustomerDetail() {
   const updateCustomer = useUpdateCustomer()
   const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false)
   const [selectedWorkshopVehicle, setSelectedWorkshopVehicle] = useState<Vehicle | null>(null)
+  const customerName = customer ? getCustomerDisplayName(customer) : undefined
+  usePageBreadcrumbs({ listPath: APP_ROUTE_PATHS.customers, currentLabel: customerName || 'Customer' })
 
   if (isLoading) {
     return <div className='p-8 text-center'>Loading customer details...</div>
@@ -211,9 +219,7 @@ export default function CustomerDetail() {
           </Button>
           <div>
             <h1 className='text-2xl font-semibold tracking-tight'>
-              {customer.type === 'COMPANY'
-                ? customer.company_name
-                : `${customer.first_name} ${customer.last_name}`}
+              {getCustomerDisplayName(customer)}
             </h1>
             <div className='flex items-center gap-2 text-slate-500 text-sm'>
               {customer.type === 'COMPANY' && <Badge variant='outline'>Company</Badge>}
@@ -221,15 +227,18 @@ export default function CustomerDetail() {
             </div>
           </div>
         </div>
-        <div className='flex gap-2'>
-          <Button asChild>
-            <Link to={`/sales-orders/new?customerId=${customer.id}`}>
-              <Package className='mr-2 h-4 w-4' /> Sales Order
-            </Link>
-          </Button>
-          <Button variant='outline' onClick={handleCreateWorkshopOrder}>
-            <Wrench className='mr-2 h-4 w-4' /> Workshop Order
-          </Button>
+        <div className='flex flex-col items-end gap-2'>
+          <div className='flex gap-2'>
+            <Button asChild>
+              <Link to={`/sales-orders/new?customerId=${customer.id}`}>
+                <Package className='mr-2 h-4 w-4' /> New sales order
+              </Link>
+            </Button>
+            <Button variant='outline' onClick={handleCreateWorkshopOrder}>
+              <Wrench className='mr-2 h-4 w-4' /> Workshop Order
+            </Button>
+          </div>
+          <p className='text-xs text-slate-500'>Invoices are created from sales orders.</p>
         </div>
       </div>
 
