@@ -40,6 +40,10 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_purchase_orders` | List purchase orders for the active site by status, vendor, order date range, or part, newest first | Read | AUTO |
 | `get_purchase_order` | Get a purchase order for the active site: lines with part and quantities, net amounts, vendor, and receipt summary | Read | AUTO |
 | `list_vendors` | List the tenant's vendors, newest first: id, name, and active; no bank or contact details | Read | AUTO |
+| `list_catalog_items` | List catalog parts, or labor operations with `type` labor, by query, active flag, and type, with net prices | Read | AUTO |
+| `get_catalog_item` | Get a catalog part: tax class, brand, cost and net price, default bin and vendor, and the last five price history rows | Read | AUTO |
+| `list_price_lists` | List applied supplier price lists with vendor, applied date, and item count, newest first | Read | AUTO |
+| `list_margin_rules` | List active margin rules in priority order with their scope, markup, and rounding | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -76,7 +80,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. No other MCP tool accepts a cursor or a `limit` argument.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 34 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 38 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -147,6 +151,16 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `lines_truncated: true` means some lines did not fit the result cap, and `lines_total` is the full count. Say so and point the person to the order in the app. Lines cannot be paged.
 - A `list_vendors` row is `id`, `name`, and `active`. `active` is `true` for every vendor, because the vendor record has no deactivation flag and removing a vendor deletes it. Bank details, account numbers, and contact details are never returned.
 - Creating, sending, receiving, and approving purchase orders are not MCP tools. Leave them to a person.
+
+### Catalog and price reads
+
+- The catalog and price reads are AUTO and read only. The tenant comes from the session, and none of them writes or runs an import. Every MCP role (OWNER, ADMIN, and SALES) may call them. Cost prices are shown, because no policy in the platform hides them from a role.
+- Amounts and percents are EUR decimal strings with two places, such as `"12.50"`, never numbers. `price_net` is the net retail price, and `cost_price` is the purchase cost.
+- `list_catalog_items` lists parts by default. With `type` `labor` it lists labor operations: `sku` is the operation code, `unit` is `h`, and `price_net` is the hourly rate. A part is active unless another part supersedes it. A labor operation is active when `is_active` is set. `active` filters on that flag. `query` matches SKU, name, or EAN for parts, and code or description for labor, case-insensitively.
+- `get_catalog_item` takes a part ID from `list_catalog_items`. It returns the tax class (revenue group and tax rate), brand, cost and net price, supplier numbers, the default bin, the default vendor, and the five newest price history rows. The schema has no default bin or default vendor flag. The default bin is the bin at the active site that holds the most stock, and the default vendor is the supplier article link updated most recently. Either is `null` when none exists, and `default_bin` is `null` without an active site.
+- `list_price_lists` lists applied supplier price lists, the import jobs for `SUPPLIER_PRICE_LIST`, newest applied first. `valid_from` is the moment the list was applied, and `items_count` is the number of rows in the file. Dry runs and jobs that were never applied are not listed.
+- `list_margin_rules` lists the tenant's active margin rules, the ones the price engine applies, in priority order, then ID. The ID order only makes paging stable: the price engine sorts by priority alone, so it does not define an order for rules that share a priority. Inactive rules are not listed. `scope` names the brand, the revenue group, and the EUR cost bracket (`cost_min`, `cost_max`). `markup.percent` is set for a markup rule, and `markup.use_supplier_rrp` is `true` for a rule that uses the supplier RRP.
+- The lists page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. The paging is keyset over the sort key (SKU or labor code, priority, or applied time) and the row ID, so rows do not repeat or disappear between pages when data changes.
 
 ## Outcomes and errors
 

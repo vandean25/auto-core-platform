@@ -11,6 +11,12 @@ import {
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
 import {
+  MCP_CATALOG_ITEM_TYPES,
+  mcpCatalogItemPositionSchema,
+  mcpMarginRulePositionSchema,
+  mcpPriceListPositionSchema,
+} from './mcp-catalog-read.mapper.js';
+import {
   MCP_DOCUMENT_ENTITY_TYPES,
   MCP_DOCUMENT_TYPES,
   isMcpDocumentId,
@@ -18,6 +24,7 @@ import {
 import {
   decodeMcpCursor,
   decodeMcpKeysetCursor,
+  decodeMcpPositionCursor,
   normalizeMcpRangeEnd,
   normalizeMcpRangeStart,
 } from './mcp-output.util.js';
@@ -388,6 +395,71 @@ export const listVendorsInputSchema = z.object({
   cursor: keysetCursorSchema.optional(),
 });
 
+/**
+ * AUT-460 catalog and price reads. Lists take pageSize (max 25) and an opaque
+ * cursor from meta.next_cursor. The catalog and margin rule cursors are keyed on
+ * a sort key rather than a timestamp, so they use the position form.
+ */
+function positionCursorSchema(position: z.ZodTypeAny) {
+  return z
+    .string()
+    .regex(/^[A-Za-z0-9_-]+$/, 'cursor is invalid')
+    .refine(
+      (cursor) => position.safeParse(decodeMcpPositionCursor(cursor)).success,
+      'cursor is invalid',
+    );
+}
+
+export const listCatalogItemsInputSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe(
+      'Matches SKU, name, or EAN for parts; code or description for labor',
+    ),
+  type: z
+    .enum(MCP_CATALOG_ITEM_TYPES)
+    .optional()
+    .describe(
+      'part (default) lists catalog items; labor lists labor operations',
+    ),
+  active: z
+    .boolean()
+    .optional()
+    .describe(
+      'Parts: true excludes superseded items. Labor: is_active. Omit for both',
+    ),
+  pageSize: pageSizeCamelSchema.describe('Items per page: default 10, max 25'),
+  cursor: positionCursorSchema(mcpCatalogItemPositionSchema)
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+export const getCatalogItemInputSchema = z.object({
+  id: uuidSchema.describe(
+    'Catalog item ID from list_catalog_items (type part)',
+  ),
+});
+
+export const listPriceListsInputSchema = z.object({
+  pageSize: pageSizeCamelSchema.describe(
+    'Price lists per page: default 10, max 25',
+  ),
+  cursor: positionCursorSchema(mcpPriceListPositionSchema)
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+export const listMarginRulesInputSchema = z.object({
+  pageSize: pageSizeCamelSchema.describe('Rules per page: default 10, max 25'),
+  cursor: positionCursorSchema(mcpMarginRulePositionSchema)
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -422,6 +494,10 @@ export const mcpToolInputSchemas: Record<
   list_purchase_orders: listPurchaseOrdersInputSchema,
   get_purchase_order: getPurchaseOrderInputSchema,
   list_vendors: listVendorsInputSchema,
+  list_catalog_items: listCatalogItemsInputSchema,
+  get_catalog_item: getCatalogItemInputSchema,
+  list_price_lists: listPriceListsInputSchema,
+  list_margin_rules: listMarginRulesInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);

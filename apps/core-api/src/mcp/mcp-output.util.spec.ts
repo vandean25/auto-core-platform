@@ -3,8 +3,10 @@ import {
   capMcpValue,
   decodeMcpCursor,
   decodeMcpKeysetCursor,
+  decodeMcpPositionCursor,
   encodeMcpCursor,
   encodeMcpKeysetCursor,
+  encodeMcpPositionCursor,
   fitMcpRowsToCap,
   normalizeMcpRangeEnd,
   normalizeMcpRangeStart,
@@ -111,5 +113,35 @@ describe('MCP result size helpers', () => {
     expect(normalizeMcpRangeEnd('2026-10-31T12:00:00Z')).toBe(
       '2026-10-31T12:00:00Z',
     );
+  });
+
+  describe('position cursors', () => {
+    it('round-trips a position whose sort key is a SKU or a priority', () => {
+      const sku = { type: 'part', key: 'BRK-100', id: 'c1' };
+      const priority = { priority: 10, id: 'a1' };
+
+      expect(decodeMcpPositionCursor(encodeMcpPositionCursor(sku))).toEqual(
+        sku,
+      );
+      expect(
+        decodeMcpPositionCursor(encodeMcpPositionCursor(priority)),
+      ).toEqual(priority);
+    });
+
+    it('encodes to URL-safe characters only', () => {
+      expect(encodeMcpPositionCursor({ key: '>>>???', id: 'x' })).toMatch(
+        /^[A-Za-z0-9_-]+$/,
+      );
+    });
+
+    it('returns null for characters outside the cursor alphabet and for text that is not JSON; shape checks belong to the caller', () => {
+      expect(decodeMcpPositionCursor('not a cursor!')).toBeNull();
+      expect(decodeMcpPositionCursor(encodeMcpCursor(7))).toBe(7);
+      expect(
+        decodeMcpPositionCursor(
+          Buffer.from('{broken', 'utf8').toString('base64url'),
+        ),
+      ).toBeNull();
+    });
   });
 });

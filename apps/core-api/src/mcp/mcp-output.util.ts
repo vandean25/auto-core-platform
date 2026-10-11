@@ -50,6 +50,26 @@ export function decodeMcpCursor(cursor: string): number | null {
   return Number.isSafeInteger(offset) ? offset : null;
 }
 
+/**
+ * Opaque cursor over a keyset position whose sort key is not a timestamp, such
+ * as a SKU or a priority. The position is JSON. Callers validate its shape.
+ */
+export function encodeMcpPositionCursor(position: object): string {
+  return Buffer.from(JSON.stringify(position), 'utf8').toString('base64url');
+}
+
+/** Parsed position of a cursor from encodeMcpPositionCursor, or null when it is not JSON. */
+export function decodeMcpPositionCursor(cursor: string): unknown {
+  if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
+    return null;
+  }
+  try {
+    return JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
 /** Position of the last row on a page, in a keyset over (timestamp, id). */
 export type McpKeysetCursor = { at: string; id: string };
 

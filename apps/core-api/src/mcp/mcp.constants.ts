@@ -59,6 +59,10 @@ export const MCP_READ_TOOL_NAMES = [
   'list_purchase_orders',
   'get_purchase_order',
   'list_vendors',
+  'list_catalog_items',
+  'get_catalog_item',
+  'list_price_lists',
+  'list_margin_rules',
 ] as const;
 
 export type McpReadToolName = (typeof MCP_READ_TOOL_NAMES)[number];
