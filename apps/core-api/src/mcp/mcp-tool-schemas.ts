@@ -344,6 +344,50 @@ export const getLegalEntityInputSchema = z.object({
     ),
 });
 
+/**
+ * AUT-458 purchasing reads. Purchase orders are site-scoped like invoices, so their
+ * filters take identifiers and order dates. Vendors are tenant-wide master data.
+ * Paging is the AUT-455 keyset contract.
+ */
+const purchaseOrderStatusSchema = z.enum([
+  'DRAFT',
+  'SENT',
+  'PARTIAL',
+  'COMPLETED',
+]);
+
+export const listPurchaseOrdersBaseSchema = z.object({
+  status: purchaseOrderStatusSchema.optional(),
+  vendor_id: uuidSchema.optional(),
+  part_id: uuidSchema
+    .optional()
+    .describe('Catalog part ID on at least one order line'),
+  from: z
+    .string()
+    .date()
+    .optional()
+    .describe('Order date, YYYY-MM-DD, inclusive'),
+  to: z
+    .string()
+    .date()
+    .optional()
+    .describe('Order date, YYYY-MM-DD, inclusive'),
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
+export const listPurchaseOrdersInputSchema =
+  listPurchaseOrdersBaseSchema.refine(isOrderedRange, orderedRangeOptions);
+
+export const getPurchaseOrderInputSchema = z.object({
+  id: uuidSchema,
+});
+
+export const listVendorsInputSchema = z.object({
+  pageSize: pageSizeCamelSchema,
+  cursor: keysetCursorSchema.optional(),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -375,6 +419,9 @@ export const mcpToolInputSchemas: Record<
   get_tenant_settings: getTenantSettingsInputSchema,
   list_sites: listSitesInputSchema,
   get_legal_entity: getLegalEntityInputSchema,
+  list_purchase_orders: listPurchaseOrdersInputSchema,
+  get_purchase_order: getPurchaseOrderInputSchema,
+  list_vendors: listVendorsInputSchema,
 };
 
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);
