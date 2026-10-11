@@ -4,8 +4,14 @@ import { CatalogService } from '../catalog/catalog.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../site/site-context.service.js';
 import { VehicleStockReportsService } from '../vehicle-stock/vehicle-stock-reports.service.js';
 import { clampMcpPage, clampMcpPageSize } from './mcp-output.util.js';
+import {
+  offsetFromCursor,
+  toMcpStockAgeReport,
+  toMcpStockMarginReport,
+} from './mcp-report-read.mapper.js';
 import type {
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
@@ -22,6 +28,7 @@ export class McpStockReadService {
   private readonly catalogService: CatalogService;
   private readonly inventoryService: InventoryService;
   private readonly prisma: PrismaService;
+  private readonly siteContext: SiteContextService;
   private readonly tenantContext: TenantContextService;
   private readonly vehicleStockReports: VehicleStockReportsService;
 
@@ -31,12 +38,14 @@ export class McpStockReadService {
     catalogService: CatalogService,
     inventoryService: InventoryService,
     prisma: PrismaService,
+    siteContext: SiteContextService,
     tenantContext: TenantContextService,
     vehicleStockReports: VehicleStockReportsService,
   ) {
     this.catalogService = catalogService;
     this.inventoryService = inventoryService;
     this.prisma = prisma;
+    this.siteContext = siteContext;
     this.tenantContext = tenantContext;
     this.vehicleStockReports = vehicleStockReports;
   }
@@ -90,22 +99,46 @@ export class McpStockReadService {
     };
   }
 
+  /** AUT-461: the stock-in window, site, and offset page of the dealer stock age report. */
   async vehicleStockAgeReport(input: StockAgeReportInput) {
-    return this.vehicleStockReports.stockAge({
+    const siteId = input.site_id ?? (await this.siteContext.getSiteId());
+    const scope = {
+      siteId,
+      from: input.from,
+      to: input.to,
+      offset: offsetFromCursor(input.cursor),
+      pageSize: clampMcpPageSize(input.pageSize),
+    };
+    const report = await this.vehicleStockReports.stockAge({
       inventory_role: input.inventory_role,
       stock_status: input.stock_status,
       bucket: input.bucket,
-      page: clampMcpPage(input.page),
-      limit: clampMcpPageSize(input.page_size),
+      siteId,
+      stockReceivedFrom: input.from,
+      stockReceivedTo: input.to,
+      offset: scope.offset,
+      limit: scope.pageSize,
     });
+    return toMcpStockAgeReport(report, scope);
   }
 
+  /** AUT-461: the period, site, and offset page of the invoiced vehicle margin report. */
   async vehicleStockMarginReport(input: StockMarginReportInput) {
-    return this.vehicleStockReports.margin({
+    const siteId = input.site_id ?? (await this.siteContext.getSiteId());
+    const scope = {
+      siteId,
       from: input.from,
       to: input.to,
-      page: clampMcpPage(input.page),
-      limit: clampMcpPageSize(input.page_size),
+      offset: offsetFromCursor(input.cursor),
+      pageSize: clampMcpPageSize(input.pageSize),
+    };
+    const report = await this.vehicleStockReports.margin({
+      from: input.from,
+      to: input.to,
+      siteId,
+      offset: scope.offset,
+      limit: scope.pageSize,
     });
+    return toMcpStockMarginReport(report, scope);
   }
 }

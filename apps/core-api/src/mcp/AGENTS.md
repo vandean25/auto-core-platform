@@ -28,8 +28,8 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
-| `get_vehicle_stock_age_report` | Read paged dealer stock age and cost basis for the active site | Read | AUTO |
-| `get_vehicle_stock_margin_report` | Read paged invoiced vehicle margins by invoice date for the active site | Read | AUTO |
+| `get_vehicle_stock_age_report` | Read paged dealer stock age and cost basis for the active site or a given site, with an optional stock-in window | Read | AUTO |
+| `get_vehicle_stock_margin_report` | Read paged invoiced vehicle margins by invoice date for the active site or a given site | Read | AUTO |
 | `list_invoices` | List invoices for the active site by status, customer, order, issue date, or number, newest first | Read | AUTO |
 | `get_invoice` | Get an invoice for the active site with lines, totals, seller as printed, order links, and credit notes | Read | AUTO |
 | `list_documents` | List stored PDFs for the active site by type, customer, vehicle, or owner record, newest first | Read | AUTO |
@@ -44,6 +44,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_catalog_item` | Get a catalog part: tax class, brand, cost and net price, default bin and vendor, and the last five price history rows | Read | AUTO |
 | `list_price_lists` | List applied supplier price lists with vendor, applied date, and item count, newest first | Read | AUTO |
 | `list_margin_rules` | List active margin rules in priority order with their scope, markup, and rounding | Read | AUTO |
+| `get_workshop_kpi_report` | Workshop KPIs for a period at the active site or a given site: utilisation, productivity, revenue per order, and parts turnover | Read | AUTO |
+| `list_pickerl_due` | Vehicles with a Pickerl due within 30, 60, or 90 days, overdue vehicles always included: vehicle, customer name, and due date | Read | AUTO |
+| `get_nova_preview` | A calculation preview of NoVA for a vehicle at a net EUR price, which saves nothing; the Steuerberater must still confirm while an unconfirmed rule applies | Read | AUTO |
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
@@ -80,12 +83,13 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. No other MCP tool accepts a cursor or a `limit` argument.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 38 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 41 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
 - `list_documents` pages with `pageSize` and a keyset `cursor` over generation time and record ID, with the same default and maximum. It is newest first. The order lists of `get_customer` and `get_vehicle_history` page with `orders_page_size` and `orders_cursor`, newest first, with the same default and maximum.
 - `list_purchase_orders` and `list_vendors` page the same way: `pageSize` and a keyset `cursor`, newest first, with the same default and maximum.
+- `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, and `list_pickerl_due` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
 
 The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 
@@ -161,6 +165,14 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `list_price_lists` lists applied supplier price lists, the import jobs for `SUPPLIER_PRICE_LIST`, newest applied first. `valid_from` is the moment the list was applied, and `items_count` is the number of rows in the file. Dry runs and jobs that were never applied are not listed.
 - `list_margin_rules` lists the tenant's active margin rules, the ones the price engine applies, in priority order, then ID. The ID order only makes paging stable: the price engine sorts by priority alone, so it does not define an order for rules that share a priority. Inactive rules are not listed. `scope` names the brand, the revenue group, and the EUR cost bracket (`cost_min`, `cost_max`). `markup.percent` is set for a markup rule, and `markup.use_supplier_rrp` is `true` for a rule that uses the supplier RRP.
 - The lists page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. The paging is keyset over the sort key (SKU or labor code, priority, or applied time) and the row ID, so rows do not repeat or disappear between pages when data changes.
+### Report reads
+
+- The report reads are AUTO and read only. The tenant comes from the session. `get_workshop_kpi_report`, `get_vehicle_stock_age_report`, and `get_vehicle_stock_margin_report` take `site_id`, which defaults to the active site. A site the caller is not authorized for is not found.
+- `get_workshop_kpi_report` takes `from` and `to`, inclusive site-local days, at most 366 days. It returns totals across mechanics: utilisation (Auslastung) and productivity (Leistungsgrad) as percent strings, `revenue_per_order` (average net revenue per closed order), labor and parts net revenue, and `parts_turnover`. Per-mechanic rows and slow movers are not returned. A value is `null` when the period has nothing to divide by.
+- `get_vehicle_stock_age_report` reports the dealer stock on hand at the site. `from` and `to`, when given together, limit it to vehicles that came in during that stock-in window. `get_vehicle_stock_margin_report` requires `from` and `to`, which are inclusive invoice dates.
+- Both stock reports return `data` rows, a `totals` block, and `meta` with `total`, `page_size`, and `next_cursor`. Amounts are EUR decimal strings.
+- `list_pickerl_due` lists vehicles whose Pickerl falls due within `window` days (30, 60, or 90; default 30), counted from today. Overdue vehicles are always listed. Each row has `vehicle`, `customer_name`, `status`, and `due_date`, the last day of the sticker's due month. Overdue rows come first, then rows by due month. It sends no reminder; reminders are a person's action.
+- `get_nova_preview` takes `vehicle_id` and `net_price_eur`, the net vehicle price without VAT as a EUR decimal string. It is a calculation only: nothing is saved, and no invoice is created, changed, or sent. Every result has a `note`, which says the Steuerberater must still confirm while any unconfirmed rule applies. When `has_unverified_rules` is `true`, `warnings` names the rules, and the amount must not be relied on until the Steuerberater confirms it. Never present a NoVA amount as a confirmed tax figure.
 
 ## Outcomes and errors
 

@@ -47,6 +47,7 @@ describe('McpToolHandlerService purchasing reads', () => {
       unused,
       purchasingReads as unknown as McpPurchasingReadService,
       unused,
+      unused,
     );
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,

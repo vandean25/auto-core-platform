@@ -9,8 +9,11 @@ import {
   getStockLevelInputSchema,
   listAgentActionsInputSchema,
   listAuditEventsInputSchema,
+  getNovaPreviewInputSchema,
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
+  getWorkshopKpiReportInputSchema,
+  listPickerlDueInputSchema,
   mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
   whoamiInputSchema,
@@ -18,6 +21,8 @@ import {
 
 const VEHICLE_ID = '00000000-0000-4000-8000-000000000099';
 const BAY_ID = '00000000-0000-4000-8000-000000000098';
+const SITE_ID = '00000000-0000-4000-8000-000000000097';
+const OTHER_TENANT_ID = '00000000-0000-4000-8000-00000000000b';
 const validDraft = {
   vehicle_id: VEHICLE_ID,
   bay_id: BAY_ID,
@@ -29,8 +34,25 @@ const validDraft = {
 const REJECTED_INPUTS: Array<[string, { parse: (input: unknown) => unknown }, unknown]> = [
   ['search_customers page size above 25', searchCustomersInputSchema, { page_size: 26 }],
   ['get_stock_level without an ID or SKU', getStockLevelInputSchema, {}],
-  ['stock age page size above 25', getVehicleStockAgeReportInputSchema, { page_size: 26 }],
+  ['stock age page size above 25', getVehicleStockAgeReportInputSchema, { pageSize: 26 }],
+  ['stock age stock-in window with only from', getVehicleStockAgeReportInputSchema, { from: '2026-07-01' }],
+  ['stock age stock-in window that ends before it starts', getVehicleStockAgeReportInputSchema, { from: '2026-07-31', to: '2026-07-01' }],
+  ['stock age site that is not an ID', getVehicleStockAgeReportInputSchema, { site_id: 'site-a' }],
+  ['stock age cursor that is not a cursor', getVehicleStockAgeReportInputSchema, { cursor: 'bad cursor!' }],
   ['margin report with a non-ISO date', getVehicleStockMarginReportInputSchema, { from: 'October', to: '2026-10-31' }],
+  ['margin report without a period', getVehicleStockMarginReportInputSchema, { from: '2026-10-01' }],
+  ['margin report that ends before it starts', getVehicleStockMarginReportInputSchema, { from: '2026-10-31', to: '2026-10-01' }],
+  ['margin report page size above 25', getVehicleStockMarginReportInputSchema, { from: '2026-10-01', to: '2026-10-31', pageSize: 26 }],
+  ['workshop KPI report without a period', getWorkshopKpiReportInputSchema, { from: '2026-10-01' }],
+  ['workshop KPI report that ends before it starts', getWorkshopKpiReportInputSchema, { from: '2026-10-31', to: '2026-10-01' }],
+  ['Pickerl window of 45 days', listPickerlDueInputSchema, { window: 45 }],
+  ['Pickerl page size above 25', listPickerlDueInputSchema, { pageSize: 26 }],
+  ['Pickerl cursor that is not a cursor', listPickerlDueInputSchema, { cursor: 'bad cursor!' }],
+  ['NoVA with a comma decimal', getNovaPreviewInputSchema, { vehicle_id: VEHICLE_ID, net_price_eur: '12000,00' }],
+  ['NoVA with three decimal places', getNovaPreviewInputSchema, { vehicle_id: VEHICLE_ID, net_price_eur: '12000.005' }],
+  ['NoVA with a negative price', getNovaPreviewInputSchema, { vehicle_id: VEHICLE_ID, net_price_eur: '-1.00' }],
+  ['NoVA with a numeric price instead of a decimal string', getNovaPreviewInputSchema, { vehicle_id: VEHICLE_ID, net_price_eur: 12000 }],
+  ['NoVA without a vehicle ID', getNovaPreviewInputSchema, { net_price_eur: '12000.00' }],
   ['get_capabilities page size above 25', getCapabilitiesInputSchema, { pageSize: 26 }],
   ['get_capabilities page size of zero', getCapabilitiesInputSchema, { pageSize: 0 }],
   ['list_audit_events page size above 25', listAuditEventsInputSchema, { pageSize: 26 }],
@@ -77,9 +99,60 @@ describe('MCP tool input schemas', () => {
       getVehicleStockAgeReportInputSchema.parse({
         inventory_role: 'USED',
         bucket: 'over_90',
-        page_size: 25,
+        pageSize: 25,
       }),
-    ).toEqual({ inventory_role: 'USED', bucket: 'over_90', page_size: 25 });
+    ).toEqual({ inventory_role: 'USED', bucket: 'over_90', pageSize: 25 });
+  });
+
+  it('drops the retired page_size name, so the default page size applies', () => {
+    expect(getVehicleStockAgeReportInputSchema.parse({ page_size: 25 })).toEqual({});
+  });
+
+  it('validates the stock age stock-in window and site', () => {
+    const input = {
+      from: '2026-07-01',
+      to: '2026-07-31',
+      site_id: SITE_ID,
+      stock_status: 'IN_STOCK',
+    };
+    expect(getVehicleStockAgeReportInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('validates the workshop KPI period and site', () => {
+    const input = { from: '2026-10-01', to: '2026-10-31', site_id: SITE_ID };
+    expect(getWorkshopKpiReportInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('accepts only the Pickerl windows of 30, 60, and 90 days, with 30 as the default', () => {
+    expect(listPickerlDueInputSchema.parse({})).toEqual({});
+    expect(listPickerlDueInputSchema.parse({ window: 90 })).toEqual({
+      window: 90,
+    });
+  });
+
+  it('accepts a NoVA net price as a EUR decimal string', () => {
+    expect(
+      getNovaPreviewInputSchema.parse({
+        vehicle_id: VEHICLE_ID,
+        net_price_eur: '12000.50',
+      }),
+    ).toEqual({ vehicle_id: VEHICLE_ID, net_price_eur: '12000.50' });
+  });
+
+  it('strips a tenant argument from the report reads, which take the tenant from the session', () => {
+    expect(
+      listPickerlDueInputSchema.parse({
+        window: 60,
+        tenant_id: OTHER_TENANT_ID,
+      }),
+    ).toEqual({ window: 60 });
+    expect(
+      getNovaPreviewInputSchema.parse({
+        vehicle_id: VEHICLE_ID,
+        net_price_eur: '1.00',
+        tenant_id: OTHER_TENANT_ID,
+      }),
+    ).toEqual({ vehicle_id: VEHICLE_ID, net_price_eur: '1.00' });
   });
 
   it('validates ISO dates for the margin report', () => {

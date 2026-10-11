@@ -88,21 +88,6 @@ const stockAgeBucketSchema = z.enum([
   'over_90',
 ]);
 
-export const getVehicleStockAgeReportInputSchema = z.object({
-  inventory_role: z.enum(['USED', 'NEW', 'DEMO']).optional(),
-  stock_status: z.enum(['IN_STOCK', 'RESERVED', 'IN_PREP']).optional(),
-  bucket: stockAgeBucketSchema.optional(),
-  page: pageSchema,
-  page_size: pageSizeSchema,
-});
-
-export const getVehicleStockMarginReportInputSchema = z.object({
-  from: z.string().date(),
-  to: z.string().date(),
-  page: pageSchema,
-  page_size: pageSizeSchema,
-});
-
 export const listBaysInputSchema = z.object({
   page: pageSchema,
   page_size: pageSizeSchema,
@@ -460,6 +445,116 @@ export const listMarginRulesInputSchema = z.object({
     .describe('Cursor from meta.next_cursor'),
 });
 
+/**
+ * AUT-461 report reads. The two stock reports share one input contract: `site_id`
+ * (default the active site), a `pageSize` with an opaque `cursor`, and a date range.
+ * The workshop KPI report takes a period and `site_id`. Paging is the offset cursor
+ * of the static-list reads, because the report services page by offset.
+ */
+const reportSiteIdSchema = uuidSchema
+  .optional()
+  .describe('Site ID the caller is authorized for. Omit for the active site');
+
+const reportPageSizeSchema = pageSizeCamelSchema.describe(
+  'Rows per page: default 10, max 25',
+);
+
+const bothOrNoneRangeOptions = {
+  message: 'from and to must be given together',
+  path: ['from'],
+};
+
+function isBothOrNoneRange(value: { from?: string; to?: string }): boolean {
+  return (value.from === undefined) === (value.to === undefined);
+}
+
+export const getVehicleStockAgeReportBaseSchema = z.object({
+  from: z
+    .string()
+    .date()
+    .optional()
+    .describe(
+      'Stock-in date, YYYY-MM-DD, inclusive. Give with to to report the vehicles that came in during the window',
+    ),
+  to: z
+    .string()
+    .date()
+    .optional()
+    .describe('Stock-in date, YYYY-MM-DD, inclusive. Give with from'),
+  site_id: reportSiteIdSchema,
+  inventory_role: z.enum(['USED', 'NEW', 'DEMO']).optional(),
+  stock_status: z.enum(['IN_STOCK', 'RESERVED', 'IN_PREP']).optional(),
+  bucket: stockAgeBucketSchema.optional(),
+  pageSize: reportPageSizeSchema,
+  cursor: offsetCursorSchema
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+export const getVehicleStockAgeReportInputSchema =
+  getVehicleStockAgeReportBaseSchema
+    .refine(isBothOrNoneRange, bothOrNoneRangeOptions)
+    .refine(isOrderedRange, orderedRangeOptions);
+
+export const getVehicleStockMarginReportBaseSchema = z.object({
+  from: z.string().date().describe('Invoice date, YYYY-MM-DD, inclusive'),
+  to: z.string().date().describe('Invoice date, YYYY-MM-DD, inclusive'),
+  site_id: reportSiteIdSchema,
+  pageSize: reportPageSizeSchema,
+  cursor: offsetCursorSchema
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+export const getVehicleStockMarginReportInputSchema =
+  getVehicleStockMarginReportBaseSchema.refine(
+    isOrderedRange,
+    orderedRangeOptions,
+  );
+
+export const getWorkshopKpiReportBaseSchema = z.object({
+  from: z
+    .string()
+    .date()
+    .describe('Period start, YYYY-MM-DD, inclusive, in the site timezone'),
+  to: z
+    .string()
+    .date()
+    .describe('Period end, YYYY-MM-DD, inclusive, in the site timezone'),
+  site_id: reportSiteIdSchema,
+});
+
+export const getWorkshopKpiReportInputSchema =
+  getWorkshopKpiReportBaseSchema.refine(isOrderedRange, orderedRangeOptions);
+
+/** AUT-461 Pickerl due list: vehicles due within the window, plus every overdue vehicle. */
+export const listPickerlDueInputSchema = z.object({
+  window: z
+    .union([z.literal(30), z.literal(60), z.literal(90)])
+    .optional()
+    .describe(
+      'Days ahead: 30, 60, or 90. Default 30. Overdue vehicles are always listed',
+    ),
+  pageSize: reportPageSizeSchema,
+  cursor: offsetCursorSchema
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+/** AUT-461 NoVA preview: a vehicle and the net price to calculate on, as a EUR decimal string. */
+export const getNovaPreviewInputSchema = z.object({
+  vehicle_id: uuidSchema,
+  net_price_eur: z
+    .string()
+    .regex(
+      /^\d{1,9}(\.\d{1,2})?$/,
+      'net_price_eur must be a EUR decimal string',
+    )
+    .describe(
+      'Net vehicle price without VAT, EUR decimal string such as "12000.00"',
+    ),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -494,6 +589,9 @@ export const mcpToolInputSchemas: Record<
   list_purchase_orders: listPurchaseOrdersInputSchema,
   get_purchase_order: getPurchaseOrderInputSchema,
   list_vendors: listVendorsInputSchema,
+  get_workshop_kpi_report: getWorkshopKpiReportInputSchema,
+  list_pickerl_due: listPickerlDueInputSchema,
+  get_nova_preview: getNovaPreviewInputSchema,
   list_catalog_items: listCatalogItemsInputSchema,
   get_catalog_item: getCatalogItemInputSchema,
   list_price_lists: listPriceListsInputSchema,

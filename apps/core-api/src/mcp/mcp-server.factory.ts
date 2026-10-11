@@ -21,9 +21,9 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   search_parts: schemas.searchPartsInputSchema.shape,
   get_stock_level: schemas.getStockLevelBaseSchema.shape,
   get_vehicle_stock_age_report:
-    schemas.getVehicleStockAgeReportInputSchema.shape,
+    schemas.getVehicleStockAgeReportBaseSchema.shape,
   get_vehicle_stock_margin_report:
-    schemas.getVehicleStockMarginReportInputSchema.shape,
+    schemas.getVehicleStockMarginReportBaseSchema.shape,
   list_invoices: schemas.listInvoicesBaseSchema.shape,
   get_invoice: schemas.getInvoiceInputSchema.shape,
   list_bays: schemas.listBaysInputSchema.shape,
@@ -48,6 +48,9 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   get_catalog_item: schemas.getCatalogItemInputSchema.shape,
   list_price_lists: schemas.listPriceListsInputSchema.shape,
   list_margin_rules: schemas.listMarginRulesInputSchema.shape,
+  get_workshop_kpi_report: schemas.getWorkshopKpiReportBaseSchema.shape,
+  list_pickerl_due: schemas.listPickerlDueInputSchema.shape,
+  get_nova_preview: schemas.getNovaPreviewInputSchema.shape,
   draft_workshop_order: schemas.mcpWriteToolInputSchemas.draft_workshop_order,
   reserve_part: schemas.mcpWriteToolInputSchemas.reserve_part,
   release_reservation: schemas.mcpWriteToolInputSchemas.release_reservation,

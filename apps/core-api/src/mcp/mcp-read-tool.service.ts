@@ -8,6 +8,7 @@ import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
 import type { McpToolCallContext } from './mcp-tool-handler.service.js';
@@ -20,6 +21,8 @@ import {
   getEntityHistoryInputSchema,
   getInvoiceInputSchema,
   getLegalEntityInputSchema,
+  getNovaPreviewInputSchema,
+  getWorkshopKpiReportInputSchema,
   getPurchaseOrderInputSchema,
   getStockLevelInputSchema,
   getVehicleHistoryInputSchema,
@@ -36,6 +39,7 @@ import {
   listInvoicesInputSchema,
   listMarginRulesInputSchema,
   listPriceListsInputSchema,
+  listPickerlDueInputSchema,
   listSitesInputSchema,
   listPurchaseOrdersInputSchema,
   listVendorsInputSchema,
@@ -63,6 +67,7 @@ export class McpReadToolService {
   private readonly settingsReads: McpSettingsReadService;
   private readonly purchasingReads: McpPurchasingReadService;
   private readonly catalogReads: McpCatalogReadService;
+  private readonly reportReads: McpReportReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -77,6 +82,7 @@ export class McpReadToolService {
     settingsReads: McpSettingsReadService,
     purchasingReads: McpPurchasingReadService,
     catalogReads: McpCatalogReadService,
+    reportReads: McpReportReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -88,6 +94,7 @@ export class McpReadToolService {
     this.settingsReads = settingsReads;
     this.purchasingReads = purchasingReads;
     this.catalogReads = catalogReads;
+    this.reportReads = reportReads;
   }
 
   async run(
@@ -133,6 +140,18 @@ export class McpReadToolService {
       case 'list_vendors':
         return this.purchasingReads.listVendors(
           listVendorsInputSchema.parse(parsed),
+        );
+      case 'get_workshop_kpi_report':
+        return this.reportReads.getWorkshopKpiReport(
+          getWorkshopKpiReportInputSchema.parse(parsed),
+        );
+      case 'list_pickerl_due':
+        return this.reportReads.listPickerlDue(
+          listPickerlDueInputSchema.parse(parsed),
+        );
+      case 'get_nova_preview':
+        return this.reportReads.getNovaPreview(
+          getNovaPreviewInputSchema.parse(parsed),
         );
       case 'list_workshop_orders':
         return this.recordReads.listWorkshopOrders(
