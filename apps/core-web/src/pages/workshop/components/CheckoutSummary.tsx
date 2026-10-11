@@ -78,7 +78,7 @@ export function CheckoutSummary({
       <CardHeader className='pb-3'>
         <div className='flex items-center justify-between gap-3'>
           <div>
-            <CardTitle className='text-base font-semibold'>Draft Invoice</CardTitle>
+            <CardTitle as='h3' className='text-base font-semibold'>Draft Invoice</CardTitle>
             <p className='text-xs text-muted-foreground mt-1'>
               Grouped by task. Use task-level discount (%) to cascade to every nested line.
             </p>

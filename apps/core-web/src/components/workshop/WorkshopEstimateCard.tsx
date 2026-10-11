@@ -289,7 +289,7 @@ export function WorkshopEstimateCard({ orderId, orderStatus, isLocked, orderRevi
 
         {estimateQuery.isError && (
           <Alert variant='destructive'>
-            <AlertTitle>Kostenvoranschlag nicht verfügbar</AlertTitle>
+            <AlertTitle as='h3'>Kostenvoranschlag nicht verfügbar</AlertTitle>
             <AlertDescription>
               {getErrorMessage(estimateQuery.error, 'Kostenvoranschlag konnte nicht geladen werden.')}
             </AlertDescription>
@@ -307,7 +307,7 @@ export function WorkshopEstimateCard({ orderId, orderStatus, isLocked, orderRevi
         {overrunLines.length > 0 && (
           <Alert className='border-amber-300 bg-amber-50 text-amber-900 [&>svg]:text-amber-700' data-testid='estimate-overrun-banner'>
             <AlertTriangle className='h-4 w-4' />
-            <AlertTitle>Auftrag weicht vom Kostenvoranschlag ab</AlertTitle>
+            <AlertTitle as='h3'>Auftrag weicht vom Kostenvoranschlag ab</AlertTitle>
             <AlertDescription>
               <ul className='list-disc pl-4 space-y-1'>
                 {overrunLines.map((line) => (
