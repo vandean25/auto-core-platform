@@ -180,6 +180,17 @@ function expectLatestRuleLookup(
   expect(query).toHaveBeenCalledWith({ where, orderBy: { version: 'desc' } });
 }
 
+/** A tenant override at `tier` is accepted and written as a tenant-source rule. */
+async function expectOverrideAccepted(
+  h: Harness,
+  tier: AgentPolicyTier,
+): Promise<void> {
+  await expect(h.service.upsertRule(ACTION_TYPE, { tier })).resolves.toMatchObject(
+    { tier, source: 'tenant' },
+  );
+  expectRuleWritten(h, { tier });
+}
+
 /** The DTO a row with `ruleRow()` defaults maps to, with per-test overrides. */
 function expectedDto(overrides: Record<string, unknown> = {}) {
   return {
@@ -557,10 +568,7 @@ describe('AgentPolicyService.upsertRule', () => {
         ruleRow({ tier: platformTier }),
       );
 
-      await expect(
-        h.service.upsertRule(ACTION_TYPE, { tier }),
-      ).resolves.toMatchObject({ tier, source: 'tenant' });
-      expectRuleWritten(h, { tier });
+      await expectOverrideAccepted(h, tier);
     },
   );
 
