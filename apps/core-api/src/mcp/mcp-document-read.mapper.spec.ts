@@ -33,6 +33,17 @@ describe('mcp-document-read.mapper', () => {
       });
     });
 
+    it('lowercases the type too, so an uppercase prefix resolves like the lowercase one', () => {
+      expect(parseMcpDocumentId(`INVOICE:${RECORD_ID}`)).toEqual({
+        type: 'invoice',
+        recordId: RECORD_ID,
+      });
+      expect(parseMcpDocumentId(`Vehicle_Sale_Contract:${RECORD_ID}`)).toEqual({
+        type: 'vehicle_sale_contract',
+        recordId: RECORD_ID,
+      });
+    });
+
     it.each([
       ['an unknown type', `quote:${RECORD_ID}`],
       ['a missing UUID', 'invoice:'],

@@ -54,7 +54,7 @@ export function parseMcpDocumentId(value: string): ParsedMcpDocumentId | null {
     return null;
   }
   return {
-    type: match[1] as McpDocumentType,
+    type: match[1].toLowerCase() as McpDocumentType,
     recordId: match[2].toLowerCase(),
   };
 }
