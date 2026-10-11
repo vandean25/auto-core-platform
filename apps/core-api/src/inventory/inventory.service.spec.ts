@@ -238,6 +238,33 @@ describe('InventoryService', () => {
       );
     });
 
+    it('should order the list by the requested sortable catalog column', async () => {
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        sortField: 'price',
+        sortDirection: 'desc',
+      });
+
+      expect(prisma.catalogItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [{ retail_price: 'desc' }, { id: 'asc' }],
+        }),
+      );
+    });
+
+    it('should leave the list unordered when the requested column is derived', async () => {
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        sortField: 'status',
+        sortDirection: 'asc',
+      });
+
+      const [queryArgs] = (prisma.catalogItem.findMany as jest.Mock).mock.calls[0];
+      expect(queryArgs.orderBy).toBeUndefined();
+    });
+
     it('should filter by location', async () => {
       const location = 'Tire Hotel';
       await service.findAll({ page: 1, limit: 10, location });

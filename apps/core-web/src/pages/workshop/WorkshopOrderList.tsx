@@ -45,25 +45,29 @@ export default function WorkshopOrderList() {
   const columns: ColumnDef<WorkshopOrderRow>[] = [
     {
       accessorKey: 'orderNo',
-      meta: { rowLink: true },
+      meta: { rowLink: true, label: 'Order no.' },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Order No.' />,
       cell: ({ row }) => row.original.orderNo,
     },
     {
       accessorKey: 'customer',
+      meta: { label: 'Customer' },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Customer' />,
     },
     {
       accessorKey: 'vehicle',
+      meta: { label: 'Vehicle' },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Vehicle' />,
     },
     {
       accessorKey: 'openedAt',
+      meta: { label: 'Opened' },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Opened' />,
       cell: ({ row }) => <span className='text-muted-foreground'>{row.original.openedAt}</span>,
     },
     {
       accessorKey: 'status',
+      meta: { label: 'Status' },
       header: ({ column }) => <DataTableColumnHeader column={column} title='Status' />,
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },

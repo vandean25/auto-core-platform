@@ -1,4 +1,5 @@
 import {
+  type LegacyColumn,
   type LegacyColumnDef as ColumnDef,
   getCoreRowModel,
   useLegacyTable as useReactTable,
@@ -50,6 +51,15 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 function getTableRowId(record: object): string | undefined {
   const id = (record as { id?: unknown }).id
   return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
+function getAriaSort<TData extends object>(column: LegacyColumn<TData, unknown>) {
+  if (!column.getCanSort()) return undefined
+
+  const sorted = column.getIsSorted()
+  if (sorted === "asc") return "ascending" as const
+  if (sorted === "desc") return "descending" as const
+  return "none" as const
 }
 
 function resolveRowFromElement<TData extends object>(
@@ -226,7 +236,7 @@ export function DataTable<TData extends object>({
               <TableRow key={headerGroup.id} data-table-header="true">
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} aria-sort={getAriaSort(header.column)}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(

@@ -9150,6 +9150,8 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
                 search?: string;
+                sortDirection?: "asc" | "desc";
+                sortField?: "sku" | "name" | "price";
             };
             header?: never;
             path?: never;

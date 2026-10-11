@@ -25,6 +25,8 @@ export default function InventoryList() {
         pageSize: queryParams.pageSize,
         search: queryParams.search ?? searchFromNameFilter,
         location: locationFilter,
+        sortField: queryParams.sortField,
+        sortDirection: queryParams.sortDirection,
     })
     const { data: locations } = useLocations()
 
@@ -51,11 +53,14 @@ export default function InventoryList() {
     const columns: ColumnDef<InventoryItem>[] = [
         {
             accessorKey: 'status',
+            enableSorting: false,
+            meta: { label: 'Status' },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
             cell: ({ row }) => <StatusBadge status={row.original.status} />,
         },
         {
             accessorKey: 'sku',
+            meta: { label: 'SKU' },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Part" />,
             cell: ({ row }) => (
                 <div className="flex flex-col">
@@ -66,11 +71,14 @@ export default function InventoryList() {
         },
         {
             accessorKey: 'name',
+            meta: { label: 'Description' },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
             cell: ({ row }) => <span className="text-slate-700">{row.original.name}</span>,
         },
         {
             accessorKey: 'warehouse_location',
+            enableSorting: false,
+            meta: { label: 'Warehouse location' },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Storage Location" />,
             cell: ({ row }) => (
                 <span className="text-slate-600">{row.original.warehouse_location ?? 'N/A'}</span>
@@ -78,6 +86,7 @@ export default function InventoryList() {
         },
         {
             accessorKey: 'price',
+            meta: { label: 'Price' },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Price" />,
             cell: ({ row }) => {
                 const amount = Number(row.getValue('price'))

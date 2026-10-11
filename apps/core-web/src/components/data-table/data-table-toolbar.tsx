@@ -26,8 +26,8 @@ export function DataTableToolbar<TData extends object>({
   const isFiltered = table.getState().columnFilters.length > 0 || !!table.getState().globalFilter
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex flex-1 items-center space-x-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         {searchColumn ? (
             <Input
             placeholder={placeholder}
@@ -62,7 +62,7 @@ export function DataTableToolbar<TData extends object>({
           </Button>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {saveViewTitle ? <SaveCurrentViewButton title={saveViewTitle} /> : null}
         {dashboardSource ? <AddToDashboardButton source={dashboardSource} /> : null}
         <DataTableViewOptions table={table} />

@@ -10,6 +10,11 @@ import {
   CatalogItemResponseDto,
 } from './dto/inventory-response.dto.js';
 import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
+import {
+  ApiInventorySort,
+  parsePositiveInt,
+  parseSortDirection,
+} from './inventory-list-query.js';
 
 @Controller('inventory')
 export class InventoryController {
@@ -51,6 +56,7 @@ export class InventoryController {
     required: false,
     schema: { type: 'integer', minimum: 1 },
   })
+  @ApiInventorySort()
   @ApiPaginatedResponse(InventoryItemResponseDto)
   async findAll(
     @Query('page') page?: string,
@@ -59,24 +65,18 @@ export class InventoryController {
     @Query('location') location?: string,
     @Query('brand') brand?: string,
     @Query('brandId') brandId?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: string,
   ) {
-    const parsedPage = page ? parseInt(page, 10) : NaN;
-    const parsedPageSize = pageSize ? parseInt(pageSize, 10) : NaN;
-    const parsedBrandId = brandId ? parseInt(brandId, 10) : NaN;
-
     return await this.inventoryService.findAll({
-      page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
-      pageSize:
-        Number.isFinite(parsedPageSize) && parsedPageSize > 0
-          ? parsedPageSize
-          : 10,
+      page: parsePositiveInt(page, 1),
+      pageSize: parsePositiveInt(pageSize, 10),
       search,
       location,
       brand,
-      brandId:
-        Number.isFinite(parsedBrandId) && parsedBrandId > 0
-          ? parsedBrandId
-          : undefined,
+      brandId: parsePositiveInt(brandId),
+      sortField,
+      sortDirection: parseSortDirection(sortDirection),
     });
   }
 
