@@ -173,7 +173,7 @@ export function DashboardWidgetsGrid({ sourcesByKey }: DashboardWidgetsGridProps
       <Card>
         <CardContent className="pt-6">
           <p className="text-sm text-slate-500">
-            No widgets yet. Open a list view, apply filters, then click Add to Dashboard.
+            No widgets yet. Open a list view, apply filters, then click Add to dashboard.
           </p>
         </CardContent>
       </Card>

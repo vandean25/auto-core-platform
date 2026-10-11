@@ -91,7 +91,7 @@ test.describe('Blueprint: Dashboard Page', () => {
 
     // Empty state message
     await expect(
-      page.getByText('No widgets yet. Open a list view, apply filters, then click Add to Dashboard.'),
+      page.getByText('No widgets yet. Open a list view, apply filters, then click Add to dashboard.'),
     ).toBeVisible();
   });
 
@@ -204,7 +204,7 @@ test.describe('Blueprint: Dashboard Page', () => {
     // Widget should disappear, empty state should appear
     await expect(page.getByText('Removable Widget')).not.toBeVisible();
     await expect(
-      page.getByText('No widgets yet. Open a list view, apply filters, then click Add to Dashboard.'),
+      page.getByText('No widgets yet. Open a list view, apply filters, then click Add to dashboard.'),
     ).toBeVisible();
   });
 

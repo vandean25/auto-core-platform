@@ -1,4 +1,7 @@
-import { ConflictException } from '@nestjs/common';
+import {
+  ConflictException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   PartsReservationStatus,
   PartsRequisitionStatus,
@@ -7,6 +10,25 @@ import {
 } from '@prisma/client';
 
 const ZERO = new Prisma.Decimal(0);
+
+export const NOT_A_CATALOG_LINE_CODE = 'NOT_A_CATALOG_LINE';
+
+/**
+ * Returns the catalog item of a part line on the active site. A free-text line has none and cannot be reserved.
+ * The message names the line, not the site, so agents do not switch sites. The code also leads the message, because
+ * an MCP tool error carries only the message text.
+ */
+export function requireCatalogItemId(line: {
+  catalog_item_id: string | null;
+}): string {
+  if (!line.catalog_item_id) {
+    throw new UnprocessableEntityException({
+      code: NOT_A_CATALOG_LINE_CODE,
+      message: `${NOT_A_CATALOG_LINE_CODE}: Workshop task line is not a catalog-backed part line. Only catalog-backed part lines can be reserved.`,
+    });
+  }
+  return line.catalog_item_id;
+}
 
 const ACTIVE_SLICE_STATUSES = new Set<PartsReservationStatus>([
   PartsReservationStatus.OPEN,

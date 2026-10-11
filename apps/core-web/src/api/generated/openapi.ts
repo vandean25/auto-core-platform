@@ -4479,6 +4479,11 @@ export interface components {
              * @enum {string}
              */
             op: "create" | "update" | "delete";
+            /**
+             * @description True when the id is not a committed row id: the preview rolled the row back, so the committed write creates a different id. Do not reuse this id; use the id the committed result returns.
+             * @example true
+             */
+            provisional: boolean;
         };
         CustomerResponseDto: {
             /**

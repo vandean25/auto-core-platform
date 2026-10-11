@@ -158,7 +158,7 @@ describe('Prisma Dry-Run Integration', () => {
 
       // Change collector must have recorded the update
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-1', op: 'update' },
+        { entity: 'Customer', id: 'cust-1', op: 'update', provisional: false },
       ]);
     });
 
@@ -186,7 +186,7 @@ describe('Prisma Dry-Run Integration', () => {
 
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-2', op: 'delete' },
+        { entity: 'Customer', id: 'cust-2', op: 'delete', provisional: false },
       ]);
     });
 
@@ -225,8 +225,8 @@ describe('Prisma Dry-Run Integration', () => {
 
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-1', op: 'update' },
-        { entity: 'Customer', id: 'cust-2', op: 'update' },
+        { entity: 'Customer', id: 'cust-1', op: 'update', provisional: false },
+        { entity: 'Customer', id: 'cust-2', op: 'update', provisional: false },
       ]);
     });
 
@@ -255,8 +255,8 @@ describe('Prisma Dry-Run Integration', () => {
 
       expect(mockAuditLogCreate).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-3', op: 'delete' },
-        { entity: 'Customer', id: 'cust-4', op: 'delete' },
+        { entity: 'Customer', id: 'cust-3', op: 'delete', provisional: false },
+        { entity: 'Customer', id: 'cust-4', op: 'delete', provisional: false },
       ]);
     });
   });
@@ -288,7 +288,7 @@ describe('Prisma Dry-Run Integration', () => {
 
       // Collector must record 'create'
       expect(collector.getChanges()).toEqual([
-        { entity: 'WorkshopOrder', id: 'wo-100', op: 'create' },
+        { entity: 'WorkshopOrder', id: 'wo-100', op: 'create', provisional: true },
       ]);
     });
 
@@ -309,7 +309,7 @@ describe('Prisma Dry-Run Integration', () => {
 
       expect(mockDashboardRealtime.emitEntityUpdated).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-10', op: 'update' },
+        { entity: 'Customer', id: 'cust-10', op: 'update', provisional: false },
       ]);
     });
 
@@ -330,7 +330,7 @@ describe('Prisma Dry-Run Integration', () => {
 
       expect(mockDashboardRealtime.emitEntityUpdated).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-10', op: 'delete' },
+        { entity: 'Customer', id: 'cust-10', op: 'delete', provisional: false },
       ]);
     });
 
@@ -352,7 +352,7 @@ describe('Prisma Dry-Run Integration', () => {
 
       expect(mockDashboardRealtime.emitEntityUpdated).not.toHaveBeenCalled();
       expect(collector.getChanges()).toEqual([
-        { entity: 'Customer', id: 'cust-new', op: 'create' },
+        { entity: 'Customer', id: 'cust-new', op: 'create', provisional: true },
       ]);
     });
 

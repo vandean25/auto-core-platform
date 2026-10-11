@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { TooltipHint } from '@/components/ui/tooltip'
 import { Plus } from 'lucide-react'
 import { WorkshopOrderIntakeDialog } from '@/components/workshop/WorkshopOrderIntakeDialog'
 import { DataTable } from '@/components/data-table/DataTable'
@@ -77,14 +77,11 @@ export default function WorkshopOrderList() {
           <p className='text-slate-500'>Open a work order to view full job details and task drawer.</p>
         </div>
         <div className='flex items-center gap-2'>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
-                Parts pick queue
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Parts to pick for open workshop orders</TooltipContent>
-          </Tooltip>
+          <TooltipHint hint='Parts to pick for open workshop orders'>
+            <Button variant='outline' onClick={() => navigate('/workshop/pick-list')}>
+              Parts pick queue
+            </Button>
+          </TooltipHint>
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className='h-4 w-4 mr-2' />
             Order

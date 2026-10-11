@@ -176,7 +176,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 
 ## Outcomes and errors
 
-Policy refusals return an MCP tool error with the code `not_permitted`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
+Policy refusals return an MCP tool error with the code `not_permitted`, and a free-text workshop line returns `NOT_A_CATALOG_LINE`. Other MCP tool errors may not have a stable application code. Use the actual outcome or exception below; do not translate it into a made-up code.
 
 | Server value           | Meaning and response                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
@@ -189,6 +189,7 @@ Policy refusals return an MCP tool error with the code `not_permitted`. Other MC
 | `ZodError`             | Arguments did not match the tool schema. Report the validation failure and ask for corrected input if needed.                   |
 | `NotFoundException`    | The requested record or related entity was not found in the authorized scope. Report that result; do not guess an ID.           |
 | `ConflictException`    | The record changed or conflicts with the request. Reload current data before asking whether to retry.                           |
+| `NOT_A_CATALOG_LINE`   | `reserve_part` on a workshop PART line with no catalog item (free text). Nothing was reserved. Choose a catalog-backed part line; do not retry this line. |
 
 For pending action persistence, `needs_approval` responses, and apply semantics, see [implementation details](../../../../docs/internal/02-Feature-Specs/Platform/pending-actions.md).
 
@@ -197,6 +198,8 @@ Unknown tools are not registered, and invalid arguments are rejected by closed s
 ## Preview and writes
 
 The MCP write pipeline evaluates policy before doing any work. Disabled actions and `HUMAN_ONLY` return `not_permitted` without previewing or executing the action. Enabled `AUTO` and `PROPOSE` actions run a rollback-transaction preview and return `would_change`; `AUTO` then proceeds to a real write, while `PROPOSE` returns `needs_approval` with a `pending_action_id` and does not execute the action. MCP tools do not accept a `dry_run` argument, so an AUTO write call is not a preview-only call. Never present preview output as completed work. Relay the returned status and what was or was not executed exactly.
+
+Preview ids are provisional. A preview rolls back, so the row it creates is not kept and the committed write creates a different id. Each `would_change` item carries `provisional`: `true` for a row the preview created, or a change to one, and `false` for a change to an existing row, which keeps its committed id. A `needs_approval` response sets `proposal.provisional` to `true`, because nothing is committed until a person applies the pending action. Never open, release, or reuse a provisional id. For an `executed` write, use `result.id`. After a pending action is applied, read the committed row back and use its id.
 
 ## Trace IDs
 

@@ -60,6 +60,7 @@ describe('DryRunService', () => {
             entity: 'Customer',
             id: 'cust-123',
             op: 'create',
+            provisional: true,
           },
         ],
       });

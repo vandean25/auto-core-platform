@@ -39,6 +39,7 @@ import {
   getRemainingCommitment,
   isActiveSlice,
   recomputeRequisitionStatus,
+  requireCatalogItemId,
 } from './parts-requisition.helpers.js';
 
 export const OPEN_WORKSHOP_ORDER_STATUSES = [
@@ -287,7 +288,6 @@ export async function findAuthorizedLine(
       part_execution_status: {
         not: WorkshopPartLineExecutionStatus.CANCELLED,
       },
-      catalog_item_id: { not: null },
       workshop_task: {
         tenant_id: tenantId,
         workshop_order: {
@@ -1468,6 +1468,7 @@ export async function executeCreateOnHandReservation(
       'Workshop task line is not available in the active site.',
     );
   }
+  requireCatalogItemId(initialLine);
 
   const location = await findAuthorizedSourceLocation(
     tx,
@@ -1493,11 +1494,7 @@ export async function executeCreateOnHandReservation(
       'Workshop task line is not available in the active site.',
     );
   }
-  if (!line.catalog_item_id) {
-    throw new UnprocessableEntityException(
-      'Only catalog-backed part lines can be reserved.',
-    );
-  }
+  const catalogItemId = requireCatalogItemId(line);
 
   await lockRequisitionLine(tx, tenantId, line.id);
   const existingReservations = await findLineReservations(
@@ -1514,7 +1511,7 @@ export async function executeCreateOnHandReservation(
   const stock = await tx.inventoryStock.findFirst({
     where: {
       tenant_id: tenantId,
-      catalog_item_id: line.catalog_item_id,
+      catalog_item_id: catalogItemId,
       location_id: location.id,
       site_id: location.site_id,
     },

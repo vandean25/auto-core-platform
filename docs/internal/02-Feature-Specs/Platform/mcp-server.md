@@ -103,6 +103,8 @@ Write tools follow a shared pipeline: policy evaluation → immediate refusal fo
 - **HUMAN_ONLY**: Return `not_permitted` (HTTP 403) without preview or execution, log as REFUSED
 - **NOT_EVALUATED** (schema-invalid input, rejected before policy evaluation, e.g. `draft_workshop_order` with any `status` other than `SCHEDULED`): return a validation error without preview or execution, log as FAILED with tier `NOT_EVALUATED`. No policy tier applies, so this row is never logged as PROPOSE.
 
+Preview ids are provisional. The preview rolls back, so a row it creates is not kept, and the committed write creates a different id. Each `would_change` item carries `provisional`: `true` for a created row, or a change to one, and `false` for a change to an existing row, which keeps its committed id. A `needs_approval` response sets `proposal.provisional` to `true`, since nothing is committed until the pending action is applied. Callers must not open, release, or reuse a provisional id: an `executed` write returns the committed id in `result.id`, and after approval the committed row is read back.
+
 Note: `propose_line_item` is hard-clamped to PROPOSE tier and cannot be loosened to AUTO. All MCP write rules start disabled in the platform policy table; a tenant admin must enable each rule before the write can proceed. Disabled rules fail closed with `not_permitted` (HTTP 403). The MCP write schemas do not accept a `dry_run` argument. Enabled AUTO calls proceed to execution after the internal preview; PROPOSE calls return `needs_approval` with a pending action ID and do not execute the proposed action. Tenant policy can be stricter than the platform floor, never looser.
 
 ## Never-exposed actions

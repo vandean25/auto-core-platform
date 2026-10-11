@@ -116,6 +116,7 @@ describe('Dry-run support on state-changing endpoints (e2e)', () => {
           expect.objectContaining({
             entity: 'Customer',
             op: 'create',
+            provisional: true,
           }),
         ]),
       );

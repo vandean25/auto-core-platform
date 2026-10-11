@@ -160,6 +160,23 @@ describe('MCP server (e2e)', () => {
     return { client, transport, responseTraceIds };
   }
 
+  /**
+   * Ends the server session with a DELETE, then closes the client. The client's close() only aborts
+   * the local request, so without the DELETE the server keeps the session until its idle sweep, and
+   * the server refuses new sessions once MCP_MAX_OPEN_SESSIONS are open.
+   */
+  async function endMcpSession(
+    transport: StreamableHTTPClientTransport,
+  ): Promise<void> {
+    try {
+      if (transport.sessionId) {
+        await transport.terminateSession();
+      }
+    } finally {
+      await transport.close();
+    }
+  }
+
   /** Opens a session, runs the callback, and closes the session even when it throws. */
   async function withMcpSession<T>(
     authHeader: string,
@@ -177,7 +194,7 @@ describe('MCP server (e2e)', () => {
     try {
       return await run({ client, call, responseTraceIds });
     } finally {
-      await transport.close();
+      await endMcpSession(transport);
     }
   }
 
@@ -862,7 +879,7 @@ describe('MCP server (e2e)', () => {
         salesHeaderA,
         'e2e-sales-advisor',
       );
-      await transport.close();
+      await endMcpSession(transport);
     });
   });
 
@@ -873,14 +890,18 @@ describe('MCP server (e2e)', () => {
     );
     const sessionId = transport.sessionId;
     expect(sessionId).toBeTruthy();
-    await transport.close();
 
-    await request(app.getHttpServer())
-      .post('/api/mcp')
-      .set('Authorization', adminHeaderB)
-      .set('mcp-session-id', sessionId!)
-      .send({ jsonrpc: '2.0', method: 'tools/list', id: 2 })
-      .expect(404);
+    // The session stays open for the cross-tenant request, so the 404 proves the owner check.
+    try {
+      await request(app.getHttpServer())
+        .post('/api/mcp')
+        .set('Authorization', adminHeaderB)
+        .set('mcp-session-id', sessionId!)
+        .send({ jsonrpc: '2.0', method: 'tools/list', id: 2 })
+        .expect(404);
+    } finally {
+      await endMcpSession(transport);
+    }
   });
 
   it('lists every registered tool, read and write', async () => {
@@ -895,7 +916,7 @@ describe('MCP server (e2e)', () => {
     for (const neverExposed of MCP_NEVER_EXPOSED_ACTIONS) {
       expect(toolNames).not.toContain(neverExposed);
     }
-    await transport.close();
+    await endMcpSession(transport);
   });
 
   it('calls each read tool and records agent action logs for tenant A', async () => {
@@ -1577,6 +1598,317 @@ describe('MCP server (e2e)', () => {
     expect(approvedReleaseLog?.status).toBe('EXECUTED');
   });
 
+  /**
+   * AUT-426: a write preview runs in a rollback, so the id of a row it creates is not the id the
+   * committed write returns. Each test checks that the preview id is provisional, that it is not a
+   * row, and that the caller's committed id is a different row.
+   */
+  type WouldChangeEntry = {
+    entity: string;
+    id: string;
+    op: string;
+    provisional: boolean;
+  };
+
+  function previewCreatedRow(
+    wouldChange: WouldChangeEntry[],
+    entity: string,
+  ): WouldChangeEntry {
+    const entry = wouldChange.find(
+      (item) => item.entity === entity && item.op === 'create',
+    );
+    if (!entry) {
+      throw new Error(`would_change has no created ${entity} row`);
+    }
+    return entry;
+  }
+
+  /**
+   * A fresh part line on the fixture task. The round-trip test releases the fixture line's only
+   * reservation, which cancels that line, so the reserve cases below cannot reuse it.
+   */
+  function createReservableLine() {
+    return createPartLine(prismaA, fixtures.workshopTaskId, {
+      item_no: fixtures.sku,
+      description: 'Provisional preview part',
+      unit_price: 2,
+      catalog_item_id: fixtures.catalogItemId,
+    });
+  }
+
+  it('draft_workshop_order AUTO: the preview order id is provisional, and result.id is the committed order', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-provisional-auto');
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-draft-provisional-auto'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle, 15),
+        notes: 'MCP provisional auto test',
+      },
+      '00000000-0000-4000-8000-000000000218',
+    );
+    const executed = parsePayload<{
+      status: string;
+      would_change: WouldChangeEntry[];
+      result: { id: string };
+    }>(result);
+    expect(executed.status).toBe('executed');
+
+    const previewOrder = previewCreatedRow(
+      executed.would_change,
+      'WorkshopOrder',
+    );
+    expect(previewOrder.provisional).toBe(true);
+    expect(
+      await prismaA.workshopOrder.findFirst({ where: { id: previewOrder.id } }),
+    ).toBeNull();
+    expect(executed.result.id).not.toBe(previewOrder.id);
+    expect(
+      await prismaA.workshopOrder.findFirst({
+        where: { id: executed.result.id, notes: 'MCP provisional auto test' },
+      }),
+    ).toBeTruthy();
+  });
+
+  it('draft_workshop_order PROPOSE: the proposal is provisional, and approval commits an order with a different id', async () => {
+    await setPolicyTier('workshop_order.create', 'PROPOSE');
+    const draftVehicle = await createDraftVehicle('draft-provisional-propose');
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-draft-provisional-propose'),
+      'draft_workshop_order',
+      draftOrderArgs(draftVehicle, 16),
+      '00000000-0000-4000-8000-000000000219',
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      would_change: WouldChangeEntry[];
+      proposal: { provisional: boolean };
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+    expect(proposed.proposal.provisional).toBe(true);
+    const previewOrder = previewCreatedRow(
+      proposed.would_change,
+      'WorkshopOrder',
+    );
+    expect(previewOrder.provisional).toBe(true);
+
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const committed = await prismaA.workshopOrder.findFirst({
+      where: { vehicle_id: draftVehicle.vehicleId },
+      select: { id: true },
+    });
+    expect(committed).toBeTruthy();
+    expect(committed?.id).not.toBe(previewOrder.id);
+    expect(
+      await prismaA.workshopOrder.findFirst({ where: { id: previewOrder.id } }),
+    ).toBeNull();
+  });
+
+  it('reserve_part AUTO: the preview reservation id is provisional, and result.id is the committed reservation', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const line = await createReservableLine();
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-reserve-provisional-auto'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: line.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-000000000220',
+    );
+    const executed = parsePayload<{
+      status: string;
+      would_change: WouldChangeEntry[];
+      result: { id: string };
+    }>(result);
+    expect(executed.status).toBe('executed');
+
+    const previewReservation = previewCreatedRow(
+      executed.would_change,
+      'PartsReservation',
+    );
+    expect(previewReservation.provisional).toBe(true);
+    expect(
+      await prismaA.partsReservation.findFirst({
+        where: { id: previewReservation.id },
+      }),
+    ).toBeNull();
+    expect(executed.result.id).not.toBe(previewReservation.id);
+    expect(
+      await prismaA.partsReservation.findFirst({
+        where: { id: executed.result.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: 'OPEN' });
+  });
+
+  it('reserve_part PROPOSE: the proposal is provisional, and approval commits a reservation with a different id', async () => {
+    await setPolicyTier('inventory.part_reserve', 'PROPOSE');
+    const line = await createReservableLine();
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-reserve-provisional-propose'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: line.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-000000000221',
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      would_change: WouldChangeEntry[];
+      proposal: { provisional: boolean };
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+    expect(proposed.proposal.provisional).toBe(true);
+    const previewReservation = previewCreatedRow(
+      proposed.would_change,
+      'PartsReservation',
+    );
+    expect(previewReservation.provisional).toBe(true);
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const committed = await prismaA.partsReservation.findMany({
+      where: { workshop_task_line_item_id: line.id },
+      select: { id: true },
+    });
+    expect(committed).toHaveLength(1);
+    expect(committed[0].id).not.toBe(previewReservation.id);
+    expect(
+      await prismaA.partsReservation.findFirst({
+        where: { id: previewReservation.id },
+      }),
+    ).toBeNull();
+  });
+
+  it('reserve_part rejects a free-text PART line with NOT_A_CATALOG_LINE and reserves nothing', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const freeTextLine = await createPartLine(
+      prismaA,
+      fixtures.workshopTaskId,
+      {
+        item_no: 'FREE-TEXT-DEMO',
+        description: 'Free-text demo part',
+        unit_price: 2,
+      },
+    );
+    const stockBefore = await readStockAvailability(
+      'e2e-free-text-stock-before',
+      '00000000-0000-4000-8000-000000000220',
+    );
+
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-reserve-free-text-line'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: freeTextLine.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-000000000221',
+    );
+
+    expect(result.isError).toBe(true);
+    const text = toolPayloadText(result);
+    expect(text).toContain('NOT_A_CATALOG_LINE');
+    expect(text).toContain('catalog-backed part line');
+    expect(text).not.toMatch(/site/i);
+    expect(
+      await prismaA.partsReservation.count({
+        where: { workshop_task_line_item_id: freeTextLine.id },
+      }),
+    ).toBe(0);
+    expect(
+      await readStockAvailability(
+        'e2e-free-text-stock-after',
+        '00000000-0000-4000-8000-000000000222',
+      ),
+    ).toBe(stockBefore);
+    await expectActionLogRow(
+      '00000000-0000-4000-8000-000000000221',
+      'mcp.reserve_part',
+      { status: 'FAILED' },
+    );
+  });
+
+  it('reserve_part keeps the active-site error for catalog and free-text lines at another site', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const mainSite = await prismaA.site.findFirstOrThrow({
+      where: { id: fixtures.siteId },
+      select: { legal_entity_id: true },
+    });
+    const otherSite = await prismaA.site.create({
+      data: {
+        legal_entity_id: mainSite.legal_entity_id,
+        code: `MCP-RESERVE-OTHER-${Date.now()}`,
+        name: 'MCP reserve other site',
+        timezone: 'Europe/Vienna',
+        slot_minutes: 30,
+        holiday_country_iso: 'AT',
+      },
+    });
+    const otherSiteOrder = await createIntakeOrder(prismaA, {
+      label: 'MCP-RESERVE-OTHER',
+      siteId: otherSite.id,
+      customerId: fixtures.customerId,
+      vehicleId: fixtures.vehicleId,
+    });
+    const otherSiteTask = await createOpenTask(
+      'Other site reserve task',
+      otherSiteOrder.id,
+    );
+    const catalogLine = await createPartLine(prismaA, otherSiteTask.id, {
+      item_no: fixtures.sku,
+      description: 'Other site catalog line',
+      unit_price: 2,
+      catalog_item_id: fixtures.catalogItemId,
+    });
+    const freeTextLine = await createPartLine(prismaA, otherSiteTask.id, {
+      item_no: 'OTHER-SITE-FREE-TEXT',
+      description: 'Other site free-text line',
+      unit_price: 2,
+    });
+
+    const lines = [
+      { line: catalogLine, traceId: '00000000-0000-4000-8000-000000000223' },
+      { line: freeTextLine, traceId: '00000000-0000-4000-8000-000000000224' },
+    ];
+    for (const { line, traceId } of lines) {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-reserve-other-site-line'),
+        'reserve_part',
+        {
+          workshop_task_line_item_id: line.id,
+          quantity: 1,
+          location_id: fixtures.locationId,
+        },
+        traceId,
+      );
+
+      expect(result.isError).toBe(true);
+      const text = toolPayloadText(result);
+      expect(text).toContain(
+        'Workshop task line is not available in the active site.',
+      );
+      expect(text).not.toContain('NOT_A_CATALOG_LINE');
+      expect(
+        await prismaA.partsReservation.count({
+          where: { workshop_task_line_item_id: line.id },
+        }),
+      ).toBe(0);
+    }
+  });
+
   it('cross-tenant: tenant A token cannot use tenant B vehicle/line/reservation IDs', async () => {
     await setPolicyTier('inventory.part_reserve', 'AUTO');
     await setPolicyTier('inventory.part_release', 'AUTO');
@@ -2190,7 +2522,7 @@ describe('MCP server (e2e)', () => {
       const tools = new Map(
         (await client.listTools()).tools.map((tool) => [tool.name, tool]),
       );
-      await transport.close();
+      await endMcpSession(transport);
 
       for (const name of [
         'get_vehicle_stock_age_report',
