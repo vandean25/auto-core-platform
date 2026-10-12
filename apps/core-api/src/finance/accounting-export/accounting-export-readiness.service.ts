@@ -42,6 +42,8 @@ export type AccountingExportReadinessResponse =
     exportProfile: { configured: boolean; canGenerate: boolean };
   };
 
+type PeriodSettings = Awaited<ReturnType<typeof loadPeriodSettings>>;
+
 @Injectable()
 export class AccountingExportReadinessService {
   constructor(
@@ -63,32 +65,18 @@ export class AccountingExportReadinessService {
       this.tenantContext,
       tenantId,
     );
+    await assertLegalEntity(this.prisma, tenantId, query.legalEntityId);
 
-    const entity = await this.prisma.legalEntity.findFirst({
-      where: { id: query.legalEntityId, tenant_id: tenantId },
-      select: { id: true },
-    });
-    if (!entity) {
-      throw new NotFoundException('Legal entity not found');
-    }
-
-    const settings = await this.prisma.financeSettings.findFirst({
-      where: { tenant_id: tenantId },
-      select: { lock_date: true, fiscal_year_start_month: true },
-    });
-    const profile = await this.prisma.legalEntityAccountingProfile.findFirst({
-      where: { tenant_id: tenantId, legal_entity_id: query.legalEntityId },
-      select: {
-        fiscal_year_start_month: true,
-        profile_code: true,
-        is_enabled: true,
-      },
-    });
+    const settings = await loadPeriodSettings(
+      this.prisma,
+      tenantId,
+      query.legalEntityId,
+    );
     const { dateFrom, dateTo } = assertValidExportDateRange(
       query.dateFrom,
       query.dateTo,
-      profile?.fiscal_year_start_month ??
-        settings?.fiscal_year_start_month ??
+      settings.profile?.fiscal_year_start_month ??
+        settings.fiscal_year_start_month ??
         1,
     );
 
@@ -106,14 +94,11 @@ export class AccountingExportReadinessService {
       sites,
     );
 
-    const memberships = await this.prisma.siteMembership.findMany({
-      where: { tenant_id: tenantId, user_id: currentUser.id, is_active: true },
-      select: { site_id: true },
-    });
-    const authorizedSiteIds = new Set(
-      memberships.map((membership) => membership.site_id),
+    const authorizedSiteIds = await loadAuthorizedSiteIds(
+      this.prisma,
+      tenantId,
+      currentUser.id,
     );
-
     const [candidates, ownershipBlockers] = await Promise.all([
       loadAccountingExportCandidates(
         this.prisma,
@@ -131,7 +116,6 @@ export class AccountingExportReadinessService {
       ),
     ]);
 
-    const lockDate = settings?.lock_date ?? null;
     const view = buildAccountingExportReadiness({
       candidates,
       ownershipBlockers,
@@ -148,19 +132,88 @@ export class AccountingExportReadinessService {
       hrefFor: (kind, id) => DOCUMENT_PAGE_PATH[kind].replace(':id', id),
     });
 
-    return {
-      ...view,
+    return toReadinessResponse(view, {
       legalEntityId: query.legalEntityId,
-      dateFrom: dateFrom.toISOString().slice(0, 10),
-      dateTo: dateTo.toISOString().slice(0, 10),
-      periodClosed: isExportPeriodClosed(dateTo, lockDate),
-      lockDate: lockDate ? lockDate.toISOString() : null,
-      exportProfile: {
-        configured: Boolean(profile),
-        canGenerate: profile
-          ? exportProfileCanGenerate(profile.profile_code, profile.is_enabled)
-          : false,
-      },
-    };
+      dateFrom,
+      dateTo,
+      settings,
+    });
   }
+}
+
+async function assertLegalEntity(
+  prisma: PrismaService,
+  tenantId: string,
+  legalEntityId: string,
+): Promise<void> {
+  const entity = await prisma.legalEntity.findFirst({
+    where: { id: legalEntityId, tenant_id: tenantId },
+    select: { id: true },
+  });
+  if (!entity) {
+    throw new NotFoundException('Legal entity not found');
+  }
+}
+
+async function loadPeriodSettings(
+  prisma: PrismaService,
+  tenantId: string,
+  legalEntityId: string,
+) {
+  const settings = await prisma.financeSettings.findFirst({
+    where: { tenant_id: tenantId },
+    select: { lock_date: true, fiscal_year_start_month: true },
+  });
+  const profile = await prisma.legalEntityAccountingProfile.findFirst({
+    where: { tenant_id: tenantId, legal_entity_id: legalEntityId },
+    select: {
+      fiscal_year_start_month: true,
+      profile_code: true,
+      is_enabled: true,
+    },
+  });
+  return {
+    lock_date: settings?.lock_date ?? null,
+    fiscal_year_start_month: settings?.fiscal_year_start_month,
+    profile,
+  };
+}
+
+async function loadAuthorizedSiteIds(
+  prisma: PrismaService,
+  tenantId: string,
+  userId: string,
+): Promise<Set<string>> {
+  const memberships = await prisma.siteMembership.findMany({
+    where: { tenant_id: tenantId, user_id: userId, is_active: true },
+    select: { site_id: true },
+  });
+  return new Set(memberships.map((membership) => membership.site_id));
+}
+
+function toReadinessResponse(
+  view: AccountingExportReadinessView,
+  period: {
+    legalEntityId: string;
+    dateFrom: Date;
+    dateTo: Date;
+    settings: PeriodSettings;
+  },
+): AccountingExportReadinessResponse {
+  const { lock_date: lockDate, profile } = period.settings;
+
+  return {
+    ...view,
+    legalEntityId: period.legalEntityId,
+    dateFrom: period.dateFrom.toISOString().slice(0, 10),
+    dateTo: period.dateTo.toISOString().slice(0, 10),
+    periodClosed: isExportPeriodClosed(period.dateTo, lockDate),
+    lockDate: lockDate ? lockDate.toISOString() : null,
+    exportProfile: {
+      configured: Boolean(profile),
+      canGenerate: profile
+        ? exportProfileCanGenerate(profile.profile_code, profile.is_enabled)
+        : false,
+    },
+  };
 }

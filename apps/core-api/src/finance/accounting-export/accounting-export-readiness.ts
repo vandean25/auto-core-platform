@@ -113,12 +113,6 @@ export function buildAccountingExportReadiness(
   const documents = input.candidates.map((candidate) =>
     toReadinessDocument(candidate, sitesById, input.hrefFor),
   );
-  const codesByDocumentId = new Map(
-    documents.map((document) => [
-      document.id,
-      new Set(document.blockers.map((blocker) => blocker.code)),
-    ]),
-  );
   const filtered = sortDocuments(
     documents.filter((document) => matchesFilters(document, input.filters)),
     input.sortField,
@@ -128,15 +122,10 @@ export function buildAccountingExportReadiness(
 
   return {
     summary: summarize(documents),
-    // An ownership blocker is not repeated when the document's own row already
-    // carries that code. A cancelled document returns before the ownership check,
-    // so its row does not carry the code and the notice stays, as preview shows it.
-    // Redacted blockers carry no document id and always stay tenant-wide.
-    tenantWideBlockers: input.ownershipBlockers.filter(
-      (blocker) =>
-        !blocker.documentId ||
-        !codesByDocumentId.get(blocker.documentId)?.has(blocker.code),
-    ),
+    // Ownership notices are shown as the loader returns them, as export preview
+    // shows them. A site-less document of this legal entity is redacted, so its
+    // notice names no document and can repeat its row; that matches preview.
+    tenantWideBlockers: input.ownershipBlockers,
     data: filtered.slice(start, start + input.limit),
     meta: {
       total: filtered.length,

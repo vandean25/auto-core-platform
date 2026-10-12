@@ -236,8 +236,8 @@ export default function AccountingExportReadinessPage() {
               : queryParams.sortDirection === 'asc'
                 ? 'asc'
                 : undefined,
-          page: Math.max(1, queryParams.page),
-          limit: Math.min(queryParams.pageSize, MAX_PAGE_SIZE),
+          page: Math.max(1, Math.trunc(queryParams.page)),
+          limit: Math.min(Math.max(1, Math.trunc(queryParams.pageSize)), MAX_PAGE_SIZE),
         }
       : null,
   )

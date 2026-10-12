@@ -274,35 +274,19 @@ describe('buildAccountingExportReadiness', () => {
     ]);
   });
 
-  it('drops an ownership blocker only when the listed row already carries the same code', () => {
-    const view = build(
-      [
-        candidate('inv-no-site', {
-          blockers: [blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-no-site')],
-        }),
-        // A cancelled document returns before the ownership check, so its row
-        // has no MISSING_OWNERSHIP_EVIDENCE and the notice must stay visible.
-        candidate('inv-cancelled', {
-          blockers: [blocker('CANCELLED_DOCUMENT', 'inv-cancelled')],
-        }),
-      ],
+  it('keeps every ownership blocker as the loader returns it, redacted or not', () => {
+    const ownershipBlockers: AccountingExportBlocker[] = [
+      blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-not-listed'),
       {
-        ownershipBlockers: [
-          blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-no-site'),
-          blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-cancelled'),
-          blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-not-listed'),
-          {
-            code: 'MISSING_OWNERSHIP_EVIDENCE',
-            message:
-              'A document in the selected period has incomplete ownership evidence.',
-          },
-        ],
+        code: 'MISSING_OWNERSHIP_EVIDENCE',
+        message:
+          'A document in the selected period has incomplete ownership evidence.',
       },
-    );
+    ];
 
-    expect(
-      view.tenantWideBlockers.map((blocker) => blocker.documentId ?? 'redacted'),
-    ).toEqual(['inv-cancelled', 'inv-not-listed', 'redacted']);
+    const view = build(mixedPeriod(), { ownershipBlockers });
+
+    expect(view.tenantWideBlockers).toEqual(ownershipBlockers);
   });
 
   it('links each listed document to its in-app page and resolves its site', () => {

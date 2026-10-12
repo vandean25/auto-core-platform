@@ -226,6 +226,14 @@ describe('AccountingExportReadinessPage', () => {
     )
   })
 
+  it('reads a fractional page or page size as a whole number', () => {
+    renderPage(`${APP_ROUTE_PATHS.accountingExportReadiness}?page=2.5&pageSize=10.5`)
+
+    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2, limit: 10 }),
+    )
+  })
+
   it('warns when the legal entity has no export profile that can generate', () => {
     mockReadiness({
       data: { ...readinessResponse, exportProfile: { configured: false, canGenerate: false } },
