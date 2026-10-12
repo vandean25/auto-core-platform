@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { PlaywrightBrowserService } from '../src/common/services/playwright-browser.service.js';
+import { toRenderableCreditNoteSnapshot } from '../src/credit-notes/credit-note-snapshot-render.adapter.js';
 import { InvoicePdfRenderer } from '../src/invoices/invoice-pdf.renderer.js';
 import type { InvoiceSnapshot } from '../src/invoices/invoice-snapshot.js';
 import {
@@ -11,6 +11,11 @@ import {
   createTransparentLogoPng,
   type VisualFixture,
 } from '../scripts/document-branding-visual-fixtures.js';
+import {
+  lettersAndDigits,
+  normalizePdfText,
+  readPdfText,
+} from './pdf-text-test-utils.js';
 
 const LONG_INVOICE_ITEM_COUNT = 100;
 const LONG_COURT_TEXT = `Handelsgericht Wien ${'mit ergänzenden Firmenbuchangaben '.repeat(8)}`;
@@ -34,6 +39,7 @@ type VisualArtifactEntry = {
   fixture_id: string;
   country: VisualFixture['country'];
   tax_profile: VisualFixture['taxProfile'];
+  document_kind: NonNullable<VisualFixture['documentKind']>;
   header_band: VisualFixture['headerBand'];
   footer_band: VisualFixture['footerBand'];
   logo_dimensions: VisualFixture['logo'];
@@ -58,6 +64,13 @@ type VisualArtifactManifest = {
 
 function invoiceNumberFor(fixture: VisualFixture): string {
   return `RE-${fixture.country}-${fixture.id.toUpperCase()}`;
+}
+
+function documentNumberFor(fixture: VisualFixture): string {
+  if (fixture.documentKind === 'CREDIT_NOTE') {
+    return `CN-${fixture.country}-${fixture.id.toUpperCase()}`;
+  }
+  return invoiceNumberFor(fixture);
 }
 
 function createSnapshot(fixture: VisualFixture): InvoiceSnapshot {
@@ -194,21 +207,40 @@ function createSnapshot(fixture: VisualFixture): InvoiceSnapshot {
   };
 }
 
-async function readPdfText(pdfBytes: Buffer) {
-  const loadingTask = getDocument({ data: new Uint8Array(pdfBytes) });
-  const document = await loadingTask.promise;
-  const pageCount = document.numPages;
-  const pages = await Promise.all(
-    Array.from({ length: pageCount }, async (_, index) => {
-      const page = await document.getPage(index + 1);
-      const content = await page.getTextContent();
-      return content.items
-        .flatMap((item) => ('str' in item ? [item.str] : []))
-        .join(' ');
-    }),
+/**
+ * Full-document Stornorechnung of the fixture invoice, mapped through the same adapter the credit-note
+ * PDF path uses. Credit notes are unbranded, so the fixture branding is not carried over.
+ */
+function createCreditNoteRenderable(fixture: VisualFixture): InvoiceSnapshot {
+  const original = createSnapshot({ ...fixture, documentKind: 'INVOICE' });
+  const creditNote = toRenderableCreditNoteSnapshot(
+    {
+      ...original,
+      date: '2026-10-12',
+      due_date: '2026-10-12',
+      document_kind: 'CREDIT_NOTE',
+      credit_title: 'Stornorechnung',
+      original_document: {
+        id: 'invoice-RE-2026-0099',
+        number: 'RE-2026-0099',
+        date: '2026-09-20',
+        reason: 'Visual fixture full credit',
+        snapshot_version: 2,
+      },
+      items: original.items.map((item) => ({
+        ...item,
+        net: item.line_total,
+        tax: '0.00',
+        gross: item.line_total,
+      })),
+    },
+    documentNumberFor(fixture),
+    `credit-${fixture.id}`,
   );
-  await loadingTask.destroy();
-  return { pageCount, text: pages.join(' ') };
+  if (!creditNote) {
+    throw new Error('Expected a renderable credit note snapshot.');
+  }
+  return creditNote;
 }
 
 describe('branded invoice render fixtures (e2e)', () => {
@@ -297,7 +329,10 @@ describe('branded invoice render fixtures (e2e)', () => {
 
   it.each(FIXTURES)('$id preserves protected content and exact totals', async (fixture) => {
     externalRequests.length = 0;
-    const snapshot = createSnapshot(fixture);
+    const snapshot =
+      fixture.documentKind === 'CREDIT_NOTE'
+        ? createCreditNoteRenderable(fixture)
+        : createSnapshot(fixture);
     const logoPng = fixture.logo
       ? await createTransparentLogoPng(fixture.logo)
       : undefined;
@@ -306,15 +341,16 @@ describe('branded invoice render fixtures (e2e)', () => {
     }
 
     const pdfBytes = await renderer.render(snapshot, logoPng ? { logoPng } : undefined);
-    const invoiceNumber = invoiceNumberFor(fixture);
+    const documentNumber = documentNumberFor(fixture);
     const artifactPath = join(artifactDirectory, `${fixture.id}.pdf`);
     await writeFile(artifactPath, pdfBytes);
     const { pageCount, text: extractedText } = await readPdfText(pdfBytes);
-    const normalizedText = extractedText.replace(/\s+/g, ' ').trim();
+    const normalizedText = normalizePdfText(extractedText);
     manifest.fixtures.push({
       fixture_id: fixture.id,
       country: fixture.country,
       tax_profile: fixture.taxProfile,
+      document_kind: fixture.documentKind ?? 'INVOICE',
       header_band: fixture.headerBand,
       footer_band: fixture.footerBand,
       logo_dimensions: fixture.logo,
@@ -326,38 +362,58 @@ describe('branded invoice render fixtures (e2e)', () => {
       `${JSON.stringify(manifest, null, 2)}\n`,
     );
 
-    expect(normalizedText).toContain('Werkstatt GmbH');
-    expect(normalizedText).toContain('Kunden AG');
-    expect(normalizedText).toContain(invoiceNumber);
-    expect(normalizedText).toContain('Zahlbar innerhalb von 14 Tagen ohne Abzug.');
-    expect(normalizedText).toContain('Hauptstraße 1');
-    expect(normalizedText).toContain(
-      fixture.country === 'AT' ? 'UID: ATU12345678' : 'USt-IdNr.: DE123456789',
-    );
-    expect(normalizedText).toContain('IBAN: DE89370400440532013000');
-    expect(normalizedText).toContain('Fixture line 001');
-    expect(normalizedText).toContain(
-      `Fixture line ${String(fixture.itemCount).padStart(3, '0')}`,
-    );
+    // The unbranded Stornorechnung text layer (Inter Type 3 fonts) loses some punctuation in pdf.js,
+    // e.g. the hyphens of its number and the colons of its labels, so credit notes compare letters
+    // and digits only. Invoices keep exact matching.
+    const comparable = (value: string) =>
+      fixture.documentKind === 'CREDIT_NOTE' ? lettersAndDigits(value) : value;
+    const expectText = (expected: string) =>
+      expect(comparable(normalizedText)).toContain(comparable(expected));
+    const expectNoText = (unexpected: string) =>
+      expect(comparable(normalizedText)).not.toContain(comparable(unexpected));
+
+    expectText('Werkstatt GmbH');
+    expectText('Kunden AG');
+    expectText(documentNumber);
+    if (fixture.documentKind === 'CREDIT_NOTE') {
+      // Credit notes do not repeat the payment terms of the original invoice.
+      expectNoText('Zahlungsbedingungen:');
+    } else {
+      expectText('Zahlbar innerhalb von 14 Tagen ohne Abzug.');
+    }
+    expectText('Hauptstraße 1');
+    expectText(fixture.country === 'AT' ? 'UID: ATU12345678' : 'USt-IdNr.: DE123456789');
+    expectText('IBAN: DE89370400440532013000');
+    expectText('Fixture line 001');
+    expectText(`Fixture line ${String(fixture.itemCount).padStart(3, '0')}`);
     if (fixture.longLegalFields) {
-      expect(normalizedText).toContain(LONG_COURT_TEXT);
-      expect(normalizedText).toContain(LONG_REPRESENTATIVE_TEXT);
+      expectText(LONG_COURT_TEXT);
+      expectText(LONG_REPRESENTATIVE_TEXT);
     }
     if (fixture.decorativeTextLength === 120) {
-      expect(normalizedText).toContain(LONG_HEADER_VISIBLE_PREFIX);
-      expect(normalizedText).toContain(LONG_FOOTER_VISIBLE_PREFIX);
-      expect(normalizedText).toContain('…');
+      expectText(LONG_HEADER_VISIBLE_PREFIX);
+      expectText(LONG_FOOTER_VISIBLE_PREFIX);
+      expectText('…');
+    }
+
+    if (fixture.documentKind === 'CREDIT_NOTE') {
+      expectText('Stornorechnung');
     }
 
     if (fixture.taxProfile === 'margin') {
-      expect(normalizedText).toContain(MARGIN_SCHEME_DE_NOTE);
-      expect(normalizedText).not.toContain(MARGIN_SCHEME_AT_NOTE);
-      expect(normalizedText).toContain(`Brutto: ${snapshot.total_gross}`);
-      expect(normalizedText).not.toContain('Umsatzsteuer:');
+      const [expectedNote, otherNote] =
+        fixture.country === 'AT'
+          ? [MARGIN_SCHEME_AT_NOTE, MARGIN_SCHEME_DE_NOTE]
+          : [MARGIN_SCHEME_DE_NOTE, MARGIN_SCHEME_AT_NOTE];
+      expectText(expectedNote);
+      expectNoText(otherNote);
+      expectText(`Brutto: ${snapshot.total_gross}`);
+      expectNoText('Umsatzsteuer:');
+      expectNoText('Netto:');
     } else {
-      expect(normalizedText).toContain(`Netto: ${snapshot.total_net}`);
-      expect(normalizedText).toContain(`Umsatzsteuer: ${snapshot.total_tax}`);
-      expect(normalizedText).toContain(`Brutto: ${snapshot.total_gross}`);
+      expectText(`Netto: ${snapshot.total_net}`);
+      expectText(`Umsatzsteuer: ${snapshot.total_tax}`);
+      expectText(`Brutto: ${snapshot.total_gross}`);
     }
 
     if (fixture.itemCount === LONG_INVOICE_ITEM_COUNT) {

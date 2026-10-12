@@ -9,6 +9,8 @@ export type VisualFixture = {
   id: string;
   country: 'AT' | 'DE';
   taxProfile: 'standard' | 'margin';
+  /** Defaults to an invoice; credit notes render as full-document Stornorechnungen (ADR-0023). */
+  documentKind?: 'INVOICE' | 'CREDIT_NOTE';
   itemCount: number;
   branded: boolean;
   headerBand: 'none' | 'primary' | 'secondary';
@@ -91,6 +93,47 @@ export function createDocumentBrandingVisualFixtures(): VisualFixture[] {
       longLegalFields: true,
       bandMatrixCase: false,
       logo: { width: 360, height: 120 },
+    },
+    {
+      id: 'at-margin-square-logo',
+      country: 'AT',
+      taxProfile: 'margin',
+      itemCount: 1,
+      branded: true,
+      headerBand: 'primary',
+      footerBand: 'secondary',
+      decorativeTextLength: 0,
+      longLegalFields: false,
+      bandMatrixCase: false,
+      logo: { width: 160, height: 160 },
+    },
+    {
+      id: 'at-margin-credit-note',
+      country: 'AT',
+      taxProfile: 'margin',
+      documentKind: 'CREDIT_NOTE',
+      itemCount: 1,
+      branded: false,
+      headerBand: 'none',
+      footerBand: 'none',
+      decorativeTextLength: 0,
+      longLegalFields: false,
+      bandMatrixCase: false,
+      logo: null,
+    },
+    {
+      id: 'de-margin-credit-note',
+      country: 'DE',
+      taxProfile: 'margin',
+      documentKind: 'CREDIT_NOTE',
+      itemCount: 1,
+      branded: false,
+      headerBand: 'none',
+      footerBand: 'none',
+      decorativeTextLength: 0,
+      longLegalFields: false,
+      bandMatrixCase: false,
+      logo: null,
     },
   ];
 

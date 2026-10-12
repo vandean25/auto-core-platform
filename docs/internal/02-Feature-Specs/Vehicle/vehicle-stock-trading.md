@@ -339,7 +339,7 @@ Same operational states as customer repair through `COMPLETED`. **`COMPLETED` is
 
 Existing `/vehicles` list stays the CRM/service registry. Stock cars may show a badge there; operational work happens on `/vehicle-stock`.
 
-Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the country-specific margin-scheme legal line (DE: `Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.`; AT unchanged: `Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).`). Do not imply the buyer can deduct input VAT on the full price.
+Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the margin-scheme legal line for the seller country frozen in the invoice snapshot (`seller.country_iso`): DE `Gebrauchtgegenstände/Sonderregelung – Differenzbesteuerung gemäß § 25a UStG.`; AT `Differenzbesteuerung gemäß § 24 UStG 1994 (Gebrauchtgegenstände).` (AUT-358 constants in `margin-scheme-legal-notes.ts`). The margin PDF shows only the gross total: no net, no VAT line, no cost basis and no margin VAT amount. Do not imply the buyer can deduct input VAT on the full price. See [Margin legal wording and snapshot profile](#margin-legal-wording-and-snapshot-profile-aut-349).
 
 ---
 
@@ -357,16 +357,19 @@ Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the country-specific margin-
 - [ ] Margin zero or negative cost>price → `total_tax = 0`.
 - [ ] Cross-tenant vehicle id → 404.
 - [ ] Receive/finalize against `lock_date` → 400.
+- [x] AT dealer sale (AUT-349): invoice PDF carries the AT wording and no VAT amount; the full Stornorechnung snapshot has the AT seller, `CREDIT_NOTE` title and no VAT buckets.
 - [ ] A API rejects creating `NEW`/`DEMO`/`TRADE_IN`/`STANDARD` if those fields are exposed.
 
 ### Unit
 
 - [ ] `marginVatGross` table: sale 12000, cost 10000, 20% → VAT = 20000/120 = 333.33 (document expected rounding).
 - [ ] `costBasis` ignores `SALE` rows.
+- [x] Margin country profile selection (AT, DE; other countries fail closed) and the Stornorechnung wording chain for AT and DE (AUT-349).
 
 ### Frontend
 
 - [ ] Visual QA stock list, purchase, sale margin preview, PDF legal text.
+- [ ] Visual approval of the AT and DE margin invoice and Stornorechnung fixtures (AUT-349; manifest `PENDING`, accountant gate in the section below).
 
 ---
 
@@ -433,3 +436,25 @@ A draft vehicle sale can take the buyer's car in part-payment. The allowance red
 - **Credit notes:** vehicle sale invoices with a negative line are refused with `NEGATIVE_LINE_CREDIT_UNSUPPORTED`. Other invoices are unchanged. The credit engine would otherwise drop the trade-in line from a full credit and over-refund the buyer. Supporting credits needs the credit engine to reverse negative lines, plus an accountant decision (follow-up).
 - **Open for the accountant:** confirm that margin VAT is computed on the full sale price (trade-in value included), that net plus tax is not expected to equal the billed amount on trade-in invoices, and that the UID threshold applies to the consideration before the trade-in credit.
 - **Out of scope here:** receive-side changes for trade-in vehicles, Eurotax/Schwacke valuation, Kaufvertrag PDF changes (AUT-442), and NoVA (AUT-405).
+
+## Margin legal wording and snapshot profile (AUT-349)
+
+Decisions for the margin-scheme (`MARGIN_SCHEME`) document path under [ADR-0023](../../01-ADR/2026-09-20-legal-invoicing-and-accounting-export.md). Built without waiting for accountant approval; the approval gate is recorded below and in the ADR-0023 deferral log.
+
+- **Snapshot sufficiency: no new field, no snapshot version change, no migration.** The committed v2 snapshot already freezes the data that selects the wording and identifies the profile:
+
+  | Frozen field | Margin invoice value | Used for |
+  |---|---|---|
+  | `seller.country_iso` | `AT` or `DE`, as committed | Selects the AUT-358 wording on the invoice, the Stornorechnung and the on-screen note |
+  | `country_profile_version` | `legal-invoicing-v1` | Country profile version of the document |
+  | `items[].accounting_allocation.profileCode` / `profileVersion` / `countryIso` | `ACP-RZL-AT-EUR-1` or `ACP-DATEV-DE-EUR-1`, with version | Accounting profile identity per line; export stays with AUT-350 and AUT-369 |
+  | `margin.calculation_profile` | `vehicle-margin-v1` | Margin calculation version; `cost_basis`, `margin_tax` and `tax_rate` are internal |
+  | `tax_mode` | `MARGIN_SCHEME` | Selects the margin rendering path |
+
+  Snapshots are hashed and never edited, so existing documents keep their content. The wording text is not frozen per document: it resolves from code constants at render time. Any AT or DE wording change therefore needs a new country profile version and a version-keyed resolver first (ADR-0023 deferral log).
+- **Wording follows the seller country.** AT seller → AT wording; DE seller → DE wording. Any other country is refused when the snapshot is built (`MARGIN_SCHEME_SELLER_COUNTRY_UNSUPPORTED`), and the note helper fails closed. The wording comes from the committed snapshot, not from the live legal entity.
+- **No margin amount is shown as deductible VAT.** Margin invoices and Stornorechnungen show the gross total and the legal line only: no net, no VAT line, no cost basis, no margin VAT. Stored VAT buckets are empty (`tax_breakdown: []`, `total_tax: 0.00`). A margin Stornorechnung previously stored a 20% bucket with zero tax; it now mirrors the original snapshot.
+- **Stornorechnung is full-document only (ADR-0023).** It copies the original's seller, `tax_mode`, `margin` block and wording, and carries the title `Stornorechnung`. Partial margin credits are refused (LI-11 in `legal-invoicing-credit-notes.e2e-spec.ts`).
+- **Visual fixtures.** `apps/core-api/scripts/document-branding-visual-fixtures.ts` adds `at-margin-square-logo` (AT margin invoice, branded), `at-margin-credit-note` and `de-margin-credit-note` (unbranded Stornorechnungen). The render suite asserts the country's note, the absence of the other country's note and the absence of VAT lines, and writes the artifacts with an approval manifest that stays `PENDING`.
+- **Accountant gate (ADR-0023).** AT and DE margin wording and fixtures still need accountant approval before the margin profile is activated for production. Recording the reviewer, date and evidence in the manifest is the gate; nothing in the code waits for it.
+- **E2E.** `vehicle-stock.e2e-spec.ts` runs an AT dealer sale through finalize, renders the invoice with the real renderer, asserts the AT note and the absence of VAT amounts, issues a full Stornorechnung and asserts its snapshot.
