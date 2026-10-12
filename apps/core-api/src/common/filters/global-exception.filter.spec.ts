@@ -1,5 +1,6 @@
 import {
   ArgumentsHost,
+  ConflictException,
   HttpException,
   HttpStatus,
   ServiceUnavailableException,
@@ -157,18 +158,26 @@ describe('GlobalExceptionFilter', () => {
       process.env.NODE_ENV = originalNodeEnv;
     });
 
-    it('masks unexpected 5xx responses in production', () => {
+    it('masks unexpected 5xx responses in production and names the request id', () => {
       process.env.NODE_ENV = 'production';
       const exception = new HttpException(
         'Database connection lost',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-      filter.catch(exception, mockHost);
+      TenantContextStorage.run(() => {
+        TenantContextStorage.setRequestMeta({
+          requestId: 'req-masked-1',
+          traceId: '00000000-0000-4000-8000-000000000004',
+          source: 'API',
+        });
+        filter.catch(exception, mockHost);
+      });
 
       expect(mockJson).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
-          message: 'Internal server error',
+          message: 'Something went wrong (ref: req-masked-1)',
+          requestId: 'req-masked-1',
         }),
       );
       expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
@@ -188,7 +197,7 @@ describe('GlobalExceptionFilter', () => {
       expect(mockJson).toHaveBeenCalledWith(
         expect.objectContaining({
           statusCode: 500,
-          message: 'Internal server error',
+          message: 'Something went wrong',
         }),
       );
       expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
@@ -231,6 +240,71 @@ describe('GlobalExceptionFilter', () => {
         message: 'Seller identity is incomplete.',
       }),
     );
+    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
+  });
+
+  it('adds the request id to 5xx bodies so the user can quote it', () => {
+    TenantContextStorage.run(() => {
+      TenantContextStorage.setRequestMeta({
+        requestId: 'req-5xx-1',
+        traceId: '00000000-0000-4000-8000-000000000002',
+        source: 'API',
+      });
+      filter.catch(new Error('Unexpected failure'), mockHost);
+    });
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({ statusCode: 500, requestId: 'req-5xx-1' }),
+    );
+  });
+
+  it('leaves the request id out of 4xx bodies', () => {
+    TenantContextStorage.run(() => {
+      TenantContextStorage.setRequestMeta({
+        requestId: 'req-4xx-1',
+        traceId: '00000000-0000-4000-8000-000000000003',
+        source: 'API',
+      });
+      filter.catch(new ConflictException('Plain conflict'), mockHost);
+    });
+
+    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('requestId');
+  });
+
+  it('forwards the order id and number for an active-order conflict', () => {
+    filter.catch(
+      new ConflictException({
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        message: 'Vehicle already has active order WO-2026-0007',
+        orderId: 'wo-live',
+        orderNumber: 'WO-2026-0007',
+      }),
+      mockHost,
+    );
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.CONFLICT);
+    expect(mockJson).toHaveBeenCalledWith({
+      statusCode: 409,
+      message: 'Vehicle already has active order WO-2026-0007',
+      error: 'Conflict',
+      code: 'VEHICLE_HAS_ACTIVE_ORDER',
+      orderId: 'wo-live',
+      orderNumber: 'WO-2026-0007',
+    });
+  });
+
+  it('does not forward order fields for codes outside the allowlist', () => {
+    filter.catch(
+      new ConflictException({
+        code: 'SOMETHING_ELSE',
+        message: 'Conflict',
+        orderId: 'wo-live',
+      }),
+      mockHost,
+    );
+
+    expect(mockJson.mock.calls[0][0]).not.toHaveProperty('orderId');
     expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');
   });
 });

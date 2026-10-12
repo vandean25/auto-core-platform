@@ -544,15 +544,21 @@ describe('WorkshopIntakeService', () => {
       order_number: 'WO-2026-0007',
     });
 
-    await expect(
-      service.create({
+    const error = await service
+      .create({
         customerId: 'c-1',
         vehicleId: 'v-1',
         odometer: 10000,
         fuelLevel: 50,
-      }),
-    ).rejects.toMatchObject({
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).getResponse()).toEqual({
+      code: 'VEHICLE_HAS_ACTIVE_ORDER',
       message: 'Vehicle already has active order WO-2026-0007',
+      orderId: 'wo-live',
+      orderNumber: 'WO-2026-0007',
     });
     expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
   });
@@ -572,15 +578,21 @@ describe('WorkshopIntakeService', () => {
       order_number: 'WO-2026-0042',
     });
 
-    await expect(
-      service.create({
+    const error = await service
+      .create({
         customerId: 'c-1',
         vehicleId: 'v-1',
         odometer: 12000,
         fuelLevel: 60,
-      }),
-    ).rejects.toMatchObject({
+      })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect((error as ConflictException).getResponse()).toEqual({
+      code: 'VEHICLE_HAS_ACTIVE_ORDER',
       message: 'Vehicle already has active order WO-2026-0042',
+      orderId: 'wo-scheduled',
+      orderNumber: 'WO-2026-0042',
     });
     expect(mockPrisma.workshopOrder.create).not.toHaveBeenCalled();
   });

@@ -17,7 +17,10 @@ import {
   BadRequestError,
   ValidationError,
 } from '../errors/application-errors.js';
-import { isClientSafeOperationalHttpError } from '../errors/client-safe-http-error-codes.js';
+import {
+  isClientSafeOperationalHttpError,
+  pickClientSafeHttpErrorDetails,
+} from '../errors/client-safe-http-error-codes.js';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -29,6 +32,7 @@ type ResolvedError = {
   message: string | string[];
   error?: string;
   code?: string;
+  details?: Record<string, string>;
 };
 
 type ErrorRequestContext = {
@@ -64,7 +68,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message: resolved.message,
       error: resolved.error || this.getHttpStatusName(resolved.status),
       ...(resolved.code ? { code: resolved.code } : {}),
+      ...(resolved.details ?? {}),
       ...(eventId ? { eventId } : {}),
+      // The x-request-id the request was logged under, so a user can quote it to support.
+      ...(resolved.status >= 500 && context.requestId
+        ? { requestId: context.requestId }
+        : {}),
     });
   }
 
@@ -131,7 +140,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         this.logger.warn(JSON.stringify(logPayload));
       } else {
         this.logger.error(JSON.stringify(logPayload), exception.stack);
-        message = 'Internal server error';
+        message = this.serverErrorMessage(context.requestId);
         code = undefined;
       }
     }
@@ -140,7 +149,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       code = undefined;
     }
 
-    return { status, message, error, code };
+    const details =
+      isRecord(responseBody) && clientSafeOperational
+        ? pickClientSafeHttpErrorDetails(responseBody)
+        : {};
+
+    return { status, message, error, code, details };
   }
 
   private handlePrismaError(
@@ -219,7 +233,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     const message =
       process.env.NODE_ENV === 'production'
-        ? 'Internal server error'
+        ? this.serverErrorMessage(context.requestId)
         : exception.message;
     return { status: HttpStatus.INTERNAL_SERVER_ERROR, message };
   }
@@ -238,8 +252,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     this.logger.error(JSON.stringify(logPayload));
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
-      message: 'Internal server error',
+      message: this.serverErrorMessage(context.requestId),
     };
+  }
+
+  /** The message for a masked 5xx. It names the request id so the user can quote it to support. */
+  private serverErrorMessage(requestId?: string): string {
+    return requestId
+      ? `Something went wrong (ref: ${requestId})`
+      : 'Something went wrong';
   }
 
   private captureSentryIfInternal(

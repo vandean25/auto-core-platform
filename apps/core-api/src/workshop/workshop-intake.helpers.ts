@@ -149,6 +149,22 @@ export function validateCreateOrderInput(
   }
 }
 
+/**
+ * 409 for a vehicle that already has a live order. The body names the order so the intake dialog can link to it;
+ * the global filter forwards `orderId` and `orderNumber` for this code only.
+ */
+export function vehicleHasActiveOrderConflict(order: {
+  id: string;
+  order_number: string;
+}): ConflictException {
+  return new ConflictException({
+    code: 'VEHICLE_HAS_ACTIVE_ORDER',
+    message: `Vehicle already has active order ${order.order_number}`,
+    orderId: order.id,
+    orderNumber: order.order_number,
+  });
+}
+
 export async function assertNoLiveOrderForVehicle(
   tx: Prisma.TransactionClient,
   tenantId: string,
@@ -157,9 +173,7 @@ export async function assertNoLiveOrderForVehicle(
 ): Promise<void> {
   const live = await findLiveOrderForVehicle(tx, tenantId, siteId, vehicleId);
   if (live) {
-    throw new ConflictException(
-      `Vehicle already has active order ${live.order_number}`,
-    );
+    throw vehicleHasActiveOrderConflict(live);
   }
 }
 
@@ -210,9 +224,7 @@ export async function tryPromoteScheduledOrder(
       dto.vehicleId,
     );
     if (live) {
-      throw new ConflictException(
-        `Vehicle already has active order ${live.order_number}`,
-      );
+      throw vehicleHasActiveOrderConflict(live);
     }
     return null;
   }

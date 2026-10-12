@@ -16,6 +16,7 @@ import type {
   WorkshopTaskStatus,
 } from './types'
 import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
+import type { ApiErrorBody } from '@/lib/error-utils'
 import { buildDataTableUrl } from './data-table-query'
 import { laborKeys } from './labor'
 import {
@@ -41,6 +42,7 @@ export interface WorkshopTaskChecklist {
 
 type WorkshopApiError = Error & {
   status?: number
+  data?: ApiErrorBody
 }
 
 export const workshopKeys = {
@@ -426,9 +428,10 @@ function comparePickListOrders(
 }
 
 async function parseErrorResponse(response: Response, fallbackMessage: string): Promise<WorkshopApiError> {
-  const payload = await response.json().catch(() => ({})) as { message?: string }
+  const payload = await response.json().catch(() => ({})) as ApiErrorBody & { message?: string }
   const error = new Error(payload.message || fallbackMessage) as WorkshopApiError
   error.status = response.status
+  error.data = payload
   return error
 }
 

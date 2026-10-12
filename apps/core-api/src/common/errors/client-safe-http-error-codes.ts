@@ -23,11 +23,39 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'WARRANTY_CLAIM_LINE_ALREADY_CLAIMED',
   'WARRANTY_CLAIM_STATE_CHANGED',
   'NOT_A_CATALOG_LINE',
+  // A 409 the workshop intake dialog turns into an "Open <order>" link. The filter drops `code` without this entry.
+  'VEHICLE_HAS_ACTIVE_ORDER',
 ]);
+
+/**
+ * Body fields, beyond `code` and `message`, that the global filter forwards for a client-safe code. Only IDs and
+ * order numbers belong here, and a field is forwarded only when its value is a string.
+ */
+export const CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS: Partial<
+  Record<string, readonly string[]>
+> = {
+  VEHICLE_HAS_ACTIVE_ORDER: ['orderId', 'orderNumber'],
+};
 
 export function isClientSafeOperationalHttpError(
   responseBody: Record<string, unknown>,
 ): boolean {
   const code = responseBody.code;
   return typeof code === 'string' && CLIENT_SAFE_HTTP_ERROR_CODES.has(code);
+}
+
+export function pickClientSafeHttpErrorDetails(
+  responseBody: Record<string, unknown>,
+): Record<string, string> {
+  const code = responseBody.code;
+  if (typeof code !== 'string' || !CLIENT_SAFE_HTTP_ERROR_CODES.has(code)) {
+    return {};
+  }
+
+  const details: Record<string, string> = {};
+  for (const key of CLIENT_SAFE_HTTP_ERROR_DETAIL_KEYS[code] ?? []) {
+    const value = responseBody[key];
+    if (typeof value === 'string') details[key] = value;
+  }
+  return details;
 }
