@@ -3,8 +3,9 @@ import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 import { serializeCsv } from '@/lib/csv'
 import { getDataTableColumnLabel } from './data-table-column-label'
 
-// Controls whose text is not part of what a reader sees as the cell's value.
-const NON_TEXT_SELECTOR = 'button, input, select, textarea, svg, [role="button"], [role="combobox"], [role="checkbox"]'
+// Elements whose text is not the value a reader sees: form fields keep their value outside the text,
+// native selects list every option, and icons carry no text. Buttons and comboboxes show their value as text.
+const NON_TEXT_SELECTOR = 'input, select, textarea, svg'
 
 /** Text of a node as a reader sees it: adjacent elements are separated by a space, so badges stay apart. */
 function readDisplayedText(node: Node): string {

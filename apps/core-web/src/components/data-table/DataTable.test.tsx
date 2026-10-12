@@ -841,7 +841,7 @@ describe('DataTable Export CSV', () => {
     expect((await downloadedCsv()).split('\r\n')).toEqual(['Customer', 'Example GmbH', 'Erika Example'])
   })
 
-  it('separates adjacent elements in a cell and leaves out its buttons', async () => {
+  it('separates adjacent elements in a cell', async () => {
     const tagColumns: ColumnDef<OrderRow>[] = [
       {
         accessorKey: 'orderNumber',
@@ -850,7 +850,6 @@ describe('DataTable Export CSV', () => {
           <>
             <span>Alpha</span>
             <span>Beta</span>
-            <button type="button">Edit</button>
           </>
         ),
       },
@@ -860,6 +859,25 @@ describe('DataTable Export CSV', () => {
     clickExportCsv()
 
     expect((await downloadedCsv()).split('\r\n')).toEqual(['Tags', 'Alpha Beta'])
+  })
+
+  it('exports the text of a button that is the only carrier of the cell value', async () => {
+    const activeColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: 'Active',
+        cell: () => (
+          <button type="button">
+            <span>Example</span>
+          </button>
+        ),
+      },
+    ]
+    render(<OrderTable columns={activeColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Active', 'Example'])
   })
 })
 
