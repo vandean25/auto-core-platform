@@ -16,6 +16,8 @@ import {
  */
 export const NOTIFICATION_WAKE_GRACE_MS = 5 * 60_000;
 const RECOVERY_BATCH = 100;
+/** Stored on a claim the sweep released or failed: the attempt was lost, and the text says so. */
+const LEASE_EXPIRED_MESSAGE = 'The delivery attempt did not finish in time';
 
 /**
  * Lost-wake-up sweep (AUT-356). Each minute, per tenant under a worker context, it fails notices that
@@ -176,8 +178,7 @@ export class NotificationOutboxRecoveryService {
                 status: NotificationOutboxStatus.FAILED,
                 failed_at: now,
                 last_error_code: 'LEASE_EXPIRED',
-                last_error_message:
-                  'The delivery attempt did not finish in time',
+                last_error_message: LEASE_EXPIRED_MESSAGE,
                 lease_token: null,
                 lease_expires_at: null,
               }
@@ -185,6 +186,7 @@ export class NotificationOutboxRecoveryService {
                 status: NotificationOutboxStatus.PENDING,
                 next_attempt_at: new Date(now.getTime() + delaySeconds * 1000),
                 last_error_code: 'LEASE_EXPIRED',
+                last_error_message: LEASE_EXPIRED_MESSAGE,
                 lease_token: null,
                 lease_expires_at: null,
               },

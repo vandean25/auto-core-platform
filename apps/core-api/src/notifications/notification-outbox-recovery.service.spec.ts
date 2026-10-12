@@ -131,6 +131,7 @@ describe('NotificationOutboxRecoveryService', () => {
       data: {
         status: 'PENDING',
         last_error_code: 'LEASE_EXPIRED',
+        last_error_message: 'The delivery attempt did not finish in time',
         lease_token: null,
       },
     });

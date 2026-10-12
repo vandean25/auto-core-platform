@@ -18,6 +18,13 @@ describe('isSingleLineText()', () => {
     expect(isSingleLineText('Werkstatt Nord')).toBe(true);
   });
 
+  it('refuses bidi overrides and isolates and zero-width characters, which make a name read differently', () => {
+    expect(isSingleLineText('Werkstatt ‮gro.live')).toBe(false);
+    expect(isSingleLineText('Name⁦x⁩')).toBe(false);
+    expect(isSingleLineText('Name​x')).toBe(false);
+    expect(isSingleLineText('Name﻿x')).toBe(false);
+  });
+
   it('refuses line breaks, other control characters and the Unicode line separators', () => {
     expect(isSingleLineText('Auftrag\r\nBcc: victim@evil.example')).toBe(false);
     expect(isSingleLineText('Name\tTab')).toBe(false);
