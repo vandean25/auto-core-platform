@@ -131,7 +131,10 @@ export function buildCreditNoteSnapshot(input: {
       revenue_group_name: line.revenue_group_name,
       accounting_allocation: line.accounting_allocation as never,
     })),
-    tax_breakdown: [...taxBuckets.values()],
+    // Margin-scheme documents carry no VAT buckets, mirroring the original snapshot (ADR-0023).
+    tax_breakdown: isMarginSchemeSnapshot(input.originalSnapshot)
+      ? []
+      : [...taxBuckets.values()],
     ...(input.originalSnapshot.margin
       ? { margin: input.originalSnapshot.margin }
       : {}),

@@ -35,6 +35,30 @@ describe('document branding visual fixtures', () => {
     ).toBe(true);
   });
 
+  it('covers AT margin invoices and full Stornorechnungen for both countries', () => {
+    const fixtures = createDocumentBrandingVisualFixtures();
+
+    expect(
+      fixtures.some(
+        (fixture) =>
+          fixture.country === 'AT' &&
+          fixture.taxProfile === 'margin' &&
+          (fixture.documentKind ?? 'INVOICE') === 'INVOICE' &&
+          fixture.branded,
+      ),
+    ).toBe(true);
+    for (const country of ['AT', 'DE'] as const) {
+      expect(
+        fixtures.some(
+          (fixture) =>
+            fixture.country === country &&
+            fixture.taxProfile === 'margin' &&
+            fixture.documentKind === 'CREDIT_NOTE',
+        ),
+      ).toBe(true);
+    }
+  });
+
   it('covers long decorative and legal text with transparent logos of each aspect ratio', () => {
     const fixtures = createDocumentBrandingVisualFixtures();
     const decoratedFixture = fixtures.find(
