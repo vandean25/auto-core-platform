@@ -816,14 +816,13 @@ describe('DataTable Export CSV', () => {
     expect((await downloadedCsv()).split('\r\n')[0]).toBe('Order #;Date')
   })
 
-  it('exports a column csvValue instead of the raw object its cells render from', async () => {
+  it('exports the text each cell displays, not the raw object behind it', async () => {
     const customerLabel = (customer: CustomerValue) =>
       customer.type === 'COMPANY' ? customer.company_name ?? '' : `${customer.first_name} ${customer.last_name}`
     const customerColumns: ColumnDef<OrderRow>[] = [
       {
         accessorKey: 'customer',
         header: 'Customer',
-        meta: { csvValue: (row: OrderRow) => (row.customer ? customerLabel(row.customer) : '') },
         cell: ({ row }: { row: { original: OrderRow } }) => customerLabel(row.original.customer!),
       },
     ]
@@ -840,6 +839,27 @@ describe('DataTable Export CSV', () => {
     clickExportCsv()
 
     expect((await downloadedCsv()).split('\r\n')).toEqual(['Customer', 'Example GmbH', 'Erika Example'])
+  })
+
+  it('separates adjacent elements in a cell and leaves out its buttons', async () => {
+    const tagColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: 'Tags',
+        cell: () => (
+          <>
+            <span>Alpha</span>
+            <span>Beta</span>
+            <button type="button">Edit</button>
+          </>
+        ),
+      },
+    ]
+    render(<OrderTable columns={tagColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Tags', 'Alpha Beta'])
   })
 })
 

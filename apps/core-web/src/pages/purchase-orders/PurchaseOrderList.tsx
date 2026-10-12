@@ -59,7 +59,6 @@ export default function PurchaseOrderList() {
         },
         {
             accessorKey: 'items',
-            meta: { csvValue: (order: PurchaseOrder) => order.items?.length ?? 0 },
             header: 'Items',
             enableSorting: false,
             cell: ({ row }) => <div className="text-right">{row.original.items?.length || 0}</div>,

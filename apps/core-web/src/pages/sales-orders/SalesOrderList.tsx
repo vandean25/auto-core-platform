@@ -57,13 +57,11 @@ export default function SalesOrderList() {
             // The backend whitelist has customer.last_name and customer.company_name.
             // I'll use id "customer" and accessorFn to render correctly.
             id: 'customer',
-            meta: { csvValue: (order: SalesOrder) => customerDisplayName(order.customer) },
             header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
             cell: ({ row }) => <span>{customerDisplayName(row.original.customer)}</span>,
         },
         {
             accessorKey: 'vehicle',
-            meta: { csvValue: (order: SalesOrder) => (order.vehicle ? vehicleDisplayName(order.vehicle) : '') },
             header: 'Vehicle',
             enableSorting: false,
             cell: ({ row }) => <span>{row.original.vehicle ? vehicleDisplayName(row.original.vehicle) : '-'}</span>,

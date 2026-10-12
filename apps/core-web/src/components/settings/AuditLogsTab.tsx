@@ -206,7 +206,6 @@ export function AuditLogsTab() {
       },
       {
         accessorKey: 'changedFields',
-        meta: { csvValue: (log: AuditLog) => (log.changedFields ?? []).join(', ') },
         header: 'Changed Fields',
         cell: ({ row }) => {
           const fields = row.original.changedFields

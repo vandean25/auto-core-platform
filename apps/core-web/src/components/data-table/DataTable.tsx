@@ -175,6 +175,7 @@ export function DataTable<TData extends object>({
   } | null>(null)
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
 
   const openRowContextMenu = (row: TData, x: number, y: number) => {
     const actions = getRowContextActions?.(row)
@@ -238,7 +239,7 @@ export function DataTable<TData extends object>({
       : []
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" ref={rootRef}>
       <DataTableToolbar 
         table={table} 
         searchColumn={searchColumn} 
@@ -247,6 +248,8 @@ export function DataTable<TData extends object>({
         dashboardSource={dashboardSource}
         enableCsvExport={enableCsvExport}
         csvFileName={csvFileName}
+        getRoot={() => rootRef.current}
+        isLoading={isLoading}
       />
       <div className="rounded-md border">
         <Table>
@@ -350,6 +353,7 @@ export function DataTable<TData extends object>({
                     return (
                     <TableCell
                       key={cell.id}
+                      data-column-id={cell.column.id}
                       className={onRowClick ? "cursor-pointer" : undefined}
                       onClick={
                         onRowClick

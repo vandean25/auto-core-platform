@@ -18,6 +18,8 @@ interface DataTableToolbarProps<TData extends object> {
   dashboardSource?: DashboardWidgetTableSource
   enableCsvExport?: boolean
   csvFileName?: string
+  getRoot?: () => Element | null
+  isLoading?: boolean
 }
 
 export function DataTableToolbar<TData extends object>({
@@ -28,6 +30,8 @@ export function DataTableToolbar<TData extends object>({
   dashboardSource,
   enableCsvExport = true,
   csvFileName,
+  getRoot,
+  isLoading = false,
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0 || !!table.getState().globalFilter
 
@@ -77,9 +81,9 @@ export function DataTableToolbar<TData extends object>({
             size="sm"
             className="h-8"
             title="Exports the visible columns of the rows loaded in this table"
-            disabled={table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
+            disabled={isLoading || table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
             onClick={() =>
-              downloadCsv(buildDataTableCsv(table), getDataTableCsvFileName(csvFileName, saveViewTitle))
+              downloadCsv(buildDataTableCsv(table, getRoot?.() ?? null), getDataTableCsvFileName(csvFileName, saveViewTitle))
             }
           >
             <Download className="mr-2 h-4 w-4" />
