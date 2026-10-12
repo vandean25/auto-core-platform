@@ -292,4 +292,67 @@ describe('FitmentSearchModal', () => {
 
     expect(onRequestResolveIdentity).toHaveBeenCalledTimes(1)
   })
+
+  it('offers a next action when a search returns no catalog results', async () => {
+    vi.useFakeTimers()
+    vi.mocked(catalogExternal.fetchExternalCatalogSearch).mockResolvedValueOnce({
+      ...aftermarketPartsHit,
+      items: [],
+    })
+
+    render(<FitmentSearchModal {...defaultProps} />)
+
+    await typePartsQuery('zzz')
+    await flushPromises()
+
+    expect(screen.getByText('No catalog results for this search.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    expect(screen.queryByText('No catalog results for this search.')).not.toBeInTheDocument()
+    expect(screen.getByTestId('fitment-search-input-parts')).toHaveValue('')
+  })
+
+  it('clears the labor result too when Clear search is used on the parts tab', async () => {
+    vi.useFakeTimers()
+    const laborHit = {
+      concern: 'LABOR',
+      sourceUsed: 'AFTERMARKET',
+      oemStatus: 'EMPTY',
+      fallbackRequired: false,
+      fallbackReason: null,
+      retryOemAvailable: false,
+      items: [
+        {
+          externalId: 'lab-1',
+          sourceSystem: 'labor-catalog',
+          name: 'Brake service',
+          externalOperationCode: 'BRK-SVC',
+          standardAw: 1.5,
+          hitToken: 'token-lab',
+        },
+      ],
+    }
+    vi.mocked(catalogExternal.fetchExternalCatalogSearch)
+      .mockResolvedValueOnce({ ...aftermarketPartsHit, items: [] } as never)
+      .mockResolvedValueOnce(laborHit as never)
+      .mockResolvedValueOnce({ ...aftermarketPartsHit, items: [] } as never)
+
+    render(<FitmentSearchModal {...defaultProps} />)
+
+    await typePartsQuery('zzz')
+    await flushPromises()
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Labor' }), { button: 0 })
+    await flushPromises()
+    expect(screen.getByTestId('fitment-search-labor-result')).toBeInTheDocument()
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Parts' }), { button: 0 })
+    await flushPromises()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Labor' }), { button: 0 })
+    await flushPromises()
+    expect(screen.queryByTestId('fitment-search-labor-result')).not.toBeInTheDocument()
+    expect(screen.getByTestId('fitment-search-input-labor')).toHaveValue('')
+  })
 })

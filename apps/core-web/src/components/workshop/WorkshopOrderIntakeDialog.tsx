@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { Customer, RegisterIntakePayload, Vehicle, WorkshopSearchResponse } from '@/api/types'
+import { useEffect, useRef, useState } from 'react'
+import type { Customer, Vehicle, WorkshopSearchResponse } from '@/api/types'
 import { useCreateWorkshopOrder, useRegisterIntake, useWorkshopSearch } from '@/api/workshop'
 import { useVehicle } from '@/api/vehicles'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,6 +15,22 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  buildRegisterPayload,
+  canSubmitOrder,
+  conflictFromError,
+  emptyCustomerForm,
+  emptyVehicleForm,
+  visibleConflict,
+} from '@/features/workshop/intake-form'
+import type {
+  ExistingOrderConflict,
+  IntakeCustomerMode,
+  IntakeTab,
+  NewCustomerForm,
+  NewVehicleForm,
+} from '@/features/workshop/intake-form'
+import { getErrorMessage } from '@/lib/error-utils'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
 type ExistingCustomer = Customer & { vehicles: Vehicle[] }
@@ -23,21 +40,6 @@ interface WorkshopOrderIntakeDialogProps {
   onOpenChange: (open: boolean) => void
   initialVehicleId?: string
   pickerlMode?: boolean
-}
-
-interface NewVehicleForm {
-  vin: string
-  plate: string
-  make: string
-  model: string
-  year: string
-}
-
-interface NewCustomerForm {
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
 }
 
 export function WorkshopOrderIntakeDialog({
@@ -50,31 +52,22 @@ export function WorkshopOrderIntakeDialog({
   const createOrder = useCreateWorkshopOrder()
   const registerIntake = useRegisterIntake()
 
-  const [activeTab, setActiveTab] = useState<'existing' | 'new-vehicle'>('existing')
+  const [activeTab, setActiveTab] = useState<IntakeTab>('existing')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedVehicle, setSelectedVehicle] = useState<ExistingVehicle | null>(null)
   const [selectedCustomer, setSelectedCustomer] = useState<ExistingCustomer | null>(null)
-  const [customerMode, setCustomerMode] = useState<'existing' | 'new'>('existing')
-
-  const [newVehicle, setNewVehicle] = useState<NewVehicleForm>({
-    vin: '',
-    plate: '',
-    make: '',
-    model: '',
-    year: String(new Date().getFullYear()),
-  })
-
-  const [newCustomer, setNewCustomer] = useState<NewCustomerForm>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-  })
-
+  const [customerMode, setCustomerMode] = useState<IntakeCustomerMode>('existing')
+  const [newVehicle, setNewVehicle] = useState<NewVehicleForm>(emptyVehicleForm)
+  const [newCustomer, setNewCustomer] = useState<NewCustomerForm>(emptyCustomerForm)
   const [odometer, setOdometer] = useState('')
   const [fuelLevel, setFuelLevel] = useState('50')
   const [notes, setNotes] = useState('')
+  const [existingOrderConflict, setExistingOrderConflict] = useState<ExistingOrderConflict | null>(
+    null,
+  )
+  // Counts attempts and resets, so a request that finishes after the dialog was reset cannot store its conflict.
+  const attemptRef = useRef(0)
   const initialVehicleQuery = useVehicle<ExistingVehicle>(initialVehicleId ?? '')
 
   useEffect(() => {
@@ -91,28 +84,19 @@ export function WorkshopOrderIntakeDialog({
   }, [search])
 
   const resetDialogState = () => {
+    attemptRef.current += 1
     setSearch('')
     setDebouncedSearch('')
     setSelectedVehicle(null)
     setSelectedCustomer(null)
     setCustomerMode('existing')
     setActiveTab('existing')
-    setNewVehicle({
-      vin: '',
-      plate: '',
-      make: '',
-      model: '',
-      year: String(new Date().getFullYear()),
-    })
-    setNewCustomer({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-    })
+    setNewVehicle(emptyVehicleForm())
+    setNewCustomer(emptyCustomerForm())
     setOdometer('')
     setFuelLevel('50')
     setNotes('')
+    setExistingOrderConflict(null)
   }
 
   const handleDialogOpenChange = (nextOpen: boolean) => {
@@ -126,31 +110,22 @@ export function WorkshopOrderIntakeDialog({
   const vehicles = (searchData as WorkshopSearchResponse | undefined)?.data?.vehicles ?? []
   const customers = (searchData as WorkshopSearchResponse | undefined)?.data?.customers ?? []
 
-  const canCreateFromExisting = useMemo(() => {
-    return !!selectedVehicle?.customer?.id && Number(odometer) >= 0 && Number(fuelLevel) >= 0
-  }, [selectedVehicle, odometer, fuelLevel])
+  function openCreatedOrder(orderId: string, message: string) {
+    toast.success(message)
+    handleDialogOpenChange(false)
+    navigate(`/workshop/orders/${orderId}`)
+  }
 
-  const canCreateFromNewVehicle = useMemo(() => {
-    const vehicleValid =
-      newVehicle.vin.trim() &&
-      newVehicle.plate.trim() &&
-      newVehicle.make.trim() &&
-      newVehicle.model.trim() &&
-      Number(newVehicle.year) >= 1900
-    const intakeValid = Number(odometer) >= 0 && Number(fuelLevel) >= 0
-
-    if (customerMode === 'existing') {
-      return vehicleValid && intakeValid && !!selectedCustomer?.id
-    }
-    return (
-      vehicleValid &&
-      intakeValid &&
-      newCustomer.firstName.trim() &&
-      newCustomer.lastName.trim()
-    )
-  }, [newVehicle, odometer, fuelLevel, customerMode, selectedCustomer, newCustomer])
+  function handleOpenExistingOrder(orderId: string) {
+    handleDialogOpenChange(false)
+    navigate(`/workshop/orders/${orderId}`)
+  }
 
   async function handleCreateOrder() {
+    setExistingOrderConflict(null)
+    attemptRef.current += 1
+    const attempt = attemptRef.current
+    let orderVehicleId: string | undefined
     try {
       if (activeTab === 'existing') {
         if (!selectedVehicle?.customer?.id) {
@@ -158,6 +133,7 @@ export function WorkshopOrderIntakeDialog({
           return
         }
 
+        orderVehicleId = selectedVehicle.id
         const order = await createOrder.mutateAsync({
           customerId: selectedVehicle.customer.id,
           vehicleId: selectedVehicle.id,
@@ -166,40 +142,22 @@ export function WorkshopOrderIntakeDialog({
           reportedIssue: notes || undefined,
           ...(pickerlMode ? { createPickerlTask: true } : {}),
         })
-
-        toast.success(pickerlMode ? '§57a workshop order opened' : 'Workshop order created')
-        handleDialogOpenChange(false)
-        navigate(`/workshop/orders/${order.id}`)
+        openCreatedOrder(order.id, pickerlMode ? '§57a workshop order opened' : 'Workshop order created')
         return
       }
 
-      const registerPayload: RegisterIntakePayload = {
-        vin: newVehicle.vin.trim(),
-        plate: newVehicle.plate.trim(),
-        make: newVehicle.make.trim(),
-        model: newVehicle.model.trim(),
-        year: Number(newVehicle.year),
+      if (customerMode === 'existing' && !selectedCustomer?.id) {
+        toast.error('Select an existing customer.')
+        return
       }
-
-      if (customerMode === 'existing') {
-        if (!selectedCustomer?.id) {
-          toast.error('Select an existing customer.')
-          return
-        }
-        registerPayload.customerId = selectedCustomer.id
-      } else {
-        registerPayload.firstName = newCustomer.firstName.trim()
-        registerPayload.lastName = newCustomer.lastName.trim()
-        registerPayload.email = newCustomer.email.trim() || undefined
-        registerPayload.phone = newCustomer.phone.trim() || undefined
-      }
-
-      const vehicle = await registerIntake.mutateAsync(registerPayload) as ExistingVehicle
+      const registerPayload = buildRegisterPayload(newVehicle, newCustomer, customerMode, selectedCustomer?.id)
+      const vehicle = (await registerIntake.mutateAsync(registerPayload)) as ExistingVehicle
       if (!vehicle.customer?.id) {
         toast.error('Vehicle was created but no customer was linked.')
         return
       }
 
+      orderVehicleId = vehicle.id
       const order = await createOrder.mutateAsync({
         customerId: vehicle.customer.id,
         vehicleId: vehicle.id,
@@ -207,14 +165,33 @@ export function WorkshopOrderIntakeDialog({
         fuelLevel: Number(fuelLevel),
         reportedIssue: notes || undefined,
       })
-
-      toast.success('Workshop order created')
-      handleDialogOpenChange(false)
-      navigate(`/workshop/orders/${order.id}`)
+      openCreatedOrder(order.id, 'Workshop order created')
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create workshop order')
+      const conflict = conflictFromError(error, { vehicleId: orderVehicleId, tab: activeTab, formSignature })
+      if (conflict && attempt === attemptRef.current) {
+        setExistingOrderConflict(conflict)
+        return
+      }
+      toast.error(getErrorMessage(error, 'Failed to create workshop order'))
     }
   }
+
+  const formSignature = JSON.stringify([newVehicle, newCustomer, customerMode, selectedCustomer?.id ?? null])
+  const activeConflict = visibleConflict(existingOrderConflict, {
+    tab: activeTab,
+    selectedVehicleId: selectedVehicle?.id,
+    formSignature,
+  })
+  const canSubmit = canSubmitOrder({
+    tab: activeTab,
+    selectedVehicleCustomerId: selectedVehicle?.customer?.id,
+    newVehicle,
+    newCustomer,
+    customerMode,
+    selectedCustomerId: selectedCustomer?.id,
+    odometer,
+    fuelLevel,
+  })
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
@@ -229,7 +206,7 @@ export function WorkshopOrderIntakeDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'existing' | 'new-vehicle')}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as IntakeTab)}>
             {!pickerlMode ? (
               <TabsList>
                 <TabsTrigger value="existing">Search Existing</TabsTrigger>
@@ -433,6 +410,22 @@ export function WorkshopOrderIntakeDialog({
             />
           </div>
 
+          {activeConflict ? (
+            <Alert>
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+                <span>{activeConflict.message}</span>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0"
+                  onClick={() => handleOpenExistingOrder(activeConflict.orderId)}
+                >
+                  {activeConflict.orderNumber ? `Open ${activeConflict.orderNumber}` : 'Open existing order'}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancel
@@ -440,11 +433,7 @@ export function WorkshopOrderIntakeDialog({
             <Button
               type="button"
               onClick={handleCreateOrder}
-              disabled={
-                createOrder.isPending ||
-                registerIntake.isPending ||
-                (activeTab === 'existing' ? !canCreateFromExisting : !canCreateFromNewVehicle)
-              }
+              disabled={createOrder.isPending || registerIntake.isPending || !canSubmit}
             >
               {createOrder.isPending || registerIntake.isPending
                 ? 'Creating...'

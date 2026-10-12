@@ -243,6 +243,11 @@ describe('Workshop intake promote (e2e)', () => {
     const conflict = first.status === 409 ? first : second;
     expect(success.body.status).toBe('INTAKE');
     expect(conflict.body.message).toMatch(/already has active order/);
+    expect(conflict.body).toMatchObject({
+      code: 'VEHICLE_HAS_ACTIVE_ORDER',
+      orderId: success.body.id,
+      orderNumber: expect.any(String),
+    });
   });
 
   it('denies workshop order and task reads and mutations from another active site', async () => {

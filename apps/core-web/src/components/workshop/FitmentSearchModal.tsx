@@ -244,6 +244,16 @@ export function FitmentSearchModal({
     setSearchQuery(groupName)
   }
 
+  function handleClearSearch() {
+    searchGenerationRef.current += 1
+    setIsSearching(false)
+    setSearchQuery('')
+    setDebouncedQuery('')
+    // The query is shared by both tabs, so the other tab's result must go too.
+    clearConcernResult('PARTS')
+    clearConcernResult('LABOR')
+  }
+
   const canSearchOtherSource =
     activeResult?.sourceUsed === 'OEM' &&
     activeResult.oemStatus === 'HIT' &&
@@ -323,6 +333,7 @@ export function FitmentSearchModal({
                 assemblyGroups={assemblyGroups}
                 isLoadingAssemblyGroups={isLoadingAssemblyGroups}
                 onAssemblyGroupSelect={handleAssemblyGroupSelect}
+                onClearSearch={handleClearSearch}
               />
             </TabsContent>
 
@@ -333,6 +344,7 @@ export function FitmentSearchModal({
                 onSearchQueryChange={setSearchQuery}
                 result={laborResult}
                 isSearching={isSearching}
+                onClearSearch={handleClearSearch}
               />
             </TabsContent>
           </Tabs>
@@ -375,6 +387,7 @@ interface FitmentSearchPanelProps {
   assemblyGroups?: Array<{ id: string; name: string; depth: number }>
   isLoadingAssemblyGroups?: boolean
   onAssemblyGroupSelect?: (groupName: string) => void
+  onClearSearch?: () => void
 }
 
 function FitmentSearchPanel({
@@ -386,6 +399,7 @@ function FitmentSearchPanel({
   assemblyGroups = [],
   isLoadingAssemblyGroups = false,
   onAssemblyGroupSelect,
+  onClearSearch,
 }: FitmentSearchPanelProps) {
   const showAssemblyGroups = concern === 'PARTS'
 
@@ -447,7 +461,14 @@ function FitmentSearchPanel({
             )}
 
             {!isSearching && result && result.items.length === 0 && (
-              <p className='text-sm text-muted-foreground'>No catalog results for this search.</p>
+              <div className='flex flex-wrap items-center gap-3'>
+                <p className='text-sm text-muted-foreground'>No catalog results for this search.</p>
+                {onClearSearch && (
+                  <Button type='button' variant='outline' size='sm' onClick={onClearSearch}>
+                    Clear search
+                  </Button>
+                )}
+              </div>
             )}
 
             {!isSearching &&

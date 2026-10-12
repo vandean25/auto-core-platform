@@ -128,4 +128,251 @@ describe('WorkshopOrderIntakeDialog', () => {
       )
     })
   })
+
+  it('links to the existing order when the vehicle already has an open one', async () => {
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+          status: 409,
+          data: {
+            message: 'Vehicle already has active order WO-2026-0007',
+            code: 'VEHICLE_HAS_ACTIVE_ORDER',
+            orderId: 'order-live',
+            orderNumber: 'WO-2026-0007',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+
+    expect(
+      await screen.findByText(/This vehicle already has an open workshop order/),
+    ).toBeInTheDocument()
+    expect(toast.error).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open WO-2026-0007' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
+  })
+
+  it('shows the reference id when order creation fails with a server error', async () => {
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Something went wrong (ref: req-5xx-1)'), {
+          status: 500,
+          data: {
+            message: 'Something went wrong (ref: req-5xx-1)',
+            requestId: 'req-5xx-1',
+            eventId: 'evt-5xx-1',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('Something went wrong (ref: req-5xx-1)')
+    })
+  })
+
+  it('hides the existing-order alert once a different vehicle is selected', async () => {
+    vi.mocked(workshopApi.useWorkshopSearch).mockReturnValue({
+      data: {
+        data: {
+          vehicles: [
+            {
+              id: 'vehicle-2',
+              tenant_id: 'tenant-1',
+              make: 'Audi',
+              model: 'A4',
+              year: 2019,
+              vin: 'WAUZZZ8K9KA000001',
+              plate: 'W-67890CD',
+              customer: {
+                id: 'customer-1',
+                first_name: 'Max',
+                last_name: 'Mustermann',
+                type: 'PRIVATE',
+              },
+            },
+          ],
+          customers: [],
+        },
+      },
+      isLoading: false,
+    } as never)
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+          status: 409,
+          data: {
+            message: 'Vehicle already has active order WO-2026-0007',
+            code: 'VEHICLE_HAS_ACTIVE_ORDER',
+            orderId: 'order-live',
+            orderNumber: 'WO-2026-0007',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    expect(await screen.findByRole('button', { name: 'Open WO-2026-0007' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /2019 Audi A4/i }))
+
+    expect(screen.queryByRole('button', { name: 'Open WO-2026-0007' })).not.toBeInTheDocument()
+  })
+
+  it('links to the existing order when a registered vehicle already has one', async () => {
+    vi.mocked(workshopApi.useWorkshopSearch).mockReturnValue({
+      data: {
+        data: {
+          vehicles: [],
+          customers: [
+            {
+              id: 'customer-1',
+              first_name: 'Max',
+              last_name: 'Mustermann',
+              email: null,
+              phone: null,
+              type: 'PRIVATE',
+            },
+          ],
+        },
+      },
+      isLoading: false,
+    } as never)
+    vi.mocked(workshopApi.useRegisterIntake).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ id: 'vehicle-9', customer: { id: 'customer-1' } }),
+      isPending: false,
+    } as never)
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+          status: 409,
+          data: {
+            message: 'Vehicle already has active order WO-2026-0007',
+            code: 'VEHICLE_HAS_ACTIVE_ORDER',
+            orderId: 'order-live',
+            orderNumber: 'WO-2026-0007',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Create Vehicle' }), { button: 0 })
+    fireEvent.change(screen.getByPlaceholderText('VIN'), { target: { value: 'WVWZZZ1KZ9W000001' } })
+    fireEvent.change(screen.getByPlaceholderText('Plate'), { target: { value: 'W-1' } })
+    fireEvent.change(screen.getByPlaceholderText('Make'), { target: { value: 'Volkswagen' } })
+    fireEvent.change(screen.getByPlaceholderText('Model'), { target: { value: 'Golf VII' } })
+    fireEvent.click(screen.getByRole('button', { name: /Max Mustermann/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open WO-2026-0007' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/workshop/orders/order-live')
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('hides the new-vehicle alert once the form changes', async () => {
+    vi.mocked(workshopApi.useWorkshopSearch).mockReturnValue({
+      data: {
+        data: {
+          vehicles: [],
+          customers: [
+            {
+              id: 'customer-1',
+              first_name: 'Max',
+              last_name: 'Mustermann',
+              email: null,
+              phone: null,
+              type: 'PRIVATE',
+            },
+          ],
+        },
+      },
+      isLoading: false,
+    } as never)
+    vi.mocked(workshopApi.useRegisterIntake).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({ id: 'vehicle-9', customer: { id: 'customer-1' } }),
+      isPending: false,
+    } as never)
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockRejectedValue(
+        Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+          status: 409,
+          data: {
+            message: 'Vehicle already has active order WO-2026-0007',
+            code: 'VEHICLE_HAS_ACTIVE_ORDER',
+            orderId: 'order-live',
+            orderNumber: 'WO-2026-0007',
+          },
+        }),
+      ),
+      isPending: false,
+    } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
+
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Create Vehicle' }), { button: 0 })
+    fireEvent.change(screen.getByPlaceholderText('VIN'), { target: { value: 'WVWZZZ1KZ9W000001' } })
+    fireEvent.change(screen.getByPlaceholderText('Plate'), { target: { value: 'W-1' } })
+    fireEvent.change(screen.getByPlaceholderText('Make'), { target: { value: 'Volkswagen' } })
+    fireEvent.change(screen.getByPlaceholderText('Model'), { target: { value: 'Golf VII' } })
+    fireEvent.click(screen.getByRole('button', { name: /Max Mustermann/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    expect(await screen.findByRole('button', { name: 'Open WO-2026-0007' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText('VIN'), { target: { value: 'WVWZZZ1KZ9W000002' } })
+
+    expect(screen.queryByRole('button', { name: 'Open WO-2026-0007' })).not.toBeInTheDocument()
+  })
+
+  it('does not keep a conflict from an attempt the user cancelled', async () => {
+    let rejectOrder: (reason: unknown) => void = () => undefined
+    const pendingOrder = new Promise((_resolve, reject) => {
+      rejectOrder = reject
+    })
+    vi.mocked(workshopApi.useCreateWorkshopOrder).mockReturnValue({
+      mutateAsync: vi.fn().mockReturnValue(pendingOrder),
+      isPending: false,
+    } as never)
+
+    render(<WorkshopOrderIntakeDialog open onOpenChange={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Order' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    rejectOrder(
+      Object.assign(new Error('Vehicle already has active order WO-2026-0007'), {
+        status: 409,
+        data: {
+          message: 'Vehicle already has active order WO-2026-0007',
+          code: 'VEHICLE_HAS_ACTIVE_ORDER',
+          orderId: 'order-live',
+          orderNumber: 'WO-2026-0007',
+        },
+      }),
+    )
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /2018 Volkswagen Golf VII/i }))
+
+    expect(screen.queryByRole('button', { name: 'Open WO-2026-0007' })).not.toBeInTheDocument()
+  })
 })

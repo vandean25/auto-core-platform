@@ -608,19 +608,25 @@ describe('workshop-intake.helpers', () => {
         },
       } as any;
 
-      await expect(
-        executeCreateOrder({
-          tx,
-          tenantId: 'tenant-1',
-          siteId: 'site-1',
-          dto: { vehicleId: 'v-1' },
-          purpose: WorkshopOrderPurpose.CUSTOMER_REPAIR,
-          vehicleId: 'v-1',
-          isScheduled: false,
-          scheduleService: { assertCanBook: jest.fn() },
-          generateOrderNumber: jest.fn(),
-        }),
-      ).rejects.toThrow(ConflictException);
+      const error = await executeCreateOrder({
+        tx,
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        dto: { vehicleId: 'v-1' },
+        purpose: WorkshopOrderPurpose.CUSTOMER_REPAIR,
+        vehicleId: 'v-1',
+        isScheduled: false,
+        scheduleService: { assertCanBook: jest.fn() },
+        generateOrderNumber: jest.fn(),
+      }).catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toEqual({
+        code: 'VEHICLE_HAS_ACTIVE_ORDER',
+        message: 'Vehicle already has active order WO-ACTIVE',
+        orderId: 'live-1',
+        orderNumber: 'WO-ACTIVE',
+      });
     });
   });
 
