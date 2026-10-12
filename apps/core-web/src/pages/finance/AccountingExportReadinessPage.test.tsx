@@ -80,17 +80,18 @@ const readinessResponse = {
       href: '/finance/credit-notes/cn-de',
     },
   ],
+  exportProfile: { configured: true, canGenerate: true },
   meta: { total: 2, page: 1, limit: 25, pageCount: 1 },
 }
 
-function renderPage() {
+function renderPage(initialPath: string = APP_ROUTE_PATHS.accountingExportReadiness) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[APP_ROUTE_PATHS.accountingExportReadiness]}>
+      <MemoryRouter initialEntries={[initialPath]}>
         <Routes>
           <Route
             path={APP_ROUTE_PATHS.accountingExportReadiness}
@@ -193,6 +194,48 @@ describe('AccountingExportReadinessPage', () => {
 
     expect(
       screen.getByText('Export scope is incomplete for the current user.'),
+    ).toBeInTheDocument()
+  })
+
+  it('sends the default date sort to the API', () => {
+    renderPage()
+
+    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortField: 'date', sortDirection: 'asc' }),
+    )
+  })
+
+  it('returns to the first page when a filter changes', () => {
+    renderPage(`${APP_ROUTE_PATHS.accountingExportReadiness}?page=3`)
+
+    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 3 }),
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Outside DE export/ }))
+
+    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 1,
+        reason: 'UNSUPPORTED_EXPORT_COUNTRY',
+      }),
+    )
+  })
+
+  it('warns when the legal entity has no export profile that can generate', () => {
+    asMock(readinessApi.useAccountingExportReadiness).mockReturnValue({
+      data: {
+        ...readinessResponse,
+        exportProfile: { configured: false, canGenerate: false },
+      },
+      isLoading: false,
+      error: null,
+    })
+
+    renderPage()
+
+    expect(
+      screen.getByText(/has no accounting export profile/),
     ).toBeInTheDocument()
   })
 })

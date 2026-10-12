@@ -7,6 +7,8 @@ import {
   type AccountingExportReadinessParams,
 } from './useAccountingExports'
 
+export type { AccountingExportReadinessSortDirection, AccountingExportReadinessSortField } from './useAccountingExports'
+
 const ACCOUNTING_EXPORT_READINESS_API = '/api/finance/accounting-export-readiness'
 
 export type AccountingExportReadinessResponse =
@@ -29,6 +31,8 @@ export function buildAccountingExportReadinessQuery(
   if (params.reason) searchParams.set('reason', params.reason)
   if (params.documentKind) searchParams.set('documentKind', params.documentKind)
   if (params.search) searchParams.set('search', params.search)
+  if (params.sortField) searchParams.set('sortField', params.sortField)
+  if (params.sortDirection) searchParams.set('sortDirection', params.sortDirection)
   if (params.page) searchParams.set('page', String(params.page))
   if (params.limit) searchParams.set('limit', String(params.limit))
   return searchParams.toString()

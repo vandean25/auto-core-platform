@@ -4995,6 +4995,12 @@ export interface components {
             documentManifest: Record<string, never>;
             siteIds: string[];
         };
+        AccountingExportReadinessProfileDto: {
+            /** @description Whether the legal entity has an accounting export profile. */
+            configured: boolean;
+            /** @description Whether export preview and generation accept the profile (configured, enabled and supported). */
+            canGenerate: boolean;
+        };
         AccountingExportReadinessDocumentKindDto: {
             /** @enum {string} */
             kind: "INVOICE" | "CREDIT_NOTE";
@@ -5058,6 +5064,7 @@ export interface components {
             /** @description Whether the lock date covers the period end. Exports require a closed period. */
             periodClosed: boolean;
             lockDate: string | null;
+            exportProfile: components["schemas"]["AccountingExportReadinessProfileDto"];
             summary: components["schemas"]["AccountingExportReadinessSummaryDto"];
             /** @description Blockers that apply to every export in the period but do not belong to a listed document, such as documents without a legal entity or site. */
             tenantWideBlockers: components["schemas"]["AccountingExportBlockerDto"][];
@@ -10965,6 +10972,8 @@ export interface operations {
                 page?: number;
                 reason?: "LEGACY_DOCUMENT_UNSUPPORTED" | "UNSUPPORTED_EXPORT_TAX_MODE" | "UNSUPPORTED_EXPORT_COUNTRY" | "ACCOUNTING_MAPPING_INCOMPLETE" | "MISSING_OWNERSHIP_EVIDENCE" | "CANCELLED_DOCUMENT" | "INACTIVE_SITE_BLOCKED";
                 search?: string;
+                sortDirection?: "asc" | "desc";
+                sortField?: "number" | "kind" | "date" | "site" | "status";
             };
             header?: never;
             path?: never;

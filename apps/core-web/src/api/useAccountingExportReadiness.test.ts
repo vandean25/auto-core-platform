@@ -33,4 +33,19 @@ describe('buildAccountingExportReadinessQuery', () => {
     expect(params.get('page')).toBe('2')
     expect(params.get('limit')).toBe('25')
   })
+
+  it('sends the sorted column and direction when the table is sorted', () => {
+    const params = new URLSearchParams(
+      buildAccountingExportReadinessQuery({
+        legalEntityId: 'le-1',
+        dateFrom: '2026-03-01',
+        dateTo: '2026-03-31',
+        sortField: 'site',
+        sortDirection: 'desc',
+      }),
+    )
+
+    expect(params.get('sortField')).toBe('site')
+    expect(params.get('sortDirection')).toBe('desc')
+  })
 })

@@ -15,6 +15,11 @@ import {
   ACCOUNTING_EXPORT_BLOCKER_CODES,
   ACCOUNTING_EXPORT_DOCUMENT_KINDS,
 } from '../accounting-export-codes.js';
+import {
+  ACCOUNTING_EXPORT_READINESS_SORT_FIELDS,
+  type AccountingExportReadinessSortDirection,
+  type AccountingExportReadinessSortField,
+} from '../accounting-export-readiness.js';
 import type {
   AccountingExportBlockerCode,
   AccountingExportDocumentKind,
@@ -49,6 +54,19 @@ export class AccountingExportReadinessQueryDto {
   @IsString()
   @MaxLength(200)
   search?: string;
+
+  @ApiPropertyOptional({
+    enum: ACCOUNTING_EXPORT_READINESS_SORT_FIELDS,
+    default: 'date',
+  })
+  @IsOptional()
+  @IsIn([...ACCOUNTING_EXPORT_READINESS_SORT_FIELDS])
+  sortField?: AccountingExportReadinessSortField;
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'], default: 'asc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortDirection?: AccountingExportReadinessSortDirection;
 
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -170,6 +188,19 @@ export class AccountingExportReadinessMetaDto {
   pageCount!: number;
 }
 
+export class AccountingExportReadinessProfileDto {
+  @ApiProperty({
+    description: 'Whether the legal entity has an accounting export profile.',
+  })
+  configured!: boolean;
+
+  @ApiProperty({
+    description:
+      'Whether export preview and generation accept the profile (configured, enabled and supported).',
+  })
+  canGenerate!: boolean;
+}
+
 export class AccountingExportReadinessResponseDto {
   @ApiProperty()
   legalEntityId!: string;
@@ -188,6 +219,9 @@ export class AccountingExportReadinessResponseDto {
 
   @ApiProperty({ type: String, nullable: true })
   lockDate!: string | null;
+
+  @ApiProperty({ type: AccountingExportReadinessProfileDto })
+  exportProfile!: AccountingExportReadinessProfileDto;
 
   @ApiProperty({ type: AccountingExportReadinessSummaryDto })
   summary!: AccountingExportReadinessSummaryDto;

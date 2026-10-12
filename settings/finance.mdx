@@ -90,11 +90,17 @@ Owners and admins see the link. Other roles do not.
   </Step>
 </Steps>
 
-Click a reason under the cards to show only the documents it blocks. **Reason** and **Document type** narrow the list the same way. The search box matches the document number, type, status, date, site, and reason.
+Click a reason under the cards to show only the documents it blocks. **Reason** and **Document type** narrow the list the same way. The search box matches the document number, type, status, date, and site.
+
+Click a column header to sort the whole period, not only the page you are on. The Reasons column cannot be sorted.
 
 <Warning>
 One blocked document stops the export for that legal entity and period. Clear every blocked row, then generate the file in **Settings → Finance → Accounting export**.
 </Warning>
+
+<Tip>
+If the legal entity has no accounting export profile, or the profile is turned off, a notice appears above the list. Set up or turn on the profile in **Settings** before you export. Until then, no period for that entity can be exported.
+</Tip>
 
 <AccordionGroup>
   <Accordion title="Reasons on a blocked document">
@@ -108,6 +114,9 @@ One blocked document stops the export for that legal entity and period. Clear ev
     | Cancelled | Cancelled documents cannot be exported. |
   </Accordion>
   <Accordion title="Notices above the list">
-    Some blocks belong to the whole period, not to one row. A document with no legal entity or site is one example. These appear as a notice above the list, because no single row can show them.
+    Some blocks belong to the whole period, not to one row. A document with no legal entity is one example. These appear as a notice above the list, because no single row can show them. A document that has a legal entity but no site is a row instead, with the **Ownership evidence missing** reason.
+  </Accordion>
+  <Accordion title="Inactive sites">
+    If a site that holds documents in the period is inactive, the page shows a refusal message instead of a list. Reactivate the site under **Settings → Sites**, then reload this page.
   </Accordion>
 </AccordionGroup>

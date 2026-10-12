@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { components } from '@/api/generated/openapi'
+import type { components, paths } from '@/api/generated/openapi'
 import { createHttpError } from '@/lib/error-utils'
 import { fetchWithAuth } from './client'
 
@@ -22,6 +22,15 @@ type AccountingExportReadinessReasonCode =
   components['schemas']['AccountingExportReadinessReasonDto']['code']
 type AccountingExportReadinessDocumentKind =
   components['schemas']['AccountingExportReadinessDocumentKindDto']['kind']
+type AccountingExportReadinessQuery = NonNullable<
+  paths['/api/finance/accounting-export-readiness']['get']['parameters']['query']
+>
+export type AccountingExportReadinessSortField = NonNullable<
+  AccountingExportReadinessQuery['sortField']
+>
+export type AccountingExportReadinessSortDirection = NonNullable<
+  AccountingExportReadinessQuery['sortDirection']
+>
 
 export const accountingExportKeys = {
   all: ['accounting-exports'] as const,
@@ -46,6 +55,8 @@ export interface AccountingExportReadinessParams {
   reason?: AccountingExportReadinessReasonCode
   documentKind?: AccountingExportReadinessDocumentKind
   search?: string
+  sortField?: AccountingExportReadinessSortField
+  sortDirection?: AccountingExportReadinessSortDirection
   page?: number
   limit?: number
 }

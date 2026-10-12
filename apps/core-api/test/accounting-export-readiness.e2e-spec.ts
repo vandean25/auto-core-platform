@@ -44,6 +44,7 @@ describe('Accounting export readiness (e2e)', () => {
     de1: '',
     legacyV1: '',
     atInvoice: '',
+    entityNoSite: '',
     de2: '',
     creditNote: '',
     noEntity: '',
@@ -176,14 +177,21 @@ describe('Accounting export readiness (e2e)', () => {
     await openFinancePeriod();
 
     // Mixed March 2026 period for the Berlin entity: a v2 DE invoice, a v1
-    // (legacy) invoice, an AT invoice, a second v2 DE invoice, and a v2 DE
-    // credit note. A fifth invoice has no legal entity, so it is a tenant-wide
-    // ownership blocker that is not attributed to Berlin.
+    // (legacy) invoice, an AT invoice, a second v2 DE invoice, a v2 DE credit
+    // note, and a Berlin invoice with no site. The site-less invoice is one
+    // row with a missing-ownership blocker, not a tenant-wide notice as well.
+    // A last invoice has no legal entity, so it is a tenant-wide ownership
+    // blocker that is not attributed to Berlin.
     ids.de1 = (await finalizeSalesInvoice(1, 100, '2026-03-05')).id;
     ids.legacyV1 = (await finalizeSalesInvoice(1, 60, '2026-03-10')).id;
     await markInvoiceSnapshotAsVersion1(ids.legacyV1);
     ids.atInvoice = (await finalizeSalesInvoice(1, 70, '2026-03-12')).id;
     await reassignInvoiceCountry(ids.atInvoice, 'AT');
+    ids.entityNoSite = (await finalizeSalesInvoice(1, 40, '2026-03-15')).id;
+    await tenantPrisma.invoice.update({
+      where: { id: ids.entityNoSite },
+      data: { site_id: null },
+    });
     ids.de2 = (await finalizeSalesInvoice(2, 50, '2026-03-20')).id;
 
     const draftCredit = await createDraftCredit(ids.de1, '2026-03-25');
@@ -410,11 +418,11 @@ describe('Accounting export readiness (e2e)', () => {
     const response = await readinessRequest().expect(200);
 
     expect(response.body.summary).toEqual({
-      documentCount: 5,
+      documentCount: 6,
       exportableCount: 3,
-      blockedCount: 2,
+      blockedCount: 3,
       documentKinds: [
-        { kind: 'INVOICE', documentCount: 4, exportableCount: 2, blockedCount: 2 },
+        { kind: 'INVOICE', documentCount: 5, exportableCount: 2, blockedCount: 3 },
         {
           kind: 'CREDIT_NOTE',
           documentCount: 1,
@@ -424,6 +432,7 @@ describe('Accounting export readiness (e2e)', () => {
       ],
       reasons: [
         { code: 'LEGACY_DOCUMENT_UNSUPPORTED', documentCount: 1 },
+        { code: 'MISSING_OWNERSHIP_EVIDENCE', documentCount: 1 },
         { code: 'UNSUPPORTED_EXPORT_COUNTRY', documentCount: 1 },
       ],
     });
@@ -435,6 +444,10 @@ describe('Accounting export readiness (e2e)', () => {
     ]);
     expect(response.body.periodClosed).toBe(false);
     expect(response.body.lockDate).toBeNull();
+    expect(response.body.exportProfile).toEqual({
+      configured: true,
+      canGenerate: true,
+    });
   });
 
   it('RD-02: filters by reason and by document type, with a remediable link per document', async () => {
@@ -459,7 +472,19 @@ describe('Accounting export readiness (e2e)', () => {
       limit: 25,
       pageCount: 1,
     });
-    expect(byReason.body.summary.blockedCount).toBe(2);
+    expect(byReason.body.summary.blockedCount).toBe(3);
+
+    // Berlin's site-less invoice is listed once, as a row with no site.
+    const missingOwnership = await readinessRequest({
+      reason: 'MISSING_OWNERSHIP_EVIDENCE',
+    }).expect(200);
+    expect(missingOwnership.body.data).toEqual([
+      expect.objectContaining({
+        id: ids.entityNoSite,
+        status: 'BLOCKED',
+        site: null,
+      }),
+    ]);
 
     const creditNotes = await readinessRequest({
       documentKind: 'CREDIT_NOTE',
@@ -479,15 +504,28 @@ describe('Accounting export readiness (e2e)', () => {
     const page2 = await readinessRequest({ limit: 2, page: 2 }).expect(200);
 
     expect(page2.body.meta).toEqual({
-      total: 5,
+      total: 6,
       page: 2,
       limit: 2,
       pageCount: 3,
     });
     expect(page2.body.data.map((row: { id: string }) => row.id)).toEqual([
       ids.atInvoice,
-      ids.de2,
+      ids.entityNoSite,
     ]);
+  });
+
+  it('RD-03b: sorts the listed documents on the server before paging', async () => {
+    const newestFirst = await readinessRequest({
+      sortField: 'date',
+      sortDirection: 'desc',
+      limit: 3,
+    }).expect(200);
+
+    expect(
+      newestFirst.body.data.map((row: { id: string }) => row.id),
+    ).toEqual([ids.creditNote, ids.de2, ids.entityNoSite]);
+    expect(newestFirst.body.meta.total).toBe(6);
   });
 
   it('RD-04: reports a closed period once the lock date covers it, and agrees with export preview', async () => {
@@ -570,6 +608,11 @@ describe('Accounting export readiness (e2e)', () => {
     expect(own.body.summary.documentCount).toBe(0);
     expect(own.body.data).toEqual([]);
     expect(own.body.tenantWideBlockers).toEqual([]);
+    // No accounting profile, so preview would refuse this entity's periods.
+    expect(own.body.exportProfile).toEqual({
+      configured: false,
+      canGenerate: false,
+    });
   });
 
   it('RD-07: rejects fiscal-year-spanning periods, unknown filters and oversized pages', async () => {
@@ -581,6 +624,8 @@ describe('Accounting export readiness (e2e)', () => {
 
     await readinessRequest({ reason: 'NOT_A_REASON' }).expect(400);
     await readinessRequest({ limit: 500 }).expect(400);
+    await readinessRequest({ sortField: 'reasons' }).expect(400);
+    await readinessRequest({ sortDirection: 'sideways' }).expect(400);
   });
 
   it('RD-08: requires an authenticated caller', async () => {
@@ -592,5 +637,22 @@ describe('Accounting export readiness (e2e)', () => {
         dateTo: '2026-03-31',
       })
       .expect(401);
+  });
+
+  it('RD-09: refuses a period with an inactive contributing site, and lists it again once the site is active', async () => {
+    await tenantPrisma.site.update({
+      where: { id: deSiteId },
+      data: { is_active: false },
+    });
+
+    const refused = await readinessRequest().expect(403);
+    expect(refused.body.code).toBe('EXPORT_SCOPE_INCOMPLETE');
+    expect(refused.body.data).toBeUndefined();
+
+    await tenantPrisma.site.update({
+      where: { id: deSiteId },
+      data: { is_active: true },
+    });
+    await readinessRequest().expect(200);
   });
 });

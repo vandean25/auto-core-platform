@@ -10,6 +10,19 @@ import type {
   AccountingExportDocumentKind,
 } from './accounting-export.types.js';
 
+export const ACCOUNTING_EXPORT_READINESS_SORT_FIELDS = [
+  'number',
+  'kind',
+  'date',
+  'site',
+  'status',
+] as const;
+
+export type AccountingExportReadinessSortField =
+  (typeof ACCOUNTING_EXPORT_READINESS_SORT_FIELDS)[number];
+
+export type AccountingExportReadinessSortDirection = 'asc' | 'desc';
+
 export type AccountingExportReadinessStatus = 'EXPORTABLE' | 'BLOCKED';
 
 export type AccountingExportReadinessBlocker = {
@@ -49,10 +62,13 @@ export type AccountingExportReadinessSummary = {
 
 export type AccountingExportReadinessInput = {
   // The loader returns candidates already sorted by date, kind, number and id.
+  // That order is the default, and documents with equal sort values keep it.
   candidates: AccountingExportCandidate[];
   ownershipBlockers: AccountingExportBlocker[];
   sites: AccountingExportSite[];
   filters: AccountingExportReadinessFilters;
+  sortField?: AccountingExportReadinessSortField;
+  sortDirection?: AccountingExportReadinessSortDirection;
   page: number;
   limit: number;
   hrefFor: (kind: AccountingExportDocumentKind, id: string) => string;
@@ -70,6 +86,17 @@ const KIND_SEARCH_LABEL: Record<AccountingExportDocumentKind, string> = {
   CREDIT_NOTE: 'credit note',
 };
 
+const SORT_VALUE: Record<
+  AccountingExportReadinessSortField,
+  (document: AccountingExportReadinessDocument) => string
+> = {
+  number: (document) => document.number ?? '',
+  kind: (document) => document.kind,
+  date: (document) => document.date,
+  site: (document) => document.site?.code ?? '',
+  status: (document) => document.status,
+};
+
 export function buildAccountingExportReadiness(
   input: AccountingExportReadinessInput,
 ): AccountingExportReadinessView {
@@ -78,8 +105,10 @@ export function buildAccountingExportReadiness(
     toReadinessDocument(candidate, sitesById, input.hrefFor),
   );
   const listedIds = new Set(documents.map((document) => document.id));
-  const filtered = documents.filter((document) =>
-    matchesFilters(document, input.filters),
+  const filtered = sortDocuments(
+    documents.filter((document) => matchesFilters(document, input.filters)),
+    input.sortField,
+    input.sortDirection,
   );
   const start = (input.page - 1) * input.limit;
 
@@ -146,6 +175,7 @@ function matchesFilters(
     return false;
   }
 
+  // Reasons are narrowed with the reason filter, not with the search term.
   const term = filters.search?.trim().toLowerCase();
   if (!term) {
     return true;
@@ -159,8 +189,21 @@ function matchesFilters(
     document.date,
     document.site?.code ?? '',
     document.site?.name ?? '',
-    ...document.blockers.map((blocker) => blocker.code),
   ].some((value) => value.toLowerCase().includes(term));
+}
+
+function sortDocuments(
+  documents: AccountingExportReadinessDocument[],
+  sortField: AccountingExportReadinessSortField = 'date',
+  sortDirection: AccountingExportReadinessSortDirection = 'asc',
+): AccountingExportReadinessDocument[] {
+  const value = SORT_VALUE[sortField];
+  const direction = sortDirection === 'desc' ? -1 : 1;
+  // Array.prototype.sort is stable, so documents with equal values keep the
+  // loader order.
+  return [...documents].sort(
+    (left, right) => compareStrings(value(left), value(right)) * direction,
+  );
 }
 
 function summarize(
@@ -196,12 +239,12 @@ function summarize(
       .sort(
         (left, right) =>
           right.documentCount - left.documentCount ||
-          compareCodes(left.code, right.code),
+          compareStrings(left.code, right.code),
       ),
   };
 }
 
-function compareCodes(left: string, right: string): number {
+function compareStrings(left: string, right: string): number {
   if (left === right) {
     return 0;
   }

@@ -17,6 +17,7 @@ import {
   assertValidExportDateRange,
   isExportPeriodClosed,
 } from './accounting-export-period.js';
+import { exportProfileCanGenerate } from './accounting-export-serializer.registry.js';
 import {
   assertCompleteAccountingExportScope,
   listAccountingExportSites,
@@ -38,6 +39,7 @@ export type AccountingExportReadinessResponse =
     dateTo: string;
     periodClosed: boolean;
     lockDate: string | null;
+    exportProfile: { configured: boolean; canGenerate: boolean };
   };
 
 @Injectable()
@@ -49,7 +51,8 @@ export class AccountingExportReadinessService {
 
   // Same authorization as export preview and generation: tenant admin, an
   // active user, and an active site membership for every contributing site.
-  // Unlike preview, an open period or a missing profile is reported, not refused.
+  // Unlike preview, an open period or a missing or disabled profile is not
+  // refused. periodClosed and exportProfile report what preview would refuse.
   async getReadiness(
     query: AccountingExportReadinessQueryDto,
   ): Promise<AccountingExportReadinessResponse> {
@@ -75,7 +78,11 @@ export class AccountingExportReadinessService {
     });
     const profile = await this.prisma.legalEntityAccountingProfile.findFirst({
       where: { tenant_id: tenantId, legal_entity_id: query.legalEntityId },
-      select: { fiscal_year_start_month: true },
+      select: {
+        fiscal_year_start_month: true,
+        profile_code: true,
+        is_enabled: true,
+      },
     });
     const { dateFrom, dateTo } = assertValidExportDateRange(
       query.dateFrom,
@@ -121,6 +128,7 @@ export class AccountingExportReadinessService {
         dateFrom,
         dateTo,
         authorizedSiteIds,
+        { excludeLegalEntityId: query.legalEntityId },
       ),
     ]);
 
@@ -134,6 +142,8 @@ export class AccountingExportReadinessService {
         documentKind: query.documentKind,
         search: query.search,
       },
+      sortField: query.sortField,
+      sortDirection: query.sortDirection,
       page: query.page ?? 1,
       limit: query.limit ?? DEFAULT_PAGE_SIZE,
       hrefFor: (kind, id) => DOCUMENT_PAGE_PATH[kind].replace(':id', id),
@@ -146,6 +156,12 @@ export class AccountingExportReadinessService {
       dateTo: dateTo.toISOString().slice(0, 10),
       periodClosed: isExportPeriodClosed(dateTo, lockDate),
       lockDate: lockDate ? lockDate.toISOString() : null,
+      exportProfile: {
+        configured: Boolean(profile),
+        canGenerate: profile
+          ? exportProfileCanGenerate(profile.profile_code, profile.is_enabled)
+          : false,
+      },
     };
   }
 }

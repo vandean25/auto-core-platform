@@ -3140,6 +3140,35 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "asc",
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "date",
+              "type": "string",
+              "enum": [
+                "number",
+                "kind",
+                "date",
+                "site",
+                "status"
+              ]
+            }
           }
         ],
         "responses": {
@@ -16679,6 +16708,23 @@
           "siteIds"
         ]
       },
+      "AccountingExportReadinessProfileDto": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "Whether the legal entity has an accounting export profile."
+          },
+          "canGenerate": {
+            "type": "boolean",
+            "description": "Whether export preview and generation accept the profile (configured, enabled and supported)."
+          }
+        },
+        "required": [
+          "configured",
+          "canGenerate"
+        ]
+      },
       "AccountingExportReadinessDocumentKindDto": {
         "type": "object",
         "properties": {
@@ -16913,6 +16959,9 @@
             "type": "string",
             "nullable": true
           },
+          "exportProfile": {
+            "$ref": "#/components/schemas/AccountingExportReadinessProfileDto"
+          },
           "summary": {
             "$ref": "#/components/schemas/AccountingExportReadinessSummaryDto"
           },
@@ -16939,6 +16988,7 @@
           "dateTo",
           "periodClosed",
           "lockDate",
+          "exportProfile",
           "summary",
           "tenantWideBlockers",
           "data",

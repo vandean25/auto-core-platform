@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { type LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import {
@@ -6,6 +6,7 @@ import {
   type AccountingExportBlockerCode,
   type AccountingExportDocumentKind,
   type AccountingExportReadinessDocument,
+  type AccountingExportReadinessSortField,
 } from '@/api/useAccountingExportReadiness'
 import { useLegalEntities } from '@/api/site-admin'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -39,6 +40,12 @@ const REASON_LABELS: Record<AccountingExportBlockerCode, string> = {
   INACTIVE_SITE_BLOCKED: 'Inactive site',
 }
 
+// No export emits INACTIVE_SITE_BLOCKED: an inactive contributing site is refused
+// before any list is built, so the reason is not offered as a filter.
+const FILTERABLE_REASON_CODES = (
+  Object.keys(REASON_LABELS) as AccountingExportBlockerCode[]
+).filter((code) => code !== 'INACTIVE_SITE_BLOCKED')
+
 const DOCUMENT_KIND_LABELS: Record<AccountingExportDocumentKind, string> = {
   INVOICE: 'Invoice',
   CREDIT_NOTE: 'Credit note',
@@ -48,6 +55,18 @@ const STATUS_LABELS: Record<AccountingExportReadinessDocument['status'], string>
   EXPORTABLE: 'Exportable',
   BLOCKED: 'Blocked',
 }
+
+// Column ids that the server can sort on. The Reasons column is not sortable.
+const SORT_FIELDS: readonly AccountingExportReadinessSortField[] = [
+  'number',
+  'kind',
+  'date',
+  'site',
+  'status',
+]
+
+const toSortField = (value: string | undefined) =>
+  SORT_FIELDS.find((field) => field === value)
 
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -110,6 +129,7 @@ const columns: ColumnDef<AccountingExportReadinessDocument>[] = [
   },
   {
     id: 'reasons',
+    enableSorting: false,
     accessorFn: (row) => row.blockers.map((blocker) => blocker.code).join(' '),
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Reasons" />
@@ -171,9 +191,26 @@ export default function AccountingExportReadinessPage() {
     AccountingExportDocumentKind | ''
   >('')
 
-  const { queryParams, ...tableState } = useDataTableQuery({
+  const {
+    queryParams,
+    setPagination,
+    setGlobalFilter,
+    ...tableState
+  } = useDataTableQuery({
     defaultPageSize: 25,
+    initialSorting: [{ id: 'date', desc: false }],
   })
+
+  // Any change to what the list shows starts again from the first page.
+  const resetToFirstPage = () =>
+    setPagination((current) =>
+      current.pageIndex === 0 ? current : { ...current, pageIndex: 0 },
+    )
+
+  const changeSearch: Dispatch<SetStateAction<string>> = (value) => {
+    setGlobalFilter(value)
+    resetToFirstPage()
+  }
 
   const readiness = useAccountingExportReadiness(
     legalEntityId
@@ -184,6 +221,8 @@ export default function AccountingExportReadinessPage() {
           reason: reason || undefined,
           documentKind: documentKind || undefined,
           search: queryParams.search || undefined,
+          sortField: toSortField(queryParams.sortField),
+          sortDirection: queryParams.sortDirection,
           page: queryParams.page,
           limit: queryParams.pageSize,
         }
@@ -217,7 +256,10 @@ export default function AccountingExportReadinessPage() {
           <Label htmlFor="readiness-entity">Legal entity</Label>
           <Select
             value={legalEntityId}
-            onValueChange={setSelectedEntityId}
+            onValueChange={(id) => {
+              setSelectedEntityId(id)
+              resetToFirstPage()
+            }}
             disabled={legalEntities.length === 0}
           >
             <SelectTrigger id="readiness-entity">
@@ -238,9 +280,10 @@ export default function AccountingExportReadinessPage() {
             id="readiness-from"
             type="date"
             value={period.dateFrom}
-            onChange={(event) =>
+            onChange={(event) => {
               setPeriod((current) => ({ ...current, dateFrom: event.target.value }))
-            }
+              resetToFirstPage()
+            }}
           />
         </div>
         <div className="space-y-1.5">
@@ -249,35 +292,35 @@ export default function AccountingExportReadinessPage() {
             id="readiness-to"
             type="date"
             value={period.dateTo}
-            onChange={(event) =>
+            onChange={(event) => {
               setPeriod((current) => ({ ...current, dateTo: event.target.value }))
-            }
+              resetToFirstPage()
+            }}
           />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="readiness-reason">Reason</Label>
           <Select
             value={reason || ALL_FILTER_VALUE}
-            onValueChange={(value) =>
+            onValueChange={(value) => {
               setReason(
                 value === ALL_FILTER_VALUE
                   ? ''
                   : (value as AccountingExportBlockerCode),
               )
-            }
+              resetToFirstPage()
+            }}
           >
             <SelectTrigger id="readiness-reason">
               <SelectValue placeholder="All reasons" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL_FILTER_VALUE}>All reasons</SelectItem>
-              {(Object.keys(REASON_LABELS) as AccountingExportBlockerCode[]).map(
-                (code) => (
-                  <SelectItem key={code} value={code}>
-                    {REASON_LABELS[code]}
-                  </SelectItem>
-                ),
-              )}
+              {FILTERABLE_REASON_CODES.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {REASON_LABELS[code]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -285,13 +328,14 @@ export default function AccountingExportReadinessPage() {
           <Label htmlFor="readiness-kind">Document type</Label>
           <Select
             value={documentKind || ALL_FILTER_VALUE}
-            onValueChange={(value) =>
+            onValueChange={(value) => {
               setDocumentKind(
                 value === ALL_FILTER_VALUE
                   ? ''
                   : (value as AccountingExportDocumentKind),
               )
-            }
+              resetToFirstPage()
+            }}
           >
             <SelectTrigger id="readiness-kind">
               <SelectValue placeholder="All types" />
@@ -353,7 +397,10 @@ export default function AccountingExportReadinessPage() {
                     key={item.code}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => setReason(selected ? '' : item.code)}
+                    onClick={() => {
+                      setReason(selected ? '' : item.code)
+                      resetToFirstPage()
+                    }}
                     className={cn(
                       'rounded-md border px-3 py-1.5 text-sm transition-colors',
                       selected
@@ -367,6 +414,16 @@ export default function AccountingExportReadinessPage() {
                 )
               })}
             </div>
+          ) : null}
+
+          {response && !response.exportProfile.canGenerate ? (
+            <Alert className="mb-6">
+              <AlertDescription>
+                {response.exportProfile.configured
+                  ? 'The accounting export profile for this legal entity is turned off, so no period can be exported yet. Turn it on in Settings.'
+                  : 'This legal entity has no accounting export profile, so no period can be exported yet. Set one up in Settings.'}
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           {tenantWideBlockers.length > 0 ? (
@@ -397,6 +454,8 @@ export default function AccountingExportReadinessPage() {
             emptyStateMessage="No documents match these filters."
             onRowClick={(row) => navigate(row.href)}
             {...tableState}
+            setPagination={setPagination}
+            setGlobalFilter={changeSearch}
           />
         </>
       ) : (

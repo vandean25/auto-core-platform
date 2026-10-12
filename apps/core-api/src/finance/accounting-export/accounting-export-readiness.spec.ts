@@ -5,7 +5,11 @@ import type {
   AccountingExportCandidate,
   AccountingExportDocumentKind,
 } from './accounting-export.types.js';
-import { buildAccountingExportReadiness } from './accounting-export-readiness.js';
+import {
+  buildAccountingExportReadiness,
+  type AccountingExportReadinessSortDirection,
+  type AccountingExportReadinessSortField,
+} from './accounting-export-readiness.js';
 
 const SITES: AccountingExportSite[] = [
   { id: 'site-berlin', code: 'DE-BER', name: 'Berlin Branch', isActive: true },
@@ -174,7 +178,7 @@ describe('buildAccountingExportReadiness', () => {
     expect(view.summary.blockedCount).toBe(2);
   });
 
-  it('searches number, type, status, date, site and reason codes case-insensitively', () => {
+  it('searches number, type, status, date and site case-insensitively, not reason codes', () => {
     const idsFor = (search: string) =>
       build(mixedPeriod(), { filters: { search } }).data.map(
         (document) => document.id,
@@ -182,10 +186,79 @@ describe('buildAccountingExportReadiness', () => {
 
     expect(idsFor('cn-2026')).toEqual(['cn-de']);
     expect(idsFor('CREDIT NOTE')).toEqual(['cn-de']);
-    expect(idsFor('legacy_document')).toEqual(['inv-v1']);
     expect(idsFor('2026-03-12')).toEqual(['inv-at']);
     expect(idsFor('de-ber')).toHaveLength(5);
     expect(idsFor('blocked')).toEqual(['inv-v1', 'inv-at']);
+    // Reasons are narrowed with the reason filter, so codes are not searched.
+    expect(idsFor('legacy_document')).toEqual([]);
+  });
+
+  it('sorts by the requested column and keeps the loader order for equal values', () => {
+    const idsSortedBy = (
+      sortField: AccountingExportReadinessSortField,
+      sortDirection: AccountingExportReadinessSortDirection,
+    ) =>
+      build(mixedPeriod(), { sortField, sortDirection }).data.map(
+        (document) => document.id,
+      );
+
+    expect(idsSortedBy('date', 'asc')).toEqual([
+      'inv-de-1',
+      'inv-v1',
+      'inv-at',
+      'inv-de-2',
+      'cn-de',
+    ]);
+    expect(idsSortedBy('date', 'desc')).toEqual([
+      'cn-de',
+      'inv-de-2',
+      'inv-at',
+      'inv-v1',
+      'inv-de-1',
+    ]);
+    expect(idsSortedBy('number', 'asc')).toEqual([
+      'cn-de',
+      'inv-at',
+      'inv-de-1',
+      'inv-de-2',
+      'inv-v1',
+    ]);
+    expect(idsSortedBy('kind', 'asc')).toEqual([
+      'cn-de',
+      'inv-de-1',
+      'inv-v1',
+      'inv-at',
+      'inv-de-2',
+    ]);
+    expect(idsSortedBy('status', 'asc')).toEqual([
+      'inv-v1',
+      'inv-at',
+      'inv-de-1',
+      'inv-de-2',
+      'cn-de',
+    ]);
+    expect(idsSortedBy('site', 'desc')).toEqual([
+      'inv-de-1',
+      'inv-v1',
+      'inv-at',
+      'inv-de-2',
+      'cn-de',
+    ]);
+  });
+
+  it('pages after sorting', () => {
+    const view = build(mixedPeriod(), {
+      sortField: 'date',
+      sortDirection: 'desc',
+      page: 1,
+      limit: 2,
+    });
+
+    expect(view.data.map((document) => document.id)).toEqual([
+      'cn-de',
+      'inv-de-2',
+    ]);
+    expect(view.meta.total).toBe(5);
   });
 
   it('paginates the filtered documents and reports total and page count', () => {
