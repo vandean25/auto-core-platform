@@ -55,6 +55,7 @@ const PurchaseBillDetailPage = lazyWithRetry(() => import('./pages/purchase-bill
 const PurchaseBillCreatePage = lazyWithRetry(() => import('./pages/purchase-bills/PurchaseBillCreatePage'))
 const CreditNotesPage = lazyWithRetry(() => import('./pages/finance/CreditNotesPage'))
 const CreditNoteDetailPage = lazyWithRetry(() => import('./pages/finance/CreditNoteDetailPage'))
+const AccountingExportReadinessPage = lazyWithRetry(() => import('./pages/finance/AccountingExportReadinessPage'))
 const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage'))
 const DashboardPage = lazyWithRetry(() => import('./pages/DashboardPage'))
 const PlatformTenantsPage = lazyWithRetry(() => import('./pages/platform/PlatformTenantsPage'))
@@ -170,6 +171,7 @@ export function AppRoutes() {
               />
               <Route path={APP_ROUTE_PATHS.creditNotes} element={<CreditNotesPage />} />
               <Route path={APP_ROUTE_PATHS.creditNoteDetail} element={<CreditNoteDetailPage />} />
+              <Route path={APP_ROUTE_PATHS.accountingExportReadiness} element={<AccountingExportReadinessPage />} />
               <Route path={APP_ROUTE_PATHS.purchaseInvoiceNew} element={<PurchaseInvoiceCreatePage />} />
               <Route path={APP_ROUTE_PATHS.settings} element={<SettingsPage />} />
               <Route path={APP_ROUTE_PATHS.hr} element={<HrLayout />}>
