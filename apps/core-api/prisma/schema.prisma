@@ -73,6 +73,7 @@ model Tenant {
   workshopEstimateSequences     WorkshopEstimateSequence[]
   workshopEstimateVersions      WorkshopEstimateVersion[]
   workshopEstimateAssetRefs     WorkshopEstimateBrandAssetReference[]
+  notificationOutbox            NotificationOutbox[]
   purchaseInvoices              PurchaseInvoice[]
   purchaseInvoiceLines          PurchaseInvoiceLine[]
   inspectionTemplates           InspectionTemplate[]
@@ -2158,6 +2159,7 @@ model WorkshopOrder {
   tasks                  WorkshopTask[]
   invoice                Invoice?
   estimates              WorkshopEstimate[]
+  notification_outbox    NotificationOutbox[]
   vehicle_ledger_entries VehicleLedgerEntry[]
   loaner_bookings        LoanerBooking[]
   tyre_set_events        TyreSetEvent[]
@@ -2290,6 +2292,80 @@ model WorkshopEstimateBrandAssetReference {
   @@index([tenant_id])
   @@index([tenant_id, legal_entity_id, asset_id], map: "weba_asset_scope_idx")
   @@map("workshop_estimate_brand_asset_references")
+}
+
+/// Event types that write the notification outbox (ADR-0025 §6, AUT-356). Enum additions only.
+enum NotificationEventType {
+  WORKSHOP_TASK_WAITING_CUSTOMER
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum NotificationRecipientKind {
+  INTERNAL_TEAM
+  CUSTOMER
+}
+
+enum NotificationMessageClass {
+  TRANSACTIONAL
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  SENDING
+  ACCEPTED
+  FAILED
+  SUPPRESSED
+}
+
+/// Transactional outbox (ADR-0025 §6, AUT-356). A domain mutation writes its row in the same
+/// transaction as the state change; the Cloud Tasks message is only a wake-up and the row is the
+/// durable record. `idempotency_key` (event + recipient + channel) makes a repeated write a no-op.
+/// Bodies are purged 90 days after creation; metadata is kept (ADR-0025 §10).
+model NotificationOutbox {
+  id                  String                    @id @default(uuid())
+  tenant_id           String
+  tenant              Tenant                    @relation(fields: [tenant_id], references: [id])
+  event_type          NotificationEventType
+  idempotency_key     String
+  channel             NotificationChannel
+  recipient_kind      NotificationRecipientKind
+  recipient_email     String?
+  message_class       NotificationMessageClass  @default(TRANSACTIONAL)
+  workshop_order_id   String?
+  workshop_order      WorkshopOrder?            @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  source_entity_type  String?
+  source_entity_id    String?
+  template_id         String?
+  template_version    Int?
+  subject             String?
+  body                String?
+  body_sha256         String?
+  body_purged_at      DateTime?
+  payload             Json?
+  status              NotificationOutboxStatus  @default(PENDING)
+  attempts            Int                       @default(0)
+  next_attempt_at     DateTime                  @default(now())
+  lease_token         String?
+  lease_expires_at    DateTime?
+  provider            String?
+  provider_message_id String?
+  accepted_at         DateTime?
+  failed_at           DateTime?
+  last_error_code     String?
+  last_error_message  String?
+  suppressed_reason   String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@unique([tenant_id, idempotency_key])
+  @@index([tenant_id])
+  @@index([tenant_id, workshop_order_id, createdAt])
+  @@index([tenant_id, status, next_attempt_at])
+  @@map("notification_outbox")
 }
 
 enum LoanerVehicleStatus {

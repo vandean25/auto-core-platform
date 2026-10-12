@@ -94,6 +94,7 @@ VALUES
   ('vehicle_purchases'),
   ('workshop_orders'),
   ('loaner_bookings'),
+  ('notification_outbox'),
   ('sales_order_items'),
   ('tyre_set_events'),
   ('vehicle_sales'),
@@ -272,6 +273,8 @@ VALUES
   ('margin_rules', 'brands', 'brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'revenue_groups', 'revenue_group_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('notification_outbox', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('notification_outbox', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('part_fitments', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
   ('parts_requisition_lines', 'parts_requisitions', 'requisition_id', 'id', 'CASCADE', 'CASCADE'),
   ('parts_requisition_lines', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -654,6 +657,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_set_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_order_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."notification_outbox"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."loaner_bookings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

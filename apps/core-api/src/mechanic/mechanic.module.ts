@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CommonModule } from '../common/index.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { VoiceTranslationModule } from '../voice-translation/voice-translation.module.js';
@@ -22,6 +23,7 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     ScheduleModule.forRoot(),
     VoiceTranslationModule,
     VehicleStockModule,
+    NotificationsModule,
   ],
   controllers: [MechanicController],
   providers: [

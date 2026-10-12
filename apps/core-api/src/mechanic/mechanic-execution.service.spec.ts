@@ -6,19 +6,20 @@ import {
 } from '@nestjs/common';
 import {
   LaborPauseReason,
+  NotificationChannel,
+  NotificationEventType,
   WorkshopLineItemType,
   WorkshopOrderStatus,
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
-import { TASK_WAITING_CUSTOMER_EVENT } from './mechanic-events.constants.js';
 import {
   MECHANIC_ID,
   ORDER_ID,
   TASK_ID,
   TENANT_ID,
-  mockEventEmitter,
+  mockNotificationOutbox,
   mockPrisma,
   mockRealtimeService,
   mockTenantContext,
@@ -35,7 +36,7 @@ describe('MechanicExecutionService', () => {
       mockPrisma,
       mockTenantContext,
       mockRealtimeService,
-      mockEventEmitter,
+      mockNotificationOutbox,
       mockVehicleLedger,
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
@@ -714,7 +715,55 @@ describe('MechanicExecutionService', () => {
       );
     });
 
-    it('emits WAITING_CUSTOMER event when previous pause reason is WAITING_CUSTOMER', async () => {
+    it('writes an advisor outbox row in the switch transaction when the previous pause reason is WAITING_CUSTOMER', async () => {
+      (mockPrisma.workshopTask.findFirst as jest.Mock)
+        .mockResolvedValueOnce(makeTargetTask())
+        .mockResolvedValueOnce(
+          makeTargetTask({ status: WorkshopTaskStatus.IN_PROGRESS }),
+        );
+      (mockPrisma.laborEntry.findFirst as jest.Mock)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(openEntryMock);
+      (mockPrisma.laborEntry.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (mockPrisma.laborEntry.create as jest.Mock).mockResolvedValue({
+        id: 'new-entry',
+      });
+      (
+        mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+      (
+        mockPrisma.workshopOrder as unknown as { updateMany: jest.Mock }
+      ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
+
+      // A distinct transaction client, so the spec proves the write goes through `tx`, not `this.prisma`.
+      const txClient = Object.create(mockPrisma) as typeof mockPrisma;
+      (mockPrisma.$transaction as jest.Mock).mockImplementationOnce(
+        (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(txClient),
+      );
+
+      await service.switchTask(MECHANIC_ID, TASK_ID, {
+        previousPauseReason: LaborPauseReason.WAITING_CUSTOMER,
+      });
+
+      expect(mockNotificationOutbox.enqueueInTx.mock.calls[0][0]).toBe(
+        txClient,
+      );
+      expect(mockNotificationOutbox.enqueueInTx).toHaveBeenCalledWith(
+        txClient,
+        expect.objectContaining({
+          tenantId: TENANT_ID,
+          eventType: NotificationEventType.WORKSHOP_TASK_WAITING_CUSTOMER,
+          occurrenceId: 'open-entry-1',
+          channel: NotificationChannel.IN_APP,
+          workshopOrderId: 'prev-order-1',
+          sourceEntityId: PREV_TASK_ID,
+        }),
+      );
+    });
+
+    it('writes no outbox row on switch when the previous pause reason is not WAITING_CUSTOMER', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makeTargetTask())
         .mockResolvedValueOnce(
@@ -737,17 +786,10 @@ describe('MechanicExecutionService', () => {
       ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
       await service.switchTask(MECHANIC_ID, TASK_ID, {
-        previousPauseReason: LaborPauseReason.WAITING_CUSTOMER,
+        previousPauseReason: LaborPauseReason.WAITING_PARTS,
       });
 
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        TASK_WAITING_CUSTOMER_EVENT,
-        expect.objectContaining({
-          tenantId: TENANT_ID,
-          taskId: PREV_TASK_ID,
-          orderId: 'prev-order-1',
-        }),
-      );
+      expect(mockNotificationOutbox.enqueueInTx).not.toHaveBeenCalled();
     });
   });
 
@@ -834,7 +876,7 @@ describe('MechanicExecutionService', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
-    it('emits WAITING_CUSTOMER event when pause reason is WAITING_CUSTOMER', async () => {
+    it('writes an advisor outbox row in the pause transaction when the pause reason is WAITING_CUSTOMER', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(
@@ -850,21 +892,34 @@ describe('MechanicExecutionService', () => {
         mockPrisma.workshopTask as unknown as { updateMany: jest.Mock }
       ).updateMany = jest.fn().mockResolvedValue({ count: 1 });
 
+      // A distinct transaction client, so the spec proves the write goes through `tx`, not `this.prisma`.
+      const txClient = Object.create(mockPrisma) as typeof mockPrisma;
+      (mockPrisma.$transaction as jest.Mock).mockImplementationOnce(
+        (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(txClient),
+      );
+
       await service.pauseTask(MECHANIC_ID, TASK_ID, {
         pauseReason: LaborPauseReason.WAITING_CUSTOMER,
       });
 
-      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
-        TASK_WAITING_CUSTOMER_EVENT,
+      expect(mockNotificationOutbox.enqueueInTx.mock.calls[0][0]).toBe(
+        txClient,
+      );
+      expect(mockNotificationOutbox.enqueueInTx).toHaveBeenCalledWith(
+        txClient,
         expect.objectContaining({
           tenantId: TENANT_ID,
-          taskId: TASK_ID,
-          mechanicId: MECHANIC_ID,
+          eventType: NotificationEventType.WORKSHOP_TASK_WAITING_CUSTOMER,
+          occurrenceId: 'open-entry-1',
+          channel: NotificationChannel.IN_APP,
+          workshopOrderId: ORDER_ID,
+          sourceEntityId: TASK_ID,
+          payload: expect.objectContaining({ mechanicEmployeeId: MECHANIC_ID }),
         }),
       );
     });
 
-    it('does not emit WAITING_CUSTOMER event for OTHER pause reason', async () => {
+    it('writes no outbox row for the OTHER pause reason', async () => {
       (mockPrisma.workshopTask.findFirst as jest.Mock)
         .mockResolvedValueOnce(makePausableTask())
         .mockResolvedValueOnce(makePausableTask());
@@ -882,7 +937,7 @@ describe('MechanicExecutionService', () => {
         pauseReason: LaborPauseReason.OTHER,
       });
 
-      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+      expect(mockNotificationOutbox.enqueueInTx).not.toHaveBeenCalled();
     });
   });
 
