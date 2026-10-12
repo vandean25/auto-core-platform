@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  NOTIFICATION_ENV_KEYS,
+  notificationEnvIssues,
+  notificationEnvShape,
+} from './notification-env.js';
 
 const SECRET_ENCRYPTION_KEY_BYTES = 32;
 const API_KEY_PEPPER_MIN_BYTES = 32;
@@ -37,6 +42,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'CLOUD_TASKS_TARGET_BASE_URL',
   'CLOUD_TASKS_WORKER_SECRET',
   'CLOUD_TASKS_INVOKER_SA',
+  ...NOTIFICATION_ENV_KEYS,
   'GCP_CREDENTIALS',
   'SECRET_ENCRYPTION_KEY',
   'CATALOG_HIT_HMAC_SECRET',
@@ -125,6 +131,7 @@ const envSchema = z
     CLOUD_TASKS_TARGET_BASE_URL: optionalString,
     CLOUD_TASKS_WORKER_SECRET: optionalString,
     CLOUD_TASKS_INVOKER_SA: optionalString,
+    ...notificationEnvShape,
     GCP_CREDENTIALS: optionalString,
     SECRET_ENCRYPTION_KEY: optionalString,
     CATALOG_HIT_HMAC_SECRET: optionalString,
@@ -145,6 +152,18 @@ const envSchema = z
   .superRefine((env, ctx) => {
     // Optional everywhere (ADR-0026): unset disables tenant API keys (fail closed); a bad value must still fail boot.
     addApiKeyPepperIssues(ctx, env.API_KEY_PEPPER);
+    for (const issue of notificationEnvIssues(env)) {
+      if (issue.kind === 'required') {
+        addRequiredIssue(ctx, issue.key, undefined);
+      } else {
+        ctx.addIssue({
+          code: 'custom',
+          path: [issue.key],
+          message: 'invalid',
+          continue: true,
+        });
+      }
+    }
 
     if (env.NODE_ENV === 'test') {
       return;
