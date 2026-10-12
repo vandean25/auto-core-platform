@@ -107,14 +107,16 @@ If the legal entity has no accounting export profile, or the profile is turned o
     | Reason | What it means |
     | --- | --- |
     | Legacy document | The document was saved before the current invoice format, so its accounting data cannot be checked. |
-    | Outside DE export | A line is not German domestic standard VAT. Only those lines can be exported right now. |
+    | Outside DE export | A line's accounting allocation is for a country other than Germany (DE). Only German lines can be exported right now. |
     | Unsupported tax mode | The document uses margin-scheme tax, which the export profile does not support. |
     | Mapping incomplete | A line has no accounting allocation saved on it. |
     | Ownership evidence missing | The document is missing its legal entity, site, or number. |
     | Cancelled | Cancelled documents cannot be exported. |
   </Accordion>
   <Accordion title="Notices above the list">
-    Some blocks belong to the whole period, not to one row. A document with no legal entity is one example. These appear as a notice above the list, because no single row can show them. A document that has a legal entity but no site is a row instead, with the **Ownership evidence missing** reason.
+    Some blocks belong to the whole period, not to one row. A document with no legal entity is one example. These appear as a notice above the list, because no single row can show them. The notice does not name the document.
+
+    A document that has a legal entity but no site is a row with the **Ownership evidence missing** reason. Its gap also appears in the notice above the list. A cancelled document shows only **Cancelled** on its row, so its ownership gap appears only in the notice.
   </Accordion>
   <Accordion title="Refusals">
     The page shows a refusal message instead of the cards and the list when it cannot show the period. That happens when a site that holds documents in the period is inactive, or when you have no active site membership for one of those sites. Ask an owner or admin to give you access to the site, or reactivate an inactive site under **Settings → Sites**. Then reload this page.

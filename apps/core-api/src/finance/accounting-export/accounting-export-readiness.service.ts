@@ -128,7 +128,6 @@ export class AccountingExportReadinessService {
         dateFrom,
         dateTo,
         authorizedSiteIds,
-        { excludeLegalEntityId: query.legalEntityId },
       ),
     ]);
 

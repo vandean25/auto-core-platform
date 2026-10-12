@@ -25,6 +25,14 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 
 const READINESS_PATH = '/api/finance/accounting-export-readiness';
+// The notice for a document without a site names no document, as the loader redacts it.
+const REDACTED_NOTICE =
+  'A document in the selected period has incomplete ownership evidence.';
+
+type ReadinessBody = {
+  data: { id: string; blockers: { code: string }[] }[];
+  tenantWideBlockers: { code: string }[];
+};
 
 describe('Accounting export readiness (e2e)', () => {
   let app: INestApplication;
@@ -178,10 +186,11 @@ describe('Accounting export readiness (e2e)', () => {
 
     // Mixed March 2026 period for the Berlin entity: a v2 DE invoice, a v1
     // (legacy) invoice, an AT invoice, a second v2 DE invoice, a v2 DE credit
-    // note, and a Berlin invoice with no site. The site-less invoice is one
-    // row with a missing-ownership blocker, not a tenant-wide notice as well.
-    // A last invoice has no legal entity, so it is a tenant-wide ownership
-    // blocker that is not attributed to Berlin.
+    // note, and a Berlin invoice with no site. The site-less invoice is a row
+    // with a missing-ownership blocker, and its gap is also a notice that names
+    // no document, as export preview shows it. A last invoice has no legal
+    // entity, so it is a tenant-wide ownership notice that is not attributed to
+    // Berlin.
     ids.de1 = (await finalizeSalesInvoice(1, 100, '2026-03-05')).id;
     ids.legacyV1 = (await finalizeSalesInvoice(1, 60, '2026-03-10')).id;
     await markInvoiceSnapshotAsVersion1(ids.legacyV1);
@@ -414,6 +423,33 @@ describe('Accounting export readiness (e2e)', () => {
       .set('Authorization', `Bearer ${token}`);
   }
 
+  function previewRequest() {
+    return request(app.getHttpServer())
+      .post('/api/finance/accounting-exports/preview')
+      .set('Authorization', `Bearer ${authTokenA}`)
+      .send({
+        legalEntityId: deEntityId,
+        dateFrom: '2026-03-01',
+        dateTo: '2026-03-31',
+      });
+  }
+
+  function idsOf(body: { data: { id: string }[] }) {
+    return body.data.map((row) => row.id);
+  }
+
+  // The codes the page shows: each listed row's blockers, then the tenant-wide notices.
+  function readinessCodes(body: ReadinessBody) {
+    return [
+      ...body.data.flatMap((row) => row.blockers.map((blocker) => blocker.code)),
+      ...body.tenantWideBlockers.map((blocker) => blocker.code),
+    ];
+  }
+
+  function previewCodes(body: { blockers: { code: string }[] }) {
+    return body.blockers.map((blocker) => blocker.code);
+  }
+
   it('RD-01: reports exportable and blocked documents, reasons, and tenant-wide blockers for a mixed period', async () => {
     const response = await readinessRequest().expect(200);
 
@@ -436,17 +472,19 @@ describe('Accounting export readiness (e2e)', () => {
         { code: 'UNSUPPORTED_EXPORT_COUNTRY', documentCount: 1 },
       ],
     });
+    // The site-less Berlin invoice's gap is a redacted notice; the invoice with
+    // no legal entity is named, because its site is authorized.
     expect(response.body.tenantWideBlockers).toEqual([
+      { code: 'MISSING_OWNERSHIP_EVIDENCE', message: REDACTED_NOTICE },
       expect.objectContaining({
         code: 'MISSING_OWNERSHIP_EVIDENCE',
         documentId: ids.noEntity,
       }),
     ]);
-    expect(response.body.periodClosed).toBe(false);
-    expect(response.body.lockDate).toBeNull();
-    expect(response.body.exportProfile).toEqual({
-      configured: true,
-      canGenerate: true,
+    expect(response.body).toMatchObject({
+      periodClosed: false,
+      lockDate: null,
+      exportProfile: { configured: true, canGenerate: true },
     });
   });
 
@@ -509,7 +547,7 @@ describe('Accounting export readiness (e2e)', () => {
       limit: 2,
       pageCount: 3,
     });
-    expect(page2.body.data.map((row: { id: string }) => row.id)).toEqual([
+    expect(idsOf(page2.body)).toEqual([
       ids.atInvoice,
       ids.entityNoSite,
     ]);
@@ -522,9 +560,11 @@ describe('Accounting export readiness (e2e)', () => {
       limit: 3,
     }).expect(200);
 
-    expect(
-      newestFirst.body.data.map((row: { id: string }) => row.id),
-    ).toEqual([ids.creditNote, ids.de2, ids.entityNoSite]);
+    expect(idsOf(newestFirst.body)).toEqual([
+      ids.creditNote,
+      ids.de2,
+      ids.entityNoSite,
+    ]);
     expect(newestFirst.body.meta.total).toBe(6);
   });
 
@@ -535,30 +575,10 @@ describe('Accounting export readiness (e2e)', () => {
     expect(readiness.body.periodClosed).toBe(true);
     expect(readiness.body.lockDate).toEqual(expect.any(String));
 
-    const preview = await request(app.getHttpServer())
-      .post('/api/finance/accounting-exports/preview')
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .send({
-        legalEntityId: deEntityId,
-        dateFrom: '2026-03-01',
-        dateTo: '2026-03-31',
-      })
-      .expect(200);
+    const preview = await previewRequest().expect(200);
 
-    const readinessCodes = [
-      ...readiness.body.data.flatMap((row: { blockers: { code: string }[] }) =>
-        row.blockers.map((blocker) => blocker.code),
-      ),
-      ...readiness.body.tenantWideBlockers.map(
-        (blocker: { code: string }) => blocker.code,
-      ),
-    ];
-    const previewCodes = preview.body.blockers.map(
-      (blocker: { code: string }) => blocker.code,
-    );
-
-    expect([...new Set(readinessCodes)].sort()).toEqual(
-      [...new Set(previewCodes)].sort(),
+    expect([...new Set(readinessCodes(readiness.body))].sort()).toEqual(
+      [...new Set(previewCodes(preview.body))].sort(),
     );
     expect(preview.body.canGenerate).toBe(false);
   });
@@ -677,27 +697,10 @@ describe('Accounting export readiness (e2e)', () => {
       readiness.body.tenantWideBlockers.filter(
         (blocker: { documentId?: string }) => blocker.documentId === undefined,
       ),
-    ).toEqual([
-      {
-        code: 'MISSING_OWNERSHIP_EVIDENCE',
-        message:
-          'A document in the selected period has incomplete ownership evidence.',
-      },
-    ]);
+    ).toEqual([{ code: 'MISSING_OWNERSHIP_EVIDENCE', message: REDACTED_NOTICE }]);
 
-    const preview = await request(app.getHttpServer())
-      .post('/api/finance/accounting-exports/preview')
-      .set('Authorization', `Bearer ${authTokenA}`)
-      .send({
-        legalEntityId: deEntityId,
-        dateFrom: '2026-03-01',
-        dateTo: '2026-03-31',
-      })
-      .expect(200);
-    const previewCodes = preview.body.blockers.map(
-      (blocker: { code: string }) => blocker.code,
-    );
-    expect(previewCodes).toEqual(
+    const preview = await previewRequest().expect(200);
+    expect(previewCodes(preview.body)).toEqual(
       expect.arrayContaining(['CANCELLED_DOCUMENT', 'MISSING_OWNERSHIP_EVIDENCE']),
     );
   });

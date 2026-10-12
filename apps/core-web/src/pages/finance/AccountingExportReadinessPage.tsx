@@ -68,6 +68,10 @@ const SORT_FIELDS: readonly AccountingExportReadinessSortField[] = [
 const toSortField = (value: string | undefined) =>
   SORT_FIELDS.find((field) => field === value)
 
+// Limits of the readiness API (search MaxLength 200, limit Max 100).
+const MAX_SEARCH_LENGTH = 200
+const MAX_PAGE_SIZE = 100
+
 // UTC keeps the calendar day the server sends, in every browser time zone.
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
@@ -214,6 +218,8 @@ export default function AccountingExportReadinessPage() {
     resetToFirstPage()
   }
 
+  // The URL can be edited by hand. These keep each value inside what the API
+  // accepts, so an odd value cannot turn into a refusal with no way to reach the list.
   const readiness = useAccountingExportReadiness(
     legalEntityId
       ? {
@@ -222,11 +228,16 @@ export default function AccountingExportReadinessPage() {
           dateTo: period.dateTo,
           reason: reason || undefined,
           documentKind: documentKind || undefined,
-          search: queryParams.search || undefined,
+          search: (queryParams.search ?? '').slice(0, MAX_SEARCH_LENGTH) || undefined,
           sortField: toSortField(queryParams.sortField),
-          sortDirection: queryParams.sortDirection,
-          page: queryParams.page,
-          limit: queryParams.pageSize,
+          sortDirection:
+            queryParams.sortDirection === 'desc'
+              ? 'desc'
+              : queryParams.sortDirection === 'asc'
+                ? 'asc'
+                : undefined,
+          page: Math.max(1, queryParams.page),
+          limit: Math.min(queryParams.pageSize, MAX_PAGE_SIZE),
         }
       : null,
   )

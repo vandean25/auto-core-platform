@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,20 +25,10 @@ const readinessResponse = {
   dateFrom: '2026-03-01',
   dateTo: '2026-03-31',
   periodClosed: true,
-  lockDate: '2026-03-31T00:00:00.000Z',
   summary: {
     documentCount: 5,
     exportableCount: 3,
     blockedCount: 2,
-    documentKinds: [
-      { kind: 'INVOICE', documentCount: 4, exportableCount: 2, blockedCount: 2 },
-      {
-        kind: 'CREDIT_NOTE',
-        documentCount: 1,
-        exportableCount: 1,
-        blockedCount: 0,
-      },
-    ],
     reasons: [
       { code: 'LEGACY_DOCUMENT_UNSUPPORTED', documentCount: 1 },
       { code: 'UNSUPPORTED_EXPORT_COUNTRY', documentCount: 1 },
@@ -84,6 +74,16 @@ const readinessResponse = {
   meta: { total: 2, page: 1, limit: 25, pageCount: 1 },
 }
 
+// Sets what the readiness query returns on the next render.
+function mockReadiness(result: { data?: unknown; error?: Error | null } = {}) {
+  asMock(readinessApi.useAccountingExportReadiness).mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    error: null,
+    ...result,
+  })
+}
+
 function renderPage(initialPath: string = APP_ROUTE_PATHS.accountingExportReadiness) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -113,11 +113,7 @@ describe('AccountingExportReadinessPage', () => {
       data: [berlin],
       isLoading: false,
     })
-    asMock(readinessApi.useAccountingExportReadiness).mockReturnValue({
-      data: readinessResponse,
-      isLoading: false,
-      error: null,
-    })
+    mockReadiness({ data: readinessResponse })
   })
 
   afterEach(() => {
@@ -129,16 +125,11 @@ describe('AccountingExportReadinessPage', () => {
     renderPage()
 
     const summary = screen.getByRole('region', { name: 'Readiness summary' })
-    expect(within(summary).getByText('Exportable')).toBeInTheDocument()
-    expect(within(summary).getByText('Blocked')).toBeInTheDocument()
-    expect(within(summary).getByText('3')).toBeInTheDocument()
-    expect(within(summary).getByText('2')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /Legacy document/ }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /Outside DE export/ }),
-    ).toBeInTheDocument()
+    expect(summary).toHaveTextContent(/Exportable\s*3/)
+    expect(summary).toHaveTextContent(/Blocked\s*2/)
+    for (const reason of [/Legacy document/, /Outside DE export/]) {
+      expect(screen.getByRole('button', { name: reason })).toBeInTheDocument()
+    }
     expect(
       screen.getByText('Document ownership or numbering evidence is incomplete.'),
     ).toBeInTheDocument()
@@ -178,17 +169,11 @@ describe('AccountingExportReadinessPage', () => {
     expect(
       screen.getByText('Choose a legal entity to see its export readiness.'),
     ).toBeInTheDocument()
-    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
-      null,
-    )
+    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(null)
   })
 
-  it('shows the refusal message when the readiness request fails', () => {
-    asMock(readinessApi.useAccountingExportReadiness).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      error: new Error('Export scope is incomplete for the current user.'),
-    })
+  it('shows only the refusal when the readiness request fails', () => {
+    mockReadiness({ error: new Error('Export scope is incomplete for the current user.') })
 
     renderPage()
 
@@ -230,20 +215,24 @@ describe('AccountingExportReadinessPage', () => {
     )
   })
 
+  it('keeps a hand-edited search and page size inside the API limits', () => {
+    const longSearch = 'a'.repeat(300)
+    renderPage(
+      `${APP_ROUTE_PATHS.accountingExportReadiness}?search=${longSearch}&pageSize=500`,
+    )
+
+    expect(readinessApi.useAccountingExportReadiness).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search: 'a'.repeat(200), limit: 100 }),
+    )
+  })
+
   it('warns when the legal entity has no export profile that can generate', () => {
-    asMock(readinessApi.useAccountingExportReadiness).mockReturnValue({
-      data: {
-        ...readinessResponse,
-        exportProfile: { configured: false, canGenerate: false },
-      },
-      isLoading: false,
-      error: null,
+    mockReadiness({
+      data: { ...readinessResponse, exportProfile: { configured: false, canGenerate: false } },
     })
 
     renderPage()
 
-    expect(
-      screen.getByText(/has no accounting export profile/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/has no accounting export profile/)).toBeInTheDocument()
   })
 })

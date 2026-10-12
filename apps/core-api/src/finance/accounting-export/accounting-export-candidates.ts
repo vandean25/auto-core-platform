@@ -371,37 +371,19 @@ export async function loadTenantOwnershipBlockers(
   dateFrom: Date,
   dateTo: Date,
   authorizedSiteIds: Set<string>,
-  options: { excludeLegalEntityId?: string } = {},
 ): Promise<AccountingExportBlocker[]> {
   const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
   const ownershipStatuses = [
     ...ELIGIBLE_INVOICE_STATUSES,
     InvoiceStatus.CANCELLED,
   ];
-  // A missing-site invoice of the excluded legal entity is listed as that
-  // entity's own row with MISSING_OWNERSHIP_EVIDENCE, so it is not repeated as a
-  // notice. A cancelled one returns before that check, so it keeps its notice.
-  const ownershipGaps: Prisma.InvoiceWhereInput[] = options.excludeLegalEntityId
-    ? [
-        { legal_entity_id: null },
-        {
-          site_id: null,
-          legal_entity_id: { not: options.excludeLegalEntityId },
-        },
-        {
-          site_id: null,
-          legal_entity_id: options.excludeLegalEntityId,
-          status: InvoiceStatus.CANCELLED,
-        },
-      ]
-    : [{ legal_entity_id: null }, { site_id: null }];
 
   const invoices = await prisma.invoice.findMany({
     where: {
       tenant_id: tenantId,
       date: dateFilter,
       status: { in: ownershipStatuses },
-      OR: ownershipGaps,
+      OR: [{ legal_entity_id: null }, { site_id: null }],
     },
     select: {
       id: true,
