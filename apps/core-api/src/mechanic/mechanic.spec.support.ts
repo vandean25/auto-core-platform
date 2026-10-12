@@ -1,7 +1,7 @@
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { MechanicMediaStorage } from './mechanic-media.storage.js';
 
 export const TENANT_ID = 'tenant-1';
@@ -50,9 +50,11 @@ export const mockRealtimeService = {
   emitEntityUpdated: jest.fn(),
 } as unknown as DashboardRealtimeService;
 
-export const mockEventEmitter = {
-  emit: jest.fn(),
-} as unknown as EventEmitter2;
+export const mockNotificationOutbox = {
+  enqueueInTx: jest
+    .fn()
+    .mockResolvedValue({ id: 'notification-1', created: true }),
+};
 
 export const mockMediaStorage = {
   generateUploadPolicy: jest.fn(),

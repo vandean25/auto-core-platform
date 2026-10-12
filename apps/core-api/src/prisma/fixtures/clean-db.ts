@@ -97,6 +97,10 @@ export const TABLE_CLEANERS: TableCleaner[] = [
       await p.laborCategory.deleteMany();
     },
   },
+  {
+    table: 'notification_outbox',
+    clean: (p) => p.notificationOutbox.deleteMany(),
+  },
   { table: 'workshop_orders', clean: (p) => p.workshopOrder.deleteMany() },
   {
     table: 'voice_note_rate_limits',

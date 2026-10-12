@@ -3,7 +3,6 @@ import {
   Injectable,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   LaborPauseReason,
   Prisma,
@@ -15,6 +14,7 @@ import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realti
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto.js';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto.js';
@@ -26,10 +26,7 @@ import type {
   RequestPartDto,
   RequestPartResponseDto,
 } from './dto/request-part.dto.js';
-import {
-  TASK_WAITING_CUSTOMER_EVENT,
-  type TaskWaitingCustomerPayload,
-} from './mechanic-events.constants.js';
+import { buildWaitingCustomerNotification } from './mechanic-waiting-customer.notification.js';
 import {
   assertTaskAccessible,
   assertTaskAccessibleAndNotDone,
@@ -61,7 +58,7 @@ export class MechanicExecutionService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly realtimeService: DashboardRealtimeService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly notificationOutbox: NotificationOutboxService,
     private readonly vehicleLedger: VehicleLedgerService,
   ) {}
 
@@ -339,6 +336,20 @@ export class MechanicExecutionService {
         taskLabel: `Previous task ${previousTaskId}`,
       });
 
+      // Advisor notice for the shelved task, in the same transaction as its transition.
+      if (dto.previousPauseReason === LaborPauseReason.WAITING_CUSTOMER) {
+        await this.notificationOutbox.enqueueInTx(
+          tx,
+          buildWaitingCustomerNotification({
+            tenantId,
+            taskId: previousTaskId,
+            workshopOrderId: previousOrderId,
+            mechanicEmployeeId: mechanicId,
+            laborEntryId: openEntry.id,
+          }),
+        );
+      }
+
       // Open new labor entry and transition target task.
       await startLaborAndTransitionTask(tx, {
         tenantId,
@@ -356,15 +367,6 @@ export class MechanicExecutionService {
     this.emitTaskUpdated(tenantId, previousTaskId);
     this.emitTaskUpdated(tenantId, taskId);
 
-    // If previous task moved to WAITING_CUSTOMER, emit the notification event.
-    this.emitWaitingCustomerIfApplicable(
-      tenantId,
-      previousTaskId,
-      previousOrderId,
-      mechanicId,
-      dto.previousPauseReason,
-    );
-
     return this.getMechanicTaskDetail(mechanicId, taskId);
   }
 
@@ -372,8 +374,8 @@ export class MechanicExecutionService {
    * Pause: closes the active `LaborEntry` and transitions the task status
    * based on the supplied pause reason.
    *
-   * When the resulting status is `WAITING_CUSTOMER`, publishes a domain
-   * event so the Service Advisor notification flow can be triggered.
+   * When the resulting status is `WAITING_CUSTOMER`, the advisor notice is
+   * written to the notification outbox in the same transaction (AUT-356).
    * ADR-0014 §4.3
    */
   async pauseTask(
@@ -421,17 +423,22 @@ export class MechanicExecutionService {
         pauseReason: dto.pauseReason,
         nextTaskStatus,
       });
+
+      if (dto.pauseReason === LaborPauseReason.WAITING_CUSTOMER) {
+        await this.notificationOutbox.enqueueInTx(
+          tx,
+          buildWaitingCustomerNotification({
+            tenantId,
+            taskId,
+            workshopOrderId: task.workshop_order_id,
+            mechanicEmployeeId: mechanicId,
+            laborEntryId: openEntry.id,
+          }),
+        );
+      }
     });
 
     this.emitTaskUpdated(tenantId, taskId);
-
-    this.emitWaitingCustomerIfApplicable(
-      tenantId,
-      taskId,
-      task.workshop_order_id,
-      mechanicId,
-      dto.pauseReason,
-    );
 
     return this.getMechanicTaskDetail(mechanicId, taskId);
   }
@@ -662,22 +669,5 @@ export class MechanicExecutionService {
       action: 'UPDATED',
       entityId: taskId,
     });
-  }
-
-  private emitWaitingCustomerIfApplicable(
-    tenantId: string,
-    taskId: string,
-    orderId: string,
-    mechanicId: string,
-    pauseReason: LaborPauseReason,
-  ): void {
-    if (pauseReason === LaborPauseReason.WAITING_CUSTOMER) {
-      this.eventEmitter.emit(TASK_WAITING_CUSTOMER_EVENT, {
-        tenantId,
-        taskId,
-        orderId,
-        mechanicId,
-      } satisfies TaskWaitingCustomerPayload);
-    }
   }
 }

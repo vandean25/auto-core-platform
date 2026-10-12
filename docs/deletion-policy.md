@@ -64,6 +64,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | WorkshopEstimateVersion | Retention-bound | No delete endpoint. A `DRAFT` version is replaced by sending or by a later revision. `SENT` and later versions are immutable: snapshot, `snapshot_sha256` and PDF archive are written once. Only `status` moves (`SUPERSEDED`, `APPROVED`, `DECLINED`, `EXPIRED`). Removal only after `retain_until` has passed and `legal_hold` is false (ADR-0025 §10). |
 | WorkshopEstimateBrandAssetReference | No direct delete | Pins the frozen logo asset of a sent version. Removed only together with its version row, so asset cleanup treats the logo as in use. |
 | WorkshopEstimateSequence | No | Numbering counter per tenant and year. Consumed numbers are never reused or reset. |
+| NotificationOutbox | Retention-bound | No delete endpoint. Rows stay with their order (`ON DELETE RESTRICT`). Message bodies are purged 90 days after creation; metadata (event, recipient address, status, provider id, timestamps) is kept up to 3 years (ADR-0025 §10). Erasure follows AUT-371 / AUT-374. |
 | WorkshopTask | Conditional | Allow only when parent `WorkshopOrder` is not `INVOICED`, no linked invoice exists yet on the order, no `LaborEntry` records exist for the task, and **no child line has a `PartsReservation` or inventory activity**. |
 | WorkshopTaskLineItem | Soft-cancel after operational history | Hard delete forbidden once any `PartsReservation` or `InventoryTransaction` exists. Consumed > 0: leftover-release shrinks `quantity` to consumed, status `CONSUMED` (still billable). Consumed = 0: status `CANCELLED`. Keep the row so reservations retain `workshop_task_line_item_id`. `replaceTaskLineItems` must not `deleteMany` operational lines. A line referenced by a `WarrantyClaimLine` cannot be hard-deleted either: the database foreign key (`RESTRICT`) refuses the delete, so the line replacement and the task delete fail with 422 and the generic related-record message. While the claim is `DRAFT`, remove the line from the claim first; once a claim has left `DRAFT` its lines stay on the order for the audit trail. |
 | WarrantyClaim | No (close instead) | Retained for the audit trail and the OEM reference; no delete API. Status runs `DRAFT` → `SUBMITTED_EXTERNALLY` → `APPROVED` or `REJECTED` → `CLOSED`. `CLOSED` can be reached from every status, and it is terminal. Type, complaint, cause/correction, lines and claimed amount are editable only in `DRAFT`; external reference and decision fields stay editable until `CLOSED`. Every change is written to the audit log. |
@@ -118,6 +119,13 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 | AccountingExport | No | Retain exact bytes, manifest, frozen profile, checksum and actor/time. No ordinary delete endpoint or short TTL. |
 
 Retention and tenant-purge exceptions require a separate approved policy; this baseline authorizes no historical deletion or snapshot repair.
+
+## ADR-0025 / AUT-356 — Notification outbox
+
+- `notification_outbox` has no delete endpoint. Each row is written in the same transaction as the state change it announces, and its foreign key to `workshop_orders` is `ON DELETE RESTRICT`, so an order with notifications cannot be hard-deleted.
+- Rows are never deleted to free space. The message body is cleared 90 days after creation, once the row is in a terminal state; the job ships with the sender worker (AUT-356 phase 2). The row keeps its subject, rendered-body hash, recipient address, provider message id and timestamps.
+- The tenant purge SQL in `tools/tenant-restore/` deletes outbox rows before orders.
+- Erasure after a data-subject request (AUT-371 / AUT-374) restricts access until retention ends. That job is not part of AUT-356.
 
 ## ADR-0025 / AUT-354 — Workshop estimates (Kostenvoranschlag)
 
