@@ -1,0 +1,134 @@
+import { NotificationOutboxRecoveryService } from './notification-outbox-recovery.service.js';
+
+describe('NotificationOutboxRecoveryService', () => {
+  let prisma: {
+    notificationOutbox: { findMany: jest.Mock; updateMany: jest.Mock };
+  };
+  let systemPrisma: { tenant: { findMany: jest.Mock } };
+  let requestContext: { runAsWorker: jest.Mock };
+  let wakeUps: { isEnabled: jest.Mock; enqueueWakeUp: jest.Mock };
+  let service: NotificationOutboxRecoveryService;
+
+  /** The writes in call order: the stale-unsent pass is always first, then one write per expired claim. */
+  const writes = () =>
+    prisma.notificationOutbox.updateMany.mock.calls.map(([arg]) => arg);
+
+  beforeEach(() => {
+    prisma = {
+      notificationOutbox: {
+        findMany: jest.fn().mockResolvedValue([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    systemPrisma = {
+      tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+    };
+    requestContext = {
+      runAsWorker: jest.fn((_tenantId: string, run: () => unknown) => run()),
+    };
+    wakeUps = {
+      isEnabled: jest.fn().mockReturnValue(true),
+      enqueueWakeUp: jest.fn().mockResolvedValue(undefined),
+    };
+    service = new NotificationOutboxRecoveryService(
+      prisma as never,
+      systemPrisma as never,
+      requestContext as never,
+      wakeUps as never,
+    );
+  });
+
+  it('fails notices that waited past the sending window, before any wake-up', async () => {
+    await service.recover();
+
+    expect(writes()[0]).toMatchObject({
+      where: { tenant_id: 'tenant-1', status: 'PENDING' },
+      data: {
+        status: 'FAILED',
+        last_error_code: 'STALE_UNSENT',
+        lease_token: null,
+      },
+    });
+    expect(writes()[0].where.createdAt.lt).toBeInstanceOf(Date);
+  });
+
+  it('keeps the database passes running while the queue is off, but wakes nothing', async () => {
+    wakeUps.isEnabled.mockReturnValue(false);
+    prisma.notificationOutbox.findMany.mockResolvedValueOnce([
+      { id: 'outbox-5', attempts: 2 },
+    ]);
+
+    await service.recover();
+
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+    expect(prisma.notificationOutbox.findMany).toHaveBeenCalledTimes(1);
+    expect(writes()[1]).toMatchObject({
+      data: { status: 'PENDING', last_error_code: 'LEASE_EXPIRED' },
+    });
+  });
+
+  it('wakes due pending rows, scoped to the tenant', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([{ id: 'outbox-1' }])
+      .mockResolvedValueOnce([]);
+
+    await service.recover();
+
+    expect(
+      prisma.notificationOutbox.findMany.mock.calls[0][0].where,
+    ).toMatchObject({
+      tenant_id: 'tenant-1',
+      status: 'PENDING',
+    });
+    expect(wakeUps.enqueueWakeUp).toHaveBeenCalledWith({
+      outboxId: 'outbox-1',
+      tenantId: 'tenant-1',
+    });
+  });
+
+  it('releases an expired claim with attempts left and wakes it again', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'outbox-2', attempts: 2 }]);
+
+    await service.recover();
+
+    expect(writes()[1]).toMatchObject({
+      data: {
+        status: 'PENDING',
+        last_error_code: 'LEASE_EXPIRED',
+        lease_token: null,
+      },
+    });
+    expect(wakeUps.enqueueWakeUp).toHaveBeenCalledWith({
+      outboxId: 'outbox-2',
+      tenantId: 'tenant-1',
+    });
+  });
+
+  it('fails an expired claim that used every attempt, without waking it', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'outbox-3', attempts: 5 }]);
+
+    await service.recover();
+
+    expect(writes()[1]).toMatchObject({
+      data: { status: 'FAILED', last_error_code: 'LEASE_EXPIRED' },
+    });
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
+  it('does not wake a claim that another sweep already released', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'outbox-4', attempts: 2 }]);
+    prisma.notificationOutbox.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await service.recover();
+
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+});

@@ -7,6 +7,12 @@ import {
   type NotificationRecipientKind,
   type Prisma,
 } from '@prisma/client';
+import {
+  buildEmailColumns,
+  type EmailDraft,
+} from './notification-outbox.email-columns.js';
+
+export type { EmailDraft } from './notification-outbox.email-columns.js';
 
 /**
  * One outbox write. `occurrenceId` names the business occurrence that happened once, for example
@@ -20,11 +26,12 @@ export interface EnqueueNotificationInput {
   channel: NotificationChannel;
   recipientKind: NotificationRecipientKind;
   recipientKey: string;
-  recipientEmail?: string | null;
   workshopOrderId?: string | null;
   sourceEntityType?: string | null;
   sourceEntityId?: string | null;
   payload?: Prisma.InputJsonObject;
+  /** Required for EMAIL rows and forbidden for IN_APP rows. */
+  email?: EmailDraft;
 }
 
 /** Event, occurrence, recipient and channel: a repeated write for the same key is a no-op. */
@@ -43,18 +50,37 @@ export function buildNotificationIdempotencyKey(
 }
 
 export type NotificationOutboxRow =
-  Prisma.NotificationOutboxUncheckedCreateInput & { id: string };
+  Prisma.NotificationOutboxUncheckedCreateInput & {
+    id: string;
+  };
 
 /**
- * Row shape for `notification_outbox`. Channels without a provider (IN_APP) are accepted at write
- * time, because the durable row is the notification itself. EMAIL rows start PENDING and are
- * delivered by the sender worker (AUT-356 phase 2).
+ * Row shape for `notification_outbox`. IN_APP rows are accepted at write time, because the durable
+ * row is the notification itself. EMAIL rows start PENDING and are delivered by the sender worker.
  */
 export function buildNotificationOutboxRow(
   input: EnqueueNotificationInput,
   now: Date,
 ): NotificationOutboxRow {
-  const acceptedAtWrite = input.channel === NotificationChannel.IN_APP;
+  assertMessageMatchesChannel(input);
+  return {
+    ...buildRowIdentity(input),
+    ...buildEmailColumns(input.email),
+    ...buildRowLifecycle(input.channel !== NotificationChannel.EMAIL, now),
+  };
+}
+
+function assertMessageMatchesChannel(input: EnqueueNotificationInput): void {
+  const isEmail = input.channel === NotificationChannel.EMAIL;
+  if (isEmail && !input.email) {
+    throw new Error('EMAIL outbox rows need a rendered message');
+  }
+  if (!isEmail && input.email) {
+    throw new Error('Only EMAIL outbox rows carry a rendered message');
+  }
+}
+
+function buildRowIdentity(input: EnqueueNotificationInput) {
   return {
     id: randomUUID(),
     tenant_id: input.tenantId,
@@ -62,20 +88,30 @@ export function buildNotificationOutboxRow(
     idempotency_key: buildNotificationIdempotencyKey(input),
     channel: input.channel,
     recipient_kind: input.recipientKind,
-    recipient_email: input.recipientEmail ?? null,
     message_class: NotificationMessageClass.TRANSACTIONAL,
     workshop_order_id: input.workshopOrderId ?? null,
     source_entity_type: input.sourceEntityType ?? null,
     source_entity_id: input.sourceEntityId ?? null,
     ...(input.payload ? { payload: input.payload } : {}),
-    status: acceptedAtWrite
-      ? NotificationOutboxStatus.ACCEPTED
-      : NotificationOutboxStatus.PENDING,
+  };
+}
+
+function buildRowLifecycle(acceptedAtWrite: boolean, now: Date) {
+  const timestamps = { next_attempt_at: now, createdAt: now, updatedAt: now };
+  if (acceptedAtWrite) {
+    return {
+      ...timestamps,
+      status: NotificationOutboxStatus.ACCEPTED,
+      attempts: 0,
+      accepted_at: now,
+      provider: 'in-app',
+    };
+  }
+  return {
+    ...timestamps,
+    status: NotificationOutboxStatus.PENDING,
     attempts: 0,
-    next_attempt_at: now,
-    accepted_at: acceptedAtWrite ? now : null,
-    provider: acceptedAtWrite ? 'in-app' : null,
-    createdAt: now,
-    updatedAt: now,
+    accepted_at: null,
+    provider: null,
   };
 }
