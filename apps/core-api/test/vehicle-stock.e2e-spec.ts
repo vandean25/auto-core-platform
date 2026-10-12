@@ -1699,8 +1699,10 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(lettersAndDigits(invoiceText)).not.toContain(lettersAndDigits('§ 25a UStG'));
     expect(lettersAndDigits(invoiceText)).toContain(lettersAndDigits('Brutto: 12000.00'));
     expect(invoiceText).not.toContain('Umsatzsteuer');
-    // Margin VAT on a 12000 sale over a 10000 cost basis at 20% is 333.33; it is never printed.
-    expect(invoiceText).not.toContain('333.33');
+    // Margin VAT on a 12000 sale over a 10000 cost basis at 20% is 333.33, and the cost basis is
+    // 10000.00; neither is printed. The decimal point is optional because pdf.js may drop it.
+    expect(invoiceText).not.toMatch(/333\.?33/);
+    expect(invoiceText).not.toMatch(/10000\.?00/);
 
     const credit = await request(app.getHttpServer())
       .post(`/api/invoices/${invoiceId}/credit-notes`)
