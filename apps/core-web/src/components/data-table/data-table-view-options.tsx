@@ -1,9 +1,6 @@
 import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu"
 import { Settings2 } from "lucide-react"
-import type {
-  LegacyColumn as Column,
-  LegacyReactTable as Table,
-} from '@tanstack/react-table/legacy'
+import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,25 +11,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { getDataTableColumnLabel } from "./data-table-column-label"
 
 interface DataTableViewOptionsProps<TData extends object> {
   table: Table<TData>
-}
-
-function humanizeColumnId(id: string): string {
-  const words = id
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .toLowerCase()
-  return words.charAt(0).toUpperCase() + words.slice(1)
-}
-
-function getColumnLabel<TData extends object>(column: Column<TData, unknown>): string {
-  const meta = column.columnDef.meta as { label?: string } | undefined
-  if (meta?.label) return meta.label
-  if (typeof column.columnDef.header === "string") return column.columnDef.header
-  return humanizeColumnId(column.id)
 }
 
 export function DataTableViewOptions<TData extends object>({
@@ -84,7 +66,7 @@ export function DataTableViewOptions<TData extends object>({
                 onCheckedChange={(value: boolean) => column.toggleVisibility(!!value)}
                 onSelect={(event) => event.preventDefault()}
               >
-                {getColumnLabel(column)}
+                {getDataTableColumnLabel(column)}
               </DropdownMenuCheckboxItem>
             )
           })}

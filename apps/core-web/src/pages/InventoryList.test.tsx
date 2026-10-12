@@ -95,7 +95,7 @@ describe('InventoryList row actions', () => {
       </QueryClientProvider>,
     )
 
-    fireEvent.click(screen.getByRole('combobox'))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Storage location' }))
     expect(screen.getByRole('option', { name: 'A-1' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: 'Transit Bin' })).not.toBeInTheDocument()
 

@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { DataTableToolbar } from "./data-table-toolbar"
 import { DataTableRowDetailLink, isDataTableRowLinkColumn } from "./data-table-row-link"
@@ -111,6 +112,8 @@ function handleRowClick<TData extends object>(
   activateRow(event, fallback, data, onRowClick)
 }
 
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
+
 interface DataTableProps<TData extends object> {
   columns: ColumnDef<TData>[]
   data: TData[]
@@ -133,6 +136,10 @@ interface DataTableProps<TData extends object> {
   getRowHref?: (row: TData) => string | undefined
   getRowAccessibleName?: (row: TData) => string
   getRowContextActions?: (row: TData) => DataTableRowContextAction<TData>[]
+  // Choices for the "Rows per page" select. An empty array hides it, e.g. for tables that render all their rows.
+  pageSizeOptions?: readonly number[]
+  enableCsvExport?: boolean
+  csvFileName?: string
 }
 
 export function DataTable<TData extends object>({
@@ -157,6 +164,9 @@ export function DataTable<TData extends object>({
   getRowHref,
   getRowAccessibleName,
   getRowContextActions,
+  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  enableCsvExport,
+  csvFileName,
 }: DataTableProps<TData>) {
   const [contextMenu, setContextMenu] = useState<{
     row: TData
@@ -222,6 +232,11 @@ export function DataTable<TData extends object>({
     manualFiltering: true,
   })
 
+  const pageSizeChoices =
+    pageSizeOptions.length > 0
+      ? [...new Set([...pageSizeOptions, pagination.pageSize])].sort((a, b) => a - b)
+      : []
+
   return (
     <div className="space-y-4">
       <DataTableToolbar 
@@ -230,6 +245,8 @@ export function DataTable<TData extends object>({
         placeholder={searchPlaceholder} 
         saveViewTitle={saveViewTitle}
         dashboardSource={dashboardSource}
+        enableCsvExport={enableCsvExport}
+        csvFileName={csvFileName}
       />
       <div className="rounded-md border">
         <Table>
@@ -369,29 +386,51 @@ export function DataTable<TData extends object>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-        >
-            Previous
-        </Button>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <span>Page</span>
-            <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span>
-            <span>of</span>
-            <span className="font-medium">{table.getPageCount()}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 py-4">
+        {pageSizeChoices.length > 0 ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Rows per page</span>
+            <Select
+              value={String(pagination.pageSize)}
+              onValueChange={(value) => setPagination({ pageIndex: 0, pageSize: Number(value) })}
+            >
+              <SelectTrigger aria-label="Rows per page" className="h-8 w-[76px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeChoices.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
+        <div className="flex items-center justify-end space-x-2">
+          <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+          >
+              Previous
+          </Button>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span>Page</span>
+              <span className="font-medium">{table.getState().pagination.pageIndex + 1}</span>
+              <span>of</span>
+              <span className="font-medium">{table.getPageCount()}</span>
+          </div>
+          <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+          >
+              Next
+          </Button>
         </div>
-        <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-        >
-            Next
-        </Button>
       </div>
 
       {contextMenu && (

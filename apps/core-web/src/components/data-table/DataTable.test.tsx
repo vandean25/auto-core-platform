@@ -6,6 +6,9 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 import { DataTableColumnHeader } from './data-table-column-header'
+import { triggerBlobDownload } from '@/lib/download'
+
+vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
 
 afterEach(() => {
   cleanup()
@@ -612,5 +615,181 @@ describe('DataTable column picker and sorting', () => {
     render(<ColumnPickerHarness columns={[{ accessorKey: 'notes', header: 'Notes' }]} />)
 
     expect(screen.getByRole('columnheader', { name: 'Notes' })).not.toHaveAttribute('aria-sort')
+  })
+})
+
+// Paginates client-side the way a consumer with local rows does, so page size changes the rendered rows.
+function PagedPartHarness({
+  rows,
+  rowCount = 0,
+  initialPageSize = 10,
+  columns = partColumns,
+  ...tableProps
+}: {
+  rows?: PartRow[]
+  rowCount?: number
+  initialPageSize?: number
+  columns?: ColumnDef<PartRow>[]
+  pageSizeOptions?: readonly number[]
+  enableCsvExport?: boolean
+  csvFileName?: string
+}) {
+  const allRows: PartRow[] =
+    rows ??
+    Array.from({ length: rowCount }, (_, index) => ({
+      id: `part-${index + 1}`,
+      sku: `PART-${index + 1}`,
+      warehouse_location: `Bin ${index + 1}`,
+      customerName: `Customer ${index + 1}`,
+      notes: 'Fast mover',
+    }))
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: initialPageSize })
+  const start = pagination.pageIndex * pagination.pageSize
+
+  return (
+    <>
+      <output data-testid="pagination">{JSON.stringify(pagination)}</output>
+      <DataTable
+        columns={columns}
+        data={allRows.slice(start, start + pagination.pageSize)}
+        pageCount={Math.ceil(allRows.length / pagination.pageSize)}
+        columnFilters={[]}
+        setColumnFilters={vi.fn()}
+        sorting={[]}
+        setSorting={vi.fn()}
+        pagination={pagination}
+        setPagination={setPagination}
+        {...tableProps}
+      />
+    </>
+  )
+}
+
+function renderedRowCount() {
+  return document.querySelectorAll('[data-table-row]').length
+}
+
+function openPageSizeMenu() {
+  fireEvent.click(screen.getByRole('combobox', { name: 'Rows per page' }))
+}
+
+function pageSizeOptionLabels() {
+  return screen.getAllByRole('option').map((option) => option.textContent)
+}
+
+function clickExportCsv() {
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+}
+
+async function downloadedCsv(): Promise<string> {
+  const calls = vi.mocked(triggerBlobDownload).mock.calls
+  const blob = calls[calls.length - 1]?.[0]
+  if (!blob) throw new Error('No CSV download was triggered')
+  return blob.text()
+}
+
+describe('DataTable page size selector', () => {
+  it('offers 10, 25, 50 and 100 rows per page', () => {
+    render(<PagedPartHarness rowCount={120} />)
+
+    openPageSizeMenu()
+
+    expect(pageSizeOptionLabels()).toEqual(['10', '25', '50', '100'])
+  })
+
+  it('renders the chosen number of rows and returns to the first page', () => {
+    render(<PagedPartHarness rowCount={120} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByTestId('pagination')).toHaveTextContent('"pageIndex":1')
+
+    openPageSizeMenu()
+    fireEvent.click(screen.getByRole('option', { name: '50' }))
+
+    expect(renderedRowCount()).toBe(50)
+    expect(screen.getByTestId('pagination')).toHaveTextContent('{"pageIndex":0,"pageSize":50}')
+  })
+
+  it('keeps a non-standard starting size, such as the audit log default, selectable', () => {
+    render(<PagedPartHarness rowCount={120} initialPageSize={20} />)
+
+    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toHaveTextContent('20')
+    openPageSizeMenu()
+
+    expect(pageSizeOptionLabels()).toEqual(['10', '20', '25', '50', '100'])
+  })
+
+  it('hides the selector only when pageSizeOptions is empty', () => {
+    const { unmount } = render(<PagedPartHarness rowCount={3} />)
+    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toBeInTheDocument()
+    unmount()
+
+    render(<PagedPartHarness rowCount={3} pageSizeOptions={[]} />)
+
+    expect(screen.queryByRole('combobox', { name: 'Rows per page' })).not.toBeInTheDocument()
+  })
+})
+
+describe('DataTable Export CSV', () => {
+  it('exports only the visible columns of the rows currently rendered', async () => {
+    render(<PagedPartHarness rowCount={12} />)
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Warehouse location' }))
+    closeOpenMenu()
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual([
+      'SKU;Customer name;Notes',
+      ...Array.from({ length: 10 }, (_, index) => `PART-${index + 1};Customer ${index + 1};Fast mover`),
+    ])
+  })
+
+  it('neutralises formula-like cells and quotes fields that need it', async () => {
+    render(
+      <PagedPartHarness
+        rows={[
+          {
+            id: 'row-1',
+            sku: '=HYPERLINK("https://example.test")',
+            warehouse_location: 'Bin; 2',
+            customerName: '+49 Gruber',
+            notes: 'say "hi"',
+          },
+        ]}
+      />,
+    )
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')[1]).toBe(
+      `"'=HYPERLINK(""https://example.test"")";"Bin; 2";'+49 Gruber;"say ""hi"""`,
+    )
+  })
+
+  it('downloads as export.csv unless a file name is given', () => {
+    const { unmount } = render(<PagedPartHarness rowCount={1} />)
+    clickExportCsv()
+    expect(triggerBlobDownload).toHaveBeenLastCalledWith(expect.any(Blob), 'export.csv')
+    unmount()
+
+    render(<PagedPartHarness rowCount={1} csvFileName="parts.csv" />)
+    clickExportCsv()
+    expect(triggerBlobDownload).toHaveBeenLastCalledWith(expect.any(Blob), 'parts.csv')
+  })
+
+  it('disables Export CSV when there are no rows to export', () => {
+    render(<PagedPartHarness rowCount={0} />)
+
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+  })
+
+  it('omits Export CSV for tables that already have a dedicated server export', () => {
+    const { unmount } = render(<PagedPartHarness rowCount={1} />)
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
+    unmount()
+
+    render(<PagedPartHarness rowCount={1} enableCsvExport={false} />)
+
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument()
   })
 })
