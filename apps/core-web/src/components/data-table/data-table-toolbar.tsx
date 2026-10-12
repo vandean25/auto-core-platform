@@ -82,9 +82,10 @@ export function DataTableToolbar<TData extends object>({
             className="h-8"
             title="Exports the visible columns of the rows loaded in this table"
             disabled={isLoading || table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
-            onClick={() =>
-              downloadCsv(buildDataTableCsv(table, getRoot?.() ?? null), getDataTableCsvFileName(csvFileName, saveViewTitle))
-            }
+            onClick={() => {
+              const csv = buildDataTableCsv(table, getRoot?.() ?? null)
+              if (csv) downloadCsv(csv, getDataTableCsvFileName(csvFileName, saveViewTitle))
+            }}
           >
             <Download className="mr-2 h-4 w-4" />
             Export CSV

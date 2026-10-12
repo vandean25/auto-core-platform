@@ -40,17 +40,21 @@ export function buildDataTableCsv<TData extends object>(table: Table<TData>, roo
   })
   // A column without an accessor is data only if it shows text, which leaves out icon and checkbox columns.
   const keep = columns.map((column, index) => typeof column.accessorFn !== 'undefined' || cellTexts.some((texts) => texts[index] !== ''))
+  if (!keep.some(Boolean)) return ''
   const header = columns.filter((_, index) => keep[index]).map((column) => getDataTableColumnLabel(column))
   const body = cellTexts.map((texts) => texts.filter((_, index) => keep[index]))
 
   return serializeCsv([header, ...body])
 }
 
-/** Visible columns that can hold data. The actions column is left out; icon and checkbox columns drop out when exporting. */
+/**
+ * Visible columns that can hold data. The actions column is left out, and so are structural columns
+ * without an accessor that the user cannot hide, such as icon columns.
+ */
 export function getDataTableExportColumns<TData extends object>(table: Table<TData>) {
   return table
     .getVisibleLeafColumns()
-    .filter((column) => column.id !== 'actions' || typeof column.accessorFn !== 'undefined')
+    .filter((column) => typeof column.accessorFn !== 'undefined' || (column.id !== 'actions' && column.getCanHide()))
 }
 
 /** An explicit file name wins; otherwise the saved-view title is the base name, e.g. "Invoices" becomes invoices.csv. */

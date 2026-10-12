@@ -861,6 +861,21 @@ describe('DataTable Export CSV', () => {
     expect((await downloadedCsv()).split('\r\n')).toEqual(['Tags', 'Alpha Beta'])
   })
 
+  it('disables Export CSV when only structural icon columns remain visible', () => {
+    const iconColumns: ColumnDef<OrderRow>[] = [
+      { accessorKey: 'orderNumber', header: 'Order' },
+      { id: 'icon', header: '', enableHiding: false, cell: () => <svg aria-hidden="true" /> },
+    ]
+    render(<OrderTable columns={iconColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeEnabled()
+
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Order' }))
+    closeOpenMenu()
+
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+  })
+
   it('exports the value of a text-like form field that is the only carrier of the cell value', async () => {
     const minutesColumns: ColumnDef<OrderRow>[] = [
       {
