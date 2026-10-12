@@ -1,4 +1,7 @@
-import { NotificationOutboxRecoveryService } from './notification-outbox-recovery.service.js';
+import {
+  NOTIFICATION_WAKE_GRACE_MS,
+  NotificationOutboxRecoveryService,
+} from './notification-outbox-recovery.service.js';
 
 describe('NotificationOutboxRecoveryService', () => {
   let prisma: {
@@ -21,7 +24,11 @@ describe('NotificationOutboxRecoveryService', () => {
       },
     };
     systemPrisma = {
-      tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
+      tenant: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'tenant-1', is_active: true }]),
+      },
     };
     requestContext = {
       runAsWorker: jest.fn((_tenantId: string, run: () => unknown) => run()),
@@ -147,6 +154,44 @@ describe('NotificationOutboxRecoveryService', () => {
       data: { status: 'FAILED', last_error_code: 'LEASE_EXPIRED' },
     });
     expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
+  it('keeps the database passes for a suspended tenant, but wakes none of its rows', async () => {
+    systemPrisma.tenant.findMany.mockResolvedValueOnce([
+      { id: 'tenant-1', is_active: false },
+    ]);
+    prisma.notificationOutbox.findMany.mockResolvedValueOnce([
+      { id: 'outbox-8', attempts: 2 },
+    ]);
+
+    await service.recover();
+
+    expect(writes()[0]).toMatchObject({
+      data: { last_error_code: 'STALE_UNSENT' },
+    });
+    expect(writes()[1]).toMatchObject({
+      data: { status: 'PENDING', last_error_code: 'LEASE_EXPIRED' },
+    });
+    // Only the expired-claim query ran: the due-row wake-up query is skipped for a suspended tenant.
+    expect(prisma.notificationOutbox.findMany).toHaveBeenCalledTimes(1);
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
+  it('backdates the due time of a released claim, so the next sweep that can wake finds it overdue', async () => {
+    const before = Date.now();
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: 'outbox-10', attempts: 2 }]);
+
+    await service.recover();
+
+    const dueAt: Date = writes()[1].data.next_attempt_at;
+    expect(dueAt.getTime()).toBeGreaterThanOrEqual(
+      before - NOTIFICATION_WAKE_GRACE_MS,
+    );
+    expect(dueAt.getTime()).toBeLessThanOrEqual(
+      Date.now() - NOTIFICATION_WAKE_GRACE_MS,
+    );
   });
 
   it('does not wake a claim that another sweep already released', async () => {

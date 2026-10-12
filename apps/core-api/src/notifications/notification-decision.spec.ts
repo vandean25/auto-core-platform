@@ -26,7 +26,11 @@ describe('decideEmailDelivery()', () => {
   });
 
   it('sends live only to allowlisted recipients, and fails closed otherwise', () => {
-    const base = { mode: 'live' as const, liveProvider: 'ses' as const, recipientEmail: recipient };
+    const base = {
+      mode: 'live' as const,
+      liveProvider: 'ses' as const,
+      recipientEmail: recipient,
+    };
     expect(decideEmailDelivery({ ...base, allowlist: [] })).toEqual({
       action: 'suppress',
       reason: 'RECIPIENT_NOT_ALLOWLISTED',

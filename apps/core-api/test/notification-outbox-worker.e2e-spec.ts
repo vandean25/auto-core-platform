@@ -206,6 +206,28 @@ describe('Notification outbox sender worker (e2e)', () => {
     expect(fake.sent).toHaveLength(0);
   });
 
+  it('a suspended tenant sends nothing, and its row is suppressed', async () => {
+    const id = await enqueue(tenantA);
+    await basePrisma.tenant.update({
+      where: { id: tenantA },
+      data: { is_active: false },
+    });
+    try {
+      await deliver(id, tenantA).expect(204);
+    } finally {
+      await basePrisma.tenant.update({
+        where: { id: tenantA },
+        data: { is_active: true },
+      });
+    }
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'SUPPRESSED',
+      suppressed_reason: 'TENANT_INACTIVE',
+    });
+    expect(fake.sent).toHaveLength(0);
+  });
+
   it('live mode refuses a recipient outside the allowlist', async () => {
     setEnv({
       NOTIFICATION_EMAIL_MODE: 'live',
@@ -370,12 +392,16 @@ describe('Notification outbox sender worker (e2e)', () => {
   });
 
   it('the body purge clears a terminal body after 90 days and keeps a recent one', async () => {
-    const old = await enqueue(tenantA, {
-      now: new Date(Date.now() - 100 * DAY_MS),
-    });
+    const old = await enqueue(tenantA);
     const recent = await enqueue(tenantA);
     await deliver(old, tenantA).expect(204);
     await deliver(recent, tenantA).expect(204);
+    // The claim refuses a notice older than the sending window, so the old one is sent while fresh and
+    // only then backdated past the purge cut-off.
+    await tenantPrisma(tenantA).notificationOutbox.updateMany({
+      where: { id: old, tenant_id: tenantA },
+      data: { createdAt: new Date(Date.now() - 100 * DAY_MS) },
+    });
 
     await app.get(NotificationOutboxRetentionService).purgeBodies();
 

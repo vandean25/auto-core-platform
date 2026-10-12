@@ -27,7 +27,11 @@ describe('readNotificationDeliveryConfig()', () => {
   });
 
   it('reads live and fake modes', () => {
-    expect(readNotificationDeliveryConfig({ NOTIFICATION_EMAIL_MODE: 'live' }).mode).toBe('live');
-    expect(readNotificationDeliveryConfig({ NOTIFICATION_EMAIL_MODE: 'fake' }).mode).toBe('fake');
+    expect(
+      readNotificationDeliveryConfig({ NOTIFICATION_EMAIL_MODE: 'live' }).mode,
+    ).toBe('live');
+    expect(
+      readNotificationDeliveryConfig({ NOTIFICATION_EMAIL_MODE: 'fake' }).mode,
+    ).toBe('fake');
   });
 });

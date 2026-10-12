@@ -44,6 +44,18 @@ describe('buildEmailColumns()', () => {
     ).toThrow('EMAIL subject and sender name must be single-line');
   });
 
+  it('refuses a C1 control in the subject, which some header parsers read as a line break', () => {
+    expect(() =>
+      buildEmailColumns({ ...draft, subject: 'Auftrag\u0085Bcc: x' }),
+    ).toThrow('EMAIL subject and sender name must be single-line');
+  });
+
+  it('refuses a NUL character in the text, which Postgres TEXT cannot store', () => {
+    expect(() =>
+      buildEmailColumns({ ...draft, text: 'Guten\u0000Tag' }),
+    ).toThrow('EMAIL text must not contain NUL characters');
+  });
+
   it('refuses an empty or blank sender name, subject or text, which no notice can be sent with', () => {
     expect(() => buildEmailColumns({ ...draft, senderName: '   ' })).toThrow(
       'EMAIL sender name, subject and text must not be empty',

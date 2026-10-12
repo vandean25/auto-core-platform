@@ -7,6 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { isPlainEmailAddress } from './email/email-address.js';
 import { isSingleLineText } from './email/header-text.js';
 import {
@@ -22,6 +23,7 @@ import {
 } from './notification-delivery.config.js';
 import {
   NOTIFICATION_MAX_ATTEMPTS,
+  NOTIFICATION_UNSENT_WINDOW_MS,
   nextRetryDelaySeconds,
 } from './notification-retry.policy.js';
 
@@ -69,6 +71,7 @@ export class NotificationOutboxWorkerService {
     private readonly prisma: PrismaService,
     private readonly providers: EmailProviderResolver,
     private readonly wakeUps: NotificationCloudTasksService,
+    private readonly systemPrisma: SystemPrismaService,
   ) {}
 
   /** One attempt for one row. Called by the Cloud Tasks worker route, never by a request handler. */
@@ -82,12 +85,15 @@ export class NotificationOutboxWorkerService {
     // Cloud Tasks schedules whole seconds, so a retry's wake-up can fire up to a second before the row's
     // next_attempt_at. Claiming it then is correct, so the due check allows that much.
     const dueBy = new Date(now.getTime() + NOTIFICATION_CLAIM_TOLERANCE_MS);
+    const windowStart = new Date(now.getTime() - NOTIFICATION_UNSENT_WINDOW_MS);
     const claimed = await this.prisma.notificationOutbox.updateMany({
       where: {
         id: outboxId,
         tenant_id: tenantId,
         // A row that used its last attempt is failed by the recovery sweep, never claimed again.
         attempts: { lt: NOTIFICATION_MAX_ATTEMPTS },
+        // A row older than the sending window is failed by the sweep, so no claim takes it, PENDING or expired.
+        createdAt: { gte: windowStart },
         OR: [
           {
             status: NotificationOutboxStatus.PENDING,
@@ -154,6 +160,19 @@ export class NotificationOutboxWorkerService {
   }
 
   private async attempt(a: Attempt): Promise<void> {
+    // A suspended tenant sends nothing, even when a retry for its row is still queued.
+    const tenant = await this.systemPrisma.tenant.findFirst({
+      where: { id: a.tenantId },
+      select: { is_active: true },
+    });
+    if (!tenant?.is_active) {
+      return this.record(a, {
+        status: NotificationOutboxStatus.SUPPRESSED,
+        suppressed_reason: 'TENANT_INACTIVE',
+        last_error_code: null,
+        last_error_message: null,
+      });
+    }
     if (a.row.channel !== NotificationChannel.EMAIL) {
       return this.fail(a, {
         code: 'UNSUPPORTED_CHANNEL',

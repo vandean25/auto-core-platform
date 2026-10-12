@@ -19,10 +19,16 @@ describe('notification task payload signing', () => {
     const signed = signNotificationTaskPayload(claims, SECRET);
 
     expect(() =>
-      verifyNotificationTaskPayload({ ...signed, outboxId: 'outbox-2' }, SECRET),
+      verifyNotificationTaskPayload(
+        { ...signed, outboxId: 'outbox-2' },
+        SECRET,
+      ),
     ).toThrow(UnauthorizedException);
     expect(() =>
-      verifyNotificationTaskPayload({ ...signed, tenantId: 'tenant-2' }, SECRET),
+      verifyNotificationTaskPayload(
+        { ...signed, tenantId: 'tenant-2' },
+        SECRET,
+      ),
     ).toThrow(UnauthorizedException);
     expect(() => verifyNotificationTaskPayload(signed, 'other-secret')).toThrow(
       UnauthorizedException,
@@ -36,14 +42,17 @@ describe('notification task payload signing', () => {
     );
 
     expect(() =>
-      verifyNotificationTaskPayload({ ...pdf, outboxId: pdf.resourceId }, SECRET),
+      verifyNotificationTaskPayload(
+        { ...pdf, outboxId: pdf.resourceId },
+        SECRET,
+      ),
     ).toThrow(UnauthorizedException);
   });
 
   it('rejects a payload without the expected fields', () => {
-    expect(() => verifyNotificationTaskPayload({ outboxId: 'x' }, SECRET)).toThrow(
-      UnauthorizedException,
-    );
+    expect(() =>
+      verifyNotificationTaskPayload({ outboxId: 'x' }, SECRET),
+    ).toThrow(UnauthorizedException);
     expect(() => verifyNotificationTaskPayload(undefined, SECRET)).toThrow(
       UnauthorizedException,
     );

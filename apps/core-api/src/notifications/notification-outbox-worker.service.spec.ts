@@ -4,7 +4,10 @@ import {
   NotificationOutboxWorkerService,
 } from './notification-outbox-worker.service.js';
 import type { NotificationDeliveryConfig } from './notification-delivery.config.js';
-import { NOTIFICATION_MAX_ATTEMPTS } from './notification-retry.policy.js';
+import {
+  NOTIFICATION_MAX_ATTEMPTS,
+  NOTIFICATION_UNSENT_WINDOW_MS,
+} from './notification-retry.policy.js';
 
 const NOW = new Date('2026-10-12T08:00:00.000Z');
 const LIVE_OFF: NotificationDeliveryConfig = {
@@ -35,6 +38,7 @@ describe('NotificationOutboxWorkerService', () => {
   let provider: { name: string; send: jest.Mock };
   let providers: { resolve: jest.Mock };
   let wakeUps: { enqueueWakeUp: jest.Mock };
+  let systemPrisma: { tenant: { findFirst: jest.Mock } };
   let service: NotificationOutboxWorkerService;
 
   /** Claim succeeds, the row is found, and the final write succeeds unless a test overrides it. */
@@ -64,10 +68,14 @@ describe('NotificationOutboxWorkerService', () => {
     };
     providers = { resolve: jest.fn().mockReturnValue(provider) };
     wakeUps = { enqueueWakeUp: jest.fn().mockResolvedValue(undefined) };
+    systemPrisma = {
+      tenant: { findFirst: jest.fn().mockResolvedValue({ is_active: true }) },
+    };
     service = new NotificationOutboxWorkerService(
       prisma as never,
       providers as never,
       wakeUps as never,
+      systemPrisma as never,
     );
   });
 
@@ -338,6 +346,52 @@ describe('NotificationOutboxWorkerService', () => {
       next_attempt_at: {
         lte: new Date(NOW.getTime() + NOTIFICATION_CLAIM_TOLERANCE_MS),
       },
+    });
+  });
+
+  it('claims only rows created inside the sending window, pending or expired alike', async () => {
+    arrange();
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(
+      prisma.notificationOutbox.updateMany.mock.calls[0][0].where,
+    ).toMatchObject({
+      createdAt: {
+        gte: new Date(NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS),
+      },
+    });
+  });
+
+  it.each([[{ is_active: false }], [null]])(
+    'suppresses the row while its tenant is suspended or gone, without a provider (%j)',
+    async (tenant) => {
+      arrange();
+      systemPrisma.tenant.findFirst.mockResolvedValueOnce(tenant);
+
+      await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+      expect(systemPrisma.tenant.findFirst).toHaveBeenCalledWith({
+        where: { id: 'tenant-1' },
+        select: { is_active: true },
+      });
+      expect(outcome()).toMatchObject({
+        status: 'SUPPRESSED',
+        suppressed_reason: 'TENANT_INACTIVE',
+      });
+      expect(provider.send).not.toHaveBeenCalled();
+    },
+  );
+
+  it('fails a sender name with a C1 control, which some header parsers read as a line break', async () => {
+    arrange(makeRow({ sender_name: 'Werkstatt\u0085Nord' }));
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'MESSAGE_INVALID',
     });
   });
 

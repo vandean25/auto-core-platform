@@ -5,27 +5,26 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { NotificationCloudTasksService } from './notification-cloud-tasks.service.js';
-import { NOTIFICATION_MAX_ATTEMPTS } from './notification-retry.policy.js';
+import {
+  NOTIFICATION_MAX_ATTEMPTS,
+  NOTIFICATION_UNSENT_WINDOW_MS,
+} from './notification-retry.policy.js';
 
 /**
  * A PENDING row is only re-woken after this grace, so a normal dispatch has time to claim it. A
  * duplicate wake-up is harmless because claims are atomic; the grace only limits queue traffic.
  */
 export const NOTIFICATION_WAKE_GRACE_MS = 5 * 60_000;
-/**
- * A PENDING row still unsent after this long never reached a worker: the retry schedule ends about 81
- * minutes after the first attempt. Such a notice is failed, not sent late.
- */
-export const NOTIFICATION_UNSENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const RECOVERY_BATCH = 100;
 
 /**
  * Lost-wake-up sweep (AUT-356). Each minute, per tenant under a worker context, it fails notices that
  * waited too long, releases claims whose lease expired, and wakes due rows that no task picked up.
- * The database passes run even while the queue is off, so no lease is left stuck and no notice waits
- * forever; only the wake-ups need the queue. Claims are atomic, so a duplicate wake-up is harmless.
- * Same tenant-loop pattern as the document-branding recovery sweeps: no SystemPrisma delegate for
- * outbox rows.
+ * The database passes run for every tenant, even while the queue is off, so no lease is left stuck
+ * and no notice waits forever. Only the wake-ups need the queue, and only an active tenant is woken:
+ * a suspended tenant (is_active = false) sends nothing. Claims are atomic, so a duplicate wake-up is
+ * harmless. Same tenant-loop pattern as the document-branding recovery sweeps: no SystemPrisma
+ * delegate for outbox rows.
  */
 @Injectable()
 export class NotificationOutboxRecoveryService {
@@ -49,16 +48,21 @@ export class NotificationOutboxRecoveryService {
     }
     this.running = true;
     try {
-      const wakeEnabled = this.wakeUps.isEnabled();
+      const queueOn = this.wakeUps.isEnabled();
       const tenants = await this.systemPrisma.tenant.findMany({
-        select: { id: true },
+        select: { id: true, is_active: true },
       });
       const now = new Date();
-      for (const { id: tenantId } of tenants) {
+      for (const tenant of tenants) {
         try {
           await this.requestContext.runAsWorker(
-            tenantId,
-            () => this.recoverForTenant(tenantId, now, wakeEnabled),
+            tenant.id,
+            () =>
+              this.recoverForTenant(
+                tenant.id,
+                now,
+                queueOn && tenant.is_active,
+              ),
             { workerId: 'notification-outbox-recovery' },
           );
         } catch (cause) {
@@ -76,13 +80,13 @@ export class NotificationOutboxRecoveryService {
   private async recoverForTenant(
     tenantId: string,
     now: Date,
-    wakeEnabled: boolean,
+    canWake: boolean,
   ): Promise<void> {
     await this.failStaleUnsent(tenantId, now);
-    if (wakeEnabled) {
+    if (canWake) {
       await this.wakeDueRows(tenantId, now);
     }
-    await this.releaseExpiredClaims(tenantId, now, wakeEnabled);
+    await this.releaseExpiredClaims(tenantId, now, canWake);
   }
 
   /** Fails notices that waited past the window. Runs before the wake-ups, so they are never sent late. */
@@ -144,7 +148,7 @@ export class NotificationOutboxRecoveryService {
   private async releaseExpiredClaims(
     tenantId: string,
     now: Date,
-    wakeEnabled: boolean,
+    canWake: boolean,
   ): Promise<void> {
     const expired = await this.prisma.notificationOutbox.findMany({
       where: {
@@ -176,13 +180,17 @@ export class NotificationOutboxRecoveryService {
             }
           : {
               status: NotificationOutboxStatus.PENDING,
-              next_attempt_at: now,
+              // Backdated by the grace, so the next sweep that can wake (core-api) finds the row overdue at once,
+              // not a grace later, even when this sweep ran where the queue is off.
+              next_attempt_at: new Date(
+                now.getTime() - NOTIFICATION_WAKE_GRACE_MS,
+              ),
               last_error_code: 'LEASE_EXPIRED',
               lease_token: null,
               lease_expires_at: null,
             },
       });
-      if (released.count === 1 && !exhausted && wakeEnabled) {
+      if (released.count === 1 && !exhausted && canWake) {
         await this.wake(row.id, tenantId);
       }
     }

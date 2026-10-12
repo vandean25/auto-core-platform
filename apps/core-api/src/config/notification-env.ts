@@ -115,13 +115,16 @@ export function notificationEnvIssues(
   return issues;
 }
 
-/** The origin (scheme, host, port) of a target URL. `null` when the value is not a URL at all. */
+/** The origin (scheme, host, port) of a target URL. `null` when the value is not an http(s) URL. */
 function originOf(value: string | undefined): string | null | undefined {
   if (value === undefined) {
     return undefined;
   }
   try {
-    return new URL(value).origin;
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:'
+      ? url.origin
+      : null;
   } catch {
     return null;
   }

@@ -6,6 +6,18 @@ describe('isSingleLineText()', () => {
     expect(isSingleLineText('Werkstatt "Nord"')).toBe(true);
   });
 
+  it('refuses the C1 controls at both ends of their range, and both Unicode separators', () => {
+    expect(isSingleLineText('Name\u0080Next')).toBe(false);
+    expect(isSingleLineText('Name\u0085Next')).toBe(false);
+    expect(isSingleLineText('Name\u009fNext')).toBe(false);
+    expect(isSingleLineText('Name Next')).toBe(false);
+    expect(isSingleLineText('Name Next')).toBe(false);
+  });
+
+  it('accepts a no-break space, which is not a control character', () => {
+    expect(isSingleLineText('Werkstatt Nord')).toBe(true);
+  });
+
   it('refuses line breaks, other control characters and the Unicode line separators', () => {
     expect(isSingleLineText('Auftrag\r\nBcc: victim@evil.example')).toBe(false);
     expect(isSingleLineText('Name\tTab')).toBe(false);

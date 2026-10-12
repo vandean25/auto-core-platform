@@ -39,6 +39,35 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     ]);
   });
 
+  it.each([
+    'localhost:3000/api',
+    'ftp://core-api.example/api',
+    'file:///srv/api',
+  ])(
+    'refuses a notification target that is not an http(s) URL: %s',
+    (target) => {
+      expect(
+        notificationEnvIssues({
+          ...base,
+          CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL: target,
+        }),
+      ).toEqual([
+        { key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL', kind: 'invalid' },
+      ]);
+    },
+  );
+
+  it('accepts an http notification target on another origin', () => {
+    expect(
+      notificationEnvIssues({
+        ...base,
+        CLOUD_TASKS_TARGET_BASE_URL: 'https://worker.example/api',
+        CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
+          'http://core-api.internal:8080/api',
+      }),
+    ).toEqual([]);
+  });
+
   it('accepts a notification target on another origin', () => {
     expect(
       notificationEnvIssues({

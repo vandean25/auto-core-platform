@@ -34,9 +34,9 @@ export function buildEmailColumns(email: EmailDraft | undefined) {
 }
 
 /**
- * A draft must name one recipient, carry a sender, a subject and a text, and cannot break a header.
- * A bad draft is a programming error: it throws here, inside the caller's transaction, rather than
- * storing a row the worker would fail later without anyone noticing.
+ * A draft must name one recipient, carry a sender, a subject and a text, and cannot break a header or
+ * hold a character Postgres TEXT refuses. A bad draft is a programming error: it throws here, inside the
+ * caller's transaction, rather than storing a row the worker would fail later without anyone noticing.
  */
 function assertEmailDraft(email: EmailDraft): void {
   if (!isPlainEmailAddress(email.recipientEmail)) {
@@ -54,6 +54,9 @@ function assertEmailDraft(email: EmailDraft): void {
   }
   if (!isSingleLineText(email.subject) || !isSingleLineText(email.senderName)) {
     throw new Error('EMAIL subject and sender name must be single-line');
+  }
+  if (email.text.includes('\u0000')) {
+    throw new Error('EMAIL text must not contain NUL characters');
   }
 }
 
