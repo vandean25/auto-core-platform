@@ -533,7 +533,7 @@ describe('DataTable column picker and sorting', () => {
 
     expect(screen.getByRole('menuitemcheckbox', { name: 'SKU' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Warehouse location' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Customer name' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Customer' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Notes' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitemcheckbox', { name: 'warehouse_location' })).not.toBeInTheDocument()
   })
@@ -565,7 +565,7 @@ describe('DataTable column picker and sorting', () => {
     render(<ColumnPickerHarness />)
 
     openColumnsMenu()
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Customer name' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Customer' }))
     closeOpenMenu()
     expect(screen.queryByRole('columnheader', { name: /Customer/ })).not.toBeInTheDocument()
 
@@ -739,7 +739,7 @@ describe('DataTable Export CSV', () => {
     clickExportCsv()
 
     expect((await downloadedCsv()).split('\r\n')).toEqual([
-      'SKU;Customer name;Notes',
+      'SKU;Customer;Notes',
       ...Array.from({ length: 10 }, (_, index) => `PART-${index + 1};Customer ${index + 1};Fast mover`),
     ])
   })
@@ -752,7 +752,7 @@ describe('DataTable Export CSV', () => {
             id: 'row-1',
             sku: '=HYPERLINK("https://example.test")',
             warehouse_location: 'Bin; 2',
-            customerName: '+49 Gruber',
+            customerName: '+49 Example',
             notes: 'say "hi"',
           },
         ]}
@@ -762,7 +762,7 @@ describe('DataTable Export CSV', () => {
     clickExportCsv()
 
     expect((await downloadedCsv()).split('\r\n')[1]).toBe(
-      `"'=HYPERLINK(""https://example.test"")";"Bin; 2";'+49 Gruber;"say ""hi"""`,
+      `"'=HYPERLINK(""https://example.test"")";"Bin; 2";'+49 Example;"say ""hi"""`,
     )
   })
 
@@ -792,4 +792,84 @@ describe('DataTable Export CSV', () => {
 
     expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument()
   })
+
+  it('disables Export CSV when every data column is hidden', () => {
+    render(<PagedPartHarness rowCount={1} />)
+    openColumnsMenu()
+    for (const item of screen.getAllByRole('menuitemcheckbox')) {
+      fireEvent.click(item)
+    }
+    closeOpenMenu()
+
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+  })
+
+  it('exports the column titles shown in the headers', async () => {
+    const orderColumns: ColumnDef<OrderRow>[] = [
+      { accessorKey: 'orderNumber', header: ({ column }) => <DataTableColumnHeader column={column} title="Order #" /> },
+      { accessorKey: 'createdAt', header: ({ column }) => <DataTableColumnHeader column={column} title="Date" /> },
+    ]
+    render(<OrderTable columns={orderColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1', createdAt: '2026-10-05' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')[0]).toBe('Order #;Date')
+  })
+
+  it('exports a column csvValue instead of the raw object its cells render from', async () => {
+    const customerLabel = (customer: CustomerValue) =>
+      customer.type === 'COMPANY' ? customer.company_name ?? '' : `${customer.first_name} ${customer.last_name}`
+    const customerColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'customer',
+        header: 'Customer',
+        meta: { csvValue: (row: OrderRow) => (row.customer ? customerLabel(row.customer) : '') },
+        cell: ({ row }: { row: { original: OrderRow } }) => customerLabel(row.original.customer!),
+      },
+    ]
+    render(
+      <OrderTable
+        columns={customerColumns}
+        rows={[
+          { id: 'order-1', customer: { type: 'COMPANY', first_name: '', last_name: '', company_name: 'Example GmbH' } },
+          { id: 'order-2', customer: { type: 'PERSON', first_name: 'Erika', last_name: 'Example', company_name: null } },
+        ]}
+      />,
+    )
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Customer', 'Example GmbH', 'Erika Example'])
+  })
 })
+
+type CustomerValue = {
+  type: 'PERSON' | 'COMPANY'
+  first_name: string
+  last_name: string
+  company_name: string | null
+}
+
+type OrderRow = {
+  id: string
+  orderNumber?: string
+  createdAt?: string
+  customer?: CustomerValue
+}
+
+function OrderTable({ columns, rows }: { columns: ColumnDef<OrderRow>[]; rows: OrderRow[] }) {
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+
+  return (
+    <DataTable
+      columns={columns}
+      data={rows}
+      columnFilters={[]}
+      setColumnFilters={vi.fn()}
+      sorting={[]}
+      setSorting={vi.fn()}
+      pagination={pagination}
+      setPagination={setPagination}
+    />
+  )
+}

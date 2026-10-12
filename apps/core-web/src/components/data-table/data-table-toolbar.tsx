@@ -8,7 +8,7 @@ import { SaveCurrentViewButton } from "@/features/saved-views/SaveCurrentViewBut
 import type { DashboardWidgetTableSource } from "@/features/dashboard-widgets/types"
 import { downloadCsv } from "@/lib/csv"
 import { DataTableViewOptions } from "./data-table-view-options"
-import { buildDataTableCsv, getDataTableCsvFileName } from "./data-table-csv"
+import { buildDataTableCsv, getDataTableCsvFileName, getDataTableExportColumns } from "./data-table-csv"
 
 interface DataTableToolbarProps<TData extends object> {
   table: Table<TData>
@@ -77,7 +77,7 @@ export function DataTableToolbar<TData extends object>({
             size="sm"
             className="h-8"
             title="Exports the visible columns of the rows loaded in this table"
-            disabled={table.getRowModel().rows.length === 0}
+            disabled={table.getRowModel().rows.length === 0 || getDataTableExportColumns(table).length === 0}
             onClick={() =>
               downloadCsv(buildDataTableCsv(table), getDataTableCsvFileName(csvFileName, saveViewTitle))
             }

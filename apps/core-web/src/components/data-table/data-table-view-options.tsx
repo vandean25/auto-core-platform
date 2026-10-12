@@ -17,6 +17,28 @@ interface DataTableViewOptionsProps<TData extends object> {
   table: Table<TData>
 }
 
+// Mounted only while the menu is open, so labels are read after the column headers have committed their titles.
+function ColumnToggleItems<TData extends object>({ table }: DataTableViewOptionsProps<TData>) {
+  return table
+    .getAllColumns()
+    .filter(
+      (column) =>
+        typeof column.accessorFn !== "undefined" && column.getCanHide()
+    )
+    .map((column) => {
+      return (
+        <DropdownMenuCheckboxItem
+          key={column.id}
+          checked={column.getIsVisible()}
+          onCheckedChange={(value: boolean) => column.toggleVisibility(!!value)}
+          onSelect={(event) => event.preventDefault()}
+        >
+          {getDataTableColumnLabel(column)}
+        </DropdownMenuCheckboxItem>
+      )
+    })
+}
+
 export function DataTableViewOptions<TData extends object>({
   table,
 }: DataTableViewOptionsProps<TData>) {
@@ -52,24 +74,7 @@ export function DataTableViewOptions<TData extends object>({
           Reset
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {table
-          .getAllColumns()
-          .filter(
-            (column) =>
-              typeof column.accessorFn !== "undefined" && column.getCanHide()
-          )
-          .map((column) => {
-            return (
-              <DropdownMenuCheckboxItem
-                key={column.id}
-                checked={column.getIsVisible()}
-                onCheckedChange={(value: boolean) => column.toggleVisibility(!!value)}
-                onSelect={(event) => event.preventDefault()}
-              >
-                {getDataTableColumnLabel(column)}
-              </DropdownMenuCheckboxItem>
-            )
-          })}
+        <ColumnToggleItems table={table} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
