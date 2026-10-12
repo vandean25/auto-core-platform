@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { format } from "date-fns"
-import { Search, Trash2, Plus, Loader2, ArrowLeft } from "lucide-react"
+import { Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 
 import { useQueryClient } from "@tanstack/react-query"
@@ -19,34 +19,18 @@ import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
 import type { InventoryItem } from "@/api/types"
 import { StatusBadge } from "@/components/status/StatusBadge"
 import { getErrorMessage } from "@/lib/error-utils"
+import { toastSuccessWithOpen } from "@/lib/toast-actions"
 import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  assertFinalizedInvoice,
+  FINALIZE_MISSING_CUSTOMER_MESSAGE,
+  getInvoiceFinalizeBlockMessage,
+} from "@/lib/invoice-finalize"
+import { InvoiceFinalizeDialog } from "@/components/sales/InvoiceFinalizeDialog"
+import { InvoiceLineItemsTable } from "@/components/sales/InvoiceLineItemsTable"
+import { InvoicePartSearchDialog } from "@/components/sales/InvoicePartSearchDialog"
 import { APP_ROUTE_PATHS } from "@/lib/app-route-paths"
 
 const DEFAULT_TAX_RATE = 20
@@ -175,21 +159,26 @@ export default function InvoiceDraftEditPage() {
     triggerAutoSave(payload)
   }, [buildPayload, triggerAutoSave])
 
+  const handleFinalizeOpenChange = (open: boolean) => {
+    if (isFinalizing) return
+    if (!open) setFinalizeErrorMessage(null)
+    setFinalizeOpen(open)
+  }
+
   const handleFinalizeConfirm = async () => {
     if (isFinalizingRef.current) return
 
-    if (!editor.customer || !invoiceId) {
-      toast.error("Invoice draft is missing required customer information.")
+    if (!invoiceId) {
+      toast.error(FINALIZE_MISSING_CUSTOMER_MESSAGE)
       return
     }
 
-    if (saveStatus === "saving") {
-      toast.error("Please wait for the draft to finish saving before finalizing.")
-      return
-    }
-
-    if (saveStatus === "error") {
-      toast.error("Resolve the autosave error before finalizing this invoice.")
+    const blockMessage = getInvoiceFinalizeBlockMessage({
+      hasCustomer: Boolean(editor.customer),
+      saveStatus,
+    })
+    if (blockMessage) {
+      toast.error(blockMessage)
       return
     }
 
@@ -212,14 +201,13 @@ export default function InvoiceDraftEditPage() {
       })
 
       const finalized = await finalizeInvoiceMutation.mutateAsync(invoiceId)
-      if (finalized.status !== "FINALIZED" || !finalized.invoice_number) {
-        throw new Error("Invoice finalize did not return a finalized document with an invoice number.")
-      }
+      assertFinalizedInvoice(finalized)
 
       queryClient.setQueryData(invoiceKeys.detail(invoiceId), finalized)
-      toast.success("Invoice finalized and number generated!")
+      const detailPath = APP_ROUTE_PATHS.salesInvoiceDetail.replace(":id", invoiceId)
+      toastSuccessWithOpen("Invoice finalized and number generated!", () => navigate(detailPath))
       setFinalizeOpen(false)
-      navigate(APP_ROUTE_PATHS.salesInvoiceDetail.replace(":id", invoiceId))
+      navigate(detailPath)
     } catch (finalizeError) {
       const message = getErrorMessage(finalizeError, "Failed to finalize invoice")
       setFinalizeErrorMessage(message)
@@ -388,87 +376,13 @@ export default function InvoiceDraftEditPage() {
           </div>
         </div>
 
-        <div className="mb-12">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[50px]"></TableHead>
-                <TableHead className="w-[40%]">Item / Description</TableHead>
-                <TableHead className="w-[100px]">Qty</TableHead>
-                <TableHead className="w-[120px]">Price (€)</TableHead>
-                <TableHead className="w-[100px]">Tax (%)</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {editor.items.map((item, index) => (
-                <TableRow key={item.tempId}>
-                  <TableCell className="text-center text-muted-foreground">
-                    {index + 1}
-                  </TableCell>
-                  <TableCell>
-                    <div className="relative">
-                      <Input
-                        value={item.description}
-                        onChange={(e) => editor.updateItem(index, { description: e.target.value })}
-                        placeholder="Service or Item Name"
-                        className="pr-10"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full text-muted-foreground hover:text-foreground"
-                        aria-label={`Search part for line ${index + 1}`}
-                        onClick={() => openPartSearch(index)}
-                      >
-                        <Search className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={item.quantity}
-                      onChange={(e) => editor.updateItem(index, { quantity: parseFloat(e.target.value) || 0 })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.unit_price}
-                      onChange={(e) => editor.updateItem(index, { unit_price: parseFloat(e.target.value) || 0 })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={item.tax_rate}
-                      onChange={(e) => editor.updateItem(index, { tax_rate: parseFloat(e.target.value) || 0 })}
-                    />
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    €{((item.quantity * item.unit_price) * (1 + item.tax_rate / 100)).toFixed(2)}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" aria-label={`Remove line ${index + 1}`} onClick={() => editor.removeItem(index)}>
-                      <Trash2 className="h-4 w-4 text-destructive opacity-50 hover:opacity-100" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          <Button variant="outline" className="mt-4" onClick={editor.addItem}>
-            <Plus className="mr-2 h-4 w-4" /> Add Line Item
-          </Button>
-        </div>
+        <InvoiceLineItemsTable
+          items={editor.items}
+          onUpdateItem={editor.updateItem}
+          onRemoveItem={editor.removeItem}
+          onOpenPartSearch={openPartSearch}
+          onAddItem={editor.addItem}
+        />
 
         <div className="flex justify-end border-t pt-8">
           <div className="w-64 space-y-3">
@@ -488,74 +402,22 @@ export default function InvoiceDraftEditPage() {
         </div>
       </div>
 
-      <AlertDialog
+      <InvoiceFinalizeDialog
         open={finalizeOpen}
-        onOpenChange={(open) => {
-          if (isFinalizing) return
-          if (!open) setFinalizeErrorMessage(null)
-          setFinalizeOpen(open)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Finalize invoice?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will lock the invoice, assign an official RE number, and deduct stock for
-              catalog lines. You cannot edit the draft after this.
-            </AlertDialogDescription>
-            {finalizeErrorMessage ? (
-              <p className="text-sm text-destructive" role="alert">
-                {finalizeErrorMessage}
-              </p>
-            ) : null}
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isFinalizing}>Cancel</AlertDialogCancel>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={isFinalizing}
-              onClick={() => void handleFinalizeConfirm()}
-            >
-              {isFinalizing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Finalizing…
-                </>
-              ) : (
-                "Finalize"
-              )}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={handleFinalizeOpenChange}
+        isFinalizing={isFinalizing}
+        errorMessage={finalizeErrorMessage}
+        onConfirm={() => void handleFinalizeConfirm()}
+      />
 
-      <CommandDialog
+      <InvoicePartSearchDialog
         open={partSearchOpen}
         onOpenChange={setPartSearchOpen}
-        title="Search Inventory"
-        description="Find parts and add them to the invoice."
-      >
-        <CommandInput
-          aria-label="Search inventory"
-          placeholder="Search inventory…"
-          value={inventorySearch}
-          onValueChange={setInventorySearch}
-        />
-        <CommandList>
-          <CommandEmpty>No parts found.</CommandEmpty>
-          <CommandGroup heading="Inventory">
-            {inventory?.data.map((part: InventoryItem) => (
-              <CommandItem key={part.id} value={part.name + ' ' + part.sku} onSelect={() => handleSelectPart(part)}>
-                <div className="flex flex-col">
-                  <span className="font-medium">{part.name}</span>
-                  <span className="text-xs text-muted-foreground">{part.sku} • Stock: {part.quantity_available} • €{part.price}</span>
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
+        search={inventorySearch}
+        onSearchChange={setInventorySearch}
+        items={inventory?.data ?? []}
+        onSelect={handleSelectPart}
+      />
     </>
   )
 }

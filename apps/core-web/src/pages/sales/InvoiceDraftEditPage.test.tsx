@@ -306,9 +306,42 @@ describe('InvoiceDraftEditPage autosave', () => {
       )
       expect(finalizeMutation).toHaveBeenCalledWith('inv-1')
       expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
-      expect(toast.success).toHaveBeenCalledWith('Invoice finalized and number generated!')
+      expect(toast.success).toHaveBeenCalledWith(
+        'Invoice finalized and number generated!',
+        expect.objectContaining({ action: expect.objectContaining({ label: 'Open' }) }),
+      )
     })
     expect(triggerBlobDownload).not.toHaveBeenCalled()
+  })
+
+  it('opens the finalized invoice from the success toast Open action', async () => {
+    asMock(salesApi.useUpdateInvoice).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(mockInvoice),
+      isPending: false,
+    })
+    asMock(salesApi.useFinalizeInvoice).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue({
+        ...mockInvoice,
+        status: 'FINALIZED',
+        invoice_number: 'RE-2026-0001',
+      }),
+      isPending: false,
+    })
+
+    renderPage()
+
+    openFinalizeDialog()
+    confirmFinalize()
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    const [, toastOptions] = vi.mocked(toast.success).mock.calls[0] as unknown as [
+      string,
+      { action: { onClick: () => void } },
+    ]
+    mockNavigate.mockClear()
+    toastOptions.action.onClick()
+
+    expect(mockNavigate).toHaveBeenCalledWith('/sales/invoices/inv-1')
   })
 
   it('labels the finalize action Finalize and offers no Print action', async () => {

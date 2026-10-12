@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -21,6 +22,7 @@ import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { toastSuccessWithOpen } from '@/lib/toast-actions'
 
 interface CustomerDialogProps {
     customer?: Customer
@@ -48,6 +50,7 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     const isEdit = !!customer
     const createMutation = useCreateCustomer()
     const updateMutation = useUpdateCustomer()
+    const navigate = useNavigate()
 
     const form = useForm<Partial<Customer>>({
         defaultValues: customer || DEFAULT_CUSTOMER,
@@ -59,8 +62,8 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                 await updateMutation.mutateAsync({ id: customer.id, data })
                 toast.success('Customer updated')
             } else {
-                await createMutation.mutateAsync(data)
-                toast.success('Customer created')
+                const created = await createMutation.mutateAsync(data)
+                toastSuccessWithOpen('Customer created', () => navigate(`/customers/${created.id}`))
             }
             handleOpenChange(false)
             form.reset()

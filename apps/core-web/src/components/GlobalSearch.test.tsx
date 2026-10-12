@@ -257,7 +257,7 @@ describe('GlobalSearch Component', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('filters quick actions so searching "invoice" shows Create Sales Invoice', () => {
+  it('filters quick actions so searching "invoice" shows Find a sales order to invoice', () => {
     vi.mocked(searchHook.useGlobalSearch).mockReturnValue({
       data: { inventory: [], customers: [], vehicles: [], orders: [] },
       isLoading: false,
@@ -274,7 +274,7 @@ describe('GlobalSearch Component', () => {
     const input = screen.getByPlaceholderText('Search parts, customers, vehicles, jobs…')
     fireEvent.change(input, { target: { value: 'invoice' } })
 
-    expect(screen.getByText('Create Sales Invoice')).toBeInTheDocument()
+    expect(screen.getByText('Find a sales order to invoice')).toBeInTheDocument()
     expect(screen.queryByText('Create Purchase Order')).not.toBeInTheDocument()
   })
 

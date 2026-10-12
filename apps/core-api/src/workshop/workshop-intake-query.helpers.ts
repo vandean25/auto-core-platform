@@ -10,6 +10,10 @@ import {
   type WorkshopOrderWithRelations,
 } from './workshop-order.helpers.js';
 import { stripVehicleIdentityResolutionState } from '../vehicle/vehicle-identity.util.js';
+import {
+  customerNameTermWhere,
+  splitSearchTerms,
+} from './workshop-customer-name-search.helpers.js';
 
 export const DEFAULT_PAGE_SIZE = 25;
 export const MAX_PAGE_SIZE = 100;
@@ -186,6 +190,7 @@ export function buildCustomerSearchWhere(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       query,
     );
+  const terms = splitSearchTerms(query);
 
   return {
     tenant_id: tenantId,
@@ -195,6 +200,8 @@ export function buildCustomerSearchWhere(
       { last_name: { contains: query, mode: 'insensitive' } },
       { company_name: { contains: query, mode: 'insensitive' } },
       { phone: { contains: query, mode: 'insensitive' } },
+      // Multi-word queries: every word must match a name column, in any order.
+      ...(terms.length > 1 ? [{ AND: terms.map(customerNameTermWhere) }] : []),
     ],
   };
 }
