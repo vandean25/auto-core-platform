@@ -28,6 +28,8 @@ import {
 /** A claim with no result after this long is treated as lost and reclaimed by the recovery sweep. */
 export const NOTIFICATION_LEASE_MS = 120_000;
 export const NOTIFICATION_PROVIDER_TIMEOUT_MS = 15_000;
+/** The scheduling slack of a Cloud Tasks wake-up: whole seconds, so up to one second early. */
+export const NOTIFICATION_CLAIM_TOLERANCE_MS = 1_000;
 
 interface ClaimedRow {
   channel: NotificationChannel;
@@ -77,6 +79,9 @@ export class NotificationOutboxWorkerService {
     config: NotificationDeliveryConfig = readNotificationDeliveryConfig(),
   ): Promise<void> {
     const leaseToken = randomUUID();
+    // Cloud Tasks schedules whole seconds, so a retry's wake-up can fire up to a second before the row's
+    // next_attempt_at. Claiming it then is correct, so the due check allows that much.
+    const dueBy = new Date(now.getTime() + NOTIFICATION_CLAIM_TOLERANCE_MS);
     const claimed = await this.prisma.notificationOutbox.updateMany({
       where: {
         id: outboxId,
@@ -86,7 +91,7 @@ export class NotificationOutboxWorkerService {
         OR: [
           {
             status: NotificationOutboxStatus.PENDING,
-            next_attempt_at: { lte: now },
+            next_attempt_at: { lte: dueBy },
           },
           {
             status: NotificationOutboxStatus.SENDING,

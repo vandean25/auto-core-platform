@@ -33,13 +33,24 @@ export function buildEmailColumns(email: EmailDraft | undefined) {
   };
 }
 
-/** A draft must name one recipient and cannot break a header. A bad draft is a programming error. */
+/**
+ * A draft must name one recipient, carry a sender, a subject and a text, and cannot break a header.
+ * A bad draft is a programming error: it throws here, inside the caller's transaction, rather than
+ * storing a row the worker would fail later without anyone noticing.
+ */
 function assertEmailDraft(email: EmailDraft): void {
   if (!isPlainEmailAddress(email.recipientEmail)) {
     throw new Error('EMAIL recipient must be one plain address');
   }
   if (email.replyToEmail && !isPlainEmailAddress(email.replyToEmail)) {
     throw new Error('EMAIL reply-to must be one plain address');
+  }
+  if (
+    email.senderName.trim() === '' ||
+    email.subject.trim() === '' ||
+    email.text.trim() === ''
+  ) {
+    throw new Error('EMAIL sender name, subject and text must not be empty');
   }
   if (!isSingleLineText(email.subject) || !isSingleLineText(email.senderName)) {
     throw new Error('EMAIL subject and sender name must be single-line');

@@ -76,4 +76,5 @@ Stored error text is generic. Provider response bodies are never stored.
 - Delivery is at least once. A crash between provider acceptance and the status write can send a duplicate after the claim expires.
 - No delivery webhooks and no open or click tracking (ADR-0025 §6, §7).
 - A PENDING notice unsent after 7 days is failed with `STALE_UNSENT`, never sent late. The sweep re-wakes a PENDING row only after a 5-minute grace; a duplicate wake-up is harmless because claims are atomic.
+- Wake-ups for new rows come from the recovery cron, which runs only in a live instance with CPU allocated. core-api deploys with `--cpu-throttling` and `--min-instances 0`, so a quiet service can delay a new row until a request keeps an instance alive. The 7-day `STALE_UNSENT` backstop still holds. No phase 2 path writes EMAIL rows. Before phase 4 writes them, add a Cloud Scheduler job for the sweep, or keep CPU allocated with a minimum instance (a cost decision).
 - No replay endpoint yet (ADR-0025 lists `POST /api/notifications/outbox/replay` for a later phase).

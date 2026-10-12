@@ -112,20 +112,32 @@ export class NotificationOutboxRecoveryService {
   }
 
   private async wakeDueRows(tenantId: string, now: Date): Promise<void> {
+    const overdueBefore = new Date(now.getTime() - NOTIFICATION_WAKE_GRACE_MS);
     const due = await this.prisma.notificationOutbox.findMany({
       where: {
         tenant_id: tenantId,
         status: NotificationOutboxStatus.PENDING,
-        next_attempt_at: {
-          lte: new Date(now.getTime() - NOTIFICATION_WAKE_GRACE_MS),
-        },
+        next_attempt_at: { lte: overdueBefore },
       },
       select: { id: true },
       take: RECOVERY_BATCH,
       orderBy: { next_attempt_at: 'asc' },
     });
     for (const row of due) {
-      await this.wake(row.id, tenantId);
+      // Moving the due time to now means the next sweep waits a full grace again, so a backlog is not
+      // re-woken every minute. A row claimed in the meantime is left alone.
+      const touched = await this.prisma.notificationOutbox.updateMany({
+        where: {
+          id: row.id,
+          tenant_id: tenantId,
+          status: NotificationOutboxStatus.PENDING,
+          next_attempt_at: { lte: overdueBefore },
+        },
+        data: { next_attempt_at: now },
+      });
+      if (touched.count === 1) {
+        await this.wake(row.id, tenantId);
+      }
     }
   }
 

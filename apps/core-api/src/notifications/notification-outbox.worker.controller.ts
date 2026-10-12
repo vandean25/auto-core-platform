@@ -16,8 +16,8 @@ import { NotificationOutboxWorkerService } from './notification-outbox-worker.se
 
 /**
  * Cloud Tasks entry point for one outbox row. Public only at the Nest layer: both guards decide
- * access. Deploy this route on the private worker service, the same as the PDF and branding
- * workers (ADR-0007).
+ * access. The service behind CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL serves it: core-api in v1,
+ * which holds the NOTIFICATION_* settings. Never the PDF worker, which holds none of them (ADR-0007).
  */
 @Controller('notifications/outbox')
 @Public()

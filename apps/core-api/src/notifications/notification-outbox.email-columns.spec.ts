@@ -43,4 +43,16 @@ describe('buildEmailColumns()', () => {
       buildEmailColumns({ ...draft, senderName: 'Werkstatt\tNord' }),
     ).toThrow('EMAIL subject and sender name must be single-line');
   });
+
+  it('refuses an empty or blank sender name, subject or text, which no notice can be sent with', () => {
+    expect(() => buildEmailColumns({ ...draft, senderName: '   ' })).toThrow(
+      'EMAIL sender name, subject and text must not be empty',
+    );
+    expect(() => buildEmailColumns({ ...draft, subject: '' })).toThrow(
+      'EMAIL sender name, subject and text must not be empty',
+    );
+    expect(() => buildEmailColumns({ ...draft, text: '' })).toThrow(
+      'EMAIL sender name, subject and text must not be empty',
+    );
+  });
 });

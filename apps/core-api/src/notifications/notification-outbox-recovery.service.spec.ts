@@ -9,7 +9,7 @@ describe('NotificationOutboxRecoveryService', () => {
   let wakeUps: { isEnabled: jest.Mock; enqueueWakeUp: jest.Mock };
   let service: NotificationOutboxRecoveryService;
 
-  /** The writes in call order: the stale-unsent pass is always first, then one write per expired claim. */
+  /** The writes in call order: the stale-unsent pass is always first, then one write per row touched. */
   const writes = () =>
     prisma.notificationOutbox.updateMany.mock.calls.map(([arg]) => arg);
 
@@ -84,6 +84,36 @@ describe('NotificationOutboxRecoveryService', () => {
       outboxId: 'outbox-1',
       tenantId: 'tenant-1',
     });
+  });
+
+  it('moves the due time of a woken row to now, so the next sweep waits a full grace again', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([{ id: 'outbox-6' }])
+      .mockResolvedValueOnce([]);
+
+    await service.recover();
+
+    expect(writes()[1]).toMatchObject({
+      where: { id: 'outbox-6', tenant_id: 'tenant-1', status: 'PENDING' },
+      data: { next_attempt_at: expect.any(Date) },
+    });
+    expect(wakeUps.enqueueWakeUp).toHaveBeenCalledWith({
+      outboxId: 'outbox-6',
+      tenantId: 'tenant-1',
+    });
+  });
+
+  it('does not wake a row that was claimed before the wake-up could be recorded', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([{ id: 'outbox-7' }])
+      .mockResolvedValueOnce([]);
+    prisma.notificationOutbox.updateMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await service.recover();
+
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
   });
 
   it('releases an expired claim with attempts left and wakes it again', async () => {

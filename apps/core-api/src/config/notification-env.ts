@@ -87,13 +87,16 @@ export function notificationEnvIssues(
   if (sender !== undefined && !isPlainEmailAddress(sender)) {
     issues.push({ key: 'NOTIFICATION_EMAIL_FROM_ADDRESS', kind: 'invalid' });
   }
+  const notificationOrigin = originOf(
+    env.CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL,
+  );
   if (
-    sameTarget(
-      env.CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL,
-      env.CLOUD_TASKS_TARGET_BASE_URL,
-    )
+    notificationOrigin === null ||
+    (notificationOrigin !== undefined &&
+      notificationOrigin === originOf(env.CLOUD_TASKS_TARGET_BASE_URL))
   ) {
-    // A wake-up sent to the PDF worker would be suppressed there: it holds no notification settings.
+    // Two targets on one origin are one Cloud Run service. The PDF service holds no notification settings,
+    // so a wake-up sent there would be suppressed or lost.
     issues.push({
       key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL',
       kind: 'invalid',
@@ -112,9 +115,14 @@ export function notificationEnvIssues(
   return issues;
 }
 
-function sameTarget(a: string | undefined, b: string | undefined): boolean {
-  if (a === undefined || b === undefined) {
-    return false;
+/** The origin (scheme, host, port) of a target URL. `null` when the value is not a URL at all. */
+function originOf(value: string | undefined): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
   }
-  return a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
 }

@@ -1,5 +1,8 @@
 import { EmailProviderError } from './email/email-provider.js';
-import { NotificationOutboxWorkerService } from './notification-outbox-worker.service.js';
+import {
+  NOTIFICATION_CLAIM_TOLERANCE_MS,
+  NotificationOutboxWorkerService,
+} from './notification-outbox-worker.service.js';
 import type { NotificationDeliveryConfig } from './notification-delivery.config.js';
 import { NOTIFICATION_MAX_ATTEMPTS } from './notification-retry.policy.js';
 
@@ -320,6 +323,21 @@ describe('NotificationOutboxWorkerService', () => {
     expect(outcome()).toMatchObject({
       status: 'FAILED',
       last_error_code: 'MESSAGE_INVALID',
+    });
+  });
+
+  it('claims a retry whose wake-up fired up to the scheduling tolerance early', async () => {
+    arrange();
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(
+      prisma.notificationOutbox.updateMany.mock.calls[0][0].where.OR[0],
+    ).toMatchObject({
+      status: 'PENDING',
+      next_attempt_at: {
+        lte: new Date(NOW.getTime() + NOTIFICATION_CLAIM_TOLERANCE_MS),
+      },
     });
   });
 
