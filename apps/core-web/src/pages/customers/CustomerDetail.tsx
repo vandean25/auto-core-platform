@@ -228,7 +228,7 @@ export default function CustomerDetail() {
           </div>
         </div>
         <div className='flex flex-col items-end gap-2'>
-          <div className='flex gap-2'>
+          <div className='flex flex-wrap justify-end gap-2'>
             <Button asChild>
               <Link to={`/sales-orders/new?customerId=${customer.id}`}>
                 <Package className='mr-2 h-4 w-4' /> New sales order

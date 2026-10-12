@@ -73,7 +73,7 @@ export default function SalesOrderDetail() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild>
                         <Link to="/sales-orders" aria-label="Back to sales orders">
@@ -90,7 +90,7 @@ export default function SalesOrderDetail() {
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {order.status !== 'INVOICED' && (
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
