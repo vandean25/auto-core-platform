@@ -13,3 +13,4 @@ export * from './vehicle-trade-in-demo.fixture.js';
 export * from './demo-legal-entity-accounting-profile.fixture.js';
 export * from './demo-workshop-revenue-groups.fixture.js';
 export * from './pickerl-inspection-template.fixture.js';
+export * from './demo-users.fixture.js';
