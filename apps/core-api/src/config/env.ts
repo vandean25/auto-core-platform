@@ -29,6 +29,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'DECISION_OPENROUTER_MODEL',
   'DECISION_HTTP_TIMEOUT_MS',
   'INVOICE_BRANDING_WRITER_ENABLED',
+  'ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED',
   'CUSTOMER_ESTIMATE_SEND_ENABLED',
   'WORKSHOP_MEDIA_BUCKET',
   'CLOUD_TASKS_ENABLED',
@@ -113,6 +114,9 @@ const envSchema = z
     DECISION_OPENROUTER_MODEL: optionalString,
     DECISION_HTTP_TIMEOUT_MS: optionalString,
     INVOICE_BRANDING_WRITER_ENABLED: optionalBooleanString.transform(
+      (value) => value === 'true',
+    ),
+    ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED: optionalBooleanString.transform(
       (value) => value === 'true',
     ),
     CUSTOMER_ESTIMATE_SEND_ENABLED: optionalBooleanString.transform(

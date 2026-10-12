@@ -2,7 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { assertChartAllowedForProfile } from './accounting-chart-catalog.js';
 import {
   isDatevProfileCode,
-  isExportSerializerImplemented,
+  isExportSerializerReleased,
+  isRzlProfileCode,
 } from './accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
@@ -222,7 +223,7 @@ export function validateAccountingProfilePatch(
 
   if (
     profileCodeChanged &&
-    !isExportSerializerImplemented(effectiveProfileCode) &&
+    !isExportSerializerReleased(effectiveProfileCode) &&
     patch.isEnabled === undefined
   ) {
     normalized.isEnabled = false;
@@ -230,14 +231,19 @@ export function validateAccountingProfilePatch(
 
   if (patch.isEnabled !== undefined) {
     if (patch.isEnabled) {
-      if (!isExportSerializerImplemented(effectiveProfileCode)) {
+      if (!isExportSerializerReleased(effectiveProfileCode)) {
         throw new BadRequestException(
-          'Accounting export profile cannot be enabled until the serializer is approved and implemented.',
+          'Accounting export profile cannot be enabled until its serializer is released for this environment.',
         );
       }
       if (isDatevProfileCode(effectiveProfileCode) && countryIso !== 'DE') {
         throw new BadRequestException(
           'DATEV export profile can only be enabled for DE legal entities',
+        );
+      }
+      if (isRzlProfileCode(effectiveProfileCode) && countryIso !== 'AT') {
+        throw new BadRequestException(
+          'RZL export profile can only be enabled for AT legal entities',
         );
       }
     }

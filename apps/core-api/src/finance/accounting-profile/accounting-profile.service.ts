@@ -21,7 +21,12 @@ import {
   defaultFormatVersionForCountry,
   defaultProfileCodeForCountry,
 } from './accounting-profile.codes.js';
-import { serializeAccountingProfileSerializerParams } from './accounting-profile.serializer-params.js';
+import {
+  parseAccountingProfileSerializerParams,
+  serializeAccountingProfileSerializerParams,
+} from './accounting-profile.serializer-params.js';
+import { isRzlProfileCode } from './accounting-profile.codes.js';
+import { computeRzlExportMissingFields } from './accounting-profile-export-readiness.js';
 import {
   type AccountingProfilePatchInput,
   validateAccountingProfilePatch,
@@ -214,9 +219,40 @@ export class AccountingProfileService {
     });
 
     if (!readiness.isReady) {
+      const label = isRzlProfileCode(mergedProfileCode) ? 'RZL' : 'DATEV';
       throw new BadRequestException(
-        'Accounting profile mapping must be complete before enabling DATEV export',
+        `Accounting profile mapping must be complete before enabling ${label} export`,
       );
+    }
+
+    if (isRzlProfileCode(mergedProfileCode)) {
+      const serializerParams =
+        (
+          patch.serializerParams ??
+          parseAccountingProfileSerializerParams(existing.serializer_params)
+        ).rzl ?? {};
+      const missingFields = computeRzlExportMissingFields({
+        profileCode: mergedProfileCode,
+        formatVersion:
+          patch.formatVersion !== undefined
+            ? patch.formatVersion
+            : existing.format_version,
+        chart: patch.chart !== undefined ? patch.chart : existing.chart,
+        accountLength:
+          patch.accountLength !== undefined
+            ? patch.accountLength
+            : existing.account_length,
+        defaultDebtorAccount:
+          patch.defaultDebtorAccount !== undefined
+            ? patch.defaultDebtorAccount
+            : existing.default_debtor_account,
+        serializerParams,
+      });
+      if (missingFields.length > 0) {
+        throw new BadRequestException(
+          `RZL export configuration is incomplete: ${missingFields.join(', ')}`,
+        );
+      }
     }
   }
 

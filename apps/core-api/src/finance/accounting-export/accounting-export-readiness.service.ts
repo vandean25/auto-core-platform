@@ -17,6 +17,7 @@ import {
   assertValidExportDateRange,
   isExportPeriodClosed,
 } from './accounting-export-period.js';
+import { allocationRulesForProfile } from './accounting-export-allocation-rules.js';
 import { exportProfileCanGenerate } from './accounting-export-serializer.registry.js';
 import {
   assertCompleteAccountingExportScope,
@@ -106,6 +107,10 @@ export class AccountingExportReadinessService {
         query.legalEntityId,
         dateFrom,
         dateTo,
+        allocationRulesForProfile(
+          settings.profile?.profile_code ?? null,
+          settings.profile?.serializer_params,
+        ),
       ),
       loadTenantOwnershipBlockers(
         this.prisma,
@@ -170,6 +175,7 @@ async function loadPeriodSettings(
       fiscal_year_start_month: true,
       profile_code: true,
       is_enabled: true,
+      serializer_params: true,
     },
   });
   return {
