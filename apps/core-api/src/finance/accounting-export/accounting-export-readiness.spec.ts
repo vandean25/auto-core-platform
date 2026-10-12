@@ -92,17 +92,21 @@ describe('buildAccountingExportReadiness', () => {
   it('counts exportable and blocked documents overall and per document kind', () => {
     const view = build(mixedPeriod());
 
-    expect(view.summary.documentCount).toBe(5);
-    expect(view.summary.exportableCount).toBe(3);
-    expect(view.summary.blockedCount).toBe(2);
-    expect(view.summary.documentKinds).toEqual([
-      { kind: 'INVOICE', documentCount: 4, exportableCount: 2, blockedCount: 2 },
-      {
-        kind: 'CREDIT_NOTE',
-        documentCount: 1,
-        exportableCount: 1,
-        blockedCount: 0,
-      },
+    expect(view.summary).toMatchObject({
+      documentCount: 5,
+      exportableCount: 3,
+      blockedCount: 2,
+    });
+    expect(
+      view.summary.documentKinds.map((row) => [
+        row.kind,
+        row.documentCount,
+        row.exportableCount,
+        row.blockedCount,
+      ]),
+    ).toEqual([
+      ['INVOICE', 4, 2, 2],
+      ['CREDIT_NOTE', 1, 1, 0],
     ]);
   });
 
