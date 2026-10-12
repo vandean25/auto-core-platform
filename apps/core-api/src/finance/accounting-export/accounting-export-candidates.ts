@@ -378,14 +378,20 @@ export async function loadTenantOwnershipBlockers(
     ...ELIGIBLE_INVOICE_STATUSES,
     InvoiceStatus.CANCELLED,
   ];
-  // Invoices of the excluded legal entity with a missing site are listed as
-  // that entity's own rows, so they are not repeated as tenant-wide notices.
+  // A missing-site invoice of the excluded legal entity is listed as that
+  // entity's own row with MISSING_OWNERSHIP_EVIDENCE, so it is not repeated as a
+  // notice. A cancelled one returns before that check, so it keeps its notice.
   const ownershipGaps: Prisma.InvoiceWhereInput[] = options.excludeLegalEntityId
     ? [
         { legal_entity_id: null },
         {
           site_id: null,
           legal_entity_id: { not: options.excludeLegalEntityId },
+        },
+        {
+          site_id: null,
+          legal_entity_id: options.excludeLegalEntityId,
+          status: InvoiceStatus.CANCELLED,
         },
       ]
     : [{ legal_entity_id: null }, { site_id: null }];

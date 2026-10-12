@@ -187,6 +187,9 @@ describe('buildAccountingExportReadiness', () => {
     expect(idsFor('cn-2026')).toEqual(['cn-de']);
     expect(idsFor('CREDIT NOTE')).toEqual(['cn-de']);
     expect(idsFor('2026-03-12')).toEqual(['inv-at']);
+    // The Date column shows "12 Mar 2026", so that text matches too.
+    expect(idsFor('12 mar 2026')).toEqual(['inv-at']);
+    expect(idsFor('05 Mar 2026')).toEqual(['inv-de-1']);
     expect(idsFor('de-ber')).toHaveLength(5);
     expect(idsFor('blocked')).toEqual(['inv-v1', 'inv-at']);
     // Reasons are narrowed with the reason filter, so codes are not searched.
@@ -271,32 +274,35 @@ describe('buildAccountingExportReadiness', () => {
     ]);
   });
 
-  it('keeps only ownership blockers that do not point at a listed document', () => {
-    const view = build(mixedPeriod(), {
-      ownershipBlockers: [
-        {
-          code: 'MISSING_OWNERSHIP_EVIDENCE',
-          message: 'Document ownership or numbering evidence is incomplete.',
-          documentId: 'inv-no-entity',
-          documentKind: 'INVOICE',
-          documentNumber: 'RE-2026-9',
-        },
-        {
-          code: 'MISSING_OWNERSHIP_EVIDENCE',
-          message:
-            'A document in the selected period has incomplete ownership evidence.',
-        },
-        {
-          code: 'MISSING_OWNERSHIP_EVIDENCE',
-          message: 'Listed document, already shown above.',
-          documentId: 'inv-de-1',
-        },
+  it('drops an ownership blocker only when the listed row already carries the same code', () => {
+    const view = build(
+      [
+        candidate('inv-no-site', {
+          blockers: [blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-no-site')],
+        }),
+        // A cancelled document returns before the ownership check, so its row
+        // has no MISSING_OWNERSHIP_EVIDENCE and the notice must stay visible.
+        candidate('inv-cancelled', {
+          blockers: [blocker('CANCELLED_DOCUMENT', 'inv-cancelled')],
+        }),
       ],
-    });
+      {
+        ownershipBlockers: [
+          blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-no-site'),
+          blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-cancelled'),
+          blocker('MISSING_OWNERSHIP_EVIDENCE', 'inv-not-listed'),
+          {
+            code: 'MISSING_OWNERSHIP_EVIDENCE',
+            message:
+              'A document in the selected period has incomplete ownership evidence.',
+          },
+        ],
+      },
+    );
 
     expect(
       view.tenantWideBlockers.map((blocker) => blocker.documentId ?? 'redacted'),
-    ).toEqual(['inv-no-entity', 'redacted']);
+    ).toEqual(['inv-cancelled', 'inv-not-listed', 'redacted']);
   });
 
   it('links each listed document to its in-app page and resolves its site', () => {

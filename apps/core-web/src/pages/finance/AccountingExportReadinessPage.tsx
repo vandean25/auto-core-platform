@@ -68,11 +68,13 @@ const SORT_FIELDS: readonly AccountingExportReadinessSortField[] = [
 const toSortField = (value: string | undefined) =>
   SORT_FIELDS.find((field) => field === value)
 
+// UTC keeps the calendar day the server sends, in every browser time zone.
 const formatDate = (value: string) =>
   new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   }).format(new Date(value))
 
 const formatIsoDate = (date: Date) => {
@@ -354,13 +356,16 @@ export default function AccountingExportReadinessPage() {
         </div>
       </div>
 
-      {readiness.error ? (
+      {!legalEntityId ? (
+        <p className="text-slate-500">
+          Choose a legal entity to see its export readiness.
+        </p>
+      ) : readiness.error ? (
+        // A refused request has no data, so the reason replaces the cards and the list.
         <Alert variant="destructive" className="mb-6">
           <AlertDescription>{readiness.error.message}</AlertDescription>
         </Alert>
-      ) : null}
-
-      {legalEntityId ? (
+      ) : (
         <>
           <section
             aria-label="Readiness summary"
@@ -458,10 +463,6 @@ export default function AccountingExportReadinessPage() {
             setGlobalFilter={changeSearch}
           />
         </>
-      ) : (
-        <p className="text-slate-500">
-          Choose a legal entity to see its export readiness.
-        </p>
       )}
     </>
   )

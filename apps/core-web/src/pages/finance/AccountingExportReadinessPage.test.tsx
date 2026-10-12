@@ -195,6 +195,14 @@ describe('AccountingExportReadinessPage', () => {
     expect(
       screen.getByText('Export scope is incomplete for the current user.'),
     ).toBeInTheDocument()
+    // A refused request has no data, so no cards, reasons, or document rows show.
+    expect(
+      screen.queryByRole('region', { name: 'Readiness summary' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('RE-2026-0002')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('No documents match these filters.'),
+    ).not.toBeInTheDocument()
   })
 
   it('sends the default date sort to the API', () => {

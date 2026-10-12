@@ -86,6 +86,15 @@ const KIND_SEARCH_LABEL: Record<AccountingExportDocumentKind, string> = {
   CREDIT_NOTE: 'credit note',
 };
 
+// The Date column shows the day as "05 Mar 2026", so search matches that text too.
+// Same options as the page; UTC keeps the day the same in every time zone.
+const DATE_SEARCH_LABEL = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
 const SORT_VALUE: Record<
   AccountingExportReadinessSortField,
   (document: AccountingExportReadinessDocument) => string
@@ -104,7 +113,12 @@ export function buildAccountingExportReadiness(
   const documents = input.candidates.map((candidate) =>
     toReadinessDocument(candidate, sitesById, input.hrefFor),
   );
-  const listedIds = new Set(documents.map((document) => document.id));
+  const codesByDocumentId = new Map(
+    documents.map((document) => [
+      document.id,
+      new Set(document.blockers.map((blocker) => blocker.code)),
+    ]),
+  );
   const filtered = sortDocuments(
     documents.filter((document) => matchesFilters(document, input.filters)),
     input.sortField,
@@ -114,10 +128,14 @@ export function buildAccountingExportReadiness(
 
   return {
     summary: summarize(documents),
-    // Ownership blockers for a listed document are already shown on that row.
-    // Redacted blockers carry no document id, so they always stay tenant-wide.
+    // An ownership blocker is not repeated when the document's own row already
+    // carries that code. A cancelled document returns before the ownership check,
+    // so its row does not carry the code and the notice stays, as preview shows it.
+    // Redacted blockers carry no document id and always stay tenant-wide.
     tenantWideBlockers: input.ownershipBlockers.filter(
-      (blocker) => !blocker.documentId || !listedIds.has(blocker.documentId),
+      (blocker) =>
+        !blocker.documentId ||
+        !codesByDocumentId.get(blocker.documentId)?.has(blocker.code),
     ),
     data: filtered.slice(start, start + input.limit),
     meta: {
@@ -187,6 +205,7 @@ function matchesFilters(
     KIND_SEARCH_LABEL[document.kind],
     document.status,
     document.date,
+    DATE_SEARCH_LABEL.format(new Date(document.date)),
     document.site?.code ?? '',
     document.site?.name ?? '',
   ].some((value) => value.toLowerCase().includes(term));

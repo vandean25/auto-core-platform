@@ -655,4 +655,50 @@ describe('Accounting export readiness (e2e)', () => {
     });
     await readinessRequest().expect(200);
   });
+
+  it('RD-10: keeps the ownership notice for a cancelled document without a site, as preview does', async () => {
+    // A cancelled invoice returns before the ownership check, so its row shows
+    // only CANCELLED_DOCUMENT. The notice must stay visible or the gap is hidden.
+    await tenantPrisma.invoice.update({
+      where: { id: ids.entityNoSite },
+      data: { status: 'CANCELLED' },
+    });
+
+    const readiness = await readinessRequest().expect(200);
+    const row = readiness.body.data.find(
+      (document: { id: string }) => document.id === ids.entityNoSite,
+    );
+    expect(row.blockers.map((blocker: { code: string }) => blocker.code)).toEqual([
+      'CANCELLED_DOCUMENT',
+    ]);
+    // A site-less invoice's notice is redacted and names no document, as
+    // preview's does. Only this one redacted notice is expected in the period.
+    expect(
+      readiness.body.tenantWideBlockers.filter(
+        (blocker: { documentId?: string }) => blocker.documentId === undefined,
+      ),
+    ).toEqual([
+      {
+        code: 'MISSING_OWNERSHIP_EVIDENCE',
+        message:
+          'A document in the selected period has incomplete ownership evidence.',
+      },
+    ]);
+
+    const preview = await request(app.getHttpServer())
+      .post('/api/finance/accounting-exports/preview')
+      .set('Authorization', `Bearer ${authTokenA}`)
+      .send({
+        legalEntityId: deEntityId,
+        dateFrom: '2026-03-01',
+        dateTo: '2026-03-31',
+      })
+      .expect(200);
+    const previewCodes = preview.body.blockers.map(
+      (blocker: { code: string }) => blocker.code,
+    );
+    expect(previewCodes).toEqual(
+      expect.arrayContaining(['CANCELLED_DOCUMENT', 'MISSING_OWNERSHIP_EVIDENCE']),
+    );
+  });
 });
