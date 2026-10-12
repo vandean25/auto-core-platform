@@ -861,6 +861,38 @@ describe('DataTable Export CSV', () => {
     expect((await downloadedCsv()).split('\r\n')).toEqual(['Tags', 'Alpha Beta'])
   })
 
+  it('exports the value of a text-like form field that is the only carrier of the cell value', async () => {
+    const minutesColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: 'Minutes',
+        cell: () => <input type="number" defaultValue="12000" readOnly />,
+      },
+    ]
+    render(<OrderTable columns={minutesColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Minutes', '12000'])
+  })
+
+  it('exports data columns declared only by id, and leaves out action and icon columns', async () => {
+    const mixedColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Order #" />,
+      },
+      { id: 'period', header: 'Period', cell: () => <span>2026-Q1</span> },
+      { id: 'actions', header: '', cell: () => <button type="button">Download</button> },
+      { id: 'icon', header: '', cell: () => <svg aria-hidden="true" /> },
+    ]
+    render(<OrderTable columns={mixedColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Order #;Period', 'SO-1;2026-Q1'])
+  })
+
   it('exports the text of a button that is the only carrier of the cell value', async () => {
     const activeColumns: ColumnDef<OrderRow>[] = [
       {
