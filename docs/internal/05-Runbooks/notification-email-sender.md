@@ -54,9 +54,13 @@ The service behind `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL` needs the worker s
 
 **Never** set `fake` in production (env validation refuses it). Never put a real customer address on the allowlist in CI or UAT.
 
+The deployed QA and UAT services run `NODE_ENV=production`, so `fake` cannot run there. Keep the mode `off` on them until AUT-362 wires a provider. A `live` deploy sends only to allowlisted recipients, and each of those fails with `PROVIDER_NOT_CONFIGURED` until then.
+
 ## 5. Checking the outbox
 
 Statuses: `PENDING` (waiting, see `next_attempt_at`), `SENDING` (claimed, see `lease_expires_at`), `ACCEPTED` (provider accepted; v1 stops here, there are no delivery webhooks), `FAILED` (dead letter after 5 attempts or a permanent error), `SUPPRESSED` (not sent by policy).
+
+A suspended tenant (`is_active = false`) is not claimed, so its notices stay `PENDING`. They go out after reactivation while the 7-day window lasts, and otherwise fail with `STALE_UNSENT`.
 
 ```sql
 -- Dead letters for one tenant, newest first (run through a read replica or with tenant scope).

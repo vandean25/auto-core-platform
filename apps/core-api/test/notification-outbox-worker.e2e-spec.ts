@@ -206,7 +206,7 @@ describe('Notification outbox sender worker (e2e)', () => {
     expect(fake.sent).toHaveLength(0);
   });
 
-  it('a suspended tenant sends nothing, and its row is suppressed', async () => {
+  it('a suspended tenant sends nothing and keeps its row waiting, then sends after reactivation', async () => {
     const id = await enqueue(tenantA);
     await basePrisma.tenant.update({
       where: { id: tenantA },
@@ -222,10 +222,18 @@ describe('Notification outbox sender worker (e2e)', () => {
     }
 
     expect(await readRow(tenantA, id)).toMatchObject({
-      status: 'SUPPRESSED',
-      suppressed_reason: 'TENANT_INACTIVE',
+      status: 'PENDING',
+      attempts: 0,
     });
     expect(fake.sent).toHaveLength(0);
+
+    await deliver(id, tenantA).expect(204);
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'ACCEPTED',
+      attempts: 1,
+    });
+    expect(fake.sent).toHaveLength(1);
   });
 
   it('live mode refuses a recipient outside the allowlist', async () => {

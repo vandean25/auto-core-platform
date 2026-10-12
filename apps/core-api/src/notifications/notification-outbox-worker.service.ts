@@ -32,6 +32,8 @@ export const NOTIFICATION_LEASE_MS = 120_000;
 export const NOTIFICATION_PROVIDER_TIMEOUT_MS = 15_000;
 /** The scheduling slack of a Cloud Tasks wake-up: whole seconds, so up to one second early. */
 export const NOTIFICATION_CLAIM_TOLERANCE_MS = 1_000;
+/** The provider codes that may reach the row. Anything else is replaced, so no free text is stored. */
+const PROVIDER_CODE = /^[A-Z][A-Z0-9_]{0,39}$/;
 
 interface ClaimedRow {
   channel: NotificationChannel;
@@ -81,6 +83,11 @@ export class NotificationOutboxWorkerService {
     now: Date = new Date(),
     config: NotificationDeliveryConfig = readNotificationDeliveryConfig(),
   ): Promise<void> {
+    // A suspended tenant sends nothing. Its rows are not claimed, so they keep their place: they go out
+    // after reactivation, or the sweep fails them once the sending window passes.
+    if (!(await this.isTenantActive(tenantId))) {
+      return;
+    }
     const leaseToken = randomUUID();
     // Cloud Tasks schedules whole seconds, so a retry's wake-up can fire up to a second before the row's
     // next_attempt_at. Claiming it then is correct, so the due check allows that much.
@@ -160,20 +167,8 @@ export class NotificationOutboxWorkerService {
   }
 
   private async attempt(a: Attempt): Promise<void> {
-    // A suspended tenant sends nothing, even when a retry for its row is still queued.
-    const tenant = await this.systemPrisma.tenant.findFirst({
-      where: { id: a.tenantId },
-      select: { is_active: true },
-    });
-    if (!tenant?.is_active) {
-      return this.record(a, {
-        status: NotificationOutboxStatus.SUPPRESSED,
-        suppressed_reason: 'TENANT_INACTIVE',
-        last_error_code: null,
-        last_error_message: null,
-      });
-    }
     if (a.row.channel !== NotificationChannel.EMAIL) {
+      // IN_APP rows are written ACCEPTED, so only a future writer can reach this guard.
       return this.fail(a, {
         code: 'UNSUPPORTED_CHANNEL',
         message: 'This channel has no sender',
@@ -247,10 +242,13 @@ export class NotificationOutboxWorkerService {
     SideEffectGuard.assertAllowed('EMAIL');
     const provider = this.providers.resolve(decision.provider);
     try {
-      const result = await provider.send(message, {
-        idempotencyKey: a.outboxId,
-        signal: AbortSignal.timeout(NOTIFICATION_PROVIDER_TIMEOUT_MS),
-      });
+      const result = await withProviderDeadline(
+        provider.send(message, {
+          idempotencyKey: a.outboxId,
+          signal: AbortSignal.timeout(NOTIFICATION_PROVIDER_TIMEOUT_MS),
+        }),
+        NOTIFICATION_PROVIDER_TIMEOUT_MS,
+      );
       return this.record(a, {
         status: NotificationOutboxStatus.ACCEPTED,
         provider: provider.name,
@@ -266,6 +264,15 @@ export class NotificationOutboxWorkerService {
       }
       return this.fail(a, failure);
     }
+  }
+
+  /** Read under SystemPrisma, like the sweeps that walk every tenant. */
+  private async isTenantActive(tenantId: string): Promise<boolean> {
+    const tenant = await this.systemPrisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { is_active: true },
+    });
+    return tenant?.is_active === true;
   }
 
   /** Schedules the next attempt, or fails the row once it has used its last attempt. */
@@ -344,13 +351,42 @@ export class NotificationOutboxWorkerService {
   }
 }
 
-/** Maps anything a provider throws to a failure we can store. Unknown errors are retried, never leaked. */
+/**
+ * Gives up on a provider call after `ms`, even when the adapter ignores its abort signal, so every attempt
+ * records its outcome before the lease expires. A late answer is dropped. The idempotency key lets a
+ * provider that supports it dedupe the retry that follows.
+ */
+function withProviderDeadline<T>(call: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new EmailProviderError(
+            'transient',
+            'TIMEOUT',
+            'The provider did not answer in time',
+          ),
+        ),
+      ms,
+    );
+  });
+  return Promise.race([call, deadline]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Maps anything a provider throws to a failure we can store. The stored text is always a fixed sentence,
+ * because a provider message can name the address. Unknown errors are retried, never leaked.
+ */
 function toProviderFailure(error: unknown): Failure & { transient: boolean } {
   if (error instanceof EmailProviderError) {
+    const transient = error.kind === 'transient';
     return {
-      code: error.code,
-      message: error.message,
-      transient: error.kind === 'transient',
+      code: PROVIDER_CODE.test(error.code) ? error.code : 'PROVIDER_ERROR',
+      message: transient
+        ? 'The provider did not accept the message'
+        : 'The provider refused the message',
+      transient,
     };
   }
   return {

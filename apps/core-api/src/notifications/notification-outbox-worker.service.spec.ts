@@ -1,6 +1,7 @@
 import { EmailProviderError } from './email/email-provider.js';
 import {
   NOTIFICATION_CLAIM_TOLERANCE_MS,
+  NOTIFICATION_PROVIDER_TIMEOUT_MS,
   NotificationOutboxWorkerService,
 } from './notification-outbox-worker.service.js';
 import type { NotificationDeliveryConfig } from './notification-delivery.config.js';
@@ -248,13 +249,26 @@ describe('NotificationOutboxWorkerService', () => {
     });
   });
 
-  it('does not overwrite a newer attempt when the lease was lost', async () => {
+  it('schedules no retry when its lease was lost, and writes nothing more', async () => {
     arrange(makeRow(), [{ count: 0 }]);
+    provider.send.mockRejectedValueOnce(
+      new EmailProviderError('transient', 'NETWORK', 'down'),
+    );
 
     await expect(
       service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF),
     ).resolves.toBeUndefined();
-    expect(provider.send).toHaveBeenCalledTimes(1);
+
+    expect(prisma.notificationOutbox.updateMany).toHaveBeenCalledTimes(2);
+    expect(
+      prisma.notificationOutbox.updateMany.mock.calls[1][0].where,
+    ).toMatchObject({
+      id: 'outbox-1',
+      tenant_id: 'tenant-1',
+      status: 'SENDING',
+      lease_token: expect.any(String),
+    });
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
   });
 
   it('claims only rows that still have attempts left', async () => {
@@ -364,9 +378,8 @@ describe('NotificationOutboxWorkerService', () => {
   });
 
   it.each([[{ is_active: false }], [null]])(
-    'suppresses the row while its tenant is suspended or gone, without a provider (%j)',
+    'leaves a row unclaimed while its tenant is suspended or gone (%j)',
     async (tenant) => {
-      arrange();
       systemPrisma.tenant.findFirst.mockResolvedValueOnce(tenant);
 
       await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
@@ -375,11 +388,10 @@ describe('NotificationOutboxWorkerService', () => {
         where: { id: 'tenant-1' },
         select: { is_active: true },
       });
-      expect(outcome()).toMatchObject({
-        status: 'SUPPRESSED',
-        suppressed_reason: 'TENANT_INACTIVE',
-      });
+      expect(prisma.notificationOutbox.updateMany).not.toHaveBeenCalled();
+      expect(providers.resolve).not.toHaveBeenCalled();
       expect(provider.send).not.toHaveBeenCalled();
+      expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
     },
   );
 
@@ -392,6 +404,69 @@ describe('NotificationOutboxWorkerService', () => {
     expect(outcome()).toMatchObject({
       status: 'FAILED',
       last_error_code: 'MESSAGE_INVALID',
+    });
+  });
+
+  it('stores a short code and a fixed sentence, never the provider text that can name the address', async () => {
+    arrange();
+    provider.send.mockRejectedValueOnce(
+      new EmailProviderError(
+        'permanent',
+        'BAD_REQUEST',
+        'invalid recipient kunde@example.at',
+      ),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'BAD_REQUEST',
+      last_error_message: 'The provider refused the message',
+    });
+  });
+
+  it('replaces a provider code that is not a short upper-case token', async () => {
+    arrange();
+    provider.send.mockRejectedValueOnce(
+      new EmailProviderError(
+        'permanent',
+        'kunde@example.at refused',
+        'refused',
+      ),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'PROVIDER_ERROR',
+      last_error_message: 'The provider refused the message',
+    });
+  });
+
+  it('gives up on a provider that ignores its abort signal, and retries before the lease runs out', async () => {
+    jest.useFakeTimers();
+    try {
+      arrange();
+      provider.send.mockReturnValueOnce(new Promise<never>(() => undefined));
+
+      const delivery = service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+      await jest.advanceTimersByTimeAsync(NOTIFICATION_PROVIDER_TIMEOUT_MS);
+      await delivery;
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(outcome()).toMatchObject({
+      status: 'PENDING',
+      last_error_code: 'TIMEOUT',
+      last_error_message: 'The provider did not accept the message',
+    });
+    expect(wakeUps.enqueueWakeUp).toHaveBeenCalledWith({
+      outboxId: 'outbox-1',
+      tenantId: 'tenant-1',
+      delaySeconds: 60,
     });
   });
 

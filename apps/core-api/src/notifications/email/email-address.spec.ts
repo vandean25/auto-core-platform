@@ -9,6 +9,14 @@ describe('isPlainEmailAddress()', () => {
     );
   });
 
+  it('refuses the characters that some relays route inside an address', () => {
+    expect(isPlainEmailAddress('victim%attacker.example@allowed.example')).toBe(
+      false,
+    );
+    expect(isPlainEmailAddress('victim!attacker@allowed.example')).toBe(false);
+    expect(isPlainEmailAddress('victim|attacker@allowed.example')).toBe(false);
+  });
+
   it('refuses anything that could name a second recipient or break a header', () => {
     expect(isPlainEmailAddress('kunde@example.at, victim@evil.example')).toBe(
       false,

@@ -24,6 +24,7 @@ export interface OutgoingEmail {
 export interface EmailSendOptions {
   /** Outbox row id. Lets a provider that supports idempotency dedupe a retried call. */
   idempotencyKey: string;
+  /** Adapters should abort on it. The worker stops waiting at its own deadline either way. */
   signal?: AbortSignal;
 }
 
