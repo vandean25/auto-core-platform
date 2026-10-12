@@ -1,0 +1,209 @@
+import type { AccountingExportSite } from './accounting-export-scope.js';
+import {
+  ACCOUNTING_EXPORT_BLOCKER_CODES,
+  ACCOUNTING_EXPORT_DOCUMENT_KINDS,
+} from './accounting-export-codes.js';
+import type {
+  AccountingExportBlocker,
+  AccountingExportBlockerCode,
+  AccountingExportCandidate,
+  AccountingExportDocumentKind,
+} from './accounting-export.types.js';
+
+export type AccountingExportReadinessStatus = 'EXPORTABLE' | 'BLOCKED';
+
+export type AccountingExportReadinessBlocker = {
+  code: AccountingExportBlockerCode;
+  message: string;
+};
+
+export type AccountingExportReadinessDocument = {
+  id: string;
+  kind: AccountingExportDocumentKind;
+  number: string | null;
+  date: string;
+  site: { id: string; code: string; name: string } | null;
+  status: AccountingExportReadinessStatus;
+  blockers: AccountingExportReadinessBlocker[];
+  href: string;
+};
+
+export type AccountingExportReadinessFilters = {
+  reason?: AccountingExportBlockerCode;
+  documentKind?: AccountingExportDocumentKind;
+  search?: string;
+};
+
+export type AccountingExportReadinessSummary = {
+  documentCount: number;
+  exportableCount: number;
+  blockedCount: number;
+  documentKinds: {
+    kind: AccountingExportDocumentKind;
+    documentCount: number;
+    exportableCount: number;
+    blockedCount: number;
+  }[];
+  reasons: { code: AccountingExportBlockerCode; documentCount: number }[];
+};
+
+export type AccountingExportReadinessInput = {
+  // The loader returns candidates already sorted by date, kind, number and id.
+  candidates: AccountingExportCandidate[];
+  ownershipBlockers: AccountingExportBlocker[];
+  sites: AccountingExportSite[];
+  filters: AccountingExportReadinessFilters;
+  page: number;
+  limit: number;
+  hrefFor: (kind: AccountingExportDocumentKind, id: string) => string;
+};
+
+export type AccountingExportReadinessView = {
+  summary: AccountingExportReadinessSummary;
+  tenantWideBlockers: AccountingExportBlocker[];
+  data: AccountingExportReadinessDocument[];
+  meta: { total: number; page: number; limit: number; pageCount: number };
+};
+
+const KIND_SEARCH_LABEL: Record<AccountingExportDocumentKind, string> = {
+  INVOICE: 'invoice',
+  CREDIT_NOTE: 'credit note',
+};
+
+export function buildAccountingExportReadiness(
+  input: AccountingExportReadinessInput,
+): AccountingExportReadinessView {
+  const sitesById = new Map(input.sites.map((site) => [site.id, site]));
+  const documents = input.candidates.map((candidate) =>
+    toReadinessDocument(candidate, sitesById, input.hrefFor),
+  );
+  const listedIds = new Set(documents.map((document) => document.id));
+  const filtered = documents.filter((document) =>
+    matchesFilters(document, input.filters),
+  );
+  const start = (input.page - 1) * input.limit;
+
+  return {
+    summary: summarize(documents),
+    // Ownership blockers for a listed document are already shown on that row.
+    // Redacted blockers carry no document id, so they always stay tenant-wide.
+    tenantWideBlockers: input.ownershipBlockers.filter(
+      (blocker) => !blocker.documentId || !listedIds.has(blocker.documentId),
+    ),
+    data: filtered.slice(start, start + input.limit),
+    meta: {
+      total: filtered.length,
+      page: input.page,
+      limit: input.limit,
+      pageCount: Math.max(1, Math.ceil(filtered.length / input.limit)),
+    },
+  };
+}
+
+function toReadinessDocument(
+  candidate: AccountingExportCandidate,
+  sitesById: Map<string, AccountingExportSite>,
+  hrefFor: AccountingExportReadinessInput['hrefFor'],
+): AccountingExportReadinessDocument {
+  const blockers = uniqueBlockersByCode(candidate.blockers);
+  const site = candidate.siteId ? sitesById.get(candidate.siteId) : undefined;
+
+  return {
+    id: candidate.id,
+    kind: candidate.kind,
+    number: candidate.number,
+    date: candidate.date,
+    site: site ? { id: site.id, code: site.code, name: site.name } : null,
+    status: blockers.length > 0 ? 'BLOCKED' : 'EXPORTABLE',
+    blockers,
+    href: hrefFor(candidate.kind, candidate.id),
+  };
+}
+
+function uniqueBlockersByCode(
+  blockers: AccountingExportBlocker[],
+): AccountingExportReadinessBlocker[] {
+  const firstByCode = new Map<AccountingExportBlockerCode, string>();
+  for (const blocker of blockers) {
+    if (!firstByCode.has(blocker.code)) {
+      firstByCode.set(blocker.code, blocker.message);
+    }
+  }
+  return [...firstByCode].map(([code, message]) => ({ code, message }));
+}
+
+function matchesFilters(
+  document: AccountingExportReadinessDocument,
+  filters: AccountingExportReadinessFilters,
+): boolean {
+  if (filters.documentKind && document.kind !== filters.documentKind) {
+    return false;
+  }
+  if (
+    filters.reason &&
+    !document.blockers.some((blocker) => blocker.code === filters.reason)
+  ) {
+    return false;
+  }
+
+  const term = filters.search?.trim().toLowerCase();
+  if (!term) {
+    return true;
+  }
+
+  return [
+    document.number ?? '',
+    document.kind,
+    KIND_SEARCH_LABEL[document.kind],
+    document.status,
+    document.date,
+    document.site?.code ?? '',
+    document.site?.name ?? '',
+    ...document.blockers.map((blocker) => blocker.code),
+  ].some((value) => value.toLowerCase().includes(term));
+}
+
+function summarize(
+  documents: AccountingExportReadinessDocument[],
+): AccountingExportReadinessSummary {
+  const blockedCount = documents.filter(
+    (document) => document.status === 'BLOCKED',
+  ).length;
+
+  return {
+    documentCount: documents.length,
+    exportableCount: documents.length - blockedCount,
+    blockedCount,
+    documentKinds: ACCOUNTING_EXPORT_DOCUMENT_KINDS.map((kind) => {
+      const ofKind = documents.filter((document) => document.kind === kind);
+      const blocked = ofKind.filter(
+        (document) => document.status === 'BLOCKED',
+      ).length;
+      return {
+        kind,
+        documentCount: ofKind.length,
+        exportableCount: ofKind.length - blocked,
+        blockedCount: blocked,
+      };
+    }),
+    reasons: ACCOUNTING_EXPORT_BLOCKER_CODES.map((code) => ({
+      code,
+      documentCount: documents.filter((document) =>
+        document.blockers.some((blocker) => blocker.code === code),
+      ).length,
+    }))
+      .filter((reason) => reason.documentCount > 0)
+      .sort(
+        (left, right) =>
+          right.documentCount - left.documentCount ||
+          compareCodes(left.code, right.code),
+      ),
+  };
+}
+
+function compareCodes(left: string, right: string): number {
+  if (left === right) {
+    return 0;
+  }
+  return left < right ? -1 : 1;
+}

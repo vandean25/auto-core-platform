@@ -57,6 +57,7 @@ export const ROUTE_SECTION_TITLES: Record<RoutePattern, string> = {
   [APP_ROUTE_PATHS.invoicesLegacy]: 'Invoices',
   [APP_ROUTE_PATHS.creditNotes]: 'Credit Notes',
   [APP_ROUTE_PATHS.creditNoteDetail]: 'Credit Notes',
+  [APP_ROUTE_PATHS.accountingExportReadiness]: 'Accounting Export Readiness',
   [APP_ROUTE_PATHS.purchaseInvoiceNew]: 'New Purchase Invoice',
   [APP_ROUTE_PATHS.settings]: 'Settings',
   [APP_ROUTE_PATHS.hr]: 'HR',

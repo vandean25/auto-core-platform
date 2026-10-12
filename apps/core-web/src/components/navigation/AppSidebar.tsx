@@ -11,6 +11,7 @@ import {
   Bot,
   Building2,
   Car,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -241,6 +242,16 @@ const coreModules: SidebarModule[] = [
     isVisible: (context) =>
       context.activeRole === 'OWNER' || context.activeRole === 'ADMIN',
     isActive: (pathname) => pathname.startsWith('/finance/credit-notes'),
+  },
+  {
+    id: 'accounting-export-readiness',
+    label: 'Export Readiness',
+    to: '/finance/accounting-export-readiness',
+    icon: ClipboardCheck,
+    isVisible: (context) =>
+      context.activeRole === 'OWNER' || context.activeRole === 'ADMIN',
+    isActive: (pathname) =>
+      pathname.startsWith('/finance/accounting-export-readiness'),
   },
   {
     id: 'purchase-bills',

@@ -3,6 +3,7 @@ import {
   assertValidExportDateRange,
   buildExportDocumentDateFilter,
   exclusiveUtcEndOfDateOnly,
+  isExportPeriodClosed,
 } from './accounting-export-period.js';
 
 describe('accounting-export-period', () => {
@@ -49,5 +50,19 @@ describe('accounting-export-period', () => {
         new Date('2026-01-31T00:00:00.000Z'),
       ),
     ).not.toThrow();
+  });
+
+  it('reports whether a period is closed without throwing', () => {
+    const lockDate = new Date('2026-01-31T00:00:00.000Z');
+
+    expect(isExportPeriodClosed(new Date('2026-01-31T00:00:00.000Z'), null)).toBe(
+      false,
+    );
+    expect(isExportPeriodClosed(new Date('2026-01-31T00:00:00.000Z'), lockDate)).toBe(
+      true,
+    );
+    expect(isExportPeriodClosed(new Date('2026-02-01T00:00:00.000Z'), lockDate)).toBe(
+      false,
+    );
   });
 });

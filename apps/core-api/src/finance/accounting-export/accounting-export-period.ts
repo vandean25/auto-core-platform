@@ -62,6 +62,24 @@ export function assertValidExportDateRange(
   return { dateFrom: from, dateTo: to };
 }
 
+function utcDayOf(value: Date): number {
+  return Date.UTC(
+    value.getUTCFullYear(),
+    value.getUTCMonth(),
+    value.getUTCDate(),
+  );
+}
+
+export function isExportPeriodClosed(
+  dateTo: Date,
+  lockDate: Date | null | undefined,
+): boolean {
+  if (!lockDate) {
+    return false;
+  }
+  return utcDayOf(dateTo) <= utcDayOf(lockDate);
+}
+
 export function assertClosedExportPeriod(
   dateTo: Date,
   lockDate: Date | null | undefined,
@@ -73,22 +91,7 @@ export function assertClosedExportPeriod(
     });
   }
 
-  const lockDateOnly = new Date(
-    Date.UTC(
-      lockDate.getUTCFullYear(),
-      lockDate.getUTCMonth(),
-      lockDate.getUTCDate(),
-    ),
-  );
-  const dateToOnly = new Date(
-    Date.UTC(
-      dateTo.getUTCFullYear(),
-      dateTo.getUTCMonth(),
-      dateTo.getUTCDate(),
-    ),
-  );
-
-  if (dateToOnly > lockDateOnly) {
+  if (!isExportPeriodClosed(dateTo, lockDate)) {
     throw new UnprocessableEntityException({
       code: 'EXPORT_PERIOD_NOT_CLOSED',
       message: 'Export period is not closed.',

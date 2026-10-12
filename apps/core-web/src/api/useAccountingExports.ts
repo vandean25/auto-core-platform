@@ -16,13 +16,20 @@ export type AccountingExportSummaryDto =
 export type AccountingExportDetailDto =
   components['schemas']['AccountingExportDetailDto']
 
-const ACCOUNTING_EXPORTS_API = '/api/finance/accounting-exports'
+export const ACCOUNTING_EXPORTS_API = '/api/finance/accounting-exports'
+
+type AccountingExportReadinessReasonCode =
+  components['schemas']['AccountingExportReadinessReasonDto']['code']
+type AccountingExportReadinessDocumentKind =
+  components['schemas']['AccountingExportReadinessDocumentKindDto']['kind']
 
 export const accountingExportKeys = {
   all: ['accounting-exports'] as const,
   list: (params: AccountingExportsListParams = {}) =>
     [...accountingExportKeys.all, 'list', params] as const,
   detail: (id: string) => [...accountingExportKeys.all, 'detail', id] as const,
+  readiness: (params: AccountingExportReadinessParams) =>
+    [...accountingExportKeys.all, 'readiness', params] as const,
 }
 
 export interface AccountingExportsListParams {
@@ -30,6 +37,17 @@ export interface AccountingExportsListParams {
   limit?: number
   search?: string
   legalEntityId?: string
+}
+
+export interface AccountingExportReadinessParams {
+  legalEntityId: string
+  dateFrom: string
+  dateTo: string
+  reason?: AccountingExportReadinessReasonCode
+  documentKind?: AccountingExportReadinessDocumentKind
+  search?: string
+  page?: number
+  limit?: number
 }
 
 export interface AccountingExportsListResponse {
@@ -47,7 +65,7 @@ type ApiErrorPayload = {
   code?: string
 }
 
-async function parseApiError(response: Response, fallback: string): Promise<never> {
+export async function parseApiError(response: Response, fallback: string): Promise<never> {
   const payload = (await response.json().catch(() => ({}))) as ApiErrorPayload
   const message = Array.isArray(payload.message)
     ? payload.message.join(', ')

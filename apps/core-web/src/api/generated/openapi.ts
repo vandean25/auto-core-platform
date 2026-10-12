@@ -915,6 +915,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/finance/accounting-export-readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["AccountingExportReadinessController_readiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/brands": {
         parameters: {
             query?: never;
@@ -4978,6 +4994,75 @@ export interface components {
             profileSnapshot: Record<string, never>;
             documentManifest: Record<string, never>;
             siteIds: string[];
+        };
+        AccountingExportReadinessDocumentKindDto: {
+            /** @enum {string} */
+            kind: "INVOICE" | "CREDIT_NOTE";
+            documentCount: number;
+            exportableCount: number;
+            blockedCount: number;
+        };
+        AccountingExportReadinessReasonDto: {
+            /** @enum {string} */
+            code: "LEGACY_DOCUMENT_UNSUPPORTED" | "UNSUPPORTED_EXPORT_TAX_MODE" | "UNSUPPORTED_EXPORT_COUNTRY" | "ACCOUNTING_MAPPING_INCOMPLETE" | "MISSING_OWNERSHIP_EVIDENCE" | "CANCELLED_DOCUMENT" | "INACTIVE_SITE_BLOCKED";
+            /** @description Distinct documents in the period blocked by this reason. */
+            documentCount: number;
+        };
+        AccountingExportReadinessSummaryDto: {
+            /** @description Documents in the period, before any filter. */
+            documentCount: number;
+            exportableCount: number;
+            blockedCount: number;
+            documentKinds: components["schemas"]["AccountingExportReadinessDocumentKindDto"][];
+            reasons: components["schemas"]["AccountingExportReadinessReasonDto"][];
+        };
+        AccountingExportReadinessSiteDto: {
+            id: string;
+            code: string;
+            name: string;
+        };
+        AccountingExportReadinessDocumentBlockerDto: {
+            /** @enum {string} */
+            code: "LEGACY_DOCUMENT_UNSUPPORTED" | "UNSUPPORTED_EXPORT_TAX_MODE" | "UNSUPPORTED_EXPORT_COUNTRY" | "ACCOUNTING_MAPPING_INCOMPLETE" | "MISSING_OWNERSHIP_EVIDENCE" | "CANCELLED_DOCUMENT" | "INACTIVE_SITE_BLOCKED";
+            message: string;
+        };
+        AccountingExportReadinessDocumentDto: {
+            id: string;
+            /** @enum {string} */
+            kind: "INVOICE" | "CREDIT_NOTE";
+            number: string | null;
+            /** @example 2026-01-15 */
+            date: string;
+            site: components["schemas"]["AccountingExportReadinessSiteDto"] | null;
+            /** @enum {string} */
+            status: "EXPORTABLE" | "BLOCKED";
+            blockers: components["schemas"]["AccountingExportReadinessDocumentBlockerDto"][];
+            /**
+             * @description In-app path of the document, where its blockers can be reviewed and fixed.
+             * @example /sales/invoices/0b6f0c4e-2f1a-4d8e-9a57-6c1f2a3b4c5d
+             */
+            href: string;
+        };
+        AccountingExportReadinessMetaDto: {
+            total: number;
+            page: number;
+            limit: number;
+            pageCount: number;
+        };
+        AccountingExportReadinessResponseDto: {
+            legalEntityId: string;
+            /** @example 2026-01-01 */
+            dateFrom: string;
+            /** @example 2026-01-31 */
+            dateTo: string;
+            /** @description Whether the lock date covers the period end. Exports require a closed period. */
+            periodClosed: boolean;
+            lockDate: string | null;
+            summary: components["schemas"]["AccountingExportReadinessSummaryDto"];
+            /** @description Blockers that apply to every export in the period but do not belong to a listed document, such as documents without a legal entity or site. */
+            tenantWideBlockers: components["schemas"]["AccountingExportBlockerDto"][];
+            data: components["schemas"]["AccountingExportReadinessDocumentDto"][];
+            meta: components["schemas"]["AccountingExportReadinessMetaDto"];
         };
         CreateBrandDto: {
             name: string;
@@ -10866,6 +10951,34 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AccountingExportReadinessController_readiness: {
+        parameters: {
+            query: {
+                dateFrom: string;
+                dateTo: string;
+                documentKind?: "INVOICE" | "CREDIT_NOTE";
+                legalEntityId: string;
+                limit?: number;
+                page?: number;
+                reason?: "LEGACY_DOCUMENT_UNSUPPORTED" | "UNSUPPORTED_EXPORT_TAX_MODE" | "UNSUPPORTED_EXPORT_COUNTRY" | "ACCOUNTING_MAPPING_INCOMPLETE" | "MISSING_OWNERSHIP_EVIDENCE" | "CANCELLED_DOCUMENT" | "INACTIVE_SITE_BLOCKED";
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountingExportReadinessResponseDto"];
+                };
             };
         };
     };

@@ -43,6 +43,7 @@ export const APP_ROUTE_PATHS = {
   invoicesLegacy: '/invoices',
   creditNotes: '/finance/credit-notes',
   creditNoteDetail: '/finance/credit-notes/:id',
+  accountingExportReadiness: '/finance/accounting-export-readiness',
   purchaseInvoiceNew: '/purchase-invoices/new',
   settings: '/settings',
   hr: '/hr',
