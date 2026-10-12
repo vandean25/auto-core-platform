@@ -111,7 +111,7 @@ export default function InventoryList() {
 
             <div className="mb-4 flex items-center gap-2">
                 <Select value={locationFilterValue ?? '_all'} onValueChange={handleLocationFilter}>
-                    <SelectTrigger className="h-8 w-[260px]">
+                    <SelectTrigger className="h-8 w-[260px]" aria-label="Storage location">
                         <SelectValue placeholder="All storage locations" />
                     </SelectTrigger>
                     <SelectContent>

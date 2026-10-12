@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useVehicleStockAgeReport, useVehicleStockMarginReport, type VehicleStockAgeBucket, type VehicleStockAgeReportRow, type VehicleStockMarginReportRow } from '@/api/vehicle-stock'
-import { triggerBlobDownload } from '@/lib/download'
+import { downloadCsv, serializeCsv } from '@/lib/csv'
 
 type ReportTab = 'age' | 'margin'
 
@@ -18,25 +18,6 @@ const AGE_BUCKETS = [
   { value: 'over_90', label: 'Über 90 Tage' },
 ] as const
 
-function startsWithFormula(value: string): boolean {
-  for (const character of value) {
-    const code = character.charCodeAt(0)
-    const isLeadingSpaceOrControl =
-      /\s/.test(character) || code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0xfeff
-    if (isLeadingSpaceOrControl) continue
-    return '=+-@'.includes(character)
-  }
-  return false
-}
-
-function safeCsvField(value: string): string {
-  const isLocalizedNumber = /^-?\d+(?:,\d+)?$/.test(value)
-  const protectedValue = !isLocalizedNumber && startsWithFormula(value) ? `'${value}` : value
-  return /[;"\r\n]/.test(protectedValue)
-    ? `"${protectedValue.replaceAll('"', '""')}"`
-    : protectedValue
-}
-
 function csvAmount(value: string | null): string {
   return value ? value.replace('.', ',') : ''
 }
@@ -48,7 +29,7 @@ export function serializeStockAgeCsv(rows: VehicleStockAgeReportRow[]): string {
     row.stock_status ?? '', row.days_in_stock === null ? '' : String(row.days_in_stock),
     csvAmount(row.cost_basis), csvAmount(row.asking_price), row.location ?? '',
   ])
-  return [header, ...body].map((line) => line.map(safeCsvField).join(';')).join('\r\n')
+  return serializeCsv([header, ...body])
 }
 
 export function serializeMarginCsv(rows: VehicleStockMarginReportRow[]): string {
@@ -60,11 +41,7 @@ export function serializeMarginCsv(rows: VehicleStockMarginReportRow[]): string 
     csvAmount(row.gross_margin_percent), row.days_to_sell === null ? '' : String(row.days_to_sell),
     formatTaxMode(row.margin_taxed),
   ])
-  return [header, ...body].map((line) => line.map(safeCsvField).join(';')).join('\r\n')
-}
-
-function downloadCsv(content: string, filename: string) {
-  triggerBlobDownload(new Blob(['\uFEFF', content], { type: 'text/csv;charset=utf-8' }), filename)
+  return serializeCsv([header, ...body])
 }
 
 function formatRole(role: string) {

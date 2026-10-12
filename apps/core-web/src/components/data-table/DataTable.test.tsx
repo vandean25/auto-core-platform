@@ -6,6 +6,9 @@ import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
 import { DataTableColumnHeader } from './data-table-column-header'
+import { triggerBlobDownload } from '@/lib/download'
+
+vi.mock('@/lib/download', () => ({ triggerBlobDownload: vi.fn() }))
 
 afterEach(() => {
   cleanup()
@@ -530,7 +533,7 @@ describe('DataTable column picker and sorting', () => {
 
     expect(screen.getByRole('menuitemcheckbox', { name: 'SKU' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Warehouse location' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitemcheckbox', { name: 'Customer name' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Customer' })).toBeInTheDocument()
     expect(screen.getByRole('menuitemcheckbox', { name: 'Notes' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitemcheckbox', { name: 'warehouse_location' })).not.toBeInTheDocument()
   })
@@ -562,7 +565,7 @@ describe('DataTable column picker and sorting', () => {
     render(<ColumnPickerHarness />)
 
     openColumnsMenu()
-    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Customer name' }))
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Customer' }))
     closeOpenMenu()
     expect(screen.queryByRole('columnheader', { name: /Customer/ })).not.toBeInTheDocument()
 
@@ -614,3 +617,344 @@ describe('DataTable column picker and sorting', () => {
     expect(screen.getByRole('columnheader', { name: 'Notes' })).not.toHaveAttribute('aria-sort')
   })
 })
+
+// Paginates client-side the way a consumer with local rows does, so page size changes the rendered rows.
+function PagedPartHarness({
+  rows,
+  rowCount = 0,
+  initialPageSize = 10,
+  columns = partColumns,
+  ...tableProps
+}: {
+  rows?: PartRow[]
+  rowCount?: number
+  initialPageSize?: number
+  columns?: ColumnDef<PartRow>[]
+  pageSizeOptions?: readonly number[]
+  enableCsvExport?: boolean
+  csvFileName?: string
+}) {
+  const allRows: PartRow[] =
+    rows ??
+    Array.from({ length: rowCount }, (_, index) => ({
+      id: `part-${index + 1}`,
+      sku: `PART-${index + 1}`,
+      warehouse_location: `Bin ${index + 1}`,
+      customerName: `Customer ${index + 1}`,
+      notes: 'Fast mover',
+    }))
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: initialPageSize })
+  const start = pagination.pageIndex * pagination.pageSize
+
+  return (
+    <>
+      <output data-testid="pagination">{JSON.stringify(pagination)}</output>
+      <DataTable
+        columns={columns}
+        data={allRows.slice(start, start + pagination.pageSize)}
+        pageCount={Math.ceil(allRows.length / pagination.pageSize)}
+        columnFilters={[]}
+        setColumnFilters={vi.fn()}
+        sorting={[]}
+        setSorting={vi.fn()}
+        pagination={pagination}
+        setPagination={setPagination}
+        {...tableProps}
+      />
+    </>
+  )
+}
+
+function renderedRowCount() {
+  return document.querySelectorAll('[data-table-row]').length
+}
+
+function openPageSizeMenu() {
+  fireEvent.click(screen.getByRole('combobox', { name: 'Rows per page' }))
+}
+
+function pageSizeOptionLabels() {
+  return screen.getAllByRole('option').map((option) => option.textContent)
+}
+
+function clickExportCsv() {
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }))
+}
+
+async function downloadedCsv(): Promise<string> {
+  const calls = vi.mocked(triggerBlobDownload).mock.calls
+  const blob = calls[calls.length - 1]?.[0]
+  if (!blob) throw new Error('No CSV download was triggered')
+  return blob.text()
+}
+
+describe('DataTable page size selector', () => {
+  it('offers 10, 25, 50 and 100 rows per page', () => {
+    render(<PagedPartHarness rowCount={120} />)
+
+    openPageSizeMenu()
+
+    expect(pageSizeOptionLabels()).toEqual(['10', '25', '50', '100'])
+  })
+
+  it('renders the chosen number of rows and returns to the first page', () => {
+    render(<PagedPartHarness rowCount={120} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(screen.getByTestId('pagination')).toHaveTextContent('"pageIndex":1')
+
+    openPageSizeMenu()
+    fireEvent.click(screen.getByRole('option', { name: '50' }))
+
+    expect(renderedRowCount()).toBe(50)
+    expect(screen.getByTestId('pagination')).toHaveTextContent('{"pageIndex":0,"pageSize":50}')
+  })
+
+  it('keeps a non-standard starting size, such as the audit log default, selectable', () => {
+    render(<PagedPartHarness rowCount={120} initialPageSize={20} />)
+
+    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toHaveTextContent('20')
+    openPageSizeMenu()
+
+    expect(pageSizeOptionLabels()).toEqual(['10', '20', '25', '50', '100'])
+  })
+
+  it('hides the selector only when pageSizeOptions is empty', () => {
+    const { unmount } = render(<PagedPartHarness rowCount={3} />)
+    expect(screen.getByRole('combobox', { name: 'Rows per page' })).toBeInTheDocument()
+    unmount()
+
+    render(<PagedPartHarness rowCount={3} pageSizeOptions={[]} />)
+
+    expect(screen.queryByRole('combobox', { name: 'Rows per page' })).not.toBeInTheDocument()
+  })
+})
+
+describe('DataTable Export CSV', () => {
+  it('exports only the visible columns of the rows currently rendered', async () => {
+    render(<PagedPartHarness rowCount={12} />)
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Warehouse location' }))
+    closeOpenMenu()
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual([
+      'SKU;Customer;Notes',
+      ...Array.from({ length: 10 }, (_, index) => `PART-${index + 1};Customer ${index + 1};Fast mover`),
+    ])
+  })
+
+  it('neutralises formula-like cells and quotes fields that need it', async () => {
+    render(
+      <PagedPartHarness
+        rows={[
+          {
+            id: 'row-1',
+            sku: '=HYPERLINK("https://example.test")',
+            warehouse_location: 'Bin; 2',
+            customerName: '+49 Example',
+            notes: 'say "hi"',
+          },
+        ]}
+      />,
+    )
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')[1]).toBe(
+      `"'=HYPERLINK(""https://example.test"")";"Bin; 2";'+49 Example;"say ""hi"""`,
+    )
+  })
+
+  it('downloads as export.csv unless a file name is given', () => {
+    const { unmount } = render(<PagedPartHarness rowCount={1} />)
+    clickExportCsv()
+    expect(triggerBlobDownload).toHaveBeenLastCalledWith(expect.any(Blob), 'export.csv')
+    unmount()
+
+    render(<PagedPartHarness rowCount={1} csvFileName="parts.csv" />)
+    clickExportCsv()
+    expect(triggerBlobDownload).toHaveBeenLastCalledWith(expect.any(Blob), 'parts.csv')
+  })
+
+  it('disables Export CSV when there are no rows to export', () => {
+    render(<PagedPartHarness rowCount={0} />)
+
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+  })
+
+  it('omits Export CSV for tables that already have a dedicated server export', () => {
+    const { unmount } = render(<PagedPartHarness rowCount={1} />)
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument()
+    unmount()
+
+    render(<PagedPartHarness rowCount={1} enableCsvExport={false} />)
+
+    expect(screen.queryByRole('button', { name: 'Export CSV' })).not.toBeInTheDocument()
+  })
+
+  it('disables Export CSV when every data column is hidden', () => {
+    render(<PagedPartHarness rowCount={1} />)
+    openColumnsMenu()
+    for (const item of screen.getAllByRole('menuitemcheckbox')) {
+      fireEvent.click(item)
+    }
+    closeOpenMenu()
+
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+  })
+
+  it('exports the column titles shown in the headers', async () => {
+    const orderColumns: ColumnDef<OrderRow>[] = [
+      { accessorKey: 'orderNumber', header: ({ column }) => <DataTableColumnHeader column={column} title="Order #" /> },
+      { accessorKey: 'createdAt', header: ({ column }) => <DataTableColumnHeader column={column} title="Date" /> },
+    ]
+    render(<OrderTable columns={orderColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1', createdAt: '2026-10-05' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')[0]).toBe('Order #;Date')
+  })
+
+  it('exports the text each cell displays, not the raw object behind it', async () => {
+    const customerLabel = (customer: CustomerValue) =>
+      customer.type === 'COMPANY' ? customer.company_name ?? '' : `${customer.first_name} ${customer.last_name}`
+    const customerColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'customer',
+        header: 'Customer',
+        cell: ({ row }: { row: { original: OrderRow } }) => customerLabel(row.original.customer!),
+      },
+    ]
+    render(
+      <OrderTable
+        columns={customerColumns}
+        rows={[
+          { id: 'order-1', customer: { type: 'COMPANY', first_name: '', last_name: '', company_name: 'Example GmbH' } },
+          { id: 'order-2', customer: { type: 'PERSON', first_name: 'Erika', last_name: 'Example', company_name: null } },
+        ]}
+      />,
+    )
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Customer', 'Example GmbH', 'Erika Example'])
+  })
+
+  it('separates adjacent elements in a cell', async () => {
+    const tagColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: 'Tags',
+        cell: () => (
+          <>
+            <span>Alpha</span>
+            <span>Beta</span>
+          </>
+        ),
+      },
+    ]
+    render(<OrderTable columns={tagColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Tags', 'Alpha Beta'])
+  })
+
+  it('disables Export CSV when only structural icon columns remain visible', () => {
+    const iconColumns: ColumnDef<OrderRow>[] = [
+      { accessorKey: 'orderNumber', header: 'Order' },
+      { id: 'icon', header: '', enableHiding: false, cell: () => <svg aria-hidden="true" /> },
+    ]
+    render(<OrderTable columns={iconColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeEnabled()
+
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Order' }))
+    closeOpenMenu()
+
+    expect(screen.getByRole('button', { name: 'Export CSV' })).toBeDisabled()
+  })
+
+  it('exports the value of a text-like form field that is the only carrier of the cell value', async () => {
+    const minutesColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: 'Minutes',
+        cell: () => <input type="number" defaultValue="12000" readOnly />,
+      },
+    ]
+    render(<OrderTable columns={minutesColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Minutes', '12000'])
+  })
+
+  it('exports data columns declared only by id, and leaves out action and icon columns', async () => {
+    const mixedColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="Order #" />,
+      },
+      { id: 'period', header: 'Period', cell: () => <span>2026-Q1</span> },
+      { id: 'actions', header: '', cell: () => <button type="button">Download</button> },
+      { id: 'icon', header: '', cell: () => <svg aria-hidden="true" /> },
+    ]
+    render(<OrderTable columns={mixedColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Order #;Period', 'SO-1;2026-Q1'])
+  })
+
+  it('exports the text of a button that is the only carrier of the cell value', async () => {
+    const activeColumns: ColumnDef<OrderRow>[] = [
+      {
+        accessorKey: 'orderNumber',
+        header: 'Active',
+        cell: () => (
+          <button type="button">
+            <span>Example</span>
+          </button>
+        ),
+      },
+    ]
+    render(<OrderTable columns={activeColumns} rows={[{ id: 'order-1', orderNumber: 'SO-1' }]} />)
+
+    clickExportCsv()
+
+    expect((await downloadedCsv()).split('\r\n')).toEqual(['Active', 'Example'])
+  })
+})
+
+type CustomerValue = {
+  type: 'PERSON' | 'COMPANY'
+  first_name: string
+  last_name: string
+  company_name: string | null
+}
+
+type OrderRow = {
+  id: string
+  orderNumber?: string
+  createdAt?: string
+  customer?: CustomerValue
+}
+
+function OrderTable({ columns, rows }: { columns: ColumnDef<OrderRow>[]; rows: OrderRow[] }) {
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+
+  return (
+    <DataTable
+      columns={columns}
+      data={rows}
+      columnFilters={[]}
+      setColumnFilters={vi.fn()}
+      sorting={[]}
+      setSorting={vi.fn()}
+      pagination={pagination}
+      setPagination={setPagination}
+    />
+  )
+}

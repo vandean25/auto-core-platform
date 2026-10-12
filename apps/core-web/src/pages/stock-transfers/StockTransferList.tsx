@@ -122,6 +122,7 @@ export default function StockTransferList() {
         data={filteredData}
         saveViewTitle="Transfers"
         pageCount={1}
+        pageSizeOptions={[]}
         isLoading={isLoading}
         searchColumn="transferNumber"
         searchPlaceholder="Search transfers…"

@@ -361,6 +361,7 @@ export default function PickerlDueList() {
         data={filteredRows}
         isLoading={isLoading}
         pageCount={responseData?.meta.pageCount ?? 0}
+        enableCsvExport={false}
         getRowAccessibleName={(row) => `Vehicle ${row.plate}`}
         onRowClick={(row) => navigate(`/vehicles/${row.id}`)}
         columnFilters={columnFilters}

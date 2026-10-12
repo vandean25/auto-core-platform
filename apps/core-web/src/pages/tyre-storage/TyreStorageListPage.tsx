@@ -20,6 +20,7 @@ import { useDueTyreSets, useTyreSets, type TyreSet } from '@/api/tyre-storage'
 import { fetchWithAuth } from '@/api/client'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { triggerBlobDownload } from '@/lib/download'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
 import type { Customer } from '@/api/types'
@@ -126,13 +127,7 @@ export default function TyreStorageListPage() {
       return
     }
     const text = await response.text()
-    const blob = new Blob([text], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'tyre-sets-due-for-swap.csv'
-    anchor.click()
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(new Blob([text], { type: 'text/csv' }), 'tyre-sets-due-for-swap.csv')
   }
 
   return (
@@ -274,6 +269,8 @@ export default function TyreStorageListPage() {
         onRowClick={(row) => navigate(APP_ROUTE_PATHS.tyreStorageDetail.replace(':id', row.id))}
         {...tableState}
         pageCount={viewMode === 'due' ? 1 : listData?.meta?.pageCount}
+        pageSizeOptions={viewMode === 'due' ? [] : undefined}
+        enableCsvExport={false}
       />
 
       <TyreSetFormDialog

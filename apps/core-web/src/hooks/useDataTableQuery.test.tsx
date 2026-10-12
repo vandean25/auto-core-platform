@@ -10,7 +10,7 @@ afterEach(() => {
 function HookHarness() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { queryParams, setGlobalFilter } = useDataTableQuery({
+  const { queryParams, setGlobalFilter, setPagination } = useDataTableQuery({
     defaultPageSize: 10,
     debounceMs: 0,
   })
@@ -35,6 +35,12 @@ function HookHarness() {
       </button>
       <button type="button" onClick={() => setGlobalFilter('Gruber')}>
         Type Search
+      </button>
+      <button type="button" onClick={() => setPagination({ pageIndex: 0, pageSize: 50 })}>
+        Choose 50 Rows
+      </button>
+      <button type="button" onClick={() => setPagination({ pageIndex: 0, pageSize: 10 })}>
+        Choose 10 Rows
       </button>
     </div>
   )
@@ -90,6 +96,28 @@ describe('useDataTableQuery', () => {
     await waitFor(() => {
       expect(screen.getByTestId('search')).toHaveTextContent('Gruber')
       expect(screen.getByTestId('url-search')).toHaveTextContent('search=Gruber')
+    })
+  })
+
+  it('writes a chosen page size to the URL, resets the page, and drops the size again at the default', async () => {
+    render(
+      <MemoryRouter initialEntries={['/workshop/orders?page=3']}>
+        <HookHarness />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose 50 Rows' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('page-size')).toHaveTextContent('50')
+      expect(screen.getByTestId('url-search')).toHaveTextContent('pageSize=50')
+      expect(screen.getByTestId('url-search')).not.toHaveTextContent('page=3')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Choose 10 Rows' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('url-search')).not.toHaveTextContent('pageSize')
     })
   })
 })
