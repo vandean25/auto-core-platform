@@ -95,11 +95,12 @@ export class AccountingProfileService {
         countryIso: entity.country_iso,
         currentProfileCode: existing.profile_code,
         currentChart: existing.chart,
+        currentIsEnabled: existing.is_enabled,
       },
     );
 
     const revenueGroups = await this.loadRevenueGroups(tenantId);
-    if (patch.isEnabled === true) {
+    if (patch.isEnabled === true && !existing.is_enabled) {
       this.assertProfileReadyForEnablement(
         existing,
         patch,

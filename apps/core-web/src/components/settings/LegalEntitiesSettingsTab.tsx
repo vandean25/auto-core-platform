@@ -660,7 +660,7 @@ export function LegalEntityAccountingProfileForm({
             </div>
             <Checkbox
               checked={form.isEnabled}
-              disabled={!profile.serializer_released}
+              disabled={!profile.serializer_released && !form.isEnabled}
               onCheckedChange={(checked) =>
                 updateForm((current) => ({ ...current, isEnabled: checked === true }))
               }

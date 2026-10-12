@@ -306,7 +306,7 @@ describe('RZL accounting export (e2e)', () => {
     process.env[RZL_SERIALIZER_RELEASE_ENV] = 'false';
     await tenantPrisma.legalEntityAccountingProfile.update({
       where: profileWhere(),
-      data: { is_enabled: true },
+      data: { is_enabled: false },
     });
     await finalizeAtInvoice(1, 100, '2026-11-08');
     await closeFinancePeriod(prisma, tenant.tenantId, '2026-11-30');
@@ -317,11 +317,24 @@ describe('RZL accounting export (e2e)', () => {
       .expect(200);
     expect(profile.body.serializer_released).toBe(false);
 
+    // Enabling is refused while the release flag is off.
     await request(app.getHttpServer())
       .patch(`/api/legal-entities/${atEntityId}/accounting-profile`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ expectedVersion: profile.body.version, isEnabled: true })
       .expect(400);
+
+    // A profile that is already enabled (for example enabled before the flag was
+    // turned off) can still be saved, but it cannot generate.
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: profileWhere(),
+      data: { is_enabled: true },
+    });
+    await request(app.getHttpServer())
+      .patch(`/api/legal-entities/${atEntityId}/accounting-profile`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedVersion: profile.body.version, isEnabled: true })
+      .expect(200);
 
     const preview = await previewRzlExport('2026-11-01', '2026-11-30').expect(200);
     expect(preview.body.canGenerate).toBe(false);

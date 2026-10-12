@@ -25,6 +25,24 @@ describe('accounting-profile.validation', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('keeps autosaving an already enabled RZL profile while the flag is off', () => {
+    const original = process.env[RZL_SERIALIZER_RELEASE_ENV];
+    delete process.env[RZL_SERIALIZER_RELEASE_ENV];
+    try {
+      const patch = validateAccountingProfilePatch(
+        { isEnabled: true },
+        { ...atContext, currentIsEnabled: true },
+      );
+      expect(patch.isEnabled).toBe(true);
+    } finally {
+      if (original === undefined) {
+        delete process.env[RZL_SERIALIZER_RELEASE_ENV];
+      } else {
+        process.env[RZL_SERIALIZER_RELEASE_ENV] = original;
+      }
+    }
+  });
+
   it('rejects enabling DATEV export for AT entities', () => {
     expect(() =>
       validateAccountingProfilePatch(

@@ -19,6 +19,8 @@ import {
 } from './accounting-export-period.js';
 import { allocationRulesForProfile } from './accounting-export-allocation-rules.js';
 import { exportProfileCanGenerate } from './accounting-export-serializer.registry.js';
+import { computeRzlExportMissingFields } from '../accounting-profile/accounting-profile-export-readiness.js';
+import { parseAccountingProfileSerializerParams } from '../accounting-profile/accounting-profile.serializer-params.js';
 import {
   assertCompleteAccountingExportScope,
   listAccountingExportSites,
@@ -176,6 +178,10 @@ async function loadPeriodSettings(
       profile_code: true,
       is_enabled: true,
       serializer_params: true,
+      format_version: true,
+      chart: true,
+      account_length: true,
+      default_debtor_account: true,
     },
   });
   return {
@@ -195,6 +201,27 @@ async function loadAuthorizedSiteIds(
     select: { site_id: true },
   });
   return new Set(memberships.map((membership) => membership.site_id));
+}
+
+/** Same export-only gaps preview and generation block on (RZL). */
+function profileExportGapCount(profile: {
+  profile_code: string | null;
+  format_version: string | null;
+  chart: string | null;
+  account_length: number | null;
+  default_debtor_account: string | null;
+  serializer_params: unknown;
+}): number {
+  return computeRzlExportMissingFields({
+    profileCode: profile.profile_code,
+    formatVersion: profile.format_version,
+    chart: profile.chart,
+    accountLength: profile.account_length,
+    defaultDebtorAccount: profile.default_debtor_account,
+    serializerParams:
+      parseAccountingProfileSerializerParams(profile.serializer_params).rzl ??
+      {},
+  }).length;
 }
 
 function toReadinessResponse(
@@ -218,7 +245,8 @@ function toReadinessResponse(
     exportProfile: {
       configured: Boolean(profile),
       canGenerate: profile
-        ? exportProfileCanGenerate(profile.profile_code, profile.is_enabled)
+        ? exportProfileCanGenerate(profile.profile_code, profile.is_enabled) &&
+          profileExportGapCount(profile) === 0
         : false,
     },
   };

@@ -134,6 +134,7 @@ export type AccountingProfileValidationContext = {
   countryIso: 'AT' | 'DE';
   currentProfileCode: string | null;
   currentChart: string | null;
+  currentIsEnabled?: boolean;
 };
 
 function resolveProfileCodeAfterPatch(
@@ -231,7 +232,10 @@ export function validateAccountingProfilePatch(
 
   if (patch.isEnabled !== undefined) {
     if (patch.isEnabled) {
-      if (!isExportSerializerReleased(effectiveProfileCode)) {
+      // Only the false -> true transition needs the release gate. Autosaves of an
+      // already enabled profile must still succeed, e.g. when only the firm number changes.
+      const enabling = !context.currentIsEnabled;
+      if (enabling && !isExportSerializerReleased(effectiveProfileCode)) {
         throw new BadRequestException(
           'Accounting export profile cannot be enabled until its serializer is released for this environment.',
         );
