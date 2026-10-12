@@ -1,7 +1,11 @@
+import { useState } from 'react'
+import type { ColumnFiltersState, PaginationState, SortingState } from '@tanstack/react-table'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataTable } from './DataTable'
+import { DataTableColumnHeader } from './data-table-column-header'
 
 afterEach(() => {
   cleanup()
@@ -444,5 +448,169 @@ describe('DataTable Characterization', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(onDelete).toHaveBeenCalledWith({ name: 'Test Item' })
+  })
+})
+
+type PartRow = {
+  id: string
+  sku: string
+  warehouse_location: string
+  customerName: string
+  notes: string
+}
+
+const partRows: PartRow[] = [
+  {
+    id: 'part-1',
+    sku: '06J-115-403-Q',
+    warehouse_location: 'Bin A-01',
+    customerName: 'Gruber',
+    notes: 'Fast mover',
+  },
+]
+
+const partColumns: ColumnDef<PartRow>[] = [
+  {
+    accessorKey: 'sku',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Part" />,
+    meta: { label: 'SKU' },
+  },
+  {
+    accessorKey: 'warehouse_location',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Storage Location" />,
+    meta: { label: 'Warehouse location' },
+  },
+  {
+    accessorKey: 'customerName',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
+  },
+  {
+    accessorKey: 'notes',
+    header: 'Notes',
+    enableSorting: false,
+  },
+]
+
+function ColumnPickerHarness({ columns = partColumns }: { columns?: ColumnDef<PartRow>[] }) {
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 })
+
+  return (
+    <>
+      <output data-testid="sorting">{JSON.stringify(sorting)}</output>
+      <DataTable
+        columns={columns}
+        data={partRows}
+        columnFilters={columnFilters}
+        setColumnFilters={setColumnFilters}
+        sorting={sorting}
+        setSorting={setSorting}
+        pagination={pagination}
+        setPagination={setPagination}
+      />
+    </>
+  )
+}
+
+function openColumnsMenu() {
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Columns' }), { key: 'Enter' })
+}
+
+// Radix marks the page aria-hidden while a menu is open, so close it before asserting on the table.
+function closeOpenMenu() {
+  fireEvent.keyDown(document.querySelector('[role="menu"]') as Element, { key: 'Escape' })
+}
+
+describe('DataTable column picker and sorting', () => {
+  it('lists readable labels in the Columns menu instead of raw column ids', () => {
+    render(<ColumnPickerHarness />)
+
+    openColumnsMenu()
+
+    expect(screen.getByRole('menuitemcheckbox', { name: 'SKU' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Warehouse location' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Customer name' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Notes' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'warehouse_location' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the Columns picker visible at every breakpoint', () => {
+    render(<ColumnPickerHarness />)
+
+    const trigger = screen.getByRole('button', { name: 'Columns' })
+    expect(trigger).not.toHaveClass('hidden')
+    expect(trigger).not.toHaveClass('lg:flex')
+    expect(screen.queryByRole('button', { name: 'View' })).not.toBeInTheDocument()
+  })
+
+  it('Show all reveals every hidden column', () => {
+    render(<ColumnPickerHarness />)
+
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Warehouse location' }))
+    closeOpenMenu()
+    expect(screen.queryByRole('columnheader', { name: /Storage Location/ })).not.toBeInTheDocument()
+
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Show all' }))
+    closeOpenMenu()
+    expect(screen.getByRole('columnheader', { name: /Storage Location/ })).toBeInTheDocument()
+  })
+
+  it('Reset restores the default column layout', () => {
+    render(<ColumnPickerHarness />)
+
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Customer name' }))
+    closeOpenMenu()
+    expect(screen.queryByRole('columnheader', { name: /Customer/ })).not.toBeInTheDocument()
+
+    openColumnsMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Reset' }))
+    closeOpenMenu()
+    expect(screen.getByRole('columnheader', { name: /Customer/ })).toBeInTheDocument()
+  })
+
+  it('sorts ascending on the first click, descending on the second, and clears on the third', () => {
+    render(<ColumnPickerHarness />)
+
+    const header = () => screen.getByRole('columnheader', { name: /Part/ })
+    const sortButton = () => screen.getByRole('button', { name: 'Part' })
+
+    expect(header()).toHaveAttribute('aria-sort', 'none')
+
+    fireEvent.click(sortButton())
+    expect(header()).toHaveAttribute('aria-sort', 'ascending')
+    expect(screen.getByTestId('sorting')).toHaveTextContent('[{"id":"sku","desc":false}]')
+
+    fireEvent.click(sortButton())
+    expect(header()).toHaveAttribute('aria-sort', 'descending')
+    expect(screen.getByTestId('sorting')).toHaveTextContent('[{"id":"sku","desc":true}]')
+
+    fireEvent.click(sortButton())
+    expect(header()).toHaveAttribute('aria-sort', 'none')
+    expect(screen.getByTestId('sorting')).toHaveTextContent('[]')
+  })
+
+  it('keeps Hide in the column header menu', () => {
+    render(<ColumnPickerHarness />)
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Part column options' }), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Hide' }))
+
+    expect(screen.queryByRole('columnheader', { name: /Part/ })).not.toBeInTheDocument()
+  })
+
+  it('omits aria-sort on columns that cannot be sorted', () => {
+    render(<ColumnPickerHarness />)
+
+    expect(screen.getByRole('columnheader', { name: 'Notes' })).not.toHaveAttribute('aria-sort')
+  })
+
+  it('omits aria-sort on sortable columns whose header is plain text, which have no sort control', () => {
+    render(<ColumnPickerHarness columns={[{ accessorKey: 'notes', header: 'Notes' }]} />)
+
+    expect(screen.getByRole('columnheader', { name: 'Notes' })).not.toHaveAttribute('aria-sort')
   })
 })

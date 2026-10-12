@@ -8,6 +8,7 @@ import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AtpService, type AtpStockInput } from './atp.service.js';
+import { buildInventoryOrderBy } from './inventory-list-query.js';
 
 function buildCatalogItemInclude(tenantId: string, siteId: string) {
   return {
@@ -55,6 +56,8 @@ export interface InventoryQueryParams {
   location?: string;
   brand?: string;
   brandId?: number;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
 }
 
 type CatalogItemWithStocksAndBrand = Prisma.CatalogItemGetPayload<{
@@ -311,6 +314,7 @@ export class InventoryService {
       this.prisma.catalogItem.findMany({
         where,
         include: buildCatalogItemInclude(tenantId, siteId),
+        orderBy: buildInventoryOrderBy(params.sortField, params.sortDirection),
         skip,
         take: pageSize,
       }),

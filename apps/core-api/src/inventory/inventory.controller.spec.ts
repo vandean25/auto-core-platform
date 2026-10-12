@@ -53,6 +53,14 @@ describe('InventoryController', () => {
       });
     });
 
+    it('should forward a requested sort to inventoryService.findAll', async () => {
+      await controller.findAll('1', '10', undefined, undefined, undefined, undefined, 'sku', 'desc');
+
+      expect(service.findAll).toHaveBeenCalledWith(
+        expect.objectContaining({ sortField: 'sku', sortDirection: 'desc' }),
+      );
+    });
+
     it('should use default values for page and pageSize', async () => {
       await controller.findAll();
 
