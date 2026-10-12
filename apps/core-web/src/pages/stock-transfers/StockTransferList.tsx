@@ -97,6 +97,7 @@ export default function StockTransferList() {
     },
     {
       accessorKey: 'lines',
+      meta: { csvValue: (transfer: StockTransfer) => transfer.lines.length },
       header: 'Lines',
       enableSorting: false,
       cell: ({ row }) => row.original.lines.length,

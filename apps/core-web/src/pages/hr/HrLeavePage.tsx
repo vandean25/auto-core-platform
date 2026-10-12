@@ -201,6 +201,7 @@ export default function HrLeavePage() {
     () => [
       {
         accessorKey: 'employee',
+        meta: { csvValue: getLeaveEmployeeName },
         header: ({ column }) => <DataTableColumnHeader column={column} title='Employee' />,
         cell: ({ row }) => getLeaveEmployeeName(row.original),
       },

@@ -50,6 +50,7 @@ export default function VendorList() {
         },
         {
             accessorKey: 'supportedBrands',
+            meta: { csvValue: (vendor: Vendor) => (vendor.supportedBrands ?? []).map((brand) => brand.name).join(', ') },
             header: 'Supported Brands',
             enableSorting: false,
             cell: ({ row }) => (
