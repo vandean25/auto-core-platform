@@ -9,13 +9,21 @@ import { A11Y_SMOKE_ROUTES, type A11ySmokeRoute } from './utils/a11y-smoke-route
  *
  * - axe serious, critical and color-contrast fail the build on every route (WCAG 2.2 AA tags).
  * - 200% zoom (a 640 CSS px layout viewport) fails the build on the three key pages.
- * - 320px reflow is measured on every route and attached as `reflow-320-overflow`. Only routes on
- *   REFLOW_320_GATED_ROUTES fail on horizontal scroll. The list starts empty: the expanded sidebar
- *   is a fixed overlay at this width and page headers and tables do not wrap (docs/a11y-backlog.md).
+ * - 320px reflow is measured on every route with the sidebar collapsed, and attached as
+ *   `reflow-320-overflow`. Only the routes in REFLOW_320_GATED_ROUTES fail on horizontal scroll: the
+ *   three that fit at this width today. The rest stay report-only until the responsive shell lands
+ *   (docs/a11y-backlog.md).
  */
 
-/** Routes that already reflow at 320px and so fail on horizontal scroll. Add a route once its overflow is fixed. */
-const REFLOW_320_GATED_ROUTES = new Set<string>();
+/**
+ * Routes that fit at 320px with the sidebar collapsed, so they fail on horizontal scroll. Add a
+ * route once its overflow is fixed. With the sidebar expanded, every smoke route overflows.
+ */
+const REFLOW_320_GATED_ROUTES = new Set<string>([
+  'inventory list',
+  'settings: brands tab',
+  'settings: storage locations tab',
+]);
 
 async function openRoute(page: Page, route: A11ySmokeRoute) {
   await route.mock(page);
@@ -78,6 +86,9 @@ test.describe('A11y smoke: reflow at 320px (WCAG 1.4.10)', () => {
   for (const route of A11Y_SMOKE_ROUTES) {
     test(`${route.name} reflow at 320px`, async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 800 });
+      // The expanded sidebar is a fixed overlay that covers most of this width, so 320px is
+      // measured with it collapsed (the user's `acp:sidebar-collapsed` preference).
+      await page.addInitScript(() => window.localStorage.setItem('acp:sidebar-collapsed', 'true'));
       await route.mock(page);
       // The dialog is not opened here: at 320px the sidebar covers its trigger, which is reported
       // through the page measurement instead.

@@ -65,16 +65,14 @@ Trivial contrast and layout fixes made while widening coverage (class changes on
 | `ui/alert` destructive variant | `text-destructive` (`#ef4444`) → `text-red-700`, dark mode `text-red-400` | 3.76:1 on white → passes AA. Affects every destructive alert, e.g. "Kostenvoranschlag nicht verfügbar" |
 | `SalesOrderDetail` header and `CustomerDetail` action rows | `flex-wrap` on the header and action rows | 200% zoom no longer overflows |
 
-## Reflow at 320px (AUT-482): report-only
+## Reflow at 320px (AUT-482)
 
-WCAG 1.4.10 is not met on the desktop routes yet. The smoke spec measures `document.body` at a 320px viewport on every route and attaches the result as `reflow-320-overflow`. It fails the build only for routes in `REFLOW_320_GATED_ROUTES`, which is empty today.
+WCAG 1.4.10 is not met on the desktop routes yet. The smoke spec measures `document.body` at a 320px viewport on every route, with the sidebar collapsed (`acp:sidebar-collapsed`), and attaches the result as `reflow-320-overflow`. It fails the build only for the routes in `REFLOW_320_GATED_ROUTES`: the inventory list, the settings brands tab and the settings storage locations tab, which fit at this width in that state. The other routes are report-only until the shell follow-up lands.
 
 Measured causes at 320px:
 
-- The expanded sidebar is a fixed overlay (`aside.fixed`, `w-72`) that takes most of the viewport and intercepts clicks. On the customers list the "+ Customer" button cannot be clicked. With the sidebar collapsed (`acp:sidebar-collapsed`), only the inventory list, the settings brands tab and the settings storage locations tab fit.
-- `PageContainer` (`w-full max-w-page mx-auto p-6`) ends at x=336 in a 320px viewport, so every page overflows by 16px.
-- Page header rows (`flex items-center justify-between`), breadcrumbs and some header button groups do not wrap.
-- Tables and the workshop board columns (`w-max`) extend past the page instead of scrolling in their own wrapper.
+- The expanded sidebar (the default for users) is a fixed overlay (`aside.fixed`, `w-72`) that takes most of the viewport and intercepts clicks. On the customers list the "+ Customer" button cannot be clicked. With the sidebar expanded, every smoke route overflows.
+- With the sidebar collapsed, most other routes still overflow. `PageContainer` (`w-full max-w-page mx-auto p-6`) ends at x=336 on the expanded layout. Page header rows, breadcrumbs and header button groups do not wrap, the sales orders and vehicle stock tables and the workshop board toolbar extend past the page instead of scrolling in their own wrapper, and the board columns (`w-max`) do the same.
 
 Follow-up: a responsive app shell (sidebar off-canvas below `md`), wrapping header rows and breadcrumbs, scrolling table wrappers, and containing the board columns. Then add each route to `REFLOW_320_GATED_ROUTES`.
 
