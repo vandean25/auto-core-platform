@@ -8,6 +8,7 @@ import { createGlobalValidationPipe } from '../src/common/index.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  cleanupTestUsers,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -47,6 +48,9 @@ describe('Accounting export readiness (e2e)', () => {
     creditNote: '',
     noEntity: '',
   };
+  // Users created for refusal cases. afterAll removes them: site-context.e2e-spec.ts
+  // updates every user with a null active site, across tenants, so leftovers break it.
+  const outsiderUserIds: string[] = [];
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -66,6 +70,25 @@ describe('Accounting export readiness (e2e)', () => {
     tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     authTokenA = createTestAuthToken(authService, tenantA);
     authTokenB = createTestAuthToken(authService, tenantB);
+
+    // Invoice and sales order numbers are unique across tenants in this database,
+    // and earlier suites can leave rows behind. Start from empty tables, as
+    // accounting-export.e2e-spec.ts does.
+    await prisma.$executeRawUnsafe(`
+      TRUNCATE TABLE
+        "accounting_exports",
+        "credit_note_items",
+        "credit_notes",
+        "credit_note_sequences",
+        "inventory_transactions",
+        "inventory_stocks",
+        "invoice_items",
+        "invoices",
+        "invoice_sequences",
+        "sales_order_items",
+        "sales_orders"
+      CASCADE;
+    `);
 
     const deEntity = await tenantPrisma.legalEntity.create({
       data: {
@@ -183,6 +206,7 @@ describe('Accounting export readiness (e2e)', () => {
     await tenantPrisma.invoiceSequence.deleteMany();
     await tenantPrisma.salesOrderItem.deleteMany();
     await tenantPrisma.salesOrder.deleteMany();
+    await cleanupTestUsers(prisma, outsiderUserIds);
     await teardownTestApp(app, prisma);
   });
 
@@ -352,7 +376,7 @@ describe('Accounting export readiness (e2e)', () => {
     const unique = `${prefix}-${randomUUID()}`;
     const firebaseUid = `e2e-user-${unique}`;
     const email = `${unique}@example.com`;
-    await prisma.user.create({
+    const user = await prisma.user.create({
       data: {
         firebaseUid,
         email,
@@ -361,7 +385,9 @@ describe('Accounting export readiness (e2e)', () => {
           create: { tenant_id: tenantA.tenantId, role, is_active: true },
         },
       },
+      select: { id: true },
     });
+    outsiderUserIds.push(user.id);
     return { tenantId: tenantA.tenantId, firebaseUid, email, role };
   }
 
