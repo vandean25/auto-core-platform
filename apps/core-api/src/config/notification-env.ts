@@ -50,7 +50,7 @@ export interface NotificationEnvInput {
 
 export interface NotificationEnvIssue {
   key: NotificationEnvKey;
-  /** `invalid`: the value is wrong. `required`: sending is on but no sender address is set. */
+  /** `invalid`: the value is wrong. `required`: a value that sending needs is unset. */
   kind: 'invalid' | 'required';
 }
 
@@ -111,6 +111,18 @@ export function notificationEnvIssues(
   const sendingEnabled = mode === 'fake' || mode === 'live';
   if (env.NODE_ENV !== 'test' && sendingEnabled && !sender) {
     issues.push({ key: 'NOTIFICATION_EMAIL_FROM_ADDRESS', kind: 'required' });
+  }
+  if (env.NODE_ENV === 'production' && mode === 'live') {
+    // Without the wake-up path no row is woken, so every notice waits for the sweep. Refuse that at boot.
+    if (!env.CLOUD_TASKS_NOTIFICATION_QUEUE) {
+      issues.push({ key: 'CLOUD_TASKS_NOTIFICATION_QUEUE', kind: 'required' });
+    }
+    if (!env.CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL) {
+      issues.push({
+        key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL',
+        kind: 'required',
+      });
+    }
   }
   return issues;
 }

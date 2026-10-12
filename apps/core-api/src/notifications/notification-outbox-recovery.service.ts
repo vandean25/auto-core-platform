@@ -6,8 +6,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { NotificationCloudTasksService } from './notification-cloud-tasks.service.js';
 import {
-  NOTIFICATION_MAX_ATTEMPTS,
   NOTIFICATION_UNSENT_WINDOW_MS,
+  nextRetryDelaySeconds,
 } from './notification-retry.policy.js';
 
 /**
@@ -161,7 +161,8 @@ export class NotificationOutboxRecoveryService {
       orderBy: { lease_expires_at: 'asc' },
     });
     for (const row of expired) {
-      const exhausted = row.attempts >= NOTIFICATION_MAX_ATTEMPTS;
+      // The lost attempt counts, so the next one waits the same backoff as a failed send. Out of attempts: fail.
+      const delaySeconds = nextRetryDelaySeconds(row.attempts);
       const released = await this.prisma.notificationOutbox.updateMany({
         where: {
           id: row.id,
@@ -169,36 +170,39 @@ export class NotificationOutboxRecoveryService {
           status: NotificationOutboxStatus.SENDING,
           lease_expires_at: { lt: now },
         },
-        data: exhausted
-          ? {
-              status: NotificationOutboxStatus.FAILED,
-              failed_at: now,
-              last_error_code: 'LEASE_EXPIRED',
-              last_error_message: 'The delivery attempt did not finish in time',
-              lease_token: null,
-              lease_expires_at: null,
-            }
-          : {
-              status: NotificationOutboxStatus.PENDING,
-              // Backdated by the grace, so the next sweep that can wake (core-api) finds the row overdue at once,
-              // not a grace later, even when this sweep ran where the queue is off.
-              next_attempt_at: new Date(
-                now.getTime() - NOTIFICATION_WAKE_GRACE_MS,
-              ),
-              last_error_code: 'LEASE_EXPIRED',
-              lease_token: null,
-              lease_expires_at: null,
-            },
+        data:
+          delaySeconds === null
+            ? {
+                status: NotificationOutboxStatus.FAILED,
+                failed_at: now,
+                last_error_code: 'LEASE_EXPIRED',
+                last_error_message:
+                  'The delivery attempt did not finish in time',
+                lease_token: null,
+                lease_expires_at: null,
+              }
+            : {
+                status: NotificationOutboxStatus.PENDING,
+                next_attempt_at: new Date(now.getTime() + delaySeconds * 1000),
+                last_error_code: 'LEASE_EXPIRED',
+                lease_token: null,
+                lease_expires_at: null,
+              },
       });
-      if (released.count === 1 && !exhausted && canWake) {
-        await this.wake(row.id, tenantId);
+      if (released.count === 1 && delaySeconds !== null && canWake) {
+        // Woken at its due time. Without a wake here (the queue is off), a later sweep that can wake picks it up once due.
+        await this.wake(row.id, tenantId, delaySeconds);
       }
     }
   }
 
-  private async wake(outboxId: string, tenantId: string): Promise<void> {
+  private async wake(
+    outboxId: string,
+    tenantId: string,
+    delaySeconds?: number,
+  ): Promise<void> {
     await this.wakeUps
-      .enqueueWakeUp({ outboxId, tenantId })
+      .enqueueWakeUp({ outboxId, tenantId, delaySeconds })
       .catch((cause: unknown) =>
         this.logger.warn(
           `Could not wake notification ${outboxId}: ${cause instanceof Error ? cause.name : 'unknown error'}`,

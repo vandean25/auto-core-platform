@@ -110,6 +110,9 @@ describe('notification sender environment (AUT-356)', () => {
           NOTIFICATION_EMAIL_RECIPIENT_ALLOWLIST:
             'kunde@example.at,*@test.example.at',
           NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
+          CLOUD_TASKS_NOTIFICATION_QUEUE: 'notification-queue',
+          CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
+            'https://core-api.example/api',
         }),
       ).toEqual([]);
     });

@@ -57,6 +57,44 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     },
   );
 
+  it('requires the notification queue and target for a live deploy in production', () => {
+    expect(
+      notificationEnvIssues({
+        NODE_ENV: 'production',
+        NOTIFICATION_EMAIL_MODE: 'live',
+        NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
+      }),
+    ).toEqual([
+      { key: 'CLOUD_TASKS_NOTIFICATION_QUEUE', kind: 'required' },
+      { key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL', kind: 'required' },
+    ]);
+  });
+
+  it('accepts a complete live deploy in production', () => {
+    expect(
+      notificationEnvIssues({
+        NODE_ENV: 'production',
+        CLOUD_TASKS_QUEUE: 'pdf-queue',
+        CLOUD_TASKS_TARGET_BASE_URL: 'https://worker.example/api',
+        CLOUD_TASKS_NOTIFICATION_QUEUE: 'notification-queue',
+        CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
+          'https://core-api.example/api',
+        NOTIFICATION_EMAIL_MODE: 'live',
+        NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
+      }),
+    ).toEqual([]);
+  });
+
+  it('does not ask for the wake-up settings for a local fake run in development', () => {
+    expect(
+      notificationEnvIssues({
+        ...base,
+        NOTIFICATION_EMAIL_MODE: 'fake',
+        NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
+      }),
+    ).toEqual([]);
+  });
+
   it('accepts an http notification target on another origin', () => {
     expect(
       notificationEnvIssues({

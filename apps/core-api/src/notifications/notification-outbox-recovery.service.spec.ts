@@ -1,7 +1,4 @@
-import {
-  NOTIFICATION_WAKE_GRACE_MS,
-  NotificationOutboxRecoveryService,
-} from './notification-outbox-recovery.service.js';
+import { NotificationOutboxRecoveryService } from './notification-outbox-recovery.service.js';
 
 describe('NotificationOutboxRecoveryService', () => {
   let prisma: {
@@ -140,6 +137,7 @@ describe('NotificationOutboxRecoveryService', () => {
     expect(wakeUps.enqueueWakeUp).toHaveBeenCalledWith({
       outboxId: 'outbox-2',
       tenantId: 'tenant-1',
+      delaySeconds: 300,
     });
   });
 
@@ -177,7 +175,7 @@ describe('NotificationOutboxRecoveryService', () => {
     expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
   });
 
-  it('backdates the due time of a released claim, so the next sweep that can wake finds it overdue', async () => {
+  it('schedules a released claim after its backoff, not at once', async () => {
     const before = Date.now();
     prisma.notificationOutbox.findMany
       .mockResolvedValueOnce([])
@@ -186,11 +184,10 @@ describe('NotificationOutboxRecoveryService', () => {
     await service.recover();
 
     const dueAt: Date = writes()[1].data.next_attempt_at;
-    expect(dueAt.getTime()).toBeGreaterThanOrEqual(
-      before - NOTIFICATION_WAKE_GRACE_MS,
-    );
-    expect(dueAt.getTime()).toBeLessThanOrEqual(
-      Date.now() - NOTIFICATION_WAKE_GRACE_MS,
+    expect(dueAt.getTime()).toBeGreaterThanOrEqual(before + 300_000);
+    expect(dueAt.getTime()).toBeLessThanOrEqual(Date.now() + 300_000);
+    expect(wakeUps.enqueueWakeUp).toHaveBeenCalledWith(
+      expect.objectContaining({ outboxId: 'outbox-10', delaySeconds: 300 }),
     );
   });
 
