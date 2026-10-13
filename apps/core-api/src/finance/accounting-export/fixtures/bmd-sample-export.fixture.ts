@@ -1,7 +1,7 @@
 import {
   DEFAULT_BMD_AT_PROFILE_CODE,
   DEFAULT_BMD_FORMAT_VERSION,
-} from '../../accounting-profile/accounting-profile.codes.js';
+} from '../../accounting-profile/bmd-profile.codes.js';
 import type {
   AccountingExportBookingRow,
   AccountingExportProfileSnapshot,
