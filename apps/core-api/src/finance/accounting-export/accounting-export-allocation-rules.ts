@@ -10,6 +10,7 @@ import { isBmdSafeText } from '../accounting-profile/bmd-text-rules.js';
 import { isRzlSafeText } from '../accounting-profile/rzl-text-rules.js';
 import type { AccountingExportBlockerCode } from './accounting-export.types.js';
 import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
+import { BMD_STEUERCODE_KEY_BY_TAX_RATE } from './bmd-format.constants.js';
 import { RZL_STEUERCODE_KEY_BY_TAX_RATE } from './rzl-format.constants.js';
 
 export type AccountingExportRuleIssue = {
@@ -40,19 +41,24 @@ export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules = {
   taxRateIssue: () => null,
 };
 
-/** Wording and text rule per AT profile. RZL keeps the candidate step's default manual BU blocker. */
+/**
+ * Wording, text rule and tax keys per AT profile. RZL keeps the candidate step's
+ * default manual BU blocker.
+ */
 const AT_STANDARD_VAT_PROFILES = {
   RZL: {
     article: 'an',
     textRule: isRzlSafeText,
     textHint: 'Use plain text without ; or quotes.',
     manualBuPerAllocation: false,
+    steuercodeKeyByRate: RZL_STEUERCODE_KEY_BY_TAX_RATE,
   },
   BMD: {
     article: 'a',
     textRule: isBmdSafeText,
     textHint: 'Use plain printable ASCII without ; or quotes.',
     manualBuPerAllocation: true,
+    steuercodeKeyByRate: BMD_STEUERCODE_KEY_BY_TAX_RATE,
   },
 } as const;
 
@@ -105,7 +111,7 @@ function buildAtStandardVatRules(
           message: `Zero-rate VAT has no approved ${name} Steuercode in this profile version. Exempt, reverse-charge and intra-community treatments are deferred.`,
         };
       }
-      const key = RZL_STEUERCODE_KEY_BY_TAX_RATE.get(normalized);
+      const key = profile.steuercodeKeyByRate.get(normalized);
       if (!key) {
         return {
           code: 'UNSUPPORTED_EXPORT_TAX_MODE',
@@ -141,12 +147,13 @@ export function allocationRulesForProfile(
   profileCode: string | null,
   serializerParams: unknown,
 ): AccountingExportAllocationRules {
-  const params = parseAccountingProfileSerializerParams(serializerParams);
   if (isBmdProfileCode(profileCode)) {
-    return buildBmdAllocationRules(params.bmd?.steuercodes ?? {});
+    const { bmd } = parseAccountingProfileSerializerParams(serializerParams);
+    return buildBmdAllocationRules(bmd?.steuercodes ?? {});
   }
   if (!isRzlProfileCode(profileCode)) {
     return DATEV_ALLOCATION_RULES;
   }
-  return buildRzlAllocationRules(params.rzl?.steuercodes ?? {});
+  const { rzl } = parseAccountingProfileSerializerParams(serializerParams);
+  return buildRzlAllocationRules(rzl?.steuercodes ?? {});
 }
