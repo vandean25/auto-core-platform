@@ -533,7 +533,11 @@ describe('NotificationOutboxWorkerService', () => {
 
     await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
 
-    expect(outcome()).toMatchObject({
+    // The claim, the failed ACCEPTED write, then the retry that lands.
+    expect(prisma.notificationOutbox.updateMany).toHaveBeenCalledTimes(3);
+    expect(
+      prisma.notificationOutbox.updateMany.mock.calls[2][0].data,
+    ).toMatchObject({
       status: 'ACCEPTED',
       provider_message_id: 'fake-1',
     });
