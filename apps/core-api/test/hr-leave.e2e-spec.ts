@@ -20,7 +20,35 @@ import {
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
+const VIENNA_TIMEZONE = 'Europe/Vienna';
+
+// Calendar dates in the tenant timezone, the same clock the API uses for "today".
+function viennaDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: VIENNA_TIMEZONE,
+  }).format(date);
+}
+
+function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function firstMondayOfYear(year: number): string {
+  const jan1 = `${year}-01-01`;
+  const weekday = new Date(`${jan1}T00:00:00.000Z`).getUTCDay();
+  return addDays(jan1, (8 - weekday) % 7);
+}
+
 describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
+  // Bookings start on the first Monday of next year: the self-cancel guard rejects leave whose start
+  // is already past, and that date is always ahead of today. Every window below stays inside that
+  // one year, so the balance queries use bookingYear.
+  const currentYear = Number(viennaDate(new Date()).slice(0, 4));
+  const bookingYear = currentYear + 1;
+  const bookingStart = firstMondayOfYear(bookingYear);
+
   let app: INestApplication;
   let basePrisma: PrismaService;
   let tenantId: string;
@@ -172,7 +200,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(200);
 
-      expect(res.body.year).toBe(new Date().getUTCFullYear());
+      expect(res.body.year).toBe(currentYear);
       expect(res.body.allowanceMinutes).toBe(HR_TEST_ANNUAL_LEAVE_MINUTES);
       expect(res.body.carryoverMinutes).toBe(0);
       expect(res.body.remainingMinutes).toBe(HR_TEST_ANNUAL_LEAVE_MINUTES);
@@ -226,22 +254,22 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-10-12',
-          endOn: '2026-10-16',
-          note: 'Autumn holiday',
+          startOn: bookingStart,
+          endOn: addDays(bookingStart, 4),
+          note: 'Work week holiday',
         })
         .expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.employeeId).toBe(techEmployeeId);
-      expect(res.body.startOn).toBe('2026-10-12');
-      expect(res.body.endOn).toBe('2026-10-16');
+      expect(res.body.startOn).toBe(bookingStart);
+      expect(res.body.endOn).toBe(addDays(bookingStart, 4));
       expect(res.body.status).toBe('BOOKED');
       expect(res.body.minutesCharged).toBe(HR_TEST_WEEK_LEAVE_MINUTES);
       createdBookingId = res.body.id;
 
       const getRes = await request(app.getHttpServer())
-        .get('/api/hr/me/leave?year=2026')
+        .get(`/api/hr/me/leave?year=${bookingYear}`)
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(200);
 
@@ -257,8 +285,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-10-15',
-          endOn: '2026-10-23',
+          startOn: addDays(bookingStart, 3),
+          endOn: addDays(bookingStart, 11),
         })
         .expect(409);
 
@@ -270,8 +298,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${techAuthToken}`)
         .send({
-          startOn: '2026-11-02',
-          endOn: '2026-12-04',
+          startOn: addDays(bookingStart, 21),
+          endOn: addDays(bookingStart, 53),
         })
         .expect(409);
 
@@ -287,7 +315,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
       expect(cancelRes.body.status).toBe('CANCELLED');
 
       const getRes = await request(app.getHttpServer())
-        .get('/api/hr/me/leave?year=2026')
+        .get(`/api/hr/me/leave?year=${bookingYear}`)
         .set('Authorization', `Bearer ${techAuthToken}`)
         .expect(200);
 
@@ -299,8 +327,8 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .post('/api/hr/me/leave')
         .set('Authorization', `Bearer ${salesAuthToken}`)
         .send({
-          startOn: '2026-11-02',
-          endOn: '2026-11-06',
+          startOn: addDays(bookingStart, 21),
+          endOn: addDays(bookingStart, 25),
         })
         .expect(201);
 
@@ -407,7 +435,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
         .patch(`/api/hr/employees/${deskEmployeeId}/leave-balance`)
         .set('Authorization', `Bearer ${ownerAuthToken}`)
         .send({
-          year: 2026,
+          year: currentYear,
           allowanceMinutes: HR_TEST_ALLOWANCE_30_MINUTES,
           carryoverMinutes: HR_TEST_CARRYOVER_5_MINUTES,
         })
@@ -423,7 +451,7 @@ describe('HR Leave Booking & Remaining Workdays (e2e)', () => {
 
       expect(empRes.body.annualLeaveMinutes).toBe(HR_TEST_ALLOWANCE_30_MINUTES);
       expect(empRes.body.carryoverMinutes).toBe(HR_TEST_CARRYOVER_5_MINUTES);
-      expect(empRes.body.leaveBalanceYear).toBe(2026);
+      expect(empRes.body.leaveBalanceYear).toBe(currentYear);
     });
 
     it('GET /api/hr/leave is accessible by SALES and OWNER, but returns 403 for TECH', async () => {
