@@ -208,6 +208,10 @@ describe('RZL accounting export (e2e)', () => {
     } else {
       process.env[RZL_SERIALIZER_RELEASE_ENV] = previousReleaseFlag;
     }
+    // Invoice numbers are unique across tenants, so this tenant's invoices must not outlive the suite.
+    await tenantPrisma.invoiceItem.deleteMany();
+    await tenantPrisma.invoice.deleteMany();
+    await tenantPrisma.invoiceSequence.deleteMany();
     await teardownTestApp(app, prisma);
   });
 

@@ -116,8 +116,14 @@ export async function createVehicleStockSuite() {
     grantMembership?: boolean;
     separateLegalEntity?: boolean;
   }) {
+    // Tenants can hold several legal entities, and a lookup by tenant alone is not deterministic.
+    // The tenant's MAIN site decides which entity a new lot belongs to.
+    const mainSite = await prisma.site.findFirstOrThrow({
+      where: { tenant_id: tenantId, code: 'MAIN' },
+      select: { legal_entity_id: true },
+    });
     const currentEntity = await prisma.legalEntity.findFirstOrThrow({
-      where: { tenant_id: tenantId },
+      where: { tenant_id: tenantId, id: mainSite.legal_entity_id },
     });
     const legalEntity = options.separateLegalEntity
       ? await prisma.legalEntity.create({
