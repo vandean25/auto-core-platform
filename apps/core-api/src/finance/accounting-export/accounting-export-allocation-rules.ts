@@ -15,10 +15,6 @@ export type AccountingExportRuleIssue = {
 };
 
 /**
- * Per-profile checks applied to each frozen line allocation. The default
- * (DATEV) rules keep the historical blocker messages unchanged.
- */
-/**
  * Margin-scheme availability for one profile. `enabled` is the entity's explicit
  * switch (AUT-369) and is only ever true on the DATEV rules. `vatAccount` receives
  * the frozen margin VAT.
@@ -28,6 +24,10 @@ export type AccountingExportMarginSchemeRules = {
   vatAccount: string | null;
 };
 
+/**
+ * Per-profile checks applied to each frozen line allocation. The default
+ * (DATEV) rules keep the historical blocker messages unchanged.
+ */
 export type AccountingExportAllocationRules = {
   countryIso: 'DE' | 'AT';
   unsupportedCountryMessage: string;

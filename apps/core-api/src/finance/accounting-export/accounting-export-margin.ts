@@ -151,7 +151,12 @@ export function buildMarginBookingRows(input: {
 }): AccountingExportBookingRow[] {
   const marginTax = readMarginTax(input.margin);
   if (marginTax === null || input.vatAccount === null) {
-    return [];
+    // The blockers reject these documents before any rows are built. Reaching
+    // this point is a bug, and an empty result would export the document with
+    // no amounts, so fail loudly instead.
+    throw new Error(
+      'Margin booking rows require validated margin facts and a margin VAT account.',
+    );
   }
 
   const net = new Prisma.Decimal(input.gross).minus(marginTax).toFixed(2);

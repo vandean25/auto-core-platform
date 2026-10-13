@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
 import {
   buildManifestDocuments,
@@ -195,6 +196,9 @@ describe('accounting-export margin-scheme lift (AUT-369)', () => {
     expect(candidate.blockers[0].message).toBe(
       'Margin-scheme invoices are not supported by the active export profile.',
     );
+    expect(candidate.blockers.map((blocker) => blocker.message)).toContain(
+      'Margin-scheme allocations cannot be exported with the active profile.',
+    );
     expect(candidate.rows).toEqual([]);
   });
 
@@ -229,10 +233,27 @@ describe('accounting-export margin-scheme lift (AUT-369)', () => {
       }),
     ]);
     const grossTotal = candidate.rows.reduce(
-      (sum, row) => sum + Number(row.gross),
-      0,
+      (sum, row) => sum.plus(row.gross),
+      new Prisma.Decimal(0),
     );
     expect(grossTotal.toFixed(2)).toBe('12000.00');
+  });
+
+  it('keeps the two rows exact to the cent when the margin VAT has cents', async () => {
+    const [candidate] = await loadFor(marginEnabledRules, [
+      marginInvoice({
+        lines: [{ id: 'item-1', gross: '1234.56' }],
+        margin: { margin_tax: '123.45' },
+      }),
+    ]);
+
+    expect(candidate.blockers).toEqual([]);
+    expect(
+      candidate.rows.map((row) => [row.revenueAccount, row.net, row.gross]),
+    ).toEqual([
+      ['8195', '1111.11', '1111.11'],
+      ['1776', '0.00', '123.45'],
+    ]);
   });
 
   it('lists a margin document line once in the manifest even though it books two rows', async () => {
@@ -336,6 +357,30 @@ describe('accounting-export margin-scheme lift (AUT-369)', () => {
     expect(candidate.rows).toEqual([]);
   });
 
+  it('blocks a margin document whose line carries a standard allocation', async () => {
+    const standardAllocation = {
+      ...marginAllocation({ id: 'item-1', gross: '12000.00' }),
+      sourceCategoryKey: 'revenue_group:1',
+      sourceCategoryLabel: 'Workshop labour',
+      revenueAccount: '8400',
+      taxMode: 'STANDARD',
+      taxRate: '20.00',
+    };
+    const invoice = marginInvoice();
+    const [candidate] = await loadFor(marginEnabledRules, [
+      {
+        ...invoice,
+        items: [{ id: 'item-1', accounting_snapshot: standardAllocation }],
+      },
+    ]);
+
+    expect(codesOf(candidate)).toEqual(['ACCOUNTING_MAPPING_INCOMPLETE']);
+    expect(candidate.blockers[0].message).toBe(
+      'Margin-scheme document line has no margin accounting allocation.',
+    );
+    expect(candidate.rows).toEqual([]);
+  });
+
   it('applies the same lift to a full credit of a margin document', async () => {
     const [candidate] = await loadFor(
       marginEnabledRules,
@@ -350,6 +395,7 @@ describe('accounting-export margin-scheme lift (AUT-369)', () => {
         net: '11000.00',
         gross: '11000.00',
         revenueAccount: '8195',
+        buKey: null,
         originalInvoiceNumber: 'RE-2026-0010',
       }),
       expect.objectContaining({
@@ -357,6 +403,7 @@ describe('accounting-export margin-scheme lift (AUT-369)', () => {
         tax: '1000.00',
         gross: '1000.00',
         revenueAccount: '1776',
+        buKey: null,
         originalInvoiceNumber: 'RE-2026-0010',
       }),
     ]);

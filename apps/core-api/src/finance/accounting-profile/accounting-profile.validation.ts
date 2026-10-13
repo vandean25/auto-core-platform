@@ -6,7 +6,7 @@ import {
   isRzlProfileCode,
 } from './accounting-profile.codes.js';
 import {
-  parseAccountingProfileSerializerParams,
+  mergeAccountingProfileSerializerParams,
   type AccountingProfileSerializerParamsInput,
 } from './accounting-profile.serializer-params.js';
 import { type AccountingMappingRule } from './accounting-profile.types.js';
@@ -135,6 +135,8 @@ export type AccountingProfileValidationContext = {
   currentProfileCode: string | null;
   currentChart: string | null;
   currentIsEnabled?: boolean;
+  /** Stored serializer params: omitted fields of a patch keep these values. */
+  currentSerializerParams?: unknown;
 };
 
 function resolveProfileCodeAfterPatch(
@@ -204,7 +206,9 @@ export function validateAccountingProfilePatch(
   }
 
   if (patch.serializerParams !== undefined) {
-    normalized.serializerParams = parseAccountingProfileSerializerParams(
+    // Validate the state the profile will hold after the save, not the raw patch alone.
+    normalized.serializerParams = mergeAccountingProfileSerializerParams(
+      context.currentSerializerParams,
       patch.serializerParams,
     );
   }
