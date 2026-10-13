@@ -77,8 +77,18 @@ describe('BMD allocation rules', () => {
     });
 
     expect(rules.countryIso).toBe('AT');
-    expect(rules.allowManualBu).toBe(false);
     expect(rules.taxRateIssue('20.00')).toBeNull();
+    expect(
+      rules.allocationIssue?.(
+        allocationFor({
+          id: 'l1',
+          gross: '1.00',
+          taxRate: '20.00',
+          taxTreatment: 'manual_bu',
+          buKey: '9',
+        }),
+      ),
+    ).toMatchObject({ code: 'ACCOUNTING_MAPPING_INCOMPLETE' });
   });
 
   it('accepts 20, 13 and 10 percent when their tax keys are configured', () => {
@@ -92,7 +102,7 @@ describe('BMD allocation rules', () => {
       buildBmdAllocationRules({ vat13: '5013' }).taxRateIssue('20.00'),
     ).toEqual({
       code: 'ACCOUNTING_MAPPING_INCOMPLETE',
-      message: 'The BMD Steuercode for 20% VAT is not configured.',
+      message: 'The BMD Steuercode for 20.00% VAT is not configured.',
     });
   });
 
