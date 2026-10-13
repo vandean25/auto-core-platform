@@ -153,11 +153,7 @@ function draft(
   content: { subject: string; paragraphs: string[] },
 ): EmailDraft {
   const senderName = requiredText('senderName', input.senderName);
-  const greeting = input.greeting ?? '';
-  const salutation =
-    greeting.trim() === ''
-      ? DEFAULT_GREETING
-      : requiredText('greeting', greeting).replace(/,$/, '');
+  const salutation = salutationFor(input.greeting);
   return {
     recipientEmail: input.recipientEmail,
     senderName,
@@ -171,6 +167,20 @@ function draft(
     templateId,
     templateVersion: CUSTOMER_TEMPLATE_VERSION,
   };
+}
+
+/**
+ * The salutation without the comma the copy adds. Trailing commas and spaces are dropped, and a greeting
+ * that is blank once they are gone gets the neutral form.
+ */
+function salutationFor(greeting: string | null | undefined): string {
+  if (!greeting || greeting.trim() === '') {
+    return DEFAULT_GREETING;
+  }
+  const salutation = requiredText('greeting', greeting)
+    .replace(/,+$/, '')
+    .trim();
+  return salutation === '' ? DEFAULT_GREETING : salutation;
 }
 
 /** "13.10.2026" in business time, as formatWorkshopEstimateDate prints it. The spec keeps them in step. */

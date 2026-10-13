@@ -362,7 +362,7 @@ describe('customer email templates (AUT-356 phase 3)', () => {
     );
   });
 
-  it('refuses a multi-line salutation and does not double a trailing comma', () => {
+  it('refuses a multi-line salutation and writes exactly one comma after the salutation', () => {
     expect(() =>
       renderOrderReadyEmail({
         ...RECIPIENT,
@@ -372,14 +372,26 @@ describe('customer email templates (AUT-356 phase 3)', () => {
       }),
     ).toThrow('greeting');
 
-    const draft = renderOrderReadyEmail({
-      ...RECIPIENT,
-      greeting: 'Sehr geehrte Frau Muster,',
-      orderNumber: 'WO-2026-0001',
-      vehicleLabel: 'Skoda Octavia',
-    });
+    for (const { greeting, salutation } of [
+      {
+        greeting: 'Sehr geehrte Frau Muster,',
+        salutation: 'Sehr geehrte Frau Muster',
+      },
+      {
+        greeting: 'Sehr geehrte Frau Muster,,',
+        salutation: 'Sehr geehrte Frau Muster',
+      },
+      { greeting: ',', salutation: 'Sehr geehrte Damen und Herren' },
+    ]) {
+      const draft = renderOrderReadyEmail({
+        ...RECIPIENT,
+        greeting,
+        orderNumber: 'WO-2026-0001',
+        vehicleLabel: 'Skoda Octavia',
+      });
 
-    expect(draft.text.startsWith('Sehr geehrte Frau Muster,\n\n')).toBe(true);
+      expect(draft.text.startsWith(`${salutation},\n\n`)).toBe(true);
+    }
   });
 
   it('prints the cut-off and the approval date exactly as the estimate PDF does', () => {
