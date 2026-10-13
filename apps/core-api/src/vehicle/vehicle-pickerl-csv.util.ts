@@ -1,4 +1,4 @@
-import { csvEscape } from '../../common/utils/csv-export.util.js';
+import { csvEscape } from '../common/utils/csv-export.util.js';
 
 export const PICKERL_DUE_CSV_HEADER =
   'plate,vehicle,customer,due_month,status,last_inspected_on,phone,email';
