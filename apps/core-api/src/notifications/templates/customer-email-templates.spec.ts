@@ -382,6 +382,12 @@ describe('customer email templates (AUT-356 phase 3)', () => {
         salutation: 'Sehr geehrte Frau Muster',
       },
       { greeting: ',', salutation: 'Sehr geehrte Damen und Herren' },
+      { greeting: ', ,', salutation: 'Sehr geehrte Damen und Herren' },
+      { greeting: ', Muster', salutation: 'Muster' },
+      {
+        greeting: 'Sehr geehrte Frau Muster, ,',
+        salutation: 'Sehr geehrte Frau Muster',
+      },
     ]) {
       const draft = renderOrderReadyEmail({
         ...RECIPIENT,

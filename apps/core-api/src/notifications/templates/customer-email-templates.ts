@@ -170,16 +170,17 @@ function draft(
 }
 
 /**
- * The salutation without the comma the copy adds. Trailing commas and spaces are dropped, and a greeting
- * that is blank once they are gone gets the neutral form.
+ * The salutation without the comma the copy adds. Commas and spaces at either end are dropped, and a
+ * greeting that is blank once they are gone gets the neutral form.
  */
 function salutationFor(greeting: string | null | undefined): string {
   if (!greeting || greeting.trim() === '') {
     return DEFAULT_GREETING;
   }
-  const salutation = requiredText('greeting', greeting)
-    .replace(/,+$/, '')
-    .trim();
+  const salutation = requiredText('greeting', greeting).replace(
+    /^[,\s]+|[,\s]+$/g,
+    '',
+  );
   return salutation === '' ? DEFAULT_GREETING : salutation;
 }
 
