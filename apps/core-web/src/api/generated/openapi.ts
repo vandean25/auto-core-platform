@@ -4516,6 +4516,7 @@ export interface components {
             first_name: string;
             last_name: string;
             email?: string | null;
+            contact_email_ok?: boolean;
             phone?: string | null;
             vat_id?: string | null;
             address_street?: string | null;
@@ -4771,6 +4772,8 @@ export interface components {
             first_name: string;
             last_name: string;
             email?: string;
+            /** @default false */
+            contact_email_ok: boolean;
             phone?: string;
             vat_id?: string;
             address_street?: string;
@@ -4852,6 +4855,8 @@ export interface components {
             first_name?: string;
             last_name?: string;
             email?: string;
+            /** @default false */
+            contact_email_ok: boolean;
             phone?: string;
             vat_id?: string;
             address_street?: string;
@@ -5720,6 +5725,7 @@ export interface components {
             first_name: string;
             last_name: string;
             email?: string | null;
+            contact_email_ok?: boolean;
             phone?: string | null;
             vat_id?: string | null;
             address_street?: string | null;
@@ -6009,6 +6015,10 @@ export interface components {
             workshop_order_id: string;
             snapshot?: components["schemas"]["WorkshopEstimateSnapshotDto"] | null;
             draft_preview?: components["schemas"]["WorkshopEstimateDraftPreviewDto"] | null;
+        };
+        SendWorkshopEstimateVersionDto: {
+            /** @default false */
+            notifyCustomerByEmail: boolean;
         };
         CreateVehiclePurchaseDto: {
             /** @enum {string} */
@@ -12104,7 +12114,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SendWorkshopEstimateVersionDto"];
+            };
+        };
         responses: {
             200: {
                 headers: {

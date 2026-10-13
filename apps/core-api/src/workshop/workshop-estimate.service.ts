@@ -8,7 +8,16 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopEstimateStatus } from '@prisma/client';
+import {
+  NotificationChannel,
+  NotificationEventType,
+  NotificationRecipientKind,
+  Prisma,
+  WorkshopEstimateStatus,
+  type Customer,
+} from '@prisma/client';
+import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -49,6 +58,11 @@ import {
 } from './workshop-estimate-overrun.helpers.js';
 import { retainUntilAtSend } from './workshop-estimate-retention.helpers.js';
 import {
+  mintApprovalToken,
+  parseApprovalBaseUrl,
+} from './workshop-estimate-approval-token.helpers.js';
+import { buildCustomerEstimateEmail } from './workshop-estimate-customer-email.js';
+import {
   WORKSHOP_ESTIMATE_VERSION_SUMMARY_SELECT,
   toWorkshopEstimateDto,
   toWorkshopEstimateDraftPreviewDto,
@@ -70,6 +84,11 @@ const ESTIMATE_ROLES: ReadonlySet<string> = new Set([
 const DEFAULT_OVERRUN_THRESHOLD_PCT = '15';
 
 type EstimateScope = { tenantId: string; siteId: string };
+
+/** Whether the send also emails the approval link to the customer (ADR-0025 §5 to §8). */
+export interface EstimateSendOptions {
+  notifyCustomerByEmail: boolean;
+}
 
 const ORDER_FOR_ESTIMATE_SELECT = {
   id: true,
@@ -148,6 +167,10 @@ export class WorkshopEstimateService {
     private readonly siteContext: SiteContextService,
     @Inject(WorkshopEstimatePdfService)
     private readonly pdf: WorkshopEstimatePdfService,
+    @Inject(NotificationOutboxService)
+    private readonly outbox: NotificationOutboxService,
+    @Inject(NotificationCloudTasksService)
+    private readonly wakeUps: NotificationCloudTasksService,
   ) {}
 
   /** Create the estimate (KV number, version 1 as DRAFT) for an open workshop order. */
@@ -290,6 +313,7 @@ export class WorkshopEstimateService {
    */
   async sendVersion(
     versionId: string,
+    options: EstimateSendOptions = { notifyCustomerByEmail: false },
   ): Promise<WorkshopEstimateVersionDetailDto> {
     this.assertEstimateRole();
     if (!isCustomerEstimateSendEnabled()) {
@@ -299,9 +323,19 @@ export class WorkshopEstimateService {
           'Sending estimates to customers is disabled until the legal copy is approved.',
       });
     }
+    const approvalBaseUrl = options.notifyCustomerByEmail
+      ? parseApprovalBaseUrl(process.env.ESTIMATE_APPROVAL_BASE_URL)
+      : null;
+    if (options.notifyCustomerByEmail && approvalBaseUrl === null) {
+      throw new ServiceUnavailableException({
+        code: 'ESTIMATE_APPROVAL_LINK_UNAVAILABLE',
+        message:
+          'The approval link base is not configured, so the estimate cannot be emailed.',
+      });
+    }
     const scope = await this.resolveScope();
 
-    await this.prisma
+    const queuedOutboxId = await this.prisma
       .$transaction(async (tx) => {
         const version = await tx.workshopEstimateVersion.findFirst({
           where: {
@@ -420,6 +454,19 @@ export class WorkshopEstimateService {
           },
           data: { status: WorkshopEstimateStatus.SUPERSEDED },
         });
+        // A superseded version's approval link must stop working, whatever its expiry (ADR-0025 §7).
+        await tx.workshopEstimateApprovalToken.updateMany({
+          where: {
+            tenant_id: scope.tenantId,
+            invalidated_at: null,
+            consumed_at: null,
+            version: {
+              estimate_id: version.estimate_id,
+              status: WorkshopEstimateStatus.SUPERSEDED,
+            },
+          },
+          data: { invalidated_at: issuedAt },
+        });
 
         const sent = await tx.workshopEstimateVersion.updateMany({
           where: {
@@ -460,11 +507,104 @@ export class WorkshopEstimateService {
             },
           });
         }
+
+        if (approvalBaseUrl === null) {
+          return null;
+        }
+        return this.queueCustomerEstimateEmail(tx, {
+          scope,
+          versionId,
+          order,
+          customer: order.customer,
+          sellerName: legalEntity.name,
+          estimateNumber: version.estimate.estimate_number,
+          approvalBaseUrl,
+          validUntil,
+          issuedAt,
+        });
       })
       .catch(mapEstimateWriteError);
 
     await this.queuePdfAfterSend(scope, versionId);
+    if (queuedOutboxId !== null) {
+      await this.wakeUpOutboxRow(queuedOutboxId, scope.tenantId);
+    }
     return this.readVersion(scope, versionId);
+  }
+
+  /**
+   * Mints the approval token and writes the estimate email in the send transaction, so the row exists only if the
+   * version was sent (ADR-0025 §6 and §7). The database keeps the token's hash. The raw token appears only in the
+   * link inside the outbox body, which the worker redacts at the terminal state.
+   */
+  private async queueCustomerEstimateEmail(
+    tx: Prisma.TransactionClient,
+    input: {
+      scope: EstimateScope;
+      versionId: string;
+      order: OrderForEstimate;
+      customer: Customer;
+      sellerName: string;
+      estimateNumber: string;
+      approvalBaseUrl: string;
+      validUntil: Date;
+      issuedAt: Date;
+    },
+  ): Promise<string> {
+    const { scope, versionId, order, customer } = input;
+    const token = mintApprovalToken();
+    const email = buildCustomerEstimateEmail({
+      customer,
+      vehicle: order.vehicle,
+      sellerName: input.sellerName,
+      estimateNumber: input.estimateNumber,
+      approvalBaseUrl: input.approvalBaseUrl,
+      approvalToken: token.raw,
+      validUntil: input.validUntil,
+    });
+
+    await tx.workshopEstimateApprovalToken.create({
+      data: {
+        tenant_id: scope.tenantId,
+        workshop_estimate_version_id: versionId,
+        token_sha256: token.sha256,
+        expires_at: input.validUntil,
+      },
+    });
+    const { id } = await this.outbox.enqueueInTx(
+      tx,
+      {
+        tenantId: scope.tenantId,
+        eventType: NotificationEventType.CUSTOMER_ESTIMATE_SENT,
+        occurrenceId: versionId,
+        channel: NotificationChannel.EMAIL,
+        recipientKind: NotificationRecipientKind.CUSTOMER,
+        recipientKey: `customer:${customer.id}`,
+        workshopOrderId: order.id,
+        sourceEntityType: 'WorkshopEstimateVersion',
+        sourceEntityId: versionId,
+        email: email.draft,
+      },
+      input.issuedAt,
+    );
+    return id;
+  }
+
+  /**
+   * The row is committed, so a wake-up now delivers it without waiting for the recovery sweep (ADR-0025 §6, and the
+   * runbook's known limits). A failed wake-up is logged, and the sweep wakes the row once its grace has passed.
+   */
+  private async wakeUpOutboxRow(
+    outboxId: string,
+    tenantId: string,
+  ): Promise<void> {
+    await this.wakeUps
+      .enqueueWakeUp({ outboxId, tenantId })
+      .catch((cause: unknown) =>
+        this.logger.warn(
+          `Could not schedule the first send of notification ${outboxId}: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+        ),
+      );
   }
 
   /** POST estimates/:versionId/pdf. Only a sent version has an archive. */

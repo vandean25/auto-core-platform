@@ -4,6 +4,7 @@ import { NotificationOutboxStatus } from '@prisma/client';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import { redactApprovalLinks } from './notification-body-redaction.js';
 import { NotificationCloudTasksService } from './notification-cloud-tasks.service.js';
 import {
   NOTIFICATION_UNSENT_WINDOW_MS,
@@ -106,6 +107,8 @@ export class NotificationOutboxRecoveryService {
         failed_at: now,
         last_error_code: 'STALE_UNSENT',
         last_error_message: 'The notice was not sent within the sending window',
+        // Never sent, so nothing needs the body again. Clearing it here also drops any approval link (ADR-0025 §7).
+        body: null,
         lease_token: null,
         lease_expires_at: null,
       },
@@ -158,7 +161,7 @@ export class NotificationOutboxRecoveryService {
         status: NotificationOutboxStatus.SENDING,
         lease_expires_at: { lt: now },
       },
-      select: { id: true, attempts: true },
+      select: { id: true, attempts: true, body: true },
       take: RECOVERY_BATCH,
       orderBy: { lease_expires_at: 'asc' },
     });
@@ -179,6 +182,8 @@ export class NotificationOutboxRecoveryService {
                 failed_at: now,
                 last_error_code: 'LEASE_EXPIRED',
                 last_error_message: LEASE_EXPIRED_MESSAGE,
+                // A terminal row keeps no approval link (ADR-0025 §7).
+                body: redactApprovalLinks(row.body),
                 lease_token: null,
                 lease_expires_at: null,
               }

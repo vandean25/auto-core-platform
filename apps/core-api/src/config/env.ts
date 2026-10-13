@@ -37,6 +37,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED',
   'ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED',
   'CUSTOMER_ESTIMATE_SEND_ENABLED',
+  'ESTIMATE_APPROVAL_BASE_URL',
   'WORKSHOP_MEDIA_BUCKET',
   'CLOUD_TASKS_ENABLED',
   'CLOUD_TASKS_LOCATION',
@@ -132,6 +133,7 @@ const envSchema = z
     CUSTOMER_ESTIMATE_SEND_ENABLED: optionalBooleanString.transform(
       (value) => value === 'true',
     ),
+    ESTIMATE_APPROVAL_BASE_URL: optionalString,
     WORKSHOP_MEDIA_BUCKET: optionalString,
     CLOUD_TASKS_ENABLED: optionalString,
     CLOUD_TASKS_LOCATION: optionalString,
@@ -192,6 +194,15 @@ const envSchema = z
         env.FIREBASE_PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT,
       );
       addRequiredIssue(ctx, 'FRONTEND_URL', env.FRONTEND_URL);
+    }
+
+    // The estimate email carries the approval link, so the send cannot be enabled without its base (ADR-0025 §7).
+    if (env.CUSTOMER_ESTIMATE_SEND_ENABLED) {
+      addRequiredIssue(
+        ctx,
+        'ESTIMATE_APPROVAL_BASE_URL',
+        env.ESTIMATE_APPROVAL_BASE_URL,
+      );
     }
 
     if (arePdfWorkersEnabled(env)) {

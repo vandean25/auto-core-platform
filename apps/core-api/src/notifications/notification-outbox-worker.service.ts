@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   NotificationChannel,
   NotificationOutboxStatus,
+  NotificationRecipientKind,
   type Prisma,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { isPlainEmailAddress } from './email/email-address.js';
 import { isSingleLineText } from './email/header-text.js';
+import { redactApprovalLinks } from './notification-body-redaction.js';
 import {
   EmailProviderError,
   type EmailSendResult,
@@ -41,6 +43,8 @@ const ACCEPTED_WRITE_ATTEMPTS = 3;
 interface ClaimedRow {
   channel: NotificationChannel;
   event_type: string;
+  recipient_kind: NotificationRecipientKind;
+  workshop_order_id: string | null;
   recipient_email: string | null;
   subject: string | null;
   body: string | null;
@@ -52,6 +56,8 @@ interface ClaimedRow {
 interface Failure {
   code: string;
   message: string;
+  /** A permanent refusal of the address itself, a hard bounce (ADR-0025 §8). */
+  recipientRejected?: boolean;
 }
 
 interface Attempt {
@@ -131,6 +137,8 @@ export class NotificationOutboxWorkerService {
       select: {
         channel: true,
         event_type: true,
+        recipient_kind: true,
+        workshop_order_id: true,
         recipient_email: true,
         subject: true,
         body: true,
@@ -263,6 +271,10 @@ export class NotificationOutboxWorkerService {
       if (failure.transient) {
         return this.retryOrFail(a, failure);
       }
+      if (failure.recipientRejected) {
+        await this.fail(a, failure);
+        return this.clearContactEmailConfirmation(a);
+      }
       return this.fail(a, failure);
     }
     // The provider has accepted the message, so nothing from here may schedule another send.
@@ -339,6 +351,43 @@ export class NotificationOutboxWorkerService {
     });
   }
 
+  /**
+   * A permanent refusal of the address clears the advisor's email confirmation for that customer, so no later
+   * estimate mail goes to it until the advisor confirms the address again (ADR-0025 §8). The update matches the
+   * exact address, so a corrected address is not cleared by an old bounce.
+   */
+  private async clearContactEmailConfirmation(a: Attempt): Promise<void> {
+    const recipient = a.row.recipient_email;
+    if (
+      a.row.recipient_kind !== NotificationRecipientKind.CUSTOMER ||
+      !a.row.workshop_order_id ||
+      !recipient
+    ) {
+      return;
+    }
+    try {
+      const order = await this.prisma.workshopOrder.findFirst({
+        where: { id: a.row.workshop_order_id, tenant_id: a.tenantId },
+        select: { customer_id: true },
+      });
+      if (!order?.customer_id) {
+        return;
+      }
+      await this.prisma.customer.updateMany({
+        where: {
+          id: order.customer_id,
+          tenant_id: a.tenantId,
+          email: recipient,
+        },
+        data: { contact_email_ok: false },
+      });
+    } catch (cause) {
+      this.logger.warn(
+        `Could not clear the email confirmation after a refusal for notification ${a.outboxId}: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+      );
+    }
+  }
+
   /** Writes the terminal outcome under the lease. A lost lease is logged, never overwritten. */
   private async record(
     a: Attempt,
@@ -351,7 +400,13 @@ export class NotificationOutboxWorkerService {
         status: NotificationOutboxStatus.SENDING,
         lease_token: a.leaseToken,
       },
-      data: { ...outcome, lease_token: null, lease_expires_at: null },
+      data: {
+        ...outcome,
+        // A terminal row keeps no approval link (ADR-0025 §7). Retries are scheduled elsewhere and keep the body.
+        body: redactApprovalLinks(a.row.body),
+        lease_token: null,
+        lease_expires_at: null,
+      },
     });
     if (result.count !== 1) {
       this.logger.warn(
@@ -421,11 +476,13 @@ function toProviderFailure(error: unknown): Failure & { transient: boolean } {
         ? 'The provider did not accept the message'
         : 'The provider refused the message',
       transient,
+      recipientRejected: error.kind === 'recipient_rejected',
     };
   }
   return {
     code: 'UNEXPECTED_ERROR',
     message: 'Unexpected sender error',
     transient: true,
+    recipientRejected: false,
   };
 }

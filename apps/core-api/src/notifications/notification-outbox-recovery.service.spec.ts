@@ -142,10 +142,34 @@ describe('NotificationOutboxRecoveryService', () => {
     });
   });
 
+  it('clears the body of a notice that was never sent, so no approval link stays behind', async () => {
+    await service.recover();
+
+    expect(writes()[0].data).toMatchObject({ status: 'FAILED', body: null });
+  });
+
+  it('keeps no approval link in the body of an expired claim that failed for good', async () => {
+    prisma.notificationOutbox.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'outbox-4',
+          attempts: 5,
+          body: 'Den Kostenvoranschlag können Sie unter folgendem Link einsehen: https://portal.example.at/approve/abc_DEF-123',
+        },
+      ]);
+
+    await service.recover();
+
+    expect(writes()[1].data.body).toBe(
+      'Den Kostenvoranschlag können Sie unter folgendem Link einsehen: [Link entfernt]',
+    );
+  });
+
   it('fails an expired claim that used every attempt, without waking it', async () => {
     prisma.notificationOutbox.findMany
       .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: 'outbox-3', attempts: 5 }]);
+      .mockResolvedValueOnce([{ id: 'outbox-3', attempts: 5, body: null }]);
 
     await service.recover();
 

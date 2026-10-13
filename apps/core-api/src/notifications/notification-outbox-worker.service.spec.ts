@@ -35,6 +35,8 @@ function makeRow(overrides: Record<string, unknown> = {}) {
 describe('NotificationOutboxWorkerService', () => {
   let prisma: {
     notificationOutbox: { updateMany: jest.Mock; findFirst: jest.Mock };
+    workshopOrder: { findFirst: jest.Mock };
+    customer: { updateMany: jest.Mock };
   };
   let provider: { name: string; send: jest.Mock };
   let providers: { resolve: jest.Mock };
@@ -62,6 +64,8 @@ describe('NotificationOutboxWorkerService', () => {
   beforeEach(() => {
     prisma = {
       notificationOutbox: { updateMany: jest.fn(), findFirst: jest.fn() },
+      workshopOrder: { findFirst: jest.fn() },
+      customer: { updateMany: jest.fn() },
     };
     provider = {
       name: 'fake',
@@ -206,6 +210,86 @@ describe('NotificationOutboxWorkerService', () => {
       last_error_code: 'PROVIDER_NOT_CONFIGURED',
     });
     expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
+  it('clears the email confirmation of the customer when the address is permanently refused', async () => {
+    arrange(
+      makeRow({ recipient_kind: 'CUSTOMER', workshop_order_id: 'order-1' }),
+    );
+    prisma.workshopOrder.findFirst.mockResolvedValue({
+      customer_id: 'customer-1',
+    });
+    provider.send.mockRejectedValueOnce(
+      new EmailProviderError(
+        'recipient_rejected',
+        'RECIPIENT_REJECTED',
+        'refused',
+      ),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'RECIPIENT_REJECTED',
+    });
+    expect(prisma.customer.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'customer-1',
+        tenant_id: 'tenant-1',
+        email: 'kunde@example.at',
+      },
+      data: { contact_email_ok: false },
+    });
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
+  it('keeps the email confirmation when the provider fails for a reason other than the address', async () => {
+    arrange(
+      makeRow({ recipient_kind: 'CUSTOMER', workshop_order_id: 'order-1' }),
+    );
+    provider.send.mockRejectedValueOnce(
+      new EmailProviderError(
+        'permanent',
+        'PROVIDER_NOT_CONFIGURED',
+        'not configured',
+      ),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(prisma.customer.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('redacts the approval link from the body once the row is accepted', async () => {
+    arrange(
+      makeRow({
+        body: 'Den Kostenvoranschlag können Sie unter folgendem Link einsehen: https://portal.example.at/approve/abc_DEF-123',
+      }),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(outcome()).toMatchObject({
+      status: 'ACCEPTED',
+      body: 'Den Kostenvoranschlag können Sie unter folgendem Link einsehen: [Link entfernt]',
+    });
+  });
+
+  it('keeps the approval link in the body while a retry is still pending', async () => {
+    arrange(
+      makeRow({
+        body: 'Den Kostenvoranschlag können Sie unter folgendem Link einsehen: https://portal.example.at/approve/abc_DEF-123',
+      }),
+    );
+    provider.send.mockRejectedValueOnce(
+      new EmailProviderError('transient', 'NETWORK', 'down'),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(outcome()).toMatchObject({ status: 'PENDING' });
+    expect(outcome()).not.toHaveProperty('body');
   });
 
   it('treats an unknown provider error as transient and stores no provider text', async () => {
