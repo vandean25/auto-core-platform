@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import iconv from 'iconv-lite';
 import { DEFAULT_BMD_FORMAT_VERSION } from '../accounting-profile/bmd-profile.codes.js';
 import {
@@ -14,7 +15,6 @@ import type {
   AccountingExportSerializerInput,
   AccountingExportSerializerResult,
 } from './accounting-export-serializer.types.js';
-import { sha256OfBytes } from './accounting-export-hash.js';
 import {
   BMD_BOOKING_TEXT_MAX_LENGTH,
   BMD_ENCODING,
@@ -28,6 +28,11 @@ export type BmdNtcsImportResult = AccountingExportSerializerResult & {
   csvText: string;
 };
 
+/**
+ * The formats below are this profile's own pinned assumptions (spec A6 and A7),
+ * so they stay apart from the RZL and DATEV copies. A BMD validation outcome
+ * must not change the RZL or DATEV files.
+ */
 const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const ACCOUNT_LENGTH_PATTERN = /^[1-8]$/;
@@ -155,7 +160,7 @@ export function serializeBmdNtcsImport(
 
   return {
     bytes,
-    sha256: sha256OfBytes(bytes),
+    sha256: createHash('sha256').update(bytes).digest('hex'),
     rowCount: input.rows.length,
     byteLength: bytes.length,
     csvText,
