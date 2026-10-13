@@ -2,9 +2,10 @@ import { BadRequestException } from '@nestjs/common';
 import { assertChartAllowedForProfile } from './accounting-chart-catalog.js';
 import {
   isDatevProfileCode,
-  isExportSerializerReleased,
   isRzlProfileCode,
 } from './accounting-profile.codes.js';
+import { isAccountingExportReleased } from './accounting-export-release.js';
+import { isBmdProfileCode } from './bmd-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
   type AccountingProfileSerializerParams,
@@ -235,7 +236,7 @@ export function validateAccountingProfilePatch(
       const enabling = !context.currentIsEnabled;
       if (
         (enabling || profileCodeChanged) &&
-        !isExportSerializerReleased(effectiveProfileCode)
+        !isAccountingExportReleased(effectiveProfileCode)
       ) {
         throw new BadRequestException(
           'Accounting export profile cannot be enabled until its serializer is released for this environment.',
@@ -249,6 +250,11 @@ export function validateAccountingProfilePatch(
       if (isRzlProfileCode(effectiveProfileCode) && countryIso !== 'AT') {
         throw new BadRequestException(
           'RZL export profile can only be enabled for AT legal entities',
+        );
+      }
+      if (isBmdProfileCode(effectiveProfileCode) && countryIso !== 'AT') {
+        throw new BadRequestException(
+          'BMD export profile can only be enabled for AT legal entities',
         );
       }
     }
