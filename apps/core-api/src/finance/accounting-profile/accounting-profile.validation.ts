@@ -222,20 +222,21 @@ export function validateAccountingProfilePatch(
     assertChartAllowedForProfile(effectiveProfileCode, effectiveChart);
   }
 
-  if (
-    profileCodeChanged &&
-    !isExportSerializerReleased(effectiveProfileCode) &&
-    patch.isEnabled === undefined
-  ) {
+  // A serializer switch never keeps the profile enabled: it must be enabled again.
+  if (profileCodeChanged && patch.isEnabled === undefined) {
     normalized.isEnabled = false;
   }
 
   if (patch.isEnabled !== undefined) {
     if (patch.isEnabled) {
-      // Only the false -> true transition needs the release gate. Autosaves of an
-      // already enabled profile must still succeed, e.g. when only the firm number changes.
+      // Enabling needs the release gate, and so does switching an enabled profile to
+      // another serializer. Autosaves of an enabled profile on a released serializer
+      // must still succeed, e.g. when only the firm number changes.
       const enabling = !context.currentIsEnabled;
-      if (enabling && !isExportSerializerReleased(effectiveProfileCode)) {
+      if (
+        (enabling || profileCodeChanged) &&
+        !isExportSerializerReleased(effectiveProfileCode)
+      ) {
         throw new BadRequestException(
           'Accounting export profile cannot be enabled until its serializer is released for this environment.',
         );

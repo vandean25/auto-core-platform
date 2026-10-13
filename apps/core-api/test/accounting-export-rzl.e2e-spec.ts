@@ -11,6 +11,9 @@ import {
   RZL_SERIALIZER_RELEASE_ENV,
 } from '../src/finance/accounting-profile/accounting-profile.codes.js';
 import {
+  FIXED_SOURCE_CATEGORY_KEYS,
+} from '../src/finance/accounting-profile/accounting-profile.types.js';
+import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -144,7 +147,17 @@ describe('RZL accounting export (e2e)', () => {
         account_length: 4,
         fiscal_year_start_month: 1,
         default_debtor_account: '2000',
-        mapping_rules: buildDeMappingRules('20.00', revenueGroups),
+        mapping_rules: [
+          ...buildDeMappingRules('20.00', revenueGroups),
+          {
+            sourceCategoryKey: FIXED_SOURCE_CATEGORY_KEYS.VEHICLE_MARGIN,
+            sourceCategoryLabel: 'Vehicle margin scheme',
+            taxMode: 'MARGIN_SCHEME',
+            taxRate: '0.00',
+            revenueAccount: '8400',
+            taxTreatment: 'automatic',
+          },
+        ],
         serializer_params: {
           rzl: {
             firmNumber: 'FN-AT-1',
@@ -453,6 +466,42 @@ describe('RZL accounting export (e2e)', () => {
     expect(csv).toContain('B;AR;');
     expect(csv).toContain('S;120,00;"2000";"8400";20;');
     expect(csv.endsWith('\r\n')).toBe(true);
+
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: profileWhere(),
+      data: { is_enabled: false },
+    });
+  });
+
+  it('RZ-04: refuses to save an enabled RZL profile whose firm number the file cannot carry', async () => {
+    process.env[RZL_SERIALIZER_RELEASE_ENV] = 'true';
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: profileWhere(),
+      data: { is_enabled: true },
+    });
+    const current = await request(app.getHttpServer())
+      .get(`/api/legal-entities/${atEntityId}/accounting-profile`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const saved = await request(app.getHttpServer())
+      .patch(`/api/legal-entities/${atEntityId}/accounting-profile`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        expectedVersion: current.body.version,
+        isEnabled: true,
+        serializerParams: {
+          rzl: {
+            firmNumber: 'FN;AT-1',
+            costCenterLength: null,
+            steuercodes: { vat20: '20', vat13: '13', vat10: '10' },
+          },
+        },
+      })
+      .expect(400);
+    expect(JSON.stringify(saved.body)).toContain(
+      'RZL export configuration is incomplete: firm_number',
+    );
 
     await tenantPrisma.legalEntityAccountingProfile.update({
       where: profileWhere(),

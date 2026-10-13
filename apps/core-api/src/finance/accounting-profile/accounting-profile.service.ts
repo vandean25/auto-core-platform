@@ -100,7 +100,9 @@ export class AccountingProfileService {
     );
 
     const revenueGroups = await this.loadRevenueGroups(tenantId);
-    if (patch.isEnabled === true && !existing.is_enabled) {
+    // Checked on every save that keeps the profile enabled, not only on enabling,
+    // so an enabled profile cannot be saved into an incomplete state.
+    if (patch.isEnabled === true) {
       this.assertProfileReadyForEnablement(
         existing,
         patch,

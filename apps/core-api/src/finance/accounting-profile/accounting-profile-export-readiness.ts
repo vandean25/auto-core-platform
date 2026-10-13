@@ -3,6 +3,7 @@ import {
   isRzlProfileCode,
 } from './accounting-profile.codes.js';
 import type { RzlSerializerParams } from './accounting-profile.serializer-params.js';
+import { isRzlSafeText } from './rzl-text-rules.js';
 
 /**
  * Export-only configuration gaps for the RZL profile. These deliberately do not
@@ -24,7 +25,7 @@ export type RzlExportMissingField =
   (typeof RZL_EXPORT_MISSING_FIELDS)[keyof typeof RZL_EXPORT_MISSING_FIELDS];
 
 const RZL_EXPORT_MISSING_FIELD_LABELS: Record<RzlExportMissingField, string> = {
-  firm_number: 'firm number (Firmennummer)',
+  firm_number: 'firm number (Firmennummer, plain text without ; or quotes)',
   steuercode_vat20: 'Steuercode for 20% VAT',
   steuercode_vat13: 'Steuercode for 13% VAT',
   steuercode_vat10: 'Steuercode for 10% VAT',
@@ -60,7 +61,8 @@ export function computeRzlExportMissingFields(
   const missing: RzlExportMissingField[] = [];
   const steuercodes = input.serializerParams.steuercodes ?? {};
 
-  if (!input.serializerParams.firmNumber?.trim()) {
+  const firmNumber = input.serializerParams.firmNumber?.trim();
+  if (!firmNumber || !isRzlSafeText(firmNumber)) {
     missing.push(RZL_EXPORT_MISSING_FIELDS.FIRM_NUMBER);
   }
   if (!steuercodes.vat20?.trim()) {
@@ -81,7 +83,8 @@ export function computeRzlExportMissingFields(
   if (input.accountLength === null || input.accountLength < 1) {
     missing.push(RZL_EXPORT_MISSING_FIELDS.ACCOUNT_LENGTH);
   }
-  if (!input.defaultDebtorAccount?.trim()) {
+  const debtorAccount = input.defaultDebtorAccount?.trim();
+  if (!debtorAccount || !isRzlSafeText(debtorAccount)) {
     missing.push(RZL_EXPORT_MISSING_FIELDS.DEFAULT_DEBTOR_ACCOUNT);
   }
 

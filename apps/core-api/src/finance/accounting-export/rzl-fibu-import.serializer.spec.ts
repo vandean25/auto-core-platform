@@ -136,19 +136,19 @@ describe('rzl-fibu-import serializer', () => {
 
   it('rejects characters outside Windows-1252 instead of replacing them', () => {
     expect(() => serialize([row({ bookingText: 'Test 😀' })])).toThrow(
-      'not encodable in Windows-1252',
+      'cannot be written to a Windows-1252 import file',
     );
   });
 
   it('rejects separators, quotes and formula-leading text', () => {
     expect(() => serialize([row({ bookingText: 'A;B' })])).toThrow(
-      'unsupported characters',
+      'cannot be written to a Windows-1252 import file',
     );
     expect(() => serialize([row({ bookingText: 'say "hi"' })])).toThrow(
-      'unsupported characters',
+      'cannot be written to a Windows-1252 import file',
     );
     expect(() => serialize([row({ bookingText: '=SUM(A1)' })])).toThrow(
-      'unsupported characters',
+      'cannot be written to a Windows-1252 import file',
     );
   });
 

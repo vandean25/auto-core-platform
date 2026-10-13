@@ -43,6 +43,21 @@ describe('computeRzlExportMissingFields', () => {
     ]);
   });
 
+  it('reports free text the RZL file cannot carry as missing', () => {
+    expect(
+      computeRzlExportMissingFields({
+        ...complete,
+        serializerParams: { ...complete.serializerParams, firmNumber: '-123' },
+      }),
+    ).toEqual([RZL_EXPORT_MISSING_FIELDS.FIRM_NUMBER]);
+    expect(
+      computeRzlExportMissingFields({
+        ...complete,
+        defaultDebtorAccount: '2000;1',
+      }),
+    ).toEqual([RZL_EXPORT_MISSING_FIELDS.DEFAULT_DEBTOR_ACCOUNT]);
+  });
+
   it('does not apply RZL rules to DATEV profiles', () => {
     expect(
       computeRzlExportMissingFields({

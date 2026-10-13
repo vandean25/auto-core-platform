@@ -130,6 +130,19 @@ describe('accounting-profile.validation', () => {
     expect(patch.isEnabled).toBe(false);
   });
 
+  it('disables an enabled AT profile that switches to a DATEV serializer', () => {
+    const patch = validateAccountingProfilePatch(
+      { profileCode: DEFAULT_DE_PROFILE_CODE, chart: 'SKR03' },
+      {
+        countryIso: 'AT',
+        currentProfileCode: DEFAULT_AT_PROFILE_CODE,
+        currentChart: 'UGB',
+        currentIsEnabled: true,
+      },
+    );
+    expect(patch.isEnabled).toBe(false);
+  });
+
   describe('RZL release gate', () => {
     const originalFlag = process.env[RZL_SERIALIZER_RELEASE_ENV];
 
@@ -169,6 +182,37 @@ describe('accounting-profile.validation', () => {
       const patch = validateAccountingProfilePatch(
         { isEnabled: true },
         deContext,
+      );
+      expect(patch.isEnabled).toBe(true);
+    });
+
+    it('blocks switching an enabled profile onto RZL while the flag is off', () => {
+      setRzlRelease(undefined);
+      expect(() =>
+        validateAccountingProfilePatch(
+          { profileCode: DEFAULT_AT_PROFILE_CODE, chart: 'UGB', isEnabled: true },
+          {
+            countryIso: 'AT',
+            currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+            currentChart: 'SKR03',
+            currentIsEnabled: true,
+          },
+        ),
+      ).toThrow(
+        'Accounting export profile cannot be enabled until its serializer is released',
+      );
+    });
+
+    it('allows an enabled profile to switch onto RZL once the flag is on', () => {
+      setRzlRelease('true');
+      const patch = validateAccountingProfilePatch(
+        { profileCode: DEFAULT_AT_PROFILE_CODE, chart: 'UGB', isEnabled: true },
+        {
+          countryIso: 'AT',
+          currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+          currentChart: 'SKR03',
+          currentIsEnabled: true,
+        },
       );
       expect(patch.isEnabled).toBe(true);
     });

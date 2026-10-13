@@ -3,10 +3,12 @@ import {
   parseAccountingProfileSerializerParams,
   type RzlSteuercodes,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
+import { isRzlSafeText } from '../accounting-profile/rzl-text-rules.js';
 import type { AccountingExportBlockerCode } from './accounting-export.types.js';
+import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
 import { RZL_STEUERCODE_KEY_BY_TAX_RATE } from './rzl-format.constants.js';
 
-export type AccountingExportTaxRateIssue = {
+export type AccountingExportRuleIssue = {
   code: AccountingExportBlockerCode;
   message: string;
 };
@@ -19,7 +21,11 @@ export type AccountingExportAllocationRules = {
   countryIso: 'DE' | 'AT';
   unsupportedCountryMessage: string;
   allowManualBu: boolean;
-  taxRateIssue(taxRate: string): AccountingExportTaxRateIssue | null;
+  taxRateIssue(taxRate: string): AccountingExportRuleIssue | null;
+  /** Optional per-allocation check for text the export file cannot carry. */
+  allocationIssue?(
+    allocation: ResolvedAccountingAllocation,
+  ): AccountingExportRuleIssue | null;
 };
 
 export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules = {
@@ -44,6 +50,21 @@ export function buildRzlAllocationRules(
     unsupportedCountryMessage:
       'Only AT STANDARD VAT allocations can be exported with the RZL profile.',
     allowManualBu: false,
+    allocationIssue(allocation) {
+      const accounts = [
+        ['Revenue account', allocation.revenueAccount],
+        ['Debtor account', allocation.debtorAccount],
+      ] as const;
+      for (const [label, account] of accounts) {
+        if (!isRzlSafeText(account)) {
+          return {
+            code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+            message: `${label} ${account} cannot be written to an RZL file. Use plain text without ; or quotes.`,
+          };
+        }
+      }
+      return null;
+    },
     taxRateIssue(taxRate) {
       const normalized = Number(taxRate).toFixed(2);
       if (normalized === '0.00') {

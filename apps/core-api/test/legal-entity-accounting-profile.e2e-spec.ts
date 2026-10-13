@@ -159,6 +159,43 @@ describe('Legal entity accounting profile (e2e)', () => {
       .expect(400);
   });
 
+  it('rejects saving an enabled DATEV profile once its mapping is incomplete', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const entity = await tenantPrisma.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: 'Hamburg Motors GmbH',
+        country_iso: 'DE',
+        is_active: true,
+      },
+    });
+
+    const initial = await request(app.getHttpServer())
+      .get(`/legal-entities/${entity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .expect(200);
+
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: {
+        tenant_id_legal_entity_id: {
+          tenant_id: tenantA.tenantId,
+          legal_entity_id: entity.id,
+        },
+      },
+      data: { is_enabled: true },
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        expectedVersion: initial.body.version,
+        advisorNumber: '12345',
+        isEnabled: true,
+      })
+      .expect(400);
+  });
+
   it('returns 404 for another tenant legal entity', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
     const entity = await tenantPrisma.legalEntity.findFirstOrThrow({

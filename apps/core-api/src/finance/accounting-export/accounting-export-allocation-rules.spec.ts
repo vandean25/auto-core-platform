@@ -3,8 +3,19 @@ import {
   buildRzlAllocationRules,
   DATEV_ALLOCATION_RULES,
 } from './accounting-export-allocation-rules.js';
+import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
 
 const fullSteuercodes = { vat20: '20', vat13: '13', vat10: '10' };
+
+function allocation(
+  overrides: Partial<ResolvedAccountingAllocation> = {},
+): ResolvedAccountingAllocation {
+  return {
+    revenueAccount: '8400',
+    debtorAccount: '2000',
+    ...overrides,
+  } as ResolvedAccountingAllocation;
+}
 
 describe('accounting-export allocation rules', () => {
   it('keeps the DATEV rules: DE country, manual BU allowed, any rate accepted', () => {
@@ -73,5 +84,34 @@ describe('accounting-export allocation rules', () => {
 
     expect(rules.countryIso).toBe('AT');
     expect(rules.taxRateIssue('10.00')).toBeNull();
+  });
+
+  it('accepts plain revenue and debtor accounts on RZL lines', () => {
+    expect(
+      buildRzlAllocationRules(fullSteuercodes).allocationIssue?.(allocation()),
+    ).toBeNull();
+  });
+
+  it('blocks revenue and debtor accounts the RZL file cannot carry', () => {
+    const rules = buildRzlAllocationRules(fullSteuercodes);
+
+    expect(
+      rules.allocationIssue?.(allocation({ revenueAccount: '8400;1' })),
+    ).toEqual({
+      code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+      message:
+        'Revenue account 8400;1 cannot be written to an RZL file. Use plain text without ; or quotes.',
+    });
+    expect(
+      rules.allocationIssue?.(allocation({ debtorAccount: '"2000"' })),
+    ).toEqual({
+      code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+      message:
+        'Debtor account "2000" cannot be written to an RZL file. Use plain text without ; or quotes.',
+    });
+  });
+
+  it('leaves DATEV rules without an allocation check', () => {
+    expect(DATEV_ALLOCATION_RULES.allocationIssue).toBeUndefined();
   });
 });

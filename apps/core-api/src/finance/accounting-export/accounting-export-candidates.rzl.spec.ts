@@ -17,6 +17,7 @@ type TestLine = {
   id: string;
   gross: string;
   taxRate: string;
+  revenueAccount?: string;
   countryIso?: 'AT' | 'DE';
   taxTreatment?: 'automatic' | 'manual_bu';
   buKey?: string | null;
@@ -28,7 +29,7 @@ function allocationFor(line: TestLine) {
     profileVersion: 1,
     sourceCategoryKey: 'manual_line',
     sourceCategoryLabel: 'Manual invoice lines',
-    revenueAccount: '8400',
+    revenueAccount: line.revenueAccount ?? '8400',
     debtorAccount: '2000',
     taxMode: 'STANDARD',
     taxRate: line.taxRate,
@@ -233,5 +234,45 @@ describe('accounting-export candidate blockers for the RZL profile', () => {
     expect(atBlockers[0]?.message).toBe(
       'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
     );
+  });
+
+  it('blocks revenue accounts the RZL file cannot carry', () => {
+    const blockers = collectBlockersForInvoice(
+      invoiceFixture([
+        {
+          id: 'l-acc',
+          gross: '120.00',
+          taxRate: '20.00',
+          revenueAccount: '8400;1',
+        },
+      ]),
+      rzlRules,
+    );
+
+    expect(blockers).toEqual([
+      expect.objectContaining({
+        code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+        message:
+          'Revenue account 8400;1 cannot be written to an RZL file. Use plain text without ; or quotes.',
+      }),
+    ]);
+  });
+
+  it('applies the revenue account check to credit notes', () => {
+    expect(
+      blockerCodes(
+        collectBlockersForCreditNote(
+          creditFixture([
+            {
+              id: 'c-acc',
+              gross: '5.00',
+              taxRate: '20.00',
+              revenueAccount: '"8400"',
+            },
+          ]),
+          rzlRules,
+        ),
+      ),
+    ).toEqual(['ACCOUNTING_MAPPING_INCOMPLETE']);
   });
 });

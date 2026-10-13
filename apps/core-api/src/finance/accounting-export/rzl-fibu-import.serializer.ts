@@ -5,6 +5,7 @@ import {
   parseAccountingProfileSerializerParams,
   type RzlSteuercodes,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
+import { isRzlSafeText } from '../accounting-profile/rzl-text-rules.js';
 import type {
   AccountingExportBookingRow,
   AccountingExportProfileSnapshot,
@@ -34,19 +35,13 @@ const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const ACCOUNT_LENGTH_PATTERN = /^[1-8]$/;
 
-function assertWindows1252(value: string): void {
-  const roundTrip = iconv.decode(iconv.encode(value, 'win1252'), 'win1252');
-  if (roundTrip !== value) {
-    throw new Error(`RZL field is not encodable in Windows-1252: ${value}`);
-  }
-}
-
-/** Text fields are double-quoted; quote and control characters are rejected, never escaped or truncated. */
+/** Text fields are double-quoted; text the file cannot carry is rejected, never escaped or truncated. */
 function quoteRzlText(value: string): string {
-  if (/[\r\n;"]/.test(value) || /^[=+\-@]/.test(value)) {
-    throw new Error(`RZL field contains unsupported characters: ${value}`);
+  if (!isRzlSafeText(value)) {
+    throw new Error(
+      `RZL field cannot be written to a Windows-1252 import file: ${value}`,
+    );
   }
-  assertWindows1252(value);
   return `"${value}"`;
 }
 

@@ -183,6 +183,15 @@ export function collectBlockersForInvoice(
           documentNumber: invoice.invoice_number,
         });
       }
+      const allocationIssue = rules.allocationIssue?.(allocation);
+      if (allocationIssue) {
+        blockers.push({
+          ...allocationIssue,
+          documentId: invoice.id,
+          documentKind: 'INVOICE',
+          documentNumber: invoice.invoice_number,
+        });
+      }
     }
   }
 
@@ -269,6 +278,15 @@ export function collectBlockersForCreditNote(
       if (taxRateIssue) {
         blockers.push({
           ...taxRateIssue,
+          documentId: creditNote.id,
+          documentKind: 'CREDIT_NOTE',
+          documentNumber: creditNote.credit_number,
+        });
+      }
+      const allocationIssue = rules.allocationIssue?.(allocation);
+      if (allocationIssue) {
+        blockers.push({
+          ...allocationIssue,
           documentId: creditNote.id,
           documentKind: 'CREDIT_NOTE',
           documentNumber: creditNote.credit_number,
