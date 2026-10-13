@@ -5,6 +5,10 @@ import {
   isDatevProfileCode,
   isRzlProfileCode,
 } from './accounting-profile.codes.js';
+import {
+  DEFAULT_BMD_AT_PROFILE_CODE,
+  isBmdProfileCode,
+} from './bmd-profile.codes.js';
 
 export const DATEV_ACCOUNT_CHARTS = ['SKR03', 'SKR04'] as const;
 export const AT_ACCOUNT_CHARTS = ['UGB', 'EA'] as const;
@@ -12,13 +16,23 @@ export const AT_ACCOUNT_CHARTS = ['UGB', 'EA'] as const;
 export type DatevAccountChart = (typeof DATEV_ACCOUNT_CHARTS)[number];
 export type AtAccountChart = (typeof AT_ACCOUNT_CHARTS)[number];
 
+const PROFILE_LABELS: ReadonlyMap<string, string> = new Map([
+  [DEFAULT_DE_PROFILE_CODE, 'DATEV'],
+  [DEFAULT_AT_PROFILE_CODE, 'RZL'],
+  [DEFAULT_BMD_AT_PROFILE_CODE, 'BMD'],
+]);
+
+function isAtProfileCode(profileCode: string | null | undefined): boolean {
+  return isRzlProfileCode(profileCode) || isBmdProfileCode(profileCode);
+}
+
 export function defaultChartForProfileCode(
   profileCode: string | null | undefined,
 ): string | null {
   if (isDatevProfileCode(profileCode)) {
     return DATEV_ACCOUNT_CHARTS[0];
   }
-  if (isRzlProfileCode(profileCode)) {
+  if (isAtProfileCode(profileCode)) {
     return AT_ACCOUNT_CHARTS[0];
   }
   return null;
@@ -30,7 +44,7 @@ export function allowedChartsForProfileCode(
   if (isDatevProfileCode(profileCode)) {
     return DATEV_ACCOUNT_CHARTS;
   }
-  if (isRzlProfileCode(profileCode)) {
+  if (isAtProfileCode(profileCode)) {
     return AT_ACCOUNT_CHARTS;
   }
   return null;
@@ -51,11 +65,7 @@ export function assertChartAllowedForProfile(
 
   if (!allowed.includes(chart)) {
     const profileLabel =
-      profileCode === DEFAULT_DE_PROFILE_CODE
-        ? 'DATEV'
-        : profileCode === DEFAULT_AT_PROFILE_CODE
-          ? 'RZL'
-          : 'accounting export';
+      PROFILE_LABELS.get(profileCode ?? '') ?? 'accounting export';
     throw new BadRequestException(
       `chart must be one of ${allowed.join(', ')} for ${profileLabel} profiles`,
     );
