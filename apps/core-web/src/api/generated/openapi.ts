@@ -7837,8 +7837,20 @@ export interface components {
             costCenterLength?: number | null;
             steuercodes?: components["schemas"]["RzlSteuercodesDto"];
         };
+        BmdSteuercodesDto: {
+            /** @description BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits). */
+            vat20?: string | null;
+            /** @description BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits). */
+            vat13?: string | null;
+            /** @description BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits). */
+            vat10?: string | null;
+        };
+        BmdSerializerParamsDto: {
+            steuercodes?: components["schemas"]["BmdSteuercodesDto"];
+        };
         AccountingProfileSerializerParamsDto: {
             rzl?: components["schemas"]["RzlSerializerParamsDto"];
+            bmd?: components["schemas"]["BmdSerializerParamsDto"];
         };
         AccountingMappingRuleDto: {
             sourceCategoryKey: string;
@@ -7879,9 +7891,9 @@ export interface components {
             fiscal_year_start_month?: number | null;
             default_debtor_account?: string | null;
             serializer_params: components["schemas"]["AccountingProfileSerializerParamsDto"];
-            /** @description Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED). */
+            /** @description Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED). */
             serializer_released: boolean;
-            /** @description Export-only configuration gaps (RZL firm number, Steuercodes, format version, chart). Empty when complete or not applicable. Does not affect invoice issuance. */
+            /** @description Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance. */
             export_missing_fields: string[];
             mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
             required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
@@ -7899,7 +7911,7 @@ export interface components {
             fiscalYearStartMonth?: number | null;
             defaultDebtorAccount?: string | null;
             mappingRules?: components["schemas"]["AccountingMappingRuleDto"][];
-            /** @description Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage. */
+            /** @description Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage. */
             serializerParams?: components["schemas"]["AccountingProfileSerializerParamsDto"];
             /** @description Gates accounting CSV export only; does not affect invoice issuance readiness */
             isEnabled?: boolean;
