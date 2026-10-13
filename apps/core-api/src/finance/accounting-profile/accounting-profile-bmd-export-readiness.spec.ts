@@ -1,5 +1,6 @@
 import {
   BMD_EXPORT_MISSING_FIELDS,
+  bmdExportMissingFieldLabel,
   computeBmdExportMissingFields,
 } from './accounting-profile-bmd-export-readiness.js';
 import {
@@ -43,11 +44,7 @@ describe('computeBmdExportMissingFields', () => {
   it('lists each missing Steuercode in rate order', () => {
     expect(
       computeBmdExportMissingFields({ ...complete, serializerParams: {} }),
-    ).toEqual([
-      'steuercode_vat20',
-      'steuercode_vat13',
-      'steuercode_vat10',
-    ]);
+    ).toEqual(['steuercode_vat20', 'steuercode_vat13', 'steuercode_vat10']);
   });
 
   it('treats a blank Steuercode as missing', () => {
@@ -68,6 +65,14 @@ describe('computeBmdExportMissingFields', () => {
         formatVersion: 'BMD-NTCS-ASCII-IMPORT-ACP-DRAFT-0',
       }),
     ).toEqual(['format_version']);
+  });
+
+  it('tells the admin to send formatVersion with the profile, not to save it', () => {
+    expect(
+      bmdExportMissingFieldLabel(BMD_EXPORT_MISSING_FIELDS.FORMAT_VERSION),
+    ).toBe(
+      `formatVersion ${DEFAULT_BMD_FORMAT_VERSION} must be sent with the profile`,
+    );
   });
 
   it('requires a chart, an account length and a default debtor account', () => {
@@ -97,9 +102,7 @@ describe('computeBmdExportMissingFields', () => {
   });
 
   it('exposes the stable field names used by the API', () => {
-    expect(BMD_EXPORT_MISSING_FIELDS.STEUERCODE_VAT20).toBe(
-      'steuercode_vat20',
-    );
+    expect(BMD_EXPORT_MISSING_FIELDS.STEUERCODE_VAT20).toBe('steuercode_vat20');
     expect(BMD_EXPORT_MISSING_FIELDS.DEFAULT_DEBTOR_ACCOUNT).toBe(
       'default_debtor_account',
     );

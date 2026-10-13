@@ -2,6 +2,7 @@ import type { ResolvedAccountingAllocation } from '../accounting-profile/account
 import {
   allocationRulesForProfile,
   buildBmdAllocationRules,
+  buildRzlAllocationRules,
 } from './accounting-export-allocation-rules.js';
 import { collectBlockersForInvoice } from './accounting-export-candidates.js';
 
@@ -119,7 +120,11 @@ describe('BMD allocation rules', () => {
   });
 
   it('blocks revenue or debtor accounts the file cannot carry', () => {
-    const allocation = allocationFor({ id: 'l1', gross: '1.00', taxRate: '20.00' });
+    const allocation = allocationFor({
+      id: 'l1',
+      gross: '1.00',
+      taxRate: '20.00',
+    });
 
     expect(
       bmdRules.allocationIssue?.({ ...allocation, revenueAccount: 'Erlöse' }),
@@ -133,7 +138,13 @@ describe('BMD allocation rules', () => {
   it('blocks manual BU keys with the BMD wording', () => {
     const blockers = collectBlockersForInvoice(
       invoiceFixture([
-        { id: 'l1', gross: '120.00', taxRate: '20.00', taxTreatment: 'manual_bu', buKey: '9' },
+        {
+          id: 'l1',
+          gross: '120.00',
+          taxRate: '20.00',
+          taxTreatment: 'manual_bu',
+          buKey: '9',
+        },
       ]),
       bmdRules,
     );
@@ -182,5 +193,53 @@ describe('BMD allocation rules', () => {
     expect(blockers).toContainEqual(
       expect.objectContaining({ code: 'UNSUPPORTED_EXPORT_TAX_MODE' }),
     );
+  });
+
+  it('does not block a manual BU key on a zero-gross line, which is never written', () => {
+    const blockers = collectBlockersForInvoice(
+      invoiceFixture([
+        {
+          id: 'l1',
+          gross: '0.00',
+          taxRate: '0.00',
+          taxTreatment: 'manual_bu',
+          buKey: '9',
+        },
+      ]),
+      bmdRules,
+    );
+
+    expect(blockers).toEqual([]);
+  });
+
+  it('blocks a manual BU key on a zero-gross line for RZL, which checks it before the gross test', () => {
+    const blockers = collectBlockersForInvoice(
+      invoiceFixture([
+        {
+          id: 'l1',
+          gross: '0.00',
+          taxRate: '0.00',
+          taxTreatment: 'manual_bu',
+          buKey: '9',
+        },
+      ]),
+      buildRzlAllocationRules(steuercodes),
+    );
+
+    expect(blockers).toContainEqual(
+      expect.objectContaining({ code: 'ACCOUNTING_MAPPING_INCOMPLETE' }),
+    );
+  });
+
+  it('keeps DATEV rules without parsing BMD or RZL serializer params', () => {
+    expect(() =>
+      allocationRulesForProfile('ACP-DATEV-DE-EUR-1', {
+        bmd: { steuercodes: { vat20: 5020 } },
+        rzl: { steuercodes: { vat20: 5020 } },
+      }),
+    ).not.toThrow();
+    expect(
+      allocationRulesForProfile('ACP-DATEV-DE-EUR-1', null).countryIso,
+    ).toBe('DE');
   });
 });
