@@ -36,8 +36,6 @@ import type {
   RejectAgentProposalDto,
 } from './dto/agent-proposal.dto.js';
 
-type ResolvedExecutor = PendingActionExecutor;
-
 /** Human decisions on pending proposals: reject, and approve (which executes the stored payload). */
 @Injectable()
 export class AgentProposalDecisionService {
@@ -278,7 +276,7 @@ export class AgentProposalDecisionService {
     proposal: AgentProposal,
     tenantId: string,
     approverId: string,
-  ): Promise<ResolvedExecutor> {
+  ): Promise<PendingActionExecutor> {
     try {
       return this.pendingActionExecutors.resolve(proposal.action_type);
     } catch (error) {
@@ -322,7 +320,7 @@ export class AgentProposalDecisionService {
 
   private async assertPolicyAllowsApproval(
     proposal: AgentProposal,
-    executor: ResolvedExecutor,
+    executor: PendingActionExecutor,
   ): Promise<void> {
     const evaluation = await this.policyEvaluator.evaluate(
       proposal.action_type,
@@ -361,7 +359,7 @@ export class AgentProposalDecisionService {
     proposal: AgentProposal,
     tenantId: string,
     approverId: string,
-    executor: ResolvedExecutor,
+    executor: PendingActionExecutor,
     deciderContacts: Map<string, TenantUserContact>,
   ): Promise<AgentProposalResponseDto> {
     const now = new Date();
