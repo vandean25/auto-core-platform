@@ -9,21 +9,6 @@ describe('NotificationOutboxRecoveryService', () => {
   let wakeUps: { isEnabled: jest.Mock; enqueueWakeUp: jest.Mock };
   let service: NotificationOutboxRecoveryService;
 
-  const savedMode = process.env.NOTIFICATION_EMAIL_MODE;
-
-  beforeEach(() => {
-    // Only an instance with sender settings sweeps (see isNotificationSender).
-    process.env.NOTIFICATION_EMAIL_MODE = 'off';
-  });
-
-  afterEach(() => {
-    if (savedMode === undefined) {
-      delete process.env.NOTIFICATION_EMAIL_MODE;
-    } else {
-      process.env.NOTIFICATION_EMAIL_MODE = savedMode;
-    }
-  });
-
   /** The writes in call order: the stale-unsent pass is always first, then one write per row touched. */
   const writes = () =>
     prisma.notificationOutbox.updateMany.mock.calls.map(([arg]) => arg);
@@ -55,15 +40,6 @@ describe('NotificationOutboxRecoveryService', () => {
       requestContext as never,
       wakeUps as never,
     );
-  });
-
-  it('does nothing on an instance without sender settings, such as the PDF worker', async () => {
-    delete process.env.NOTIFICATION_EMAIL_MODE;
-
-    await service.recover();
-
-    expect(systemPrisma.tenant.findMany).not.toHaveBeenCalled();
-    expect(prisma.notificationOutbox.updateMany).not.toHaveBeenCalled();
   });
 
   it('fails notices that waited past the sending window, before any wake-up', async () => {

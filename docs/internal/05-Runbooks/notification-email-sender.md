@@ -30,11 +30,11 @@ The existing `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORK
 
 **Changing the mode takes effect on the next attempt.** Setting `NOTIFICATION_EMAIL_MODE=off` is the rollback: queued rows are then suppressed, not sent.
 
-The boot check refuses a notification target equal to `CLOUD_TASKS_TARGET_BASE_URL` (trailing slashes ignored), and a notification queue equal to `CLOUD_TASKS_QUEUE`. Either would send wake-ups to the PDF side, where no notification setting exists, and the rows would be suppressed silently.
+In production, the boot check refuses a notification target on the same origin as `CLOUD_TASKS_TARGET_BASE_URL` (scheme, host and port; the path does not matter). It refuses a notification queue equal to `CLOUD_TASKS_QUEUE` in any environment. Either would send wake-ups to the PDF side, which holds no `NOTIFICATION_*` setting. There the route answers 404, and the rows wait until a sender answers or the sweep fails them as `STALE_UNSENT`.
 
 In production, a `live` deploy also needs `CLOUD_TASKS_NOTIFICATION_QUEUE`, `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA` and `CLOUD_TASKS_WORKER_SECRET`, and it must not set `CLOUD_TASKS_ENABLED=false`. The boot check refuses it otherwise, because no row would be woken.
 
-An instance serves the sender only when `NOTIFICATION_EMAIL_MODE` is set. Set it on core-api, and never on the PDF worker. A wake-up that reaches an instance without it gets a 404, so Cloud Tasks reports it, and the row is not suppressed.
+The worker route answers only when `NOTIFICATION_EMAIL_MODE` is set, and any non-blank value counts, `off` included. Set it on core-api, and never on the PDF worker. Unset is not off: a wake-up that reaches an instance without it gets a 404, so Cloud Tasks reports it, and nothing is suppressed. `off` runs the sender and records each due row as `SUPPRESSED`. The recovery sweep and the body purge run on every instance, whatever the mode.
 
 ## 3. Secrets (GSM names only, no values in the repository)
 

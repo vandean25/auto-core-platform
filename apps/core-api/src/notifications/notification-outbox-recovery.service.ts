@@ -5,7 +5,6 @@ import { RequestContextService } from '../common/services/request-context.servic
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { NotificationCloudTasksService } from './notification-cloud-tasks.service.js';
-import { isNotificationSender } from './notification-delivery.config.js';
 import {
   NOTIFICATION_UNSENT_WINDOW_MS,
   nextRetryDelaySeconds,
@@ -45,10 +44,6 @@ export class NotificationOutboxRecoveryService {
     name: 'notification-outbox-recovery',
   })
   async recover(): Promise<void> {
-    if (!isNotificationSender()) {
-      // Only an instance that holds sender settings sweeps. The PDF worker runs this module too, and must not.
-      return;
-    }
     // A slow run must not stack a second sweep on top of it; the next minute picks up the rest.
     if (this.running) {
       return;

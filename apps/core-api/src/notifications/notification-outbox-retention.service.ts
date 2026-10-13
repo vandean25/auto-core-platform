@@ -3,7 +3,6 @@ import { Cron } from '@nestjs/schedule';
 import { NotificationOutboxStatus } from '@prisma/client';
 import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { isNotificationSender } from './notification-delivery.config.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
 /** Message bodies are cleared this long after creation (ADR-0025 §10). Metadata is kept. */
@@ -25,9 +24,6 @@ export class NotificationOutboxRetentionService {
 
   @Cron('17 3 * * *', { name: 'notification-outbox-body-purge' })
   async purgeBodies(): Promise<void> {
-    if (!isNotificationSender()) {
-      return;
-    }
     const tenants = await this.systemPrisma.tenant.findMany({
       select: { id: true },
     });

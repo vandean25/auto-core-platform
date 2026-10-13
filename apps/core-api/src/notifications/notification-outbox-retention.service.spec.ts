@@ -4,27 +4,18 @@ import {
 } from './notification-outbox-retention.service.js';
 
 describe('NotificationOutboxRetentionService', () => {
-  const savedMode = process.env.NOTIFICATION_EMAIL_MODE;
-
-  beforeEach(() => {
-    process.env.NOTIFICATION_EMAIL_MODE = 'off';
-  });
-
-  afterEach(() => {
-    if (savedMode === undefined) {
-      delete process.env.NOTIFICATION_EMAIL_MODE;
-    } else {
-      process.env.NOTIFICATION_EMAIL_MODE = savedMode;
-    }
-  });
-
-  it('does nothing on an instance without sender settings, such as the PDF worker', async () => {
-    delete process.env.NOTIFICATION_EMAIL_MODE;
-    const prisma = { notificationOutbox: { updateMany: jest.fn() } };
+  it('purges bodies on any instance, since the purge sends nothing', async () => {
+    const prisma = {
+      notificationOutbox: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
     const systemPrisma = {
       tenant: { findMany: jest.fn().mockResolvedValue([{ id: 'tenant-1' }]) },
     };
-    const requestContext = { runAsWorker: jest.fn() };
+    const requestContext = {
+      runAsWorker: jest.fn((_t: string, run: () => unknown) => run()),
+    };
     const service = new NotificationOutboxRetentionService(
       prisma as never,
       systemPrisma as never,
@@ -33,8 +24,7 @@ describe('NotificationOutboxRetentionService', () => {
 
     await service.purgeBodies();
 
-    expect(systemPrisma.tenant.findMany).not.toHaveBeenCalled();
-    expect(prisma.notificationOutbox.updateMany).not.toHaveBeenCalled();
+    expect(prisma.notificationOutbox.updateMany).toHaveBeenCalled();
   });
 
   it('clears bodies of terminal rows older than the retention window, per tenant', async () => {

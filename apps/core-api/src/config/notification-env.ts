@@ -100,13 +100,16 @@ export function notificationEnvIssues(
   const notificationOrigin = originOf(
     env.CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL,
   );
+  const sharesPdfOrigin =
+    notificationOrigin !== undefined &&
+    notificationOrigin === originOf(env.CLOUD_TASKS_TARGET_BASE_URL);
+  // A value that is not an http(s) URL is refused everywhere. In production, two targets on one origin are one
+  // Cloud Run service, and the PDF service holds no notification settings, so a wake-up sent there would be
+  // suppressed or lost. Locally one process serves both targets, so sharing an origin is harmless there.
   if (
     notificationOrigin === null ||
-    (notificationOrigin !== undefined &&
-      notificationOrigin === originOf(env.CLOUD_TASKS_TARGET_BASE_URL))
+    (env.NODE_ENV === 'production' && sharesPdfOrigin)
   ) {
-    // Two targets on one origin are one Cloud Run service. The PDF service holds no notification settings,
-    // so a wake-up sent there would be suppressed or lost.
     issues.push({
       key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL',
       kind: 'invalid',

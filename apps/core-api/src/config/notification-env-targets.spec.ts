@@ -7,6 +7,7 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     expect(
       notificationEnvIssues({
         ...base,
+        NODE_ENV: 'production',
         CLOUD_TASKS_TARGET_BASE_URL: 'https://worker.example/api',
         CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL: 'https://worker.example/api/',
       }),
@@ -19,6 +20,7 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     expect(
       notificationEnvIssues({
         ...base,
+        NODE_ENV: 'production',
         CLOUD_TASKS_TARGET_BASE_URL: 'https://worker.example/api',
         CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
           'https://Worker.example:443/other',
@@ -26,6 +28,16 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     ).toEqual([
       { key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL', kind: 'invalid' },
     ]);
+  });
+
+  it('allows a shared origin in development, where one process serves both targets', () => {
+    expect(
+      notificationEnvIssues({
+        ...base,
+        CLOUD_TASKS_TARGET_BASE_URL: 'http://localhost:3000/api',
+        CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL: 'http://localhost:3000/api',
+      }),
+    ).toEqual([]);
   });
 
   it('refuses a notification target that is not a URL', () => {
