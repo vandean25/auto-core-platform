@@ -210,6 +210,41 @@ describe('customer email templates (AUT-356 phase 3)', () => {
         vehicleLabel: '',
       }),
     ).toThrow('vehicleLabel');
+    expect(() =>
+      renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001\nBcc: someone@example.at',
+        vehicleLabel: 'VW Golf',
+        approvalUrl: APPROVAL_URL,
+        validUntil: VALID_UNTIL,
+      }),
+    ).toThrow('estimateNumber');
+    expect(() =>
+      renderOrderReadyEmail({
+        ...RECIPIENT,
+        senderName: '  ',
+        orderNumber: 'WO-2026-0001',
+        vehicleLabel: 'Skoda Octavia',
+      }),
+    ).toThrow('senderName');
+    expect(() =>
+      renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        vehicleLabel: 'VW Golf',
+        approvalUrl: 'https://portal.example.at/approve/ab\ncd',
+        validUntil: VALID_UNTIL,
+      }),
+    ).toThrow('approvalUrl');
+    expect(() =>
+      renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        vehicleLabel: 'VW Golf',
+        approvalUrl: 'https://portal.example.at/approve/ab cd',
+        validUntil: VALID_UNTIL,
+      }),
+    ).toThrow('approvalUrl');
   });
 
   it('produces drafts the outbox writer accepts, so a bad field cannot reach the worker', () => {

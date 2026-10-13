@@ -1,4 +1,5 @@
 import type { EmailDraft } from '../notification-outbox.email-columns.js';
+import { isSingleLineText } from '../email/header-text.js';
 
 /**
  * Customer messages in the formal German Sie form (ADR-0025 section 6, AUT-360 D16: transactional).
@@ -92,16 +93,30 @@ export function renderOrderReadyEmail(input: OrderReadyInput): EmailDraft {
   });
 }
 
-/** A value the copy is built from. A blank one fails here rather than reaching a customer. */
+/**
+ * A value the copy is built from. A blank or multi-line value fails here: the writer would refuse it
+ * later, and a line break in a subject would reach the header.
+ */
 function requiredText(name: string, value: string): string {
-  if (value.trim() === '') {
-    throw new Error(`Customer message field ${name} must not be blank`);
+  if (value.trim() === '' || !isSingleLineText(value)) {
+    throw new Error(
+      `Customer message field ${name} must be a non-blank single line`,
+    );
   }
   return value;
 }
 
-/** The estimate link. The message has no attachment, so this link is the only way to the estimate. */
+/**
+ * The estimate link. The message has no attachment, so this link is the only way to the estimate. Spaces
+ * and line breaks are refused before parsing: the URL parser would silently drop or trim them, and the
+ * customer would then get a different link from the one that was checked.
+ */
 function requiredHttpsUrl(name: string, value: string): string {
+  if (/\s/.test(value) || !isSingleLineText(value)) {
+    throw new Error(
+      `Customer message field ${name} must be an absolute https URL`,
+    );
+  }
   try {
     if (new URL(value).protocol === 'https:') {
       return value;
@@ -119,16 +134,17 @@ function draft(
   templateId: string,
   content: { subject: string; paragraphs: string[] },
 ): EmailDraft {
+  const senderName = requiredText('senderName', input.senderName);
   const salutation = input.greeting?.trim() || DEFAULT_GREETING;
   return {
     recipientEmail: input.recipientEmail,
-    senderName: input.senderName,
+    senderName,
     replyToEmail: input.replyToEmail ?? null,
     subject: content.subject,
     text: [
       `${salutation},`,
       ...content.paragraphs,
-      `${CLOSING}\n${input.senderName}`,
+      `${CLOSING}\n${senderName}`,
     ].join('\n\n'),
     templateId,
     templateVersion: CUSTOMER_TEMPLATE_VERSION,
