@@ -2,7 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 import { assertChartAllowedForProfile } from './accounting-chart-catalog.js';
 import {
   isDatevProfileCode,
-  isExportSerializerImplemented,
+  isExportSerializerReleased,
+  isRzlProfileCode,
 } from './accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
@@ -133,6 +134,7 @@ export type AccountingProfileValidationContext = {
   countryIso: 'AT' | 'DE';
   currentProfileCode: string | null;
   currentChart: string | null;
+  currentIsEnabled?: boolean;
 };
 
 function resolveProfileCodeAfterPatch(
@@ -220,24 +222,33 @@ export function validateAccountingProfilePatch(
     assertChartAllowedForProfile(effectiveProfileCode, effectiveChart);
   }
 
-  if (
-    profileCodeChanged &&
-    !isExportSerializerImplemented(effectiveProfileCode) &&
-    patch.isEnabled === undefined
-  ) {
+  // A serializer switch never keeps the profile enabled: it must be enabled again.
+  if (profileCodeChanged && patch.isEnabled === undefined) {
     normalized.isEnabled = false;
   }
 
   if (patch.isEnabled !== undefined) {
     if (patch.isEnabled) {
-      if (!isExportSerializerImplemented(effectiveProfileCode)) {
+      // Enabling needs the release gate, and so does switching an enabled profile to
+      // another serializer. Autosaves of an enabled profile on a released serializer
+      // must still succeed, e.g. when only the firm number changes.
+      const enabling = !context.currentIsEnabled;
+      if (
+        (enabling || profileCodeChanged) &&
+        !isExportSerializerReleased(effectiveProfileCode)
+      ) {
         throw new BadRequestException(
-          'Accounting export profile cannot be enabled until the serializer is approved and implemented.',
+          'Accounting export profile cannot be enabled until its serializer is released for this environment.',
         );
       }
       if (isDatevProfileCode(effectiveProfileCode) && countryIso !== 'DE') {
         throw new BadRequestException(
           'DATEV export profile can only be enabled for DE legal entities',
+        );
+      }
+      if (isRzlProfileCode(effectiveProfileCode) && countryIso !== 'AT') {
+        throw new BadRequestException(
+          'RZL export profile can only be enabled for AT legal entities',
         );
       }
     }

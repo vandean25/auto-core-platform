@@ -7824,9 +7824,18 @@ export interface components {
             payment_terms_text?: string | null;
             seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
         };
+        RzlSteuercodesDto: {
+            /** @description RZL Steuercode for 20% VAT (1 to 4 digits). */
+            vat20?: string | null;
+            /** @description RZL Steuercode for 13% VAT (1 to 4 digits). */
+            vat13?: string | null;
+            /** @description RZL Steuercode for 10% VAT (1 to 4 digits). */
+            vat10?: string | null;
+        };
         RzlSerializerParamsDto: {
             firmNumber?: string | null;
             costCenterLength?: number | null;
+            steuercodes?: components["schemas"]["RzlSteuercodesDto"];
         };
         AccountingProfileSerializerParamsDto: {
             rzl?: components["schemas"]["RzlSerializerParamsDto"];
@@ -7870,6 +7879,10 @@ export interface components {
             fiscal_year_start_month?: number | null;
             default_debtor_account?: string | null;
             serializer_params: components["schemas"]["AccountingProfileSerializerParamsDto"];
+            /** @description Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED). */
+            serializer_released: boolean;
+            /** @description Export-only configuration gaps (RZL firm number, Steuercodes, format version, chart). Empty when complete or not applicable. Does not affect invoice issuance. */
+            export_missing_fields: string[];
             mapping_rules: components["schemas"]["AccountingMappingRuleDto"][];
             required_source_categories: components["schemas"]["SourceCategoryDefinitionDto"][];
             mapping_readiness: components["schemas"]["AccountingProfileReadinessDto"];

@@ -1,7 +1,20 @@
 export const DEFAULT_DE_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1';
 export const DEFAULT_AT_PROFILE_CODE = 'ACP-RZL-AT-EUR-1';
 export const DEFAULT_FORMAT_VERSION = 'EXTF-700-Buchungsstapel-13';
-export const DEFAULT_RZL_FORMAT_VERSION = 'RZL-FIBU-IMPORT-PENDING';
+/**
+ * ACP identifier of the RZL FIBU import layout implemented in
+ * `rzl-fibu-import.serializer.ts`. It is not a version number published by RZL:
+ * the official RZL specification could not be retrieved while this layout was
+ * written. See docs/internal/02-Feature-Specs/Finance/rzl-accounting-export.md.
+ */
+export const DEFAULT_RZL_FORMAT_VERSION = 'RZL-FIBU-IMPORT-ACP-DRAFT-1';
+/** Platform release gate for RZL CSV generation and enablement. Default OFF until AUT-368. */
+export const RZL_SERIALIZER_RELEASE_ENV =
+  'ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED';
+
+export function isRzlSerializerReleased(): boolean {
+  return process.env[RZL_SERIALIZER_RELEASE_ENV] === 'true';
+}
 
 export function isDatevProfileCode(
   profileCode: string | null | undefined,
@@ -15,10 +28,20 @@ export function isRzlProfileCode(
   return profileCode === DEFAULT_AT_PROFILE_CODE;
 }
 
-export function isExportSerializerImplemented(
+/**
+ * Whether a profile may be enabled and generate CSV. DATEV is released for DE
+ * (AUT-307); RZL stays closed until the platform flag is on (AUT-368 validation).
+ */
+export function isExportSerializerReleased(
   profileCode: string | null | undefined,
 ): boolean {
-  return isDatevProfileCode(profileCode);
+  if (isDatevProfileCode(profileCode)) {
+    return true;
+  }
+  if (isRzlProfileCode(profileCode)) {
+    return isRzlSerializerReleased();
+  }
+  return false;
 }
 
 export function defaultProfileCodeForCountry(
