@@ -247,7 +247,86 @@ describe('customer email templates (AUT-356 phase 3)', () => {
     ).toThrow('approvalUrl');
   });
 
-  it('produces drafts the outbox writer accepts, so a bad field cannot reach the worker', () => {
+  it('refuses a multi-line order number, vehicle label or sender name', () => {
+    expect(() =>
+      renderOrderReadyEmail({
+        ...RECIPIENT,
+        orderNumber: 'WO-2026-0001\nBcc: someone@example.at',
+        vehicleLabel: 'Skoda Octavia',
+      }),
+    ).toThrow('orderNumber');
+    expect(() =>
+      renderOrderReadyEmail({
+        ...RECIPIENT,
+        orderNumber: 'WO-2026-0001',
+        vehicleLabel: 'Skoda\nOctavia',
+      }),
+    ).toThrow('vehicleLabel');
+    expect(() =>
+      renderOrderReadyEmail({
+        ...RECIPIENT,
+        senderName: 'Werkstatt\nBcc: someone@example.at',
+        orderNumber: 'WO-2026-0001',
+        vehicleLabel: 'Skoda Octavia',
+      }),
+    ).toThrow('senderName');
+  });
+
+  it('refuses a date that is missing or invalid, rather than printing a wrong one', () => {
+    expect(() =>
+      renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        vehicleLabel: 'VW Golf',
+        approvalUrl: APPROVAL_URL,
+        validUntil: undefined as unknown as Date,
+      }),
+    ).toThrow('validUntil');
+    expect(() =>
+      renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        vehicleLabel: 'VW Golf',
+        approvalUrl: APPROVAL_URL,
+        validUntil: new Date('not a date'),
+      }),
+    ).toThrow('validUntil');
+    expect(() =>
+      renderEstimateApprovalConfirmedEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        approvedAt: undefined as unknown as Date,
+      }),
+    ).toThrow('approvedAt');
+    expect(() =>
+      renderEstimateApprovalConfirmedEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        approvedAt: new Date('not a date'),
+      }),
+    ).toThrow('approvedAt');
+  });
+
+  it('refuses a link that is not written as https://host, or that carries credentials', () => {
+    for (const approvalUrl of [
+      'https:portal.example.at/approve/demo-token',
+      'https:/portal.example.at/approve/demo-token',
+      'https://user:pw@portal.example.at/approve/demo-token',
+      'https://user@portal.example.at/approve/demo-token',
+    ]) {
+      expect(() =>
+        renderEstimateSentEmail({
+          ...RECIPIENT,
+          estimateNumber: 'KV-2026-0001',
+          vehicleLabel: 'VW Golf',
+          approvalUrl,
+          validUntil: VALID_UNTIL,
+        }),
+      ).toThrow('approvalUrl');
+    }
+  });
+
+  it('produces drafts the outbox writer accepts', () => {
     const drafts = [
       renderEstimateSentEmail({
         ...RECIPIENT,

@@ -58,12 +58,13 @@ export function renderEstimateSentEmail(input: EstimateSentInput): EmailDraft {
   const estimateNumber = requiredText('estimateNumber', input.estimateNumber);
   const vehicleLabel = requiredText('vehicleLabel', input.vehicleLabel);
   const approvalUrl = requiredHttpsUrl('approvalUrl', input.approvalUrl);
+  const validUntil = requiredInstant('validUntil', input.validUntil);
   return draft(input, CUSTOMER_TEMPLATE_IDS.estimateSent, {
     subject: `Kostenvoranschlag ${estimateNumber}`,
     paragraphs: [
       `wir haben für Ihr Fahrzeug ${vehicleLabel} den Kostenvoranschlag ${estimateNumber} erstellt.`,
       `Den Kostenvoranschlag können Sie unter folgendem Link einsehen: ${approvalUrl}`,
-      `Der Kostenvoranschlag ist gültig bis ${formatValidUntil(input.validUntil)} Uhr. Bitte prüfen Sie ihn in Ruhe. ${CONTACT_SENTENCE}`,
+      `Der Kostenvoranschlag ist gültig bis ${formatValidUntil(validUntil)} Uhr. Bitte prüfen Sie ihn in Ruhe. ${CONTACT_SENTENCE}`,
     ],
   });
 }
@@ -72,10 +73,11 @@ export function renderEstimateApprovalConfirmedEmail(
   input: EstimateApprovalConfirmedInput,
 ): EmailDraft {
   const estimateNumber = requiredText('estimateNumber', input.estimateNumber);
+  const approvedAt = requiredInstant('approvedAt', input.approvedAt);
   return draft(input, CUSTOMER_TEMPLATE_IDS.estimateApprovalConfirmed, {
     subject: `Bestätigung Ihrer Freigabe: Kostenvoranschlag ${estimateNumber}`,
     paragraphs: [
-      `vielen Dank für Ihre Freigabe des Kostenvoranschlags ${estimateNumber} am ${formatDate(input.approvedAt)}.`,
+      `vielen Dank für Ihre Freigabe des Kostenvoranschlags ${estimateNumber} am ${formatDate(approvedAt)}.`,
       `Wir bestätigen Ihre Freigabe hiermit. ${CONTACT_SENTENCE}`,
     ],
   });
@@ -107,26 +109,40 @@ function requiredText(name: string, value: string): string {
 }
 
 /**
- * The estimate link. The message has no attachment, so this link is the only way to the estimate. Spaces
- * and line breaks are refused before parsing: the URL parser would silently drop or trim them, and the
- * customer would then get a different link from the one that was checked.
+ * A date the copy formats. Intl prints the current time for undefined and 1 January 1970 for null, so a
+ * missing or invalid date fails here instead of printing a wrong one.
+ */
+function requiredInstant(name: string, value: Date): Date {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    throw new Error(`Customer message field ${name} must be a valid date`);
+  }
+  return value;
+}
+
+/**
+ * The estimate link. The message has no attachment, so this link is the only way to the estimate. It must
+ * be written as https://host/...: a link without the slashes is not clickable, and one with credentials
+ * would put a password into a customer-facing link. Spaces and line breaks are refused before parsing.
  */
 function requiredHttpsUrl(name: string, value: string): string {
-  if (/\s/.test(value) || !isSingleLineText(value)) {
-    throw new Error(
-      `Customer message field ${name} must be an absolute https URL`,
-    );
+  const message = `Customer message field ${name} must be an absolute https URL without spaces or credentials`;
+  if (
+    !/^https:\/\//i.test(value) ||
+    /\s/.test(value) ||
+    !isSingleLineText(value)
+  ) {
+    throw new Error(message);
   }
+  let url: URL;
   try {
-    if (new URL(value).protocol === 'https:') {
-      return value;
-    }
+    url = new URL(value);
   } catch {
-    // Not an absolute URL: refused below.
+    throw new Error(message);
   }
-  throw new Error(
-    `Customer message field ${name} must be an absolute https URL`,
-  );
+  if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') {
+    throw new Error(message);
+  }
+  return value;
 }
 
 function draft(
