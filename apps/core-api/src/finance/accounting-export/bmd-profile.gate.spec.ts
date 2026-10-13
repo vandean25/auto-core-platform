@@ -3,14 +3,17 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { assertChartAllowedForProfile } from '../accounting-profile/accounting-chart-catalog.js';
+import { isAccountingExportReleased } from '../accounting-profile/accounting-export-release.js';
+import {
+  isExportSerializerReleased,
+  RZL_SERIALIZER_RELEASE_ENV,
+} from '../accounting-profile/accounting-profile.codes.js';
 import {
   BMD_SERIALIZER_RELEASE_ENV,
   DEFAULT_BMD_AT_PROFILE_CODE,
   isBmdProfileCode,
   isBmdSerializerReleased,
-  isExportSerializerReleased,
-  RZL_SERIALIZER_RELEASE_ENV,
-} from '../accounting-profile/accounting-profile.codes.js';
+} from '../accounting-profile/bmd-profile.codes.js';
 import { validateAccountingProfilePatch } from '../accounting-profile/accounting-profile.validation.js';
 import {
   buildAccountingExportFilenameForRun,
@@ -67,14 +70,14 @@ describe('BMD profile release gate', () => {
   it('keeps the BMD serializer released only when the flag is exactly true (default off)', () => {
     setFlag(BMD_SERIALIZER_RELEASE_ENV, undefined);
     expect(isBmdSerializerReleased()).toBe(false);
-    expect(isExportSerializerReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(false);
+    expect(isAccountingExportReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(false);
 
     setFlag(BMD_SERIALIZER_RELEASE_ENV, 'false');
-    expect(isExportSerializerReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(false);
+    expect(isAccountingExportReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(false);
 
     setFlag(BMD_SERIALIZER_RELEASE_ENV, 'true');
     expect(isBmdSerializerReleased()).toBe(true);
-    expect(isExportSerializerReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(true);
+    expect(isAccountingExportReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(true);
   });
 
   it('keeps the RZL and BMD flags independent', () => {
@@ -82,7 +85,7 @@ describe('BMD profile release gate', () => {
     setFlag(BMD_SERIALIZER_RELEASE_ENV, 'true');
 
     expect(isExportSerializerReleased('ACP-RZL-AT-EUR-1')).toBe(false);
-    expect(isExportSerializerReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(true);
+    expect(isAccountingExportReleased(DEFAULT_BMD_AT_PROFILE_CODE)).toBe(true);
   });
 
   it('registers the BMD serializer on the AUT-350 registry with the shared limits', () => {
