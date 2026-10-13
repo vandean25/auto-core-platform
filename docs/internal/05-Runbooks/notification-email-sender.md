@@ -1,6 +1,6 @@
 # Runbook: notification email sender (AUT-356)
 
-**Status:** Stub (phase 2 of AUT-356: the worker, the fake provider and the inert stubs ship; no account is wired). Real provider wiring waits for [AUT-362](https://linear.app/auto-core-platform/issue/AUT-362) (DNS, DPA, sender domain). Customer sends also wait for the lawyer's sign-off on the copy (AUT-360 D19, D23) and for `CUSTOMER_ESTIMATE_SEND_ENABLED`.
+**Status:** Stub (phases 2 and 3 of AUT-356: the worker, the fake provider and the inert stubs ship, and three German customer drafts render; no account is wired). Real provider wiring waits for [AUT-362](https://linear.app/auto-core-platform/issue/AUT-362) (DNS, DPA, sender domain). Customer sends also wait for the lawyer's sign-off on the copy (AUT-360 D19, D23) and for `CUSTOMER_ESTIMATE_SEND_ENABLED`.
 **Architecture:** [ADR-0025](../01-ADR/2026-10-02-customer-communication-and-approvals.md) §6 and §10. The outbox table is written in the same transaction as the business change. A separate Cloud Tasks queue wakes a worker that sends from the row.
 
 ---
@@ -35,6 +35,10 @@ In production, the boot check refuses a notification target on the same origin a
 In production, a `live` deploy also needs `CLOUD_TASKS_NOTIFICATION_QUEUE`, `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA` and `CLOUD_TASKS_WORKER_SECRET`, and it must not set `CLOUD_TASKS_ENABLED=false`. The boot check refuses it otherwise, because no row would be woken.
 
 The worker route answers only when `NOTIFICATION_EMAIL_MODE` is set, and any non-blank value counts, `off` included. Set it on core-api, and never on the PDF worker. Unset is not off: a wake-up that reaches an instance without it gets a 404, so Cloud Tasks reports it, and nothing is suppressed. `off` runs the sender and records each due row as `SUPPRESSED`. The recovery sweep and the body purge run on every instance, whatever the mode.
+
+## 2a. Customer message drafts (phase 3)
+
+Three messages render from `apps/core-api/src/notifications/templates/customer-email-templates.ts`, in the formal German Sie form: `customer.estimate_sent`, `customer.estimate_approval_confirmed` and `customer.order_ready`, all at template version 1. A draft carries its template id and version into the outbox row. The copy is a draft until the lawyer signs it off (AUT-360 D19 and D23). Phase 3 renders the drafts and sends none of them; phase 4 wires the estimate send behind `CUSTOMER_ESTIMATE_SEND_ENABLED`.
 
 ## 3. Secrets (GSM names only, no values in the repository)
 
