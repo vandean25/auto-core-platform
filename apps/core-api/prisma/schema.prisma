@@ -1276,7 +1276,7 @@ model Customer {
   // Email sends require it, and a permanent refusal of the address clears it.
   contact_email_ok Boolean @default(false)
 
-  vehicles               Vehicle[]
+  vehicles                Vehicle[]
   reserved_stock_vehicles Vehicle[]         @relation("VehicleStockReservation")
   invoices                Invoice[]
   sales_orders            SalesOrder[]
@@ -2301,8 +2301,8 @@ model WorkshopEstimateBrandAssetReference {
 }
 
 /// One approval token for a sent estimate version (ADR-0025 §7). Only the SHA-256 of the token is stored,
-/// never the token itself. The token expires at the version's valid_until. Sending the version again, or
-/// superseding it, invalidates its earlier tokens. Approval consumes the token once (a later phase).
+/// never the token itself. The token expires at the version's valid_until. Superseding the version, when a
+/// later version is sent, invalidates its tokens. Approval consumes the token once (a later phase).
 model WorkshopEstimateApprovalToken {
   id                           String                  @id @default(uuid())
   tenant_id                    String

@@ -216,6 +216,15 @@ export class CustomerService {
     if (updateCustomerDto.vat_id !== undefined) {
       data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id);
     }
+    // The advisor confirmed one address for order communication (ADR-0025 §8). A different address needs its own
+    // confirmation, unless this update sets the flag again.
+    if (
+      updateCustomerDto.email !== undefined &&
+      updateCustomerDto.contact_email_ok === undefined &&
+      (updateCustomerDto.email ?? null) !== existing.email
+    ) {
+      data.contact_email_ok = false;
+    }
 
     return this.prisma.customer.update({
       where: { id },
