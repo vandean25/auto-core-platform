@@ -106,7 +106,7 @@ Steuercodes are read only from the run's frozen `profile_snapshot`, so a later s
 
 ## Zero-rate (0%) decision
 
-The same decision as RZL (AUT-350). A line with VAT rate 0.00 and a non-zero gross blocks the whole run with `UNSUPPORTED_EXPORT_TAX_MODE`. A zero-gross line is ignored. Reason: ADR-0023 forbids inferring an exempt, reverse-charge or intra-community treatment from a zero tax amount or from the country.
+The same decision as RZL (AUT-350). A line with VAT rate 0.00 and a non-zero gross blocks the whole run with `UNSUPPORTED_EXPORT_TAX_MODE`. A zero-gross line is ignored. Reason: ADR-0023 forbids inferring an exempt, reverse-charge or intra-community treatment from a zero tax amount or from the country. The serializer repeats the check: a rate without a BMD tax key throws, and no run is stored.
 
 ## Margin scheme
 
@@ -115,8 +115,8 @@ Margin-scheme invoices and credit notes are blocked with `UNSUPPORTED_EXPORT_TAX
 ## Other profile rules
 
 - **Country:** only AT allocations. A DE allocation blocks with `UNSUPPORTED_EXPORT_COUNTRY`. The profile can be enabled only for AT legal entities (400 otherwise).
-- **Tax treatment:** DATEV BU keys (`manual_bu`) block with `ACCOUNTING_MAPPING_INCOMPLETE`. Automatic tax is driven by the Steuercode only.
-- **Text:** the debtor and revenue accounts must be printable ASCII without `;` or quotes. Otherwise the block is `ACCOUNTING_MAPPING_INCOMPLETE`.
+- **Tax treatment:** a DATEV BU key (`manual_bu`) on a line with a non-zero gross blocks with `ACCOUNTING_MAPPING_INCOMPLETE`. Automatic tax is driven by the Steuercode only. A manual BU allocation on a zero-gross line is not written, so for BMD it does not block. RZL blocks such an allocation on any line, because its check runs before the gross test.
+- **Text:** the debtor and revenue accounts must be printable ASCII without `;` or quotes. Otherwise the block is `ACCOUNTING_MAPPING_INCOMPLETE`. ACP builds the booking text (`RE <number>`, or `CN <number> / RE <original number>`) and takes the document numbers from the invoice and credit note numbering. The serializer checks every written text field again. If a value cannot be written, it throws and no run is stored. Preview does not check these values, so it does not list them as blockers, as in RZL.
 - **Chart and account length:** chart `UGB` or `EA`, the same AT catalogue as RZL. Account length 1 to 8.
 - **Debtor convention:** one collective debtor account per legal entity (`default_debtor_account`). No per-customer debtor accounts, as in ADR-0023.
 - **Export-only gaps:** a missing Steuercode for 20%, 13% or 10%, the format identifier, chart, account length or default debtor account. They appear in `export_missing_fields` and as a global blocker in preview and generation. They are not part of `mapping_readiness`, so issuance is unaffected.
@@ -149,6 +149,8 @@ None. `profile_code` is a free-text column, and BMD Steuercodes live in the exis
 ## API contract
 
 `serializerParams.bmd` is added to the profile DTO. The `serializer_released` and `export_missing_fields` descriptions name BMD. `apps/core-api/openapi/openapi.json` and `apps/core-web/src/api/generated/openapi.ts` are regenerated. No UI change.
+
+A BMD profile needs `formatVersion` set to `BMD-NTCS-ASCII-IMPORT-ACP-DRAFT-1`, sent in the same request as the profile code. Nothing sets it for BMD: the AT default is the RZL identifier, and a profile code change keeps the stored value. Until the BMD identifier is saved, `format_version` is listed in `export_missing_fields`, blocks preview and generation, and blocks enablement.
 
 ## Acceptance mapping (AUT-351)
 
