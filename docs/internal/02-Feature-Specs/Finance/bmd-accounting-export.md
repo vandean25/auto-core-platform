@@ -156,12 +156,12 @@ None. `profile_code` is a free-text column, and BMD Steuercodes live in the exis
 |---|---|
 | Spec from public BMD sources, with pinned sources, encoding, separators, date and amount formats, tax-code and account mapping, and an Assumptions [UNVERIFIED] section | This document: "Sources consulted", "Pinned specification", "Record layout", "Assumptions [UNVERIFIED]". |
 | Synthetic sample committed before serializer code | `fixtures/bmd-sample-export.csv`, committed in the first commit of this change, before `bmd-ntcs-import.serializer.ts`. |
-| Serializer on the AUT-350 registry, behind the same release-gate pattern, disabled by default | `accounting-export-serializer.registry.ts`, `bmd-accounting-export.serializer.ts`, `accounting-profile.codes.ts`. Gate tests: `bmd-profile.gate.spec.ts`. |
+| Serializer on the AUT-350 registry, behind the same release-gate pattern, disabled by default | `accounting-export-serializer.registry.ts`, `accounting-export-serializers.ts`, `bmd-accounting-export.serializer.ts`, `accounting-profile/bmd-profile.codes.ts`, `accounting-profile/accounting-export-release.ts`. Gate tests: `bmd-profile.gate.spec.ts`. |
 | Golden files for a standard invoice, a margin-scheme invoice and a credit note | `bmd-ntcs-import.golden.spec.ts`. |
 | Manifest, immutability and SHA-256 shared with the other profiles, not duplicated | `sha256OfBytes` in `accounting-export-hash.ts`. The generic run path is unchanged. |
 | Expand-only migration, if strictly needed | Not needed. No schema change. |
 | RZL and DATEV behaviour unchanged | The existing AUT-350 and DATEV suites pass without edits to their assertions. |
-| Profile disabled by default, documented in the deferral log | `accounting-profile.codes.ts` (flag default off), `.env.example`, `docs/internal/.architecture/deferrals.md`. |
+| Profile disabled by default, documented in the deferral log | `accounting-profile/bmd-profile.codes.ts` (flag default off), `.env.example`, `docs/internal/.architecture/deferrals.md`. |
 
 ## Assumptions [UNVERIFIED]
 
@@ -199,4 +199,4 @@ No validation ticket is created by this change. The owner must create one; no is
 
 - [[rzl-accounting-export]] (sibling AT profile, AUT-350), [[datev-accounting-export]], [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]].
 - Deferral log: `docs/internal/.architecture/deferrals.md`.
-- Source: `apps/core-api/src/finance/accounting-export/bmd-ntcs-import.serializer.ts`, `bmd-format.constants.ts`; `apps/core-api/src/finance/accounting-profile/accounting-profile.codes.ts`.
+- Source: `apps/core-api/src/finance/accounting-export/bmd-ntcs-import.serializer.ts`, `bmd-format.constants.ts`; `apps/core-api/src/finance/accounting-profile/bmd-profile.codes.ts`, `accounting-export-release.ts`, `accounting-profile-export-gaps.ts`.
