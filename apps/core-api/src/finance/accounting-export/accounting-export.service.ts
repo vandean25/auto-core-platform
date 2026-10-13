@@ -53,11 +53,11 @@ import {
   parseAccountingProfileSerializerParams,
   serializeAccountingProfileSerializerParams,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
-import { isRzlProfileCode } from '../accounting-profile/accounting-profile.codes.js';
 import {
-  computeRzlExportMissingFields,
-  rzlExportMissingFieldLabel,
-} from '../accounting-profile/accounting-profile-export-readiness.js';
+  computeExportGapFields,
+  exportGapLabel,
+  exportGapProfileName,
+} from '../accounting-profile/accounting-profile-export-gaps.js';
 import type {
   AccountingExportDetailDto,
   AccountingExportListQueryDto,
@@ -81,25 +81,26 @@ const ACCOUNTING_EXPORT_SUMMARY_SELECT = {
   document_manifest: true,
 } as const;
 
-/** Export-only profile gaps (RZL). Global blockers: they are not tied to one document. */
+/** Export-only profile gaps (RZL, BMD). Global blockers: they are not tied to one document. */
 function buildProfileExportBlockers(
   profile: LegalEntityAccountingProfile,
 ): AccountingExportBlocker[] {
-  if (!isRzlProfileCode(profile.profile_code)) {
+  const profileName = exportGapProfileName(profile.profile_code);
+  if (!profileName) {
     return [];
   }
-  return computeRzlExportMissingFields({
+  return computeExportGapFields({
     profileCode: profile.profile_code,
     formatVersion: profile.format_version,
     chart: profile.chart,
     accountLength: profile.account_length,
     defaultDebtorAccount: profile.default_debtor_account,
-    serializerParams:
-      parseAccountingProfileSerializerParams(profile.serializer_params).rzl ??
-      {},
+    serializerParams: parseAccountingProfileSerializerParams(
+      profile.serializer_params,
+    ),
   }).map((field) => ({
     code: 'ACCOUNTING_MAPPING_INCOMPLETE' as const,
-    message: `RZL export profile is incomplete: ${rzlExportMissingFieldLabel(field)}.`,
+    message: `${profileName} export profile is incomplete: ${exportGapLabel(profileName, field)}.`,
   }));
 }
 

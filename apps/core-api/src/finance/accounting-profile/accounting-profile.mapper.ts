@@ -3,8 +3,8 @@ import {
   buildRequiredSourceCategories,
   computeAccountingProfileReadiness,
 } from './accounting-profile-readiness.js';
-import { computeRzlExportMissingFields } from './accounting-profile-export-readiness.js';
-import { isExportSerializerReleased } from './accounting-profile.codes.js';
+import { isAccountingExportReleased } from './accounting-export-release.js';
+import { computeExportGapFields } from './accounting-profile-export-gaps.js';
 import { parseAccountingProfileSerializerParams } from './accounting-profile.serializer-params.js';
 import {
   type AccountingMappingRule,
@@ -69,13 +69,13 @@ export function toAccountingProfileResponse(
   const serializerParams = parseAccountingProfileSerializerParams(
     profile.serializer_params,
   );
-  const exportMissingFields = computeRzlExportMissingFields({
+  const exportMissingFields = computeExportGapFields({
     profileCode: profile.profile_code,
     formatVersion: profile.format_version,
     chart: profile.chart,
     accountLength: profile.account_length,
     defaultDebtorAccount: profile.default_debtor_account,
-    serializerParams: serializerParams.rzl ?? {},
+    serializerParams,
   });
 
   return {
@@ -93,7 +93,7 @@ export function toAccountingProfileResponse(
     fiscal_year_start_month: profile.fiscal_year_start_month,
     default_debtor_account: profile.default_debtor_account,
     serializer_params: serializerParams,
-    serializer_released: isExportSerializerReleased(profile.profile_code),
+    serializer_released: isAccountingExportReleased(profile.profile_code),
     export_missing_fields: exportMissingFields,
     mapping_rules: mappingRules,
     required_source_categories: requiredSourceCategories,

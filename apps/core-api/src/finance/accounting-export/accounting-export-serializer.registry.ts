@@ -1,24 +1,20 @@
 import { UnprocessableEntityException } from '@nestjs/common';
-import {
-  DEFAULT_AT_PROFILE_CODE,
-  DEFAULT_DE_PROFILE_CODE,
-  isExportSerializerReleased,
-} from '../accounting-profile/accounting-profile.codes.js';
+import { isAccountingExportReleased } from '../accounting-profile/accounting-export-release.js';
 import type {
   AccountingExportFilenameInput,
   AccountingExportSerializerPort,
 } from './accounting-export-serializer.types.js';
-import { datevAccountingExportSerializer } from './datev-accounting-export.serializer.js';
+import { accountingExportSerializers } from './accounting-export-serializers.js';
 import { buildAccountingExportFilename } from './datev-serializer.js';
-import { rzlAccountingExportSerializer } from './rzl-accounting-export.serializer.js';
 
-const serializersByProfileCode = new Map<
-  string,
-  AccountingExportSerializerPort
->([
-  [DEFAULT_DE_PROFILE_CODE, datevAccountingExportSerializer],
-  [DEFAULT_AT_PROFILE_CODE, rzlAccountingExportSerializer],
-]);
+const serializersByProfileCode = new Map(
+  accountingExportSerializers.map(
+    (serializer): [string, AccountingExportSerializerPort] => [
+      serializer.profileCode,
+      serializer,
+    ],
+  ),
+);
 
 export function resolveAccountingExportSerializer(
   profileCode: string | null | undefined,
@@ -45,7 +41,7 @@ export function exportProfileCanGenerate(
   profileCode: string | null | undefined,
   isEnabled: boolean,
 ): boolean {
-  return isEnabled && isExportSerializerReleased(profileCode);
+  return isEnabled && isAccountingExportReleased(profileCode);
 }
 
 /** Read paths: legacy runs may have null or unknown profile codes in frozen snapshots. */

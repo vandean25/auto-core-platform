@@ -25,8 +25,10 @@ import {
   parseAccountingProfileSerializerParams,
   serializeAccountingProfileSerializerParams,
 } from './accounting-profile.serializer-params.js';
-import { isRzlProfileCode } from './accounting-profile.codes.js';
-import { computeRzlExportMissingFields } from './accounting-profile-export-readiness.js';
+import {
+  computeExportGapFields,
+  exportGapProfileName,
+} from './accounting-profile-export-gaps.js';
 import {
   type AccountingProfilePatchInput,
   validateAccountingProfilePatch,
@@ -222,19 +224,15 @@ export class AccountingProfileService {
     });
 
     if (!readiness.isReady) {
-      const label = isRzlProfileCode(mergedProfileCode) ? 'RZL' : 'DATEV';
+      const label = exportGapProfileName(mergedProfileCode) ?? 'DATEV';
       throw new BadRequestException(
         `Accounting profile mapping must be complete before enabling ${label} export`,
       );
     }
 
-    if (isRzlProfileCode(mergedProfileCode)) {
-      const serializerParams =
-        (
-          patch.serializerParams ??
-          parseAccountingProfileSerializerParams(existing.serializer_params)
-        ).rzl ?? {};
-      const missingFields = computeRzlExportMissingFields({
+    const exportGapProfile = exportGapProfileName(mergedProfileCode);
+    if (exportGapProfile) {
+      const missingFields = computeExportGapFields({
         profileCode: mergedProfileCode,
         formatVersion:
           patch.formatVersion !== undefined
@@ -249,11 +247,13 @@ export class AccountingProfileService {
           patch.defaultDebtorAccount !== undefined
             ? patch.defaultDebtorAccount
             : existing.default_debtor_account,
-        serializerParams,
+        serializerParams:
+          patch.serializerParams ??
+          parseAccountingProfileSerializerParams(existing.serializer_params),
       });
       if (missingFields.length > 0) {
         throw new BadRequestException(
-          `RZL export configuration is incomplete: ${missingFields.join(', ')}`,
+          `${exportGapProfile} export configuration is incomplete: ${missingFields.join(', ')}`,
         );
       }
     }

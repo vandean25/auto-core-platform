@@ -1,0 +1,16 @@
+[
+  {
+    "code": "UNSUPPORTED_EXPORT_TAX_MODE",
+    "message": "Margin-scheme invoices are not supported by the active export profile.",
+    "documentId": "inv-margin-1",
+    "documentKind": "INVOICE",
+    "documentNumber": "RE-2026-0003"
+  },
+  {
+    "code": "UNSUPPORTED_EXPORT_TAX_MODE",
+    "message": "Margin-scheme allocations cannot be exported with the active profile.",
+    "documentId": "inv-margin-1",
+    "documentKind": "INVOICE",
+    "documentNumber": "RE-2026-0003"
+  }
+]
