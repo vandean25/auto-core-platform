@@ -1,4 +1,18 @@
-import { readNotificationDeliveryConfig } from './notification-delivery.config.js';
+import {
+  isNotificationSender,
+  readNotificationDeliveryConfig,
+} from './notification-delivery.config.js';
+
+describe('isNotificationSender()', () => {
+  it('holds only where NOTIFICATION_EMAIL_MODE is set', () => {
+    expect(isNotificationSender({})).toBe(false);
+    expect(isNotificationSender({ NOTIFICATION_EMAIL_MODE: '  ' })).toBe(false);
+    expect(isNotificationSender({ NOTIFICATION_EMAIL_MODE: 'off' })).toBe(true);
+    expect(isNotificationSender({ NOTIFICATION_EMAIL_MODE: 'live' })).toBe(
+      true,
+    );
+  });
+});
 
 describe('readNotificationDeliveryConfig()', () => {
   it('fails closed on an empty environment', () => {

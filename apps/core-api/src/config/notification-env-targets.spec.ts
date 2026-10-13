@@ -57,7 +57,7 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     },
   );
 
-  it('requires the notification queue and target for a live deploy in production', () => {
+  it('requires the whole wake-up path for a live deploy in production', () => {
     expect(
       notificationEnvIssues({
         NODE_ENV: 'production',
@@ -67,6 +67,9 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
     ).toEqual([
       { key: 'CLOUD_TASKS_NOTIFICATION_QUEUE', kind: 'required' },
       { key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL', kind: 'required' },
+      { key: 'CLOUD_TASKS_LOCATION', kind: 'required' },
+      { key: 'CLOUD_TASKS_INVOKER_SA', kind: 'required' },
+      { key: 'CLOUD_TASKS_WORKER_SECRET', kind: 'required' },
     ]);
   });
 
@@ -79,10 +82,32 @@ describe('notification targets stay apart from the PDF targets (AUT-356)', () =>
         CLOUD_TASKS_NOTIFICATION_QUEUE: 'notification-queue',
         CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
           'https://core-api.example/api',
+        CLOUD_TASKS_LOCATION: 'europe-west3',
+        CLOUD_TASKS_INVOKER_SA: 'invoker@example.iam.gserviceaccount.com',
+        CLOUD_TASKS_WORKER_SECRET: 'worker-secret',
         NOTIFICATION_EMAIL_MODE: 'live',
         NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
       }),
     ).toEqual([]);
+  });
+
+  it('refuses a live production deploy that has Cloud Tasks switched off', () => {
+    expect(
+      notificationEnvIssues({
+        NODE_ENV: 'production',
+        CLOUD_TASKS_QUEUE: 'pdf-queue',
+        CLOUD_TASKS_TARGET_BASE_URL: 'https://worker.example/api',
+        CLOUD_TASKS_NOTIFICATION_QUEUE: 'notification-queue',
+        CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
+          'https://core-api.example/api',
+        CLOUD_TASKS_LOCATION: 'europe-west3',
+        CLOUD_TASKS_INVOKER_SA: 'invoker@example.iam.gserviceaccount.com',
+        CLOUD_TASKS_WORKER_SECRET: 'worker-secret',
+        CLOUD_TASKS_ENABLED: 'false',
+        NOTIFICATION_EMAIL_MODE: 'live',
+        NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
+      }),
+    ).toEqual([{ key: 'CLOUD_TASKS_ENABLED', kind: 'invalid' }]);
   });
 
   it('does not ask for the wake-up settings for a local fake run in development', () => {

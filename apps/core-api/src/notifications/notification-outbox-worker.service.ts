@@ -12,6 +12,7 @@ import { isPlainEmailAddress } from './email/email-address.js';
 import { isSingleLineText } from './email/header-text.js';
 import {
   EmailProviderError,
+  type EmailSendResult,
   type OutgoingEmail,
 } from './email/email-provider.js';
 import { EmailProviderResolver } from './email/email-provider.resolver.js';
@@ -34,6 +35,8 @@ export const NOTIFICATION_PROVIDER_TIMEOUT_MS = 15_000;
 export const NOTIFICATION_CLAIM_TOLERANCE_MS = 1_000;
 /** The provider codes that may reach the row. Anything else is replaced, so no free text is stored. */
 const PROVIDER_CODE = /^[A-Z][A-Z0-9_]{0,39}$/;
+/** Writes of the status after the provider accepted: a few tries, then the failure is logged, never resent. */
+const ACCEPTED_WRITE_ATTEMPTS = 3;
 
 interface ClaimedRow {
   channel: NotificationChannel;
@@ -241,22 +244,15 @@ export class NotificationOutboxWorkerService {
 
     SideEffectGuard.assertAllowed('EMAIL');
     const provider = this.providers.resolve(decision.provider);
+    let accepted: EmailSendResult;
     try {
-      const result = await withProviderDeadline(
+      accepted = await withProviderDeadline(
         provider.send(message, {
           idempotencyKey: a.outboxId,
           signal: AbortSignal.timeout(NOTIFICATION_PROVIDER_TIMEOUT_MS),
         }),
         NOTIFICATION_PROVIDER_TIMEOUT_MS,
       );
-      return this.record(a, {
-        status: NotificationOutboxStatus.ACCEPTED,
-        provider: provider.name,
-        provider_message_id: result.providerMessageId,
-        accepted_at: a.now,
-        last_error_code: null,
-        last_error_message: null,
-      });
     } catch (error) {
       const failure = toProviderFailure(error);
       if (failure.transient) {
@@ -264,6 +260,15 @@ export class NotificationOutboxWorkerService {
       }
       return this.fail(a, failure);
     }
+    // The provider has accepted the message, so nothing from here may schedule another send.
+    return this.recordAccepted(a, {
+      status: NotificationOutboxStatus.ACCEPTED,
+      provider: provider.name,
+      provider_message_id: accepted.providerMessageId,
+      accepted_at: a.now,
+      last_error_code: null,
+      last_error_message: null,
+    });
   }
 
   /** Read under SystemPrisma, like the sweeps that walk every tenant. */
@@ -348,6 +353,30 @@ export class NotificationOutboxWorkerService {
         `Lease for notification ${a.outboxId} was lost before the outcome was recorded`,
       );
     }
+  }
+
+  /**
+   * The provider accepted the message, so a failed status write must not reschedule the send: a retry would
+   * send the notice again. The write is tried a few times, then logged. The claim then expires and the sweep
+   * resends the notice, which is the at-least-once limit the runbook records.
+   */
+  private async recordAccepted(
+    a: Attempt,
+    outcome: Prisma.NotificationOutboxUncheckedUpdateManyInput,
+  ): Promise<void> {
+    for (let write = 1; write <= ACCEPTED_WRITE_ATTEMPTS; write += 1) {
+      try {
+        await this.record(a, outcome);
+        return;
+      } catch (cause) {
+        this.logger.warn(
+          `Status write ${write} for accepted notification ${a.outboxId} failed: ${cause instanceof Error ? cause.name : 'unknown error'}`,
+        );
+      }
+    }
+    this.logger.error(
+      `Notification ${a.outboxId} was accepted by the provider, but its status was not written`,
+    );
   }
 }
 

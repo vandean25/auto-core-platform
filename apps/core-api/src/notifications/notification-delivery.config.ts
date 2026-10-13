@@ -32,3 +32,13 @@ export function readNotificationDeliveryConfig(
     fromAddress: env.NOTIFICATION_EMAIL_FROM_ADDRESS?.trim() ?? '',
   };
 }
+
+/**
+ * An instance serves the sender only when NOTIFICATION_EMAIL_MODE is set. The PDF worker holds no NOTIFICATION_*
+ * keys, so a wake-up that reaches it is refused, and Cloud Tasks reports it instead of the row being suppressed.
+ */
+export function isNotificationSender(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return (env.NOTIFICATION_EMAIL_MODE?.trim() ?? '') !== '';
+}

@@ -399,6 +399,167 @@ describe('Notification outbox sender worker (e2e)', () => {
     }
   });
 
+  it('a wake-up reclaims a claim whose lease expired, and sends the row once', async () => {
+    const id = await enqueue(tenantA);
+    await tenantPrisma(tenantA).notificationOutbox.updateMany({
+      where: { id, tenant_id: tenantA },
+      data: {
+        status: 'SENDING',
+        attempts: 1,
+        lease_token: 'lost-claim',
+        lease_expires_at: new Date(Date.now() - 60_000),
+      },
+    });
+
+    await deliver(id, tenantA).expect(204);
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'ACCEPTED',
+      attempts: 2,
+    });
+    expect(fake.sent).toHaveLength(1);
+  });
+
+  it('a stale attempt cannot overwrite a row that another attempt has taken over', async () => {
+    const id = await enqueue(tenantA);
+    const send = fake.send.bind(fake);
+    const takeOver = jest
+      .spyOn(fake, 'send')
+      .mockImplementationOnce(async (message, options) => {
+        // While this attempt is sending, another attempt takes the row over.
+        await tenantPrisma(tenantA).notificationOutbox.updateMany({
+          where: { id, tenant_id: tenantA },
+          data: {
+            lease_token: 'takeover',
+            lease_expires_at: new Date(Date.now() + 120_000),
+          },
+        });
+        return send(message, options);
+      });
+
+    try {
+      await deliver(id, tenantA).expect(204);
+    } finally {
+      takeOver.mockRestore();
+    }
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'SENDING',
+      lease_token: 'takeover',
+    });
+  });
+
+  it('a notice older than the sending window is never sent, and the sweep fails it', async () => {
+    const id = await enqueue(tenantA);
+    const eightDaysAgo = new Date(Date.now() - 8 * DAY_MS);
+    await tenantPrisma(tenantA).notificationOutbox.updateMany({
+      where: { id, tenant_id: tenantA },
+      data: { createdAt: eightDaysAgo, next_attempt_at: eightDaysAgo },
+    });
+
+    await deliver(id, tenantA).expect(204);
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'PENDING',
+      attempts: 0,
+    });
+    expect(fake.sent).toHaveLength(0);
+
+    await app.get(NotificationOutboxRecoveryService).recover();
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'STALE_UNSENT',
+    });
+  });
+
+  it('the sweep releases an expired claim after its backoff, and fails one that used every attempt', async () => {
+    const retry = await enqueue(tenantA);
+    const exhausted = await enqueue(tenantA);
+    const expiredAt = new Date(Date.now() - 60_000);
+    await tenantPrisma(tenantA).notificationOutbox.updateMany({
+      where: { id: retry, tenant_id: tenantA },
+      data: {
+        status: 'SENDING',
+        attempts: 2,
+        lease_token: 'lost-retry',
+        lease_expires_at: expiredAt,
+      },
+    });
+    await tenantPrisma(tenantA).notificationOutbox.updateMany({
+      where: { id: exhausted, tenant_id: tenantA },
+      data: {
+        status: 'SENDING',
+        attempts: 5,
+        lease_token: 'lost-last',
+        lease_expires_at: expiredAt,
+      },
+    });
+    setEnv({
+      CLOUD_TASKS_NOTIFICATION_QUEUE: 'notification-queue',
+      CLOUD_TASKS_LOCATION: 'europe-west3',
+      CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL: 'https://worker.example/api',
+      CLOUD_TASKS_INVOKER_SA: 'invoker@example.iam.gserviceaccount.com',
+      CLOUD_TASKS_ENABLED: 'true',
+    });
+    const wake = jest
+      .spyOn(app.get(NotificationCloudTasksService), 'enqueueWakeUp')
+      .mockResolvedValue(undefined);
+
+    try {
+      await app.get(NotificationOutboxRecoveryService).recover();
+
+      const released = await readRow(tenantA, retry);
+      expect(released).toMatchObject({
+        status: 'PENDING',
+        last_error_code: 'LEASE_EXPIRED',
+        attempts: 2,
+      });
+      const dueInSeconds =
+        ((released?.next_attempt_at.getTime() ?? 0) - Date.now()) / 1000;
+      expect(dueInSeconds).toBeGreaterThan(290);
+      expect(dueInSeconds).toBeLessThanOrEqual(300);
+      // Assert before restoring: mockRestore() also clears the recorded calls.
+      expect(wake).toHaveBeenCalledWith({
+        outboxId: retry,
+        tenantId: tenantA,
+        delaySeconds: 300,
+      });
+      expect(await readRow(tenantA, exhausted)).toMatchObject({
+        status: 'FAILED',
+        last_error_code: 'LEASE_EXPIRED',
+      });
+      expect(wake).not.toHaveBeenCalledWith(
+        expect.objectContaining({ outboxId: exhausted }),
+      );
+    } finally {
+      wake.mockRestore();
+      setEnv({
+        CLOUD_TASKS_NOTIFICATION_QUEUE: undefined,
+        CLOUD_TASKS_LOCATION: undefined,
+        CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL: undefined,
+        CLOUD_TASKS_INVOKER_SA: undefined,
+        CLOUD_TASKS_ENABLED: undefined,
+      });
+    }
+  });
+
+  it('the worker route is not served where no sender is configured', async () => {
+    const id = await enqueue(tenantA);
+    setEnv({ NOTIFICATION_EMAIL_MODE: undefined });
+    try {
+      await deliver(id, tenantA).expect(404);
+    } finally {
+      setEnv({ NOTIFICATION_EMAIL_MODE: 'fake' });
+    }
+
+    expect(await readRow(tenantA, id)).toMatchObject({
+      status: 'PENDING',
+      attempts: 0,
+    });
+    expect(fake.sent).toHaveLength(0);
+  });
+
   it('the body purge clears a terminal body after 90 days and keeps a recent one', async () => {
     const old = await enqueue(tenantA);
     const recent = await enqueue(tenantA);

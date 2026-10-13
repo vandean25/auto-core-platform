@@ -111,6 +111,9 @@ describe('notification sender environment (AUT-356)', () => {
             'kunde@example.at,*@test.example.at',
           NOTIFICATION_EMAIL_FROM_ADDRESS: 'kontakt@example.at',
           CLOUD_TASKS_NOTIFICATION_QUEUE: 'notification-queue',
+          CLOUD_TASKS_LOCATION: 'europe-west3',
+          CLOUD_TASKS_INVOKER_SA: 'invoker@example.iam.gserviceaccount.com',
+          CLOUD_TASKS_WORKER_SECRET: 'worker-secret',
           CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL:
             'https://core-api.example/api',
         }),

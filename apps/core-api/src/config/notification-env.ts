@@ -15,7 +15,13 @@ export const NOTIFICATION_ENV_KEYS = [
   'NOTIFICATION_EMAIL_FROM_ADDRESS',
 ] as const;
 
-export type NotificationEnvKey = (typeof NOTIFICATION_ENV_KEYS)[number];
+/** The Cloud Tasks settings the wake-up path needs. They are PDF-queue keys, checked here for a live production deploy. */
+export type NotificationEnvKey =
+  | (typeof NOTIFICATION_ENV_KEYS)[number]
+  | 'CLOUD_TASKS_LOCATION'
+  | 'CLOUD_TASKS_INVOKER_SA'
+  | 'CLOUD_TASKS_WORKER_SECRET'
+  | 'CLOUD_TASKS_ENABLED';
 
 const optionalTrimmedString = z
   .string()
@@ -46,6 +52,10 @@ export interface NotificationEnvInput {
   NOTIFICATION_EMAIL_PROVIDER?: string;
   NOTIFICATION_EMAIL_RECIPIENT_ALLOWLIST?: string;
   NOTIFICATION_EMAIL_FROM_ADDRESS?: string;
+  CLOUD_TASKS_LOCATION?: string;
+  CLOUD_TASKS_INVOKER_SA?: string;
+  CLOUD_TASKS_WORKER_SECRET?: string;
+  CLOUD_TASKS_ENABLED?: string;
 }
 
 export interface NotificationEnvIssue {
@@ -122,6 +132,19 @@ export function notificationEnvIssues(
         key: 'CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL',
         kind: 'required',
       });
+    }
+    // The wake-up path also needs these, and isEnabled() refuses CLOUD_TASKS_ENABLED=false.
+    if (!env.CLOUD_TASKS_LOCATION) {
+      issues.push({ key: 'CLOUD_TASKS_LOCATION', kind: 'required' });
+    }
+    if (!env.CLOUD_TASKS_INVOKER_SA) {
+      issues.push({ key: 'CLOUD_TASKS_INVOKER_SA', kind: 'required' });
+    }
+    if (!env.CLOUD_TASKS_WORKER_SECRET) {
+      issues.push({ key: 'CLOUD_TASKS_WORKER_SECRET', kind: 'required' });
+    }
+    if (env.CLOUD_TASKS_ENABLED === 'false') {
+      issues.push({ key: 'CLOUD_TASKS_ENABLED', kind: 'invalid' });
     }
   }
   return issues;

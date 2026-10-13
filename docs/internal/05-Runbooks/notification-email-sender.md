@@ -32,7 +32,9 @@ The existing `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORK
 
 The boot check refuses a notification target equal to `CLOUD_TASKS_TARGET_BASE_URL` (trailing slashes ignored), and a notification queue equal to `CLOUD_TASKS_QUEUE`. Either would send wake-ups to the PDF side, where no notification setting exists, and the rows would be suppressed silently.
 
-In production, a `live` deploy also needs `CLOUD_TASKS_NOTIFICATION_QUEUE` and `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL`. The boot check refuses it without them, because no row would be woken.
+In production, a `live` deploy also needs `CLOUD_TASKS_NOTIFICATION_QUEUE`, `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA` and `CLOUD_TASKS_WORKER_SECRET`, and it must not set `CLOUD_TASKS_ENABLED=false`. The boot check refuses it otherwise, because no row would be woken.
+
+An instance serves the sender only when `NOTIFICATION_EMAIL_MODE` is set. Set it on core-api, and never on the PDF worker. A wake-up that reaches an instance without it gets a 404, so Cloud Tasks reports it, and the row is not suppressed.
 
 ## 3. Secrets (GSM names only, no values in the repository)
 
@@ -79,7 +81,7 @@ Stored error text is generic. Provider response bodies are never stored.
 
 ## 6. Known limits (v1)
 
-- Delivery is at least once. A crash between provider acceptance and the status write can send a duplicate after the claim expires.
+- Delivery is at least once. A crash between provider acceptance and the status write, or a status write that keeps failing after acceptance, leaves the claim to expire, and the sweep then resends the notice.
 - No delivery webhooks and no open or click tracking (ADR-0025 §6, §7).
 - A PENDING notice unsent after 7 days is failed with `STALE_UNSENT`, never sent late. The sweep re-wakes a PENDING row only after a 5-minute grace; a duplicate wake-up is harmless because claims are atomic.
 - Wake-ups for new rows come from the recovery cron, which runs only in a live instance with CPU allocated. core-api deploys with `--cpu-throttling` and `--min-instances 0`, so a quiet service can delay a new row until a request keeps an instance alive. The 7-day `STALE_UNSENT` backstop still holds. No phase 2 path writes EMAIL rows. Before phase 4 writes them, add a Cloud Scheduler job for the sweep, or keep CPU allocated with a minimum instance (a cost decision).

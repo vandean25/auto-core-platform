@@ -470,6 +470,40 @@ describe('NotificationOutboxWorkerService', () => {
     });
   });
 
+  it('does not reschedule a send when the accepted status write fails, and writes no retry', async () => {
+    arrange();
+    prisma.notificationOutbox.updateMany.mockRejectedValue(
+      new Error('db down'),
+    );
+
+    await expect(
+      service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF),
+    ).resolves.toBeUndefined();
+
+    expect(provider.send).toHaveBeenCalledTimes(1);
+    expect(prisma.notificationOutbox.updateMany).toHaveBeenCalledTimes(4);
+    const written = prisma.notificationOutbox.updateMany.mock.calls.map(
+      ([arg]) => arg.data,
+    );
+    expect(written.some((data) => data?.status === 'PENDING')).toBe(false);
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
+  it('retries the accepted status write until it lands', async () => {
+    arrange();
+    prisma.notificationOutbox.updateMany.mockRejectedValueOnce(
+      new Error('db blip'),
+    );
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(outcome()).toMatchObject({
+      status: 'ACCEPTED',
+      provider_message_id: 'fake-1',
+    });
+    expect(wakeUps.enqueueWakeUp).not.toHaveBeenCalled();
+  });
+
   it('turns an unexpected exception into a retry under the lease', async () => {
     arrange();
     providers.resolve.mockImplementation(() => {
