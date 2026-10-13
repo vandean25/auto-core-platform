@@ -87,7 +87,7 @@ const LocationTreeItem = ({
                             <span className="h-2 w-2 rounded-full bg-slate-400 mx-1" />}
 
                     <span className="font-medium text-sm">{location.name}</span>
-                    <Badge variant="outline" className="text-xs h-5 ml-2 font-mono text-slate-400 group-hover:text-slate-600 transition-colors">
+                    <Badge variant="outline" className="text-xs h-5 ml-2 font-mono text-slate-500 group-hover:text-slate-600 transition-colors">
                         {location.code}
                     </Badge>
                 </button>

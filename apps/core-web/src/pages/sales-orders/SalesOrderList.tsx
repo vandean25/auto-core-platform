@@ -13,6 +13,15 @@ import { toast } from 'sonner'
 import { DASHBOARD_WIDGET_SOURCE_SALES_ORDERS } from '@/features/dashboard-widgets/sources'
 import { getErrorMessage } from '@/lib/error-utils'
 
+// Used by the Customer and Vehicle cells, and by their CSV export values.
+function customerDisplayName(customer: SalesOrder['customer']): string {
+    return customer.type === 'COMPANY' ? customer.company_name ?? '' : `${customer.first_name} ${customer.last_name}`
+}
+
+function vehicleDisplayName(vehicle: NonNullable<SalesOrder['vehicle']>): string {
+    return `${vehicle.make} ${vehicle.model}`
+}
+
 export default function SalesOrderList() {
     const navigate = useNavigate()
     const { queryParams, ...tableState } = useDataTableQuery({ defaultPageSize: 10 })
@@ -49,21 +58,13 @@ export default function SalesOrderList() {
             // I'll use id "customer" and accessorFn to render correctly.
             id: 'customer',
             header: ({ column }) => <DataTableColumnHeader column={column} title="Customer" />,
-            cell: ({ row }) => (
-                <span>
-                    {row.original.customer.type === 'COMPANY'
-                        ? row.original.customer.company_name
-                        : `${row.original.customer.first_name} ${row.original.customer.last_name}`}
-                </span>
-            ),
+            cell: ({ row }) => <span>{customerDisplayName(row.original.customer)}</span>,
         },
         {
             accessorKey: 'vehicle',
             header: 'Vehicle',
             enableSorting: false,
-            cell: ({ row }) => (
-                <span>{row.original.vehicle ? `${row.original.vehicle.make} ${row.original.vehicle.model}` : '-'}</span>
-            ),
+            cell: ({ row }) => <span>{row.original.vehicle ? vehicleDisplayName(row.original.vehicle) : '-'}</span>,
         },
         {
             accessorKey: 'status',

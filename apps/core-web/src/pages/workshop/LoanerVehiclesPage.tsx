@@ -346,6 +346,7 @@ export default function LoanerVehiclesPage() {
         data={rows}
         isLoading={fleetLoading}
         pageCount={1}
+        pageSizeOptions={[]}
         searchPlaceholder='Ersatzfahrzeuge suchen…'
         getRowAccessibleName={(row) => `Ersatzfahrzeug ${row.displayName}`}
         onRowClick={(row) =>

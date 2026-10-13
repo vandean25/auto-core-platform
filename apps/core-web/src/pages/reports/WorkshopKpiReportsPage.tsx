@@ -6,15 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport, type WorkshopKpiReport } from '@/api/workshop-kpi-reports'
-import { triggerBlobDownload } from '@/lib/download'
+import { downloadCsv, serializeCsv } from '@/lib/csv'
 
 function number(value: string | null | undefined, suffix = ''): string {
   return value == null ? '—' : `${Number(value).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${suffix}`
-}
-
-function csvField(value: string): string {
-  const safe = /^[=+@-]/.test(value) ? `'${value}` : value
-  return /[;"\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe
 }
 
 export function serializeWorkshopKpiCsv(report: WorkshopKpiReport): string {
@@ -60,9 +55,7 @@ export function serializeWorkshopKpiCsv(report: WorkshopKpiReport): string {
     String(report.meta.unassigned_mechanic_count),
   ]
 
-  return [headers, ...workRows, turnoverRow, ...slowMoverRows, reportInfoRow]
-    .map((line) => line.map(csvField).join(';'))
-    .join('\r\n')
+  return serializeCsv([headers, ...workRows, turnoverRow, ...slowMoverRows, reportInfoRow])
 }
 
 function localIsoDate(date: Date): string {
@@ -89,7 +82,7 @@ export default function WorkshopKpiReportsPage() {
 
   const exportCsv = () => {
     if (!report.data) return
-    triggerBlobDownload(new Blob(['\uFEFF', serializeWorkshopKpiCsv(report.data)], { type: 'text/csv;charset=utf-8' }), 'workshop-kpis.csv')
+    downloadCsv(serializeWorkshopKpiCsv(report.data), 'workshop-kpis.csv')
   }
 
   return (

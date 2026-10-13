@@ -1,9 +1,6 @@
 import { DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu"
 import { Settings2 } from "lucide-react"
-import type {
-  LegacyColumn as Column,
-  LegacyReactTable as Table,
-} from '@tanstack/react-table/legacy'
+import type { LegacyReactTable as Table } from '@tanstack/react-table/legacy'
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,25 +11,32 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { getDataTableColumnLabel } from "./data-table-column-label"
 
 interface DataTableViewOptionsProps<TData extends object> {
   table: Table<TData>
 }
 
-function humanizeColumnId(id: string): string {
-  const words = id
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .toLowerCase()
-  return words.charAt(0).toUpperCase() + words.slice(1)
-}
-
-function getColumnLabel<TData extends object>(column: Column<TData, unknown>): string {
-  const meta = column.columnDef.meta as { label?: string } | undefined
-  if (meta?.label) return meta.label
-  if (typeof column.columnDef.header === "string") return column.columnDef.header
-  return humanizeColumnId(column.id)
+// Mounted only while the menu is open, so labels are read after the column headers have committed their titles.
+function ColumnToggleItems<TData extends object>({ table }: DataTableViewOptionsProps<TData>) {
+  return table
+    .getAllColumns()
+    .filter(
+      (column) =>
+        typeof column.accessorFn !== "undefined" && column.getCanHide()
+    )
+    .map((column) => {
+      return (
+        <DropdownMenuCheckboxItem
+          key={column.id}
+          checked={column.getIsVisible()}
+          onCheckedChange={(value: boolean) => column.toggleVisibility(!!value)}
+          onSelect={(event) => event.preventDefault()}
+        >
+          {getDataTableColumnLabel(column)}
+        </DropdownMenuCheckboxItem>
+      )
+    })
 }
 
 export function DataTableViewOptions<TData extends object>({
@@ -70,24 +74,7 @@ export function DataTableViewOptions<TData extends object>({
           Reset
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        {table
-          .getAllColumns()
-          .filter(
-            (column) =>
-              typeof column.accessorFn !== "undefined" && column.getCanHide()
-          )
-          .map((column) => {
-            return (
-              <DropdownMenuCheckboxItem
-                key={column.id}
-                checked={column.getIsVisible()}
-                onCheckedChange={(value: boolean) => column.toggleVisibility(!!value)}
-                onSelect={(event) => event.preventDefault()}
-              >
-                {getColumnLabel(column)}
-              </DropdownMenuCheckboxItem>
-            )
-          })}
+        <ColumnToggleItems table={table} />
       </DropdownMenuContent>
     </DropdownMenu>
   )

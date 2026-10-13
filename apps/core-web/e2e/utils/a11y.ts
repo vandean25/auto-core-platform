@@ -1,8 +1,18 @@
 import { expect, Page, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+/**
+ * Rule tags the scan runs (AUT-482). WCAG 2.2 AA is `wcag22aa` on top of the 2.0/2.1 A and AA tags;
+ * `best-practice` stays in so the moderate findings report keeps the rules it had before. AAA is
+ * not in scope.
+ */
+export const A11Y_AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
+
 /** axe impact levels we fail the build on (phase 2). */
 const FAIL_IMPACTS = new Set(['critical', 'serious']);
+
+/** Rules that fail the build at any impact (AUT-482): contrast is enforced whatever axe rates it. */
+const FAIL_RULE_IDS = new Set(['color-contrast']);
 
 const REPORT_ONLY_IMPACTS = new Set(['moderate', 'minor']);
 
@@ -28,7 +38,9 @@ function isAllowlisted(
 }
 
 export async function expectNoCriticalA11yViolations(page: Page) {
-  const accessibilityScanResults = await new AxeBuilder({ page }).analyze();
+  const accessibilityScanResults = await new AxeBuilder({ page })
+    .withTags(A11Y_AXE_TAGS)
+    .analyze();
   const pathname = new URL(page.url()).pathname;
 
   await test.info().attach('accessibility-scan-results', {
@@ -36,8 +48,8 @@ export async function expectNoCriticalA11yViolations(page: Page) {
     contentType: 'application/json',
   });
 
-  const backlogViolations = accessibilityScanResults.violations.filter((v) =>
-    REPORT_ONLY_IMPACTS.has(v.impact ?? ''),
+  const backlogViolations = accessibilityScanResults.violations.filter(
+    (v) => REPORT_ONLY_IMPACTS.has(v.impact ?? '') && !FAIL_RULE_IDS.has(v.id),
   );
   if (backlogViolations.length > 0) {
     await test.info().attach('accessibility-backlog-violations', {
@@ -56,7 +68,7 @@ export async function expectNoCriticalA11yViolations(page: Page) {
   }
 
   const failingViolations = accessibilityScanResults.violations.filter((v) => {
-    if (!FAIL_IMPACTS.has(v.impact ?? '')) return false;
+    if (!FAIL_IMPACTS.has(v.impact ?? '') && !FAIL_RULE_IDS.has(v.id)) return false;
     const allowlisted = A11Y_ALLOWLIST.some((entry) =>
       isAllowlisted(v.id, pathname, entry),
     );
@@ -73,7 +85,7 @@ export async function expectNoCriticalA11yViolations(page: Page) {
     }));
     expect(
       failingViolations,
-      `Accessibility violations (critical/serious) on ${pathname}:\n${JSON.stringify(summary, null, 2)}`,
+      `Accessibility violations (critical/serious or color-contrast) on ${pathname}:\n${JSON.stringify(summary, null, 2)}`,
     ).toEqual([]);
   }
 }

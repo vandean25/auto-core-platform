@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react"
 import { ArrowDown, ArrowUp, ChevronsUpDown, EllipsisVertical, EyeOff } from "lucide-react"
 import type { LegacyColumn as Column } from '@tanstack/react-table/legacy'
 
@@ -14,6 +15,13 @@ interface DataTableColumnHeaderProps<TData extends object, TValue>
   extends React.HTMLAttributes<HTMLDivElement> {
   column: Column<TData, TValue>
   title: string
+}
+
+// Title last rendered for each column, so the CSV export and the Columns menu can use the on-screen name.
+const columnTitles = new WeakMap<object, string>()
+
+export function getDataTableColumnTitle(column: object): string | undefined {
+  return columnTitles.get(column)
 }
 
 // One click per step: none -> asc -> desc -> none.
@@ -33,6 +41,10 @@ export function DataTableColumnHeader<TData extends object, TValue>({
   title,
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
+  useLayoutEffect(() => {
+    columnTitles.set(column, title)
+  }, [column, title])
+
   if (!column.getCanSort()) {
     return <div className={cn(className)}>{title}</div>
   }

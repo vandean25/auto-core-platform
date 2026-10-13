@@ -20,6 +20,15 @@ import {
   installFakeInvoiceArchiveStorage,
   withInvoiceBrandingWriterDisabled,
 } from './invoice-branding-archive-test-utils.js';
+import { InvoicePdfRenderer } from '../src/invoices/invoice-pdf.renderer.js';
+import { InvoicePdfService } from '../src/invoices/invoice-pdf.service.js';
+import { InvoicesModule } from '../src/invoices/invoices.module.js';
+import { MARGIN_SCHEME_LEGAL_NOTES } from '../src/invoices/margin-scheme-legal-notes.js';
+import {
+  lettersAndDigits,
+  normalizePdfText,
+  readPdfText,
+} from './pdf-text-test-utils.js';
 
 function vin(tag: string) {
   return `WVW${tag
@@ -1628,4 +1637,111 @@ describe('Vehicle stock trading (e2e)', () => {
       totals: { count: expect.any(Number), by_inventory_role: expect.any(Object) },
     });
   });
+
+  it('AT dealer vehicle sale produces an AT-wording invoice PDF and a matching Stornorechnung', async () => {
+    // AUT-349: the AT seller freezes AT wording in the snapshot; margin VAT is never printed.
+    const seller = await prisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantId },
+    });
+    expect(seller.country_iso).toBe('AT');
+
+    const { received } = await createAndReceive({
+      vin: vin('AT-PDF'),
+      sellerType: 'VENDOR',
+    });
+    const created = await request(app.getHttpServer())
+      .post('/api/vehicle-sales')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vehicle_id: received.vehicle_id,
+        customer_id: buyerId,
+        sale_price: 12000,
+        contract_concluded_at: '2026-10-02',
+        handed_over_at: '2026-10-08',
+      })
+      .expect(201);
+    const finalized = await request(app.getHttpServer())
+      .post(`/api/vehicle-sales/${created.body.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(201);
+    const invoiceId: string = finalized.body.invoice.id;
+
+    const committed = await prisma.invoice.findFirstOrThrow({
+      where: { id: invoiceId },
+      select: { snapshot: true },
+    });
+    expect(committed.snapshot).toMatchObject({
+      tax_mode: 'MARGIN_SCHEME',
+      seller: { country_iso: 'AT' },
+      margin: { calculation_profile: 'vehicle-margin-v1' },
+    });
+
+    // The archive fixture stubs the renderer for this suite; restore the real one for this render only.
+    const invoicePdfService = app.select(InvoicesModule).get(InvoicePdfService);
+    const invoiceRenderer = (
+      invoicePdfService as unknown as { renderer: InvoicePdfRenderer }
+    ).renderer;
+    const stubbedRender = invoiceRenderer.render;
+    invoiceRenderer.render = InvoicePdfRenderer.prototype.render.bind(invoiceRenderer);
+    try {
+      await request(app.getHttpServer())
+        .post(`/api/invoices/${invoiceId}/pdf`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(201);
+    } finally {
+      invoiceRenderer.render = stubbedRender;
+    }
+
+    const invoiceText = await readRenderedPdfText(`/api/invoices/${invoiceId}/pdf`);
+    expect(lettersAndDigits(invoiceText)).toContain(
+      lettersAndDigits(MARGIN_SCHEME_LEGAL_NOTES.AT),
+    );
+    expect(lettersAndDigits(invoiceText)).not.toContain(lettersAndDigits('§ 25a UStG'));
+    expect(lettersAndDigits(invoiceText)).toContain(lettersAndDigits('Brutto: 12000.00'));
+    expect(invoiceText).not.toContain('Umsatzsteuer');
+    // Margin VAT on a 12000 sale over a 10000 cost basis at 20% is 333.33, and the cost basis is
+    // 10000.00; neither is printed. The decimal point is optional because pdf.js may drop it.
+    expect(invoiceText).not.toMatch(/333\.?33/);
+    expect(invoiceText).not.toMatch(/10000\.?00/);
+
+    const credit = await request(app.getHttpServer())
+      .post(`/api/invoices/${invoiceId}/credit-notes`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ date: '2026-10-12', reason: 'AT Stornierung Fahrzeugverkauf', mode: 'FULL' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/credit-notes/${credit.body.id}/finalize`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ expectedVersion: 1, idempotencyKey: `at-margin-stornorechnung-${invoiceId}` })
+      .expect(201);
+
+    // The Stornorechnung renders from this frozen full-document snapshot (ADR-0023).
+    const stornorechnung = await prisma.creditNote.findFirstOrThrow({
+      where: { id: credit.body.id },
+      select: { snapshot: true },
+    });
+    expect(stornorechnung.snapshot).toMatchObject({
+      document_kind: 'CREDIT_NOTE',
+      credit_title: 'Stornorechnung',
+      tax_mode: 'MARGIN_SCHEME',
+      seller: { country_iso: 'AT' },
+      tax_breakdown: [],
+      total_tax: '0.00',
+    });
+  });
+
+  async function readRenderedPdfText(path: string): Promise<string> {
+    const response = await request(app.getHttpServer())
+      .get(path)
+      .set('Authorization', `Bearer ${authToken}`)
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    const { text } = await readPdfText(response.body as Buffer);
+    return normalizePdfText(text);
+  }
 });

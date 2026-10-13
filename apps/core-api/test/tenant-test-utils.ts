@@ -439,6 +439,9 @@ export async function cleanupTestTenantGraph(
 
   await tenantPrisma.vehicleInspectionRecord.deleteMany({});
   await tenantPrisma.vehicleLedgerEntry.deleteMany({});
+  await tenantPrisma.creditNoteItem.deleteMany({});
+  await tenantPrisma.creditNote.deleteMany({});
+  await tenantPrisma.creditNoteSequence.deleteMany({});
   await tenantPrisma.invoiceItem.deleteMany({});
   await tenantPrisma.invoice.deleteMany({});
   await tenantPrisma.invoiceSequence.deleteMany({});
