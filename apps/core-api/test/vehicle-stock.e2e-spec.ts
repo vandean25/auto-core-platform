@@ -39,6 +39,10 @@ function vin(tag: string) {
 }
 
 describe('Vehicle stock trading (e2e)', () => {
+  // Locks every posting date this run can produce: postings use the current time, which falls in
+  // the current year, so a lock at the end of next year is always ahead of it.
+  const fiscalLockDate = `${new Date().getUTCFullYear() + 1}-12-31T00:00:00.000Z`;
+
   let app: INestApplication;
   let authToken: string;
   let otherAuthToken: string;
@@ -914,7 +918,7 @@ describe('Vehicle stock trading (e2e)', () => {
     await request(app.getHttpServer())
       .patch('/api/finance/settings')
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ lock_date: '2026-12-31T00:00:00.000Z' })
+      .send({ lock_date: fiscalLockDate })
       .expect(200);
 
     try {
@@ -1041,7 +1045,7 @@ describe('Vehicle stock trading (e2e)', () => {
     await request(app.getHttpServer())
       .patch('/api/finance/settings')
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ lock_date: '2026-12-31T00:00:00.000Z' })
+      .send({ lock_date: fiscalLockDate })
       .expect(200);
 
     try {
@@ -1668,7 +1672,7 @@ describe('Vehicle stock trading (e2e)', () => {
 
     const committed = await prisma.invoice.findFirstOrThrow({
       where: { id: invoiceId },
-      select: { snapshot: true },
+      select: { date: true, snapshot: true },
     });
     expect(committed.snapshot).toMatchObject({
       tax_mode: 'MARGIN_SCHEME',
@@ -1704,10 +1708,16 @@ describe('Vehicle stock trading (e2e)', () => {
     expect(invoiceText).not.toMatch(/333\.?33/);
     expect(invoiceText).not.toMatch(/10000\.?00/);
 
+    // A credit note may not predate its invoice, and the invoice is dated when the sale is finalized,
+    // so the credit date comes from the invoice rather than a fixed calendar date.
     const credit = await request(app.getHttpServer())
       .post(`/api/invoices/${invoiceId}/credit-notes`)
       .set('Authorization', `Bearer ${authToken}`)
-      .send({ date: '2026-10-12', reason: 'AT Stornierung Fahrzeugverkauf', mode: 'FULL' })
+      .send({
+        date: committed.date.toISOString().slice(0, 10),
+        reason: 'AT Stornierung Fahrzeugverkauf',
+        mode: 'FULL',
+      })
       .expect(201);
     await request(app.getHttpServer())
       .post(`/api/credit-notes/${credit.body.id}/finalize`)

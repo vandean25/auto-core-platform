@@ -2,7 +2,7 @@ import { UnprocessableEntityException } from '@nestjs/common';
 import {
   DEFAULT_AT_PROFILE_CODE,
   DEFAULT_DE_PROFILE_CODE,
-  isExportSerializerImplemented,
+  isExportSerializerReleased,
 } from '../accounting-profile/accounting-profile.codes.js';
 import type {
   AccountingExportFilenameInput,
@@ -10,34 +10,14 @@ import type {
 } from './accounting-export-serializer.types.js';
 import { datevAccountingExportSerializer } from './datev-accounting-export.serializer.js';
 import { buildAccountingExportFilename } from './datev-serializer.js';
-import {
-  DATEV_MAX_CSV_BYTES,
-  DATEV_MAX_DOCUMENTS_PER_RUN,
-} from './datev-format.constants.js';
-
-const rzlAccountingExportSerializerStub: AccountingExportSerializerPort = {
-  profileCode: DEFAULT_AT_PROFILE_CODE,
-  isImplemented: false,
-  limits: {
-    maxCsvBytes: DATEV_MAX_CSV_BYTES,
-    maxDocumentsPerRun: DATEV_MAX_DOCUMENTS_PER_RUN,
-  },
-  serialize() {
-    throw new UnprocessableEntityException({
-      code: 'EXPORT_SERIALIZER_NOT_IMPLEMENTED',
-      message:
-        'RZL accounting export serialization is not enabled until AUT-361/AUT-368 gates pass.',
-    });
-  },
-  buildFilename: buildAccountingExportFilename,
-};
+import { rzlAccountingExportSerializer } from './rzl-accounting-export.serializer.js';
 
 const serializersByProfileCode = new Map<
   string,
   AccountingExportSerializerPort
 >([
   [DEFAULT_DE_PROFILE_CODE, datevAccountingExportSerializer],
-  [DEFAULT_AT_PROFILE_CODE, rzlAccountingExportSerializerStub],
+  [DEFAULT_AT_PROFILE_CODE, rzlAccountingExportSerializer],
 ]);
 
 export function resolveAccountingExportSerializer(
@@ -65,7 +45,7 @@ export function exportProfileCanGenerate(
   profileCode: string | null | undefined,
   isEnabled: boolean,
 ): boolean {
-  return isEnabled && isExportSerializerImplemented(profileCode);
+  return isEnabled && isExportSerializerReleased(profileCode);
 }
 
 /** Read paths: legacy runs may have null or unknown profile codes in frozen snapshots. */

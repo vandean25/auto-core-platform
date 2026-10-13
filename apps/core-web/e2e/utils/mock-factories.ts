@@ -737,8 +737,15 @@ type MockAccountingProfile = {
     rzl?: {
       firmNumber?: string | null;
       costCenterLength?: number | null;
+      steuercodes?: {
+        vat20?: string | null;
+        vat13?: string | null;
+        vat10?: string | null;
+      };
     };
   };
+  serializer_released: boolean;
+  export_missing_fields: string[];
   mapping_rules: Array<{
     sourceCategoryKey: string;
     sourceCategoryLabel: string;
@@ -779,6 +786,8 @@ export const createMockAccountingProfile = (
   fiscal_year_start_month: null,
   default_debtor_account: null,
   serializer_params: {},
+  serializer_released: false,
+  export_missing_fields: [],
   mapping_rules: [],
   required_source_categories: [
     {
