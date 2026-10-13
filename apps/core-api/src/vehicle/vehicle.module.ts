@@ -9,6 +9,9 @@ import {
 } from './vehicle-identity.provider.js';
 import { VehicleIdentityService } from './vehicle-identity.service.js';
 import { VehicleService } from './vehicle.service.js';
+import { VehiclePersistenceService } from './vehicle-persistence.service.js';
+import { VehiclePickerlDueService } from './vehicle-pickerl-due.service.js';
+import { VehicleWriteService } from './vehicle-write.service.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
 
 @Module({
@@ -16,6 +19,9 @@ import { NovaCalculationService } from './nova-calculation.service.js';
   controllers: [VehicleController, VehicleInspectionRecordController],
   providers: [
     VehicleService,
+    VehiclePersistenceService,
+    VehicleWriteService,
+    VehiclePickerlDueService,
     NovaCalculationService,
     VehicleInspectionRecordService,
     VehicleIdentityService,
