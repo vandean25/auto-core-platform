@@ -11,6 +11,14 @@ import { DocumentBrandingUploadTaskGuard } from './document-branding-upload-task
 import { DocumentBrandingUploadWorkerService } from './document-branding-upload-worker.service.js';
 import { DocumentBrandingPdfParser } from './document-branding-pdf-parser.js';
 import { DocumentBrandingUploadRecoveryService } from './document-branding-upload-recovery.service.js';
+import { DocumentBrandingUploadRequeueService } from './document-branding-upload-requeue.service.js';
+import { DocumentBrandingAssetCleanupService } from './document-branding-asset-cleanup.service.js';
+import { DocumentBrandingUploadAdmissionService } from './document-branding-upload-admission.service.js';
+import { DocumentBrandingAssetReaderService } from './document-branding-asset-reader.service.js';
+import { DocumentBrandingProfileStore } from './document-branding-profile-store.service.js';
+import { DocumentBrandingDraftService } from './document-branding-draft.service.js';
+import { DocumentBrandingConfirmationService } from './document-branding-confirmation.service.js';
+import { DocumentBrandingProfilePreviewService } from './document-branding-profile-preview.service.js';
 import { DOCUMENT_BRAND_EXTRACTION_PROVIDER } from './document-branding-extraction-provider.js';
 import { createDocumentBrandingExtractionProvider } from './document-branding-extraction-provider.factory.js';
 import { DocumentBrandingExtractionService } from './document-branding-extraction.service.js';
@@ -30,6 +38,10 @@ import { DocumentBrandingExtractionRecoveryService } from './document-branding-e
   ],
   providers: [
     DocumentBrandingService,
+    DocumentBrandingProfileStore,
+    DocumentBrandingDraftService,
+    DocumentBrandingConfirmationService,
+    DocumentBrandingProfilePreviewService,
     DocumentBrandingExtractionService,
     DocumentBrandingExtractionTaskService,
     DocumentBrandingExtractionTaskGuard,
@@ -42,11 +54,15 @@ import { DocumentBrandingExtractionRecoveryService } from './document-branding-e
     },
     DocumentBrandingAssetStorage,
     DocumentBrandingUploadService,
+    DocumentBrandingUploadAdmissionService,
+    DocumentBrandingAssetReaderService,
     DocumentBrandingUploadTaskService,
     DocumentBrandingUploadWorkerService,
     DocumentBrandingUploadTaskGuard,
     DocumentBrandingPdfParser,
     DocumentBrandingUploadRecoveryService,
+    DocumentBrandingUploadRequeueService,
+    DocumentBrandingAssetCleanupService,
   ],
   exports: [
     DocumentBrandingService,

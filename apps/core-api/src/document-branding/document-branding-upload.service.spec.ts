@@ -4,6 +4,8 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadService } from './document-branding-upload.service.js';
+import { DocumentBrandingAssetReaderService } from './document-branding-asset-reader.service.js';
+import { DocumentBrandingUploadAdmissionService } from './document-branding-upload-admission.service.js';
 
 describe('DocumentBrandingUploadService', () => {
   const tenantId = 'tenant-1';
@@ -80,12 +82,16 @@ describe('DocumentBrandingUploadService', () => {
     });
     tasks.enqueue.mockResolvedValue(undefined);
     quotaCount.mockResolvedValue(0);
+    const requestContext = { getTraceId: () => UPLOAD_TRACE_ID } as never;
     service = new DocumentBrandingUploadService(
-      prisma,
-      tenantContext,
-      storage,
-      tasks as never,
-      { getTraceId: () => UPLOAD_TRACE_ID } as never,
+      new DocumentBrandingUploadAdmissionService(
+        prisma,
+        tenantContext,
+        storage,
+        tasks as never,
+        requestContext,
+      ),
+      new DocumentBrandingAssetReaderService(prisma, tenantContext, storage),
     );
   });
 
