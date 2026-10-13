@@ -223,6 +223,15 @@ export function validateAccountingProfilePatch(
   }
 
   const effectiveProfileCode = resolveProfileCodeAfterPatch(patch, context);
+  // The RZL export never uses the margin switch, so storing it there would be silently ignored.
+  if (
+    normalized.serializerParams?.marginScheme?.enabled &&
+    isRzlProfileCode(effectiveProfileCode)
+  ) {
+    throw new BadRequestException(
+      'Margin-scheme export is available for the DATEV profile only',
+    );
+  }
   const effectiveChart =
     patch.chart !== undefined
       ? (normalized.chart ?? null)

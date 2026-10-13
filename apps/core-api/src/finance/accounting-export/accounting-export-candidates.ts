@@ -134,6 +134,7 @@ export function collectBlockersForInvoice(
       isMarginDocument,
       availability: marginAvailability,
       allocationTaxMode: allocation.taxMode,
+      allocationTaxTreatment: allocation.taxTreatment,
     });
     if (marginLine) {
       blockers.push({
@@ -245,6 +246,7 @@ export function collectBlockersForCreditNote(
       isMarginDocument,
       availability: marginAvailability,
       allocationTaxMode: allocation.taxMode,
+      allocationTaxTreatment: allocation.taxTreatment,
     });
     if (marginLine) {
       blockers.push({

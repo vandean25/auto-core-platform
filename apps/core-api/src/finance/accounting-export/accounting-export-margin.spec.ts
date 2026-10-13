@@ -381,6 +381,50 @@ describe('accounting-export margin-scheme lift (AUT-369)', () => {
     expect(candidate.rows).toEqual([]);
   });
 
+  it('blocks a margin line that carries a manual BU key', async () => {
+    const manualBuAllocation = {
+      ...marginAllocation({ id: 'item-1', gross: '12000.00' }),
+      taxTreatment: 'manual_bu',
+      buKey: '9',
+    };
+    const invoice = marginInvoice();
+    const [candidate] = await loadFor(marginEnabledRules, [
+      {
+        ...invoice,
+        items: [{ id: 'item-1', accounting_snapshot: manualBuAllocation }],
+      },
+    ]);
+
+    expect(codesOf(candidate)).toEqual(['ACCOUNTING_MAPPING_INCOMPLETE']);
+    expect(candidate.blockers[0].message).toBe(
+      'Manual BU keys are not used for margin-scheme documents.',
+    );
+    expect(candidate.rows).toEqual([]);
+  });
+
+  it('books only the margin VAT row when the margin VAT equals the gross', async () => {
+    const [candidate] = await loadFor(marginEnabledRules, [
+      marginInvoice({ margin: { margin_tax: '12000.00' } }),
+    ]);
+
+    expect(candidate.blockers).toEqual([]);
+    expect(
+      candidate.rows.map((row) => [row.revenueAccount, row.gross]),
+    ).toEqual([['1776', '12000.00']]);
+  });
+
+  it('names the credit wording when a margin credit is blocked by the default profile', async () => {
+    const [candidate] = await loadFor(
+      DATEV_ALLOCATION_RULES,
+      [],
+      [marginCreditNote()],
+    );
+
+    expect(candidate.blockers.map((blocker) => blocker.message)).toContain(
+      'Margin-scheme credits are not supported by the active export profile.',
+    );
+  });
+
   it('applies the same lift to a full credit of a margin document', async () => {
     const [candidate] = await loadFor(
       marginEnabledRules,

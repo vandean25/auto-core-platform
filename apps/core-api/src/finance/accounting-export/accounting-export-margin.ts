@@ -9,8 +9,11 @@ import type { AccountingExportBookingRow } from './accounting-export.types.js';
  * Margin-scheme (Differenzbesteuerung) export, built best-effort under AUT-369
  * while accountant review is pending (ADR-0023 deferral log). A margin document
  * books its net sale to the mapped revenue account and its frozen margin VAT to
- * the entity's margin VAT account. The gross sale never receives an ordinary VAT
- * key, so it cannot be booked as ordinary VAT revenue.
+ * the entity's margin VAT account. The rows carry no BU key. That keeps the BU key
+ * out of the file, but it does not stop DATEV from applying tax from an
+ * automatic-tax account. The mapped revenue account must therefore not be an
+ * automatic-tax account. ACP does not check the DATEV chart, so the accountant
+ * verifies this assumption.
  */
 
 export type MarginSchemeAvailability =
@@ -44,6 +47,8 @@ const MARGIN_ALLOCATION_NOT_EXPORTABLE =
   'Margin-scheme allocations cannot be exported with the active profile.';
 const MARGIN_LINE_ALLOCATION_MISSING =
   'Margin-scheme document line has no margin accounting allocation.';
+const MARGIN_MANUAL_BU_NOT_SUPPORTED =
+  'Manual BU keys are not used for margin-scheme documents.';
 
 /**
  * Document-level issue for a margin-scheme document, or null when it can be
@@ -101,18 +106,26 @@ export function marginDocumentIssue(input: {
 /**
  * Line-level issue for one frozen allocation. A margin allocation is blocked
  * unless its document is a margin document on an enabled profile, and a margin
- * document line must carry a margin allocation.
+ * document line must carry a margin allocation. A margin allocation with a
+ * manual BU key is blocked, because the margin rows carry no BU key.
  */
 export function marginLineIssue(input: {
   isMarginDocument: boolean;
   availability: MarginSchemeAvailability;
   allocationTaxMode: string;
+  allocationTaxTreatment: string;
 }): AccountingExportRuleIssue | null {
   if (input.allocationTaxMode === 'MARGIN_SCHEME') {
-    return !input.isMarginDocument || input.availability === 'NOT_ENABLED'
+    if (!input.isMarginDocument || input.availability === 'NOT_ENABLED') {
+      return {
+        code: 'UNSUPPORTED_EXPORT_TAX_MODE',
+        message: MARGIN_ALLOCATION_NOT_EXPORTABLE,
+      };
+    }
+    return input.allocationTaxTreatment === 'manual_bu'
       ? {
-          code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-          message: MARGIN_ALLOCATION_NOT_EXPORTABLE,
+          code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+          message: MARGIN_MANUAL_BU_NOT_SUPPORTED,
         }
       : null;
   }
@@ -137,8 +150,9 @@ type MarginRowBase = Pick<
 
 /**
  * Two booking rows for one margin line: the net sale on the revenue account and
- * the frozen margin VAT on the margin VAT account. Both rows carry no BU key, so
- * no automatic tax is applied to the gross sale.
+ * the frozen margin VAT on the margin VAT account. Neither row carries a BU key.
+ * The revenue account must not be an automatic-tax account (see the module note
+ * above).
  */
 export function buildMarginBookingRows(input: {
   base: MarginRowBase;

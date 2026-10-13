@@ -30,7 +30,7 @@ export type AccountingProfileSerializerParams = {
 
 /** Request-side shape before parsing: a PATCH may send only some margin fields. */
 export type AccountingProfileSerializerParamsInput = {
-  rzl?: RzlSerializerParams;
+  rzl?: RzlSerializerParams | null;
   marginScheme?: Partial<MarginSchemeSerializerParams>;
 };
 
@@ -194,10 +194,10 @@ export function serializeAccountingProfileSerializerParams(
 }
 
 /**
- * A profile PATCH replaces the RZL params it carries, and keeps the stored ones
- * when it carries none. Margin fields it omits keep their stored value too. A
- * RZL-only save must not switch the margin scheme off, and a VAT-account-only
- * patch must not disable it.
+ * A profile PATCH replaces the RZL params it carries. An omitted `rzl` keeps the
+ * stored ones, and an explicit `rzl: null` clears them. Margin fields it omits
+ * keep their stored value too. A RZL-only save must not switch the margin scheme
+ * off, and a VAT-account-only patch must not disable it.
  */
 export function mergeAccountingProfileSerializerParams(
   stored: unknown,
@@ -209,7 +209,7 @@ export function mergeAccountingProfileSerializerParams(
     patchMargin !== undefined || current.marginScheme !== undefined;
 
   return parseAccountingProfileSerializerParams({
-    rzl: patchRzl ?? current.rzl,
+    rzl: patchRzl === undefined ? current.rzl : patchRzl,
     ...(hasMargin
       ? {
           marginScheme: {

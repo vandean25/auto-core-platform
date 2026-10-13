@@ -1,5 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import { DEFAULT_DE_PROFILE_CODE } from './accounting-profile.codes.js';
+import {
+  DEFAULT_AT_PROFILE_CODE,
+  DEFAULT_DE_PROFILE_CODE,
+} from './accounting-profile.codes.js';
 import { validateAccountingProfilePatch } from './accounting-profile.validation.js';
 
 const deContext = {
@@ -13,6 +16,23 @@ const storedMargin = {
 };
 
 describe('accounting-profile.validation margin scheme merge', () => {
+  it('rejects enabling the margin scheme on an RZL profile', () => {
+    expect(() =>
+      validateAccountingProfilePatch(
+        {
+          serializerParams: {
+            marginScheme: { enabled: true, vatAccount: '1776' },
+          },
+        },
+        {
+          countryIso: 'AT',
+          currentProfileCode: DEFAULT_AT_PROFILE_CODE,
+          currentChart: 'UGB',
+        },
+      ),
+    ).toThrow(BadRequestException);
+  });
+
   it('accepts an enabled-only margin patch when a VAT account is already stored', () => {
     const patch = validateAccountingProfilePatch(
       { serializerParams: { marginScheme: { enabled: true } } },

@@ -250,6 +250,16 @@ describe('accounting-export mixed period (v1 + v2 + AT + DE, AUT-369)', () => {
     ]);
   });
 
+  it('books one row per clean document and none for blocked documents', async () => {
+    const byId = await evaluate(DATEV_MARGIN_ENABLED);
+
+    expect(byId['inv-v2-de'].rows).toHaveLength(1);
+    expect(byId['inv-v2-de-margin'].rows).toHaveLength(2);
+    expect(byId['cn-v2-de'].rows).toHaveLength(1);
+    expect(byId['inv-v2-at'].rows).toEqual([]);
+    expect(byId['inv-v1-de'].rows).toEqual([]);
+  });
+
   it('never lifts margin documents on the RZL profile, even with the margin setting on', async () => {
     const byId = await evaluate(RZL_MARGIN_ENABLED);
 

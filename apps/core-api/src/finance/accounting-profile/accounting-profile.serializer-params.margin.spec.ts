@@ -87,6 +87,21 @@ describe('accounting-profile serializer params (margin scheme)', () => {
     });
   });
 
+  it('clears the stored RZL params only when the patch sends rzl as null', () => {
+    const stored = {
+      rzl: {
+        firmNumber: 'FN-1',
+        costCenterLength: null,
+        steuercodes: { vat20: '20', vat13: '13', vat10: '10' },
+      },
+      marginScheme: { enabled: true, vatAccount: '1776' },
+    };
+
+    expect(
+      mergeAccountingProfileSerializerParams(stored, { rzl: null }),
+    ).toEqual({ marginScheme: { enabled: true, vatAccount: '1776' } });
+  });
+
   it('keeps the stored RZL params when a patch only changes the margin scheme', () => {
     const stored = {
       rzl: {
