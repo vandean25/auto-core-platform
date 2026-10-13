@@ -40,18 +40,27 @@ function readMarginTax(margin: unknown): string | null {
     : null;
 }
 
+const MARGIN_ALLOCATION_NOT_EXPORTABLE =
+  'Margin-scheme allocations cannot be exported with the active profile.';
+const MARGIN_LINE_ALLOCATION_MISSING =
+  'Margin-scheme document line has no margin accounting allocation.';
+
 /**
  * Document-level issue for a margin-scheme document, or null when it can be
- * booked. Only single-line documents qualify because the margin VAT is frozen per
- * document. `notSupportedMessage` keeps the invoice or credit wording of the
- * blanket block.
+ * booked or is not a margin document. Only single-line documents qualify because
+ * the margin VAT is frozen per document. `notSupportedMessage` keeps the invoice
+ * or credit wording of the blanket block.
  */
 export function marginDocumentIssue(input: {
+  isMarginDocument: boolean;
   availability: MarginSchemeAvailability;
   notSupportedMessage: string;
   margin: unknown;
   lineGrosses: string[];
 }): AccountingExportRuleIssue | null {
+  if (!input.isMarginDocument) {
+    return null;
+  }
   if (input.availability === 'NOT_ENABLED') {
     return {
       code: 'UNSUPPORTED_EXPORT_TAX_MODE',
@@ -87,6 +96,32 @@ export function marginDocumentIssue(input: {
     };
   }
   return null;
+}
+
+/**
+ * Line-level issue for one frozen allocation. A margin allocation is blocked
+ * unless its document is a margin document on an enabled profile, and a margin
+ * document line must carry a margin allocation.
+ */
+export function marginLineIssue(input: {
+  isMarginDocument: boolean;
+  availability: MarginSchemeAvailability;
+  allocationTaxMode: string;
+}): AccountingExportRuleIssue | null {
+  if (input.allocationTaxMode === 'MARGIN_SCHEME') {
+    return !input.isMarginDocument || input.availability === 'NOT_ENABLED'
+      ? {
+          code: 'UNSUPPORTED_EXPORT_TAX_MODE',
+          message: MARGIN_ALLOCATION_NOT_EXPORTABLE,
+        }
+      : null;
+  }
+  return input.isMarginDocument && input.availability === 'AVAILABLE'
+    ? {
+        code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+        message: MARGIN_LINE_ALLOCATION_MISSING,
+      }
+    : null;
 }
 
 type MarginRowBase = Pick<
