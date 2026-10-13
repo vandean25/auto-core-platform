@@ -54,11 +54,14 @@ export interface OrderReadyInput extends CustomerMessageContext {
 }
 
 export function renderEstimateSentEmail(input: EstimateSentInput): EmailDraft {
+  const estimateNumber = requiredText('estimateNumber', input.estimateNumber);
+  const vehicleLabel = requiredText('vehicleLabel', input.vehicleLabel);
+  const approvalUrl = requiredHttpsUrl('approvalUrl', input.approvalUrl);
   return draft(input, CUSTOMER_TEMPLATE_IDS.estimateSent, {
-    subject: `Kostenvoranschlag ${input.estimateNumber}`,
+    subject: `Kostenvoranschlag ${estimateNumber}`,
     paragraphs: [
-      `wir haben für Ihr Fahrzeug ${input.vehicleLabel} den Kostenvoranschlag ${input.estimateNumber} erstellt.`,
-      `Den Kostenvoranschlag können Sie unter folgendem Link einsehen: ${input.approvalUrl}`,
+      `wir haben für Ihr Fahrzeug ${vehicleLabel} den Kostenvoranschlag ${estimateNumber} erstellt.`,
+      `Den Kostenvoranschlag können Sie unter folgendem Link einsehen: ${approvalUrl}`,
       `Der Kostenvoranschlag ist gültig bis ${formatValidUntil(input.validUntil)} Uhr. Bitte prüfen Sie ihn in Ruhe. ${CONTACT_SENTENCE}`,
     ],
   });
@@ -67,23 +70,48 @@ export function renderEstimateSentEmail(input: EstimateSentInput): EmailDraft {
 export function renderEstimateApprovalConfirmedEmail(
   input: EstimateApprovalConfirmedInput,
 ): EmailDraft {
+  const estimateNumber = requiredText('estimateNumber', input.estimateNumber);
   return draft(input, CUSTOMER_TEMPLATE_IDS.estimateApprovalConfirmed, {
-    subject: `Bestätigung Ihrer Freigabe: Kostenvoranschlag ${input.estimateNumber}`,
+    subject: `Bestätigung Ihrer Freigabe: Kostenvoranschlag ${estimateNumber}`,
     paragraphs: [
-      `vielen Dank für Ihre Freigabe des Kostenvoranschlags ${input.estimateNumber} am ${formatDate(input.approvedAt)}.`,
+      `vielen Dank für Ihre Freigabe des Kostenvoranschlags ${estimateNumber} am ${formatDate(input.approvedAt)}.`,
       `Wir bestätigen Ihre Freigabe hiermit. ${CONTACT_SENTENCE}`,
     ],
   });
 }
 
 export function renderOrderReadyEmail(input: OrderReadyInput): EmailDraft {
+  const orderNumber = requiredText('orderNumber', input.orderNumber);
+  const vehicleLabel = requiredText('vehicleLabel', input.vehicleLabel);
   return draft(input, CUSTOMER_TEMPLATE_IDS.orderReady, {
-    subject: `Ihr Fahrzeug ist fertig: Auftrag ${input.orderNumber}`,
+    subject: `Ihr Fahrzeug ist fertig: Auftrag ${orderNumber}`,
     paragraphs: [
-      `die Arbeiten an Ihrem Fahrzeug ${input.vehicleLabel} sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.`,
+      `die Arbeiten an Ihrem Fahrzeug ${vehicleLabel} sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.`,
       CONTACT_SENTENCE,
     ],
   });
+}
+
+/** A value the copy is built from. A blank one fails here rather than reaching a customer. */
+function requiredText(name: string, value: string): string {
+  if (value.trim() === '') {
+    throw new Error(`Customer message field ${name} must not be blank`);
+  }
+  return value;
+}
+
+/** The estimate link. The message has no attachment, so this link is the only way to the estimate. */
+function requiredHttpsUrl(name: string, value: string): string {
+  try {
+    if (new URL(value).protocol === 'https:') {
+      return value;
+    }
+  } catch {
+    // Not an absolute URL: refused below.
+  }
+  throw new Error(
+    `Customer message field ${name} must be an absolute https URL`,
+  );
 }
 
 function draft(
