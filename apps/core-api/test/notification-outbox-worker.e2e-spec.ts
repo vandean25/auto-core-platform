@@ -364,9 +364,12 @@ describe('Notification outbox sender worker (e2e)', () => {
     expect(fake.sent).toHaveLength(0);
   });
 
-  it('the recovery sweep wakes due rows of each tenant, and only those', async () => {
-    const id = await enqueue(tenantA, {
-      now: new Date(Date.now() - 3 * 60 * 60 * 1000),
+  it('the recovery sweep wakes due rows of each tenant, and leaves a row that is not yet due', async () => {
+    const past = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    const dueA = await enqueue(tenantA, { now: past });
+    const dueB = await enqueue(tenantB, { now: past });
+    const notYetDue = await enqueue(tenantA, {
+      now: new Date(Date.now() + 60 * 60 * 1000),
     });
     const cloud = app.get(NotificationCloudTasksService);
     setEnv({
@@ -383,9 +386,10 @@ describe('Notification outbox sender worker (e2e)', () => {
     try {
       await app.get(NotificationOutboxRecoveryService).recover();
       // Assert before restoring: mockRestore() also clears the recorded calls.
-      expect(wake).toHaveBeenCalledWith({ outboxId: id, tenantId: tenantA });
+      expect(wake).toHaveBeenCalledWith({ outboxId: dueA, tenantId: tenantA });
+      expect(wake).toHaveBeenCalledWith({ outboxId: dueB, tenantId: tenantB });
       expect(wake).not.toHaveBeenCalledWith(
-        expect.objectContaining({ outboxId: id, tenantId: tenantB }),
+        expect.objectContaining({ outboxId: notYetDue }),
       );
     } finally {
       wake.mockRestore();

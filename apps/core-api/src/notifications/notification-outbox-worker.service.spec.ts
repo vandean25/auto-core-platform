@@ -293,6 +293,42 @@ describe('NotificationOutboxWorkerService', () => {
     });
   });
 
+  it('fails a row whose sender name is only spaces, since a blank message is incomplete', async () => {
+    arrange(makeRow({ sender_name: '  ' }));
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'MESSAGE_INCOMPLETE',
+    });
+  });
+
+  it('fails a row whose subject is empty, since a blank message is incomplete', async () => {
+    arrange(makeRow({ subject: '' }));
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'MESSAGE_INCOMPLETE',
+    });
+  });
+
+  it('fails a row whose body is only spaces, since a blank message is incomplete', async () => {
+    arrange(makeRow({ body: ' ' }));
+
+    await service.deliver('outbox-1', 'tenant-1', NOW, LIVE_OFF);
+
+    expect(provider.send).not.toHaveBeenCalled();
+    expect(outcome()).toMatchObject({
+      status: 'FAILED',
+      last_error_code: 'MESSAGE_INCOMPLETE',
+    });
+  });
+
   it('fails a recipient that is not one plain address without calling a provider', async () => {
     arrange(
       makeRow({ recipient_email: 'kunde@example.at, victim@evil.example' }),

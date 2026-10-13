@@ -213,7 +213,12 @@ export class NotificationOutboxWorkerService {
         message: 'The sender address is not configured',
       });
     }
-    if (!a.row.sender_name || a.row.subject === null || a.row.body === null) {
+    // Blank counts as missing, like the writer's check: a blank subject or body would reach the provider.
+    if (
+      !a.row.sender_name?.trim() ||
+      !a.row.subject?.trim() ||
+      !a.row.body?.trim()
+    ) {
       return this.fail(a, {
         code: 'MESSAGE_INCOMPLETE',
         message: 'The outbox row has no sender name, subject or body',
