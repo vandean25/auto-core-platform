@@ -41,5 +41,8 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 | `HrAttendanceSchedulerService` | `attendanceEvent` |
 | `AgentPolicyService` | `agentPolicyRule` (read platform defaults only) |
 | `ApiKeyLookupService` | `tenantApiKey` (`findUnique` by id, pre-tenant key verification only; ADR-0026) |
+| `NotificationOutboxWorkerService` | `tenant` (`findFirst` by id, reads `is_active` before a claim; ADR-0025) |
+| `NotificationOutboxRecoveryService` | `tenant` (`findMany`: the tenant list and `is_active`, for the minute sweep; ADR-0025) |
+| `NotificationOutboxRetentionService` | `tenant` (`findMany`: the tenant list, for the daily body purge; ADR-0025) |
 
 Do not inject `SystemPrismaService` into feature modules (customers, workshop, inventory, …). Use `PrismaService`.

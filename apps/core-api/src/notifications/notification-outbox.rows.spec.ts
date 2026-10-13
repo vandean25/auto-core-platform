@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   NotificationChannel,
   NotificationEventType,
@@ -23,6 +24,22 @@ const baseInput: EnqueueNotificationInput = {
   workshopOrderId: 'order-1',
   sourceEntityType: 'WorkshopTask',
   sourceEntityId: 'task-1',
+};
+
+const emailInput: EnqueueNotificationInput = {
+  tenantId: 'tenant-1',
+  eventType: NotificationEventType.WORKSHOP_TASK_WAITING_CUSTOMER,
+  occurrenceId: 'estimate-version-1',
+  channel: NotificationChannel.EMAIL,
+  recipientKind: NotificationRecipientKind.CUSTOMER,
+  recipientKey: 'customer:customer-1',
+  email: {
+    recipientEmail: 'kunde@example.at',
+    subject: 'Auftrag Nr. 2026-0042',
+    text: 'Guten Tag,\n',
+    senderName: 'Werkstatt Beispiel GmbH',
+    replyToEmail: 'werkstatt@example.at',
+  },
 };
 
 describe('notification outbox rows', () => {
@@ -51,7 +68,7 @@ describe('notification outbox rows', () => {
   });
 
   describe('buildNotificationOutboxRow()', () => {
-    it('stamps the tenant and writes a transactional, internal in-app row as accepted at write time', () => {
+    it('stamps the tenant and writes an internal in-app row as accepted at write time', () => {
       const row = buildNotificationOutboxRow(baseInput, NOW);
 
       expect(row).toMatchObject({
@@ -68,21 +85,14 @@ describe('notification outbox rows', () => {
         attempts: 0,
         accepted_at: NOW,
         provider: 'in-app',
+        body: null,
+        body_sha256: null,
       });
       expect(row.id).toMatch(/^[0-9a-f-]{36}$/);
     });
 
-    it('writes an email row as pending and due now, with no provider yet', () => {
-      const row = buildNotificationOutboxRow(
-        {
-          ...baseInput,
-          channel: NotificationChannel.EMAIL,
-          recipientKind: NotificationRecipientKind.CUSTOMER,
-          recipientKey: 'customer:customer-1',
-          recipientEmail: 'kunde@example.at',
-        },
-        NOW,
-      );
+    it('writes an email row as pending and due now, with the rendered message and its hash', () => {
+      const row = buildNotificationOutboxRow(emailInput, NOW);
 
       expect(row).toMatchObject({
         status: NotificationOutboxStatus.PENDING,
@@ -90,7 +100,57 @@ describe('notification outbox rows', () => {
         accepted_at: null,
         provider: null,
         recipient_email: 'kunde@example.at',
+        subject: 'Auftrag Nr. 2026-0042',
+        body: 'Guten Tag,\n',
+        body_sha256: createHash('sha256')
+          .update('Guten Tag,\n', 'utf8')
+          .digest('hex'),
+        sender_name: 'Werkstatt Beispiel GmbH',
+        reply_to_email: 'werkstatt@example.at',
+        attempts: 0,
       });
+    });
+
+    it('refuses an email row without a rendered message', () => {
+      expect(() =>
+        buildNotificationOutboxRow({ ...emailInput, email: undefined }, NOW),
+      ).toThrow('EMAIL outbox rows need a rendered message');
+    });
+
+    it('refuses a draft that names more than one recipient or breaks a header', () => {
+      expect(() =>
+        buildNotificationOutboxRow(
+          {
+            ...emailInput,
+            email: {
+              ...emailInput.email!,
+              recipientEmail: 'kunde@example.at, victim@evil.example',
+            },
+          },
+          NOW,
+        ),
+      ).toThrow('EMAIL recipient must be one plain address');
+      expect(() =>
+        buildNotificationOutboxRow(
+          {
+            ...emailInput,
+            email: {
+              ...emailInput.email!,
+              subject: 'Auftrag\r\nBcc: victim@evil.example',
+            },
+          },
+          NOW,
+        ),
+      ).toThrow('EMAIL subject and sender name must be single-line');
+    });
+
+    it('refuses a rendered message on an in-app row', () => {
+      expect(() =>
+        buildNotificationOutboxRow(
+          { ...baseInput, email: emailInput.email },
+          NOW,
+        ),
+      ).toThrow('Only EMAIL outbox rows carry a rendered message');
     });
 
     it('omits payload when none is given and keeps it when given', () => {

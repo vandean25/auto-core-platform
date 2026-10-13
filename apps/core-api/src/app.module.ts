@@ -26,6 +26,7 @@ import { BrandModule } from './brand/brand.module.js';
 import { SalesOrderModule } from './sales/sales-order/sales-order.module.js';
 import { WorkshopModule } from './workshop/workshop.module.js';
 import { MechanicModule } from './mechanic/mechanic.module.js';
+import { NotificationSenderModule } from './notifications/notification-sender.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
 import { CreditNotesModule } from './credit-notes/credit-notes.module.js';
 import { LaborModule } from './labor/labor.module.js';
@@ -80,6 +81,7 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
     LoanerVehiclesModule,
     WarrantyClaimModule,
     MechanicModule,
+    NotificationSenderModule,
     InvoicesModule,
     CreditNotesModule,
     LaborModule,
