@@ -39,7 +39,11 @@ import {
   assertCompleteAccountingExportScope,
   listAccountingExportSites,
 } from './accounting-export-scope.js';
-import type { AccountingExportProfileSnapshot } from './accounting-export.types.js';
+import type {
+  AccountingExportBlocker,
+  AccountingExportProfileSnapshot,
+} from './accounting-export.types.js';
+import { allocationRulesForProfile } from './accounting-export-allocation-rules.js';
 import {
   buildAccountingExportFilenameForRun,
   exportProfileCanGenerate,
@@ -49,6 +53,11 @@ import {
   parseAccountingProfileSerializerParams,
   serializeAccountingProfileSerializerParams,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
+import { isRzlProfileCode } from '../accounting-profile/accounting-profile.codes.js';
+import {
+  computeRzlExportMissingFields,
+  rzlExportMissingFieldLabel,
+} from '../accounting-profile/accounting-profile-export-readiness.js';
 import type {
   AccountingExportDetailDto,
   AccountingExportListQueryDto,
@@ -71,6 +80,28 @@ const ACCOUNTING_EXPORT_SUMMARY_SELECT = {
   profile_snapshot: true,
   document_manifest: true,
 } as const;
+
+/** Export-only profile gaps (RZL). Global blockers: they are not tied to one document. */
+function buildProfileExportBlockers(
+  profile: LegalEntityAccountingProfile,
+): AccountingExportBlocker[] {
+  if (!isRzlProfileCode(profile.profile_code)) {
+    return [];
+  }
+  return computeRzlExportMissingFields({
+    profileCode: profile.profile_code,
+    formatVersion: profile.format_version,
+    chart: profile.chart,
+    accountLength: profile.account_length,
+    defaultDebtorAccount: profile.default_debtor_account,
+    serializerParams:
+      parseAccountingProfileSerializerParams(profile.serializer_params).rzl ??
+      {},
+  }).map((field) => ({
+    code: 'ACCOUNTING_MAPPING_INCOMPLETE' as const,
+    message: `RZL export profile is incomplete: ${rzlExportMissingFieldLabel(field)}.`,
+  }));
+}
 
 function toProfileSnapshot(
   profile: LegalEntityAccountingProfile,
@@ -105,6 +136,7 @@ export class AccountingExportService {
     const blockers = [
       ...collectUniqueBlockers(context.candidates),
       ...context.ownershipBlockers,
+      ...context.profileBlockers,
     ];
     const manifest = buildManifestDocuments(context.candidates);
     const previewHash = computePreviewHash({
@@ -170,6 +202,7 @@ export class AccountingExportService {
     const blockers = [
       ...collectUniqueBlockers(context.candidates),
       ...context.ownershipBlockers,
+      ...context.profileBlockers,
     ];
     const manifest = buildManifestDocuments(context.candidates);
     const previewHash = computePreviewHash({
@@ -627,6 +660,10 @@ export class AccountingExportService {
         dto.legalEntityId,
         dateFrom,
         dateTo,
+        allocationRulesForProfile(
+          profile.profile_code,
+          profile.serializer_params,
+        ),
       ),
       loadTenantOwnershipBlockers(
         this.prisma,
@@ -651,6 +688,7 @@ export class AccountingExportService {
       sites,
       candidates,
       ownershipBlockers,
+      profileBlockers: buildProfileExportBlockers(profile),
       overlaps,
     };
   }

@@ -6,12 +6,48 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class RzlSteuercodesDto {
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 4,
+    description: 'RZL Steuercode for 20% VAT (1 to 4 digits).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  vat20?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 4,
+    description: 'RZL Steuercode for 13% VAT (1 to 4 digits).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  vat13?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 4,
+    description: 'RZL Steuercode for 10% VAT (1 to 4 digits).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  vat10?: string | null;
+}
 
 export class RzlSerializerParamsDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 32 })
@@ -31,6 +67,12 @@ export class RzlSerializerParamsDto {
   @Min(1)
   @Max(16)
   costCenterLength?: number | null;
+
+  @ApiPropertyOptional({ type: RzlSteuercodesDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RzlSteuercodesDto)
+  steuercodes?: RzlSteuercodesDto;
 }
 
 export class AccountingProfileSerializerParamsDto {
@@ -233,6 +275,20 @@ export class AccountingProfileResponseDto {
 
   @ApiProperty({ type: AccountingProfileSerializerParamsDto })
   serializer_params!: AccountingProfileSerializerParamsDto;
+
+  @ApiProperty({
+    type: Boolean,
+    description:
+      'Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED).',
+  })
+  serializer_released!: boolean;
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Export-only configuration gaps (RZL firm number, Steuercodes, format version, chart). Empty when complete or not applicable. Does not affect invoice issuance.',
+  })
+  export_missing_fields!: string[];
 
   @ApiProperty({ type: [AccountingMappingRuleDto] })
   mapping_rules!: AccountingMappingRuleDto[];

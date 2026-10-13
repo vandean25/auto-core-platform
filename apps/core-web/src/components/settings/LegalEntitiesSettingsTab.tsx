@@ -14,6 +14,7 @@ import {
   useLegalEntities,
   useUpdateAccountingProfile,
   useUpdateLegalEntity,
+  type AccountingSerializerParams,
 } from '@/api/site-admin'
 import { DocumentSaveIndicator } from '@/components/document-save/DocumentSaveIndicator'
 import { DocumentBrandingSettings } from '@/components/settings/document-branding/DocumentBrandingSettings'
@@ -139,6 +140,10 @@ function formatMissingField(field: string, countryIso: 'AT' | 'DE') {
   }
 }
 
+const RZL_PROFILE_CODE = 'ACP-RZL-AT-EUR-1'
+const RZL_FORMAT_VERSION = 'RZL-FIBU-IMPORT-ACP-DRAFT-1'
+const RZL_STEUERCODE_SUGGESTIONS = { vat20: '20', vat13: '13', vat10: '10' } as const
+
 type ProfileFormState = {
   advisorNumber: string
   clientNumber: string
@@ -150,6 +155,11 @@ type ProfileFormState = {
   formatVersion: string
   isEnabled: boolean
   mappingRules: AccountingMappingRule[]
+  rzlFirmNumber: string
+  rzlCostCenterLength: string
+  rzlSteuercodeVat20: string
+  rzlSteuercodeVat13: string
+  rzlSteuercodeVat10: string
 }
 
 function toProfileFormState(profile: AccountingProfileRecord): ProfileFormState {
@@ -168,6 +178,37 @@ function toProfileFormState(profile: AccountingProfileRecord): ProfileFormState 
     formatVersion: profile.format_version ?? '',
     isEnabled: profile.is_enabled,
     mappingRules: profile.mapping_rules,
+    rzlFirmNumber: profile.serializer_params.rzl?.firmNumber ?? '',
+    rzlCostCenterLength:
+      profile.serializer_params.rzl?.costCenterLength == null
+        ? ''
+        : String(profile.serializer_params.rzl.costCenterLength),
+    rzlSteuercodeVat20: profile.serializer_params.rzl?.steuercodes?.vat20 ?? '',
+    rzlSteuercodeVat13: profile.serializer_params.rzl?.steuercodes?.vat13 ?? '',
+    rzlSteuercodeVat10: profile.serializer_params.rzl?.steuercodes?.vat10 ?? '',
+  }
+}
+
+function blankToNull(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
+
+function buildRzlSerializerParams(form: ProfileFormState): AccountingSerializerParams {
+  const costCenterLength =
+    form.rzlCostCenterLength.trim() === ''
+      ? null
+      : Number.parseInt(form.rzlCostCenterLength, 10)
+  return {
+    rzl: {
+      firmNumber: blankToNull(form.rzlFirmNumber),
+      costCenterLength,
+      steuercodes: {
+        vat20: blankToNull(form.rzlSteuercodeVat20),
+        vat13: blankToNull(form.rzlSteuercodeVat13),
+        vat10: blankToNull(form.rzlSteuercodeVat10),
+      },
+    },
   }
 }
 
@@ -223,6 +264,7 @@ function buildProfileUpdatePayload(
     form.fiscalYearStartMonth.trim() === ''
       ? null
       : Number.parseInt(form.fiscalYearStartMonth, 10)
+  const isRzl = form.profileCode === RZL_PROFILE_CODE
 
   return {
     legalEntityId,
@@ -234,11 +276,35 @@ function buildProfileUpdatePayload(
     fiscalYearStartMonth,
     chart: form.chart,
     profileCode: form.profileCode,
-    formatVersion: form.formatVersion,
+    formatVersion: isRzl ? RZL_FORMAT_VERSION : form.formatVersion,
     isEnabled: form.isEnabled,
     mappingRules: form.mappingRules.filter(
       (rule) => rule.revenueAccount.trim().length > 0,
     ),
+    ...(isRzl ? { serializerParams: buildRzlSerializerParams(form) } : {}),
+  }
+}
+
+function formatRzlExportMissingField(field: string) {
+  switch (field) {
+    case 'firm_number':
+      return 'firm number'
+    case 'steuercode_vat20':
+      return 'Steuercode 20%'
+    case 'steuercode_vat13':
+      return 'Steuercode 13%'
+    case 'steuercode_vat10':
+      return 'Steuercode 10%'
+    case 'format_version':
+      return 'pinned format version (save to pin)'
+    case 'chart':
+      return 'chart of accounts'
+    case 'account_length':
+      return 'account length'
+    case 'default_debtor_account':
+      return 'default debtor account'
+    default:
+      return field.replaceAll('_', ' ')
   }
 }
 
@@ -483,7 +549,8 @@ export function LegalEntityAccountingProfileForm({
           <Label htmlFor="profile-format-version">Format version</Label>
           <Input
             id="profile-format-version"
-            value={form.formatVersion}
+            value={form.profileCode === RZL_PROFILE_CODE ? RZL_FORMAT_VERSION : form.formatVersion}
+            disabled={form.profileCode === RZL_PROFILE_CODE}
             onChange={(event) =>
               updateForm((current) => ({ ...current, formatVersion: event.target.value }))
             }
@@ -506,11 +573,108 @@ export function LegalEntityAccountingProfileForm({
             }
           />
         </div>
+      ) : form.profileCode === RZL_PROFILE_CODE && entity.country_iso === 'AT' ? (
+        <div className="space-y-4">
+          <div className="space-y-3 rounded-md border border-slate-200 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-slate-700">RZL export configuration</p>
+                <p className="text-sm text-slate-500">
+                  Used only by the RZL CSV export. Revenue accounts come from the mapping rules below; postings use the default debtor account.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  updateForm((current) => ({
+                    ...current,
+                    rzlSteuercodeVat20: RZL_STEUERCODE_SUGGESTIONS.vat20,
+                    rzlSteuercodeVat13: RZL_STEUERCODE_SUGGESTIONS.vat13,
+                    rzlSteuercodeVat10: RZL_STEUERCODE_SUGGESTIONS.vat10,
+                  }))
+                }
+              >
+                Use suggested codes 20 / 13 / 10
+              </Button>
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-2">
+                <Label htmlFor="profile-rzl-firm-number">Firm number (Firmennummer)</Label>
+                <Input
+                  id="profile-rzl-firm-number"
+                  maxLength={32}
+                  value={form.rzlFirmNumber}
+                  onChange={(event) =>
+                    updateForm((current) => ({ ...current, rzlFirmNumber: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="profile-rzl-steuercode-20">Steuercode 20%</Label>
+                <Input
+                  id="profile-rzl-steuercode-20"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={form.rzlSteuercodeVat20}
+                  onChange={(event) =>
+                    updateForm((current) => ({ ...current, rzlSteuercodeVat20: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="profile-rzl-steuercode-13">Steuercode 13%</Label>
+                <Input
+                  id="profile-rzl-steuercode-13"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={form.rzlSteuercodeVat13}
+                  onChange={(event) =>
+                    updateForm((current) => ({ ...current, rzlSteuercodeVat13: event.target.value }))
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="profile-rzl-steuercode-10">Steuercode 10%</Label>
+                <Input
+                  id="profile-rzl-steuercode-10"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={form.rzlSteuercodeVat10}
+                  onChange={(event) =>
+                    updateForm((current) => ({ ...current, rzlSteuercodeVat10: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-slate-200 p-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700">RZL export enabled</p>
+              <p className="text-sm text-slate-500">
+                {profile.serializer_released
+                  ? 'Released in this environment. Gates CSV export only; does not block invoice issuance.'
+                  : 'Not released in this environment. CSV export stays off until the RZL import is validated (AUT-368).'}
+              </p>
+            </div>
+            <Checkbox
+              checked={form.isEnabled}
+              disabled={!profile.serializer_released && !form.isEnabled}
+              onCheckedChange={(checked) =>
+                updateForm((current) => ({ ...current, isEnabled: checked === true }))
+              }
+            />
+          </div>
+          {profile.export_missing_fields.length > 0 ? (
+            <p className="text-sm text-amber-700">
+              Missing for export: {profile.export_missing_fields.map(formatRzlExportMissingField).join(', ')}.
+            </p>
+          ) : null}
+        </div>
       ) : (
         <p className="text-sm text-slate-500">
-          {form.profileCode === 'ACP-RZL-AT-EUR-1'
-            ? 'RZL export activation stays disabled until AUT-361/AUT-368 gates pass. Mapping can still be prepared.'
-            : 'Export profile activation is available only for supported serializer profiles.'}
+          Export profile activation is available only for supported serializer profiles.
         </p>
       )}
 

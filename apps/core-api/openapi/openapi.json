@@ -26159,6 +26159,29 @@
           "seller_readiness"
         ]
       },
+      "RzlSteuercodesDto": {
+        "type": "object",
+        "properties": {
+          "vat20": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 20% VAT (1 to 4 digits)."
+          },
+          "vat13": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 13% VAT (1 to 4 digits)."
+          },
+          "vat10": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 10% VAT (1 to 4 digits)."
+          }
+        }
+      },
       "RzlSerializerParamsDto": {
         "type": "object",
         "properties": {
@@ -26172,6 +26195,9 @@
             "nullable": true,
             "minimum": 1,
             "maximum": 16
+          },
+          "steuercodes": {
+            "$ref": "#/components/schemas/RzlSteuercodesDto"
           }
         }
       },
@@ -26335,6 +26361,17 @@
           "serializer_params": {
             "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
           },
+          "serializer_released": {
+            "type": "boolean",
+            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED)."
+          },
+          "export_missing_fields": {
+            "description": "Export-only configuration gaps (RZL firm number, Steuercodes, format version, chart). Empty when complete or not applicable. Does not affect invoice issuance.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "mapping_rules": {
             "type": "array",
             "items": {
@@ -26358,6 +26395,8 @@
           "version",
           "is_enabled",
           "serializer_params",
+          "serializer_released",
+          "export_missing_fields",
           "mapping_rules",
           "required_source_categories",
           "mapping_readiness"

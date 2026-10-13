@@ -115,6 +115,18 @@ export type AccountingProfileReadiness = {
   unmapped_categories: string[]
 }
 
+export type AccountingSerializerParams = {
+  rzl?: {
+    firmNumber?: string | null
+    costCenterLength?: number | null
+    steuercodes?: {
+      vat20?: string | null
+      vat13?: string | null
+      vat10?: string | null
+    }
+  }
+}
+
 export type AccountingProfileRecord = {
   id: string
   tenant_id: string
@@ -129,12 +141,9 @@ export type AccountingProfileRecord = {
   client_number: string | null
   fiscal_year_start_month: number | null
   default_debtor_account: string | null
-  serializer_params: {
-    rzl?: {
-      firmNumber?: string | null
-      costCenterLength?: number | null
-    }
-  }
+  serializer_params: AccountingSerializerParams
+  serializer_released: boolean
+  export_missing_fields: string[]
   mapping_rules: AccountingMappingRule[]
   required_source_categories: SourceCategoryDefinition[]
   mapping_readiness: AccountingProfileReadiness
@@ -152,6 +161,7 @@ export type UpdateAccountingProfilePayload = {
   fiscalYearStartMonth?: number | null
   defaultDebtorAccount?: string | null
   mappingRules?: AccountingMappingRule[]
+  serializerParams?: AccountingSerializerParams
   isEnabled?: boolean
 }
 

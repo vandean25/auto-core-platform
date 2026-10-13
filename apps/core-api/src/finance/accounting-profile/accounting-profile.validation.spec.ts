@@ -1,5 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
-import { DEFAULT_AT_PROFILE_CODE, DEFAULT_DE_PROFILE_CODE } from './accounting-profile.codes.js';
+import {
+  DEFAULT_AT_PROFILE_CODE,
+  DEFAULT_DE_PROFILE_CODE,
+  RZL_SERIALIZER_RELEASE_ENV,
+} from './accounting-profile.codes.js';
 import { validateAccountingProfilePatch } from './accounting-profile.validation.js';
 
 const deContext = {
@@ -19,6 +23,24 @@ describe('accounting-profile.validation', () => {
     expect(() =>
       validateAccountingProfilePatch({ isEnabled: true }, atContext),
     ).toThrow(BadRequestException);
+  });
+
+  it('keeps autosaving an already enabled RZL profile while the flag is off', () => {
+    const original = process.env[RZL_SERIALIZER_RELEASE_ENV];
+    delete process.env[RZL_SERIALIZER_RELEASE_ENV];
+    try {
+      const patch = validateAccountingProfilePatch(
+        { isEnabled: true },
+        { ...atContext, currentIsEnabled: true },
+      );
+      expect(patch.isEnabled).toBe(true);
+    } finally {
+      if (original === undefined) {
+        delete process.env[RZL_SERIALIZER_RELEASE_ENV];
+      } else {
+        process.env[RZL_SERIALIZER_RELEASE_ENV] = original;
+      }
+    }
   });
 
   it('rejects enabling DATEV export for AT entities', () => {
@@ -106,5 +128,93 @@ describe('accounting-profile.validation', () => {
       },
     );
     expect(patch.isEnabled).toBe(false);
+  });
+
+  it('disables an enabled AT profile that switches to a DATEV serializer', () => {
+    const patch = validateAccountingProfilePatch(
+      { profileCode: DEFAULT_DE_PROFILE_CODE, chart: 'SKR03' },
+      {
+        countryIso: 'AT',
+        currentProfileCode: DEFAULT_AT_PROFILE_CODE,
+        currentChart: 'UGB',
+        currentIsEnabled: true,
+      },
+    );
+    expect(patch.isEnabled).toBe(false);
+  });
+
+  describe('RZL release gate', () => {
+    const originalFlag = process.env[RZL_SERIALIZER_RELEASE_ENV];
+
+    function setRzlRelease(value: string | undefined) {
+      if (value === undefined) {
+        delete process.env[RZL_SERIALIZER_RELEASE_ENV];
+      } else {
+        process.env[RZL_SERIALIZER_RELEASE_ENV] = value;
+      }
+    }
+
+    afterEach(() => {
+      setRzlRelease(originalFlag);
+    });
+
+    it('allows enabling RZL for AT entities once the release flag is on', () => {
+      setRzlRelease('true');
+      const patch = validateAccountingProfilePatch(
+        { isEnabled: true },
+        atContext,
+      );
+      expect(patch.isEnabled).toBe(true);
+    });
+
+    it('rejects enabling RZL for DE entities even when released', () => {
+      setRzlRelease('true');
+      expect(() =>
+        validateAccountingProfilePatch(
+          { isEnabled: true },
+          { ...atContext, countryIso: 'DE' },
+        ),
+      ).toThrow('RZL export profile can only be enabled for AT legal entities');
+    });
+
+    it('keeps DATEV enablement independent of the RZL flag', () => {
+      setRzlRelease(undefined);
+      const patch = validateAccountingProfilePatch(
+        { isEnabled: true },
+        deContext,
+      );
+      expect(patch.isEnabled).toBe(true);
+    });
+
+    it('blocks switching an enabled profile onto RZL while the flag is off', () => {
+      setRzlRelease(undefined);
+      expect(() =>
+        validateAccountingProfilePatch(
+          { profileCode: DEFAULT_AT_PROFILE_CODE, chart: 'UGB', isEnabled: true },
+          {
+            countryIso: 'AT',
+            currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+            currentChart: 'SKR03',
+            currentIsEnabled: true,
+          },
+        ),
+      ).toThrow(
+        'Accounting export profile cannot be enabled until its serializer is released',
+      );
+    });
+
+    it('allows an enabled profile to switch onto RZL once the flag is on', () => {
+      setRzlRelease('true');
+      const patch = validateAccountingProfilePatch(
+        { profileCode: DEFAULT_AT_PROFILE_CODE, chart: 'UGB', isEnabled: true },
+        {
+          countryIso: 'AT',
+          currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+          currentChart: 'SKR03',
+          currentIsEnabled: true,
+        },
+      );
+      expect(patch.isEnabled).toBe(true);
+    });
   });
 });

@@ -3,6 +3,10 @@ import type { PrismaService } from '../../prisma/prisma.service.js';
 import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
 import { isInvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.validation.js';
 import type { CreditNoteSnapshotV2 } from '../../credit-notes/credit-note-snapshot.js';
+import {
+  DATEV_ALLOCATION_RULES,
+  type AccountingExportAllocationRules,
+} from './accounting-export-allocation-rules.js';
 import { computeSnapshotHash } from './accounting-export-hash.js';
 import { buildExportDocumentDateFilter } from './accounting-export-period.js';
 import type {
@@ -58,16 +62,19 @@ function buildBookingText(input: {
   return base.slice(0, 60);
 }
 
-function collectBlockersForInvoice(invoice: {
-  id: string;
-  status: InvoiceStatus;
-  invoice_number: string | null;
-  site_id: string | null;
-  legal_entity_id: string | null;
-  tax_mode: InvoiceTaxMode;
-  snapshot: unknown;
-  items: { id: string; accounting_snapshot: unknown }[];
-}): AccountingExportBlocker[] {
+export function collectBlockersForInvoice(
+  invoice: {
+    id: string;
+    status: InvoiceStatus;
+    invoice_number: string | null;
+    site_id: string | null;
+    legal_entity_id: string | null;
+    tax_mode: InvoiceTaxMode;
+    snapshot: unknown;
+    items: { id: string; accounting_snapshot: unknown }[];
+  },
+  rules: AccountingExportAllocationRules,
+): AccountingExportBlocker[] {
   const blockers: AccountingExportBlocker[] = [];
 
   if (invoice.status === InvoiceStatus.CANCELLED) {
@@ -136,11 +143,10 @@ function collectBlockersForInvoice(invoice: {
       });
       continue;
     }
-    if (allocation.countryIso !== 'DE') {
+    if (allocation.countryIso !== rules.countryIso) {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_COUNTRY',
-        message:
-          'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
+        message: rules.unsupportedCountryMessage,
         documentId: invoice.id,
         documentKind: 'INVOICE',
         documentNumber: invoice.invoice_number,
@@ -156,16 +162,50 @@ function collectBlockersForInvoice(invoice: {
         documentNumber: invoice.invoice_number,
       });
     }
+    if (allocation.taxTreatment === 'manual_bu' && !rules.allowManualBu) {
+      blockers.push({
+        code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+        message:
+          'Manual BU keys are not used by the RZL profile. Use automatic tax treatment.',
+        documentId: invoice.id,
+        documentKind: 'INVOICE',
+        documentNumber: invoice.invoice_number,
+      });
+    }
+    const lineGross = snapshot.items.find((line) => line.id === item.id)?.gross;
+    if (lineGross !== '0.00') {
+      const taxRateIssue = rules.taxRateIssue(allocation.taxRate);
+      if (taxRateIssue) {
+        blockers.push({
+          ...taxRateIssue,
+          documentId: invoice.id,
+          documentKind: 'INVOICE',
+          documentNumber: invoice.invoice_number,
+        });
+      }
+      const allocationIssue = rules.allocationIssue?.(allocation);
+      if (allocationIssue) {
+        blockers.push({
+          ...allocationIssue,
+          documentId: invoice.id,
+          documentKind: 'INVOICE',
+          documentNumber: invoice.invoice_number,
+        });
+      }
+    }
   }
 
   return blockers;
 }
 
-function collectBlockersForCreditNote(creditNote: {
-  id: string;
-  credit_number: string | null;
-  snapshot: unknown;
-}): AccountingExportBlocker[] {
+export function collectBlockersForCreditNote(
+  creditNote: {
+    id: string;
+    credit_number: string | null;
+    snapshot: unknown;
+  },
+  rules: AccountingExportAllocationRules,
+): AccountingExportBlocker[] {
   const blockers: AccountingExportBlocker[] = [];
 
   if (!isCreditNoteSnapshotV2(creditNote.snapshot)) {
@@ -204,11 +244,10 @@ function collectBlockersForCreditNote(creditNote: {
       });
       continue;
     }
-    if (allocation.countryIso !== 'DE') {
+    if (allocation.countryIso !== rules.countryIso) {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_COUNTRY',
-        message:
-          'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
+        message: rules.unsupportedCountryMessage,
         documentId: creditNote.id,
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
@@ -223,6 +262,36 @@ function collectBlockersForCreditNote(creditNote: {
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
       });
+    }
+    if (allocation.taxTreatment === 'manual_bu' && !rules.allowManualBu) {
+      blockers.push({
+        code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+        message:
+          'Manual BU keys are not used by the RZL profile. Use automatic tax treatment.',
+        documentId: creditNote.id,
+        documentKind: 'CREDIT_NOTE',
+        documentNumber: creditNote.credit_number,
+      });
+    }
+    if (item.gross !== '0.00') {
+      const taxRateIssue = rules.taxRateIssue(allocation.taxRate);
+      if (taxRateIssue) {
+        blockers.push({
+          ...taxRateIssue,
+          documentId: creditNote.id,
+          documentKind: 'CREDIT_NOTE',
+          documentNumber: creditNote.credit_number,
+        });
+      }
+      const allocationIssue = rules.allocationIssue?.(allocation);
+      if (allocationIssue) {
+        blockers.push({
+          ...allocationIssue,
+          documentId: creditNote.id,
+          documentKind: 'CREDIT_NOTE',
+          documentNumber: creditNote.credit_number,
+        });
+      }
     }
   }
 
@@ -412,6 +481,7 @@ export async function loadAccountingExportCandidates(
   legalEntityId: string,
   dateFrom: Date,
   dateTo: Date,
+  rules: AccountingExportAllocationRules = DATEV_ALLOCATION_RULES,
 ): Promise<AccountingExportCandidate[]> {
   const dateFilter = buildExportDocumentDateFilter(dateFrom, dateTo);
   const [invoices, creditNotes] = await Promise.all([
@@ -440,7 +510,7 @@ export async function loadAccountingExportCandidates(
   ]);
 
   const invoiceCandidates = invoices.map((invoice) => {
-    const blockers = collectBlockersForInvoice(invoice);
+    const blockers = collectBlockersForInvoice(invoice, rules);
     const documentDate = invoice.date.toISOString().slice(0, 10);
     const rows =
       blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate);
@@ -458,7 +528,7 @@ export async function loadAccountingExportCandidates(
   });
 
   const creditCandidates = creditNotes.map((creditNote) => {
-    const blockers = collectBlockersForCreditNote(creditNote);
+    const blockers = collectBlockersForCreditNote(creditNote, rules);
     const rows = blockers.length > 0 ? [] : buildCreditRows(creditNote);
 
     return {
