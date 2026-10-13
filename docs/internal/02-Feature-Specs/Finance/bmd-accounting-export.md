@@ -71,7 +71,7 @@ One record per frozen line allocation with a non-zero gross. Eleven fields, in t
 | 6 | Betrag | Frozen gross of the line, decimal comma, positive | no |
 | 7 | Sollhabenkennzeichen | `S` for an invoice line, `H` for a credit line. Refers to the side of Konto (the debtor). | no |
 | 8 | Steuercode | BMD tax key for the line's frozen VAT rate, read from the run's frozen profile snapshot | no |
-| 9 | Text | Deterministic booking text of at most 60 characters: `RE <number>`, or `CN <number> / RE <original number>` for a credit | yes |
+| 9 | Text | Deterministic booking text: `RE <number>`, or `CN <number> / RE <original number>` for a credit. The candidate step cuts it to 60 characters for every profile, so a long number shortens this field. OP-Nummer keeps the full number. | yes |
 | 10 | Kostenstelle | Always empty. Cost centers are not modeled. | no |
 | 11 | OP-Nummer | Open-item reference: the invoice's own number, or the original invoice number for a credit | yes |
 
@@ -116,7 +116,8 @@ Margin-scheme invoices and credit notes are blocked with `UNSUPPORTED_EXPORT_TAX
 
 - **Country:** only AT allocations. A DE allocation blocks with `UNSUPPORTED_EXPORT_COUNTRY`. The profile can be enabled only for AT legal entities (400 otherwise).
 - **Tax treatment:** a DATEV BU key (`manual_bu`) on a line with a non-zero gross blocks with `ACCOUNTING_MAPPING_INCOMPLETE`. Automatic tax is driven by the Steuercode only. A manual BU allocation on a zero-gross line is not written, so for BMD it does not block. RZL blocks such an allocation on any line, because its check runs before the gross test.
-- **Text:** the debtor and revenue accounts must be printable ASCII without `;` or quotes. Otherwise the block is `ACCOUNTING_MAPPING_INCOMPLETE`. ACP builds the booking text (`RE <number>`, or `CN <number> / RE <original number>`) and takes the document numbers from the invoice and credit note numbering. The serializer checks every written text field again. If a value cannot be written, it throws and no run is stored. Preview does not check these values, so it does not list them as blockers, as in RZL.
+- **Text:** the debtor and revenue accounts must be printable ASCII without `;` or quotes. Otherwise the block is `ACCOUNTING_MAPPING_INCOMPLETE` and preview shows it. The document numbers come from the invoice and credit note numbering, and ACP builds the booking text as `RE <number>` or `CN <number> / RE <original number>`. The serializer checks each of these fields again. It refuses the run with a plain error, and no run is stored, when a document number or booking text is not printable ASCII, contains `;` or a quote, or starts with `=`, `+`, `-` or `@`. It also refuses booking text over 60 characters, which cannot occur from the run path because the candidate step cuts the text first. Preview does not check document numbers or booking text, so it shows no blocker for them, as in RZL.
+- **Formats are per profile:** amounts, dates and the account-length check are BMD's own pinned assumptions (A6, A7, A13). They are written apart from the RZL and DATEV formatters rather than imported from them, so a BMD validation outcome cannot change RZL or DATEV output. Consolidating the three is a separate change.
 - **Chart and account length:** chart `UGB` or `EA`, the same AT catalogue as RZL. Account length 1 to 8.
 - **Debtor convention:** one collective debtor account per legal entity (`default_debtor_account`). No per-customer debtor accounts, as in ADR-0023.
 - **Export-only gaps:** a missing Steuercode for 20%, 13% or 10%, the format identifier, chart, account length or default debtor account. They appear in `export_missing_fields` and as a global blocker in preview and generation. They are not part of `mapping_readiness`, so issuance is unaffected.
@@ -129,14 +130,14 @@ Margin-scheme invoices and credit notes are blocked with `UNSUPPORTED_EXPORT_TAX
 - Flag on: the profile may be enabled for an AT entity once its export configuration is complete. `is_enabled` stays false by default.
 - Production keeps the flag off until BMD validation passes.
 
-## Manifest, immutability and SHA-256 (shared)
+## Manifest, immutability and SHA-256
 
 Unchanged. The BMD profile uses the same generic export service as DATEV and RZL:
 
 - the document manifest is built from frozen snapshot hashes, and the preview hash is computed over that manifest;
 - the run is an immutable `AccountingExport` row with the exact bytes, the SHA-256, the frozen profile snapshot and the actor and time;
 - a repeat download returns the same bytes;
-- the SHA-256 is computed over the encoded bytes by the shared helper `sha256OfBytes` in `accounting-export-hash.ts`.
+- the SHA-256 is the hash of the encoded bytes, computed with the same one-line Node hash that the DATEV and RZL serializers use. No new hash helper is added.
 
 ## Authorization, replay and storage
 
@@ -160,7 +161,7 @@ A BMD profile needs `formatVersion` set to `BMD-NTCS-ASCII-IMPORT-ACP-DRAFT-1`, 
 | Synthetic sample committed before serializer code | `fixtures/bmd-sample-export.csv`, committed in the first commit of this change, before `bmd-ntcs-import.serializer.ts`. |
 | Serializer on the AUT-350 registry, behind the same release-gate pattern, disabled by default | `accounting-export-serializer.registry.ts`, `accounting-export-serializers.ts`, `bmd-accounting-export.serializer.ts`, `accounting-profile/bmd-profile.codes.ts`, `accounting-profile/accounting-export-release.ts`. Gate tests: `bmd-profile.gate.spec.ts`. |
 | Golden files for a standard invoice, a margin-scheme invoice and a credit note | `bmd-ntcs-import.golden.spec.ts`. |
-| Manifest, immutability and SHA-256 shared with the other profiles, not duplicated | `sha256OfBytes` in `accounting-export-hash.ts`. The generic run path is unchanged. |
+| Manifest, immutability and SHA-256 shared with the other profiles, not duplicated | The generic run path and `accounting-export-hash.ts` are unchanged. The BMD serializer computes its SHA-256 with the same one-line hash as DATEV and RZL and adds no hash helper. |
 | Expand-only migration, if strictly needed | Not needed. No schema change. |
 | RZL and DATEV behaviour unchanged | The existing AUT-350 and DATEV suites pass without edits to their assertions. |
 | Profile disabled by default, documented in the deferral log | `accounting-profile/bmd-profile.codes.ts` (flag default off), `.env.example`, `docs/internal/.architecture/deferrals.md`. |
