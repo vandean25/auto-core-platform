@@ -21,8 +21,8 @@ import {
   BMD_FIELD_SEPARATOR,
   BMD_LINE_BREAK,
   BMD_SOLLHABEN_BY_DOCUMENT_KIND,
+  BMD_STEUERCODE_KEY_BY_TAX_RATE,
 } from './bmd-format.constants.js';
-import { RZL_STEUERCODE_KEY_BY_TAX_RATE } from './rzl-format.constants.js';
 
 export type BmdNtcsImportResult = AccountingExportSerializerResult & {
   csvText: string;
@@ -64,7 +64,7 @@ export function resolveBmdSteuercode(
   taxRate: string,
   steuercodes: BmdSteuercodes,
 ): string {
-  const key = RZL_STEUERCODE_KEY_BY_TAX_RATE.get(Number(taxRate).toFixed(2));
+  const key = BMD_STEUERCODE_KEY_BY_TAX_RATE.get(Number(taxRate).toFixed(2));
   const code = key ? steuercodes[key] : null;
   if (!code) {
     throw new Error(`No BMD Steuercode is configured for VAT rate ${taxRate}`);

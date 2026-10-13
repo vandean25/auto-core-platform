@@ -27,8 +27,7 @@ const BMD_EXPORT_MISSING_FIELD_LABELS: Record<BmdExportMissingField, string> = {
   steuercode_vat20: 'BMD Steuercode for 20% VAT',
   steuercode_vat13: 'BMD Steuercode for 13% VAT',
   steuercode_vat10: 'BMD Steuercode for 10% VAT',
-  format_version:
-    'pinned BMD format version (save the accounting profile to pin it)',
+  format_version: `formatVersion ${DEFAULT_BMD_FORMAT_VERSION} must be sent with the profile`,
   chart: 'chart of accounts',
   account_length: 'account length',
   default_debtor_account: 'default debtor account',

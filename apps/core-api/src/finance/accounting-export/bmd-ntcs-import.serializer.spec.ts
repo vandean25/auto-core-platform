@@ -134,17 +134,24 @@ describe('bmd-ntcs-import serializer', () => {
     });
 
     it('fails when a rate has no configured tax key', () => {
-      expect(() =>
-        resolveBmdSteuercode('20.00', { vat13: '5013' }),
-      ).toThrow('No BMD Steuercode is configured for VAT rate 20.00');
+      expect(() => resolveBmdSteuercode('20.00', { vat13: '5013' })).toThrow(
+        'No BMD Steuercode is configured for VAT rate 20.00',
+      );
     });
+
+    it.each(['0.00', '17.00'])(
+      'refuses VAT rate %s, which has no BMD tax key',
+      (taxRate) => {
+        expect(() => resolveBmdSteuercode(taxRate, steuercodes)).toThrow(
+          `No BMD Steuercode is configured for VAT rate ${taxRate}`,
+        );
+      },
+    );
   });
 
   describe('file layout', () => {
     it('writes a header-less record with the eleven fields in BMD order', () => {
-      const result = serializeBmdNtcsImport(
-        serializerInput([invoiceRow()]),
-      );
+      const result = serializeBmdNtcsImport(serializerInput([invoiceRow()]));
 
       expect(result.csvText).toBe(
         '10.01.2026;10.01.2026;"RE-2026-0001";"2000";"8400";120,00;S;5020;"RE RE-2026-0001";;"RE-2026-0001"\r\n',
@@ -162,9 +169,8 @@ describe('bmd-ntcs-import serializer', () => {
 
     it('writes S for invoice lines and H for credit lines, with the debtor as Konto', () => {
       const records = recordsOf(
-        serializeBmdNtcsImport(
-          serializerInput([invoiceRow(), creditRow()]),
-        ).csvText,
+        serializeBmdNtcsImport(serializerInput([invoiceRow(), creditRow()]))
+          .csvText,
       );
 
       expect(records[0][FIELD.SOLLHABENKENNZEICHEN]).toBe('S');
@@ -175,9 +181,8 @@ describe('bmd-ntcs-import serializer', () => {
 
     it('uses the invoice number as OP-Nummer for invoices and the original invoice for credits', () => {
       const records = recordsOf(
-        serializeBmdNtcsImport(
-          serializerInput([invoiceRow(), creditRow()]),
-        ).csvText,
+        serializeBmdNtcsImport(serializerInput([invoiceRow(), creditRow()]))
+          .csvText,
       );
 
       expect(records[0][FIELD.OP_NUMMER]).toBe('"RE-2026-0001"');
@@ -187,9 +192,7 @@ describe('bmd-ntcs-import serializer', () => {
 
     it('leaves Kostenstelle empty', () => {
       const records = recordsOf(
-        serializeBmdNtcsImport(
-          serializerInput(bmdSampleRows),
-        ).csvText,
+        serializeBmdNtcsImport(serializerInput(bmdSampleRows)).csvText,
       );
 
       expect(records.every((record) => record.length === 11)).toBe(true);
@@ -200,9 +203,7 @@ describe('bmd-ntcs-import serializer', () => {
 
     it('keeps the row order it is given', () => {
       const records = recordsOf(
-        serializeBmdNtcsImport(
-          serializerInput(bmdSampleRows),
-        ).csvText,
+        serializeBmdNtcsImport(serializerInput(bmdSampleRows)).csvText,
       );
 
       expect(records.map((record) => record[FIELD.BELEGNUMMER])).toEqual([
@@ -224,9 +225,7 @@ describe('bmd-ntcs-import serializer', () => {
     });
 
     it('returns the SHA-256 of the exact bytes, the byte length and the row count', () => {
-      const result = serializeBmdNtcsImport(
-        serializerInput(bmdSampleRows),
-      );
+      const result = serializeBmdNtcsImport(serializerInput(bmdSampleRows));
 
       expect(result.sha256).toBe(
         createHash('sha256').update(result.bytes).digest('hex'),
@@ -274,10 +273,7 @@ describe('bmd-ntcs-import serializer', () => {
       for (const accountLength of [0, 9, null]) {
         expect(() =>
           serializeBmdNtcsImport(
-            serializerInput(
-              [invoiceRow()],
-              withProfile({ accountLength }),
-            ),
+            serializerInput([invoiceRow()], withProfile({ accountLength })),
           ),
         ).toThrow('BMD account length must be between 1 and 8');
       }
@@ -288,9 +284,7 @@ describe('bmd-ntcs-import serializer', () => {
         serializeBmdNtcsImport(
           serializerInput([invoiceRow({ debtorAccount: 'Müller' })]),
         ),
-      ).toThrow(
-        'BMD field cannot be written to an ASCII import file: Müller',
-      );
+      ).toThrow('BMD field cannot be written to an ASCII import file: Müller');
     });
 
     it('refuses a booking text longer than 60 characters', () => {
@@ -303,9 +297,7 @@ describe('bmd-ntcs-import serializer', () => {
 
     it('refuses a polarity that does not match the document kind', () => {
       expect(() =>
-        serializeBmdNtcsImport(
-          serializerInput([creditRow({ polarity: 'S' })]),
-        ),
+        serializeBmdNtcsImport(serializerInput([creditRow({ polarity: 'S' })])),
       ).toThrow('BMD row polarity S does not match CREDIT_NOTE');
     });
 
@@ -321,6 +313,16 @@ describe('bmd-ntcs-import serializer', () => {
           serializerInput([creditRow({ originalInvoiceNumber: undefined })]),
         ),
       ).toThrow('BMD credit rows require the original invoice number');
+    });
+
+    it('refuses a zero-rate line at serialization, as a second line of defence', () => {
+      expect(() =>
+        serializeBmdNtcsImport(
+          serializerInput([
+            invoiceRow({ taxRate: '0.00', tax: '0.00', gross: '100.00' }),
+          ]),
+        ),
+      ).toThrow('No BMD Steuercode is configured for VAT rate 0.00');
     });
   });
 
