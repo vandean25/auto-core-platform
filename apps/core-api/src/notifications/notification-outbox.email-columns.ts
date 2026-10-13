@@ -4,7 +4,7 @@ import { isSingleLineText } from './email/header-text.js';
 
 /**
  * A message rendered before it enters the outbox. The sender worker sends `text` as it is and never
- * renders anything itself. Templates arrive in phase 3; this shape is the contract they fill.
+ * renders anything itself. The customer templates in `templates/` fill this shape.
  */
 export interface EmailDraft {
   recipientEmail: string;
