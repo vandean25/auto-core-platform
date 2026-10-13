@@ -61,3 +61,8 @@ export function computePreviewHash(input: {
 export function computeSnapshotHash(snapshot: unknown): string {
   return createHash('sha256').update(canonicalize(snapshot)).digest('hex');
 }
+
+/** SHA-256 of the exact encoded bytes of a run. Shared by the serializers that produce files. */
+export function sha256OfBytes(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
