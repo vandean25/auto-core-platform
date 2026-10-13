@@ -53,8 +53,14 @@ describe('Legal entity accounting profile margin switch (e2e)', () => {
 
   it('keeps the stored margin switch and RZL params when a save omits them', async () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
-    const entity = await tenantPrisma.legalEntity.findFirstOrThrow({
-      where: { tenant_id: tenantA.tenantId },
+    // The margin switch is accepted on the DATEV profile only, so use a DE entity.
+    const entity = await tenantPrisma.legalEntity.create({
+      data: {
+        tenant_id: tenantA.tenantId,
+        name: 'E2E DE GmbH margin',
+        country_iso: 'DE',
+        is_active: true,
+      },
     });
 
     const initial = await request(app.getHttpServer())
@@ -117,5 +123,28 @@ describe('Legal entity accounting profile margin switch (e2e)', () => {
       vatAccount: '1776',
     });
     expect(switchedOn.body.serializer_params.rzl.firmNumber).toBe('FN-1');
+  });
+
+  it('rejects a margin switch on the RZL profile of an AT entity', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantA.tenantId);
+    const atEntity = await tenantPrisma.legalEntity.findFirstOrThrow({
+      where: { tenant_id: tenantA.tenantId },
+    });
+
+    const initial = await request(app.getHttpServer())
+      .get(`/legal-entities/${atEntity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/legal-entities/${atEntity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        expectedVersion: initial.body.version,
+        serializerParams: {
+          marginScheme: { enabled: true, vatAccount: '1776' },
+        },
+      })
+      .expect(400);
   });
 });
