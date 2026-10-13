@@ -7,6 +7,7 @@ import {
 } from './accounting-profile.codes.js';
 import {
   mergeAccountingProfileSerializerParams,
+  type AccountingProfileSerializerParams,
   type AccountingProfileSerializerParamsInput,
 } from './accounting-profile.serializer-params.js';
 import { type AccountingMappingRule } from './accounting-profile.types.js';
@@ -130,6 +131,14 @@ export type AccountingProfilePatchInput = {
   isEnabled?: boolean;
 };
 
+/** A patch after validation: serializer params are parsed and merged with the stored ones. */
+export type ValidatedAccountingProfilePatch = Omit<
+  AccountingProfilePatchInput,
+  'serializerParams'
+> & {
+  serializerParams?: AccountingProfileSerializerParams;
+};
+
 export type AccountingProfileValidationContext = {
   countryIso: 'AT' | 'DE';
   currentProfileCode: string | null;
@@ -152,9 +161,9 @@ function resolveProfileCodeAfterPatch(
 export function validateAccountingProfilePatch(
   patch: AccountingProfilePatchInput,
   context: AccountingProfileValidationContext,
-): AccountingProfilePatchInput {
+): ValidatedAccountingProfilePatch {
   const countryIso = context.countryIso;
-  const normalized: AccountingProfilePatchInput = {};
+  const normalized: ValidatedAccountingProfilePatch = {};
 
   if (patch.profileCode !== undefined) {
     normalized.profileCode = normalizeOptionalString(patch.profileCode);
