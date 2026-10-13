@@ -2,12 +2,13 @@ import { BadRequestException } from '@nestjs/common';
 import { assertChartAllowedForProfile } from './accounting-chart-catalog.js';
 import {
   isDatevProfileCode,
-  isExportSerializerReleased,
   isRzlProfileCode,
 } from './accounting-profile.codes.js';
+import { isAccountingExportReleased } from './accounting-export-release.js';
+import { isBmdProfileCode } from './bmd-profile.codes.js';
 import {
   mergeAccountingProfileSerializerParams,
-  parseAccountingProfileSerializerParams,
+  parseMarginSchemeSerializerParams,
   type AccountingProfileSerializerParams,
   type AccountingProfileSerializerParamsInput,
 } from './accounting-profile.serializer-params.js';
@@ -224,15 +225,19 @@ export function validateAccountingProfilePatch(
   }
 
   const effectiveProfileCode = resolveProfileCodeAfterPatch(patch, context);
-  // The RZL export never uses the margin switch. Checking the effective state, patched
-  // or stored, stops an enabled switch from being kept on RZL and reactivating later.
+  // Only the DATEV export lifts the margin block. RZL and BMD never use the switch, so
+  // checking the effective state, patched or stored, stops an enabled switch from
+  // being kept on those profiles and reactivating later.
   const effectiveMargin =
     normalized.serializerParams?.marginScheme ??
-    parseAccountingProfileSerializerParams(context.currentSerializerParams)
-      .marginScheme;
-  if (effectiveMargin?.enabled && isRzlProfileCode(effectiveProfileCode)) {
+    parseMarginSchemeSerializerParams(context.currentSerializerParams);
+  if (
+    effectiveMargin?.enabled &&
+    (isRzlProfileCode(effectiveProfileCode) ||
+      isBmdProfileCode(effectiveProfileCode))
+  ) {
     throw new BadRequestException(
-      'Disable the margin scheme before using the RZL profile',
+      'Disable the margin scheme before using the RZL or BMD profile',
     );
   }
   const effectiveChart =
@@ -260,7 +265,7 @@ export function validateAccountingProfilePatch(
       const enabling = !context.currentIsEnabled;
       if (
         (enabling || profileCodeChanged) &&
-        !isExportSerializerReleased(effectiveProfileCode)
+        !isAccountingExportReleased(effectiveProfileCode)
       ) {
         throw new BadRequestException(
           'Accounting export profile cannot be enabled until its serializer is released for this environment.',
@@ -274,6 +279,11 @@ export function validateAccountingProfilePatch(
       if (isRzlProfileCode(effectiveProfileCode) && countryIso !== 'AT') {
         throw new BadRequestException(
           'RZL export profile can only be enabled for AT legal entities',
+        );
+      }
+      if (isBmdProfileCode(effectiveProfileCode) && countryIso !== 'AT') {
+        throw new BadRequestException(
+          'BMD export profile can only be enabled for AT legal entities',
         );
       }
     }

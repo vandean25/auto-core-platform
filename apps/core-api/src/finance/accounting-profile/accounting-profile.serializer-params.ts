@@ -1,11 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
 
-/** RZL Steuercode per standard Austrian VAT rate. Values are configured per legal entity, never defaulted. */
-export type RzlSteuercodes = {
+/** Steuercode per standard Austrian VAT rate. Values are configured per legal entity, never defaulted. */
+export type SteuercodesByRate = {
   vat20?: string | null;
   vat13?: string | null;
   vat10?: string | null;
 };
+
+/** RZL Steuercode per standard Austrian VAT rate. */
+export type RzlSteuercodes = SteuercodesByRate;
+
+/** BMD tax key (defined per BMD client) per standard Austrian VAT rate. */
+export type BmdSteuercodes = SteuercodesByRate;
 
 export type RzlSerializerParams = {
   firmNumber?: string | null;
@@ -23,19 +29,24 @@ export type MarginSchemeSerializerParams = {
   vatAccount: string | null;
 };
 
+export type BmdSerializerParams = {
+  steuercodes?: BmdSteuercodes;
+};
+
 export type AccountingProfileSerializerParams = {
   rzl?: RzlSerializerParams;
+  bmd?: BmdSerializerParams;
   marginScheme?: MarginSchemeSerializerParams;
 };
 
 /** Request-side shape before parsing: a PATCH may send only some margin fields. */
 export type AccountingProfileSerializerParamsInput = {
   rzl?: RzlSerializerParams | null;
+  bmd?: BmdSerializerParams | null;
   marginScheme?: Partial<MarginSchemeSerializerParams>;
 };
 
 const STEUERCODE_PATTERN = /^[0-9]{1,4}$/;
-const STEUERCODE_KEYS = ['vat20', 'vat13', 'vat10'] as const;
 const MARGIN_VAT_ACCOUNT_PATTERN = /^[0-9]{1,9}$/;
 
 function parseMarginScheme(value: unknown): MarginSchemeSerializerParams {
@@ -79,43 +90,92 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function parseSteuercodes(value: unknown): Required<RzlSteuercodes> {
+function parseSteuercodeValue(raw: unknown, path: string): string | null {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (typeof raw !== 'string') {
+    throw new BadRequestException(`${path} must be a string`);
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  if (!STEUERCODE_PATTERN.test(trimmed)) {
+    throw new BadRequestException(`${path} must be 1 to 4 digits`);
+  }
+  return trimmed;
+}
+
+function parseSteuercodes(
+  value: unknown,
+  path: string,
+): Required<SteuercodesByRate> {
   if (value === undefined || value === null) {
     return { vat20: null, vat13: null, vat10: null };
   }
   if (!isPlainObject(value)) {
+    throw new BadRequestException(`${path} must be an object`);
+  }
+  return {
+    vat20: parseSteuercodeValue(value.vat20, `${path}.vat20`),
+    vat13: parseSteuercodeValue(value.vat13, `${path}.vat13`),
+    vat10: parseSteuercodeValue(value.vat10, `${path}.vat10`),
+  };
+}
+
+function assertFirmNumberLength(firmNumber: string | null): void {
+  if (firmNumber && firmNumber.length > 32) {
     throw new BadRequestException(
-      'serializerParams.rzl.steuercodes must be an object',
+      'serializerParams.rzl.firmNumber must be at most 32 characters',
     );
   }
+}
 
-  const parsed: Required<RzlSteuercodes> = {
-    vat20: null,
-    vat13: null,
-    vat10: null,
-  };
-  for (const key of STEUERCODE_KEYS) {
-    const raw = value[key];
-    if (raw === undefined || raw === null) {
-      continue;
-    }
-    if (typeof raw !== 'string') {
-      throw new BadRequestException(
-        `serializerParams.rzl.steuercodes.${key} must be a string`,
-      );
-    }
-    const trimmed = raw.trim();
-    if (trimmed.length === 0) {
-      continue;
-    }
-    if (!STEUERCODE_PATTERN.test(trimmed)) {
-      throw new BadRequestException(
-        `serializerParams.rzl.steuercodes.${key} must be 1 to 4 digits`,
-      );
-    }
-    parsed[key] = trimmed;
+function assertCostCenterLength(costCenterLength: number | null): void {
+  if (
+    costCenterLength !== null &&
+    (costCenterLength < 1 || costCenterLength > 16)
+  ) {
+    throw new BadRequestException(
+      'serializerParams.rzl.costCenterLength must be between 1 and 16',
+    );
   }
-  return parsed;
+}
+
+function parseRzlSerializerParams(value: unknown): RzlSerializerParams {
+  if (!isPlainObject(value)) {
+    throw new BadRequestException('serializerParams.rzl must be an object');
+  }
+
+  const firmNumber =
+    typeof value.firmNumber === 'string' ? value.firmNumber.trim() : null;
+  const costCenterLength =
+    typeof value.costCenterLength === 'number' ? value.costCenterLength : null;
+  assertFirmNumberLength(firmNumber);
+  assertCostCenterLength(costCenterLength);
+
+  return {
+    firmNumber: firmNumber || null,
+    costCenterLength,
+    steuercodes: parseSteuercodes(
+      value.steuercodes,
+      'serializerParams.rzl.steuercodes',
+    ),
+  };
+}
+
+function parseBmdSerializerParams(value: unknown): BmdSerializerParams {
+  if (!isPlainObject(value)) {
+    throw new BadRequestException('serializerParams.bmd must be an object');
+  }
+
+  return {
+    steuercodes: parseSteuercodes(
+      value.steuercodes,
+      'serializerParams.bmd.steuercodes',
+    ),
+  };
 }
 
 export function parseAccountingProfileSerializerParams(
@@ -132,70 +192,67 @@ export function parseAccountingProfileSerializerParams(
   if (value.marginScheme !== undefined && value.marginScheme !== null) {
     parsed.marginScheme = parseMarginScheme(value.marginScheme);
   }
-  const rzl = value.rzl;
-  if (rzl === undefined || rzl === null) {
-    return parsed;
+  if (value.rzl !== undefined && value.rzl !== null) {
+    parsed.rzl = parseRzlSerializerParams(value.rzl);
   }
-  if (!isPlainObject(rzl)) {
-    throw new BadRequestException('serializerParams.rzl must be an object');
+  if (value.bmd !== undefined && value.bmd !== null) {
+    parsed.bmd = parseBmdSerializerParams(value.bmd);
   }
-
-  const firmNumber =
-    typeof rzl.firmNumber === 'string' ? rzl.firmNumber.trim() : null;
-  const costCenterLength =
-    typeof rzl.costCenterLength === 'number' ? rzl.costCenterLength : null;
-
-  if (firmNumber && firmNumber.length > 32) {
-    throw new BadRequestException(
-      'serializerParams.rzl.firmNumber must be at most 32 characters',
-    );
-  }
-  if (
-    costCenterLength !== null &&
-    (costCenterLength < 1 || costCenterLength > 16)
-  ) {
-    throw new BadRequestException(
-      'serializerParams.rzl.costCenterLength must be between 1 and 16',
-    );
-  }
-
-  parsed.rzl = {
-    firmNumber: firmNumber || null,
-    costCenterLength,
-    steuercodes: parseSteuercodes(rzl.steuercodes),
-  };
   return parsed;
+}
+
+/**
+ * Reads only the margin switch. The DATEV export checks the switch and must not fail
+ * on RZL or BMD blocks it never uses, so those blocks are not parsed here.
+ */
+export function parseMarginSchemeSerializerParams(
+  value: unknown,
+): MarginSchemeSerializerParams | null {
+  if (
+    !isPlainObject(value) ||
+    value.marginScheme === undefined ||
+    value.marginScheme === null
+  ) {
+    return null;
+  }
+  return parseMarginScheme(value.marginScheme);
 }
 
 export function serializeAccountingProfileSerializerParams(
   value: AccountingProfileSerializerParams,
 ): Record<string, unknown> {
-  const stored: Record<string, unknown> = {};
+  const serialized: Record<string, unknown> = {};
   if (value.rzl) {
-    const steuercodes = parseSteuercodes(value.rzl.steuercodes);
-    stored.rzl = {
+    serialized.rzl = {
       firmNumber: value.rzl.firmNumber ?? null,
       costCenterLength: value.rzl.costCenterLength ?? null,
-      steuercodes: {
-        vat20: steuercodes.vat20,
-        vat13: steuercodes.vat13,
-        vat10: steuercodes.vat10,
-      },
+      steuercodes: parseSteuercodes(
+        value.rzl.steuercodes,
+        'serializerParams.rzl.steuercodes',
+      ),
+    };
+  }
+  if (value.bmd) {
+    serialized.bmd = {
+      steuercodes: parseSteuercodes(
+        value.bmd.steuercodes,
+        'serializerParams.bmd.steuercodes',
+      ),
     };
   }
   // Default-off margin settings are not written, so default profiles keep their stored JSON.
   if (value.marginScheme?.enabled || value.marginScheme?.vatAccount) {
-    stored.marginScheme = {
+    serialized.marginScheme = {
       enabled: value.marginScheme.enabled,
       vatAccount: value.marginScheme.vatAccount ?? null,
     };
   }
-  return stored;
+  return serialized;
 }
 
 /**
- * A profile PATCH replaces the RZL params it carries. An omitted `rzl` keeps the
- * stored ones, and an explicit `rzl: null` clears them. Margin fields it omits
+ * A profile PATCH replaces the RZL and BMD params it carries. An omitted block
+ * keeps the stored one, and an explicit `null` clears it. Margin fields it omits
  * keep their stored value too. A RZL-only save must not switch the margin scheme
  * off, and a VAT-account-only patch must not disable it.
  */
@@ -204,12 +261,13 @@ export function mergeAccountingProfileSerializerParams(
   patch: AccountingProfileSerializerParamsInput,
 ): AccountingProfileSerializerParams {
   const current = parseAccountingProfileSerializerParams(stored);
-  const { marginScheme: patchMargin, rzl: patchRzl } = patch;
+  const { bmd: patchBmd, marginScheme: patchMargin, rzl: patchRzl } = patch;
   const hasMargin =
     patchMargin !== undefined || current.marginScheme !== undefined;
 
   return parseAccountingProfileSerializerParams({
     rzl: patchRzl === undefined ? current.rzl : patchRzl,
+    bmd: patchBmd === undefined ? current.bmd : patchBmd,
     ...(hasMargin
       ? {
           marginScheme: {

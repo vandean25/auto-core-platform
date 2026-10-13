@@ -26201,6 +26201,37 @@
           }
         }
       },
+      "BmdSteuercodesDto": {
+        "type": "object",
+        "properties": {
+          "vat20": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits)."
+          },
+          "vat13": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits)."
+          },
+          "vat10": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits)."
+          }
+        }
+      },
+      "BmdSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "steuercodes": {
+            "$ref": "#/components/schemas/BmdSteuercodesDto"
+          }
+        }
+      },
       "MarginSchemeSerializerParamsDto": {
         "type": "object",
         "properties": {
@@ -26221,6 +26252,9 @@
         "properties": {
           "rzl": {
             "$ref": "#/components/schemas/RzlSerializerParamsDto"
+          },
+          "bmd": {
+            "$ref": "#/components/schemas/BmdSerializerParamsDto"
           },
           "marginScheme": {
             "$ref": "#/components/schemas/MarginSchemeSerializerParamsDto"
@@ -26381,10 +26415,10 @@
           },
           "serializer_released": {
             "type": "boolean",
-            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED)."
+            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED)."
           },
           "export_missing_fields": {
-            "description": "Export-only configuration gaps (RZL firm number, Steuercodes, format version, chart). Empty when complete or not applicable. Does not affect invoice issuance.",
+            "description": "Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance.",
             "type": "array",
             "items": {
               "type": "string"
@@ -26476,7 +26510,7 @@
             }
           },
           "serializerParams": {
-            "description": "Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage.",
+            "description": "Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"

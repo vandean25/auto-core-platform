@@ -75,6 +75,52 @@ export class RzlSerializerParamsDto {
   steuercodes?: RzlSteuercodesDto;
 }
 
+export class BmdSteuercodesDto {
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 4,
+    description:
+      'BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  vat20?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 4,
+    description:
+      'BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  vat13?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 4,
+    description:
+      'BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits).',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,4}$/)
+  vat10?: string | null;
+}
+
+export class BmdSerializerParamsDto {
+  @ApiPropertyOptional({ type: BmdSteuercodesDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BmdSteuercodesDto)
+  steuercodes?: BmdSteuercodesDto;
+}
+
 export class MarginSchemeSerializerParamsDto {
   @ApiPropertyOptional({
     type: Boolean,
@@ -104,6 +150,12 @@ export class AccountingProfileSerializerParamsDto {
   @ValidateNested()
   @Type(() => RzlSerializerParamsDto)
   rzl?: RzlSerializerParamsDto;
+
+  @ApiPropertyOptional({ type: BmdSerializerParamsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BmdSerializerParamsDto)
+  bmd?: BmdSerializerParamsDto;
 
   @ApiPropertyOptional({ type: MarginSchemeSerializerParamsDto })
   @IsOptional()
@@ -218,7 +270,7 @@ export class UpdateAccountingProfileDto {
   @ApiPropertyOptional({
     type: AccountingProfileSerializerParamsDto,
     description:
-      'Serializer-specific parameters (e.g. future RZL firm metadata). Expand-only JSON storage.',
+      'Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage.',
   })
   @IsOptional()
   @ValidateNested()
@@ -308,14 +360,14 @@ export class AccountingProfileResponseDto {
   @ApiProperty({
     type: Boolean,
     description:
-      'Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED).',
+      'Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED).',
   })
   serializer_released!: boolean;
 
   @ApiProperty({
     type: [String],
     description:
-      'Export-only configuration gaps (RZL firm number, Steuercodes, format version, chart). Empty when complete or not applicable. Does not affect invoice issuance.',
+      'Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance.',
   })
   export_missing_fields!: string[];
 

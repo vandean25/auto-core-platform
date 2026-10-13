@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import {
   mergeAccountingProfileSerializerParams,
   parseAccountingProfileSerializerParams,
+  parseMarginSchemeSerializerParams,
   serializeAccountingProfileSerializerParams,
 } from './accounting-profile.serializer-params.js';
 
@@ -87,6 +88,29 @@ describe('accounting-profile serializer params (margin scheme)', () => {
     });
   });
 
+  it('keeps the stored BMD params when a patch only changes RZL or margin params', () => {
+    const existing = {
+      bmd: { steuercodes: { vat20: '9', vat13: null, vat10: null } },
+    };
+
+    expect(
+      mergeAccountingProfileSerializerParams(existing, {
+        rzl: { firmNumber: 'FN-1' },
+      }),
+    ).toEqual({
+      bmd: { steuercodes: { vat20: '9', vat13: null, vat10: null } },
+      rzl: expect.objectContaining({ firmNumber: 'FN-1' }),
+    });
+  });
+
+  it('clears the stored BMD params only when the patch sends bmd as null', () => {
+    const existing = { bmd: { steuercodes: { vat20: '9' } } };
+
+    expect(
+      mergeAccountingProfileSerializerParams(existing, { bmd: null }),
+    ).toEqual({});
+  });
+
   it('clears the stored RZL params only when the patch sends rzl as null', () => {
     const stored = {
       rzl: {
@@ -146,6 +170,20 @@ describe('accounting-profile serializer params (margin scheme)', () => {
         { marginScheme: { enabled: false, vatAccount: null } },
       ),
     ).toEqual({ marginScheme: { enabled: false, vatAccount: null } });
+  });
+
+  it('reads only the margin switch, so RZL or BMD blocks never fail a margin read', () => {
+    expect(
+      parseMarginSchemeSerializerParams({
+        rzl: { steuercodes: { vat20: 5020 } },
+        bmd: { steuercodes: { vat20: 5020 } },
+        marginScheme: { enabled: true, vatAccount: '1776' },
+      }),
+    ).toEqual({ enabled: true, vatAccount: '1776' });
+    expect(
+      parseMarginSchemeSerializerParams({ rzl: { firmNumber: 'FN-1' } }),
+    ).toBeNull();
+    expect(parseMarginSchemeSerializerParams(null)).toBeNull();
   });
 
   it('rejects enabling the margin scheme through a patch when no VAT account is stored or sent', () => {

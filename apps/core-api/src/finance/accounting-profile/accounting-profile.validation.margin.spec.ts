@@ -3,6 +3,7 @@ import {
   DEFAULT_AT_PROFILE_CODE,
   DEFAULT_DE_PROFILE_CODE,
 } from './accounting-profile.codes.js';
+import { DEFAULT_BMD_AT_PROFILE_CODE } from './bmd-profile.codes.js';
 import { validateAccountingProfilePatch } from './accounting-profile.validation.js';
 
 const deContext = {
@@ -44,6 +45,37 @@ describe('accounting-profile.validation margin scheme merge', () => {
     );
 
     expect(patch.profileCode).toBe(DEFAULT_AT_PROFILE_CODE);
+  });
+
+  it('rejects a profile change to BMD while the margin scheme is stored as enabled', () => {
+    expect(() =>
+      validateAccountingProfilePatch(
+        { profileCode: DEFAULT_BMD_AT_PROFILE_CODE },
+        {
+          countryIso: 'AT',
+          currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+          currentChart: 'UGB',
+          currentSerializerParams: storedMargin,
+        },
+      ),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects enabling the margin scheme on a BMD profile', () => {
+    expect(() =>
+      validateAccountingProfilePatch(
+        {
+          serializerParams: {
+            marginScheme: { enabled: true, vatAccount: '1776' },
+          },
+        },
+        {
+          countryIso: 'AT',
+          currentProfileCode: DEFAULT_BMD_AT_PROFILE_CODE,
+          currentChart: 'UGB',
+        },
+      ),
+    ).toThrow(BadRequestException);
   });
 
   it('rejects enabling the margin scheme on an RZL profile', () => {
