@@ -426,6 +426,26 @@ describe('customer email templates (AUT-356 phase 3)', () => {
     );
   });
 
+  it('prints the validity cut-off and the approval date after midnight in Vienna time, in winter time', () => {
+    const draft = renderEstimateSentEmail({
+      ...RECIPIENT,
+      estimateNumber: 'KV-2026-0001',
+      vehicleLabel: 'VW Golf',
+      approvalUrl: APPROVAL_URL,
+      validUntil: new Date('2026-10-26T23:30:00Z'),
+    });
+    // 26 October is winter time (UTC+1), so 23:30 UTC is 00:30 on 27 October in Vienna.
+    expect(draft.text).toContain('gültig bis 27.10.2026, 00:30 Uhr');
+
+    const confirmation = renderEstimateApprovalConfirmedEmail({
+      ...RECIPIENT,
+      estimateNumber: 'KV-2026-0001',
+      approvedAt: new Date('2026-11-10T23:30:00Z'),
+    });
+    // 10 November is winter time, so 23:30 UTC is 00:30 on 11 November in Vienna.
+    expect(confirmation.text).toContain('am 11.11.2026.');
+  });
+
   it('produces drafts the outbox writer accepts', () => {
     const drafts = [
       renderEstimateSentEmail({
