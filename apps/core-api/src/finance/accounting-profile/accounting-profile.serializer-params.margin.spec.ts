@@ -103,6 +103,17 @@ describe('accounting-profile serializer params (margin scheme)', () => {
     });
   });
 
+  it('clears the stored margin setting only when the patch sends marginScheme as null', () => {
+    const existing = {
+      rzl: { firmNumber: 'FN-1' },
+      marginScheme: { enabled: true, vatAccount: '1776' },
+    };
+
+    expect(
+      mergeAccountingProfileSerializerParams(existing, { marginScheme: null }),
+    ).toEqual({ rzl: expect.objectContaining({ firmNumber: 'FN-1' }) });
+  });
+
   it('clears the stored BMD params only when the patch sends bmd as null', () => {
     const existing = { bmd: { steuercodes: { vat20: '9' } } };
 

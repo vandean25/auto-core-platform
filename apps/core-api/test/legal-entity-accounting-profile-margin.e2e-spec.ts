@@ -123,6 +123,18 @@ describe('Legal entity accounting profile margin switch (e2e)', () => {
       vatAccount: '1776',
     });
     expect(switchedOn.body.serializer_params.rzl.firmNumber).toBe('FN-1');
+
+    // An explicit null clears the margin block, as it does for RZL and BMD.
+    const cleared = await request(app.getHttpServer())
+      .patch(`/legal-entities/${entity.id}/accounting-profile`)
+      .set('Authorization', authHeader(tenantA))
+      .send({
+        expectedVersion: switchedOn.body.version,
+        serializerParams: { marginScheme: null },
+      })
+      .expect(200);
+    expect(cleared.body.serializer_params.marginScheme).toBeUndefined();
+    expect(cleared.body.serializer_params.rzl.firmNumber).toBe('FN-1');
   });
 
   it('rejects a margin switch on the RZL profile of an AT entity', async () => {

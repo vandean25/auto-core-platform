@@ -43,7 +43,7 @@ export type AccountingProfileSerializerParams = {
 export type AccountingProfileSerializerParamsInput = {
   rzl?: RzlSerializerParams | null;
   bmd?: BmdSerializerParams | null;
-  marginScheme?: Partial<MarginSchemeSerializerParams>;
+  marginScheme?: Partial<MarginSchemeSerializerParams> | null;
 };
 
 const STEUERCODE_PATTERN = /^[0-9]{1,4}$/;
@@ -251,10 +251,10 @@ export function serializeAccountingProfileSerializerParams(
 }
 
 /**
- * A profile PATCH replaces the RZL and BMD params it carries. An omitted block
- * keeps the stored one, and an explicit `null` clears it. Margin fields it omits
- * keep their stored value too. A RZL-only save must not switch the margin scheme
- * off, and a VAT-account-only patch must not disable it.
+ * A profile PATCH replaces the RZL, BMD and margin blocks it carries. An omitted
+ * block keeps the stored one, and an explicit `null` clears it. Inside the margin
+ * block, omitted fields keep their stored value. A RZL-only save must not switch
+ * the margin scheme off, and a VAT-account-only patch must not disable it.
  */
 export function mergeAccountingProfileSerializerParams(
   stored: unknown,
@@ -262,23 +262,21 @@ export function mergeAccountingProfileSerializerParams(
 ): AccountingProfileSerializerParams {
   const current = parseAccountingProfileSerializerParams(stored);
   const { bmd: patchBmd, marginScheme: patchMargin, rzl: patchRzl } = patch;
-  const hasMargin =
-    patchMargin !== undefined || current.marginScheme !== undefined;
-
-  return parseAccountingProfileSerializerParams({
+  const merged: Record<string, unknown> = {
     rzl: patchRzl === undefined ? current.rzl : patchRzl,
     bmd: patchBmd === undefined ? current.bmd : patchBmd,
-    ...(hasMargin
-      ? {
-          marginScheme: {
-            enabled:
-              patchMargin?.enabled ?? current.marginScheme?.enabled ?? false,
-            vatAccount:
-              patchMargin?.vatAccount !== undefined
-                ? patchMargin.vatAccount
-                : (current.marginScheme?.vatAccount ?? null),
-          },
-        }
-      : {}),
-  });
+  };
+  if (
+    patchMargin !== null &&
+    (patchMargin !== undefined || current.marginScheme !== undefined)
+  ) {
+    merged.marginScheme = {
+      enabled: patchMargin?.enabled ?? current.marginScheme?.enabled ?? false,
+      vatAccount:
+        patchMargin?.vatAccount !== undefined
+          ? patchMargin.vatAccount
+          : (current.marginScheme?.vatAccount ?? null),
+    };
+  }
+  return parseAccountingProfileSerializerParams(merged);
 }

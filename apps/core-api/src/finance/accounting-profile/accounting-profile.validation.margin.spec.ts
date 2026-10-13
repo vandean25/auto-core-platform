@@ -61,6 +61,33 @@ describe('accounting-profile.validation margin scheme merge', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('lets a patch that sends the margin scheme as null change the profile to RZL', () => {
+    const patch = validateAccountingProfilePatch(
+      {
+        profileCode: DEFAULT_AT_PROFILE_CODE,
+        serializerParams: { marginScheme: null },
+      },
+      {
+        countryIso: 'AT',
+        currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+        currentChart: 'UGB',
+        currentSerializerParams: storedMargin,
+      },
+    );
+
+    expect(patch.profileCode).toBe(DEFAULT_AT_PROFILE_CODE);
+    expect(patch.serializerParams).toEqual({});
+  });
+
+  it('clears the stored margin switch when the patch sends the margin scheme as null', () => {
+    const patch = validateAccountingProfilePatch(
+      { serializerParams: { marginScheme: null } },
+      { ...deContext, currentSerializerParams: storedMargin },
+    );
+
+    expect(patch.serializerParams).toEqual({});
+  });
+
   it('rejects enabling the margin scheme on a BMD profile', () => {
     expect(() =>
       validateAccountingProfilePatch(

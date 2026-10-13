@@ -226,11 +226,13 @@ export function validateAccountingProfilePatch(
 
   const effectiveProfileCode = resolveProfileCodeAfterPatch(patch, context);
   // Only the DATEV export lifts the margin block. RZL and BMD never use the switch, so
-  // checking the effective state, patched or stored, stops an enabled switch from
-  // being kept on those profiles and reactivating later.
+  // checking the effective state stops an enabled switch from being kept on those
+  // profiles and reactivating later. A patch that carries serializer params decides
+  // the state itself, so an explicit null clears it. Otherwise the stored switch holds.
   const effectiveMargin =
-    normalized.serializerParams?.marginScheme ??
-    parseMarginSchemeSerializerParams(context.currentSerializerParams);
+    normalized.serializerParams !== undefined
+      ? normalized.serializerParams.marginScheme
+      : parseMarginSchemeSerializerParams(context.currentSerializerParams);
   if (
     effectiveMargin?.enabled &&
     (isRzlProfileCode(effectiveProfileCode) ||
