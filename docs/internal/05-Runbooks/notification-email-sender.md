@@ -38,7 +38,7 @@ The worker route answers only when `NOTIFICATION_EMAIL_MODE` is set, and any non
 
 ## 2a. Customer message drafts (phase 3)
 
-Three messages render from `apps/core-api/src/notifications/templates/customer-email-templates.ts`, in the formal German Sie form: `customer.estimate_sent`, `customer.estimate_approval_confirmed` and `customer.order_ready`, all at template version 1. A draft carries its template id and version into the outbox row. The copy is a draft until the lawyer signs it off (AUT-360 D19 and D23). Phase 3 renders the drafts and sends none of them; phase 4 wires the estimate send behind `CUSTOMER_ESTIMATE_SEND_ENABLED`.
+Three messages render from `apps/core-api/src/notifications/templates/customer-email-templates.ts`, in the formal German Sie form: `customer.estimate_sent`, `customer.estimate_approval_confirmed` and `customer.order_ready`, all at template version 1. A draft carries its template id and version into the outbox row. The copy is a draft until the lawyer signs it off (AUT-360 D19 and D23). Phase 3 renders the drafts and sends none of them. The estimate-sent draft takes the approval link as an input, because the message has no attachment (ADR-0025 section 6); phase 4 supplies that link and wires the estimate send behind `CUSTOMER_ESTIMATE_SEND_ENABLED`.
 
 ## 3. Secrets (GSM names only, no values in the repository)
 

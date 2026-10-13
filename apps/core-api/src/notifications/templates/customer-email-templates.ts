@@ -33,6 +33,11 @@ export interface CustomerMessageContext {
 export interface EstimateSentInput extends CustomerMessageContext {
   estimateNumber: string;
   vehicleLabel: string;
+  /**
+   * The link where the customer views and approves the estimate (the phase 4 public route). The message
+   * has no attachment (ADR-0025 section 6), so the body points at this link.
+   */
+  approvalUrl: string;
   /** The instant the estimate expires (valid_until). */
   validUntil: Date;
 }
@@ -52,7 +57,8 @@ export function renderEstimateSentEmail(input: EstimateSentInput): EmailDraft {
   return draft(input, CUSTOMER_TEMPLATE_IDS.estimateSent, {
     subject: `Kostenvoranschlag ${input.estimateNumber}`,
     paragraphs: [
-      `anbei erhalten Sie den Kostenvoranschlag ${input.estimateNumber} für Ihr Fahrzeug ${input.vehicleLabel}.`,
+      `wir haben für Ihr Fahrzeug ${input.vehicleLabel} den Kostenvoranschlag ${input.estimateNumber} erstellt.`,
+      `Den Kostenvoranschlag können Sie unter folgendem Link einsehen: ${input.approvalUrl}`,
       `Der Kostenvoranschlag ist gültig bis ${formatValidUntil(input.validUntil)} Uhr. Bitte prüfen Sie ihn in Ruhe. ${CONTACT_SENTENCE}`,
     ],
   });
@@ -75,7 +81,7 @@ export function renderOrderReadyEmail(input: OrderReadyInput): EmailDraft {
     subject: `Ihr Fahrzeug ist fertig: Auftrag ${input.orderNumber}`,
     paragraphs: [
       `die Arbeiten an Ihrem Fahrzeug ${input.vehicleLabel} sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.`,
-      `Bitte vereinbaren Sie einen Termin für die Abholung. ${CONTACT_SENTENCE}`,
+      CONTACT_SENTENCE,
     ],
   });
 }
