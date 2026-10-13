@@ -7,6 +7,10 @@ import { createHash } from 'node:crypto';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DocumentBrandingService } from './document-branding.service.js';
+import { DocumentBrandingConfirmationService } from './document-branding-confirmation.service.js';
+import { DocumentBrandingDraftService } from './document-branding-draft.service.js';
+import { DocumentBrandingProfilePreviewService } from './document-branding-profile-preview.service.js';
+import { DocumentBrandingProfileStore } from './document-branding-profile-store.service.js';
 import { DEFAULT_DOCUMENT_BRAND_THEME } from './theme-v1.js';
 
 describe('DocumentBrandingService', () => {
@@ -84,9 +88,20 @@ describe('DocumentBrandingService', () => {
       },
       $transaction: jest.fn((callback) => callback(tx)),
     };
-    service = new DocumentBrandingService(
-      prisma as unknown as PrismaService,
+    const prismaService = prisma as unknown as PrismaService;
+    const profiles = new DocumentBrandingProfileStore(
+      prismaService,
       tenantContext,
+    );
+    service = new DocumentBrandingService(
+      profiles,
+      new DocumentBrandingDraftService(profiles),
+      new DocumentBrandingConfirmationService(profiles),
+      new DocumentBrandingProfilePreviewService(
+        prismaService,
+        tenantContext,
+        profiles,
+      ),
     );
   });
 

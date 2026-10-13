@@ -4,6 +4,8 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { DocumentBrandingAssetStorage } from './document-branding-asset-storage.js';
 import { DocumentBrandingUploadTaskService } from './document-branding-upload-task.service.js';
 import { DocumentBrandingUploadRecoveryService } from './document-branding-upload-recovery.service.js';
+import { DocumentBrandingAssetCleanupService } from './document-branding-asset-cleanup.service.js';
+import { DocumentBrandingUploadRequeueService } from './document-branding-upload-requeue.service.js';
 
 /**
  * A logo that a sent workshop estimate version pins (ADR-0025 §3) must survive the
@@ -98,8 +100,8 @@ describe('DocumentBrandingUploadRecoveryService estimate pin', () => {
       prisma,
       systemPrisma,
       new RequestContextService(),
-      storage,
-      tasks,
+      new DocumentBrandingUploadRequeueService(prisma, tasks),
+      new DocumentBrandingAssetCleanupService(prisma, storage),
     );
     await service.recoverAndClean();
   }
