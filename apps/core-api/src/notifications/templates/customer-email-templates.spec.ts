@@ -1,5 +1,9 @@
 import { buildEmailColumns } from '../notification-outbox.email-columns.js';
 import {
+  formatWorkshopEstimateDate,
+  formatWorkshopEstimateValidUntil,
+} from '../../workshop/workshop-estimate-snapshot.js';
+import {
   CUSTOMER_TEMPLATE_IDS,
   CUSTOMER_TEMPLATE_VERSION,
   renderEstimateApprovalConfirmedEmail,
@@ -324,6 +328,84 @@ describe('customer email templates (AUT-356 phase 3)', () => {
         }),
       ).toThrow('approvalUrl');
     }
+  });
+
+  it('writes the parsed form of the link, so the address the customer opens is the one checked', () => {
+    for (const approvalUrl of [
+      'https:///portal.example.at/approve/demo-token',
+      'https://:@portal.example.at/approve/demo-token',
+    ]) {
+      const draft = renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        vehicleLabel: 'VW Golf',
+        approvalUrl,
+        validUntil: VALID_UNTIL,
+      });
+
+      expect(draft.text).toContain(`einsehen: ${APPROVAL_URL}`);
+    }
+  });
+
+  it('writes values without the spaces around them', () => {
+    const draft = renderEstimateSentEmail({
+      ...RECIPIENT,
+      estimateNumber: ' KV-2026-0001 ',
+      vehicleLabel: ' VW Golf ',
+      approvalUrl: APPROVAL_URL,
+      validUntil: VALID_UNTIL,
+    });
+
+    expect(draft.subject).toBe('Kostenvoranschlag KV-2026-0001');
+    expect(draft.text).toContain(
+      'für Ihr Fahrzeug VW Golf den Kostenvoranschlag KV-2026-0001 erstellt.',
+    );
+  });
+
+  it('refuses a multi-line salutation and does not double a trailing comma', () => {
+    expect(() =>
+      renderOrderReadyEmail({
+        ...RECIPIENT,
+        greeting: 'Sehr geehrte Frau\nMuster',
+        orderNumber: 'WO-2026-0001',
+        vehicleLabel: 'Skoda Octavia',
+      }),
+    ).toThrow('greeting');
+
+    const draft = renderOrderReadyEmail({
+      ...RECIPIENT,
+      greeting: 'Sehr geehrte Frau Muster,',
+      orderNumber: 'WO-2026-0001',
+      vehicleLabel: 'Skoda Octavia',
+    });
+
+    expect(draft.text.startsWith('Sehr geehrte Frau Muster,\n\n')).toBe(true);
+  });
+
+  it('prints the cut-off and the approval date exactly as the estimate PDF does', () => {
+    for (const validUntil of [VALID_UNTIL, SUMMER_VALID_UNTIL]) {
+      const draft = renderEstimateSentEmail({
+        ...RECIPIENT,
+        estimateNumber: 'KV-2026-0001',
+        vehicleLabel: 'VW Golf',
+        approvalUrl: APPROVAL_URL,
+        validUntil,
+      });
+
+      expect(draft.text).toContain(
+        `gültig bis ${formatWorkshopEstimateValidUntil(validUntil)} Uhr`,
+      );
+    }
+
+    const confirmation = renderEstimateApprovalConfirmedEmail({
+      ...RECIPIENT,
+      estimateNumber: 'KV-2026-0001',
+      approvedAt: APPROVED_AT,
+    });
+
+    expect(confirmation.text).toContain(
+      `am ${formatWorkshopEstimateDate(APPROVED_AT)}.`,
+    );
   });
 
   it('produces drafts the outbox writer accepts', () => {

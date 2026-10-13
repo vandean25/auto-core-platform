@@ -27,7 +27,7 @@ export interface CustomerMessageContext {
   /** The workshop's display name, used in the sign-off. */
   senderName: string;
   replyToEmail?: string | null;
-  /** A full salutation such as "Sehr geehrte Frau Muster". Defaults to the neutral form. */
+  /** A salutation such as "Sehr geehrte Frau Muster", without the comma. Defaults to the neutral form. */
   greeting?: string | null;
 }
 
@@ -97,7 +97,8 @@ export function renderOrderReadyEmail(input: OrderReadyInput): EmailDraft {
 
 /**
  * A value the copy is built from. A blank or multi-line value fails here: the writer would refuse it
- * later, and a line break in a subject would reach the header.
+ * later, and a line break in a subject would reach the header. The value is written without the spaces
+ * around it, so a subject never carries trailing whitespace.
  */
 function requiredText(name: string, value: string): string {
   if (value.trim() === '' || !isSingleLineText(value)) {
@@ -105,7 +106,7 @@ function requiredText(name: string, value: string): string {
       `Customer message field ${name} must be a non-blank single line`,
     );
   }
-  return value;
+  return value.trim();
 }
 
 /**
@@ -122,7 +123,8 @@ function requiredInstant(name: string, value: Date): Date {
 /**
  * The estimate link. The message has no attachment, so this link is the only way to the estimate. It must
  * be written as https://host/...: a link without the slashes is not clickable, and one with credentials
- * would put a password into a customer-facing link. Spaces and line breaks are refused before parsing.
+ * would put a password into a customer-facing link. Spaces and line breaks are refused before parsing. The
+ * link written is the parsed form, so the address the customer opens is the one that was checked.
  */
 function requiredHttpsUrl(name: string, value: string): string {
   const message = `Customer message field ${name} must be an absolute https URL without spaces or credentials`;
@@ -142,7 +144,7 @@ function requiredHttpsUrl(name: string, value: string): string {
   if (url.protocol !== 'https:' || url.username !== '' || url.password !== '') {
     throw new Error(message);
   }
-  return value;
+  return url.href;
 }
 
 function draft(
@@ -151,7 +153,11 @@ function draft(
   content: { subject: string; paragraphs: string[] },
 ): EmailDraft {
   const senderName = requiredText('senderName', input.senderName);
-  const salutation = input.greeting?.trim() || DEFAULT_GREETING;
+  const greeting = input.greeting ?? '';
+  const salutation =
+    greeting.trim() === ''
+      ? DEFAULT_GREETING
+      : requiredText('greeting', greeting).replace(/,$/, '');
   return {
     recipientEmail: input.recipientEmail,
     senderName,
@@ -167,7 +173,7 @@ function draft(
   };
 }
 
-/** "13.10.2026" in business time. */
+/** "13.10.2026" in business time, as formatWorkshopEstimateDate prints it. The spec keeps them in step. */
 function formatDate(instant: Date): string {
   return new Intl.DateTimeFormat('de-AT', {
     timeZone: VIENNA,
@@ -177,7 +183,7 @@ function formatDate(instant: Date): string {
   }).format(instant);
 }
 
-/** "27.10.2026, 10:00" in business time; the printed cut-off carries the time, as on the estimate PDF. */
+/** "27.10.2026, 10:00" in business time, as the estimate PDF prints it (formatWorkshopEstimateValidUntil). */
 function formatValidUntil(instant: Date): string {
   return new Intl.DateTimeFormat('de-AT', {
     timeZone: VIENNA,
