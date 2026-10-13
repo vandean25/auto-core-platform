@@ -5,7 +5,7 @@ import {
 import {
   DEFAULT_BMD_AT_PROFILE_CODE,
   DEFAULT_BMD_FORMAT_VERSION,
-} from './accounting-profile.codes.js';
+} from './bmd-profile.codes.js';
 
 const complete = {
   profileCode: DEFAULT_BMD_AT_PROFILE_CODE,
