@@ -1,8 +1,12 @@
 import { isRzlProfileCode } from '../accounting-profile/accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
+  type BmdSteuercodes,
   type RzlSteuercodes,
+  type SteuercodesByRate,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
+import { isBmdProfileCode } from '../accounting-profile/bmd-profile.codes.js';
+import { isBmdSafeText } from '../accounting-profile/bmd-text-rules.js';
 import { isRzlSafeText } from '../accounting-profile/rzl-text-rules.js';
 import type { AccountingExportBlockerCode } from './accounting-export.types.js';
 import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
@@ -36,30 +40,58 @@ export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules = {
   taxRateIssue: () => null,
 };
 
+/** Wording and text rule per AT profile. RZL keeps the candidate step's default manual BU blocker. */
+const AT_STANDARD_VAT_PROFILES = {
+  RZL: {
+    article: 'an',
+    textRule: isRzlSafeText,
+    textHint: 'Use plain text without ; or quotes.',
+    manualBuPerAllocation: false,
+  },
+  BMD: {
+    article: 'a',
+    textRule: isBmdSafeText,
+    textHint: 'Use plain printable ASCII without ; or quotes.',
+    manualBuPerAllocation: true,
+  },
+} as const;
+
 /**
- * RZL: AT STANDARD VAT only, rate-based Steuercodes, no DATEV BU keys. Zero-rate
+ * AT STANDARD VAT only, rate-based Steuercodes, no DATEV BU keys. Zero-rate
  * lines are blocked on purpose: exempt, reverse-charge and intra-community
- * treatments (RZL codes 01/02/03 in the brief) are deferred, and ACP never
- * infers them from a zero rate.
+ * treatments are deferred, and ACP never infers them from a zero rate.
+ *
+ * BMD manual BU keys pass the candidate step and are blocked per allocation with
+ * the BMD wording.
  */
-export function buildRzlAllocationRules(
-  steuercodes: RzlSteuercodes,
+function buildAtStandardVatRules(
+  name: keyof typeof AT_STANDARD_VAT_PROFILES,
+  steuercodes: SteuercodesByRate,
 ): AccountingExportAllocationRules {
+  const profile = AT_STANDARD_VAT_PROFILES[name];
   return {
     countryIso: 'AT',
-    unsupportedCountryMessage:
-      'Only AT STANDARD VAT allocations can be exported with the RZL profile.',
-    allowManualBu: false,
+    unsupportedCountryMessage: `Only AT STANDARD VAT allocations can be exported with the ${name} profile.`,
+    allowManualBu: profile.manualBuPerAllocation,
     allocationIssue(allocation) {
+      if (
+        profile.manualBuPerAllocation &&
+        allocation.taxTreatment === 'manual_bu'
+      ) {
+        return {
+          code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+          message: `Manual BU keys are not used by the ${name} profile. Use automatic tax treatment.`,
+        };
+      }
       const accounts = [
         ['Revenue account', allocation.revenueAccount],
         ['Debtor account', allocation.debtorAccount],
       ] as const;
       for (const [label, account] of accounts) {
-        if (!isRzlSafeText(account)) {
+        if (!profile.textRule(account)) {
           return {
             code: 'ACCOUNTING_MAPPING_INCOMPLETE',
-            message: `${label} ${account} cannot be written to an RZL file. Use plain text without ; or quotes.`,
+            message: `${label} ${account} cannot be written to ${profile.article} ${name} file. ${profile.textHint}`,
           };
         }
       }
@@ -70,21 +102,20 @@ export function buildRzlAllocationRules(
       if (normalized === '0.00') {
         return {
           code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-          message:
-            'Zero-rate VAT has no approved RZL Steuercode in this profile version. Exempt, reverse-charge and intra-community treatments are deferred.',
+          message: `Zero-rate VAT has no approved ${name} Steuercode in this profile version. Exempt, reverse-charge and intra-community treatments are deferred.`,
         };
       }
       const key = RZL_STEUERCODE_KEY_BY_TAX_RATE.get(normalized);
       if (!key) {
         return {
           code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-          message: `VAT rate ${normalized}% has no RZL Steuercode in this profile version.`,
+          message: `VAT rate ${normalized}% has no ${name} Steuercode in this profile version.`,
         };
       }
       if (!steuercodes[key]?.trim()) {
         return {
           code: 'ACCOUNTING_MAPPING_INCOMPLETE',
-          message: `The RZL Steuercode for ${normalized}% VAT is not configured.`,
+          message: `The ${name} Steuercode for ${normalized}% VAT is not configured.`,
         };
       }
       return null;
@@ -92,14 +123,30 @@ export function buildRzlAllocationRules(
   };
 }
 
+export function buildRzlAllocationRules(
+  steuercodes: RzlSteuercodes,
+): AccountingExportAllocationRules {
+  return buildAtStandardVatRules('RZL', steuercodes);
+}
+
+/** BMD: the RZL rules with BMD tax keys. Text must be printable ASCII (spec A4). */
+export function buildBmdAllocationRules(
+  steuercodes: BmdSteuercodes,
+): AccountingExportAllocationRules {
+  return buildAtStandardVatRules('BMD', steuercodes);
+}
+
 /** Rules for a profile code and its stored serializer params (null or unknown codes keep DATEV rules). */
 export function allocationRulesForProfile(
   profileCode: string | null,
   serializerParams: unknown,
 ): AccountingExportAllocationRules {
+  const params = parseAccountingProfileSerializerParams(serializerParams);
+  if (isBmdProfileCode(profileCode)) {
+    return buildBmdAllocationRules(params.bmd?.steuercodes ?? {});
+  }
   if (!isRzlProfileCode(profileCode)) {
     return DATEV_ALLOCATION_RULES;
   }
-  const rzl = parseAccountingProfileSerializerParams(serializerParams).rzl;
-  return buildRzlAllocationRules(rzl?.steuercodes ?? {});
+  return buildRzlAllocationRules(params.rzl?.steuercodes ?? {});
 }
