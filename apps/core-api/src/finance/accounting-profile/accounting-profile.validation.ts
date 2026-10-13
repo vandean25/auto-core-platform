@@ -7,6 +7,7 @@ import {
 } from './accounting-profile.codes.js';
 import {
   mergeAccountingProfileSerializerParams,
+  parseAccountingProfileSerializerParams,
   type AccountingProfileSerializerParams,
   type AccountingProfileSerializerParamsInput,
 } from './accounting-profile.serializer-params.js';
@@ -223,13 +224,15 @@ export function validateAccountingProfilePatch(
   }
 
   const effectiveProfileCode = resolveProfileCodeAfterPatch(patch, context);
-  // The RZL export never uses the margin switch, so storing it there would be silently ignored.
-  if (
-    normalized.serializerParams?.marginScheme?.enabled &&
-    isRzlProfileCode(effectiveProfileCode)
-  ) {
+  // The RZL export never uses the margin switch. Checking the effective state, patched
+  // or stored, stops an enabled switch from being kept on RZL and reactivating later.
+  const effectiveMargin =
+    normalized.serializerParams?.marginScheme ??
+    parseAccountingProfileSerializerParams(context.currentSerializerParams)
+      .marginScheme;
+  if (effectiveMargin?.enabled && isRzlProfileCode(effectiveProfileCode)) {
     throw new BadRequestException(
-      'Margin-scheme export is available for the DATEV profile only',
+      'Disable the margin scheme before using the RZL profile',
     );
   }
   const effectiveChart =

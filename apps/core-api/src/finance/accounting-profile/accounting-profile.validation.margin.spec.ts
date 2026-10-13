@@ -16,6 +16,36 @@ const storedMargin = {
 };
 
 describe('accounting-profile.validation margin scheme merge', () => {
+  it('rejects a profile change to RZL while the margin scheme is stored as enabled', () => {
+    expect(() =>
+      validateAccountingProfilePatch(
+        { profileCode: DEFAULT_AT_PROFILE_CODE },
+        {
+          countryIso: 'AT',
+          currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+          currentChart: 'UGB',
+          currentSerializerParams: storedMargin,
+        },
+      ),
+    ).toThrow(BadRequestException);
+  });
+
+  it('allows a profile change to RZL once the stored margin scheme is disabled', () => {
+    const patch = validateAccountingProfilePatch(
+      { profileCode: DEFAULT_AT_PROFILE_CODE },
+      {
+        countryIso: 'AT',
+        currentProfileCode: DEFAULT_DE_PROFILE_CODE,
+        currentChart: 'UGB',
+        currentSerializerParams: {
+          marginScheme: { enabled: false, vatAccount: '1776' },
+        },
+      },
+    );
+
+    expect(patch.profileCode).toBe(DEFAULT_AT_PROFILE_CODE);
+  });
+
   it('rejects enabling the margin scheme on an RZL profile', () => {
     expect(() =>
       validateAccountingProfilePatch(

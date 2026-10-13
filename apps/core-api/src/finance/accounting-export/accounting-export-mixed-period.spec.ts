@@ -260,6 +260,14 @@ describe('accounting-export mixed period (v1 + v2 + AT + DE, AUT-369)', () => {
     expect(byId['inv-v1-de'].rows).toEqual([]);
   });
 
+  it('books one row for the AT standard document and none for the DE documents on RZL', async () => {
+    const byId = await evaluate(RZL_PROFILE);
+
+    expect(byId['inv-v2-at'].rows).toHaveLength(1);
+    expect(byId['inv-v2-de'].rows).toEqual([]);
+    expect(byId['cn-v2-de'].rows).toEqual([]);
+  });
+
   it('never lifts margin documents on the RZL profile, even with the margin setting on', async () => {
     const byId = await evaluate(RZL_MARGIN_ENABLED);
 
