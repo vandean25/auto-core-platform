@@ -1,6 +1,7 @@
 import { isRzlProfileCode } from '../accounting-profile/accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
+  type MarginSchemeSerializerParams,
   type RzlSteuercodes,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
 import { isRzlSafeText } from '../accounting-profile/rzl-text-rules.js';
@@ -17,10 +18,21 @@ export type AccountingExportRuleIssue = {
  * Per-profile checks applied to each frozen line allocation. The default
  * (DATEV) rules keep the historical blocker messages unchanged.
  */
+/**
+ * Margin-scheme availability for one profile. `enabled` is the entity's explicit
+ * switch (AUT-369) and is only ever true on the DATEV rules. `vatAccount` receives
+ * the frozen margin VAT.
+ */
+export type AccountingExportMarginSchemeRules = {
+  enabled: boolean;
+  vatAccount: string | null;
+};
+
 export type AccountingExportAllocationRules = {
   countryIso: 'DE' | 'AT';
   unsupportedCountryMessage: string;
   allowManualBu: boolean;
+  marginScheme: AccountingExportMarginSchemeRules;
   taxRateIssue(taxRate: string): AccountingExportRuleIssue | null;
   /** Optional per-allocation check for text the export file cannot carry. */
   allocationIssue?(
@@ -28,13 +40,28 @@ export type AccountingExportAllocationRules = {
   ): AccountingExportRuleIssue | null;
 };
 
-export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules = {
-  countryIso: 'DE',
-  unsupportedCountryMessage:
-    'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
-  allowManualBu: true,
-  taxRateIssue: () => null,
-};
+/**
+ * DATEV rules for DE domestic STANDARD VAT. The margin scheme is off unless the
+ * entity enabled it; `marginScheme` carries that switch and its VAT account.
+ */
+export function buildDatevAllocationRules(
+  marginScheme: MarginSchemeSerializerParams | null = null,
+): AccountingExportAllocationRules {
+  return {
+    countryIso: 'DE',
+    unsupportedCountryMessage:
+      'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
+    allowManualBu: true,
+    marginScheme: {
+      enabled: marginScheme?.enabled === true,
+      vatAccount: marginScheme?.vatAccount ?? null,
+    },
+    taxRateIssue: () => null,
+  };
+}
+
+export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules =
+  buildDatevAllocationRules();
 
 /**
  * RZL: AT STANDARD VAT only, rate-based Steuercodes, no DATEV BU keys. Zero-rate
@@ -50,6 +77,8 @@ export function buildRzlAllocationRules(
     unsupportedCountryMessage:
       'Only AT STANDARD VAT allocations can be exported with the RZL profile.',
     allowManualBu: false,
+    // No approved RZL posting for margin-scheme documents: the switch never lifts them.
+    marginScheme: { enabled: false, vatAccount: null },
     allocationIssue(allocation) {
       const accounts = [
         ['Revenue account', allocation.revenueAccount],
@@ -98,7 +127,11 @@ export function allocationRulesForProfile(
   serializerParams: unknown,
 ): AccountingExportAllocationRules {
   if (!isRzlProfileCode(profileCode)) {
-    return DATEV_ALLOCATION_RULES;
+    const marginScheme =
+      parseAccountingProfileSerializerParams(serializerParams).marginScheme;
+    return marginScheme
+      ? buildDatevAllocationRules(marginScheme)
+      : DATEV_ALLOCATION_RULES;
   }
   const rzl = parseAccountingProfileSerializerParams(serializerParams).rzl;
   return buildRzlAllocationRules(rzl?.steuercodes ?? {});

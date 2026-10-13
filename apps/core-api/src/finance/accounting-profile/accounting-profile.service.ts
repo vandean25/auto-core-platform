@@ -22,6 +22,7 @@ import {
   defaultProfileCodeForCountry,
 } from './accounting-profile.codes.js';
 import {
+  mergeAccountingProfileSerializerParams,
   parseAccountingProfileSerializerParams,
   serializeAccountingProfileSerializerParams,
 } from './accounting-profile.serializer-params.js';
@@ -143,9 +144,13 @@ export class AccountingProfileService {
     if (patch.mappingRules !== undefined) {
       updateData.mapping_rules = patch.mappingRules;
     }
-    if (patch.serializerParams !== undefined) {
+    if (dto.serializerParams !== undefined) {
+      // Merge the raw request: normalizing fills omitted margin fields with defaults.
       updateData.serializer_params = serializeAccountingProfileSerializerParams(
-        patch.serializerParams,
+        mergeAccountingProfileSerializerParams(
+          existing.serializer_params,
+          dto.serializerParams,
+        ),
       ) as Prisma.InputJsonValue;
     }
     if (patch.isEnabled !== undefined) {

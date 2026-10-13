@@ -7837,8 +7837,15 @@ export interface components {
             costCenterLength?: number | null;
             steuercodes?: components["schemas"]["RzlSteuercodesDto"];
         };
+        MarginSchemeSerializerParamsDto: {
+            /** @description Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default. */
+            enabled?: boolean;
+            /** @description Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled. */
+            vatAccount?: string | null;
+        };
         AccountingProfileSerializerParamsDto: {
             rzl?: components["schemas"]["RzlSerializerParamsDto"];
+            marginScheme?: components["schemas"]["MarginSchemeSerializerParamsDto"];
         };
         AccountingMappingRuleDto: {
             sourceCategoryKey: string;

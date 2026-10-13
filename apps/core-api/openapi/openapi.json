@@ -26201,11 +26201,29 @@
           }
         }
       },
+      "MarginSchemeSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default."
+          },
+          "vatAccount": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 9,
+            "description": "Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled."
+          }
+        }
+      },
       "AccountingProfileSerializerParamsDto": {
         "type": "object",
         "properties": {
           "rzl": {
             "$ref": "#/components/schemas/RzlSerializerParamsDto"
+          },
+          "marginScheme": {
+            "$ref": "#/components/schemas/MarginSchemeSerializerParamsDto"
           }
         }
       },

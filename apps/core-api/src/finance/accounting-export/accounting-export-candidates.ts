@@ -8,6 +8,11 @@ import {
   type AccountingExportAllocationRules,
 } from './accounting-export-allocation-rules.js';
 import { computeSnapshotHash } from './accounting-export-hash.js';
+import {
+  buildMarginBookingRows,
+  marginDocumentIssue,
+  marginSchemeAvailability,
+} from './accounting-export-margin.js';
 import { buildExportDocumentDateFilter } from './accounting-export-period.js';
 import type {
   AccountingExportBlocker,
@@ -114,16 +119,25 @@ export function collectBlockersForInvoice(
   }
 
   const snapshot = invoice.snapshot;
+  const isMarginDocument = snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  const marginAvailability = marginSchemeAvailability(rules);
 
-  if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
-    blockers.push({
-      code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-      message:
+  if (isMarginDocument) {
+    const marginIssue = marginDocumentIssue({
+      availability: marginAvailability,
+      notSupportedMessage:
         'Margin-scheme invoices are not supported by the active export profile.',
-      documentId: invoice.id,
-      documentKind: 'INVOICE',
-      documentNumber: invoice.invoice_number,
+      margin: snapshot.margin,
+      lineGrosses: snapshot.items.map((line) => line.gross),
     });
+    if (marginIssue) {
+      blockers.push({
+        ...marginIssue,
+        documentId: invoice.id,
+        documentKind: 'INVOICE',
+        documentNumber: invoice.invoice_number,
+      });
+    }
   }
 
   for (const item of invoice.items) {
@@ -152,11 +166,28 @@ export function collectBlockersForInvoice(
         documentNumber: invoice.invoice_number,
       });
     }
-    if (allocation.taxMode === 'MARGIN_SCHEME') {
+    if (
+      allocation.taxMode === 'MARGIN_SCHEME' &&
+      (!isMarginDocument || marginAvailability === 'NOT_ENABLED')
+    ) {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_TAX_MODE',
         message:
           'Margin-scheme allocations cannot be exported with the active profile.',
+        documentId: invoice.id,
+        documentKind: 'INVOICE',
+        documentNumber: invoice.invoice_number,
+      });
+    }
+    if (
+      isMarginDocument &&
+      marginAvailability === 'AVAILABLE' &&
+      allocation.taxMode !== 'MARGIN_SCHEME'
+    ) {
+      blockers.push({
+        code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+        message:
+          'Margin-scheme document line has no margin accounting allocation.',
         documentId: invoice.id,
         documentKind: 'INVOICE',
         documentNumber: invoice.invoice_number,
@@ -220,16 +251,25 @@ export function collectBlockersForCreditNote(
   }
 
   const snapshot = creditNote.snapshot;
+  const isMarginDocument = snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  const marginAvailability = marginSchemeAvailability(rules);
 
-  if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
-    blockers.push({
-      code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-      message:
+  if (isMarginDocument) {
+    const marginIssue = marginDocumentIssue({
+      availability: marginAvailability,
+      notSupportedMessage:
         'Margin-scheme credits are not supported by the active export profile.',
-      documentId: creditNote.id,
-      documentKind: 'CREDIT_NOTE',
-      documentNumber: creditNote.credit_number,
+      margin: snapshot.margin,
+      lineGrosses: snapshot.items.map((line) => line.gross),
     });
+    if (marginIssue) {
+      blockers.push({
+        ...marginIssue,
+        documentId: creditNote.id,
+        documentKind: 'CREDIT_NOTE',
+        documentNumber: creditNote.credit_number,
+      });
+    }
   }
 
   for (const item of snapshot.items) {
@@ -253,11 +293,28 @@ export function collectBlockersForCreditNote(
         documentNumber: creditNote.credit_number,
       });
     }
-    if (allocation.taxMode === 'MARGIN_SCHEME') {
+    if (
+      allocation.taxMode === 'MARGIN_SCHEME' &&
+      (!isMarginDocument || marginAvailability === 'NOT_ENABLED')
+    ) {
       blockers.push({
         code: 'UNSUPPORTED_EXPORT_TAX_MODE',
         message:
           'Margin-scheme allocations cannot be exported with the active profile.',
+        documentId: creditNote.id,
+        documentKind: 'CREDIT_NOTE',
+        documentNumber: creditNote.credit_number,
+      });
+    }
+    if (
+      isMarginDocument &&
+      marginAvailability === 'AVAILABLE' &&
+      allocation.taxMode !== 'MARGIN_SCHEME'
+    ) {
+      blockers.push({
+        code: 'ACCOUNTING_MAPPING_INCOMPLETE',
+        message:
+          'Margin-scheme credit line has no margin accounting allocation.',
         documentId: creditNote.id,
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
@@ -306,6 +363,7 @@ function buildInvoiceRows(
     items: { id: string; accounting_snapshot: unknown }[];
   },
   documentDate: string,
+  rules: AccountingExportAllocationRules,
 ): AccountingExportBookingRow[] {
   if (!isInvoiceSnapshotV2(invoice.snapshot) || !invoice.invoice_number) {
     return [];
@@ -321,6 +379,31 @@ function buildInvoiceRows(
       parseAllocation(snapshotItem?.accounting_allocation);
     const gross = snapshotItem?.gross;
     if (!allocation || !gross || gross === '0.00') {
+      continue;
+    }
+
+    if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+      rows.push(
+        ...buildMarginBookingRows({
+          base: {
+            documentId: invoice.id,
+            documentKind: 'INVOICE',
+            documentNumber: invoice.invoice_number,
+            documentDate,
+            lineId: item.id,
+            bookingText: buildBookingText({
+              documentKind: 'INVOICE',
+              documentNumber: invoice.invoice_number,
+            }),
+          },
+          polarity: 'S',
+          gross,
+          margin: snapshot.margin,
+          revenueAccount: allocation.revenueAccount,
+          debtorAccount: allocation.debtorAccount,
+          vatAccount: rules.marginScheme.vatAccount,
+        }),
+      );
       continue;
     }
 
@@ -348,11 +431,14 @@ function buildInvoiceRows(
   return rows;
 }
 
-function buildCreditRows(creditNote: {
-  id: string;
-  credit_number: string | null;
-  snapshot: unknown;
-}): AccountingExportBookingRow[] {
+function buildCreditRows(
+  creditNote: {
+    id: string;
+    credit_number: string | null;
+    snapshot: unknown;
+  },
+  rules: AccountingExportAllocationRules,
+): AccountingExportBookingRow[] {
   if (
     !isCreditNoteSnapshotV2(creditNote.snapshot) ||
     !creditNote.credit_number
@@ -366,6 +452,33 @@ function buildCreditRows(creditNote: {
   for (const item of snapshot.items) {
     const allocation = parseAllocation(item.accounting_allocation);
     if (!allocation || item.gross === '0.00') {
+      continue;
+    }
+
+    if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+      rows.push(
+        ...buildMarginBookingRows({
+          base: {
+            documentId: creditNote.id,
+            documentKind: 'CREDIT_NOTE',
+            documentNumber: creditNote.credit_number,
+            documentDate: snapshot.date,
+            lineId: item.id,
+            bookingText: buildBookingText({
+              documentKind: 'CREDIT_NOTE',
+              documentNumber: creditNote.credit_number,
+              originalInvoiceNumber: snapshot.original_document.number,
+            }),
+            originalInvoiceNumber: snapshot.original_document.number,
+          },
+          polarity: 'H',
+          gross: item.gross,
+          margin: snapshot.margin,
+          revenueAccount: allocation.revenueAccount,
+          debtorAccount: allocation.debtorAccount,
+          vatAccount: rules.marginScheme.vatAccount,
+        }),
+      );
       continue;
     }
 
@@ -513,7 +626,7 @@ export async function loadAccountingExportCandidates(
     const blockers = collectBlockersForInvoice(invoice, rules);
     const documentDate = invoice.date.toISOString().slice(0, 10);
     const rows =
-      blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate);
+      blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate, rules);
 
     return {
       id: invoice.id,
@@ -529,7 +642,7 @@ export async function loadAccountingExportCandidates(
 
   const creditCandidates = creditNotes.map((creditNote) => {
     const blockers = collectBlockersForCreditNote(creditNote, rules);
-    const rows = blockers.length > 0 ? [] : buildCreditRows(creditNote);
+    const rows = blockers.length > 0 ? [] : buildCreditRows(creditNote, rules);
 
     return {
       id: creditNote.id,
@@ -593,7 +706,8 @@ export function buildManifestDocuments(
     date: candidate.date,
     siteId: candidate.siteId,
     snapshotHash: candidate.snapshotHash,
-    lineIds: candidate.rows.map((row) => row.lineId),
+    // A margin line books two rows, so its line id appears once in the manifest.
+    lineIds: [...new Set(candidate.rows.map((row) => row.lineId))],
   }));
 }
 

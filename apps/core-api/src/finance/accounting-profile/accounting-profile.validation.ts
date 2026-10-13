@@ -7,7 +7,7 @@ import {
 } from './accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
-  type AccountingProfileSerializerParams,
+  type AccountingProfileSerializerParamsInput,
 } from './accounting-profile.serializer-params.js';
 import { type AccountingMappingRule } from './accounting-profile.types.js';
 
@@ -126,7 +126,7 @@ export type AccountingProfilePatchInput = {
   fiscalYearStartMonth?: number | null;
   defaultDebtorAccount?: string | null;
   mappingRules?: AccountingMappingRule[];
-  serializerParams?: AccountingProfileSerializerParams;
+  serializerParams?: AccountingProfileSerializerParamsInput;
   isEnabled?: boolean;
 };
 

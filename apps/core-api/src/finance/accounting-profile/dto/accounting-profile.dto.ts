@@ -75,12 +75,41 @@ export class RzlSerializerParamsDto {
   steuercodes?: RzlSteuercodesDto;
 }
 
+export class MarginSchemeSerializerParamsDto {
+  @ApiPropertyOptional({
+    type: Boolean,
+    description:
+      'Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 9,
+    description:
+      'Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled.',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[0-9]{1,9}$/)
+  vatAccount?: string | null;
+}
+
 export class AccountingProfileSerializerParamsDto {
   @ApiPropertyOptional({ type: RzlSerializerParamsDto })
   @IsOptional()
   @ValidateNested()
   @Type(() => RzlSerializerParamsDto)
   rzl?: RzlSerializerParamsDto;
+
+  @ApiPropertyOptional({ type: MarginSchemeSerializerParamsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MarginSchemeSerializerParamsDto)
+  marginScheme?: MarginSchemeSerializerParamsDto;
 }
 
 export class AccountingMappingRuleDto {
