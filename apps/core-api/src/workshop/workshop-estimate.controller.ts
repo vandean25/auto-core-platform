@@ -24,6 +24,7 @@ import {
   WorkshopEstimateResponseDto,
   WorkshopEstimateVersionDetailDto,
 } from './dto/workshop-estimate-response.dto.js';
+import { WorkshopOrderCommunicationsResponseDto } from './dto/workshop-order-communications.dto.js';
 import {
   SendWorkshopEstimateVersionDto,
   WorkshopPdfGenerationResponseDto,
@@ -67,6 +68,12 @@ export class WorkshopEstimateController {
   @ApiOkResponse({ type: WorkshopEstimateListResponseDto })
   list(@Param('id') id: string) {
     return this.estimates.listForOrder(id);
+  }
+
+  @Get('orders/:id/communications')
+  @ApiOkResponse({ type: WorkshopOrderCommunicationsResponseDto })
+  communications(@Param('id') id: string) {
+    return this.estimates.listCommunicationsForOrder(id);
   }
 
   @Post('orders/:id/estimates/revisions')

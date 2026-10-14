@@ -8,7 +8,13 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { Prisma, WorkshopEstimateStatus } from '@prisma/client';
+import {
+  NotificationChannel,
+  NotificationEventType,
+  NotificationRecipientKind,
+  Prisma,
+  WorkshopEstimateStatus,
+} from '@prisma/client';
 import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -26,6 +32,7 @@ import type {
   WorkshopEstimateResponseDto,
   WorkshopEstimateVersionDetailDto,
 } from './dto/workshop-estimate-response.dto.js';
+import type { WorkshopOrderCommunicationsResponseDto } from './dto/workshop-order-communications.dto.js';
 import {
   WORKSHOP_ESTIMATE_OPEN_ORDER_STATUSES,
   isCustomerEstimateSendEnabled,
@@ -62,6 +69,10 @@ import {
   toWorkshopEstimateDraftPreviewDto,
   toWorkshopEstimateVersionDetailDto,
 } from './workshop-estimate-response.mapper.js';
+import {
+  buildWorkshopOrderCommunications,
+  WORKSHOP_COMMUNICATIONS_LIMIT,
+} from './workshop-order-communications.js';
 import { lockWorkshopRows } from './workshop-task.helpers.js';
 import {
   WorkshopEstimatePdfService,
@@ -233,6 +244,75 @@ export class WorkshopEstimateService {
       return { data: [] };
     }
     return { data: [await this.readEstimate(scope, estimate.id)] };
+  }
+
+  /**
+   * The customer side of the order, newest first: the estimate emails and the decisions taken on them (ADR-0025 §8).
+   * Read only, under the same role and site scope as the estimate list.
+   */
+  async listCommunicationsForOrder(
+    orderId: string,
+  ): Promise<WorkshopOrderCommunicationsResponseDto> {
+    const scope = await this.resolveScope();
+    await this.findOrderInScope(this.prisma, scope, orderId);
+    const versions = await this.prisma.workshopEstimateVersion.findMany({
+      where: {
+        tenant_id: scope.tenantId,
+        estimate: { workshop_order_id: orderId, site_id: scope.siteId },
+      },
+      select: { id: true, version: true },
+    });
+    const versionIds = versions.map((version) => version.id);
+    const [emails, approvals] = await Promise.all([
+      this.prisma.notificationOutbox.findMany({
+        where: {
+          tenant_id: scope.tenantId,
+          workshop_order_id: orderId,
+          event_type: NotificationEventType.CUSTOMER_ESTIMATE_SENT,
+          channel: NotificationChannel.EMAIL,
+          recipient_kind: NotificationRecipientKind.CUSTOMER,
+          source_entity_type: 'WorkshopEstimateVersion',
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: WORKSHOP_COMMUNICATIONS_LIMIT,
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          source_entity_id: true,
+        },
+      }),
+      versionIds.length === 0
+        ? []
+        : this.prisma.workshopEstimateApproval.findMany({
+            where: {
+              tenant_id: scope.tenantId,
+              workshop_estimate_version_id: { in: versionIds },
+            },
+            orderBy: [{ decided_at: 'desc' }, { id: 'desc' }],
+            take: WORKSHOP_COMMUNICATIONS_LIMIT,
+            select: {
+              id: true,
+              workshop_estimate_version_id: true,
+              channel: true,
+              decision: true,
+              decided_at: true,
+            },
+          }),
+    ]);
+    const versionNumbers = new Map(
+      versions.map((version): [string, number] => [
+        version.id,
+        version.version,
+      ]),
+    );
+    return {
+      data: buildWorkshopOrderCommunications({
+        emails,
+        approvals,
+        versionNumbers,
+      }),
+    };
   }
 
   /** New DRAFT version under the same KV number. The previous versions stay readable. */
