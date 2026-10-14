@@ -72,9 +72,10 @@ test('rejects a space-separated --shard value instead of running every suite', (
 });
 
 test('names the shard when it discovers no suites', async () => {
+  // A shard far beyond any realistic suite count is empty whatever the suite count is.
   await assert.rejects(
-    () => discoverE2eBatches(12, { index: 150, count: 200 }),
-    /shard 150\/200/,
+    () => discoverE2eBatches(12, { index: 100000, count: 100000 }),
+    /shard 100000\/100000/,
   );
 });
 
