@@ -251,6 +251,7 @@ export class WorkshopTaskService {
     // The lines changed, so an overrun against the approved estimate is recorded now (AUT-355).
     await syncWorkshopEstimateOverrunAfterWrite(
       this.prisma,
+      this.siteContext,
       await this.tenantContext.getTenantId(),
       orderId,
     );

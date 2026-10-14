@@ -6,6 +6,7 @@ import {
   WorkshopOrderStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { signCatalogHitPayload } from '../catalog/catalog-hit-payload.js';
 import { WorkshopCatalogLineService } from './workshop-catalog-line.service.js';
@@ -113,6 +114,10 @@ describe('WorkshopCatalogLineService', () => {
         WorkshopCatalogLineService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: TenantContextService, useValue: mockTenantContext },
+        {
+          provide: SiteContextService,
+          useValue: { getSiteId: jest.fn().mockResolvedValue('site-1') },
+        },
       ],
     }).compile();
 

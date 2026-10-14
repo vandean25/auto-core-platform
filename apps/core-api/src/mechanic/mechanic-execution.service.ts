@@ -1,3 +1,4 @@
+import { SiteContextService } from '../common/services/site-context.service.js';
 import { syncWorkshopEstimateOverrunAfterWrite } from '../workshop/workshop-estimate-overrun-sync.js';
 import {
   ConflictException,
@@ -61,6 +62,7 @@ export class MechanicExecutionService {
     private readonly realtimeService: DashboardRealtimeService,
     private readonly notificationOutbox: NotificationOutboxService,
     private readonly vehicleLedger: VehicleLedgerService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   /**
@@ -655,6 +657,7 @@ export class MechanicExecutionService {
     // The new part line changes the estimate lines, so an overrun is recorded now (AUT-355).
     await syncWorkshopEstimateOverrunAfterWrite(
       this.prisma,
+      this.siteContext,
       tenantId,
       task.workshop_order_id,
     );

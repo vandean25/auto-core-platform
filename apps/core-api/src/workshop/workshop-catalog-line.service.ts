@@ -1,3 +1,4 @@
+import { SiteContextService } from '../common/services/site-context.service.js';
 import { syncWorkshopEstimateOverrunAfterWrite } from './workshop-estimate-overrun-sync.js';
 import {
   ConflictException,
@@ -67,6 +68,7 @@ export class WorkshopCatalogLineService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   async addLineFromCatalog(
@@ -82,6 +84,7 @@ export class WorkshopCatalogLineService {
     // The new line changes the estimate lines, so an overrun is recorded now (AUT-355).
     await syncWorkshopEstimateOverrunAfterWrite(
       this.prisma,
+      this.siteContext,
       await this.tenantContext.getTenantId(),
       orderId,
     );

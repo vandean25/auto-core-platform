@@ -94,7 +94,12 @@ async function syncOverrunForReservation(
   const orderId =
     reservation?.workshop_task_line_item.workshop_task.workshop_order_id;
   if (orderId) {
-    await syncWorkshopEstimateOverrunAfterWrite(deps.prisma, tenantId, orderId);
+    await syncWorkshopEstimateOverrunAfterWrite(
+      deps.prisma,
+      deps.siteContext,
+      tenantId,
+      orderId,
+    );
   }
 }
 

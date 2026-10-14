@@ -5,6 +5,7 @@ import {
   Prisma,
   WorkshopEstimateStatus,
 } from '@prisma/client';
+import type { SiteContextService } from '../common/services/site-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { WorkshopEstimateOverrunWarning } from './workshop-estimate-overrun.helpers.js';
 import { computeWorkshopEstimateOverrun } from './workshop-estimate-overrun.helpers.js';
@@ -42,20 +43,23 @@ const ORDER_LINES_SELECT = {
  * Records an overrun as soon as a write changes the estimate lines of an order (AUT-355, ADR-0025 §1). The first
  * detection time is then the time the total went over, not the time someone next read the estimate.
  *
- * Best effort: the write has already committed, and every estimate read still detects the overrun. A failure here is
- * logged and never fails the caller's request.
+ * Best effort: the write has already committed, and every estimate read still detects the overrun. A failure here, the
+ * active site included, is logged and never fails the caller's request. The order is read in the active site, the
+ * scope the write ran in.
  */
 export async function syncWorkshopEstimateOverrunAfterWrite(
   prisma: PrismaService,
+  siteContext: Pick<SiteContextService, 'getSiteId'>,
   tenantId: string,
   workshopOrderId: string,
 ): Promise<void> {
   try {
-    await detectOverrunForOrder(prisma, tenantId, workshopOrderId);
+    const siteId = await siteContext.getSiteId();
+    await detectOverrunForOrder(prisma, tenantId, siteId, workshopOrderId);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     logger.warn(
-      `Overrun check skipped for order ${workshopOrderId} after a line change: ${reason}`,
+      `Overrun check skipped for order ${workshopOrderId} after a write: ${reason}`,
     );
   }
 }
@@ -63,6 +67,7 @@ export async function syncWorkshopEstimateOverrunAfterWrite(
 async function detectOverrunForOrder(
   prisma: PrismaService,
   tenantId: string,
+  siteId: string,
   workshopOrderId: string,
 ): Promise<void> {
   const baseline = await prisma.workshopEstimateVersion.findFirst({
@@ -78,7 +83,7 @@ async function detectOverrunForOrder(
     return;
   }
   const order = await prisma.workshopOrder.findFirst({
-    where: { id: workshopOrderId, tenant_id: tenantId },
+    where: { id: workshopOrderId, tenant_id: tenantId, site_id: siteId },
     select: ORDER_LINES_SELECT,
   });
   if (!order) {

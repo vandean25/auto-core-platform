@@ -5,6 +5,7 @@ import {
   Prisma,
   WorkshopLineItemType,
 } from '@prisma/client';
+import type { SiteContextService } from '../common/services/site-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { WorkshopEstimateOverrunWarning } from './workshop-estimate-overrun.helpers.js';
 import {
@@ -37,6 +38,11 @@ const LABOR_LINE = {
   part_execution_status: null,
 };
 
+/** The active site of the request the write was made in. */
+function activeSite(siteId = 'site-1'): Pick<SiteContextService, 'getSiteId'> {
+  return { getSiteId: jest.fn().mockResolvedValue(siteId) };
+}
+
 /** A PrismaService stand-in for the calls the overrun sync makes. The transaction runs its callback on `tx`. */
 function prismaStub() {
   const tx = {
@@ -65,10 +71,24 @@ describe('syncWorkshopEstimateOverrunAfterWrite', () => {
   it('writes nothing for an order that has no approved estimate yet', async () => {
     const { prisma, client } = prismaStub();
 
-    await syncWorkshopEstimateOverrunAfterWrite(prisma, 'tenant-1', 'order-1');
+    await syncWorkshopEstimateOverrunAfterWrite(prisma, activeSite(), 'tenant-1', 'order-1');
 
     expect(client.workshopEstimateVersion.findFirst).toHaveBeenCalledTimes(1);
     expect(client.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('reads the order in the active site, the scope the write ran in', async () => {
+    const { prisma, client } = prismaStub();
+    client.workshopEstimateVersion.findFirst.mockResolvedValue(APPROVED_BASELINE);
+    client.workshopOrder.findFirst.mockResolvedValue({ id: 'order-1', tasks: [] });
+
+    await syncWorkshopEstimateOverrunAfterWrite(prisma, activeSite('site-7'), 'tenant-1', 'order-1');
+
+    expect(client.workshopOrder.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'order-1', tenant_id: 'tenant-1', site_id: 'site-7' },
+      }),
+    );
   });
 
   it('writes nothing while the order still matches the approved estimate', async () => {
@@ -76,7 +96,7 @@ describe('syncWorkshopEstimateOverrunAfterWrite', () => {
     client.workshopEstimateVersion.findFirst.mockResolvedValue(APPROVED_BASELINE);
     client.workshopOrder.findFirst.mockResolvedValue({ id: 'order-1', tasks: [] });
 
-    await syncWorkshopEstimateOverrunAfterWrite(prisma, 'tenant-1', 'order-1');
+    await syncWorkshopEstimateOverrunAfterWrite(prisma, activeSite(), 'tenant-1', 'order-1');
 
     expect(client.$transaction).not.toHaveBeenCalled();
   });
@@ -89,7 +109,7 @@ describe('syncWorkshopEstimateOverrunAfterWrite', () => {
       tasks: [{ id: 'task-1', line_items: [LABOR_LINE] }],
     });
 
-    await syncWorkshopEstimateOverrunAfterWrite(prisma, 'tenant-1', 'order-1');
+    await syncWorkshopEstimateOverrunAfterWrite(prisma, activeSite(), 'tenant-1', 'order-1');
 
     expect(tx.workshopEstimateOverrun.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -113,6 +133,23 @@ describe('syncWorkshopEstimateOverrunAfterWrite', () => {
     });
   });
 
+  it('skips the check, without failing the write, when the request has no active site', async () => {
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+    const { prisma, client } = prismaStub();
+    client.workshopEstimateVersion.findFirst.mockResolvedValue(APPROVED_BASELINE);
+    const noActiveSite = {
+      getSiteId: jest.fn().mockRejectedValue(new Error('no active site')),
+    };
+
+    await expect(
+      syncWorkshopEstimateOverrunAfterWrite(prisma, noActiveSite, 'tenant-1', 'order-1'),
+    ).resolves.toBeUndefined();
+    expect(client.$transaction).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no active site'));
+  });
+
   it('logs a failed check and does not fail the write that caused it', async () => {
     const warn = jest
       .spyOn(Logger.prototype, 'warn')
@@ -123,7 +160,7 @@ describe('syncWorkshopEstimateOverrunAfterWrite', () => {
     );
 
     await expect(
-      syncWorkshopEstimateOverrunAfterWrite(prisma, 'tenant-1', 'order-1'),
+      syncWorkshopEstimateOverrunAfterWrite(prisma, activeSite(), 'tenant-1', 'order-1'),
     ).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('connection reset'),

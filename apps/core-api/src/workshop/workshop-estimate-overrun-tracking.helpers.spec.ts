@@ -3,7 +3,7 @@ import {
   needsCustomerNotice,
   toOverrunView,
   type OverrunTrackingRow,
-} from './workshop-estimate-overrun-tracking.helpers';
+} from './workshop-estimate-overrun-tracking.helpers.js';
 
 const warning = {
   total_over_threshold: true,

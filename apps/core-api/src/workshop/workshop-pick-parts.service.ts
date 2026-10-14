@@ -208,6 +208,7 @@ export class WorkshopPickPartsService {
     // Picked parts change the estimate lines, so an overrun is recorded now (AUT-355).
     await syncWorkshopEstimateOverrunAfterWrite(
       this.prisma,
+      this.siteContext,
       await this.tenantContext.getTenantId(),
       orderId,
     );

@@ -16,7 +16,7 @@ import {
   decisionToVersionStatus,
   enqueueEstimateDecisionEvent,
   resolveAdvisorDecidedAt,
-} from './workshop-estimate-decision.helpers';
+} from './workshop-estimate-decision.helpers.js';
 
 const NOW = new Date('2026-10-14T10:00:00.000Z');
 const SENT_AT = new Date('2026-10-10T08:00:00.000Z');
