@@ -28,9 +28,9 @@ graph TD
         DB[(PostgreSQL Neon)]
     end
 
-    C1 -->|WebSocket / Polling| R1
-    C2 -->|WebSocket / Polling| R2
-    C3 -->|WebSocket / Polling| R2
+    C1 -->|Long-polling, sticky| R1
+    C2 -->|Long-polling, sticky| R2
+    C3 -->|Long-polling, sticky| R2
 
     R1 <-->|Pub/Sub Fan-out rediss://| Redis
     R2 <-->|Pub/Sub Fan-out rediss://| Redis
@@ -47,11 +47,28 @@ These flags apply **only to `core-api`**, not `core-api-pdf-worker` (set via `cl
 
 - **`--min-instances 0`**: Scale to zero when idle. After idle, the first connection hits a cold start; the client reconnects automatically. A few realtime events may be missed meanwhile, and the app refetches via REST.
 - **`--cpu-throttling`**: Request-based billing (default). Do not use `--no-cpu-throttling` or `--min-instances 1` without a concrete reason.
-- **`--max-instances 5`**: Horizontal scale-out. Safe because `REDIS_URL` is injected and the Socket.IO Redis adapter fans room broadcasts across replicas.
+- **`--max-instances 5`**: Horizontal scale-out. Safe only together with `--session-affinity` (long-polling sessions stay on one replica) and `REDIS_URL` (the Socket.IO Redis adapter fans room broadcasts across replicas).
 
 **Cost warning:** an always-on instance (`--min-instances 1` with `--no-cpu-throttling`) costs roughly 70+ USD/month per instance and caused the September 2026 cost spike. Do not reintroduce it without a reason.
 
-**Transports and expected 400s:** the client uses `transports: ['websocket','polling']` on path `/api/socket.io`. The Firebase Hosting `/api/**` rewrite does not proxy WebSocket upgrades, so the upgrade request returns **400** (direct Cloud Run returns `101 Switching Protocols`). The client then falls back to long-polling, which works. These 400s in the logs are expected noise, not an outage.
+### Transports: long-polling only behind Firebase Hosting
+
+The browser client connects with `transports: ['polling']` and `upgrade: false` (`apps/core-web/src/features/realtime/realtime-socket-options.ts`). Firebase Hosting serves the app and rewrites `/api/**` to `core-api` (`firebase.json`). **Assumed, not verified:** the rewrite does not forward WebSocket upgrades. An earlier version of this runbook stated it as fact. The reported `HTTP 400` handshakes ("Unexpected response code: 400" in Chrome) match the assumption. Polling avoids the WebSocket attempt either way. If the assumption is wrong, polling is less efficient than WebSocket, but it still works.
+
+The Firebase documentation was unreachable from the build environment in AUT-432, and no live probe ran. The local reproduction covers replica behaviour, not Hosting. The post-deploy checks in section 4 test the assumption on the live host.
+
+Read a `400` on `/api/socket.io` as a defect signal, not as expected noise. The log entry `ws_engine_connection_error` is a JSON object written as text. Its fields say which path failed:
+
+| JSON fields in the log text | Meaning | Action |
+|---|---|---|
+| `"code":1`, `"message":"Session ID unknown"` | A poll or upgrade reached a replica that does not hold the session. | Affinity is not reaching Cloud Run. See the remaining infra step in section 4. |
+| `"code":3`, `"transport":"websocket"`, `"upgradeHeader":false` | An upgrade was requested but its headers were dropped on the way. | Check Hosting routing for `/api/**`. |
+
+### Session affinity for long-polling
+
+Socket.IO keeps each engine.io session in memory on the replica that created it. The Redis adapter fans room broadcasts out across replicas, but it does not move sessions. A polling client sends its `sid` on every request. Without affinity, requests reach random replicas and fail with `Session ID unknown`, which then triggers reconnects. This was the second part of the AUT-432 reconnect loop. The local reproduction (engine.io 6.6.11, two replicas, no affinity) returned exactly this `400` for a `sid` sent to the other replica.
+
+`cloudbuild.yaml` deploys `core-api` with `--session-affinity`, and `infra/main.tf` sets `session_affinity = true` so a Terraform apply does not remove it. Cloud Run's session affinity uses a cookie on responses (not re-checked against Google's documentation in AUT-432). Whether Firebase Hosting passes that cookie back to Cloud Run is **not verified**. Section 4 has the check and the fallback options.
 
 Do not copy the Socket.IO flags onto the Playwright PDF worker.
 
@@ -116,6 +133,7 @@ gcloud secrets add-iam-policy-binding REDIS_URL \
 - `--min-instances 0`
 - `--cpu-throttling` (request-based billing)
 - `--max-instances 5`
+- `--session-affinity`: long-polling sessions stay on one replica. Required with `--max-instances 5`; see "Session affinity for long-polling" in section 1.
 - no `--vpc-connector` / Direct VPC flags
 
 PDF worker deploy stays `--min-instances 0 --max-instances 2` without `REDIS_URL`.
@@ -153,6 +171,46 @@ When `core-api` boots with `REDIS_URL` set:
 1. Connect Browser Client A to Replica 1 and Browser Client B to Replica 2 (both logged into Tenant A).
 2. Perform a mutation on Client A (e.g. update a customer or workshop order).
 3. Verify that Client B receives `entity_updated` immediately and invalidates the corresponding TanStack Query cache.
+
+---
+
+### Post-deploy realtime checks
+
+Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. Checks 1 to 4 use the Hosting site `https://auto-core-platform-vande.web.app`, the site named in AUT-432. Check 5 also uses the Cloud Run service URL. All checks are read-only.
+
+1. **Browser.** Sign in and watch the console for 5 minutes. Expect no `WebSocket connection ... failed` messages and no repeated `400` on `/api/socket.io`. The Network tab should show only `transport=polling` requests.
+2. **Cloud Logging.** Filter `textPayload:"ws_engine_connection_error"` over 30 minutes of normal use. The gateway writes a JSON object as text through Nest's console logger, so the entry arrives as `textPayload`, not `jsonPayload`. Expect no `"code":1` (`Session ID unknown`) lines. Read this with check 3, which is the count of record. If check 3 shows 400s but check 2 has no `ws_engine_connection_error` lines at all, the logging is not wired, so check 2 is not a pass.
+3. **Cloud Run request logs.** Count `httpRequest.status=400` for `httpRequest.requestUrl:"/api/socket.io/"`. Expect close to zero.
+4. **Affinity through Hosting** (read-only, no state change). Use one cookie jar:
+
+   ```bash
+   curl -sS -c jar.txt -b jar.txt -i "https://auto-core-platform-vande.web.app/api/socket.io/?EIO=4&transport=polling"
+   # Copy the sid from the "0{...}" open packet, then poll repeatedly with the same jar.
+   curl -sS -c jar.txt -b jar.txt -o /dev/null -w "%{http_code}\n" --max-time 5 "https://auto-core-platform-vande.web.app/api/socket.io/?EIO=4&transport=polling&sid=<SID>"
+   ```
+
+   A `400` whose body is `Session ID unknown` means the affinity cookie is not reaching Cloud Run. A request held open until the timeout is a normal long-poll.
+5. **WebSocket upgrade through Hosting** (read-only). This is the live test of the assumption in section 1. The probe goes through Hosting:
+
+   ```bash
+   curl -sS -i --http1.1 --max-time 8 \
+     -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+     "https://auto-core-platform-vande.web.app/api/socket.io/?EIO=4&transport=websocket" | head -n 1
+   ```
+
+   A status other than `HTTP/1.1 101 Switching Protocols` through Hosting is consistent with the assumption. Only the comparison below tells a Hosting failure from a Cloud Run failure. Run the same request against the Cloud Run service URL, which `gcloud run services describe core-api --region=europe-west3 --project=auto-core-platform-vande --format='value(status.url)'` prints, and append the same path and query. A `101` there shows that Cloud Run accepts the upgrade. If Hosting returns `101`, the assumption is refuted, and the polling-only choice becomes a performance trade-off to revisit.
+
+### Remaining infra step (outside the repo)
+
+The repo change does not apply to the live service until the next `core-api` release. One step cannot be done from code:
+
+1. **Verify** that Firebase Hosting returns the Cloud Run affinity cookie to the browser and forwards it on `/api/**`. Run check 4 above with more than one replica running.
+2. **If the cookie is not forwarded**, pick one option and record the decision here before closing AUT-432:
+   - **(a)** Run one replica: `gcloud run services update core-api --region=europe-west3 --project=auto-core-platform-vande --max-instances=1`. Realtime stays correct, but capacity drops to one instance (`--concurrency 40`).
+   - **(b)** Connect the socket to the Cloud Run origin directly through `VITE_SOCKET_BASE_URL`, which `resolveRealtimeConnection` already reads. Then switch the client to WebSocket transport, because WebSocket sessions need no affinity. This is a build change, and CORS (`FRONTEND_URL`) must include the Hosting origin.
+
+Terraform already matches the cloudbuild flag, so a Terraform apply keeps affinity on.
 
 ---
 

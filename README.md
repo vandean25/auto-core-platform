@@ -291,8 +291,10 @@ service in `europe-west3`; REST calls use `/api/...` and the production
 Socket.IO path is `/api/socket.io`. In local development, Vite proxies REST
 requests through `/api` and Socket.IO through `/socket.io` to the local API.
 
-`VITE_SOCKET_BASE_URL` can be provided if WebSocket upgrades must bypass
-Hosting and connect directly to Cloud Run.
+`VITE_SOCKET_BASE_URL` can point the realtime client at a direct API origin
+(Cloud Run) instead of Hosting. The browser client uses long-polling only, so a
+direct origin also needs a transport change. See
+`docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`, section 4.
 
 For local development, create `apps/core-web/.env.local` (already gitignored by `*.local`) and set at least:
 
@@ -305,14 +307,14 @@ VITE_FIREBASE_APP_ID=
 
 After editing env values, restart the Vite dev server.
 
-Before relying on realtime connections in production, verify the Socket.IO
-WebSocket upgrade on a staging Hosting channel. Cloud Run supports WebSockets
-directly, but Hosting Cloud Run rewrites are documented primarily for HTTP
-requests and must be validated for this upgrade. If Hosting cannot proxy the
-upgrade reliably, use an explicitly configured direct Cloud Run origin as a
-temporary deployment fallback; do not move NestJS to Cloud Functions. Keep
-`VITE_API_BASE_URL` empty in the normal production build so REST remains
-same-origin.
+The browser realtime client uses long-polling only. The `/api/**` Hosting rewrite
+is assumed not to forward WebSocket upgrades (unverified; see the Socket.IO
+runbook). Before relying on realtime connections in production, confirm on the
+live Hosting site that the session-affinity cookie reaches Cloud Run (runbook
+section 4). If Hosting cannot keep polling sessions on one replica, the runbook
+lists the fallbacks: one replica, or a direct Cloud Run origin with WebSocket
+transport. Do not move NestJS to Cloud Functions. Keep `VITE_API_BASE_URL` empty
+in the normal production build so REST remains same-origin.
 
 ### Create Login User (Email/Password)
 

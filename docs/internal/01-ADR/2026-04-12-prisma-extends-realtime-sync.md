@@ -16,6 +16,15 @@ tags:
 
 **Accepted** — 2026-04-12
 
+## Amendment (2026-10-14) — long-polling transport behind Firebase Hosting
+
+The browser socket uses **long-polling only** (`transports: ['polling']`, `upgrade: false`). Assumed, unverified: Firebase Hosting's `/api/**` rewrite does not forward WebSocket upgrades. The assumption was not checked against Firebase documentation in AUT-432. It fits the HTTP 400 handshakes that the earlier WebSocket-first order produced. If the assumption is wrong, polling still works, and WebSocket would have been the more efficient transport. Consequences:
+
+- **Sticky sessions are part of the architecture.** `core-api` deploys with `--session-affinity`, and Terraform carries the same setting. The Redis adapter still fans room broadcasts out across replicas, but it does not replace affinity for engine.io sessions.
+- **Concurrency.** Each connected dashboard holds one long-poll request, which occupies one of the 40 concurrency slots on a replica. Capacity planning must count connected clients.
+- **Reconnect behaviour.** Backoff is bounded between 1 s and 30 s with unlimited attempts, and each reconnect presents a current Firebase ID token.
+- **Open verification.** Two claims are not confirmed on the live host: that the `/api/**` rewrite drops WebSocket upgrades, and that Hosting forwards Cloud Run's session-affinity cookie. The runbook sections "Transports: long-polling only behind Firebase Hosting", "Session affinity for long-polling" and "Remaining infra step (outside the repo)" record the checks and the fallback options.
+
 ## Amendment (2026-09-01) — site rooms
 
 [ADR-0022](2026-08-31-site-operational-scope.md) adds operational **site rooms** (`site:{siteId}`) and two events on the existing private user room:

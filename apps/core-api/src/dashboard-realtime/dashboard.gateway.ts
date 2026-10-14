@@ -38,6 +38,7 @@ import {
   resolveRedisUrl,
   setupRedisAdapter,
   closeRedisClients,
+  getRootSocketServer,
   SITE_ROOM_PREFIX,
   reassignUserSocketsSiteRoom,
   redactTransferForSockets,
@@ -97,6 +98,48 @@ export function createSocketAuthMiddleware(
         next(new Error('Unauthorized'));
       });
   };
+}
+
+/** Subset of engine.io's `connection_error` event used for diagnostics. */
+export interface EngineConnectionErrorEvent {
+  code: number;
+  message?: string;
+  context?: { name?: string; [key: string]: unknown };
+  req?: { url?: string; headers?: { upgrade?: string } };
+}
+
+/**
+ * Structured description of a rejected engine.io handshake or upgrade. The
+ * session id is reduced to a boolean so logs never carry it.
+ */
+export function describeEngineConnectionError(
+  event: EngineConnectionErrorEvent,
+) {
+  const query = new URL(event.req?.url ?? '/', 'http://localhost').searchParams;
+  return {
+    type: 'ws_engine_connection_error',
+    code: event.code,
+    message: event.message ?? null,
+    reason: event.context?.name ?? null,
+    transport: query.get('transport'),
+    hasSid: query.has('sid'),
+    upgradeHeader: Boolean(event.req?.headers?.upgrade),
+  };
+}
+
+export function attachEngineConnectionErrorLogging(
+  server: Server,
+  logger: Logger,
+): void {
+  // Nest passes a Namespace to afterInit when the gateway declares one. The
+  // engine belongs to the root server that the Namespace references.
+  const rootServer = getRootSocketServer(server);
+  rootServer?.engine?.on(
+    'connection_error',
+    (event: EngineConnectionErrorEvent) => {
+      logger.warn(JSON.stringify(describeEngineConnectionError(event)));
+    },
+  );
 }
 
 export function buildStockTransferPayload(
@@ -182,6 +225,7 @@ export class DashboardGateway
   afterInit(server: Server, redisUrl = resolveRedisUrl()) {
     this.server = server;
     server.use(createSocketAuthMiddleware(this.authService, this.logger));
+    attachEngineConnectionErrorLogging(server, this.logger);
     if (this.siteContext) {
       this.logger.debug('SiteContextService initialized in DashboardGateway');
     }

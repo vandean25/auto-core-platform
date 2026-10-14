@@ -63,7 +63,7 @@ export function parseCloudBuildDeployContracts(
   };
 }
 
-function extractBuildStep(cloudBuild: string, stepId: string): string {
+export function extractBuildStep(cloudBuild: string, stepId: string): string {
   const steps = [...cloudBuild.matchAll(DEPLOY_STEP_PATTERN)];
   const step = steps.find((match) => match[1] === stepId);
   if (!step || step.index === undefined) {

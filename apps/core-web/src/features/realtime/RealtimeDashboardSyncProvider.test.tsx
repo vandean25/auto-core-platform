@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => {
     on: vi.fn(),
     off: vi.fn(),
     disconnect: vi.fn(),
+    connect: vi.fn(),
+    active: false,
   };
 
   return {
@@ -163,6 +165,59 @@ describe("RealtimeDashboardSyncProvider", () => {
     });
   });
 
+  it("connects long-polling only and presents the current Firebase ID token on each connect", async () => {
+    const queryClient = createQueryClient();
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.io).toHaveBeenCalled();
+    });
+
+    const ioCalls = mocks.io.mock.calls as unknown as Array<[string, unknown]>;
+    const options = ioCalls[0]?.[1] as {
+      transports: string[];
+      upgrade: boolean;
+      auth: (callback: (data: object) => void) => void;
+    };
+
+    expect(options.transports).toEqual(["polling"]);
+    expect(options.upgrade).toBe(false);
+
+    const payload = await new Promise<object>((resolve) => options.auth(resolve));
+
+    expect(mocks.currentUser.getIdToken).toHaveBeenCalled();
+    expect(payload).toEqual({ token: "refreshed-token" });
+  });
+
+  it("reconnects the socket after a rejected handshake", async () => {
+    const queryClient = createQueryClient();
+
+    render(<div />, { wrapper: createWrapper(queryClient) });
+
+    await waitFor(() => {
+      expect(mocks.io).toHaveBeenCalled();
+    });
+
+    const connectErrorHandler = mocks.socket.on.mock.calls.find(
+      ([eventName]) => eventName === "connect_error",
+    )?.[1] as ((error: Error) => void) | undefined;
+
+    expect(connectErrorHandler).toBeDefined();
+
+    await act(async () => {
+      connectErrorHandler?.(new Error("Unauthorized"));
+    });
+
+    // The first retry is due within 1.5 s (a 1 s base plus up to 50% jitter).
+    await waitFor(
+      () => {
+        expect(mocks.socket.connect).toHaveBeenCalled();
+      },
+      { timeout: 3_000 },
+    );
+  });
+
   it("refreshes claims and invalidates active queries when auth claims change", async () => {
     const queryClient = createQueryClient();
     const removeQueries = vi.spyOn(queryClient, "removeQueries");
@@ -176,8 +231,9 @@ describe("RealtimeDashboardSyncProvider", () => {
       expect(mocks.io).toHaveBeenCalledWith(
         "http://127.0.0.1:3000/dashboard-realtime",
         expect.objectContaining({
-          auth: { token: "initial-token" },
           path: "/api/socket.io",
+          transports: ["polling"],
+          upgrade: false,
         }),
       );
     });

@@ -50,6 +50,7 @@ resource "google_cloud_run_v2_service" "core_api" {
 
   template {
     max_instance_request_concurrency = var.max_instance_request_concurrency
+    session_affinity                 = true
 
     scaling {
       min_instance_count = var.min_instance_count
