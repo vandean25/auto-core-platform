@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { AlertTriangle, Download, Loader2, Plus, Send } from 'lucide-react'
 import { EstimateSendDialog } from '@/components/workshop/EstimateSendDialog'
+import { RecordEstimateDecisionDialog } from '@/components/workshop/RecordEstimateDecisionDialog'
+import { RecordOverrunNoticeDialog } from '@/components/workshop/RecordOverrunNoticeDialog'
 import type { EstimateSendCustomer } from '@/components/workshop/EstimateSendDialog'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -12,6 +14,8 @@ import {
   fetchWorkshopEstimatePdfError,
   workshopEstimateKeys,
   useCreateWorkshopEstimate,
+  useRecordWorkshopEstimateDecision,
+  useRecordWorkshopOverrunNotice,
   useReviseWorkshopEstimate,
   useSendWorkshopEstimateVersion,
   useWorkshopEstimateVersion,
@@ -20,6 +24,8 @@ import {
   workshopEstimatePdfPath,
 } from '@/api/workshop-estimates'
 import type {
+  RecordWorkshopEstimateDecisionBody,
+  RecordWorkshopOverrunNoticeBody,
   WorkshopEstimateOverrunWarning,
   WorkshopEstimateStatus,
   WorkshopEstimateVersionSummary,
@@ -27,6 +33,19 @@ import type {
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { getErrorMessage } from '@/lib/error-utils'
 import { isWorkshopEstimateOrderOpen } from '@/features/workshop/workshop-estimate-permissions'
+import {
+  ADVISOR_CHANNEL_OPTIONS,
+  CUSTOMER_REACTION_OPTIONS,
+  describeApproval,
+  estimateBadgeLabel,
+  formatEstimateMoney,
+} from '@/features/workshop/workshop-estimate-decision'
+
+/** The warning fields the overrun description reads. */
+type DescribedOverrun = Pick<
+  WorkshopEstimateOverrunWarning,
+  'total_over_threshold' | 'new_work_lines' | 'approved_total_gross' | 'current_total_gross' | 'threshold_pct' | 'new_line_count'
+>
 
 const STATUS_LABEL: Record<WorkshopEstimateStatus, string> = {
   DRAFT: 'Entwurf',
@@ -37,7 +56,6 @@ const STATUS_LABEL: Record<WorkshopEstimateStatus, string> = {
   SUPERSEDED: 'Ersetzt',
 }
 
-const moneyFormat = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' })
 const percentFormat = new Intl.NumberFormat('de-AT', { maximumFractionDigits: 1 })
 const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
   day: '2-digit',
@@ -48,16 +66,14 @@ const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
   timeZone: 'Europe/Vienna',
 })
 
-export function formatEstimateMoney(value: string | null | undefined): string {
-  return value == null ? '—' : moneyFormat.format(Number(value))
-}
+export { formatEstimateMoney }
 
 function formatEstimateDateTime(value: string | null | undefined): string {
   return value ? `${dateTimeFormat.format(new Date(value))} Uhr` : '—'
 }
 
 /** Overrun lines for the advisor. Threshold and amounts come from the backend overrun warning. */
-export function describeEstimateOverrun(warning: WorkshopEstimateOverrunWarning): string[] {
+export function describeEstimateOverrun(warning: DescribedOverrun): string[] {
   const lines: string[] = []
   if (warning.total_over_threshold) {
     const approved = Number(warning.approved_total_gross)
@@ -92,9 +108,11 @@ interface VersionRowProps {
   isLatest: boolean
   liveDraftTotal: string | null
   canSend: boolean
+  canRecordDecision: boolean
   isDownloading: boolean
   isDownloadBusy: boolean
   onSend: () => void
+  onRecordDecision: () => void
   onDownload: () => void
 }
 
@@ -103,9 +121,11 @@ function VersionRow({
   isLatest,
   liveDraftTotal,
   canSend,
+  canRecordDecision,
   isDownloading,
   isDownloadBusy,
   onSend,
+  onRecordDecision,
   onDownload,
 }: VersionRowProps) {
   const isDraft = version.status === 'DRAFT'
@@ -121,6 +141,12 @@ function VersionRow({
           <StatusBadge status={version.status} label={STATUS_LABEL[version.status]} />
         </div>
         <p className='text-xs text-slate-500'>{subline}</p>
+        {version.approval && (
+          <p className='text-xs text-slate-600' data-testid={`estimate-approval-${version.version}`}>
+            {describeApproval(version.approval)}
+            {version.approval.note ? ` · Notiz: ${version.approval.note}` : ''}
+          </p>
+        )}
         {version.pdf_generation_error && (
           <p className='text-xs text-destructive' role='alert'>
             {version.pdf_generation_error}
@@ -150,6 +176,12 @@ function VersionRow({
           >
             <Send className='h-4 w-4 mr-2' />
             An Kunden senden
+          </Button>
+        )}
+
+        {canRecordDecision && (
+          <Button size='sm' variant='outline' onClick={onRecordDecision}>
+            Bestätigung erfassen
           </Button>
         )}
 
@@ -207,6 +239,10 @@ export function WorkshopEstimateCard({
 
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null)
   const [sendTarget, setSendTarget] = useState<WorkshopEstimateVersionSummary | null>(null)
+  const [decisionTarget, setDecisionTarget] = useState<WorkshopEstimateVersionSummary | null>(null)
+  const [noticeOpen, setNoticeOpen] = useState(false)
+  const recordDecision = useRecordWorkshopEstimateDecision()
+  const recordNotice = useRecordWorkshopOverrunNotice()
 
   const canEdit = !isLocked && isWorkshopEstimateOrderOpen(orderStatus)
   const sendEnabled = estimate?.send_enabled ?? false
@@ -217,6 +253,8 @@ export function WorkshopEstimateCard({
   const overrunLines =
     overrun && (overrun.total_over_threshold || overrun.new_work_lines) ? describeEstimateOverrun(overrun) : []
   const newestFirst = [...versions].reverse()
+  const canRecordDecision = canEdit && latest?.status === 'SENT'
+  const canNotifyOverrun = !isLocked && orderStatus !== 'INVOICED' && overrun?.requires_customer_notice === true
   const liveDraftTotal = draftQuery.data?.draft_preview?.totals.total_gross ?? null
 
   const handleCreate = async () => {
@@ -235,6 +273,21 @@ export function WorkshopEstimateCard({
     } catch (error: unknown) {
       toast.error(getErrorMessage(error, 'Neue Version konnte nicht erstellt werden.'))
     }
+  }
+
+  /** Rejects with the API error: the decision dialog stays open and shows the safe message. */
+  const handleRecordDecision = async (body: RecordWorkshopEstimateDecisionBody) => {
+    if (!decisionTarget) return
+    await recordDecision.mutateAsync({ orderId, versionId: decisionTarget.id, body })
+    setDecisionTarget(null)
+    toast.success(`Bestätigung zu Version ${decisionTarget.version} erfasst`)
+  }
+
+  /** Rejects with the API error: the notice dialog stays open and shows the safe message. */
+  const handleRecordNotice = async (body: RecordWorkshopOverrunNoticeBody) => {
+    await recordNotice.mutateAsync({ orderId, body })
+    setNoticeOpen(false)
+    toast.success('Mitteilung an den Kunden erfasst')
   }
 
   /** Rejects with the API error: the send dialog stays open and shows it. */
@@ -270,6 +323,11 @@ export function WorkshopEstimateCard({
         <div className='min-w-0'>
           <CardTitle className='text-base font-semibold'>Kostenvoranschlag</CardTitle>
           {estimate && <p className='text-xs text-slate-500'>{estimate.estimate_number}</p>}
+          {latest && (
+            <span data-testid='estimate-derived-badge' className='mt-1 inline-block'>
+              <StatusBadge status={latest.status} label={estimateBadgeLabel(latest.status)} />
+            </span>
+          )}
         </div>
         {canCreate && (
           <Button size='sm' onClick={() => void handleCreate()} disabled={busy}>
@@ -315,6 +373,27 @@ export function WorkshopEstimateCard({
                   <li key={line}>{line}</li>
                 ))}
               </ul>
+              {overrun?.notified_at && (
+                <p className='mt-2 text-xs' data-testid='estimate-overrun-notice'>
+                  Kunde informiert am {formatEstimateDateTime(overrun.notified_at)} ·{' '}
+                  {ADVISOR_CHANNEL_OPTIONS.find((option) => option.value === overrun.notified_channel)?.label ?? '—'} ·
+                  Reaktion: {CUSTOMER_REACTION_OPTIONS.find((option) => option.value === overrun.customer_reaction)?.label ?? '—'}
+                  {overrun.note ? ` · Notiz: ${overrun.note}` : ''}
+                </p>
+              )}
+              <div className='mt-3 flex flex-wrap gap-2'>
+                {canNotifyOverrun && (
+                  <Button size='sm' variant='outline' onClick={() => setNoticeOpen(true)}>
+                    Kunden informiert
+                  </Button>
+                )}
+                {canRevise && (
+                  <Button size='sm' variant='outline' onClick={() => void handleRevise()} disabled={busy}>
+                    <Plus className='h-4 w-4 mr-2' />
+                    Neue Version vorbereiten
+                  </Button>
+                )}
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -335,6 +414,8 @@ export function WorkshopEstimateCard({
                 isLatest={version.id === latest?.id}
                 liveDraftTotal={liveDraftTotal}
                 canSend={canEdit && sendEnabled && version.id === latest?.id && !busy}
+                canRecordDecision={canRecordDecision && version.id === latest?.id && !busy}
+                onRecordDecision={() => setDecisionTarget(version)}
                 isDownloading={downloadingVersionId === version.id}
                 isDownloadBusy={downloadingVersionId !== null}
                 onSend={() => setSendTarget(version)}
@@ -344,6 +425,18 @@ export function WorkshopEstimateCard({
           </ul>
         )}
       </CardContent>
+
+      <RecordEstimateDecisionDialog
+        version={decisionTarget}
+        onSubmit={handleRecordDecision}
+        onClose={() => setDecisionTarget(null)}
+      />
+
+      <RecordOverrunNoticeDialog
+        warning={noticeOpen ? overrun : null}
+        onSubmit={handleRecordNotice}
+        onClose={() => setNoticeOpen(false)}
+      />
 
       <EstimateSendDialog
         version={sendTarget}

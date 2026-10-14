@@ -15,6 +15,16 @@ const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
 })
 
 /** One German line per timeline entry. The estimate version is named when the entry knows it. */
+const CHANNEL_LABELS: Record<string, string> = {
+  PHONE: 'Telefon',
+  IN_PERSON: 'persönlich',
+  EMAIL: 'E-Mail',
+}
+
+function channelLabel(channel: string): string {
+  return CHANNEL_LABELS[channel] ?? channel
+}
+
 export function describeCommunication(entry: WorkshopOrderCommunication): string {
   // The noun takes the article its case needs, so the lines read as German.
   const suffix = entry.version === null ? '' : ` (Version ${entry.version})`
@@ -38,6 +48,16 @@ export function describeCommunication(entry: WorkshopOrderCommunication): string
     }
   }
 
+  if (entry.kind === 'OVERRUN_NOTIFICATION') {
+    return `Der Kunde wurde über den Mehrbedarf gegenüber ${dative} informiert (${channelLabel(entry.channel)})`
+  }
+
+  if (entry.channel === 'PHONE' || entry.channel === 'IN_PERSON' || entry.channel === 'EMAIL') {
+    return entry.decision === 'APPROVED'
+      ? `Die Freigabe ${genitive} wurde vom Berater erfasst (${channelLabel(entry.channel)})`
+      : `Die Ablehnung ${genitive} wurde vom Berater erfasst (${channelLabel(entry.channel)})`
+  }
+
   if (entry.channel === 'ADVISOR_RECORDED') {
     return entry.decision === 'APPROVED'
       ? `Die Freigabe ${genitive} wurde vom Berater erfasst`
@@ -51,6 +71,9 @@ export function describeCommunication(entry: WorkshopOrderCommunication): string
 function TimelineIcon({ entry }: { entry: WorkshopOrderCommunication }) {
   if (entry.kind === 'ESTIMATE_EMAIL') {
     return <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+  }
+  if (entry.kind === 'OVERRUN_NOTIFICATION') {
+    return <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
   }
   return entry.decision === 'APPROVED' ? (
     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />

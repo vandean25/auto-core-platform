@@ -38,9 +38,21 @@ let queryClient = new QueryClient()
 const SENT_AT = '2026-10-10T08:05:00.000Z'
 const VALID_UNTIL = '2026-10-24T08:05:00.000Z'
 
+/** The tracking fields of an overrun warning: detected, not yet told to the customer. */
+const OVERRUN_TRACKING = {
+  detected_at: '2026-10-12T08:00:00.000Z',
+  notified_at: null,
+  notified_channel: null,
+  notified_amount_gross: null,
+  customer_reaction: null,
+  note: null,
+  requires_customer_notice: true,
+}
+
 function summary(overrides: Partial<WorkshopEstimateVersionSummary>): WorkshopEstimateVersionSummary {
   return {
     id: 'v1',
+    approval: null,
     version: 1,
     status: 'DRAFT',
     sent_at: null,
@@ -242,6 +254,7 @@ describe('WorkshopEstimateCard', () => {
     asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
       data: estimate(store.versions, {
         overrun_warning: {
+          ...OVERRUN_TRACKING,
           total_over_threshold: true,
           new_work_lines: true,
           approved_total_gross: '216.00',

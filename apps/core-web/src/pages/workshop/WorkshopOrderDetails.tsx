@@ -9,6 +9,8 @@ import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
 import { WorkshopCommunicationTimeline } from "@/components/workshop/WorkshopCommunicationTimeline";
 import { WorkshopEstimateCard } from "@/components/workshop/WorkshopEstimateCard";
+import { ResumeWaitingTasksPanel } from "@/components/workshop/ResumeWaitingTasksPanel";
+import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarning";
 import { canManageWorkshopEstimates } from "@/features/workshop/workshop-estimate-permissions";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import {
@@ -443,6 +445,11 @@ export function WorkshopOrderDetails() {
                   orderRevision={JSON.stringify(order.tasks ?? [])}
                   customer={order.customer ?? null}
                 />
+                <ResumeWaitingTasksPanel
+                  orderId={order.id}
+                  waitingCount={(order.tasks ?? []).filter((task) => task.status === "WAITING_CUSTOMER").length}
+                  orderStatus={order.status}
+                />
                 <WorkshopCommunicationTimeline orderId={order.id} />
               </>
             )}
@@ -497,6 +504,7 @@ export function WorkshopOrderDetails() {
           </motion.div>
         </div>
 
+        {canManageEstimates && <InvoiceOverrunWarning orderId={order.id} />}
         <CheckoutFooter {...checkout.footerProps} isLocked={isLocked} />
       </motion.div>
 

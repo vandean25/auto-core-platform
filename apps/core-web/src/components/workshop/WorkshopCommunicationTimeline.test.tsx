@@ -131,3 +131,33 @@ describe('describeCommunication', () => {
     expect(describeCommunication(row)).toBe(expected)
   })
 })
+
+describe('describeCommunication for AUT-355 entries', () => {
+  it('describes an advisor-recorded phone decision with its channel', () => {
+    expect(
+      describeCommunication({
+        id: 'a1',
+        kind: 'ESTIMATE_APPROVAL',
+        channel: 'PHONE',
+        version: 2,
+        occurred_at: '2026-10-12T08:00:00.000Z',
+        status: null,
+        decision: 'APPROVED',
+      } as never),
+    ).toBe('Die Freigabe des Kostenvoranschlags (Version 2) wurde vom Berater erfasst (Telefon)')
+  })
+
+  it('describes an overrun notice with its channel', () => {
+    expect(
+      describeCommunication({
+        id: 'n1',
+        kind: 'OVERRUN_NOTIFICATION',
+        channel: 'PHONE',
+        version: 1,
+        occurred_at: '2026-10-13T08:00:00.000Z',
+        status: null,
+        decision: null,
+      } as never),
+    ).toBe('Der Kunde wurde über den Mehrbedarf gegenüber dem Kostenvoranschlag (Version 1) informiert (Telefon)')
+  })
+})

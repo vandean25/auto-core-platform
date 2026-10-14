@@ -137,3 +137,49 @@ export function useSendWorkshopEstimateVersion() {
     },
   })
 }
+
+export type RecordWorkshopEstimateDecisionBody = components['schemas']['RecordWorkshopEstimateDecisionDto']
+export type RecordWorkshopOverrunNoticeBody = components['schemas']['RecordWorkshopOverrunNoticeDto']
+export type WorkshopOverrunNotice = components['schemas']['WorkshopOverrunNoticeDto']
+
+/** Advisor-recorded decision on a sent version. The version and the order's estimate read again afterwards. */
+export function useRecordWorkshopEstimateDecision() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      versionId,
+      body,
+    }: {
+      orderId: string
+      versionId: string
+      body: RecordWorkshopEstimateDecisionBody
+    }) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/estimates/${versionId}/approve-advisor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      return readJson<WorkshopEstimateVersionDetail>(response, 'Bestätigung konnte nicht erfasst werden.')
+    },
+    onSuccess: (_version, { orderId, versionId }) => {
+      void queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.version(versionId) })
+      return invalidateEstimate(queryClient, orderId)
+    },
+  })
+}
+
+/** The advisor informed the customer about the overrun of the approved baseline (AUT-355). */
+export function useRecordWorkshopOverrunNotice() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ orderId, body }: { orderId: string; body: RecordWorkshopOverrunNoticeBody }) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/orders/${orderId}/overrun/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      return readJson<WorkshopOverrunNotice>(response, 'Mitteilung an den Kunden konnte nicht erfasst werden.')
+    },
+    onSuccess: (_notice, { orderId }) => invalidateEstimate(queryClient, orderId),
+  })
+}

@@ -1468,6 +1468,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/estimates/{versionId}/approve-advisor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopEstimateController_recordAdvisorDecision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/overrun/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopEstimateController_recordOverrunNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/estimates/{versionId}/pdf": {
         parameters: {
             query?: never;
@@ -1478,6 +1510,22 @@ export interface paths {
         get: operations["WorkshopEstimateController_getPdf"];
         put?: never;
         post: operations["WorkshopEstimateController_requestPdf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/orders/{id}/tasks/resume-waiting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["WorkshopWaitingTasksController_resumeWaitingTasks"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5949,6 +5997,22 @@ export interface components {
             totals: components["schemas"]["WorkshopKpiReportRowDto"];
             parts_turnover: components["schemas"]["WorkshopKpiPartsTurnoverDto"];
         };
+        WorkshopEstimateApprovalDto: {
+            id: string;
+            /** @enum {string} */
+            channel: "LINK" | "ADVISOR_RECORDED" | "PHONE" | "IN_PERSON" | "EMAIL";
+            /** @enum {string} */
+            decision: "APPROVED" | "DECLINED";
+            /** Format: date-time */
+            decided_at: string;
+            /** @description Gross amount quoted with the decision. */
+            amount_quoted_gross: string | null;
+            /** @enum {string|null} */
+            customer_reaction: "AGREED" | "DECLINED" | "QUESTIONED" | "CALLBACK_REQUESTED" | "NO_RESPONSE" | null;
+            note: string | null;
+            /** @description The user who recorded an advisor decision. Null for a customer link decision. */
+            recorded_by_user_id: string | null;
+        };
         WorkshopEstimateVersionSummaryDto: {
             id: string;
             version: number;
@@ -5966,6 +6030,7 @@ export interface components {
             legal_hold: boolean;
             pdf_generated_at: string | null;
             pdf_generation_error: string | null;
+            approval: components["schemas"]["WorkshopEstimateApprovalDto"] | null;
         };
         WorkshopEstimateOverrunWarningDto: {
             total_over_threshold: boolean;
@@ -5974,6 +6039,17 @@ export interface components {
             current_total_gross: string;
             threshold_pct: string;
             new_line_count: number;
+            /** Format: date-time */
+            detected_at: string;
+            /** Format: date-time */
+            notified_at: string | null;
+            /** @enum {string|null} */
+            notified_channel: "PHONE" | "IN_PERSON" | "EMAIL" | null;
+            notified_amount_gross: string | null;
+            /** @enum {string|null} */
+            customer_reaction: "AGREED" | "DECLINED" | "QUESTIONED" | "CALLBACK_REQUESTED" | "NO_RESPONSE" | null;
+            note: string | null;
+            requires_customer_notice: boolean;
         };
         WorkshopEstimateResponseDto: {
             id: string;
@@ -5991,12 +6067,12 @@ export interface components {
             data: components["schemas"]["WorkshopEstimateResponseDto"][];
         };
         WorkshopOrderCommunicationDto: {
-            /** @description Outbox row id for an estimate email, approval id for a customer decision. */
+            /** @description Outbox row id for an estimate email, approval id for a customer decision, overrun record id for an overrun notice. */
             id: string;
             /** @enum {string} */
-            kind: "ESTIMATE_EMAIL" | "ESTIMATE_APPROVAL";
+            kind: "ESTIMATE_EMAIL" | "ESTIMATE_APPROVAL" | "OVERRUN_NOTIFICATION";
             /** @enum {string} */
-            channel: "EMAIL" | "LINK" | "ADVISOR_RECORDED";
+            channel: "EMAIL" | "LINK" | "ADVISOR_RECORDED" | "PHONE" | "IN_PERSON";
             /** @description Estimate version the entry is about. */
             version: number | null;
             /** Format: date-time */
@@ -6099,6 +6175,7 @@ export interface components {
             legal_hold: boolean;
             pdf_generated_at: string | null;
             pdf_generation_error: string | null;
+            approval: components["schemas"]["WorkshopEstimateApprovalDto"] | null;
             estimate_id: string;
             estimate_number: string;
             workshop_order_id: string;
@@ -6108,6 +6185,60 @@ export interface components {
         SendWorkshopEstimateVersionDto: {
             /** @default false */
             notifyCustomerByEmail: boolean;
+        };
+        RecordWorkshopEstimateDecisionDto: {
+            /** @enum {string} */
+            decision: "APPROVED" | "DECLINED";
+            /**
+             * @description How the customer answered the workshop. The customer link is not a channel here.
+             * @enum {string}
+             */
+            channel: "PHONE" | "IN_PERSON" | "EMAIL";
+            /**
+             * @description Gross amount the customer was quoted. It must equal the gross total of the sent version.
+             * @example 192.00
+             */
+            amount_quoted_gross: string;
+            note: string;
+            /** @enum {string} */
+            customer_reaction?: "AGREED" | "DECLINED" | "QUESTIONED" | "CALLBACK_REQUESTED" | "NO_RESPONSE";
+            /**
+             * Format: date-time
+             * @description When the customer decided, for example the time of the call. Defaults to now. Must lie between sending and now.
+             */
+            decided_at?: string;
+        };
+        RecordWorkshopOverrunNoticeDto: {
+            /**
+             * @description How the advisor informed the customer.
+             * @enum {string}
+             */
+            channel: "PHONE" | "IN_PERSON" | "EMAIL";
+            /**
+             * @description Gross amount quoted to the customer. It must equal the current gross total of the order.
+             * @example 240.00
+             */
+            amount_quoted_gross: string;
+            /** @enum {string} */
+            customer_reaction: "AGREED" | "DECLINED" | "QUESTIONED" | "CALLBACK_REQUESTED" | "NO_RESPONSE";
+            note: string;
+        };
+        WorkshopOverrunNoticeDto: {
+            /** @description Id of the overrun record that holds the notice. */
+            id: string;
+            /** @description Version of the approved baseline. */
+            version: number;
+            /** Format: date-time */
+            notified_at: string;
+            /** @enum {string} */
+            channel: "PHONE" | "IN_PERSON" | "EMAIL";
+            amount_quoted_gross: string;
+            /** @enum {string} */
+            customer_reaction: "AGREED" | "DECLINED" | "QUESTIONED" | "CALLBACK_REQUESTED" | "NO_RESPONSE";
+            note: string;
+        };
+        WorkshopResumeWaitingTasksResponseDto: {
+            resumed_task_ids: string[];
         };
         CreateVehiclePurchaseDto: {
             /** @enum {string} */
@@ -12368,6 +12499,56 @@ export interface operations {
             };
         };
     };
+    WorkshopEstimateController_recordAdvisorDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordWorkshopEstimateDecisionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopEstimateVersionDetailDto"];
+                };
+            };
+        };
+    };
+    WorkshopEstimateController_recordOverrunNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordWorkshopOverrunNoticeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopOverrunNoticeDto"];
+                };
+            };
+        };
+    };
     WorkshopEstimateController_getPdf: {
         parameters: {
             query?: never;
@@ -12404,6 +12585,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopPdfGenerationResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopWaitingTasksController_resumeWaitingTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopResumeWaitingTasksResponseDto"];
                 };
             };
         };
