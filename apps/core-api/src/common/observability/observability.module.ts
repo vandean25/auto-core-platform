@@ -1,5 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { createObserveModule } from '@nestjs/observe';
+import type { Request } from 'express';
+import { isPublicEstimateApprovalRequest } from '../../workshop/public-estimate-approval/public-estimate-approval.constants.js';
 
 const { ObserveModule, ObserveInstrument } = createObserveModule({
   attachTraceIdToLogs: false,
@@ -11,6 +13,26 @@ export interface AppObservabilityOptions {
   appKey?: string;
   appSecret?: string;
   serviceId?: string;
+}
+
+/**
+ * Observe options. The approval route carries its token in the path (ADR-0025 §7), so its requests are not traced:
+ * the token must not reach the third-party APM.
+ */
+export function buildObserveRootOptions(
+  appKey: string,
+  appSecret: string,
+  serviceId: string,
+) {
+  return {
+    appKey,
+    appSecret,
+    serviceId,
+    http: {
+      ignore: (request: Pick<Request, 'originalUrl' | 'url'>): boolean =>
+        isPublicEstimateApprovalRequest(request),
+    },
+  };
 }
 
 function readTrimmedEnv(name: string): string | undefined {
@@ -44,11 +66,9 @@ export class AppObservabilityModule {
     return {
       module: AppObservabilityModule,
       imports: [
-        ObserveModule.forRoot({
-          appKey,
-          appSecret,
-          serviceId,
-        }),
+        ObserveModule.forRoot(
+          buildObserveRootOptions(appKey, appSecret, serviceId),
+        ),
       ],
       exports: [ObserveModule],
     };

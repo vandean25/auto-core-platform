@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   AppObservabilityModule,
   ObserveInstrument,
+  buildObserveRootOptions,
   isObserveTelemetryConfigured,
 } from './observability.module.js';
 
@@ -52,6 +53,27 @@ describe('AppObservabilityModule', () => {
     }).compile();
 
     expect(moduleRef).toBeDefined();
+  });
+
+  it('excludes the approval route from HTTP tracing, so its token never reaches the APM', () => {
+    const { http } = buildObserveRootOptions('app-key', 'app-secret', 'core-api');
+    const token = 'A'.repeat(43);
+
+    expect(
+      http.ignore({
+        originalUrl: `/api/public/estimate-approvals/${token}`,
+        url: `/api/public/estimate-approvals/${token}`,
+      }),
+    ).toBe(true);
+    expect(
+      http.ignore({
+        originalUrl: `http://api.example.test/api/public/estimate-approvals/${token}`,
+        url: `http://api.example.test/api/public/estimate-approvals/${token}`,
+      }),
+    ).toBe(true);
+    expect(
+      http.ignore({ originalUrl: '/api/workshop/orders', url: '/api/workshop/orders' }),
+    ).toBe(false);
   });
 
   it('provides ObserveInstrument for method-level APM telemetry', () => {

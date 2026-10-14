@@ -214,7 +214,11 @@ describe('PublicEstimateApprovalService.read', () => {
   });
 
   it('marks a sent version past its validity as expired, and answers gone', async () => {
-    const { service, prisma } = build();
+    const { service, prisma, lookup } = build();
+    // The token expires with the version. A check of the token first would answer gone without marking the version.
+    lookup.findByTokenHash.mockResolvedValue(
+      tokenRow({ expires_at: new Date('2026-10-19T00:00:00Z') }),
+    );
     prisma.workshopEstimateVersion.findFirst.mockResolvedValue(
       versionRow({ valid_until: new Date('2026-10-19T00:00:00Z') }),
     );

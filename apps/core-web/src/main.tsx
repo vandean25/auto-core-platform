@@ -24,7 +24,8 @@ const queryClient = new QueryClient({
 })
 
 // The customer approval link is public: it renders without AuthProvider, App or any auth bootstrap.
-const isPublicApproval = window.location.pathname.startsWith(PUBLIC_APPROVAL_PATH_PREFIX)
+// The prefix matches in any letter case, as the server's route does. readApprovalToken slices by length, so the token keeps its case.
+const isPublicApproval = window.location.pathname.toLowerCase().startsWith(PUBLIC_APPROVAL_PATH_PREFIX)
 
 createRoot(document.getElementById('root')!, {
   onUncaughtError: reactErrorHandler(),

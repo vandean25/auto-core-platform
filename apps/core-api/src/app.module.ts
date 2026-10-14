@@ -138,8 +138,9 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
+    // The approval headers go first, so the tenant middleware's own answers on the route carry them too.
     consumer
-      .apply(TenantContextMiddleware, PublicEstimateApprovalHeadersMiddleware)
+      .apply(PublicEstimateApprovalHeadersMiddleware, TenantContextMiddleware)
       .forRoutes('{*path}');
   }
 }

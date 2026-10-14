@@ -242,7 +242,9 @@ export function WorkshopEstimateCard({
     await sendVersion.mutateAsync({ orderId, versionId: version.id, notifyCustomerByEmail })
     setSendTarget(null)
     toast.success(
-      notifyCustomerByEmail ? `Version ${version.version} gesendet und per E-Mail zugestellt` : `Version ${version.version} gesendet`,
+      notifyCustomerByEmail
+        ? `Version ${version.version} gesendet, die E-Mail an den Kunden wird versendet`
+        : `Version ${version.version} gesendet`,
     )
   }
 

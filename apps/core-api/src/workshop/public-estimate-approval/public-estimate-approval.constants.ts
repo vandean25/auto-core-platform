@@ -17,8 +17,24 @@ const PUBLIC_ESTIMATE_APPROVAL_PATH = /^\/api\/public\/estimate-approvals\//i;
 export function isPublicEstimateApprovalRequest(
   request: Pick<Request, 'originalUrl' | 'url'>,
 ): boolean {
-  const path = (request.originalUrl ?? request.url ?? '').split('?')[0];
-  return PUBLIC_ESTIMATE_APPROVAL_PATH.test(path);
+  return PUBLIC_ESTIMATE_APPROVAL_PATH.test(
+    requestPathOf(request.originalUrl ?? request.url ?? ''),
+  );
+}
+
+/**
+ * The path of a request target. An origin-form target is `/path?query`. An absolute-form target, which a forward
+ * proxy sends, is `http://host/path?query`, and Express routes that by its path too.
+ */
+function requestPathOf(target: string): string {
+  if (target.startsWith('/')) {
+    return target.split('?')[0];
+  }
+  try {
+    return new URL(target).pathname;
+  } catch {
+    return '';
+  }
 }
 
 export const ESTIMATE_APPROVAL_THROTTLER_OPTIONS: ThrottlerOptions = {

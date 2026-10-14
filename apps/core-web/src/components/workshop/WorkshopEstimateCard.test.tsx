@@ -464,6 +464,22 @@ describe('WorkshopEstimateCard send dialog', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
     expect(await within(dialog).findByText(/Der Freigabe-Link kann derzeit nicht erstellt werden/)).toBeTruthy()
   })
+
+  it('maps a pre-existing send gate to German copy instead of the generic text', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    sendMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error('x'), {
+        status: 422,
+        data: { code: 'ESTIMATE_CUSTOMER_INCOMPLETE', message: 'Customer details are incomplete for the estimate.' },
+      }),
+    )
+    const dialog = await openSendDialog()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+    expect(await within(dialog).findByText(/Die Kundendaten sind für den Versand unvollständig/)).toBeTruthy()
+    expect(within(dialog).queryByText(/konnte nicht gesendet werden/)).toBeNull()
+  })
 })
 
 describe('WorkshopEstimateCard order refresh', () => {

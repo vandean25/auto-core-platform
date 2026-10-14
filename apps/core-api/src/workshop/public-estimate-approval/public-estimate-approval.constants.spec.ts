@@ -52,6 +52,29 @@ describe('public estimate approval throttling and token shape', () => {
     ).toBe(true);
   });
 
+  it('matches the route in absolute form, which a forward proxy sends', () => {
+    expect(
+      isPublicEstimateApprovalRequest({
+        originalUrl: 'http://api.example.test/api/public/estimate-approvals/token?x=1',
+        url: 'http://api.example.test/api/public/estimate-approvals/token?x=1',
+      }),
+    ).toBe(true);
+    expect(
+      isPublicEstimateApprovalRequest({
+        originalUrl: 'http://api.example.test/api/workshop/estimates/1/send',
+        url: 'http://api.example.test/api/workshop/estimates/1/send',
+      }),
+    ).toBe(false);
+  });
+
+  it('applies the per-IP throttler to the route in absolute form too', () => {
+    const skipIf = ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf;
+
+    expect(
+      skipIf?.(contextFor('http://api.example.test/api/public/estimate-approvals/abc')),
+    ).toBe(false);
+  });
+
   it('accepts only 43 base64url characters as a raw token', () => {
     const valid = 'A'.repeat(42) + '-';
 

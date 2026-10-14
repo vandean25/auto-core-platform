@@ -328,6 +328,10 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
       where: { id: versionId },
       data: { valid_until: new Date('2020-01-01T00:00:00.000Z') },
     });
+    await prisma.workshopEstimateApprovalToken.updateMany({
+      where: { workshop_estimate_version_id: versionId },
+      data: { expires_at: new Date('2020-01-01T00:00:00.000Z') },
+    });
 
     const read = await publicRead(rawToken).expect(410);
     expect(read.body.code).toBe('ESTIMATE_APPROVAL_UNAVAILABLE');

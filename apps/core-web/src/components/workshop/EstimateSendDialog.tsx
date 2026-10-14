@@ -21,7 +21,10 @@ export type EstimateSendCustomer = components['schemas']['WorkshopCustomerSummar
 
 export const ESTIMATE_EMAIL_MISSING_MESSAGE = 'Für den E-Mail-Versand fehlt die E-Mail-Adresse des Kunden.'
 
-/** Short German copy per send error code. The server's own message wins when it has one. */
+/**
+ * Short German copy per send error code. The dialog shows this copy and never the server's message text. A code the
+ * server does not register arrives without its code, and gets the generic text.
+ */
 const SEND_ERROR_MESSAGES: Record<string, string> = {
   ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED:
     'Die E-Mail-Adresse des Kunden ist noch nicht für die Auftragskommunikation bestätigt.',
@@ -32,6 +35,11 @@ const SEND_ERROR_MESSAGES: Record<string, string> = {
   ESTIMATE_APPROVAL_LINK_UNAVAILABLE:
     'Der Freigabe-Link kann derzeit nicht erstellt werden. Bitte versuchen Sie es später erneut.',
   ESTIMATE_SEND_DISABLED: 'Der Versand an Kunden ist derzeit deaktiviert.',
+  ESTIMATE_NOT_DRAFT: 'Diese Version ist kein Entwurf mehr und kann nicht gesendet werden.',
+  ESTIMATE_NO_LINES: 'Der Kostenvoranschlag braucht mindestens eine Arbeits- oder Teilezeile.',
+  ESTIMATE_CUSTOMER_REQUIRED: 'Dem Auftrag ist noch kein Kunde zugeordnet.',
+  ESTIMATE_CUSTOMER_INCOMPLETE: 'Die Kundendaten sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+  SELLER_IDENTITY_INCOMPLETE: 'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
 }
 
 export function describeSendError(error: unknown): string {

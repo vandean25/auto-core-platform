@@ -24,6 +24,16 @@ describe('PublicEstimateApprovalHeadersMiddleware', () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
+  it('sets the same headers when the route arrives in absolute form', () => {
+    const { setHeader, next } = runMiddleware(
+      `http://api.example.test/api/public/estimate-approvals/${'A'.repeat(43)}`,
+    );
+
+    expect(setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    expect(setHeader).toHaveBeenCalledWith('X-Robots-Tag', 'noindex, nofollow');
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
   it('leaves every other route untouched', () => {
     const { setHeader, next } = runMiddleware('/api/workshop/estimates/1/send');
 
