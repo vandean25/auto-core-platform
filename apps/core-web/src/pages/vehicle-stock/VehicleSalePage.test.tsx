@@ -839,6 +839,19 @@ describe('VehicleSalePage Gewährleistung after invoicing', () => {
     expect(within(screen.getByText('Basisfrist bis 01.10.2026')).getByText('Abgelaufen')).toBeInTheDocument()
   })
 
+  it('marks an expired Vermutungsfrist on its own line while the Basisfrist still runs', () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: {
+      ...invoicedSale,
+      presumption_ends_on: '2026-10-01',
+      presumption_ends_on_expired: true,
+    } })
+    renderSalePage()
+
+    expect(within(screen.getByText('Vermutungsfrist bis 01.10.2026')).getByText('Abgelaufen')).toBeInTheDocument()
+    expect(screen.getByText('Aktiv')).toBeInTheDocument()
+    expect(screen.getAllByText('Abgelaufen')).toHaveLength(1)
+  })
+
   it('shows neither Gewährleistung dates nor an invoice link on a draft without a snapshot', () => {
     asMock(vehicleStockApi.useVehicleSale).mockReturnValue({ data: existingSale })
     renderSalePage()
