@@ -25,7 +25,7 @@ export function parseJestTestList(output) {
 const shardPattern = /^--shard=(\d+)\/(\d+)$/;
 
 export function parseShardOption(args) {
-  const option = args.find((arg) => arg.startsWith('--shard='));
+  const option = args.find((arg) => arg === '--shard' || arg.startsWith('--shard='));
   if (option === undefined) {
     return null;
   }
@@ -71,7 +71,8 @@ export async function discoverE2eBatches(size = batchSize, shard = null) {
   const testFiles = parseJestTestList(listedTests.stdout);
 
   if (testFiles.length === 0) {
-    throw new Error('Jest did not discover any backend E2E suites.');
+    const scope = shard ? ` in shard ${shard.index}/${shard.count}` : '';
+    throw new Error(`Jest did not discover any backend E2E suites${scope}.`);
   }
 
   return chunkItems(testFiles, size);

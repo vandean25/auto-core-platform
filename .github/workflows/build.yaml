@@ -378,7 +378,7 @@ jobs:
 
   frontend:
     # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).
-    # API e2e coverage lives in the backend job (`npm run test:e2e`).
+    # API e2e coverage lives in the backend E2E shard jobs (`npm run test:e2e`).
     name: Frontend Build, Lint and UI Smoke
     runs-on: ubuntu-latest
     steps:

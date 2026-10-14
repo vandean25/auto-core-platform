@@ -67,6 +67,17 @@ test('rejects a malformed or out-of-range shard option', () => {
   }
 });
 
+test('rejects a space-separated --shard value instead of running every suite', () => {
+  assert.throws(() => parseShardOption(['--shard', '2/4']), RangeError);
+});
+
+test('names the shard when it discovers no suites', async () => {
+  await assert.rejects(
+    () => discoverE2eBatches(12, { index: 150, count: 200 }),
+    /shard 150\/200/,
+  );
+});
+
 test('passes the shard to jest --listTests only when one is set', () => {
   assert.ok(!buildListTestsArgs().some((arg) => arg.startsWith('--shard')));
   assert.ok(buildListTestsArgs({ index: 3, count: 4 }).includes('--shard=3/4'));
@@ -76,6 +87,7 @@ test('shards cover every backend E2E suite exactly once', async () => {
   const everySuite = (await discoverE2eBatches()).flat().sort();
   const shardedSuites = [];
 
+  // Mirrors the backend-e2e matrix in .github/workflows/build.yaml.
   for (let index = 1; index <= 4; index += 1) {
     const batches = await discoverE2eBatches(12, { index, count: 4 });
     assert.ok(batches.flat().length > 0, `shard ${index}/4 is empty`);
