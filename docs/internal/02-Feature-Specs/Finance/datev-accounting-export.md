@@ -16,7 +16,7 @@ OWNER/ADMIN users export a complete closed period for one legal entity as a repr
 
 ### Scope
 
-Must-have: explicit per-entity mapping/profile, closed-period preview, complete preflight diagnostics, stable booking rows, exact download replay, tenant/site authorization, and audit trail. Initial enabled profile: DE, EUR, domestic STANDARD VAT with accountant-approved ordinary revenue postings. AT and MARGIN_SCHEME posting recipes are separate activation gates; if encountered they block the entire selected export rather than disappear from it.
+Must-have: explicit per-entity mapping/profile, closed-period preview, complete preflight diagnostics, stable booking rows, exact download replay, tenant/site authorization, and audit trail. Initial enabled profile: DE, EUR, domestic STANDARD VAT with accountant-approved ordinary revenue postings. AT and MARGIN_SCHEME posting recipes are separate activation gates. Until an entity enables the matching gate, an encountered candidate blocks the entire selected export rather than disappearing from it (the DATEV margin switch and the RZL profile are the gates, AUT-369).
 
 Out of scope: purchases/AP, incoming payments, refunds, cash/card registers, partial payments, customer balance management, DATEV API/OAuth/upload, payment reconciliation, foreign currency conversion, e-invoice XML, stock/vehicle cost postings, automated import confirmation, reverse-charge and exempt regimes. This is a sales-document booking export, not a general-ledger trial balance or complete business accounting.
 
@@ -113,11 +113,11 @@ Produce one EXTF administration header, the complete official column-name row an
 | Generalumkehr | Unset; credit polarity alone reverses posting; no double reversal |
 | Other fields | Empty only where official profile permits; no arbitrary values |
 
-One row per frozen line allocation; do not merge separate documents. Sort by document fiscal date, document kind, number, UUID and stable original line ID. Omit zero-gross lines from booking rows but retain them in the manifest and counts. No separate VAT booking row when the selected DATEV tax treatment already generates tax. Validate import VAT against frozen tax buckets; if the importer rounds differently, block profile activation until the posting recipe reproduces ACP totals exactly.
+One row per frozen line allocation (margin lines book two rows; see the margin recipe below); do not merge separate documents. Sort by document fiscal date, document kind, number, UUID and stable original line ID. Omit zero-gross lines from booking rows but retain them in the manifest and counts. No separate VAT booking row when the selected DATEV tax treatment already generates tax. Validate import VAT against frozen tax buckets; if the importer rounds differently, block profile activation until the posting recipe reproduces ACP totals exactly.
 
 Example acceptance fixture: an invoice with two allocated lines `(net 100.00, tax 19.00, gross 119.00)` and `(net 50.00, tax 3.50, gross 53.50)` produces two positive gross rows with `S`, each using its approved rate-specific mapping. A credit of the first full line produces `119,00` with `H`, its CN number and original RE reference. Signed gross totals are `172.50 − 119.00 = 53.50`; tax reconciliation is `22.50 − 19.00 = 3.50`. The specific account/BU values must come from the approved profile fixture, not sample production defaults.
 
-MARGIN_SCHEME requires a separately reviewed multi-posting recipe using the frozen cost/margin facts; a gross sale booked as ordinary VAT revenue is forbidden. Its presence in the first DE ordinary-VAT profile returns `UNSUPPORTED_EXPORT_TAX_MODE`, with no partial CSV. AT likewise requires an approved target-import profile, not just changing the currency/country label.
+MARGIN_SCHEME requires a separately reviewed multi-posting recipe using the frozen cost/margin facts; a gross sale booked as ordinary VAT revenue is forbidden. Its presence in the first DE ordinary-VAT profile returns `UNSUPPORTED_EXPORT_TAX_MODE` while the entity's margin switch is off, with no partial CSV. With the switch on (AUT-369, best-effort), each margin line books two rows: the net sale to the mapped revenue account and the frozen margin VAT to the entity's margin VAT account. AT likewise requires an approved target-import profile, not just changing the currency/country label.
 
 ### Replay, duplicates and empty periods
 
@@ -195,7 +195,7 @@ No dashboard entity broadcast for AccountingExport in slice 1: it contains multi
 - [ ] EX-01: two entities in one tenant export separately; wrong tenant returns 404; non-admin denied; admin missing one contributing site membership receives no partial run or leaked total.
 - [ ] EX-02: inclusive range/end exactly at lock works; open/null-lock/cross-fiscal-year/reversed range fails. Credits dated later than original appear only in their own period.
 - [ ] EX-03: FINALIZED/ISSUED/PAID invoices and FINALIZED credits included; drafts/void excluded; zero remaining balance never removes original booking.
-- [ ] EX-04: seller/group/account edits and group deletion after issuance do not change frozen bookings. Unmapped/legacy/CANCELLED/AT/margin candidates block the initial profile with clear reasons.
+- [ ] EX-04: seller/group/account edits and group deletion after issuance do not change frozen bookings. Unmapped/legacy/CANCELLED/AT/margin candidates block the initial profile with clear reasons. AT and margin candidates stop blocking only when their matching profile is enabled for the entity (AUT-369).
 - [ ] EX-05: approved accountant fixture imports successfully into the specified DATEV target; importer net/tax/gross/account totals equal the frozen ACP facts for mixed rates, discounts, full/partial credits and last-cent allocation.
 - [ ] EX-06: full official column order/count, semicolon quoting, decimal comma, CRLF, chosen encoding, lengths and invalid characters tested; no silent truncation or additional tax booking.
 - [ ] EX-07: same-key replay and repeated download are byte-identical with matching SHA-256 after profile edits; changed-key payload conflict and overlap acknowledgement behave as specified.
@@ -218,7 +218,7 @@ The following decisions answer the PR review and define the revised baseline.
 | Decision | Selected answer / gate |
 |---|---|
 | M1 mapping prerequisite | Keep strict coupling: M1 cannot ship without accountant-approved mapping fixtures. Profile configuration and immutable allocations ship in M1; export activation stays in M4. |
-| M4 completion scope | DE/EUR domestic STANDARD export first. M4 can complete for this profile once its acceptance checks pass; AT and margin posting profiles are follow-ons, not conditions for that milestone. Any selected period containing them still blocks as a whole. |
+| M4 completion scope | DE/EUR domestic STANDARD export first. M4 can complete for this profile once its acceptance checks pass; AT and margin posting profiles are follow-ons, not conditions for that milestone. Any selected period containing them still blocks as a whole, unless the matching profile is enabled for the entity: the DATEV margin switch lifts DE margin documents (AUT-369, best-effort, default off), and the RZL or BMD profile lifts AT STANDARD documents only (env release gates, default off; AT margin documents stay blocked). See the ADR-0023 deferral log for the open accountant gates. |
 | Historic site access | Require complete active-site membership coverage. Inactive contributing sites block slice-1 export; historic-access policy is a separate follow-on, not an implicit administrator bypass. |
 | DATEV target and postings | Retain proposed EXTF 700/Buchungsstapel 13, collective debtor, explicit-BU or automatic-tax mapping, and unfixed batch flag. Accountant approval and the official schema/import fixture remain mandatory before enabling the profile. |
 | Tracking | AUT-307 owns backend export; AUT-305 owns UI/audit. Duplicate cleanup is complete; no parallel backend issue remains in the delivery baseline. |
