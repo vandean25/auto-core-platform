@@ -133,7 +133,7 @@ Stored error text is generic. Provider response bodies are never stored.
   - `NOT_FOUND`: no such row in this tenant.
   - `NOT_FAILED`: the row is not FAILED. A row that another request has just replayed is refused this way too. A SUPPRESSED row stays suppressed.
   - `BODY_PURGED`: the 90-day purge has removed the body, so the notice cannot be sent again.
-  - `STALE_UNSENT`: the row is older than the 7-day sending window. A replayed row this old would be failed again by the next sweep, which also clears its body (§2b), so replay refuses it. The remedy is to send the estimate again as a new version (see `LINK_REDACTED`).
+  - `STALE_UNSENT`: the row is older than the 7-day sending window. A replayed row this old would be failed again by the next sweep, which also clears its body (§2b), so replay refuses it. For a stale estimate email the remedy is to send the estimate again as a new version (see `LINK_REDACTED`). A stale in-app notice has no remedy here.
   - `BODY_MISSING`: an email row with no stored body or no body hash.
   - `LINK_REDACTED`: a failed estimate email. The write that failed it removed the approval link (ADR-0025 §7), so sending the body again would send the placeholder. Send the estimate again as a new version: create a revision on the order, then send it with the customer email. The failed version stays on record, and its link stops working once the new version is sent.
 - Replay never sends inline. A replayed row goes through the normal worker, so the mode and the allowlist still apply: under `off` it is recorded as SUPPRESSED. If the wake-up cannot be queued, the failure is logged and the row waits PENDING for the recovery sweep (§6).
