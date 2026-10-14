@@ -7057,10 +7057,10 @@ export interface components {
         NotificationOutboxReplayRefusalDto: {
             id: string;
             /** @enum {string} */
-            code: "NOT_FOUND" | "NOT_FAILED" | "BODY_PURGED" | "BODY_MISSING" | "LINK_REDACTED";
+            code: "NOT_FOUND" | "NOT_FAILED" | "BODY_PURGED" | "BODY_MISSING" | "LINK_REDACTED" | "STALE_UNSENT";
         };
         NotificationOutboxReplayResponseDto: {
-            /** @description Rows that went back to PENDING and were queued for a wake-up. */
+            /** @description Rows that went back to PENDING. A wake-up that could not be queued is logged, and the recovery sweep wakes the row later. */
             replayed: string[];
             refused: components["schemas"]["NotificationOutboxReplayRefusalDto"][];
         };

@@ -19,10 +19,28 @@ export async function fetchWorkshopOrderCommunications(orderId: string): Promise
   return payload.data
 }
 
+const QUEUED_POLL_MS = 5_000
+/** Only a recent QUEUED email is polled, so a row stuck in PENDING cannot keep an open page polling for days. */
+const QUEUED_POLL_WINDOW_MS = 10 * 60 * 1000
+
+/** Every five seconds while an email queued in the last ten minutes is still QUEUED; otherwise no polling. */
+export function communicationRefetchInterval(
+  entries: WorkshopOrderCommunication[] | undefined,
+  now = Date.now(),
+): number | false {
+  const polling = entries?.some(
+    (entry) => entry.status === 'QUEUED' && now - Date.parse(entry.occurred_at) < QUEUED_POLL_WINDOW_MS,
+  )
+  return polling ? QUEUED_POLL_MS : false
+}
+
 export function useWorkshopOrderCommunications(orderId: string) {
   return useQuery({
     queryKey: workshopCommunicationKeys.order(orderId),
     queryFn: () => fetchWorkshopOrderCommunications(orderId),
     enabled: Boolean(orderId),
+    // Re-read on every mount and focus, so a customer decision shows without waiting for the global stale time.
+    staleTime: 0,
+    refetchInterval: (query) => communicationRefetchInterval(query.state.data),
   })
 }

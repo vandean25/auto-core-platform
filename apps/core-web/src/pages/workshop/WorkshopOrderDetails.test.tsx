@@ -25,6 +25,14 @@ vi.mock("@/api/vehicle-inspection-records");
 vi.mock("@/api/auth-session");
 vi.mock("@/api/workshop-estimates");
 vi.mock("@/api/inventory");
+vi.mock("@/api/workshop-communications", () => ({
+  useWorkshopOrderCommunications: vi.fn(() => ({
+    isPending: false,
+    isError: false,
+    data: [],
+    refetch: vi.fn(),
+  })),
+}));
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
@@ -274,6 +282,24 @@ describe("WorkshopOrderDetails Characterization", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  describe("communication timeline", () => {
+    it("is shown to an estimate role on the order", () => {
+      renderComponent();
+
+      expect(screen.getByText("Kommunikation mit dem Kunden")).toBeInTheDocument();
+    });
+
+    it("is hidden from a technician session, like the estimate card", () => {
+      asMock(authSessionApi.useAuthSession).mockReturnValue({
+        data: { activeRole: "TECH" },
+      });
+
+      renderComponent();
+
+      expect(screen.queryByText("Kommunikation mit dem Kunden")).not.toBeInTheDocument();
+    });
   });
 
   const renderComponent = () =>

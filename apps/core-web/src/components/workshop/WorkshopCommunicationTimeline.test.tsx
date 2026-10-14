@@ -97,35 +97,35 @@ describe('WorkshopCommunicationTimeline', () => {
 
     const items = screen.getAllByRole('listitem')
     expect(items).toHaveLength(2)
-    expect(within(items[0]).getByText('Kunde hat Kostenvoranschlag (Version 1) über den Link freigegeben')).toBeInTheDocument()
+    expect(within(items[0]).getByText('Der Kunde hat den Kostenvoranschlag (Version 1) über den Link freigegeben')).toBeInTheDocument()
     expect(items[0]).toHaveTextContent('11.10.2026, 09:30')
-    expect(within(items[1]).getByText('Kostenvoranschlag (Version 1) per E-Mail gesendet')).toBeInTheDocument()
+    expect(within(items[1]).getByText('Der Kostenvoranschlag (Version 1) wurde per E-Mail gesendet')).toBeInTheDocument()
     expect(items[1]).toHaveTextContent('10.10.2026, 10:05')
   })
 })
 
 describe('describeCommunication', () => {
   it.each<[WorkshopOrderCommunication, string]>([
-    [entry({ status: 'QUEUED' }), 'Kostenvoranschlag (Version 1) wird per E-Mail versendet'],
-    [entry({ status: 'SENT' }), 'Kostenvoranschlag (Version 1) per E-Mail gesendet'],
-    [entry({ status: 'FAILED' }), 'E-Mail mit Kostenvoranschlag (Version 1) konnte nicht gesendet werden'],
-    [entry({ status: 'SUPPRESSED' }), 'E-Mail mit Kostenvoranschlag (Version 1) wurde nicht gesendet'],
-    [entry({ status: 'SENT', version: null }), 'Kostenvoranschlag per E-Mail gesendet'],
+    [entry({ status: 'QUEUED' }), 'Der Kostenvoranschlag (Version 1) wird per E-Mail versendet'],
+    [entry({ status: 'SENT' }), 'Der Kostenvoranschlag (Version 1) wurde per E-Mail gesendet'],
+    [entry({ status: 'FAILED' }), 'Die E-Mail mit dem Kostenvoranschlag (Version 1) konnte nicht gesendet werden'],
+    [entry({ status: 'SUPPRESSED' }), 'Die E-Mail mit dem Kostenvoranschlag (Version 1) wurde nicht gesendet'],
+    [entry({ status: 'SENT', version: null }), 'Der Kostenvoranschlag wurde per E-Mail gesendet'],
     [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'LINK', decision: 'APPROVED', status: null }),
-      'Kunde hat Kostenvoranschlag (Version 1) über den Link freigegeben',
+      'Der Kunde hat den Kostenvoranschlag (Version 1) über den Link freigegeben',
     ],
     [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'LINK', decision: 'DECLINED', status: null }),
-      'Kunde hat Kostenvoranschlag (Version 1) über den Link abgelehnt',
+      'Der Kunde hat den Kostenvoranschlag (Version 1) über den Link abgelehnt',
     ],
     [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'ADVISOR_RECORDED', decision: 'APPROVED', status: null }),
-      'Freigabe von Kostenvoranschlag (Version 1) durch den Berater erfasst',
+      'Freigabe des Kostenvoranschlags (Version 1) durch den Berater erfasst',
     ],
     [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'ADVISOR_RECORDED', decision: 'DECLINED', status: null }),
-      'Ablehnung von Kostenvoranschlag (Version 1) durch den Berater erfasst',
+      'Ablehnung des Kostenvoranschlags (Version 1) durch den Berater erfasst',
     ],
   ])('describes %j in German', (row, expected) => {
     expect(describeCommunication(row)).toBe(expected)

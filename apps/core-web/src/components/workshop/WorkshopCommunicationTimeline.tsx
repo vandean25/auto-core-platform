@@ -16,31 +16,36 @@ const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
 
 /** One German line per timeline entry. The estimate version is named when the entry knows it. */
 export function describeCommunication(entry: WorkshopOrderCommunication): string {
-  const estimate = entry.version === null ? 'Kostenvoranschlag' : `Kostenvoranschlag (Version ${entry.version})`
+  // The noun takes its article in each case the sentence needs, so every line is a full German sentence.
+  const suffix = entry.version === null ? '' : ` (Version ${entry.version})`
+  const nominative = `Der Kostenvoranschlag${suffix}`
+  const accusative = `den Kostenvoranschlag${suffix}`
+  const dative = `dem Kostenvoranschlag${suffix}`
+  const genitive = `des Kostenvoranschlags${suffix}`
 
   if (entry.kind === 'ESTIMATE_EMAIL') {
     switch (entry.status) {
       case 'QUEUED':
-        return `${estimate} wird per E-Mail versendet`
+        return `${nominative} wird per E-Mail versendet`
       case 'SENT':
-        return `${estimate} per E-Mail gesendet`
+        return `${nominative} wurde per E-Mail gesendet`
       case 'FAILED':
-        return `E-Mail mit ${estimate} konnte nicht gesendet werden`
+        return `Die E-Mail mit ${dative} konnte nicht gesendet werden`
       case 'SUPPRESSED':
-        return `E-Mail mit ${estimate} wurde nicht gesendet`
+        return `Die E-Mail mit ${dative} wurde nicht gesendet`
       default:
-        return `${estimate} per E-Mail`
+        return `${nominative} per E-Mail`
     }
   }
 
   if (entry.channel === 'ADVISOR_RECORDED') {
     return entry.decision === 'APPROVED'
-      ? `Freigabe von ${estimate} durch den Berater erfasst`
-      : `Ablehnung von ${estimate} durch den Berater erfasst`
+      ? `Freigabe ${genitive} durch den Berater erfasst`
+      : `Ablehnung ${genitive} durch den Berater erfasst`
   }
   return entry.decision === 'APPROVED'
-    ? `Kunde hat ${estimate} über den Link freigegeben`
-    : `Kunde hat ${estimate} über den Link abgelehnt`
+    ? `Der Kunde hat ${accusative} über den Link freigegeben`
+    : `Der Kunde hat ${accusative} über den Link abgelehnt`
 }
 
 function TimelineIcon({ entry }: { entry: WorkshopOrderCommunication }) {

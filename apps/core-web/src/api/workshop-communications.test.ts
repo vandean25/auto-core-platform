@@ -5,6 +5,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
 import {
+  communicationRefetchInterval,
   fetchWorkshopOrderCommunications,
   useWorkshopOrderCommunications,
   workshopCommunicationKeys,
@@ -67,5 +68,28 @@ describe('workshop communications API', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual([ENTRY])
+  })
+})
+
+describe('communicationRefetchInterval', () => {
+  const NOW = Date.parse('2026-10-14T12:00:00.000Z')
+  const entryAt = (status: 'QUEUED' | 'SENT', minutesAgo: number) => ({
+    ...ENTRY,
+    status,
+    occurred_at: new Date(NOW - minutesAgo * 60_000).toISOString(),
+  })
+
+  it('polls every five seconds while an email queued in the last ten minutes is still QUEUED', () => {
+    expect(communicationRefetchInterval([entryAt('QUEUED', 1)], NOW)).toBe(5_000)
+  })
+
+  it('stops polling once a queued email is older than ten minutes, so a stuck row cannot keep the page polling', () => {
+    expect(communicationRefetchInterval([entryAt('QUEUED', 11)], NOW)).toBe(false)
+  })
+
+  it('does not poll when nothing is queued, or there is no data yet', () => {
+    expect(communicationRefetchInterval([entryAt('SENT', 1)], NOW)).toBe(false)
+    expect(communicationRefetchInterval([], NOW)).toBe(false)
+    expect(communicationRefetchInterval(undefined, NOW)).toBe(false)
   })
 })

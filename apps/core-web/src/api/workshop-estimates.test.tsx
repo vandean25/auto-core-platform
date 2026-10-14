@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fetchWithAuth } from '@/api/client'
+import { workshopCommunicationKeys } from '@/api/workshop-communications'
 import {
   fetchWorkshopEstimatePdfError,
   fetchWorkshopOrderEstimate,
@@ -91,6 +92,18 @@ describe('workshop estimate mutations', () => {
       'Sending estimates to customers is disabled.',
     )
     expect(fetchMock).toHaveBeenCalledWith('/api/workshop/estimates/v1/send', { method: 'POST' })
+  })
+
+  it('a send refreshes the order estimate and its communication timeline', async () => {
+    const queryClient = new QueryClient()
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'v1', status: 'SENT' }))
+
+    const { result } = renderHook(() => useSendWorkshopEstimateVersion(), { wrapper: wrapperFor(queryClient) })
+    await result.current.mutateAsync({ orderId: 'order-1', versionId: 'v1' })
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: workshopEstimateKeys.order('order-1') })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: workshopCommunicationKeys.order('order-1') })
   })
 
   it('sends the email flag as a JSON body only when the customer is to be emailed', async () => {
