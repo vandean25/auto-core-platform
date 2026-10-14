@@ -72,7 +72,7 @@ Three messages render from `apps/core-api/src/notifications/templates/customer-e
 
 - `GET /api/workshop/orders/:id/communications` returns the customer side of one order as `{ "data": [...] }`, newest first, at most 100 entries. An entry is either an estimate email (`kind` `ESTIMATE_EMAIL`, channel `EMAIL`, `status` `QUEUED`, `SENT`, `FAILED` or `SUPPRESSED`) or a customer decision (`kind` `ESTIMATE_APPROVAL`, channel `LINK` or `ADVISOR_RECORDED`, `decision` `APPROVED` or `DECLINED`). `QUEUED` covers the internal `PENDING` and `SENDING`.
 - The roles are the estimate roles (OWNER, ADMIN, SALES), and the order must be in the caller's site. The response carries no address, body, subject, typed name, IP address or token. The builder copies only the fields it lists (`apps/core-api/src/workshop/workshop-order-communications.ts`).
-- The order detail page shows the list as **Kommunikation mit dem Kunden**, under the estimate card, for the same roles. A send refreshes it at once. A customer decision appears on the next load or focus.
+- The order detail page shows the list as **Kommunikation mit dem Kunden**, under the estimate card, for the same roles. A send refreshes it at once. The card re-reads on every mount and focus, so a customer decision appears on the next load or focus. While an email is QUEUED and was queued in the last ten minutes, the card re-reads every five seconds.
 
 ## 3. Secrets (GSM names only, no values in the repository)
 
@@ -119,7 +119,7 @@ Stored error text is generic. Provider response bodies are never stored.
 
 ## 5a. Replaying dead letters (phase 6)
 
-- `POST /api/notifications/outbox/replay` with `{ "ids": ["<outbox-id>", ...] }`: one to 50 different ids. Owner or admin only. A technician and a sales member get 403, because replay is not part of the estimate roles.
+- `POST /api/notifications/outbox/replay` with `{ "ids": ["<outbox-id>", ...] }`: one to 50 different ids. Owner or admin only. This is narrower than the estimate roles: a sales member and a technician both get 403.
 
   ```
   POST /api/notifications/outbox/replay
@@ -135,8 +135,9 @@ Stored error text is generic. Provider response bodies are never stored.
   - `BODY_PURGED`: the 90-day purge has removed the body, so the notice cannot be sent again.
   - `BODY_MISSING`: an email row has no stored body. A notice that was never sent (`STALE_UNSENT`) loses its body this way.
   - `LINK_REDACTED`: a failed estimate email. The write that failed it removed the approval link (ADR-0025 §7), so sending the body again would send the placeholder. Send the estimate again as a new version: create a revision on the order, then send it with the customer email. The failed version stays on record, and its link stops working once the new version is sent.
+  - `STALE_UNSENT`: the row is older than the 7-day sending window. The next sweep would fail it again and clear its body (§6), so replay refuses it.
 - Replay never sends inline. A replayed row goes through the normal worker, so the mode and the allowlist still apply: under `off` it is recorded as SUPPRESSED. If the wake-up cannot be queued, the failure is logged and the row waits PENDING for the recovery sweep (§6).
-- Fix the cause first, and read `last_error_code` (§5). Replay is safe for `PROVIDER_NOT_CONFIGURED`, `MAX_ATTEMPTS_EXCEEDED`, `UNEXPECTED_ERROR` and `SENDER_NOT_CONFIGURED` once the provider, the database or the sender setting is healthy. A row that failed as `LEASE_EXPIRED` may already have reached the customer (§6), so confirm with the provider first. Do not replay `RECIPIENT_MISSING` or `RECIPIENT_INVALID`: the row keeps its recipient, so the notice has to be written again.
+- Fix the cause first, and read `last_error_code` (§5). Replay is safe for `PROVIDER_NOT_CONFIGURED` and `MAX_ATTEMPTS_EXCEEDED` once the provider or the sender setting is healthy. `MAX_ATTEMPTS_EXCEEDED` is what a retryable error (`UNEXPECTED_ERROR`, `SENDER_NOT_CONFIGURED`, the transient codes) leaves behind after its last attempt; the row's message names that last error. A row that failed as `LEASE_EXPIRED` may already have reached the customer (§6), so confirm with the provider first. Do not replay `RECIPIENT_MISSING` or `RECIPIENT_INVALID`: the row keeps its recipient, so the notice has to be written again.
 - Replay writes no audit row yet. The change shows only in the row's `updatedAt` (§6).
 
 ## 6. Known limits (v1)

@@ -278,7 +278,7 @@ Aligned with [Austria Market Roadmap](https://linear.app/auto-core-platform/proj
 - Snapshot immutability; 404 or 410 for a stale link (used, expired or superseded), 409 only when the version is no longer `SENT` for another reason.
 - Outbox enqueued in same transaction as state change.
 - Overrun fields written to audit trail.
-- Replay (phase 6): owner or admin only; FAILED rows only; refusal codes `NOT_FOUND`, `NOT_FAILED`, `BODY_PURGED`, `BODY_MISSING`, `LINK_REDACTED`; a second replay is refused; another tenant's row is `NOT_FOUND`; a bad batch (empty, repeated, more than 50, not a UUID) is 400.
+- Replay (phase 6): owner or admin only; FAILED rows only; refusal codes `NOT_FOUND`, `NOT_FAILED`, `BODY_PURGED`, `BODY_MISSING`, `LINK_REDACTED`, `STALE_UNSENT`; a second replay is refused; another tenant's row is `NOT_FOUND`; a bad batch (empty, repeated, more than 50, not a UUID) is 400.
 - Communication timeline (phase 6): the estimate emails and the decisions, newest first, with no address or typed name in the response; estimate roles only.
 
 ### Frontend
