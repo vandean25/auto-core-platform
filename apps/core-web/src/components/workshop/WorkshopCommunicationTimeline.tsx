@@ -72,7 +72,7 @@ export function WorkshopCommunicationTimeline({ orderId }: { orderId: string }) 
         ) : query.isError ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Kommunikation konnte nicht geladen werden.</AlertTitle>
+            <AlertTitle as="h3">Kommunikation konnte nicht geladen werden.</AlertTitle>
             <AlertDescription>
               <Button variant="outline" size="sm" className="mt-2" onClick={() => void query.refetch()}>
                 Erneut versuchen

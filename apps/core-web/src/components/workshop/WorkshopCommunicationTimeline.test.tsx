@@ -59,7 +59,10 @@ describe('WorkshopCommunicationTimeline', () => {
 
     render(<WorkshopCommunicationTimeline orderId="order-1" />)
 
-    expect(screen.getByText('Kommunikation konnte nicht geladen werden.')).toBeInTheDocument()
+    // Under the card title (h2) the error title is h3, so the page outline has no skipped level.
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Kommunikation konnte nicht geladen werden.' }),
+    ).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }))
     expect(refetch).toHaveBeenCalledTimes(1)
   })
