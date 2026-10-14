@@ -12,6 +12,7 @@ import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { isPlainEmailAddress } from './email/email-address.js';
 import { isSingleLineText } from './email/header-text.js';
 import { redactApprovalLinks } from './notification-body-redaction.js';
+import { withdrawConfirmationAfterRefusal } from './notification-email-confirmation.js';
 import {
   EmailProviderError,
   type EmailSendResult,
@@ -273,7 +274,13 @@ export class NotificationOutboxWorkerService {
       }
       if (failure.recipientRejected) {
         await this.fail(a, failure);
-        return this.clearContactEmailConfirmation(a);
+        return withdrawConfirmationAfterRefusal(this.prisma, {
+          tenantId: a.tenantId,
+          outboxId: a.outboxId,
+          recipientKind: a.row.recipient_kind,
+          recipientEmail: a.row.recipient_email,
+          payload: a.row.payload,
+        });
       }
       return this.fail(a, failure);
     }
@@ -349,37 +356,6 @@ export class NotificationOutboxWorkerService {
       last_error_code: failure.code,
       last_error_message: failure.message,
     });
-  }
-
-  /**
-   * A permanent refusal of the address clears the advisor's email confirmation for that customer, so no later
-   * estimate mail goes to it until the advisor confirms the address again (ADR-0025 §8). The update matches the
-   * exact address, so a corrected address is not cleared by an old bounce.
-   */
-  private async clearContactEmailConfirmation(a: Attempt): Promise<void> {
-    const recipient = a.row.recipient_email;
-    const customerId = customerIdOf(a.row.payload);
-    if (
-      a.row.recipient_kind !== NotificationRecipientKind.CUSTOMER ||
-      !customerId ||
-      !recipient
-    ) {
-      return;
-    }
-    try {
-      await this.prisma.customer.updateMany({
-        where: {
-          id: customerId,
-          tenant_id: a.tenantId,
-          email: recipient,
-        },
-        data: { contact_email_ok: false },
-      });
-    } catch (cause) {
-      this.logger.warn(
-        `Could not clear the email confirmation after a refusal for notification ${a.outboxId}: ${cause instanceof Error ? cause.name : 'unknown error'}`,
-      );
-    }
   }
 
   /** Writes the terminal outcome under the lease. A lost lease is logged, never overwritten. */
@@ -461,19 +437,6 @@ function withProviderDeadline<T>(call: Promise<T>, ms: number): Promise<T> {
  * Maps anything a provider throws to a failure we can store. The stored text is always a fixed sentence,
  * because a provider message can name the address. Unknown errors are retried, never leaked.
  */
-/** The customer a customer message was written for, as the writer recorded it in the row's payload. */
-function customerIdOf(payload: Prisma.JsonValue | null): string | null {
-  if (
-    payload !== null &&
-    typeof payload === 'object' &&
-    !Array.isArray(payload) &&
-    typeof payload.customer_id === 'string'
-  ) {
-    return payload.customer_id;
-  }
-  return null;
-}
-
 function toProviderFailure(error: unknown): Failure & { transient: boolean } {
   if (error instanceof EmailProviderError) {
     const transient = error.kind === 'transient';

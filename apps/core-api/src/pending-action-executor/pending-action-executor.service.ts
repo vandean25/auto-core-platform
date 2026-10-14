@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { ImportJobStatus, Prisma, WorkshopLineItemType } from '@prisma/client';
+import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -313,7 +314,7 @@ export class PendingActionExecutorService {
     const tenantId = await this.tenantContext.getTenantId();
     const customer = await this.prisma.customer.findFirst({
       where: { id: customerId, tenant_id: tenantId },
-      select: { id: true },
+      select: { id: true, email: true },
     });
     if (!customer)
       throw new NotFoundException(`Customer ${customerId} not found`);
@@ -322,6 +323,10 @@ export class PendingActionExecutorService {
       data.first_name = record.first_name;
     if (typeof record.last_name === 'string') data.last_name = record.last_name;
     if (typeof record.email === 'string') data.email = record.email;
+    // A changed address withdraws the advisor's confirmation for order communication (ADR-0025 §8).
+    if (confirmationAfterEmailWrite(customer.email, data) === false) {
+      data.contact_email_ok = false;
+    }
     if (typeof record.phone === 'string') data.phone = record.phone;
     await this.prisma.customer.updateMany({
       where: { id: customer.id, tenant_id: tenantId },

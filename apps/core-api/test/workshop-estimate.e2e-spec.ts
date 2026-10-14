@@ -411,6 +411,28 @@ describe('Workshop estimates (e2e)', () => {
     expect(token.invalidated_at).toBeNull();
   });
 
+  it('sends without an email when the advisor does not ask for one, and queues no token or message', async () => {
+    const { orderId } = await createOrderWithLabor(1, 45);
+    const created = await createEstimate(orderId);
+    const versionId = created.body.versions[0].id as string;
+
+    await api()
+      .post(`/api/workshop/estimates/${versionId}/send`)
+      .set(adminAuth())
+      .expect(200);
+
+    expect(
+      await prisma.workshopEstimateApprovalToken.count({
+        where: { workshop_estimate_version_id: versionId },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.notificationOutbox.count({
+        where: { source_entity_id: versionId },
+      }),
+    ).toBe(0);
+  });
+
   it('invalidates the approval link of a superseded version when a later version is sent', async () => {
     await setCustomerEmailConfirmation(true);
     const { orderId } = await createOrderWithLabor(1, 60);

@@ -15848,8 +15848,7 @@
             "type": "string"
           },
           "contact_email_ok": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           },
           "phone": {
             "type": "string"
@@ -16184,8 +16183,7 @@
             "type": "string"
           },
           "contact_email_ok": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           },
           "phone": {
             "type": "string"

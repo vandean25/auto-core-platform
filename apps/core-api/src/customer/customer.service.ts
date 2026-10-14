@@ -8,6 +8,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { resolveHistoryPagination } from '../common/utils/history-pagination.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildCustomerDetailInclude } from './customer-detail.query.js';
+import { confirmationAfterEmailWrite } from './customer-contact-email.js';
 import { projectCustomerDetail } from './customer-detail.projection.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
@@ -216,12 +217,8 @@ export class CustomerService {
     if (updateCustomerDto.vat_id !== undefined) {
       data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id);
     }
-    // The advisor confirmed one address for order communication (ADR-0025 §8). A different address needs its own
-    // confirmation, unless this update sets the flag again.
     if (
-      updateCustomerDto.email !== undefined &&
-      updateCustomerDto.contact_email_ok === undefined &&
-      (updateCustomerDto.email ?? null) !== existing.email
+      confirmationAfterEmailWrite(existing.email, updateCustomerDto) === false
     ) {
       data.contact_email_ok = false;
     }

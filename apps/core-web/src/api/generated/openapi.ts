@@ -4772,8 +4772,7 @@ export interface components {
             first_name: string;
             last_name: string;
             email?: string;
-            /** @default false */
-            contact_email_ok: boolean;
+            contact_email_ok?: boolean;
             phone?: string;
             vat_id?: string;
             address_street?: string;
@@ -4855,8 +4854,7 @@ export interface components {
             first_name?: string;
             last_name?: string;
             email?: string;
-            /** @default false */
-            contact_email_ok: boolean;
+            contact_email_ok?: boolean;
             phone?: string;
             vat_id?: string;
             address_street?: string;

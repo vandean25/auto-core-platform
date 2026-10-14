@@ -33,7 +33,7 @@ export class CreateCustomerDto {
   email?: string;
 
   // The advisor confirms at intake that this address is for order communication (ADR-0025 §8).
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional()
   @IsBoolean()
   @IsOptional()
   contact_email_ok?: boolean;
