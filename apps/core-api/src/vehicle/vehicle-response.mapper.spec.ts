@@ -93,12 +93,42 @@ describe('vehicle response mapper', () => {
           id: 'sale-1',
           kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
           kaufvertrag_generation_error: null,
+          gewaehrleistung_status: null,
+          gewaehrleistung_ends_on_expired: false,
+          presumption_ends_on_expired: false,
         },
       ]);
       expect(response.pickerl_due).toMatchObject({
         status: 'UNKNOWN',
         due_month: null,
         last_inspected_on: null,
+      });
+    });
+
+    it('attaches the Gewährleistung status and expired flags to nested sales on the Vienna day', () => {
+      const response = toVehicleDetailResponse(
+        {
+          id: 'vehicle-1',
+          first_registration_date: null,
+          customer: null,
+          inspection_records: [],
+          sales: [
+            {
+              id: 'sale-1',
+              gewaehrleistung_ends_on: new Date('2026-10-14T00:00:00.000Z'),
+              presumption_ends_on: new Date('2026-10-14T00:00:00.000Z'),
+            },
+          ],
+        } as never,
+        [siteId],
+        // 22:30 UTC on 14 Oct is already 00:30 on 15 Oct in Vienna.
+        new Date('2026-10-14T22:30:00.000Z'),
+      );
+
+      expect(response.sales[0]).toMatchObject({
+        gewaehrleistung_status: 'EXPIRED',
+        gewaehrleistung_ends_on_expired: true,
+        presumption_ends_on_expired: true,
       });
     });
   });

@@ -1,12 +1,10 @@
 import type { VehicleSale } from '@/api/vehicle-stock'
+import { StatusBadge } from '@/components/status/StatusBadge'
+import { GewaehrleistungFristen } from '@/components/vehicles/GewaehrleistungFristen'
+import { gewaehrleistungStatusBadge } from '@/lib/vehicle-sale-warranty'
 
 type VehicleGewaehrleistungSectionProps = {
   sales: VehicleSale[]
-}
-
-function germanDate(value: string | null | undefined) {
-  if (!value) return '—'
-  return new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${value.slice(0, 10)}T00:00:00Z`))
 }
 
 export function VehicleGewaehrleistungSection({ sales }: VehicleGewaehrleistungSectionProps) {
@@ -16,18 +14,19 @@ export function VehicleGewaehrleistungSection({ sales }: VehicleGewaehrleistungS
     sale.gewaehrleistung_ends_on &&
     sale.presumption_ends_on,
   )
+  const badge = sale?.gewaehrleistung_status ? gewaehrleistungStatusBadge(sale.gewaehrleistung_status) : null
 
   return (
     <section aria-labelledby="gewaehrleistung-title" className="rounded-lg border p-4 space-y-2">
-      <h2 id="gewaehrleistung-title" className="font-semibold">Gewährleistung</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="gewaehrleistung-title" className="font-semibold">Gewährleistung</h2>
+        {badge ? <StatusBadge status={badge.status} label={badge.label} /> : null}
+      </div>
       {sale ? (
         sale.buyer_is_consumer === false ? (
-          <p className="text-sm">B2B – per contract</p>
+          <p className="text-sm">B2B – Gewährleistung laut Vertrag</p>
         ) : hasCompleteConsumerSnapshot ? (
-          <div className="space-y-1 text-sm">
-            <p>Basisfrist bis {germanDate(sale.gewaehrleistung_ends_on)}</p>
-            <p>Vermutungsfrist bis {germanDate(sale.presumption_ends_on)}</p>
-          </div>
+          <GewaehrleistungFristen sale={sale} />
         ) : <p className="text-sm">Gewährleistungsdaten unbekannt.</p>
       ) : <p className="text-sm text-slate-500">Keine abgeschlossene Fahrzeugverkaufs-Gewährleistung vorhanden.</p>}
       <p className="text-xs text-slate-500">Verlängerungen durch Reparaturen werden nicht erfasst.</p>

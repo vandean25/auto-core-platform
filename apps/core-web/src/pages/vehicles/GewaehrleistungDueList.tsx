@@ -77,7 +77,7 @@ export default function GewaehrleistungDueList() {
     { accessorKey: 'vehicle', meta: { rowLink: true }, header: ({ column }) => <DataTableColumnHeader column={column} title="Fahrzeug" /> },
     { accessorKey: 'customer', header: ({ column }) => <DataTableColumnHeader column={column} title="Kunde" /> },
     { accessorKey: 'handedOver', header: ({ column }) => <DataTableColumnHeader column={column} title="Übergabe" />, cell: ({ row }) => row.original.handedOverLabel },
-    { accessorKey: 'warrantyEnds', header: ({ column }) => <DataTableColumnHeader column={column} title="Gewährleistung bis" />, cell: ({ row }) => row.original.warrantyEndsLabel },
+    { accessorKey: 'warrantyEnds', header: ({ column }) => <DataTableColumnHeader column={column} title="Basisfrist bis" />, cell: ({ row }) => row.original.warrantyEndsLabel },
     { accessorKey: 'presumptionEnds', header: ({ column }) => <DataTableColumnHeader column={column} title="Vermutungsfrist bis" />, cell: ({ row }) => row.original.presumptionEndsLabel },
   ], [])
 

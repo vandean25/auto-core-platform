@@ -54,4 +54,21 @@ describe('VehicleStockQueryService Gewaehrleistung due list', () => {
       );
     },
   );
+
+  it('windows on the Vienna day once Vienna midnight has passed while UTC is still the day before', async () => {
+    jest.setSystemTime(new Date('2026-10-14T22:30:00.000Z'));
+
+    await service.listGewaehrleistungDue({ endsWithinDays: 30 });
+
+    expect(prisma.vehicleSale.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          gewaehrleistung_ends_on: {
+            gte: new Date('2026-10-15T00:00:00.000Z'),
+            lte: new Date('2026-11-14T23:59:59.999Z'),
+          },
+        }),
+      }),
+    );
+  });
 });
