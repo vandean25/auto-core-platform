@@ -224,8 +224,85 @@ jobs:
           NODE
 
   backend:
-    name: Backend Build and Test
+    name: Backend Lint, Typecheck and Build
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm exec --workspace=core-api -- prisma generate
+
+      - name: Verify tenant restore manifest
+        run: npm run tenant-restore:verify
+
+      - name: Lint Prisma tenant isolation invariants
+        run: npm run lint:prisma-tenant --workspace=core-api
+
+      - name: Lint backend
+        run: npm run lint --workspace=core-api
+
+      - name: Build backend
+        # Typecheck gate: tsc runs here and fails the job on any type error.
+        run: npm run build --workspace=core-api
+
+      - name: Verify backend ESM production artifact
+        run: npm run verify:esm-artifact --workspace=core-api
+
+      - name: Verify E2E batch runner
+        run: npm run test:e2e:runner --workspace=core-api
+
+  backend-unit:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm exec --workspace=core-api -- prisma generate
+
+      - name: Run unit tests in parallel
+        # No Postgres service: no unit spec opens a database connection.
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm test --workspace=core-api -- --ci --maxWorkers=4 --testPathIgnorePatterns='document-branding-pdf-parser\.spec\.ts$'
+
+      - name: Run timing-sensitive unit tests serially
+        # The PDF rasterization spec exceeds its 5 s budget when it shares CPU with parallel workers.
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
+          NODE_OPTIONS: --max-old-space-size=8192
+        run: npm test --workspace=core-api -- --ci --runInBand --testPathPatterns='document-branding-pdf-parser\.spec\.ts$'
+
+  backend-e2e:
+    name: Backend E2E Tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         # Docker Hub mirror: avoids the anonymous Docker Hub pull rate limit on shared runners
@@ -258,49 +335,46 @@ jobs:
       - name: Generate Prisma Client
         run: npm exec --workspace=core-api -- prisma generate
 
-      - name: Verify tenant restore manifest
-        run: npm run tenant-restore:verify
-
-      - name: Lint Prisma tenant isolation invariants
-        run: npm run lint:prisma-tenant --workspace=core-api
-
-      - name: Lint backend
-        run: npm run lint --workspace=core-api
-
-      - name: Build backend
-        run: npm run build --workspace=core-api
-
-      - name: Verify backend ESM production artifact
-        run: npm run verify:esm-artifact --workspace=core-api
-
-      - name: Run unit tests
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
-          NODE_OPTIONS: --max-old-space-size=8192
-        run: npm test --workspace=core-api -- --ci --runInBand
-
       - name: Install backend Playwright browser
         run: npm exec --workspace=core-api -- playwright install --with-deps chromium
 
       - name: Run E2E tests
+        # Each shard has its own Postgres service, so shards never share a database.
         timeout-minutes: 15
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           INVOICE_BRANDING_WRITER_ENABLED: 'true'
           DOCUMENT_BRANDING_VISUAL_ARTIFACT_DIR: ${{ runner.temp }}/document-branding-visual-fixtures
         run: |
-          npm run test:e2e:runner --workspace=core-api
           npm exec --workspace=core-api -- prisma migrate deploy
-          npm run test:e2e:ci --workspace=core-api
+          npm run test:e2e:ci --workspace=core-api -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload document branding visual fixtures
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: document-branding-visual-fixtures
+          name: document-branding-visual-fixtures-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/document-branding-visual-fixtures
           retention-days: 14
           if-no-files-found: warn
+
+  backend-gate:
+    # Aggregator: keeps the original required-check name and passes only when every backend job passed.
+    name: Backend Build and Test
+    needs: [backend, backend-unit, backend-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every backend job to pass
+        env:
+          LINT_BUILD: ${{ needs.backend.result }}
+          UNIT: ${{ needs.backend-unit.result }}
+          E2E: ${{ needs.backend-e2e.result }}
+        run: |
+          echo "backend (lint, typecheck, build): $LINT_BUILD"
+          echo "backend-unit: $UNIT"
+          echo "backend-e2e: $E2E"
+          test "$LINT_BUILD" = success && test "$UNIT" = success && test "$E2E" = success
 
   frontend:
     # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).
