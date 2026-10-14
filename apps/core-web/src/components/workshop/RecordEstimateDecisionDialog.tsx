@@ -29,7 +29,7 @@ import {
   messageForErrorCode,
   normalizeGrossAmount,
 } from '@/features/workshop/workshop-estimate-decision'
-import { getErrorCode, getErrorMessage } from '@/lib/error-utils'
+import { getErrorCode } from '@/lib/error-utils'
 
 export interface RecordEstimateDecisionDialogProps {
   version: WorkshopEstimateVersionSummary | null
@@ -98,7 +98,7 @@ function DecisionForm({
         messageForErrorCode(
           RECORD_DECISION_ERROR_MESSAGES,
           getErrorCode(caught),
-          getErrorMessage(caught, 'Bestätigung konnte nicht erfasst werden.'),
+          'Bestätigung konnte nicht erfasst werden.',
         ),
       )
     } finally {

@@ -40,8 +40,18 @@ function OverrunWarningAlert({ orderId }: { orderId: string }) {
       <AlertTriangle className="h-4 w-4" />
       <AlertTitle as="h3">Rechnung weicht vom freigegebenen Kostenvoranschlag ab</AlertTitle>
       <AlertDescription>
-        Der Auftragsbetrag liegt bei {formatEstimateMoney(overrun.current_total_gross)} brutto, freigegeben waren{' '}
-        {formatEstimateMoney(overrun.approved_total_gross)}. Der Kunde wurde noch nicht über die Abweichung informiert.
+        {overrun.notified_at ? (
+          <>
+            Der Kunde wurde über {formatEstimateMoney(overrun.notified_amount_gross)} brutto informiert. Der
+            Auftragsbetrag liegt inzwischen bei {formatEstimateMoney(overrun.current_total_gross)} brutto, der Kunde muss
+            erneut informiert werden.{' '}
+          </>
+        ) : (
+          <>
+            Der Auftragsbetrag liegt bei {formatEstimateMoney(overrun.current_total_gross)} brutto, freigegeben waren{' '}
+            {formatEstimateMoney(overrun.approved_total_gross)}. Der Kunde wurde noch nicht über die Abweichung informiert.{' '}
+          </>
+        )}
         Die Rechnung kann trotzdem ausgestellt werden.
       </AlertDescription>
     </Alert>

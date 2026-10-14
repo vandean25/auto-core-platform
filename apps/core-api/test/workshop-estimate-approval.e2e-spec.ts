@@ -218,6 +218,7 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
       where: { entity_type: 'WorkshopEstimateApproval', entity_id: approval.id },
     });
     expect(audit).toMatchObject({ action: 'CREATE', actor_type: 'USER', actor_user_id: adminUserId });
+    expect(audit.after).toMatchObject({ note: validDecision.note, recorded_by_user_id: adminUserId });
     const event = await prisma.notificationOutbox.findFirstOrThrow({
       where: { event_type: 'CUSTOMER_ESTIMATE_DECIDED', source_entity_id: versionId },
     });
@@ -472,6 +473,10 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
       where: { entity_type: 'WorkshopEstimateOverrun', entity_id: row.id, action: 'CREATE' },
     });
     expect(audit).not.toBeNull();
+    const noticeAudit = await prisma.auditLog.findFirst({
+      where: { entity_type: 'WorkshopEstimateOverrun', entity_id: row.id, action: 'UPDATE' },
+    });
+    expect(noticeAudit).not.toBeNull();
   });
 
   it('refuses an overrun notice when the order has no overrun', async () => {

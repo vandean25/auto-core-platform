@@ -92,6 +92,13 @@ describe('reactionOptionsFor', () => {
 })
 
 describe('messageForErrorCode', () => {
+  it('maps the codes of an unsendable version and of a reaction that does not fit the decision', () => {
+    expect(messageForErrorCode(RECORD_DECISION_ERROR_MESSAGES, 'ESTIMATE_REACTION_MISMATCH', 'x')).toContain('Reaktion')
+    expect(messageForErrorCode(RECORD_DECISION_ERROR_MESSAGES, 'ESTIMATE_VERSION_NOT_DECIDABLE', 'x')).toContain(
+      'nicht vollständig gesendet',
+    )
+  })
+
   it('uses the safe German text for a known code and the fallback otherwise', () => {
     expect(messageForErrorCode(RECORD_DECISION_ERROR_MESSAGES, 'ESTIMATE_VERSION_SUPERSEDED', 'x')).toContain(
       'durch eine neuere ersetzt',

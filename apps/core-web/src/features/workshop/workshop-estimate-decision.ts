@@ -106,6 +106,8 @@ export const RECORD_DECISION_ERROR_MESSAGES: Readonly<Record<string, string>> = 
     'Diese Version wurde durch eine neuere ersetzt. Die Bestätigung gehört zur aktuellen Version.',
   ESTIMATE_VERSION_EXPIRED: 'Die Gültigkeit dieses Kostenvoranschlags ist abgelaufen.',
   ESTIMATE_VERSION_ALREADY_DECIDED: 'Zu diesem Kostenvoranschlag liegt bereits eine Entscheidung vor.',
+  ESTIMATE_VERSION_NOT_DECIDABLE: 'Diese Version ist noch nicht vollständig gesendet und kann nicht bestätigt werden.',
+  ESTIMATE_REACTION_MISMATCH: 'Die Reaktion des Kunden passt nicht zur gewählten Entscheidung.',
   ESTIMATE_AMOUNT_MISMATCH: 'Der Betrag stimmt nicht mit dem Gesamtbetrag des Kostenvoranschlags überein.',
   ESTIMATE_DECISION_TIME_INVALID:
     'Der Zeitpunkt der Entscheidung muss nach dem Versand liegen und darf nicht in der Zukunft liegen.',

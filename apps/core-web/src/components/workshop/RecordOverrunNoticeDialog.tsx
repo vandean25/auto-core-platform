@@ -28,7 +28,7 @@ import {
   messageForErrorCode,
   normalizeGrossAmount,
 } from '@/features/workshop/workshop-estimate-decision'
-import { getErrorCode, getErrorMessage } from '@/lib/error-utils'
+import { getErrorCode } from '@/lib/error-utils'
 
 export interface RecordOverrunNoticeDialogProps {
   warning: WorkshopEstimateOverrunWarning | null
@@ -86,7 +86,7 @@ function NoticeForm({
         messageForErrorCode(
           OVERRUN_NOTICE_ERROR_MESSAGES,
           getErrorCode(caught),
-          getErrorMessage(caught, 'Mitteilung an den Kunden konnte nicht erfasst werden.'),
+          'Mitteilung an den Kunden konnte nicht erfasst werden.',
         ),
       )
     } finally {

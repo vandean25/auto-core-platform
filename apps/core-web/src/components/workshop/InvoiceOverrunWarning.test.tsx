@@ -26,6 +26,21 @@ function estimateWithNotice(requiresCustomerNotice: boolean) {
   } as unknown as ReturnType<typeof useWorkshopOrderEstimate>
 }
 
+/** An overrun the customer was told about at an earlier total, and which has moved since. */
+function estimateNoticedAtEarlierTotal() {
+  return {
+    data: {
+      overrun_warning: {
+        current_total_gross: '282.00',
+        approved_total_gross: '192.00',
+        notified_at: '2026-10-13T09:00:00.000Z',
+        notified_amount_gross: '246.00',
+        requires_customer_notice: true,
+      },
+    },
+  } as unknown as ReturnType<typeof useWorkshopOrderEstimate>
+}
+
 describe('InvoiceOverrunWarning', () => {
   beforeEach(() => {
     sessionMock.mockReturnValue(session('SALES'))
@@ -59,6 +74,16 @@ describe('InvoiceOverrunWarning', () => {
 
     expect(screen.queryByTestId('invoice-overrun-warning')).toBeNull()
     expect(estimateMock).not.toHaveBeenCalled()
+  })
+
+  it('says the customer was told an earlier amount when the total has moved since, and never that they were not told', () => {
+    estimateMock.mockReturnValue(estimateNoticedAtEarlierTotal())
+
+    render(<InvoiceOverrunWarning orderId="order-1" canIssueInvoice />)
+
+    expect(screen.getByText(/Der Kunde wurde über/)).toBeInTheDocument()
+    expect(screen.getByText(/muss erneut informiert werden/)).toBeInTheDocument()
+    expect(screen.queryByText(/noch nicht über die Abweichung/)).toBeNull()
   })
 
   it('stays hidden once the customer has been told about the current total', () => {

@@ -76,7 +76,7 @@ function queryPartsShortagesCommand(
   );
 }
 
-async function consumePartsReservationCommand(
+function consumePartsReservationCommand(
   deps: PartsRequisitionServiceDeps,
   reservationId: string,
   dto: ConsumePartsReservationDto,
@@ -84,7 +84,7 @@ async function consumePartsReservationCommand(
   deps.logger.debug(
     `Consuming reservation ${reservationId} quantity ${dto.quantity}`,
   );
-  const result = await runAuthorized(deps, (tx, tenantId, siteId) =>
+  return runAuthorized(deps, (tx, tenantId, siteId) =>
     executeConsumeReservation(
       tx,
       tenantId,
@@ -94,7 +94,6 @@ async function consumePartsReservationCommand(
       deps.ledgerService,
     ),
   );
-  return result;
 }
 
 async function releasePartsReservationCommand(

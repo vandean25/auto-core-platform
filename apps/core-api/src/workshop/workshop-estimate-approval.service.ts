@@ -142,6 +142,8 @@ export class WorkshopEstimateApprovalService {
           amount_quoted_gross: dto.amount_quoted_gross,
           customer_reaction: dto.customer_reaction ?? null,
           content_sha256: version.snapshot_sha256,
+          note: dto.note,
+          recorded_by_user_id: actorUserId,
         },
       },
       tx,

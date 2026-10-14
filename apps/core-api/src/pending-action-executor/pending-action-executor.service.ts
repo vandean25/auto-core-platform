@@ -357,7 +357,31 @@ export class PendingActionExecutorService {
     return this.addLineItem(input, parsed.data.line_item);
   }
 
+  /** A proposed line changes the estimate lines, so an overrun is recorded once it is written (AUT-355). */
   private async addLineItem(
+    input: unknown,
+    validatedLine?: Record<string, unknown>,
+  ): Promise<unknown> {
+    const result = await this.addLineItemWithoutSync(input, validatedLine);
+    const record = this.asRecord(input);
+    const orderId =
+      typeof record.workshop_order_id === 'string'
+        ? record.workshop_order_id
+        : typeof record.order_id === 'string'
+          ? record.order_id
+          : null;
+    if (orderId) {
+      await syncWorkshopEstimateOverrunAfterWrite(
+        this.prisma,
+        this.siteContext,
+        await this.tenantContext.getTenantId(),
+        orderId,
+      );
+    }
+    return result;
+  }
+
+  private async addLineItemWithoutSync(
     input: unknown,
     validatedLine?: Record<string, unknown>,
   ): Promise<unknown> {
@@ -474,13 +498,6 @@ export class PendingActionExecutorService {
       },
       select: { id: true },
     });
-    // The new line changes the estimate lines, so an overrun is recorded now (AUT-355).
-    await syncWorkshopEstimateOverrunAfterWrite(
-      this.prisma,
-      this.siteContext,
-      tenantId,
-      order.id,
-    );
     return { id: created.id, entityId: created.id };
   }
 
