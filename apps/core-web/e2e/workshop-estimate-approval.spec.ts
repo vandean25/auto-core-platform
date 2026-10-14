@@ -174,7 +174,7 @@ test.describe('Workshop order: advisor-recorded approval and overrun notice', ()
     await dialog.getByRole('button', { name: 'Bestätigung speichern' }).click()
 
     await expect(page.getByTestId('estimate-derived-badge')).toContainText('Freigegeben')
-    await expect(page.getByTestId('estimate-approval-1')).toContainText('Vom Berater erfasst: Freigabe per telefon')
+    await expect(page.getByTestId('estimate-approval-1')).toContainText('Vom Berater erfasst: Freigabe telefonisch')
     await expect(page.getByText('Die Freigabe des Kostenvoranschlags (Version 1) wurde vom Berater erfasst (Telefon)')).toBeVisible()
   })
 

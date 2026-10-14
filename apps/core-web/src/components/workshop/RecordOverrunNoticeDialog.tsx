@@ -38,7 +38,7 @@ export interface RecordOverrunNoticeDialogProps {
 
 /**
  * The advisor records that the customer was told about the overrun, how, and how the customer reacted. The amount is
- * the current gross total of the order. The record is written once; a further change goes through a revised estimate.
+ * the current gross total of the order. A changed total can be noticed again, and the latest notice replaces the earlier one.
  */
 export function RecordOverrunNoticeDialog({ warning, onSubmit, onClose }: RecordOverrunNoticeDialogProps) {
   return (

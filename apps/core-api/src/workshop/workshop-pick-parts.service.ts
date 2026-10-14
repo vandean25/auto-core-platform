@@ -1,4 +1,3 @@
-import { syncWorkshopEstimateOverrunAfterWrite } from './workshop-estimate-overrun-sync.js';
 import {
   ConflictException,
   Inject,
@@ -204,21 +203,6 @@ export class WorkshopPickPartsService {
   }
 
   async pickParts(orderId: string, dto: PickWorkshopPartsDto) {
-    const result = await this.pickPartsWithoutSync(orderId, dto);
-    // Picked parts change the estimate lines, so an overrun is recorded now (AUT-355).
-    await syncWorkshopEstimateOverrunAfterWrite(
-      this.prisma,
-      this.siteContext,
-      await this.tenantContext.getTenantId(),
-      orderId,
-    );
-    return result;
-  }
-
-  private async pickPartsWithoutSync(
-    orderId: string,
-    dto: PickWorkshopPartsDto,
-  ) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
 

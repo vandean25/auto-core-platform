@@ -61,9 +61,10 @@ describe('describeApproval', () => {
   })
 
   it('names the advisor and the channel for an advisor-recorded decision', () => {
-    expect(describeApproval(approval({ channel: 'PHONE' }))).toBe('Vom Berater erfasst: Freigabe per telefon')
+    expect(describeApproval(approval({ channel: 'PHONE' }))).toBe('Vom Berater erfasst: Freigabe telefonisch')
+    expect(describeApproval(approval({ channel: 'EMAIL' }))).toBe('Vom Berater erfasst: Freigabe per E-Mail')
     expect(describeApproval(approval({ channel: 'IN_PERSON', decision: 'DECLINED' }))).toBe(
-      'Vom Berater erfasst: Ablehnung per persönlich',
+      'Vom Berater erfasst: Ablehnung persönlich',
     )
   })
 })

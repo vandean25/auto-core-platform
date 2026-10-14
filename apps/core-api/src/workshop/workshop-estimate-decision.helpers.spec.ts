@@ -86,6 +86,16 @@ describe('assertAmountQuoted', () => {
 });
 
 describe('resolveAdvisorDecidedAt', () => {
+  it('reads an explicit null as no time given, so the decision is recorded now', () => {
+    expect(
+      resolveAdvisorDecidedAt(
+        null,
+        new Date('2026-10-14T09:00:00.000Z'),
+        NOW,
+      ),
+    ).toEqual(NOW);
+  });
+
   it('defaults to now when the advisor gives no time', () => {
     expect(resolveAdvisorDecidedAt(undefined, SENT_AT, NOW)).toBe(NOW);
   });

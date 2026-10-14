@@ -114,11 +114,11 @@ export function assertAmountQuoted(
 
 /** The customer's decision time: now by default, or a time from the call, between sending and now. */
 export function resolveAdvisorDecidedAt(
-  value: string | undefined,
+  value: string | null | undefined,
   sentAt: Date | null,
   now: Date,
 ): Date {
-  if (value === undefined) {
+  if (value === undefined || value === null) {
     return now;
   }
   const decidedAt = new Date(value);

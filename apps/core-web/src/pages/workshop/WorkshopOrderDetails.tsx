@@ -509,8 +509,11 @@ export function WorkshopOrderDetails() {
           </motion.div>
         </div>
 
-        <InvoiceOverrunWarning orderId={order.id} canIssueInvoice={checkout.canIssueInvoiceInCheckout} />
-        <CheckoutFooter {...checkout.footerProps} isLocked={isLocked} />
+        <CheckoutFooter
+          {...checkout.footerProps}
+          isLocked={isLocked}
+          invoiceWarning={<InvoiceOverrunWarning orderId={order.id} canIssueInvoice={checkout.canIssueInvoiceInCheckout} />}
+        />
       </motion.div>
 
       {fitmentSearchTaskId && (

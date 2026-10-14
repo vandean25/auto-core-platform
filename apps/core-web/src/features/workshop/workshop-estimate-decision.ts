@@ -62,12 +62,11 @@ export function estimateBadgeLabel(status: WorkshopEstimateStatus): string {
   return ESTIMATE_BADGE_LABEL[status]
 }
 
-const CHANNEL_LABEL: Record<string, string> = {
-  LINK: 'Kundenlink',
-  PHONE: 'Telefon',
-  IN_PERSON: 'Persönlich',
-  EMAIL: 'E-Mail',
-  ADVISOR_RECORDED: 'Berater',
+/** How the advisor took an advisor-recorded decision, as German words that follow "Freigabe" or "Ablehnung". */
+const ADVISOR_CHANNEL_PHRASE: Partial<Record<string, string>> = {
+  PHONE: 'telefonisch',
+  IN_PERSON: 'persönlich',
+  EMAIL: 'per E-Mail',
 }
 
 /**
@@ -79,10 +78,9 @@ export function describeApproval(approval: EstimateApprovalSummary): string {
   if (approval.channel === 'LINK') {
     return approved ? 'Elektronisch bestätigt über den Kundenlink' : 'Über den Kundenlink abgelehnt'
   }
-  const channel = CHANNEL_LABEL[approval.channel] ?? approval.channel
-  return approved
-    ? `Vom Berater erfasst: Freigabe per ${channel.toLowerCase()}`
-    : `Vom Berater erfasst: Ablehnung per ${channel.toLowerCase()}`
+  const outcome = approved ? 'Freigabe' : 'Ablehnung'
+  const via = ADVISOR_CHANNEL_PHRASE[approval.channel] ?? ''
+  return `Vom Berater erfasst: ${outcome}${via ? ` ${via}` : ''}`
 }
 
 /** Normalises what the advisor typed into a gross amount with two decimals, or returns null when it is not one. */

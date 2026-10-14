@@ -190,7 +190,8 @@ Update `docs/deletion-policy.md` in implementation: estimate versions, approvals
 - The decision writes the evidence row, the audit row (`CREATE`) and the domain event (`CUSTOMER_ESTIMATE_DECIDED`, internal
   in-app, accepted at write time). Nothing is sent. The order gets no new status. The order's estimate badge is derived.
 - Overrun: the first detection is recorded when a write changes the estimate lines of the order (task line items, catalog
-  lines, picked parts, part requests, requisition consume and release). Its audit row is written as the system. Every read
+  lines, part requests, and the agent's proposed lines). Consume, release and pick only lower a quantity or change a
+  status, so they never trigger a detection. Its audit row is written as the system. Every read
   still detects the overrun as a backstop, so the detection time is whichever comes first. A new approved version starts a
   new baseline.
 - The customer notice must equal the order's current gross total (422 `OVERRUN_AMOUNT_MISMATCH`). The same total cannot be

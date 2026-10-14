@@ -28,7 +28,8 @@ import {
 
 /**
  * The advisor's notice to the customer about an overrun (AUT-355, ADR-0025 §1). The notice is written against the
- * approved baseline the warning was measured from, and only once. It is an advisor record, not a message: nothing is
+ * approved baseline the warning was measured from. A later notice replaces the earlier one when the total has moved. It is
+ * an advisor record, not a message: nothing is
  * sent from here.
  */
 @Injectable()

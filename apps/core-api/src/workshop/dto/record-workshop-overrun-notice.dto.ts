@@ -8,7 +8,7 @@ import {
   WORKSHOP_CUSTOMER_REACTIONS,
 } from './record-workshop-estimate-decision.dto.js';
 
-/** The advisor's notice to the customer about an overrun, recorded once per approved baseline (AUT-355). */
+/** The advisor's latest notice to the customer about an overrun. A later notice replaces it when the total has moved (AUT-355). */
 export class RecordWorkshopOverrunNoticeDto {
   @ApiProperty({
     enum: WORKSHOP_ADVISOR_DECISION_CHANNELS,

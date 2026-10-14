@@ -8,6 +8,7 @@ import {
 import { ImportJobStatus, Prisma, WorkshopLineItemType } from '@prisma/client';
 import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { syncWorkshopEstimateOverrunAfterWrite } from '../workshop/workshop-estimate-overrun-sync.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
@@ -473,6 +474,13 @@ export class PendingActionExecutorService {
       },
       select: { id: true },
     });
+    // The new line changes the estimate lines, so an overrun is recorded now (AUT-355).
+    await syncWorkshopEstimateOverrunAfterWrite(
+      this.prisma,
+      this.siteContext,
+      tenantId,
+      order.id,
+    );
     return { id: created.id, entityId: created.id };
   }
 
