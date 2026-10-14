@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { buildRealtimeSocketOptions } from './realtime-socket-options'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildRealtimeSocketOptions, createHandshakeRetry } from './realtime-socket-options'
 
 type AuthCallback = (data: object) => void
 
@@ -55,12 +55,101 @@ describe('buildRealtimeSocketOptions', () => {
     expect(await readAuthPayload(options.auth)).toEqual({})
   })
 
-  it('sends an empty auth payload when the token refresh fails instead of leaving the handshake pending', async () => {
+  it('sends an empty auth payload when the token refresh fails, so the server rejects the handshake and the retry takes over', async () => {
     const options = buildRealtimeSocketOptions({
       path: '/api/socket.io',
       getIdToken: vi.fn().mockRejectedValue(new Error('network unavailable')),
     })
 
     expect(await readAuthPayload(options.auth)).toEqual({})
+  })
+})
+
+describe('createHandshakeRetry', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function expectReconnectAfter(
+    socket: { connect: () => unknown },
+    retry: ReturnType<typeof createHandshakeRetry>,
+    delayMs: number,
+  ) {
+    const connect = socket.connect as ReturnType<typeof vi.fn>
+    const callsBefore = connect.mock.calls.length
+
+    retry.onConnectError()
+    vi.advanceTimersByTime(delayMs - 1)
+    expect(connect).toHaveBeenCalledTimes(callsBefore)
+
+    vi.advanceTimersByTime(1)
+    expect(connect).toHaveBeenCalledTimes(callsBefore + 1)
+  }
+
+  it('reconnects after a rejected handshake, with delays that double from 1 s and cap at 30 s', () => {
+    const socket = { connect: vi.fn() }
+    // A random value of 0.5 gives zero jitter, so the delays are exact.
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    expectReconnectAfter(socket, retry, 1_000)
+    expectReconnectAfter(socket, retry, 2_000)
+    expectReconnectAfter(socket, retry, 4_000)
+    expectReconnectAfter(socket, retry, 8_000)
+    expectReconnectAfter(socket, retry, 16_000)
+    expectReconnectAfter(socket, retry, 30_000)
+    expectReconnectAfter(socket, retry, 30_000)
+  })
+
+  it('adds up to +50% jitter to each delay and never exceeds the 30 s cap', () => {
+    const socket = { connect: vi.fn() }
+    // A random value of 1 gives the maximum upward jitter, so each base delay
+    // (1, 2, 4, 8, 16, 30 s) grows by half, and the cap then holds at 30 s.
+    const retry = createHandshakeRetry(socket, () => 1)
+
+    expectReconnectAfter(socket, retry, 1_500)
+    expectReconnectAfter(socket, retry, 3_000)
+    expectReconnectAfter(socket, retry, 6_000)
+    expectReconnectAfter(socket, retry, 12_000)
+    expectReconnectAfter(socket, retry, 24_000)
+    expectReconnectAfter(socket, retry, 30_000)
+    expectReconnectAfter(socket, retry, 30_000)
+  })
+
+  it('schedules a single reconnect while one is already pending', () => {
+    const socket = { connect: vi.fn() }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    retry.onConnectError()
+    retry.onConnectError()
+    vi.advanceTimersByTime(1_000)
+
+    expect(socket.connect).toHaveBeenCalledTimes(1)
+  })
+
+  it('restarts from 1 s after a successful connection', () => {
+    const socket = { connect: vi.fn() }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    expectReconnectAfter(socket, retry, 1_000)
+    expectReconnectAfter(socket, retry, 2_000)
+
+    retry.onConnect()
+
+    expectReconnectAfter(socket, retry, 1_000)
+  })
+
+  it('cancels a pending reconnect when disposed', () => {
+    const socket = { connect: vi.fn() }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    retry.onConnectError()
+    retry.dispose()
+    vi.advanceTimersByTime(60_000)
+
+    expect(socket.connect).not.toHaveBeenCalled()
   })
 })

@@ -133,6 +133,7 @@ gcloud secrets add-iam-policy-binding REDIS_URL \
 - `--min-instances 0`
 - `--cpu-throttling` (request-based billing)
 - `--max-instances 5`
+- `--session-affinity`: long-polling sessions stay on one replica. Required with `--max-instances 5`; see "Session affinity for long-polling" in section 1.
 - no `--vpc-connector` / Direct VPC flags
 
 PDF worker deploy stays `--min-instances 0 --max-instances 2` without `REDIS_URL`.
@@ -175,7 +176,7 @@ When `core-api` boots with `REDIS_URL` set:
 
 ### Post-deploy realtime checks
 
-Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. Use the QA host unless noted.
+Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. All checks use the Hosting site `https://auto-core-platform-vande.web.app`, the site named in AUT-432. They are read-only.
 
 1. **Browser.** Sign in and watch the console for 5 minutes. Expect no `WebSocket connection ... failed` messages and no repeated `400` on `/api/socket.io`. The Network tab should show only `transport=polling` requests.
 2. **Cloud Logging.** Filter `jsonPayload.type="ws_engine_connection_error"` over 30 minutes of normal use. Expect no `code: 1` (`Session ID unknown`) entries. Read this with check 3, which is the count of record. If check 3 shows 400s but check 2 has no `ws_engine_connection_error` rows at all, the logging is not wired, so check 2 is not a pass.

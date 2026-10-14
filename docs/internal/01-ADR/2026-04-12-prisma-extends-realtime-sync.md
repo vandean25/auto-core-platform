@@ -18,7 +18,7 @@ tags:
 
 ## Amendment (2026-10-14) — long-polling transport behind Firebase Hosting
 
-The browser socket uses **long-polling only** (`transports: ['polling']`, `upgrade: false`). The runbook records that Firebase Hosting's `/api/**` rewrite does not forward WebSocket upgrades. That was not re-verified against Firebase documentation in AUT-432, but it matches the HTTP 400 handshakes that the earlier WebSocket-first order produced. If the assumption is wrong, polling still works, and WebSocket would have been the more efficient transport. Consequences:
+The browser socket uses **long-polling only** (`transports: ['polling']`, `upgrade: false`). Assumed, unverified: Firebase Hosting's `/api/**` rewrite does not forward WebSocket upgrades. The assumption was not checked against Firebase documentation in AUT-432. It fits the HTTP 400 handshakes that the earlier WebSocket-first order produced. If the assumption is wrong, polling still works, and WebSocket would have been the more efficient transport. Consequences:
 
 - **Sticky sessions are part of the architecture.** `core-api` deploys with `--session-affinity`, and Terraform carries the same setting. The Redis adapter still fans room broadcasts out across replicas, but it does not replace affinity for engine.io sessions.
 - **Concurrency.** Each connected dashboard holds one long-poll request, which occupies one of the 40 concurrency slots on a replica. Capacity planning must count connected clients.
