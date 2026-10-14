@@ -14,10 +14,7 @@ import {
 } from '@prisma/client';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import {
-  hashApprovalToken,
-  isApprovalTokenUsable,
-} from '../workshop-estimate-approval-token.helpers.js';
+import { hashApprovalToken } from '../workshop-estimate-approval-token.helpers.js';
 import type { WorkshopEstimateSnapshot } from '../workshop-estimate-snapshot.js';
 import {
   ESTIMATE_APPROVAL_ERRORS,
@@ -74,6 +71,7 @@ export class PublicEstimateApprovalService {
   ) {}
 
   async read(rawToken: string, now = new Date()): Promise<PublicEstimateView> {
+    this.assertWellFormed(rawToken);
     this.consumeTokenRate(
       rawToken,
       'read',
@@ -100,6 +98,7 @@ export class PublicEstimateApprovalService {
     request: PublicApprovalRequestMeta,
     now = new Date(),
   ): Promise<PublicEstimateDecisionResult> {
+    this.assertWellFormed(rawToken);
     this.consumeTokenRate(
       rawToken,
       'decision',
@@ -222,24 +221,12 @@ export class PublicEstimateApprovalService {
     rawToken: string,
     now: Date,
   ): Promise<ResolvedApproval> {
-    if (!ESTIMATE_APPROVAL_TOKEN_PATTERN.test(rawToken)) {
-      throw this.notFound();
-    }
     const row = await this.lookup.findByTokenHash(hashApprovalToken(rawToken));
     if (!row) {
       throw this.notFound();
     }
     this.tenantContext.setPublicEstimateApprovalTenant(row.tenant_id);
-
-    const tokenUsable = isApprovalTokenUsable(
-      {
-        expires_at: row.expires_at,
-        invalidated_at: row.invalidated_at,
-        consumed_at: row.consumed_at,
-      },
-      now,
-    );
-    if (!tokenUsable) {
+    if (row.consumed_at !== null || row.invalidated_at !== null) {
       throw this.unavailable();
     }
 
@@ -253,12 +240,8 @@ export class PublicEstimateApprovalService {
     if (!version) {
       throw this.notFound();
     }
-    if (
-      version.status === WorkshopEstimateStatus.SUPERSEDED ||
-      version.status === WorkshopEstimateStatus.EXPIRED
-    ) {
-      throw this.unavailable();
-    }
+    // The token expires at the same instant as the version's validity, so a sent version past valid_until is
+    // marked EXPIRED here, before the token's own expiry answers.
     if (
       version.status === WorkshopEstimateStatus.SENT &&
       version.valid_until !== null &&
@@ -274,6 +257,15 @@ export class PublicEstimateApprovalService {
       });
       throw this.unavailable();
     }
+    if (
+      version.status === WorkshopEstimateStatus.SUPERSEDED ||
+      version.status === WorkshopEstimateStatus.EXPIRED
+    ) {
+      throw this.unavailable();
+    }
+    if (row.expires_at.getTime() <= now.getTime()) {
+      throw this.unavailable();
+    }
     if (version.status !== WorkshopEstimateStatus.SENT) {
       throw this.notDecidable();
     }
@@ -283,6 +275,13 @@ export class PublicEstimateApprovalService {
       tenantId: row.tenant_id,
       versionId: row.workshop_estimate_version_id,
     };
+  }
+
+  /** A raw token has a fixed shape. Anything else is not found, and it is not counted against a link. */
+  private assertWellFormed(rawToken: string): void {
+    if (!ESTIMATE_APPROVAL_TOKEN_PATTERN.test(rawToken)) {
+      throw this.notFound();
+    }
   }
 
   private consumeTokenRate(

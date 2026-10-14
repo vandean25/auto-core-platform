@@ -7,7 +7,6 @@ import {
   Param,
   Post,
   Req,
-  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiConflictResponse,
@@ -22,7 +21,6 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator.js';
-import { PublicEstimateApprovalHeadersInterceptor } from './public-estimate-approval.headers.interceptor.js';
 import { ESTIMATE_APPROVAL_IP_THROTTLER } from './public-estimate-approval.constants.js';
 import { PublicEstimateDecisionDto } from './public-estimate-approval.dto.js';
 import {
@@ -52,7 +50,6 @@ function headerValue(value: string | string[] | undefined): string | null {
  * only credential. The route is marked @Public so the session guard skips it, and it is not an API-key route.
  */
 @ApiTags('public-estimate-approvals')
-@UseInterceptors(PublicEstimateApprovalHeadersInterceptor)
 @Controller('public/estimate-approvals')
 export class PublicEstimateApprovalController {
   constructor(private readonly approvals: PublicEstimateApprovalService) {}

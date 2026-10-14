@@ -59,6 +59,11 @@ Three messages render from `apps/core-api/src/notifications/templates/customer-e
 - The token is looked up by the SHA-256 of the raw value through the system client (`workshopEstimateApprovalToken`, allowlisted in `system-prisma-allowlist.md`). After the lookup the request runs as the tenant the row names, and every other query goes through `PrismaService`.
 - The evidence row keeps the snapshot and PDF hashes, the legal text version and hash, the typed name, the two confirmations, the recipient address, the IP, the user agent and the accept-language. Its `confirmation_email_sent_at` and `confirmation_provider_message_id` stay empty: the confirmation mail is not sent in this phase.
 - The approval wording (`Kostenvoranschlag annehmen`) is a draft until the lawyer signs off (ADR-0025 §7). The page never says "digital signiert": it describes an electronic confirmation.
+- Logs and error reports: the access log, the server error reporter and the browser error reporter redact the token segment (`redactRequestPath`, `redactEventPaths`). The browser reporter does not start on `/approve/`.
+- Before go-live, the infrastructure request logs (Cloud Run and the load balancer) must exclude or redact `/api/public/estimate-approvals/` and `/approve/`. Those logs record paths outside the application. This is a condition of the AUT-373 security review.
+- Audit rows for a public decision carry actor `SYSTEM` with the pseudo user `public-estimate-approval`. The customer's decision and its evidence are in `workshop_estimate_approvals`.
+- `trust proxy` is set globally, so the client IP used for the per-IP limit and recorded as evidence can be spoofed through `X-Forwarded-For`. This pre-dates phase 5; a hop-count setting is a follow-up.
+- `pdf_sha256` stays empty when the customer decides before the PDF archive completes. `content_sha256` always covers the decided snapshot.
 
 ## 3. Secrets (GSM names only, no values in the repository)
 

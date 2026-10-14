@@ -11,7 +11,8 @@ export const ESTIMATE_APPROVAL_IP_THROTTLER = 'estimate-approval-ip';
  */
 export const ESTIMATE_APPROVAL_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-const PUBLIC_ESTIMATE_APPROVAL_PATH = /^\/api\/public\/estimate-approvals\//;
+// Express routes paths case-insensitively by default, so the prefix match has to be case-insensitive too.
+const PUBLIC_ESTIMATE_APPROVAL_PATH = /^\/api\/public\/estimate-approvals\//i;
 
 export function isPublicEstimateApprovalRequest(
   request: Pick<Request, 'originalUrl' | 'url'>,

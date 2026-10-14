@@ -62,7 +62,10 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
     const onSubmit = async (data: Partial<Customer>) => {
         try {
             if (isEdit && customer) {
-                await updateMutation.mutateAsync({ id: customer.id, data })
+                // A changed address withdraws the advisor's confirmation (ADR-0025 §8), so the flag is not sent as true.
+                const emailChanged = (data.email ?? '') !== (customer.email ?? '')
+                const payload = emailChanged ? { ...data, contact_email_ok: false } : data
+                await updateMutation.mutateAsync({ id: customer.id, data: payload })
                 toast.success('Customer updated')
             } else {
                 const created = await createMutation.mutateAsync(data)

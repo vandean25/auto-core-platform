@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import * as Sentry from '@sentry/node';
+import { redactEventPaths } from './common/logging/redact-request-path.js';
 
 const dsn = process.env.SENTRY_DSN;
 
@@ -25,7 +26,11 @@ if (dsn) {
           }
         }
       }
-      return event;
+      // The approval link token sits in the path (ADR-0025 §7). Redact it everywhere in the event.
+      return redactEventPaths(event);
+    },
+    beforeSendTransaction(event) {
+      return redactEventPaths(event);
     },
   });
 }

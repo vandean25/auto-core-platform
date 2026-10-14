@@ -437,7 +437,7 @@ describe('WorkshopEstimateCard send dialog', () => {
     )
   })
 
-  it('keeps the dialog open and shows the server message when the send is refused', async () => {
+  it('keeps the dialog open and shows the mapped German text, not the raw server message, when the send is refused', async () => {
     orderCustomer = CUSTOMER
     customerRecord.contact_email_ok = true
     sendMutateAsync.mockRejectedValueOnce(
@@ -446,7 +446,10 @@ describe('WorkshopEstimateCard send dialog', () => {
     const dialog = await openSendDialog()
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
-    expect(await within(dialog).findByText('Kennzeichen fehlt.')).toBeTruthy()
+    expect(
+      await within(dialog).findByText('Die Fahrzeugdaten sind unvollständig. Bitte ergänzen Sie sie vor dem Versand.'),
+    ).toBeTruthy()
+    expect(within(dialog).queryByText('Kennzeichen fehlt.')).toBeNull()
     expect(screen.getByRole('dialog')).toBeTruthy()
   })
 

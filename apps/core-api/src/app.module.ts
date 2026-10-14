@@ -15,6 +15,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { AUTH_THROTTLER_OPTIONS } from './auth/auth-throttling.js';
 import { ESTIMATE_APPROVAL_THROTTLER_OPTIONS } from './workshop/public-estimate-approval/public-estimate-approval.constants.js';
+import { PublicEstimateApprovalHeadersMiddleware } from './workshop/public-estimate-approval/public-estimate-approval.headers.middleware.js';
 import { ApiKeyAuthGuard } from './public-api/api-keys/api-key.guard.js';
 import { PublicApiModule } from './public-api/public-api.module.js';
 
@@ -137,6 +138,8 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantContextMiddleware).forRoutes('{*path}');
+    consumer
+      .apply(TenantContextMiddleware, PublicEstimateApprovalHeadersMiddleware)
+      .forRoutes('{*path}');
   }
 }

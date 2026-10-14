@@ -9,7 +9,6 @@ import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
 import { OPENHOLIDAYS_FETCH } from './openholidays.client.js';
 import { PublicEstimateApprovalController } from './public-estimate-approval/public-estimate-approval.controller.js';
-import { PublicEstimateApprovalHeadersInterceptor } from './public-estimate-approval/public-estimate-approval.headers.interceptor.js';
 import { PublicEstimateApprovalLookup } from './public-estimate-approval/public-estimate-approval.lookup.js';
 import { PublicEstimateApprovalRateLimiter } from './public-estimate-approval/public-estimate-approval.rate-limit.js';
 import { PublicEstimateApprovalService } from './public-estimate-approval/public-estimate-approval.service.js';
@@ -64,7 +63,6 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     PublicEstimateApprovalService,
     PublicEstimateApprovalLookup,
     PublicEstimateApprovalRateLimiter,
-    PublicEstimateApprovalHeadersInterceptor,
     WorkshopEstimateService,
     WorkshopEstimatePdfService,
     WorkshopEstimatePdfRenderer,

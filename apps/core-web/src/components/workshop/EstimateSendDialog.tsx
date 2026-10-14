@@ -15,7 +15,7 @@ import { useCustomer, useUpdateCustomer } from '@/api/customers'
 import type { components } from '@/api/generated/openapi'
 import type { WorkshopEstimateVersionSummary } from '@/api/workshop-estimates'
 import type { Customer } from '@/api/types'
-import { getErrorBody, getErrorMessage } from '@/lib/error-utils'
+import { getErrorBody } from '@/lib/error-utils'
 
 export type EstimateSendCustomer = components['schemas']['WorkshopCustomerSummaryDto']
 
@@ -36,9 +36,8 @@ const SEND_ERROR_MESSAGES: Record<string, string> = {
 
 export function describeSendError(error: unknown): string {
   const body = getErrorBody(error)
-  if (typeof body?.message === 'string' && body.message.trim()) return body.message
   const mapped = body?.code ? SEND_ERROR_MESSAGES[body.code] : undefined
-  return mapped ?? getErrorMessage(error, 'Kostenvoranschlag konnte nicht gesendet werden.')
+  return mapped ?? 'Kostenvoranschlag konnte nicht gesendet werden.'
 }
 
 interface EstimateSendDialogProps {

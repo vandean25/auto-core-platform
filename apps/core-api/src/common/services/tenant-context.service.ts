@@ -1,7 +1,10 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.js';
-import { TenantContextStorage } from './tenant-context.storage.js';
+import {
+  PUBLIC_ESTIMATE_APPROVAL_ROLE,
+  TenantContextStorage,
+} from './tenant-context.storage.js';
 
 @Injectable()
 export class TenantContextService {
@@ -18,7 +21,7 @@ export class TenantContextService {
       userId: 'public-estimate-approval',
       email: '',
       tenantId,
-      role: 'PUBLIC_ESTIMATE_APPROVAL',
+      role: PUBLIC_ESTIMATE_APPROVAL_ROLE,
     });
   }
 

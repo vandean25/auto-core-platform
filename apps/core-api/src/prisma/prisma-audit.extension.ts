@@ -6,6 +6,7 @@ import {
 } from '../audit/audit-diff.util.js';
 import { redactAuditSecrets } from '../audit/audit-redaction.util.js';
 import {
+  PUBLIC_ESTIMATE_APPROVAL_ROLE,
   TenantContextStorage,
   type RequestMeta,
 } from '../common/services/tenant-context.storage.js';
@@ -160,7 +161,11 @@ function resolveActorType(
   user?: AuthenticatedUser,
   requestMeta?: RequestMeta,
 ): 'USER' | 'SYSTEM' | 'MIGRATION' {
-  if (requestMeta?.source === 'JOB' || user?.role === 'worker') {
+  if (
+    requestMeta?.source === 'JOB' ||
+    user?.role === 'worker' ||
+    user?.role === PUBLIC_ESTIMATE_APPROVAL_ROLE
+  ) {
     return 'SYSTEM';
   }
   if (requestMeta?.source === 'SCRIPT') {

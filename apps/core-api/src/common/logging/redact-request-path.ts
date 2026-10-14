@@ -1,0 +1,41 @@
+/**
+ * The approval link token is a credential that sits in the URL path (ADR-0025 §7). Anything that logs or reports a
+ * request path passes it through here, so the token never reaches application logs or error reports.
+ */
+// Case-insensitive, because Express routes the prefix in any letter case.
+const APPROVAL_TOKEN_SEGMENT =
+  /(\/api\/public\/estimate-approvals\/)[^/?#\s"]+/gi;
+
+const MAX_SCRUB_DEPTH = 12;
+
+export function redactRequestPath(path: string): string {
+  return path.replace(APPROVAL_TOKEN_SEGMENT, '$1:token');
+}
+
+/**
+ * Redacts every string inside a Sentry event (request URL, transaction name, breadcrumbs, and so on). Bounded
+ * depth, so a cyclic object cannot loop.
+ */
+export function redactEventPaths<T>(value: T): T {
+  return scrubValue(value, 0) as T;
+}
+
+function scrubValue(value: unknown, depth: number): unknown {
+  if (depth > MAX_SCRUB_DEPTH) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return redactRequestPath(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item: unknown) => scrubValue(item, depth + 1));
+  }
+  if (value !== null && typeof value === 'object') {
+    const scrubbed: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      scrubbed[key] = scrubValue(item, depth + 1);
+    }
+    return scrubbed;
+  }
+  return value;
+}

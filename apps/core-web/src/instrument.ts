@@ -5,7 +5,10 @@ import { createSentryOptions } from '@/sentry/config'
 
 const baseOptions = createSentryOptions(import.meta.env)
 
-if (baseOptions.dsn) {
+// The approval page carries its token in the URL. It sends no replay, breadcrumbs or traces (ADR-0025 §7).
+const isPublicApprovalPage = window.location.pathname.startsWith('/approve/')
+
+if (baseOptions.dsn && !isPublicApprovalPage) {
   Sentry.init({
     ...baseOptions,
     integrations: [

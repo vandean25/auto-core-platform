@@ -43,6 +43,15 @@ describe('public estimate approval throttling and token shape', () => {
     ).toBe(false);
   });
 
+  it('matches the route in any letter case, because Express routes it that way', () => {
+    expect(
+      isPublicEstimateApprovalRequest({
+        originalUrl: '/API/Public/ESTIMATE-approvals/token',
+        url: '/API/Public/ESTIMATE-approvals/token',
+      }),
+    ).toBe(true);
+  });
+
   it('accepts only 43 base64url characters as a raw token', () => {
     const valid = 'A'.repeat(42) + '-';
 

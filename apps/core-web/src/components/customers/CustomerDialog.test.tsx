@@ -150,4 +150,47 @@ describe('CustomerDialog email contact confirmation', () => {
     await waitFor(() => expect(updateCustomer).toHaveBeenCalled())
     expect(updateCustomer.mock.calls[0][0]).toMatchObject({ id: 'cust-1', data: { contact_email_ok: false } })
   })
+
+  it('withdraws the confirmation when the address changes, even with the box ticked', async () => {
+    const updateCustomer = vi.fn().mockResolvedValue({ id: 'cust-1' })
+    vi.mocked(customersApi.useCreateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useCreateCustomer>)
+    vi.mocked(customersApi.useUpdateCustomer).mockReturnValue({
+      mutateAsync: updateCustomer,
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useUpdateCustomer>)
+
+    render(
+      <MemoryRouter>
+        <CustomerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          customer={
+            {
+              id: 'cust-1',
+              type: 'PRIVATE',
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+              email: 'ada@example.test',
+              contact_email_ok: true,
+            } as never
+          }
+        />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByDisplayValue('ada@example.test'), {
+      target: { value: 'ada@new.example.test' },
+    })
+    expect(screen.getByRole('checkbox', { name: CHECKBOX_LABEL }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => expect(updateCustomer).toHaveBeenCalled())
+    expect(updateCustomer.mock.calls[0][0]).toMatchObject({
+      id: 'cust-1',
+      data: { email: 'ada@new.example.test', contact_email_ok: false },
+    })
+  })
 })
