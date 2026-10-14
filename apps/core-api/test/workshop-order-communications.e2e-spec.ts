@@ -329,6 +329,12 @@ describe('Workshop order communications (e2e)', () => {
       })
       .expect(201);
 
+    // The order is there for its own tenant, so the 404 below is about the tenant and not a broken fixture.
+    await api()
+      .get(`/api/workshop/orders/${foreign.body.id as string}/communications`)
+      .set({ Authorization: `Bearer ${otherToken}` })
+      .expect(200);
+
     await api()
       .get(`/api/workshop/orders/${foreign.body.id as string}/communications`)
       .set(adminAuth())

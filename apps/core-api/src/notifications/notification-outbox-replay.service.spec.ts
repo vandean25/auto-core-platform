@@ -112,6 +112,19 @@ describe('NotificationOutboxReplayService', () => {
       ).toBeLessThan(wakeUps.enqueueWakeUp.mock.invocationCallOrder[0]);
     });
 
+    it('replays a row created exactly at the sending window edge, which the worker still claims', async () => {
+      prisma.notificationOutbox.findFirst.mockResolvedValue(
+        failedEmailRow({
+          createdAt: new Date(NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS),
+        }),
+      );
+
+      await expect(service.replay([ROW_ID], NOW)).resolves.toEqual({
+        replayed: [ROW_ID],
+        refused: [],
+      });
+    });
+
     it('replays an in-app row, which has no body hash to check', async () => {
       prisma.notificationOutbox.findFirst.mockResolvedValue(
         failedEmailRow({ channel: 'IN_APP', body_sha256: null }),
@@ -152,7 +165,19 @@ describe('NotificationOutboxReplayService', () => {
         'waited longer than the sending window, so the next sweep would fail it again',
         failedEmailRow({
           createdAt: new Date(
-            NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - 1000,
+            NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - 1,
+          ),
+        }),
+        'STALE_UNSENT',
+      ],
+      [
+        'was swept as stale, so its body and hash are gone',
+        failedEmailRow({
+          body: null,
+          body_sha256: null,
+          last_error_code: 'STALE_UNSENT',
+          createdAt: new Date(
+            NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - 1,
           ),
         }),
         'STALE_UNSENT',

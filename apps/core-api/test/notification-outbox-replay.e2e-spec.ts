@@ -113,9 +113,12 @@ describe('Notification outbox replay (e2e)', () => {
         body: 'Guten Tag, Ihr Link: [Link entfernt]',
       }),
     });
-    // Older than the sending window: the next sweep would fail it again and clear its body.
+    // Older than the sending window, left the way the recovery sweep leaves it: body and hash cleared.
     const stale = await prisma.notificationOutbox.create({
       data: failedRow({
+        body: null,
+        body_sha256: null,
+        last_error_code: 'STALE_UNSENT',
         createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
       }),
     });
