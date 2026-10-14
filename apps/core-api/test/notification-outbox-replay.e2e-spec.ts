@@ -5,6 +5,7 @@ import type { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
+import { NotificationOutboxRecoveryService } from '../src/notifications/notification-outbox-recovery.service.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
@@ -113,15 +114,17 @@ describe('Notification outbox replay (e2e)', () => {
         body: 'Guten Tag, Ihr Link: [Link entfernt]',
       }),
     });
-    // Older than the sending window, left the way the recovery sweep leaves it: body and hash cleared.
+    // A PENDING notice older than the sending window, failed the way production fails it: by the recovery sweep.
     const stale = await prisma.notificationOutbox.create({
       data: failedRow({
-        body: null,
-        body_sha256: null,
-        last_error_code: 'STALE_UNSENT',
+        status: 'PENDING',
+        attempts: 0,
+        failed_at: null,
+        last_error_code: null,
         createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
       }),
     });
+    await app.get(NotificationOutboxRecoveryService).recover();
     const unknown = randomUUID();
 
     const response = await api()

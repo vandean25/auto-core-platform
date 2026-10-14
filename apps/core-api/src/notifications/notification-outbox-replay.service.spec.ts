@@ -7,6 +7,7 @@ describe('NotificationOutboxReplayService', () => {
   const ROW_ID = '5d0c1a1e-3b7e-4f8a-9c2d-1e2f3a4b5c6d';
   const OTHER_ID = '9a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d';
   const NOW = new Date('2026-10-14T09:00:00.000Z');
+  const DAY_MS = 24 * 60 * 60 * 1000;
 
   let prisma: {
     notificationOutbox: { findFirst: jest.Mock; updateMany: jest.Mock };
@@ -139,59 +140,84 @@ describe('NotificationOutboxReplayService', () => {
 
   describe('a row it refuses', () => {
     it.each([
-      ['is not in this tenant', null, 'NOT_FOUND'],
-      ['is not FAILED', failedEmailRow({ status: 'ACCEPTED' }), 'NOT_FAILED'],
-      [
-        'was suppressed by policy, which replay does not overrule',
-        failedEmailRow({ status: 'SUPPRESSED' }),
-        'NOT_FAILED',
-      ],
-      [
-        'has had its body purged',
-        failedEmailRow({ body_purged_at: new Date('2026-08-01T00:00:00Z') }),
-        'BODY_PURGED',
-      ],
-      [
-        'is an email with no stored body hash',
-        failedEmailRow({ body_sha256: null }),
-        'BODY_MISSING',
-      ],
-      [
-        'is an email whose body was cleared',
-        failedEmailRow({ body: null }),
-        'BODY_MISSING',
-      ],
-      [
-        'waited longer than the sending window, so the next sweep would fail it again',
-        failedEmailRow({
+      { label: 'is not in this tenant', row: null, code: 'NOT_FOUND' },
+      {
+        label: 'is not FAILED',
+        row: failedEmailRow({ status: 'ACCEPTED' }),
+        code: 'NOT_FAILED',
+      },
+      {
+        label: 'is not FAILED, and is older than the sending window',
+        row: failedEmailRow({
+          status: 'ACCEPTED',
+          createdAt: new Date(
+            NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - DAY_MS,
+          ),
+        }),
+        code: 'NOT_FAILED',
+      },
+      {
+        label: 'was suppressed by policy, which replay does not overrule',
+        row: failedEmailRow({ status: 'SUPPRESSED' }),
+        code: 'NOT_FAILED',
+      },
+      {
+        label: 'has had its body purged',
+        row: failedEmailRow({
+          body_purged_at: new Date('2026-08-01T00:00:00Z'),
+        }),
+        code: 'BODY_PURGED',
+      },
+      {
+        label: 'has had its body purged, and is older than the sending window',
+        row: failedEmailRow({
+          body: null,
+          body_purged_at: new Date('2026-07-01T00:00:00Z'),
+          createdAt: new Date(NOW.getTime() - 100 * DAY_MS),
+        }),
+        code: 'BODY_PURGED',
+      },
+      {
+        label: 'is an email with no stored body hash',
+        row: failedEmailRow({ body_sha256: null }),
+        code: 'BODY_MISSING',
+      },
+      {
+        label: 'is an email whose body was cleared',
+        row: failedEmailRow({ body: null }),
+        code: 'BODY_MISSING',
+      },
+      {
+        label:
+          'waited longer than the sending window, so the next sweep would fail it again',
+        row: failedEmailRow({
           createdAt: new Date(
             NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - 1,
           ),
         }),
-        'STALE_UNSENT',
-      ],
-      [
-        'was swept as stale, so its body and hash are gone',
-        failedEmailRow({
+        code: 'STALE_UNSENT',
+      },
+      {
+        label: 'was swept as stale, so its body is gone',
+        row: failedEmailRow({
           body: null,
-          body_sha256: null,
           last_error_code: 'STALE_UNSENT',
           createdAt: new Date(
             NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - 1,
           ),
         }),
-        'STALE_UNSENT',
-      ],
-      [
-        'is an email whose approval link was removed when it failed',
-        failedEmailRow({
+        code: 'STALE_UNSENT',
+      },
+      {
+        label: 'is an email whose approval link was removed when it failed',
+        row: failedEmailRow({
           body: `Guten Tag, Ihr Link: ${REDACTED_APPROVAL_LINK}`,
         }),
-        'LINK_REDACTED',
-      ],
+        code: 'LINK_REDACTED',
+      },
     ])(
-      'refuses a row that %s, with %s, and sends nothing',
-      async (_label, row, code) => {
+      'refuses a row that $label, with $code, and sends nothing',
+      async ({ row, code }) => {
         prisma.notificationOutbox.findFirst.mockResolvedValue(row);
 
         await expect(service.replay([ROW_ID], NOW)).resolves.toEqual({
