@@ -379,7 +379,7 @@ describe('Workshop estimates (e2e)', () => {
       .spyOn(app.get(NotificationCloudTasksService), 'enqueueWakeUp')
       .mockImplementation(async ({ outboxId }) => {
         rowVisibleAtWakeUp =
-          (await prisma.notificationOutbox.findUnique({
+          (await prisma.notificationOutbox.findFirst({
             where: { id: outboxId },
           })) !== null;
       });
