@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import type { Prisma } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
@@ -29,7 +30,7 @@ const APPROVE = {
 };
 
 /**
- * AUT-356 phase 6: the communication timeline of an order (ADR-0025 §8). The estimate email and the customer's decision
+ * AUT-356 phase 6: the communication timeline of an order (runbook §2d). The estimate email and the customer's decision
  * are listed newest first. The worker never runs in this suite, so the queued email stays PENDING and reads as QUEUED.
  */
 describe('Workshop order communications (e2e)', () => {
@@ -256,6 +257,52 @@ describe('Workshop order communications (e2e)', () => {
     expect(text).not.toContain(customerEmail);
     expect(text).not.toContain('Anna Beispiel');
     expect(text).not.toContain(rawToken);
+  });
+
+  it('leaves out the internal notices of the order, and any row that differs from an estimate email in one field', async () => {
+    const { orderId } = await estimateSentByEmail();
+    const estimateEmail = await prisma.notificationOutbox.findFirstOrThrow({
+      where: { workshop_order_id: orderId },
+      select: { id: true },
+    });
+    // Each row matches the timeline's filter in every field but one, so dropping that one filter would list the row.
+    const addRow = (
+      overrides: Partial<Prisma.NotificationOutboxUncheckedCreateInput>,
+    ) =>
+      prisma.notificationOutbox.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          idempotency_key: randomUUID(),
+          event_type: 'CUSTOMER_ESTIMATE_SENT',
+          channel: 'EMAIL',
+          recipient_kind: 'CUSTOMER',
+          source_entity_type: 'WorkshopEstimateVersion',
+          source_entity_id: randomUUID(),
+          ...overrides,
+        },
+      });
+    // The advisor's internal notice for a task that waits for the customer: in-app, and never sent to the customer.
+    await addRow({
+      event_type: 'WORKSHOP_TASK_WAITING_CUSTOMER',
+      channel: 'IN_APP',
+      recipient_kind: 'INTERNAL_TEAM',
+      source_entity_type: 'WorkshopTask',
+    });
+    await addRow({ event_type: 'WORKSHOP_TASK_WAITING_CUSTOMER' });
+    await addRow({ channel: 'IN_APP' });
+    await addRow({ recipient_kind: 'INTERNAL_TEAM' });
+    await addRow({ source_entity_type: 'WorkshopTask' });
+
+    const response = await timeline(orderId);
+
+    expect(response.body.data).toEqual([
+      expect.objectContaining({
+        id: estimateEmail.id,
+        kind: 'ESTIMATE_EMAIL',
+        version: 1,
+      }),
+    ]);
   });
 
   it('answers an order with no estimate yet with an empty timeline', async () => {

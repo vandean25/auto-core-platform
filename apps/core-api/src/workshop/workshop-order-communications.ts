@@ -52,7 +52,7 @@ interface TimedEntry {
 }
 
 /**
- * The customer side of one order as a single list (ADR-0025 §8): the estimate emails and the decisions taken on them,
+ * The customer side of one order as a single list (runbook §2d): the estimate emails and the decisions taken on them,
  * newest first. Each entry is built from the fields listed here only, so no address, body, subject or typed name
  * leaves the server through this list.
  */

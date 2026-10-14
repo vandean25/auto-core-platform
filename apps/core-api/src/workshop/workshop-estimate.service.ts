@@ -247,7 +247,7 @@ export class WorkshopEstimateService {
   }
 
   /**
-   * The customer side of the order, newest first: the estimate emails and the decisions taken on them (ADR-0025 §8).
+   * The customer side of the order, newest first: the estimate emails and the decisions taken on them (runbook §2d).
    * Read only, under the same role and site scope as the estimate list.
    */
   async listCommunicationsForOrder(

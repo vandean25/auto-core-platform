@@ -7,7 +7,7 @@ import {
 import { NotificationOutboxReplayService } from './notification-outbox-replay.service.js';
 
 /**
- * Admin replay of dead-lettered notifications (ADR-0025 §6). Not public: the session guard authenticates the
+ * Admin replay of dead-lettered notifications (runbook §5a). Not public: the session guard authenticates the
  * caller, and the service admits only an owner or an admin.
  */
 @ApiTags('notifications')

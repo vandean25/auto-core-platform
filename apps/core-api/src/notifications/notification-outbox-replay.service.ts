@@ -20,7 +20,7 @@ export const NOTIFICATION_REPLAY_ROLES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Admin replay of dead-lettered notifications (ADR-0025 §6; spec route `POST /api/notifications/outbox/replay`).
+ * Admin replay of dead-lettered notifications (runbook §5a; route `POST /api/notifications/outbox/replay`).
  *
  * Only FAILED rows whose body is still stored go back to PENDING, with a fresh attempt budget. Each row is one
  * guarded `updateMany` on its id, tenant and FAILED status, so a row that another request already moved is refused
@@ -88,7 +88,7 @@ export class NotificationOutboxReplayService {
       return { refusal: 'BODY_PURGED' };
     }
     // The sweep fails a PENDING row this old as STALE_UNSENT and clears its body, so a replay would only wipe the
-    // row's last error. The worker claims rows inside the same window (ADR-0025 §6).
+    // row's last error. The worker claims rows inside the same window (runbook §5a).
     if (
       row.createdAt < new Date(now.getTime() - NOTIFICATION_UNSENT_WINDOW_MS)
     ) {

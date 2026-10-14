@@ -26,7 +26,10 @@ export type NotificationReplayRefusalCode =
 export class NotificationOutboxReplayRequestDto {
   @ApiProperty({
     type: [String],
+    format: 'uuid',
+    minItems: 1,
     maxItems: NOTIFICATION_REPLAY_MAX_IDS,
+    uniqueItems: true,
     description: 'Outbox row ids in FAILED status to send again.',
   })
   @IsArray()

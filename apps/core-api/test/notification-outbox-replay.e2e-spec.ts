@@ -17,7 +17,7 @@ import {
 import { teardownTestApp } from './test-lifecycle.js';
 
 /**
- * AUT-356 phase 6: the admin replay of dead letters (ADR-0025 §6). A replay only moves FAILED rows back to PENDING
+ * AUT-356 phase 6: the admin replay of dead letters (runbook §5a). A replay only moves FAILED rows back to PENDING
  * with a fresh attempt budget. The worker still does the send, and the Cloud Tasks queue is not configured here, so
  * each replayed row keeps its wake-up failure in the log and stays PENDING for the recovery sweep.
  */

@@ -23686,11 +23686,14 @@
         "type": "object",
         "properties": {
           "ids": {
+            "minItems": 1,
             "maxItems": 50,
+            "uniqueItems": true,
             "description": "Outbox row ids in FAILED status to send again.",
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid"
             }
           }
         },
