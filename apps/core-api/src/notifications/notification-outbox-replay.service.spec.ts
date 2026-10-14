@@ -172,7 +172,7 @@ describe('NotificationOutboxReplayService', () => {
         label: 'has had its body purged, and is older than the sending window',
         row: failedEmailRow({
           body: null,
-          body_purged_at: new Date('2026-07-01T00:00:00Z'),
+          body_purged_at: new Date(NOW.getTime() - 5 * DAY_MS),
           createdAt: new Date(NOW.getTime() - 100 * DAY_MS),
         }),
         code: 'BODY_PURGED',
