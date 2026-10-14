@@ -1,12 +1,8 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
-  UnprocessableEntityException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
-import type { UserRecord } from 'firebase-admin/auth';
 import { getFirebaseAdminAuth } from '../auth/firebase-admin.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { setActiveTenant } from '../common/services/user-active-tenant.js';
@@ -17,10 +13,33 @@ import {
   ListTenantMembersQueryDto,
   UpdateTenantMemberDto,
 } from './dto/tenant-member.dto.js';
+import {
+  buildTenantClaims,
+  isActiveTenantOutOfSync,
+  resolveActiveMembership,
+} from './tenant-member.claims.js';
+import { resolveFirebaseUser } from './tenant-member.firebase.js';
+import {
+  findInviteUser,
+  linkInviteUser,
+  normalizeEmail,
+} from './tenant-member.invite.js';
+import { mapTenantMember } from './tenant-member.mapper.js';
+import {
+  buildTenantMemberListMeta,
+  buildTenantMemberWhere,
+  resolveTenantMemberPagination,
+} from './tenant-member.queries.js';
+import {
+  buildMembershipUpdateData,
+  isSecuritySensitiveChange,
+} from './tenant-member.update.js';
 
-type TenantMemberListRecord = Prisma.TenantMemberGetPayload<{
-  include: { user: true };
-}>;
+interface MembershipChange {
+  securitySensitive: boolean;
+  deactivated: boolean;
+  wasActiveTenant: boolean;
+}
 
 @Injectable()
 export class TenantMemberService {
@@ -34,10 +53,8 @@ export class TenantMemberService {
     this.assertTenantAdminAccess();
 
     const tenantId = this.tenantContext.getRequiredTenantId();
-    const page = Math.max(1, query.page ?? 1);
-    const limit = Math.min(100, Math.max(1, query.limit ?? 25));
-    const skip = (page - 1) * limit;
-    const where = this.buildTenantMemberWhere(tenantId, query);
+    const { page, limit, skip } = resolveTenantMemberPagination(query);
+    const where = buildTenantMemberWhere(tenantId, query);
 
     const [memberships, total] = await Promise.all([
       this.systemPrisma.tenantMember.findMany({
@@ -51,13 +68,8 @@ export class TenantMemberService {
     ]);
 
     return {
-      data: memberships.map((membership) => this.mapTenantMember(membership)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
-      },
+      data: memberships.map((membership) => mapTenantMember(membership)),
+      meta: buildTenantMemberListMeta(total, page, limit),
     };
   }
 
@@ -65,64 +77,24 @@ export class TenantMemberService {
     this.assertTenantAdminAccess();
 
     const tenantId = this.tenantContext.getRequiredTenantId();
-    const normalizedEmail = dto.email.trim().toLowerCase();
-    const firebaseUser = await this.resolveFirebaseUser(normalizedEmail);
-    const resolvedEmail = (firebaseUser.email ?? normalizedEmail)
-      .trim()
-      .toLowerCase();
+    const normalizedEmail = normalizeEmail(dto.email);
+    const firebaseUser = await resolveFirebaseUser(
+      this.getFirebaseAuth(),
+      normalizedEmail,
+    );
+    const resolvedEmail = normalizeEmail(firebaseUser.email ?? normalizedEmail);
 
-    let existingUser = await this.systemPrisma.user.findFirst({
-      where: { firebaseUid: firebaseUser.uid },
+    const existingUser = await findInviteUser(
+      this.systemPrisma.user,
+      firebaseUser.uid,
+      resolvedEmail,
+    );
+    const userId = await linkInviteUser(this.systemPrisma.user, {
+      tenantId,
+      firebaseUid: firebaseUser.uid,
+      email: resolvedEmail,
+      existingUser,
     });
-
-    if (!existingUser) {
-      existingUser = await this.systemPrisma.user.findFirst({
-        where: { email: resolvedEmail, firebaseUid: null },
-      });
-    }
-
-    if (!existingUser) {
-      const conflictingUser = await this.systemPrisma.user.findFirst({
-        where: { email: resolvedEmail },
-      });
-      if (conflictingUser) {
-        throw new ConflictException(
-          `User with email ${resolvedEmail} is already bound to another Firebase account.`,
-        );
-      }
-    }
-
-    let userId: string;
-    let hasActiveTenant: boolean;
-
-    if (existingUser) {
-      userId = existingUser.id;
-      hasActiveTenant = Boolean(existingUser.active_tenant_id);
-
-      await this.systemPrisma.user.update({
-        where: { id: existingUser.id },
-        data: {
-          firebaseUid: firebaseUser.uid,
-          email: resolvedEmail,
-        },
-      });
-    } else {
-      const createdUser = await this.systemPrisma.user.create({
-        data: {
-          firebaseUid: firebaseUser.uid,
-          email: resolvedEmail,
-        },
-      });
-
-      userId = createdUser.id;
-      hasActiveTenant = Boolean(createdUser.active_tenant_id);
-    }
-
-    if (!hasActiveTenant) {
-      // Ruling 11: the shared helper atomically nulls active_site_id so the
-      // composite FK (active_tenant_id, active_site_id) is never violated.
-      await setActiveTenant(this.systemPrisma.user, userId, tenantId);
-    }
 
     const membership = await this.systemPrisma.tenantMember.upsert({
       where: {
@@ -147,7 +119,7 @@ export class TenantMemberService {
     await this.syncUserClaims(userId);
     this.dashboardRealtime.emitClaimsUpdated(firebaseUser.uid);
 
-    return this.mapTenantMember(membership);
+    return mapTenantMember(membership);
   }
 
   async update(id: string, dto: UpdateTenantMemberDto) {
@@ -168,16 +140,14 @@ export class TenantMemberService {
 
     const updatedMembership = await this.systemPrisma.tenantMember.update({
       where: { id },
-      data: {
-        ...(dto.role !== undefined && { role: dto.role }),
-        ...(dto.isActive !== undefined && { is_active: dto.isActive }),
-      },
+      data: buildMembershipUpdateData(dto),
       include: { user: true },
     });
 
-    const securitySensitiveChange =
-      (dto.role !== undefined && dto.role !== existingMembership.role) ||
-      dto.isActive === false;
+    const securitySensitive = isSecuritySensitiveChange(
+      existingMembership.role,
+      dto,
+    );
 
     await this.syncUserClaims(updatedMembership.user_id);
 
@@ -186,67 +156,19 @@ export class TenantMemberService {
       select: { firebaseUid: true },
     });
 
-    if (securitySensitiveChange && updatedUser?.firebaseUid) {
-      await this.getFirebaseAuth().revokeRefreshTokens(updatedUser.firebaseUid);
-    }
-
-    if (updatedUser?.firebaseUid) {
-      this.dashboardRealtime.emitClaimsUpdated(updatedUser.firebaseUid);
-    }
-
-    // Ruling 10: `TenantMember.is_active = false` is the same class of event as
-    // a site-membership revoke — emit `site:access_scope_updated`. When the
-    // deactivated membership was the user's active tenant, syncUserClaims
-    // already ran the shared tenant-change helper (nulling `active_site_id` in
-    // the same write); emit `site:context_updated` ({ siteId: null }) so every
-    // socket leaves the tenant's site room.
-    if (dto.isActive === false && updatedUser?.firebaseUid) {
-      this.dashboardRealtime.emitSiteAccessScopeUpdated(
-        updatedUser.firebaseUid,
-      );
-      if (
+    await this.publishMembershipChange(updatedUser?.firebaseUid, {
+      securitySensitive,
+      deactivated: dto.isActive === false,
+      wasActiveTenant:
         existingMembership.tenant_id ===
-        existingMembership.user.active_tenant_id
-      ) {
-        this.dashboardRealtime.emitSiteContextUpdated(
-          updatedUser.firebaseUid,
-          null,
-        );
-      }
-    }
+        existingMembership.user.active_tenant_id,
+    });
 
-    return this.mapTenantMember(updatedMembership);
+    return mapTenantMember(updatedMembership);
   }
 
   protected getFirebaseAuth() {
     return getFirebaseAdminAuth();
-  }
-
-  private async resolveFirebaseUser(email: string): Promise<UserRecord> {
-    const firebaseAuth = this.getFirebaseAuth();
-
-    try {
-      const existing = await firebaseAuth.getUserByEmail(email);
-      if (!existing.emailVerified) {
-        throw new UnprocessableEntityException(
-          `A Firebase account for ${email} exists but its email is not verified; the user must verify it before being invited.`,
-        );
-      }
-      return existing;
-    } catch (error) {
-      if (error instanceof UnprocessableEntityException) {
-        throw error;
-      }
-
-      if (this.getFirebaseErrorCode(error) === 'auth/user-not-found') {
-        return firebaseAuth.createUser({ email });
-      }
-
-      const message = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(
-        `Failed to resolve Firebase user for ${email}: ${message}`,
-      );
-    }
   }
 
   private async syncUserClaims(userId: string): Promise<void> {
@@ -270,16 +192,9 @@ export class TenantMemberService {
       );
     }
 
-    const activeMembership =
-      user.memberships.find(
-        (membership) => membership.tenant_id === user.active_tenant_id,
-      ) ??
-      user.memberships[0] ??
-      null;
+    const activeMembership = resolveActiveMembership(user);
 
-    if (
-      (user.active_tenant_id ?? null) !== (activeMembership?.tenant_id ?? null)
-    ) {
+    if (isActiveTenantOutOfSync(user.active_tenant_id, activeMembership)) {
       // Ruling 11: the shared helper atomically nulls active_site_id so the
       // composite FK (active_tenant_id, active_site_id) is never violated.
       await setActiveTenant(
@@ -291,63 +206,43 @@ export class TenantMemberService {
 
     const firebaseAuth = this.getFirebaseAuth();
     const firebaseUser = await firebaseAuth.getUser(user.firebaseUid);
-    const nextClaims = {
-      ...(firebaseUser.customClaims ?? {}),
-    } as Record<string, unknown>;
-
-    delete nextClaims.tenantId;
-    delete nextClaims.role;
-    delete nextClaims.platformRole;
-
-    if (activeMembership) {
-      nextClaims.tenantId = activeMembership.tenant_id;
-      nextClaims.role = activeMembership.role;
-    }
-
-    if (user.platformAdmin?.is_active) {
-      nextClaims.platformRole = user.platformAdmin.role;
-    }
+    const nextClaims = buildTenantClaims(
+      firebaseUser.customClaims,
+      activeMembership,
+      user.platformAdmin,
+    );
 
     await firebaseAuth.setCustomUserClaims(user.firebaseUid, nextClaims);
   }
 
-  private buildTenantMemberWhere(
-    tenantId: string,
-    query: ListTenantMembersQueryDto,
-  ): Prisma.TenantMemberWhereInput {
-    const search = query.search?.trim();
+  private async publishMembershipChange(
+    firebaseUid: string | null | undefined,
+    change: MembershipChange,
+  ): Promise<void> {
+    if (!firebaseUid) {
+      return;
+    }
 
-    return {
-      tenant_id: tenantId,
-      ...(query.includeInactive ? {} : { is_active: true }),
-      ...(search
-        ? {
-            OR: [
-              {
-                user: {
-                  is: {
-                    email: { contains: search, mode: 'insensitive' },
-                  },
-                },
-              },
-              {
-                user: {
-                  is: {
-                    firstName: { contains: search, mode: 'insensitive' },
-                  },
-                },
-              },
-              {
-                user: {
-                  is: {
-                    lastName: { contains: search, mode: 'insensitive' },
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
-    };
+    if (change.securitySensitive) {
+      await this.getFirebaseAuth().revokeRefreshTokens(firebaseUid);
+    }
+
+    this.dashboardRealtime.emitClaimsUpdated(firebaseUid);
+
+    if (!change.deactivated) {
+      return;
+    }
+
+    // Ruling 10: `TenantMember.is_active = false` is the same class of event as
+    // a site-membership revoke — emit `site:access_scope_updated`. When the
+    // deactivated membership was the user's active tenant, syncUserClaims
+    // already ran the shared tenant-change helper (nulling `active_site_id` in
+    // the same write); emit `site:context_updated` ({ siteId: null }) so every
+    // socket leaves the tenant's site room.
+    this.dashboardRealtime.emitSiteAccessScopeUpdated(firebaseUid);
+    if (change.wasActiveTenant) {
+      this.dashboardRealtime.emitSiteContextUpdated(firebaseUid, null);
+    }
   }
 
   private assertTenantAdminAccess(): void {
@@ -356,33 +251,5 @@ export class TenantMemberService {
     if (!user || (user.role !== 'ADMIN' && user.role !== 'OWNER')) {
       throw new ForbiddenException('Tenant admin access is required.');
     }
-  }
-
-  private mapTenantMember(membership: TenantMemberListRecord) {
-    return {
-      id: membership.id,
-      tenantId: membership.tenant_id,
-      userId: membership.user_id,
-      email: membership.user.email,
-      firstName: membership.user.firstName,
-      lastName: membership.user.lastName,
-      role: membership.role,
-      isActive: membership.is_active,
-      createdAt: membership.createdAt,
-      updatedAt: membership.updatedAt,
-    };
-  }
-
-  private getFirebaseErrorCode(error: unknown): string | undefined {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      typeof (error as { code?: unknown }).code === 'string'
-    ) {
-      return (error as { code: string }).code;
-    }
-
-    return undefined;
   }
 }
