@@ -2316,7 +2316,8 @@ model WorkshopEstimateApprovalToken {
   createdAt                    DateTime                @default(now())
 
   @@unique([tenant_id, id], map: "wat_tenant_id_uq")
-  @@unique([token_sha256], map: "wat_token_sha256_uq")
+  @@unique([tenant_id, token_sha256], map: "wat_tenant_token_sha256_uq")
+  @@index([token_sha256], map: "wat_token_sha256_idx")
   @@index([tenant_id])
   @@index([tenant_id, workshop_estimate_version_id], map: "wat_version_idx")
   @@map("workshop_estimate_approval_tokens")

@@ -584,6 +584,8 @@ export class WorkshopEstimateService {
         sourceEntityType: 'WorkshopEstimateVersion',
         sourceEntityId: versionId,
         email: email.draft,
+        // The customer the message is for, so a refusal of the address can clear that customer's confirmation.
+        payload: { customer_id: customer.id },
       },
       input.issuedAt,
     );

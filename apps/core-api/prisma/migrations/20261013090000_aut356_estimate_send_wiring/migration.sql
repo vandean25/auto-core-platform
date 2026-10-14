@@ -21,6 +21,9 @@ CREATE TABLE "workshop_estimate_approval_tokens" (
 );
 
 -- CreateIndex
+CREATE INDEX "wat_token_sha256_idx" ON "workshop_estimate_approval_tokens"("token_sha256");
+
+-- CreateIndex
 CREATE INDEX "workshop_estimate_approval_tokens_tenant_id_idx" ON "workshop_estimate_approval_tokens"("tenant_id");
 
 -- CreateIndex
@@ -30,7 +33,7 @@ CREATE INDEX "wat_version_idx" ON "workshop_estimate_approval_tokens"("tenant_id
 CREATE UNIQUE INDEX "wat_tenant_id_uq" ON "workshop_estimate_approval_tokens"("tenant_id", "id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "wat_token_sha256_uq" ON "workshop_estimate_approval_tokens"("token_sha256");
+CREATE UNIQUE INDEX "wat_tenant_token_sha256_uq" ON "workshop_estimate_approval_tokens"("tenant_id", "token_sha256");
 
 -- AddForeignKey
 ALTER TABLE "workshop_estimate_approval_tokens" ADD CONSTRAINT "wat_tenant_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

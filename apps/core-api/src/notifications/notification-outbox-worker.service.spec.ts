@@ -35,7 +35,6 @@ function makeRow(overrides: Record<string, unknown> = {}) {
 describe('NotificationOutboxWorkerService', () => {
   let prisma: {
     notificationOutbox: { updateMany: jest.Mock; findFirst: jest.Mock };
-    workshopOrder: { findFirst: jest.Mock };
     customer: { updateMany: jest.Mock };
   };
   let provider: { name: string; send: jest.Mock };
@@ -64,7 +63,6 @@ describe('NotificationOutboxWorkerService', () => {
   beforeEach(() => {
     prisma = {
       notificationOutbox: { updateMany: jest.fn(), findFirst: jest.fn() },
-      workshopOrder: { findFirst: jest.fn() },
       customer: { updateMany: jest.fn() },
     };
     provider = {
@@ -214,11 +212,11 @@ describe('NotificationOutboxWorkerService', () => {
 
   it('clears the email confirmation of the customer when the address is permanently refused', async () => {
     arrange(
-      makeRow({ recipient_kind: 'CUSTOMER', workshop_order_id: 'order-1' }),
+      makeRow({
+        recipient_kind: 'CUSTOMER',
+        payload: { customer_id: 'customer-1' },
+      }),
     );
-    prisma.workshopOrder.findFirst.mockResolvedValue({
-      customer_id: 'customer-1',
-    });
     provider.send.mockRejectedValueOnce(
       new EmailProviderError(
         'recipient_rejected',
@@ -246,7 +244,10 @@ describe('NotificationOutboxWorkerService', () => {
 
   it('keeps the email confirmation when the provider fails for a reason other than the address', async () => {
     arrange(
-      makeRow({ recipient_kind: 'CUSTOMER', workshop_order_id: 'order-1' }),
+      makeRow({
+        recipient_kind: 'CUSTOMER',
+        payload: { customer_id: 'customer-1' },
+      }),
     );
     provider.send.mockRejectedValueOnce(
       new EmailProviderError(

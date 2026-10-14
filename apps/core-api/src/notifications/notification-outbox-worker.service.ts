@@ -44,7 +44,7 @@ interface ClaimedRow {
   channel: NotificationChannel;
   event_type: string;
   recipient_kind: NotificationRecipientKind;
-  workshop_order_id: string | null;
+  payload: Prisma.JsonValue | null;
   recipient_email: string | null;
   subject: string | null;
   body: string | null;
@@ -138,7 +138,7 @@ export class NotificationOutboxWorkerService {
         channel: true,
         event_type: true,
         recipient_kind: true,
-        workshop_order_id: true,
+        payload: true,
         recipient_email: true,
         subject: true,
         body: true,
@@ -358,24 +358,18 @@ export class NotificationOutboxWorkerService {
    */
   private async clearContactEmailConfirmation(a: Attempt): Promise<void> {
     const recipient = a.row.recipient_email;
+    const customerId = customerIdOf(a.row.payload);
     if (
       a.row.recipient_kind !== NotificationRecipientKind.CUSTOMER ||
-      !a.row.workshop_order_id ||
+      !customerId ||
       !recipient
     ) {
       return;
     }
     try {
-      const order = await this.prisma.workshopOrder.findFirst({
-        where: { id: a.row.workshop_order_id, tenant_id: a.tenantId },
-        select: { customer_id: true },
-      });
-      if (!order?.customer_id) {
-        return;
-      }
       await this.prisma.customer.updateMany({
         where: {
-          id: order.customer_id,
+          id: customerId,
           tenant_id: a.tenantId,
           email: recipient,
         },
@@ -467,6 +461,19 @@ function withProviderDeadline<T>(call: Promise<T>, ms: number): Promise<T> {
  * Maps anything a provider throws to a failure we can store. The stored text is always a fixed sentence,
  * because a provider message can name the address. Unknown errors are retried, never leaked.
  */
+/** The customer a customer message was written for, as the writer recorded it in the row's payload. */
+function customerIdOf(payload: Prisma.JsonValue | null): string | null {
+  if (
+    payload !== null &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    typeof payload.customer_id === 'string'
+  ) {
+    return payload.customer_id;
+  }
+  return null;
+}
+
 function toProviderFailure(error: unknown): Failure & { transient: boolean } {
   if (error instanceof EmailProviderError) {
     const transient = error.kind === 'transient';

@@ -394,6 +394,7 @@ describe('Workshop estimates (e2e)', () => {
       recipient_email: customer.email,
     });
     expect(row.subject).toMatch(/^Kostenvoranschlag KV-/);
+    expect(row.payload).toEqual({ customer_id: customerId });
 
     const rawToken = /\/approve\/([A-Za-z0-9_-]{43})/.exec(row.body ?? '')?.[1];
     expect(rawToken).toBeDefined();
