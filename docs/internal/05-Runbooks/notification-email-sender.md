@@ -1,6 +1,6 @@
 # Runbook: notification email sender (AUT-356)
 
-**Status:** Stub (phases 2 to 5 of AUT-356: the worker, the fake provider and the inert stubs ship; three German customer drafts render; the estimate send can queue its email behind `CUSTOMER_ESTIMATE_SEND_ENABLED`; the public approval link and its evidence ship in phase 5 (2c); no account is wired). Real provider wiring waits for [AUT-362](https://linear.app/auto-core-platform/issue/AUT-362) (DNS, DPA, sender domain). Customer sends also wait for the lawyer's sign-off on the copy (AUT-360 D19, D23) and for `CUSTOMER_ESTIMATE_SEND_ENABLED`.
+**Status:** Stub (phases 2 to 6 of AUT-356: the worker, the fake provider and the inert stubs ship; three German customer drafts render; the estimate send can queue its email behind `CUSTOMER_ESTIMATE_SEND_ENABLED`; the public approval link and its evidence ship in phase 5 (2c); phase 6 adds the admin replay (§5a), the order communication timeline (§2d) and the go-live conditions (§7); no account is wired). Real provider wiring waits for [AUT-362](https://linear.app/auto-core-platform/issue/AUT-362) (DNS, DPA, sender domain). Customer sends also wait for the lawyer's sign-off on the copy (AUT-360 D19, D23) and for `CUSTOMER_ESTIMATE_SEND_ENABLED`.
 **Architecture:** [ADR-0025](../01-ADR/2026-10-02-customer-communication-and-approvals.md) §6 and §10. The outbox table is written in the same transaction as the business change. A separate Cloud Tasks queue wakes a worker that sends from the row.
 
 ---
@@ -14,6 +14,7 @@
 | Worker route | `POST /api/notifications/outbox/:outboxId/worker` on the service behind `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL` | v1: `core-api` itself, because it holds the `NOTIFICATION_*` settings. Never the PDF worker, which holds none of them. |
 | Recovery sweep | `core-api`, every minute, per tenant | Wakes due rows and releases expired claims. |
 | Body purge | `core-api`, daily 03:17, per tenant | Clears message bodies 90 days after creation (metadata is kept). |
+| Admin replay | `core-api`, `POST /api/notifications/outbox/replay` | Owner or admin only. Moves FAILED rows back to PENDING and queues a wake-up. It never sends inline (§5a). |
 
 ## 2. Environment flags (defaults fail closed)
 
@@ -67,6 +68,12 @@ Three messages render from `apps/core-api/src/notifications/templates/customer-e
 - `pdf_sha256` stays empty when the customer decides before the PDF archive completes. `content_sha256` always covers the decided snapshot.
 - Not built yet: the three-year nulling of the IP address and the user agent in the evidence (ADR-0025 §10) has no job. Until it exists, the evidence keeps both.
 
+## 2d. Order communication timeline (phase 6)
+
+- `GET /api/workshop/orders/:id/communications` returns the customer side of one order as `{ "data": [...] }`, newest first, at most 100 entries. An entry is either an estimate email (`kind` `ESTIMATE_EMAIL`, channel `EMAIL`, `status` `QUEUED`, `SENT`, `FAILED` or `SUPPRESSED`) or a customer decision (`kind` `ESTIMATE_APPROVAL`, channel `LINK` or `ADVISOR_RECORDED`, `decision` `APPROVED` or `DECLINED`). `QUEUED` covers the internal `PENDING` and `SENDING`.
+- The roles are the estimate roles (OWNER, ADMIN, SALES), and the order must be in the caller's site. The response carries no address, body, subject, typed name, IP address or token. The builder copies only the fields it lists (`apps/core-api/src/workshop/workshop-order-communications.ts`).
+- The order detail page shows the list as **Kommunikation mit dem Kunden**, under the estimate card, for the same roles. A send refreshes it at once. A customer decision appears on the next load or focus.
+
 ## 3. Secrets (GSM names only, no values in the repository)
 
 Secrets are pulled through `secrets/gsm-mapping.json` (see [google-secret-manager](../../google-secret-manager.md)). Nothing is added to the example mapping until the secret exists.
@@ -110,6 +117,28 @@ LIMIT 50;
 
 Stored error text is generic. Provider response bodies are never stored.
 
+## 5a. Replaying dead letters (phase 6)
+
+- `POST /api/notifications/outbox/replay` with `{ "ids": ["<outbox-id>", ...] }`: one to 50 different ids. Owner or admin only. A technician and a sales member get 403, because replay is not part of the estimate roles.
+
+  ```
+  POST /api/notifications/outbox/replay
+  Authorization: Bearer <owner or admin session token>
+  Content-Type: application/json
+
+  { "ids": ["<outbox-id>"] }
+  ```
+
+- Each FAILED row goes back to PENDING with a fresh attempt budget, and is woken once that change is committed. The answer lists `replayed` and `refused`. A refusal carries one code, and a refused row is never sent by that request:
+  - `NOT_FOUND`: no such row in this tenant.
+  - `NOT_FAILED`: the row is not FAILED. A row that another request has just replayed is refused this way too. A SUPPRESSED row stays suppressed.
+  - `BODY_PURGED`: the 90-day purge has removed the body, so the notice cannot be sent again.
+  - `BODY_MISSING`: an email row has no stored body. A notice that was never sent (`STALE_UNSENT`) loses its body this way.
+  - `LINK_REDACTED`: a failed estimate email. The write that failed it removed the approval link (ADR-0025 §7), so sending the body again would send the placeholder. Send the estimate again as a new version: create a revision on the order, then send it with the customer email. The failed version stays on record, and its link stops working once the new version is sent.
+- Replay never sends inline. A replayed row goes through the normal worker, so the mode and the allowlist still apply: under `off` it is recorded as SUPPRESSED. If the wake-up cannot be queued, the failure is logged and the row waits PENDING for the recovery sweep (§6).
+- Fix the cause first, and read `last_error_code` (§5). Replay is safe for `PROVIDER_NOT_CONFIGURED`, `MAX_ATTEMPTS_EXCEEDED`, `UNEXPECTED_ERROR` and `SENDER_NOT_CONFIGURED` once the provider, the database or the sender setting is healthy. A row that failed as `LEASE_EXPIRED` may already have reached the customer (§6), so confirm with the provider first. Do not replay `RECIPIENT_MISSING` or `RECIPIENT_INVALID`: the row keeps its recipient, so the notice has to be written again.
+- Replay writes no audit row yet. The change shows only in the row's `updatedAt` (§6).
+
 ## 6. Known limits (v1)
 
 - Delivery is at least once. A crash between provider acceptance and the status write, or a status write that keeps failing after acceptance, leaves the claim to expire. The sweep then resends the notice. After the fifth attempt the sweep fails the row as `LEASE_EXPIRED` instead, so a notice that was delivered can show as a dead letter.
@@ -118,4 +147,21 @@ Stored error text is generic. Provider response bodies are never stored.
 - Wake-ups for retries and for rows the sweep finds come from the recovery cron, which runs only in a live instance with CPU allocated. core-api deploys with `--cpu-throttling` and `--min-instances 0`, so a quiet service can delay those until a request keeps an instance alive. The 7-day `STALE_UNSENT` backstop still holds. Phase 4 writes EMAIL rows, so before `CUSTOMER_ESTIMATE_SEND_ENABLED` is on, add a Cloud Scheduler job for the sweep, or keep CPU allocated with a minimum instance (a cost decision).
 - A new row's first send is woken by a task enqueued right after the send commits (phase 4). If that task cannot be queued, the failure is logged and the row stays PENDING until the sweep wakes it after the 5-minute grace.
 - A lost attempt (an expired lease) waits the same backoff as a failed send when the recovery sweep releases it. A Cloud Tasks redelivery of the same wake-up can reclaim an expired claim at once, so that resend has no backoff.
-- No replay endpoint yet (ADR-0025 lists `POST /api/notifications/outbox/replay` for a later phase).
+- Replay is built (§5a). It writes no audit row yet, so an admin replay leaves no entry beyond the row's `updatedAt`. An audit entry is a follow-up.
+- The IP address and the user agent in the approval evidence are kept. The three-year nulling job (ADR-0025 §10) is not built (§2c).
+- The `trust proxy` hop count is a follow-up (§2c). The per-IP limit and the recorded IP both depend on it.
+- ADR-0025 §4 and decision D9 still say 409 for an invalid link. §7 and the code answer 404 or 410, and the code follows §7. Amending the ADR is an owner decision (§7).
+- Deferred to later tickets, not in phase 6: the advisor-recorded approval (AUT-355), the overrun notice, the FAGG information and the approval confirmation email.
+
+## 7. Go-live conditions (customer sends)
+
+Customer estimate emails stay off until each of these holds:
+
+1. AUT-362 is closed: the DPA, the sender domain and the provider key are in place. The first live send goes to a single allowlisted address (§4).
+2. The lawyer has signed off the copy (AUT-360 D19, D23) and the approval wording (§2c).
+3. Owner decision on how the recovery sweep runs: a Cloud Scheduler job, or CPU allocation with a minimum instance. Each costs money. Until one is chosen, retries and the sweep can wait for a request (§6).
+4. AUT-373 security review: the Cloud Run request logs, the Firebase Hosting rewrite and Observe's error capture exclude or redact `/api/public/estimate-approvals/` and `/approve/` (§2c).
+5. The `trust proxy` hop count is set for the deployed topology and verified there (§2c).
+6. Owner decision on ADR-0025 §4 and D9 (409, or 404 and 410 as the code does), recorded in the ADR.
+7. Owner decision on the IP and user-agent retention: the job (ADR-0025 §10) is built, or the owner accepts keeping both until it is.
+8. The owner has approved `CUSTOMER_ESTIMATE_SEND_ENABLED` for customer sends (§4, step 5).
