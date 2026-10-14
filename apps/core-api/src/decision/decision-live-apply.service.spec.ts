@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import type { Customer } from '@prisma/client';
 import type { DryRunRowResult } from '../import/import.types.js';
+import { DecisionAuditRecorder } from './decision-audit-recorder.service.js';
+import { DecisionCustomerImportApplier } from './decision-customer-import-apply.service.js';
+import { DecisionDocumentSortApplier } from './decision-document-sort-apply.service.js';
 import { DecisionLiveApplyService } from './decision-live-apply.service.js';
+import { DecisionModeResolver } from './decision-mode-resolver.service.js';
+import { DecisionProviderClient } from './decision-provider-client.service.js';
 import { DecisionUseCaseHooksService } from './decision-use-case-hooks.service.js';
 import type { DecisionProvider } from './decision-provider.js';
 import type { DecisionChoiceInput, DecisionResult } from './decision.types.js';
@@ -122,14 +127,30 @@ function buildHarness(options: {
     shadow as never,
     prisma as never,
   );
+  const modes = new DecisionModeResolver(prisma as never);
+  const providerClient = new DecisionProviderClient(provider);
+  const audit = new DecisionAuditRecorder(actionLog as never, shadow as never);
   const service = new DecisionLiveApplyService(
-    prisma as never,
-    shadow as never,
-    hooks,
-    policy as never,
-    proposals as never,
-    actionLog as never,
-    provider,
+    modes,
+    new DecisionCustomerImportApplier(
+      prisma as never,
+      shadow as never,
+      hooks,
+      policy as never,
+      proposals as never,
+      modes,
+      providerClient,
+      audit,
+    ),
+    new DecisionDocumentSortApplier(
+      prisma as never,
+      shadow as never,
+      policy as never,
+      proposals as never,
+      modes,
+      providerClient,
+      audit,
+    ),
   );
   return { service, prisma, shadow, decide, policy, proposals, actionLog };
 }
