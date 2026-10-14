@@ -9,7 +9,7 @@ export const workshopCommunicationKeys = {
   order: (orderId: string) => ['workshop', 'communications', orderId] as const,
 }
 
-/** Customer-facing communication of an order, newest first (ADR-0025 §8). Carries no address or typed name. */
+/** Customer-facing communication of an order, newest first (runbook §2d). Carries no address or typed name. */
 export async function fetchWorkshopOrderCommunications(orderId: string): Promise<WorkshopOrderCommunication[]> {
   const response = await fetchWithAuth(`/api/workshop/orders/${orderId}/communications`)
   if (!response.ok) {
