@@ -1,7 +1,9 @@
 import { isRzlProfileCode } from '../accounting-profile/accounting-profile.codes.js';
 import {
   parseAccountingProfileSerializerParams,
+  parseMarginSchemeSerializerParams,
   type BmdSteuercodes,
+  type MarginSchemeSerializerParams,
   type RzlSteuercodes,
   type SteuercodesByRate,
 } from '../accounting-profile/accounting-profile.serializer-params.js';
@@ -19,6 +21,16 @@ export type AccountingExportRuleIssue = {
 };
 
 /**
+ * Margin-scheme availability for one profile. `enabled` is the entity's explicit
+ * switch (AUT-369) and is only ever true on the DATEV rules. `vatAccount` receives
+ * the frozen margin VAT.
+ */
+export type AccountingExportMarginSchemeRules = {
+  enabled: boolean;
+  vatAccount: string | null;
+};
+
+/**
  * Per-profile checks applied to each frozen line allocation. The default
  * (DATEV) rules keep the historical blocker messages unchanged.
  */
@@ -26,6 +38,7 @@ export type AccountingExportAllocationRules = {
   countryIso: 'DE' | 'AT';
   unsupportedCountryMessage: string;
   allowManualBu: boolean;
+  marginScheme: AccountingExportMarginSchemeRules;
   taxRateIssue(taxRate: string): AccountingExportRuleIssue | null;
   /** Optional per-allocation check for text the export file cannot carry. */
   allocationIssue?(
@@ -33,13 +46,28 @@ export type AccountingExportAllocationRules = {
   ): AccountingExportRuleIssue | null;
 };
 
-export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules = {
-  countryIso: 'DE',
-  unsupportedCountryMessage:
-    'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
-  allowManualBu: true,
-  taxRateIssue: () => null,
-};
+/**
+ * DATEV rules for DE domestic STANDARD VAT. The margin scheme is off unless the
+ * entity enabled it; `marginScheme` carries that switch and its VAT account.
+ */
+export function buildDatevAllocationRules(
+  marginScheme: MarginSchemeSerializerParams | null = null,
+): AccountingExportAllocationRules {
+  return {
+    countryIso: 'DE',
+    unsupportedCountryMessage:
+      'Only DE domestic STANDARD VAT exports are enabled in slice 1.',
+    allowManualBu: true,
+    marginScheme: {
+      enabled: marginScheme?.enabled === true,
+      vatAccount: marginScheme?.vatAccount ?? null,
+    },
+    taxRateIssue: () => null,
+  };
+}
+
+export const DATEV_ALLOCATION_RULES: AccountingExportAllocationRules =
+  buildDatevAllocationRules();
 
 /**
  * Wording, text rule and tax keys per AT profile. RZL keeps the candidate step's
@@ -79,6 +107,8 @@ function buildAtStandardVatRules(
     countryIso: 'AT',
     unsupportedCountryMessage: `Only AT STANDARD VAT allocations can be exported with the ${name} profile.`,
     allowManualBu: profile.manualBuPerAllocation,
+    // No approved RZL or BMD posting for margin-scheme documents: the switch never lifts them.
+    marginScheme: { enabled: false, vatAccount: null },
     allocationIssue(allocation) {
       if (
         profile.manualBuPerAllocation &&
@@ -152,7 +182,10 @@ export function allocationRulesForProfile(
     return buildBmdAllocationRules(bmd?.steuercodes ?? {});
   }
   if (!isRzlProfileCode(profileCode)) {
-    return DATEV_ALLOCATION_RULES;
+    const marginScheme = parseMarginSchemeSerializerParams(serializerParams);
+    return marginScheme
+      ? buildDatevAllocationRules(marginScheme)
+      : DATEV_ALLOCATION_RULES;
   }
   const { rzl } = parseAccountingProfileSerializerParams(serializerParams);
   return buildRzlAllocationRules(rzl?.steuercodes ?? {});

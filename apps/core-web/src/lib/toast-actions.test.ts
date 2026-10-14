@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { toast } from 'sonner'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { OPEN_TOAST_ACTION_LABEL, toastSuccessWithOpen } from './toast-actions'
