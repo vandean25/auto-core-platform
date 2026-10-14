@@ -74,6 +74,7 @@ model Tenant {
   workshopEstimateVersions      WorkshopEstimateVersion[]
   workshopEstimateAssetRefs     WorkshopEstimateBrandAssetReference[]
   notificationOutbox            NotificationOutbox[]
+  estimateApprovalTokens        WorkshopEstimateApprovalToken[]
   purchaseInvoices              PurchaseInvoice[]
   purchaseInvoiceLines          PurchaseInvoiceLine[]
   inspectionTemplates           InspectionTemplate[]
@@ -1271,6 +1272,10 @@ model Customer {
   address_zip     String?
   address_country String? @default("AT")
 
+  // Advisor confirmation at intake that the email address is for order communication (ADR-0025 §8).
+  // Email sends require it, and a permanent refusal of the address clears it.
+  contact_email_ok Boolean @default(false)
+
   vehicles                Vehicle[]
   reserved_stock_vehicles Vehicle[]         @relation("VehicleStockReservation")
   invoices                Invoice[]
@@ -2262,6 +2267,7 @@ model WorkshopEstimateVersion {
   pdf_generated_at       DateTime?
   pdf_generation_error   String?
   brand_asset_reference  WorkshopEstimateBrandAssetReference?
+  approval_tokens        WorkshopEstimateApprovalToken[]
   createdAt              DateTime                            @default(now())
   updatedAt              DateTime                            @updatedAt
 
@@ -2294,9 +2300,33 @@ model WorkshopEstimateBrandAssetReference {
   @@map("workshop_estimate_brand_asset_references")
 }
 
+/// One approval token for a sent estimate version (ADR-0025 §7). Only the SHA-256 of the token is stored,
+/// never the token itself. The token expires at the version's valid_until. Superseding the version, when a
+/// later version is sent, invalidates its tokens. Approval consumes the token once (a later phase).
+model WorkshopEstimateApprovalToken {
+  id                           String                  @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                  @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "wat_tenant_fkey")
+  workshop_estimate_version_id String
+  version                      WorkshopEstimateVersion @relation(fields: [tenant_id, workshop_estimate_version_id], references: [tenant_id, id], onDelete: Restrict, map: "wat_version_fkey")
+  token_sha256                 String
+  expires_at                   DateTime
+  invalidated_at               DateTime?
+  consumed_at                  DateTime?
+  createdAt                    DateTime                @default(now())
+
+  @@unique([tenant_id, id], map: "wat_tenant_id_uq")
+  @@unique([tenant_id, token_sha256], map: "wat_tenant_token_sha256_uq")
+  @@index([token_sha256], map: "wat_token_sha256_idx")
+  @@index([tenant_id])
+  @@index([tenant_id, workshop_estimate_version_id], map: "wat_version_idx")
+  @@map("workshop_estimate_approval_tokens")
+}
+
 /// Event types that write the notification outbox (ADR-0025 §6, AUT-356). Enum additions only.
 enum NotificationEventType {
   WORKSHOP_TASK_WAITING_CUSTOMER
+  CUSTOMER_ESTIMATE_SENT
 }
 
 enum NotificationChannel {

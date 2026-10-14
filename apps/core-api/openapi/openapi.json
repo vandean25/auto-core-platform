@@ -4919,6 +4919,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendWorkshopEstimateVersionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -14888,6 +14898,9 @@
             "type": "string",
             "nullable": true
           },
+          "contact_email_ok": {
+            "type": "boolean"
+          },
           "phone": {
             "type": "string",
             "nullable": true
@@ -15834,6 +15847,9 @@
           "email": {
             "type": "string"
           },
+          "contact_email_ok": {
+            "type": "boolean"
+          },
           "phone": {
             "type": "string"
           },
@@ -16183,6 +16199,9 @@
           },
           "address_country": {
             "type": "string"
+          },
+          "contact_email_ok": {
+            "type": "boolean"
           }
         }
       },
@@ -19258,6 +19277,9 @@
             "type": "string",
             "nullable": true
           },
+          "contact_email_ok": {
+            "type": "boolean"
+          },
           "phone": {
             "type": "string",
             "nullable": true
@@ -20440,6 +20462,15 @@
           "estimate_number",
           "workshop_order_id"
         ]
+      },
+      "SendWorkshopEstimateVersionDto": {
+        "type": "object",
+        "properties": {
+          "notifyCustomerByEmail": {
+            "type": "boolean",
+            "default": false
+          }
+        }
       },
       "CreateVehiclePurchaseDto": {
         "type": "object",

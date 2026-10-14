@@ -1,6 +1,6 @@
 # Runbook: notification email sender (AUT-356)
 
-**Status:** Stub (phases 2 and 3 of AUT-356: the worker, the fake provider and the inert stubs ship, and three German customer drafts render; no account is wired). Real provider wiring waits for [AUT-362](https://linear.app/auto-core-platform/issue/AUT-362) (DNS, DPA, sender domain). Customer sends also wait for the lawyer's sign-off on the copy (AUT-360 D19, D23) and for `CUSTOMER_ESTIMATE_SEND_ENABLED`.
+**Status:** Stub (phases 2 to 4 of AUT-356: the worker, the fake provider and the inert stubs ship; three German customer drafts render; the estimate send can queue its email behind `CUSTOMER_ESTIMATE_SEND_ENABLED`; no account is wired). Real provider wiring waits for [AUT-362](https://linear.app/auto-core-platform/issue/AUT-362) (DNS, DPA, sender domain). Customer sends also wait for the lawyer's sign-off on the copy (AUT-360 D19, D23) and for `CUSTOMER_ESTIMATE_SEND_ENABLED`.
 **Architecture:** [ADR-0025](../01-ADR/2026-10-02-customer-communication-and-approvals.md) §6 and §10. The outbox table is written in the same transaction as the business change. A separate Cloud Tasks queue wakes a worker that sends from the row.
 
 ---
@@ -25,6 +25,7 @@
 | `NOTIFICATION_EMAIL_FROM_ADDRESS` | unset | Sender on the ACP domain. Required when the mode is `fake` or `live`. |
 | `CLOUD_TASKS_NOTIFICATION_QUEUE` | unset | Queue name. Unset means no wake-ups; rows wait until it is set and the sweep runs. |
 | `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL` | unset | Base URL of the service that handles wake-ups, in the same shape as `CLOUD_TASKS_TARGET_BASE_URL`. It must be a service that holds the `NOTIFICATION_*` settings. |
+| `ESTIMATE_APPROVAL_BASE_URL` | unset | Public https base of the approval link in the estimate email, without a trailing slash, query, fragment or credentials (ADR-0025 §7). Required while `CUSTOMER_ESTIMATE_SEND_ENABLED` is on, and checked for that shape in every environment: the boot check refuses a missing or malformed value. |
 
 The existing `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORKER_SECRET` and `CLOUD_TASKS_ENABLED` apply as they do for the PDF queue. The PDF target (`CLOUD_TASKS_TARGET_BASE_URL`) is never used for notifications.
 
@@ -39,6 +40,15 @@ The worker route answers only when `NOTIFICATION_EMAIL_MODE` is set, and any non
 ## 2a. Customer message drafts (phase 3)
 
 Three messages render from `apps/core-api/src/notifications/templates/customer-email-templates.ts`, in the formal German Sie form: `customer.estimate_sent`, `customer.estimate_approval_confirmed` and `customer.order_ready`, all at template version 1. A draft carries its template id and version into the outbox row. The copy is a draft until the lawyer signs it off (AUT-360 D19 and D23). Phase 3 renders the drafts and sends none of them. The estimate-sent draft takes the approval link as an input, because the message has no attachment (ADR-0025 section 6); phase 4 supplies that link and wires the estimate send behind `CUSTOMER_ESTIMATE_SEND_ENABLED`.
+
+## 2b. Estimate send and approval link (phase 4)
+
+- `POST /workshop/estimates/:versionId/send` takes an optional body, `{ "notifyCustomerByEmail": true }`. Without it the send is advisor-recorded and sends no email, as before. With it, the transaction that freezes the snapshot also mints the approval token and writes a `customer.estimate_sent` row to the customer's address.
+- Refusals come before any write. The approval base is missing or invalid (503 `ESTIMATE_APPROVAL_LINK_UNAVAILABLE`). The advisor has not confirmed the address for order communication (422 `ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED`). The address is missing or not plain (`ESTIMATE_CUSTOMER_EMAIL_MISSING` and `ESTIMATE_CUSTOMER_EMAIL_INVALID`). The vehicle has no make or model (`ESTIMATE_VEHICLE_INCOMPLETE`). The seller name or the copy cannot be written (`ESTIMATE_EMAIL_INCOMPLETE`).
+- The token is 32 random bytes, base64url, inside the link only. The database keeps its SHA-256 in `workshop_estimate_approval_tokens`. It expires at the version's `valid_until`, and it is invalidated when its version is superseded. The public GET and POST route and the `/approve/:token` page come in the next phase.
+- `Customer.contact_email_ok` is `false` until the advisor confirms the address, through the customer create and update endpoints. A permanent refusal of the address (`RECIPIENT_REJECTED`, a hard bounce) clears the flag for that customer and that exact address (ADR-0025 §8).
+- An approval link is removed from a row's body once the row reaches `ACCEPTED`, `FAILED` or `SUPPRESSED`. A notice that was never sent (`STALE_UNSENT`) loses its body. A retry keeps the link, because it still needs the body.
+- The first send is woken by a task enqueued right after its send commits. If that task cannot be queued, the failure is logged, the row stays PENDING, and the recovery sweep wakes it after its 5-minute grace (the sweep's wake path has its own tests).
 
 ## 3. Secrets (GSM names only, no values in the repository)
 
@@ -79,7 +89,7 @@ ORDER BY failed_at DESC
 LIMIT 50;
 ```
 
-`suppressed_reason` for SUPPRESSED rows: `EMAIL_DISABLED`, `RECIPIENT_NOT_ALLOWLISTED`. `last_error_code` for the rest, written by the worker today: `PROVIDER_NOT_CONFIGURED`, `MAX_ATTEMPTS_EXCEEDED`, `LEASE_EXPIRED`, `RECIPIENT_MISSING`, `RECIPIENT_INVALID`, `MESSAGE_INCOMPLETE`, `MESSAGE_INVALID`, `STALE_UNSENT`, `UNSUPPORTED_CHANNEL` (failed, no retry); `SENDER_NOT_CONFIGURED` (the from-address is unset; retried) and `UNEXPECTED_ERROR` (retried). A real adapter adds its own codes, such as `NETWORK`, `PROVIDER_5XX`, `PROVIDER_429`, `TIMEOUT` (transient) and `RECIPIENT_REJECTED` (a permanent refusal of the address, which later sets `contact_email_ok` to false).
+`suppressed_reason` for SUPPRESSED rows: `EMAIL_DISABLED`, `RECIPIENT_NOT_ALLOWLISTED`. `last_error_code` for the rest, written by the worker today: `PROVIDER_NOT_CONFIGURED`, `MAX_ATTEMPTS_EXCEEDED`, `LEASE_EXPIRED`, `RECIPIENT_MISSING`, `RECIPIENT_INVALID`, `MESSAGE_INCOMPLETE`, `MESSAGE_INVALID`, `STALE_UNSENT`, `UNSUPPORTED_CHANNEL` (failed, no retry); `SENDER_NOT_CONFIGURED` (the from-address is unset; retried) and `UNEXPECTED_ERROR` (retried). A real adapter adds its own codes, such as `NETWORK`, `PROVIDER_5XX`, `PROVIDER_429`, `TIMEOUT` (transient) and `RECIPIENT_REJECTED` (a permanent refusal of the address, which clears `contact_email_ok` for that customer and that address).
 
 Stored error text is generic. Provider response bodies are never stored.
 
@@ -88,7 +98,7 @@ Stored error text is generic. Provider response bodies are never stored.
 - Delivery is at least once. A crash between provider acceptance and the status write, or a status write that keeps failing after acceptance, leaves the claim to expire. The sweep then resends the notice. After the fifth attempt the sweep fails the row as `LEASE_EXPIRED` instead, so a notice that was delivered can show as a dead letter.
 - No delivery webhooks and no open or click tracking (ADR-0025 §6, §7).
 - A PENDING notice unsent after 7 days is failed with `STALE_UNSENT`, never sent late. The sweep re-wakes a PENDING row only after a 5-minute grace; a duplicate wake-up is harmless because claims are atomic.
-- Wake-ups for new rows come from the recovery cron, which runs only in a live instance with CPU allocated. core-api deploys with `--cpu-throttling` and `--min-instances 0`, so a quiet service can delay a new row until a request keeps an instance alive. The 7-day `STALE_UNSENT` backstop still holds. No phase 2 path writes EMAIL rows. Before phase 4 writes them, add a Cloud Scheduler job for the sweep, or keep CPU allocated with a minimum instance (a cost decision).
-- A new row's first send is not woken by its own commit. The sweep wakes a PENDING row only after the 5-minute grace, so the first send can wait five minutes or more. Phase 4 must add a post-commit wake-up before it writes EMAIL rows.
+- Wake-ups for retries and for rows the sweep finds come from the recovery cron, which runs only in a live instance with CPU allocated. core-api deploys with `--cpu-throttling` and `--min-instances 0`, so a quiet service can delay those until a request keeps an instance alive. The 7-day `STALE_UNSENT` backstop still holds. Phase 4 writes EMAIL rows, so before `CUSTOMER_ESTIMATE_SEND_ENABLED` is on, add a Cloud Scheduler job for the sweep, or keep CPU allocated with a minimum instance (a cost decision).
+- A new row's first send is woken by a task enqueued right after the send commits (phase 4). If that task cannot be queued, the failure is logged and the row stays PENDING until the sweep wakes it after the 5-minute grace.
 - A lost attempt (an expired lease) waits the same backoff as a failed send when the recovery sweep releases it. A Cloud Tasks redelivery of the same wake-up can reclaim an expired claim at once, so that resend has no backoff.
 - No replay endpoint yet (ADR-0025 lists `POST /api/notifications/outbox/replay` for a later phase).

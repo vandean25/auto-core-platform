@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from 'class-validator';
 import { CustomerType } from '@prisma/client';
 
 export class CreateCustomerDto {
@@ -25,6 +32,13 @@ export class CreateCustomerDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  // The advisor confirms at intake that this address is for order communication (ADR-0025 §8). Null is refused
+  // rather than skipped, because IsOptional would let it through to the NOT NULL column.
+  @ApiPropertyOptional()
+  @ValidateIf((_dto, value: unknown) => value !== undefined)
+  @IsBoolean()
+  contact_email_ok?: boolean;
 
   @ApiPropertyOptional()
   @IsString()

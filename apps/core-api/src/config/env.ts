@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseApprovalBaseUrl } from '../workshop/workshop-estimate-approval-token.helpers.js';
 import {
   NOTIFICATION_ENV_KEYS,
   notificationEnvIssues,
@@ -37,6 +38,7 @@ export const DOCUMENTED_ENV_KEYS = [
   'ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED',
   'ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED',
   'CUSTOMER_ESTIMATE_SEND_ENABLED',
+  'ESTIMATE_APPROVAL_BASE_URL',
   'WORKSHOP_MEDIA_BUCKET',
   'CLOUD_TASKS_ENABLED',
   'CLOUD_TASKS_LOCATION',
@@ -132,6 +134,7 @@ const envSchema = z
     CUSTOMER_ESTIMATE_SEND_ENABLED: optionalBooleanString.transform(
       (value) => value === 'true',
     ),
+    ESTIMATE_APPROVAL_BASE_URL: optionalString,
     WORKSHOP_MEDIA_BUCKET: optionalString,
     CLOUD_TASKS_ENABLED: optionalString,
     CLOUD_TASKS_LOCATION: optionalString,
@@ -167,6 +170,27 @@ const envSchema = z
         ctx.addIssue({
           code: 'custom',
           path: [issue.key],
+          message: 'invalid',
+          continue: true,
+        });
+      }
+    }
+
+    // The estimate email carries the approval link, so the send needs a usable https base (ADR-0025 §7). Checked in every
+    // environment, so a test run refuses the same bad base that production would.
+    if (env.CUSTOMER_ESTIMATE_SEND_ENABLED) {
+      addRequiredIssue(
+        ctx,
+        'ESTIMATE_APPROVAL_BASE_URL',
+        env.ESTIMATE_APPROVAL_BASE_URL,
+      );
+      if (
+        env.ESTIMATE_APPROVAL_BASE_URL &&
+        parseApprovalBaseUrl(env.ESTIMATE_APPROVAL_BASE_URL) === null
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ESTIMATE_APPROVAL_BASE_URL'],
           message: 'invalid',
           continue: true,
         });

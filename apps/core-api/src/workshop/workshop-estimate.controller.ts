@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -9,6 +10,7 @@ import {
   Res,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiProduces,
@@ -22,7 +24,10 @@ import {
   WorkshopEstimateResponseDto,
   WorkshopEstimateVersionDetailDto,
 } from './dto/workshop-estimate-response.dto.js';
-import { WorkshopPdfGenerationResponseDto } from './dto/index.js';
+import {
+  SendWorkshopEstimateVersionDto,
+  WorkshopPdfGenerationResponseDto,
+} from './dto/index.js';
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
 
@@ -78,9 +83,15 @@ export class WorkshopEstimateController {
 
   @Post('estimates/:versionId/send')
   @HttpCode(HttpStatus.OK)
+  @ApiBody({ type: SendWorkshopEstimateVersionDto, required: false })
   @ApiOkResponse({ type: WorkshopEstimateVersionDetailDto })
-  send(@Param('versionId') versionId: string) {
-    return this.estimates.sendVersion(versionId);
+  send(
+    @Param('versionId') versionId: string,
+    @Body() body?: SendWorkshopEstimateVersionDto,
+  ) {
+    return this.estimates.sendVersion(versionId, {
+      notifyCustomerByEmail: body?.notifyCustomerByEmail === true,
+    });
   }
 
   @Post('estimates/:versionId/pdf')

@@ -30,7 +30,8 @@ const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
 const WRITER_FLAG = 'INVOICE_BRANDING_WRITER_ENABLED';
 const PDF_BYTES = Buffer.from('%PDF-1.4 workshop estimate e2e archive');
 const LOGO_BYTES = Buffer.from('AUT-354 frozen estimate logo fixture');
-const SAFE_ERROR = 'PDF generation failed. Please try again or contact support.';
+const SAFE_ERROR =
+  'PDF generation failed. Please try again or contact support.';
 
 function sha256(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
@@ -50,6 +51,7 @@ describe('Workshop estimate PDF (e2e)', () => {
   let logoReadSpy: jest.SpyInstance;
   let previousSendFlag: string | undefined;
   let previousWriterFlag: string | undefined;
+  let previousApprovalBaseUrl: string | undefined;
   let previousWorkerSecret: string | undefined;
   // Users created by this suite are cleaned up. Tenants stay isolated by their own ids.
   const createdUserIds: string[] = [];
@@ -93,7 +95,10 @@ describe('Workshop estimate PDF (e2e)', () => {
     if (calls.length === 0) {
       throw new Error('The estimate renderer was not called');
     }
-    return calls[calls.length - 1][0] as { snapshot: unknown; logoPng?: Buffer };
+    return calls[calls.length - 1][0] as {
+      snapshot: unknown;
+      logoPng?: Buffer;
+    };
   }
 
   async function createTechToken(): Promise<string> {
@@ -184,6 +189,9 @@ describe('Workshop estimate PDF (e2e)', () => {
   beforeAll(async () => {
     previousSendFlag = process.env[SEND_FLAG];
     previousWriterFlag = process.env[WRITER_FLAG];
+    // The boot check needs the approval base while the send flag is on.
+    previousApprovalBaseUrl = process.env.ESTIMATE_APPROVAL_BASE_URL;
+    process.env.ESTIMATE_APPROVAL_BASE_URL = 'https://portal.example.at';
     previousWorkerSecret = process.env.CLOUD_TASKS_WORKER_SECRET;
     process.env[SEND_FLAG] = 'true';
     // Estimates must not depend on the invoice branding writer flag (ADR-0025 §3).
@@ -206,7 +214,10 @@ describe('Workshop estimate PDF (e2e)', () => {
     await app.init();
 
     basePrisma = app.get<PrismaService>(PrismaService);
-    const testTenant = await createTestTenant(basePrisma, 'workshop-estimate-pdf');
+    const testTenant = await createTestTenant(
+      basePrisma,
+      'workshop-estimate-pdf',
+    );
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     adminToken = createTestAuthToken(app.get(AuthService), testTenant);
@@ -272,6 +283,7 @@ describe('Workshop estimate PDF (e2e)', () => {
   afterAll(async () => {
     restoreEnv(SEND_FLAG, previousSendFlag);
     restoreEnv(WRITER_FLAG, previousWriterFlag);
+    restoreEnv('ESTIMATE_APPROVAL_BASE_URL', previousApprovalBaseUrl);
     restoreEnv('CLOUD_TASKS_WORKER_SECRET', previousWorkerSecret);
     await cleanupTestUsers(basePrisma, createdUserIds);
     await teardownTestApp(app, basePrisma);
@@ -331,7 +343,10 @@ describe('Workshop estimate PDF (e2e)', () => {
       where: { id: versionId },
       select: { pdf_storage_key: true, pdf_generation_error: true },
     });
-    expect(failed).toEqual({ pdf_storage_key: null, pdf_generation_error: SAFE_ERROR });
+    expect(failed).toEqual({
+      pdf_storage_key: null,
+      pdf_generation_error: SAFE_ERROR,
+    });
 
     await api()
       .post(`/api/workshop/estimates/${versionId}/pdf`)
@@ -357,11 +372,17 @@ describe('Workshop estimate PDF (e2e)', () => {
     await getPdf(versionId).expect(404);
     const rendersBefore = renderSpy.mock.calls.length;
 
-    await postWorker(versionId, signedTask('workshop-estimate', versionId)).expect(204);
+    await postWorker(
+      versionId,
+      signedTask('workshop-estimate', versionId),
+    ).expect(204);
     expect(renderSpy.mock.calls.length).toBe(rendersBefore + 1);
 
     // A second delivery of the same task finds the archive and does nothing.
-    await postWorker(versionId, signedTask('workshop-estimate', versionId)).expect(204);
+    await postWorker(
+      versionId,
+      signedTask('workshop-estimate', versionId),
+    ).expect(204);
     expect(renderSpy.mock.calls.length).toBe(rendersBefore + 1);
 
     const download = await getPdf(versionId).expect(200);
@@ -383,9 +404,16 @@ describe('Workshop estimate PDF (e2e)', () => {
       .set('x-cloud-tasks-secret', 'not-the-secret')
       .send(valid)
       .expect(401);
-    await postWorker(versionId, signedTask('workshop-order', versionId)).expect(403);
-    await postWorker(versionId, signedTask('workshop-estimate', randomUUID())).expect(403);
-    await postWorker(versionId, { ...valid, signature: '0'.repeat(64) }).expect(401);
+    await postWorker(versionId, signedTask('workshop-order', versionId)).expect(
+      403,
+    );
+    await postWorker(
+      versionId,
+      signedTask('workshop-estimate', randomUUID()),
+    ).expect(403);
+    await postWorker(versionId, { ...valid, signature: '0'.repeat(64) }).expect(
+      401,
+    );
     await postWorker(
       versionId,
       signedTask('workshop-estimate', versionId, otherTenantId),
@@ -404,7 +432,10 @@ describe('Workshop estimate PDF (e2e)', () => {
       .expect(409);
     expect(refused.body).toMatchObject({ code: 'ESTIMATE_PDF_NOT_SENT' });
     await getPdf(versionId).expect(404);
-    await postWorker(versionId, signedTask('workshop-estimate', versionId)).expect(409);
+    await postWorker(
+      versionId,
+      signedTask('workshop-estimate', versionId),
+    ).expect(409);
 
     expect(renderSpy.mock.calls.length).toBe(rendersBefore);
   });
@@ -415,12 +446,18 @@ describe('Workshop estimate PDF (e2e)', () => {
     const tech = { Authorization: `Bearer ${await createTechToken()}` };
     const other = { Authorization: `Bearer ${otherAdminToken}` };
 
-    await api().post(`/api/workshop/estimates/${versionId}/pdf`).set(tech).expect(403);
+    await api()
+      .post(`/api/workshop/estimates/${versionId}/pdf`)
+      .set(tech)
+      .expect(403);
     await api()
       .get(`/api/workshop/estimates/${versionId}/pdf`)
       .set(tech)
       .expect(403);
-    await api().post(`/api/workshop/estimates/${versionId}/pdf`).set(other).expect(404);
+    await api()
+      .post(`/api/workshop/estimates/${versionId}/pdf`)
+      .set(other)
+      .expect(404);
     await getPdf(versionId, otherAdminToken).expect(404);
   });
 
@@ -467,12 +504,20 @@ describe('Workshop estimate PDF (e2e)', () => {
     expect(sent.body).toMatchObject({ status: 'SENT' });
 
     expect(latestRender().logoPng?.equals(LOGO_BYTES)).toBe(true);
-    expect(logoReadSpy).toHaveBeenCalledWith('e2e-brand-assets', objectKey, '17');
-    const reference = await prisma.workshopEstimateBrandAssetReference.findFirstOrThrow({
-      where: { workshop_estimate_version_id: versionId },
-      select: { asset_id: true, legal_entity_id: true },
+    expect(logoReadSpy).toHaveBeenCalledWith(
+      'e2e-brand-assets',
+      objectKey,
+      '17',
+    );
+    const reference =
+      await prisma.workshopEstimateBrandAssetReference.findFirstOrThrow({
+        where: { workshop_estimate_version_id: versionId },
+        select: { asset_id: true, legal_entity_id: true },
+      });
+    expect(reference).toEqual({
+      asset_id: asset.id,
+      legal_entity_id: legalEntityId,
     });
-    expect(reference).toEqual({ asset_id: asset.id, legal_entity_id: legalEntityId });
 
     const download = await getPdf(versionId).expect(200);
     expect((download.body as Buffer).equals(PDF_BYTES)).toBe(true);
