@@ -89,6 +89,11 @@ describe('WorkshopEstimateService access and send gating', () => {
       'download pdf',
       (service: WorkshopEstimateService) => service.getVersionPdf('version-1'),
     ],
+    [
+      'communications',
+      (service: WorkshopEstimateService) =>
+        service.listCommunicationsForOrder('order-1'),
+    ],
   ])(
     'refuses a TECH session on %s without touching the database',
     async (_name, call) => {

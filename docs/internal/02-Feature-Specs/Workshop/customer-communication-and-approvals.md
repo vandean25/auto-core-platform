@@ -208,7 +208,8 @@ Implementation tickets must follow OpenAPI contract-first (ADR-0010). Expected s
 | POST     | `/api/workshop/estimates/:versionId/approve-advisor` | Advisor-recorded decision            |
 | GET/POST | `/api/public/estimate-approvals/:token`              | Public view / decide                 |
 | POST     | `/api/workshop/orders/:id/overrun/notify`            | Record customer informed             |
-| POST     | `/api/notifications/outbox/replay`                   | Admin replay (guarded)               |
+| POST     | `/api/notifications/outbox/replay`                   | Admin replay (guarded): owner or admin only. Built in AUT-356 phase 6; a failed estimate email is refused (`LINK_REDACTED`) and re-sent as a new version |
+| GET      | `/api/workshop/orders/:id/communications`            | Customer communication timeline of an order. Built in AUT-356 phase 6 |
 
 OpenAPI regeneration checklist applies when implemented.
 
@@ -218,6 +219,7 @@ OpenAPI regeneration checklist applies when implemented.
 
 - Workshop order detail: top-right **Send estimate**, **Record approval**, **Resume waiting tasks** in `ActionGroup`.
 - Estimate status on order header as `StatusBadge` (sent / approved / declined / expired).
+- Order detail: **Kommunikation mit dem Kunden** card under the estimate card, for the estimate roles. It lists the estimate emails and the customer decisions, newest first, with German states (AUT-356 phase 6).
 - Send dialog: confirm recipient email, validity, legal preview; block send if email missing (with advisor-recorded path visible).
 - Overrun banner on order when threshold exceeded; actions **Kunden informiert** and **Send revised estimate**.
 - Public `/approve/:token`: mobile-first, `noindex`, confirm step, mandatory legal blocks above primary button.
@@ -276,10 +278,13 @@ Aligned with [Austria Market Roadmap](https://linear.app/auto-core-platform/proj
 - Snapshot immutability; 404 or 410 for a stale link (used, expired or superseded), 409 only when the version is no longer `SENT` for another reason.
 - Outbox enqueued in same transaction as state change.
 - Overrun fields written to audit trail.
+- Replay (phase 6): owner or admin only; FAILED rows only; refusal codes `NOT_FOUND`, `NOT_FAILED`, `BODY_PURGED`, `BODY_MISSING`, `LINK_REDACTED`, `STALE_UNSENT`; a second replay is refused; another tenant's row is `NOT_FOUND`; a bad batch (empty, repeated, more than 50, not a UUID) is 400.
+- Communication timeline (phase 6): the estimate emails and the decisions, newest first, with no address or typed name in the response; estimate roles only.
 
 ### Frontend
 
 - Send dialog validation; public approval flow on mobile viewport.
+- Communication timeline (phase 6): German states for a queued, sent, failed or suppressed email and for each decision; empty and error states with retry.
 - Invoice finalisation warning when overrun undocumented.
 
 ---

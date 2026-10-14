@@ -4931,6 +4931,36 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/communications": {
+      "get": {
+        "operationId": "WorkshopEstimateController_communications",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopOrderCommunicationsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{id}/estimates/revisions": {
       "post": {
         "operationId": "WorkshopEstimateController_revise",
@@ -7479,6 +7509,37 @@
         },
         "tags": [
           "voice-translation"
+        ]
+      }
+    },
+    "/api/notifications/outbox/replay": {
+      "post": {
+        "operationId": "NotificationOutboxReplayController_replayFailed",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationOutboxReplayRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOutboxReplayResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "notifications"
         ]
       }
     },
@@ -20233,6 +20294,82 @@
           "data"
         ]
       },
+      "WorkshopOrderCommunicationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Outbox row id for an estimate email, approval id for a customer decision."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ESTIMATE_EMAIL",
+              "ESTIMATE_APPROVAL"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "LINK",
+              "ADVISOR_RECORDED"
+            ]
+          },
+          "version": {
+            "type": "number",
+            "nullable": true,
+            "description": "Estimate version the entry is about."
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "QUEUED",
+              "SENT",
+              "FAILED",
+              "SUPPRESSED"
+            ],
+            "description": "Delivery state. Set for an estimate email only."
+          },
+          "decision": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "APPROVED",
+              "DECLINED"
+            ],
+            "description": "The customer decision. Set for an approval only."
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "channel",
+          "version",
+          "occurred_at",
+          "status",
+          "decision"
+        ]
+      },
+      "WorkshopOrderCommunicationsResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopOrderCommunicationDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
       "WorkshopEstimateDocumentDto": {
         "type": "object",
         "properties": {
@@ -23544,6 +23681,70 @@
             "nullable": true
           }
         }
+      },
+      "NotificationOutboxReplayRequestDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true,
+            "description": "Outbox row ids in FAILED status to send again.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "NotificationOutboxReplayRefusalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "NOT_FOUND",
+              "NOT_FAILED",
+              "BODY_PURGED",
+              "BODY_MISSING",
+              "LINK_REDACTED",
+              "STALE_UNSENT"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "code"
+        ]
+      },
+      "NotificationOutboxReplayResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayed": {
+            "description": "Rows that went back to PENDING. A wake-up that could not be queued is logged, and the recovery sweep wakes the row later.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "refused": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationOutboxReplayRefusalDto"
+            }
+          }
+        },
+        "required": [
+          "replayed",
+          "refused"
+        ]
       },
       "CreditNoteStatus": {
         "type": "string",

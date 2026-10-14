@@ -1404,6 +1404,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{id}/communications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_communications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{id}/estimates/revisions": {
         parameters: {
             query?: never;
@@ -2269,6 +2285,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["VoiceTranslationController_updateSettings"];
+        trace?: never;
+    };
+    "/api/notifications/outbox/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["NotificationOutboxReplayController_replayFailed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/credit-notes": {
@@ -5958,6 +5990,31 @@ export interface components {
         WorkshopEstimateListResponseDto: {
             data: components["schemas"]["WorkshopEstimateResponseDto"][];
         };
+        WorkshopOrderCommunicationDto: {
+            /** @description Outbox row id for an estimate email, approval id for a customer decision. */
+            id: string;
+            /** @enum {string} */
+            kind: "ESTIMATE_EMAIL" | "ESTIMATE_APPROVAL";
+            /** @enum {string} */
+            channel: "EMAIL" | "LINK" | "ADVISOR_RECORDED";
+            /** @description Estimate version the entry is about. */
+            version: number | null;
+            /** Format: date-time */
+            occurred_at: string;
+            /**
+             * @description Delivery state. Set for an estimate email only.
+             * @enum {string|null}
+             */
+            status: "QUEUED" | "SENT" | "FAILED" | "SUPPRESSED" | null;
+            /**
+             * @description The customer decision. Set for an approval only.
+             * @enum {string|null}
+             */
+            decision: "APPROVED" | "DECLINED" | null;
+        };
+        WorkshopOrderCommunicationsResponseDto: {
+            data: components["schemas"]["WorkshopOrderCommunicationDto"][];
+        };
         WorkshopEstimateDocumentDto: {
             /** @enum {string} */
             kind: "WORKSHOP_ESTIMATE";
@@ -6992,6 +7049,20 @@ export interface components {
             googleLocation?: string;
             /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
             googleServiceAccountJson?: string | null;
+        };
+        NotificationOutboxReplayRequestDto: {
+            /** @description Outbox row ids in FAILED status to send again. */
+            ids: string[];
+        };
+        NotificationOutboxReplayRefusalDto: {
+            id: string;
+            /** @enum {string} */
+            code: "NOT_FOUND" | "NOT_FAILED" | "BODY_PURGED" | "BODY_MISSING" | "LINK_REDACTED" | "STALE_UNSENT";
+        };
+        NotificationOutboxReplayResponseDto: {
+            /** @description Rows that went back to PENDING. A wake-up that could not be queued is logged, and the recovery sweep wakes the row later. */
+            replayed: string[];
+            refused: components["schemas"]["NotificationOutboxReplayRefusalDto"][];
         };
         /** @enum {string} */
         CreditNoteStatus: "DRAFT" | "FINALIZED" | "VOID";
@@ -12209,6 +12280,27 @@ export interface operations {
             };
         };
     };
+    WorkshopEstimateController_communications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopOrderCommunicationsResponseDto"];
+                };
+            };
+        };
+    };
     WorkshopEstimateController_revise: {
         parameters: {
             query?: never;
@@ -13850,6 +13942,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceTranslationSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    NotificationOutboxReplayController_replayFailed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationOutboxReplayRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOutboxReplayResponseDto"];
                 };
             };
         };

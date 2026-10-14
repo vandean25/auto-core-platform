@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 /**
  * Approval tokens for a sent estimate version (ADR-0025 §7). The raw token is a 32-byte CSPRNG value and
  * appears only inside the approval link. The database keeps its SHA-256, so a database read cannot approve
- * an estimate. The public route that consumes the token is a later phase.
+ * an estimate. The public route that consumes the token ships in `public-estimate-approval` (phase 5).
  */
 const APPROVAL_TOKEN_BYTES = 32;
 
