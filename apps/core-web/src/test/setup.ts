@@ -1,24 +1,36 @@
 import '@testing-library/jest-dom/vitest'
 import * as matchers from '@testing-library/jest-dom/matchers'
-import { expect, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
 import React from 'react'
 
 expect.extend(matchers)
 
-// Mock matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation((query) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-})
+// Some test files run in the node environment (`// @vitest-environment node`), where there is no window.
+const hasDom = typeof window !== 'undefined'
+
+if (hasDom) {
+  // Vitest globals are off, so @testing-library/react does not register its own cleanup. Unmount after each
+  // test: otherwise React work scheduled by a test can run after the jsdom environment is torn down.
+  afterEach(async () => {
+    const { cleanup } = await import('@testing-library/react')
+    cleanup()
+  })
+
+  // Mock matchMedia
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(), // deprecated
+      removeListener: vi.fn(), // deprecated
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+}
 
 // Mock framer-motion
 vi.mock('framer-motion', async (importOriginal) => {
@@ -61,11 +73,13 @@ const createStorageMock = () => {
 }
 
 const localStorageMock = createStorageMock()
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-  configurable: true,
-})
+if (hasDom) {
+  Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+    writable: true,
+    configurable: true,
+  })
+}
 Object.defineProperty(globalThis, 'localStorage', {
   value: localStorageMock,
   writable: true,
@@ -87,4 +101,3 @@ Object.defineProperty(globalThis, 'ResizeObserver', {
 if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = vi.fn()
 }
-

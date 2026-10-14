@@ -282,6 +282,10 @@ test.describe('Blueprint: Customer Detail Page', () => {
     // The InlineEdit now shows an <Input> with aria-label="Customer email"
     const input = page.getByLabel('Customer email');
     await expect(input).toBeVisible();
+    // InlineEdit focuses the input and places the caret in a requestAnimationFrame after it mounts.
+    // Wait for that focus: otherwise the deferred caret placement can collapse fill()'s selection and
+    // the new value is appended to the old one (old@example.comnew.email@example.com).
+    await expect(input).toBeFocused();
 
     // Set up response listener BEFORE changing the value (listener-first pattern)
     const patchPromise = page.waitForResponse(

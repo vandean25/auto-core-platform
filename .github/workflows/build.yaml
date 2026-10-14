@@ -376,11 +376,12 @@ jobs:
           echo "backend-e2e: $E2E"
           test "$LINT_BUILD" = success && test "$UNIT" = success && test "$E2E" = success
 
-  frontend:
-    # Playwright boots Vite with VITE_E2E_SKIP_AUTH=true (no API/Postgres).
-    # API e2e coverage lives in the backend E2E shard jobs (`npm run test:e2e`).
-    name: Frontend Build, Lint and UI Smoke
+  frontend-unit:
+    # Lint, build and Vitest. Runs in parallel with frontend-e2e; the `frontend` job below is the
+    # required check that aggregates both.
+    name: Frontend Lint, Build and Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -395,8 +396,16 @@ jobs:
       - name: Install workspace dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npm exec --workspace=core-web -- playwright install --with-deps chromium
+      - name: Runner CPU count
+        run: echo "vCPUs=$(nproc)"
+
+      - name: Restore ESLint cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: apps/core-web/node_modules/.cache/eslint/
+          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/core-web/eslint.config.js') }}-${{ github.run_id }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/core-web/eslint.config.js') }}-
 
       - name: Lint frontend
         run: npm run lint --workspace=core-web
@@ -415,19 +424,77 @@ jobs:
       - name: Run frontend unit tests
         run: npm test --workspace=core-web
 
+  frontend-e2e:
+    # Playwright UI smoke, split into shards that run in parallel on separate runners. The suite runs
+    # against a production bundle built with the E2E flags baked in: `npm run test:e2e` builds it, then
+    # serves it with `vite preview`. No API/Postgres: the flags make the app skip auth.
+    name: Frontend UI Smoke (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Runner CPU count
+        run: echo "vCPUs=$(nproc)"
+
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright browser cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright Browsers
+        run: npm exec --workspace=core-web -- playwright install --with-deps chromium
+
       - name: Run Playwright UI smoke tests
-        run: npm run test:e2e --workspace=core-web
+        run: npm run test:e2e --workspace=core-web -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-report-shard-${{ matrix.shard }}
           path: |
             apps/core-web/playwright-report
             apps/core-web/test-results
           retention-days: 14
           if-no-files-found: warn
+
+  frontend:
+    # Aggregating job. It keeps the required check name "Frontend Build, Lint and UI Smoke" and passes
+    # only when every frontend job above (all E2E shards included) passed.
+    name: Frontend Build, Lint and UI Smoke
+    needs: [frontend-unit, frontend-e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every frontend job to pass
+        env:
+          UNIT_RESULT: ${{ needs.frontend-unit.result }}
+          E2E_RESULT: ${{ needs.frontend-e2e.result }}
+        run: |
+          echo "Lint, build and unit tests: $UNIT_RESULT"
+          echo "UI smoke shards: $E2E_RESULT"
+          test "$UNIT_RESULT" = "success" && test "$E2E_RESULT" = "success"
 
   infrastructure:
     name: Terraform Infrastructure Validation
