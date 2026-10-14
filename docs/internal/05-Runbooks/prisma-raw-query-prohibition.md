@@ -103,7 +103,7 @@ const allTenants = await rawClient.tenant.findMany();
 
 ## CI Pipeline
 
-The ESLint check runs in the **Backend Build and Test** job of `.github/workflows/build.yaml` (`npm run lint`), alongside `lint:prisma-tenant`. `npm run lint` runs ESLint **without** `--fix`, so committed violations fail the job instead of being rewritten only in CI.
+The ESLint check runs in the **Backend Lint, Typecheck and Build** job of `.github/workflows/build.yaml` (`npm run lint`), alongside `lint:prisma-tenant`. That job is one of the inputs to the **Backend Build and Test** required check. `npm run lint` runs ESLint **without** `--fix`, so committed violations fail the job instead of being rewritten only in CI.
 
 Any PR that introduces a banned raw query method under `apps/core-api/src` will fail that backend job. Seed, test, and script files may remain exempt from `no-restricted-syntax`; application code in `src/` must stay banned.
 

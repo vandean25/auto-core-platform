@@ -1,10 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { NotificationCloudTasksService } from '../src/notifications/notification-cloud-tasks.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
@@ -37,6 +38,7 @@ describe('Workshop estimates (e2e)', () => {
   const createdUserIds: string[] = [];
   let previousSendFlag: string | undefined;
   let previousWriterFlag: string | undefined;
+  let previousApprovalBaseUrl: string | undefined;
 
   const api = () => request(app.getHttpServer());
   const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
@@ -131,6 +133,9 @@ describe('Workshop estimates (e2e)', () => {
   beforeAll(async () => {
     previousSendFlag = process.env[SEND_FLAG];
     previousWriterFlag = process.env.INVOICE_BRANDING_WRITER_ENABLED;
+    // The boot check needs the approval base while the send flag is on, so both are set before the app compiles.
+    previousApprovalBaseUrl = process.env.ESTIMATE_APPROVAL_BASE_URL;
+    process.env.ESTIMATE_APPROVAL_BASE_URL = 'https://portal.example.at';
     process.env[SEND_FLAG] = 'true';
 
     // A send queues the estimate archive. Stub the render and the storage so this suite
@@ -192,6 +197,11 @@ describe('Workshop estimates (e2e)', () => {
     } else {
       process.env[SEND_FLAG] = previousSendFlag;
     }
+    if (previousApprovalBaseUrl === undefined) {
+      delete process.env.ESTIMATE_APPROVAL_BASE_URL;
+    } else {
+      process.env.ESTIMATE_APPROVAL_BASE_URL = previousApprovalBaseUrl;
+    }
     if (previousWriterFlag === undefined) {
       delete process.env.INVOICE_BRANDING_WRITER_ENABLED;
     } else {
@@ -199,6 +209,9 @@ describe('Workshop estimates (e2e)', () => {
     }
 
     await prisma.workshopEstimateBrandAssetReference.deleteMany();
+    // Estimate email rows reference their order (ON DELETE RESTRICT), so they go before the orders do.
+    await prisma.notificationOutbox.deleteMany();
+    await prisma.workshopEstimateApprovalToken.deleteMany();
     await prisma.workshopEstimateVersion.deleteMany();
     await prisma.workshopEstimate.deleteMany();
     await prisma.workshopEstimateSequence.deleteMany();
@@ -218,7 +231,11 @@ describe('Workshop estimates (e2e)', () => {
 
     expect(created.body.estimate_number).toMatch(/^KV-\d{4}-\d{4}$/);
     expect(created.body.versions).toEqual([
-      expect.objectContaining({ version: 1, status: 'DRAFT', snapshot_sha256: null }),
+      expect.objectContaining({
+        version: 1,
+        status: 'DRAFT',
+        snapshot_sha256: null,
+      }),
     ]);
     expect(created.body.send_enabled).toBe(true);
 
@@ -258,7 +275,9 @@ describe('Workshop estimates (e2e)', () => {
     const created = await createEstimate(orderId);
 
     const refused = await api()
-      .post(`/api/workshop/estimates/${created.body.versions[0].id as string}/send`)
+      .post(
+        `/api/workshop/estimates/${created.body.versions[0].id as string}/send`,
+      )
       .set(adminAuth())
       .expect(503);
 
@@ -309,13 +328,172 @@ describe('Workshop estimates (e2e)', () => {
     expect(after.body.total_gross).toBe('192.00');
   });
 
+  async function setCustomerEmailConfirmation(contactEmailOk: boolean) {
+    await api()
+      .patch(`/api/customers/${customerId}`)
+      .set(adminAuth())
+      .send({ contact_email_ok: contactEmailOk })
+      .expect(200);
+  }
+
+  it('refuses an emailed send until the advisor has confirmed the customer address, and queues nothing', async () => {
+    await setCustomerEmailConfirmation(false);
+    const { orderId } = await createOrderWithLabor(1, 50);
+    const created = await createEstimate(orderId);
+    const versionId = created.body.versions[0].id as string;
+
+    const refused = await api()
+      .post(`/api/workshop/estimates/${versionId}/send`)
+      .set(adminAuth())
+      .send({ notifyCustomerByEmail: true })
+      .expect(422);
+
+    expect(refused.body.code).toBe('ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED');
+    expect(
+      await prisma.workshopEstimateVersion.findFirstOrThrow({
+        where: { id: versionId },
+        select: { status: true },
+      }),
+    ).toEqual({ status: 'DRAFT' });
+    expect(
+      await prisma.workshopEstimateApprovalToken.count({
+        where: { workshop_estimate_version_id: versionId },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.notificationOutbox.count({
+        where: { source_entity_id: versionId },
+      }),
+    ).toBe(0);
+  });
+
+  it('queues the estimate email with the approval link, and keeps only the hash of its token', async () => {
+    await setCustomerEmailConfirmation(true);
+    const { orderId } = await createOrderWithLabor(2, 80);
+    const created = await createEstimate(orderId);
+    const versionId = created.body.versions[0].id as string;
+
+    // The wake-up is spied, so the test sees whether the row was already committed when it was enqueued (ADR-0025 §6).
+    let rowVisibleAtWakeUp: boolean | undefined;
+    const wakeUp = jest
+      .spyOn(app.get(NotificationCloudTasksService), 'enqueueWakeUp')
+      .mockImplementation(async ({ outboxId }) => {
+        rowVisibleAtWakeUp =
+          (await prisma.notificationOutbox.findFirst({
+            where: { id: outboxId },
+          })) !== null;
+      });
+    const sent = await api()
+      .post(`/api/workshop/estimates/${versionId}/send`)
+      .set(adminAuth())
+      .send({ notifyCustomerByEmail: true })
+      .expect(200);
+    expect(JSON.stringify(sent.body)).not.toContain('/approve/');
+    expect(wakeUp).toHaveBeenCalledTimes(1);
+    expect(rowVisibleAtWakeUp).toBe(true);
+
+    const customer = await prisma.customer.findFirstOrThrow({
+      where: { id: customerId },
+      select: { email: true },
+    });
+    const row = await prisma.notificationOutbox.findFirstOrThrow({
+      where: { source_entity_id: versionId },
+    });
+    expect(row).toMatchObject({
+      event_type: 'CUSTOMER_ESTIMATE_SENT',
+      channel: 'EMAIL',
+      recipient_kind: 'CUSTOMER',
+      recipient_email: customer.email,
+    });
+    expect(row.subject).toMatch(/^Kostenvoranschlag KV-/);
+    expect(row.payload).toEqual({ customer_id: customerId });
+    expect(wakeUp).toHaveBeenCalledWith({
+      outboxId: row.id,
+      tenantId: row.tenant_id,
+    });
+    wakeUp.mockRestore();
+
+    const rawToken = /\/approve\/([A-Za-z0-9_-]{43})/.exec(row.body ?? '')?.[1];
+    expect(rawToken).toBeDefined();
+    const token = await prisma.workshopEstimateApprovalToken.findFirstOrThrow({
+      where: { workshop_estimate_version_id: versionId },
+    });
+    expect(token.token_sha256).toBe(
+      createHash('sha256')
+        .update(rawToken as string, 'utf8')
+        .digest('hex'),
+    );
+    expect(token.token_sha256).not.toBe(rawToken);
+    expect(token.expires_at.toISOString()).toBe(sent.body.valid_until);
+    expect(token.invalidated_at).toBeNull();
+  });
+
+  it('sends without an email when the advisor does not ask for one, and queues no token or message', async () => {
+    const { orderId } = await createOrderWithLabor(1, 45);
+    const created = await createEstimate(orderId);
+    const versionId = created.body.versions[0].id as string;
+
+    await api()
+      .post(`/api/workshop/estimates/${versionId}/send`)
+      .set(adminAuth())
+      .expect(200);
+
+    expect(
+      await prisma.workshopEstimateApprovalToken.count({
+        where: { workshop_estimate_version_id: versionId },
+      }),
+    ).toBe(0);
+    expect(
+      await prisma.notificationOutbox.count({
+        where: { source_entity_id: versionId },
+      }),
+    ).toBe(0);
+  });
+
+  it('invalidates the approval link of a superseded version when a later version is sent', async () => {
+    await setCustomerEmailConfirmation(true);
+    const { orderId } = await createOrderWithLabor(1, 60);
+    const created = await createEstimate(orderId);
+    const firstVersionId = created.body.versions[0].id as string;
+    await api()
+      .post(`/api/workshop/estimates/${firstVersionId}/send`)
+      .set(adminAuth())
+      .send({ notifyCustomerByEmail: true })
+      .expect(200);
+
+    const revised = await api()
+      .post(`/api/workshop/orders/${orderId}/estimates/revisions`)
+      .set(adminAuth())
+      .expect(201);
+    // The revision answers with the new draft version itself.
+    const draftId = revised.body.id as string;
+    expect(revised.body.status).toBe('DRAFT');
+
+    await api()
+      .post(`/api/workshop/estimates/${draftId}/send`)
+      .set(adminAuth())
+      .send({ notifyCustomerByEmail: true })
+      .expect(200);
+
+    const first = await prisma.workshopEstimateApprovalToken.findFirstOrThrow({
+      where: { workshop_estimate_version_id: firstVersionId },
+    });
+    const second = await prisma.workshopEstimateApprovalToken.findFirstOrThrow({
+      where: { workshop_estimate_version_id: draftId },
+    });
+    expect(first.invalidated_at).not.toBeNull();
+    expect(second.invalidated_at).toBeNull();
+  });
+
   it('sends without the invoice branding writer flag and keeps every other gate unchanged', async () => {
     process.env.INVOICE_BRANDING_WRITER_ENABLED = 'false';
     const { orderId } = await createOrderWithLabor();
     const created = await createEstimate(orderId);
 
     await api()
-      .post(`/api/workshop/estimates/${created.body.versions[0].id as string}/send`)
+      .post(
+        `/api/workshop/estimates/${created.body.versions[0].id as string}/send`,
+      )
       .set(adminAuth())
       .expect(200);
   });
@@ -356,10 +534,9 @@ describe('Workshop estimates (e2e)', () => {
       .get(`/api/workshop/orders/${orderId}/estimates`)
       .set(adminAuth())
       .expect(200);
-    expect(list.body.data[0].versions.map((v: { status: string }) => v.status)).toEqual([
-      'SUPERSEDED',
-      'SENT',
-    ]);
+    expect(
+      list.body.data[0].versions.map((v: { status: string }) => v.status),
+    ).toEqual(['SUPERSEDED', 'SENT']);
   });
 
   it('refuses a TECH session on every estimate action', async () => {
@@ -388,14 +565,26 @@ describe('Workshop estimates (e2e)', () => {
     const versionId = created.body.versions[0].id as string;
     const tech = { Authorization: `Bearer ${techToken}` };
 
-    await api().post(`/api/workshop/orders/${orderId}/estimates`).set(tech).expect(403);
-    await api().get(`/api/workshop/orders/${orderId}/estimates`).set(tech).expect(403);
+    await api()
+      .post(`/api/workshop/orders/${orderId}/estimates`)
+      .set(tech)
+      .expect(403);
+    await api()
+      .get(`/api/workshop/orders/${orderId}/estimates`)
+      .set(tech)
+      .expect(403);
     await api()
       .post(`/api/workshop/orders/${orderId}/estimates/revisions`)
       .set(tech)
       .expect(403);
-    await api().get(`/api/workshop/estimates/${versionId}`).set(tech).expect(403);
-    await api().post(`/api/workshop/estimates/${versionId}/send`).set(tech).expect(403);
+    await api()
+      .get(`/api/workshop/estimates/${versionId}`)
+      .set(tech)
+      .expect(403);
+    await api()
+      .post(`/api/workshop/estimates/${versionId}/send`)
+      .set(tech)
+      .expect(403);
   });
 
   it('does not expose or change another tenant estimate', async () => {
@@ -407,14 +596,26 @@ describe('Workshop estimates (e2e)', () => {
       Authorization: `Bearer ${createTestAuthToken(app.get(AuthService), otherTenant)}`,
     };
 
-    await api().get(`/api/workshop/orders/${orderId}/estimates`).set(other).expect(404);
-    await api().get(`/api/workshop/estimates/${versionId}`).set(other).expect(404);
-    await api().post(`/api/workshop/orders/${orderId}/estimates`).set(other).expect(404);
+    await api()
+      .get(`/api/workshop/orders/${orderId}/estimates`)
+      .set(other)
+      .expect(404);
+    await api()
+      .get(`/api/workshop/estimates/${versionId}`)
+      .set(other)
+      .expect(404);
+    await api()
+      .post(`/api/workshop/orders/${orderId}/estimates`)
+      .set(other)
+      .expect(404);
     await api()
       .post(`/api/workshop/orders/${orderId}/estimates/revisions`)
       .set(other)
       .expect(404);
-    await api().post(`/api/workshop/estimates/${versionId}/send`).set(other).expect(404);
+    await api()
+      .post(`/api/workshop/estimates/${versionId}/send`)
+      .set(other)
+      .expect(404);
 
     const version = await api()
       .get(`/api/workshop/estimates/${versionId}`)

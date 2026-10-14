@@ -8,6 +8,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { resolveHistoryPagination } from '../common/utils/history-pagination.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { buildCustomerDetailInclude } from './customer-detail.query.js';
+import { confirmationAfterEmailWrite } from './customer-contact-email.js';
 import { projectCustomerDetail } from './customer-detail.projection.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
@@ -215,6 +216,11 @@ export class CustomerService {
     const data: Prisma.CustomerUpdateInput = { ...updateCustomerDto };
     if (updateCustomerDto.vat_id !== undefined) {
       data.vat_id = normalizeCustomerVatId(updateCustomerDto.vat_id);
+    }
+    if (
+      confirmationAfterEmailWrite(existing.email, updateCustomerDto) === false
+    ) {
+      data.contact_email_ok = false;
     }
 
     return this.prisma.customer.update({

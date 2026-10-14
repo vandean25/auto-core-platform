@@ -22,21 +22,44 @@ export function parseJestTestList(output) {
   return output.split(/\r?\n/).map((file) => file.trim()).filter(Boolean);
 }
 
-export async function discoverE2eBatches(size = batchSize) {
+const shardPattern = /^--shard=(\d+)\/(\d+)$/;
+
+export function parseShardOption(args) {
+  const option = args.find((arg) => arg === '--shard' || arg.startsWith('--shard='));
+  if (option === undefined) {
+    return null;
+  }
+
+  const match = shardPattern.exec(option);
+  const index = Number(match?.[1]);
+  const count = Number(match?.[2]);
+  if (!match || count < 1 || index < 1 || index > count) {
+    throw new RangeError(
+      `Invalid ${option}: expected --shard=<index>/<count> with 1 <= index <= count.`,
+    );
+  }
+  return { index, count };
+}
+
+export function buildListTestsArgs(shard = null) {
   const jestPath = path.resolve(apiDirectory, '../../node_modules/jest/bin/jest.js');
-  const listedTests = spawnSync(
-    process.execPath,
-    [
-      '--experimental-vm-modules',
-      jestPath,
-      '--config',
-      './test/jest-e2e.json',
-      '--ci',
-      '--runInBand',
-      '--listTests',
-    ],
-    { cwd: apiDirectory, encoding: 'utf8' },
-  );
+  return [
+    '--experimental-vm-modules',
+    jestPath,
+    '--config',
+    './test/jest-e2e.json',
+    '--ci',
+    '--runInBand',
+    '--listTests',
+    ...(shard ? [`--shard=${shard.index}/${shard.count}`] : []),
+  ];
+}
+
+export async function discoverE2eBatches(size = batchSize, shard = null) {
+  const listedTests = spawnSync(process.execPath, buildListTestsArgs(shard), {
+    cwd: apiDirectory,
+    encoding: 'utf8',
+  });
 
   if (listedTests.error) {
     throw listedTests.error;
@@ -48,14 +71,19 @@ export async function discoverE2eBatches(size = batchSize) {
   const testFiles = parseJestTestList(listedTests.stdout);
 
   if (testFiles.length === 0) {
-    throw new Error('Jest did not discover any backend E2E suites.');
+    const scope = shard ? ` in shard ${shard.index}/${shard.count}` : '';
+    throw new Error(`Jest did not discover any backend E2E suites${scope}.`);
   }
 
   return chunkItems(testFiles, size);
 }
 
 async function runBatchedE2e() {
-  const batches = await discoverE2eBatches();
+  const shard = parseShardOption(process.argv.slice(2));
+  const batches = await discoverE2eBatches(batchSize, shard);
+  const suiteCount = batches.reduce((total, batch) => total + batch.length, 0);
+  const shardLabel = shard ? ` in shard ${shard.index}/${shard.count}` : '';
+  console.log(`Backend E2E: ${suiteCount} suites${shardLabel}.`);
   const jestPath = path.resolve(apiDirectory, '../../node_modules/jest/bin/jest.js');
 
   for (const [index, batch] of batches.entries()) {

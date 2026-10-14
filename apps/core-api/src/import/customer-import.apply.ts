@@ -12,6 +12,7 @@ import {
   upsertExternalMapping,
 } from './import-external-id.store.js';
 import type { ImportApplyJob, ImportApplyRow } from './import-type-handler.js';
+import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
 import { assignImportUpdateFields } from './import-update-data.util.js';
 import type { ImportJobOptions } from './import.types.js';
 
@@ -41,7 +42,7 @@ function buildCustomerUpdateData(
   payload: Record<string, unknown>,
   options: ImportJobOptions,
 ): Prisma.CustomerUpdateInput {
-  return assignImportUpdateFields(
+  const data = assignImportUpdateFields(
     existing,
     [
       ['type', payload.type],
@@ -58,6 +59,11 @@ function buildCustomerUpdateData(
     ],
     options,
   );
+  // A changed address withdraws the advisor's confirmation for order communication (ADR-0025 §8).
+  if (confirmationAfterEmailWrite(existing.email, data) === false) {
+    data.contact_email_ok = false;
+  }
+  return data;
 }
 
 async function createCustomer(

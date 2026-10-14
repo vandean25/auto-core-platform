@@ -304,6 +304,50 @@ describe('CustomerService', () => {
     });
   });
 
+  it('withdraws the email confirmation when the update changes the address', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'AT',
+      vat_id: null,
+      email: 'a@example.at',
+    });
+    mockPrisma.customer.update.mockResolvedValue({ id: 'c-1' });
+
+    await service.update('c-1', { email: 'typo@example.at' });
+
+    expect(mockPrisma.customer.update).toHaveBeenCalledWith({
+      where: { id: 'c-1' },
+      data: expect.objectContaining({
+        email: 'typo@example.at',
+        contact_email_ok: false,
+      }),
+    });
+  });
+
+  it('keeps the email confirmation when the address is unchanged, or when the update sets the flag', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: 'c-1',
+      address_country: 'AT',
+      vat_id: null,
+      email: 'a@example.at',
+    });
+    mockPrisma.customer.update.mockResolvedValue({ id: 'c-1' });
+
+    await service.update('c-1', { email: 'a@example.at' });
+    expect(mockPrisma.customer.update.mock.calls[0][0].data).not.toHaveProperty(
+      'contact_email_ok',
+    );
+
+    await service.update('c-1', {
+      email: 'typo@example.at',
+      contact_email_ok: true,
+    });
+    expect(mockPrisma.customer.update).toHaveBeenLastCalledWith({
+      where: { id: 'c-1' },
+      data: expect.objectContaining({ contact_email_ok: true }),
+    });
+  });
+
   it('clears vat_id on update when null is sent', async () => {
     mockPrisma.customer.findFirst.mockResolvedValue({
       id: 'c-1',

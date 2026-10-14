@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   NotificationChannel,
   NotificationOutboxStatus,
+  NotificationRecipientKind,
   type Prisma,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -10,6 +11,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { isPlainEmailAddress } from './email/email-address.js';
 import { isSingleLineText } from './email/header-text.js';
+import { redactApprovalLinks } from './notification-body-redaction.js';
+import { withdrawConfirmationAfterRefusal } from './notification-email-confirmation.js';
 import {
   EmailProviderError,
   type EmailSendResult,
@@ -41,6 +44,8 @@ const ACCEPTED_WRITE_ATTEMPTS = 3;
 interface ClaimedRow {
   channel: NotificationChannel;
   event_type: string;
+  recipient_kind: NotificationRecipientKind;
+  payload: Prisma.JsonValue | null;
   recipient_email: string | null;
   subject: string | null;
   body: string | null;
@@ -52,6 +57,8 @@ interface ClaimedRow {
 interface Failure {
   code: string;
   message: string;
+  /** A permanent refusal of the address itself, a hard bounce (ADR-0025 §8). */
+  recipientRejected?: boolean;
 }
 
 interface Attempt {
@@ -131,6 +138,8 @@ export class NotificationOutboxWorkerService {
       select: {
         channel: true,
         event_type: true,
+        recipient_kind: true,
+        payload: true,
         recipient_email: true,
         subject: true,
         body: true,
@@ -263,6 +272,16 @@ export class NotificationOutboxWorkerService {
       if (failure.transient) {
         return this.retryOrFail(a, failure);
       }
+      if (failure.recipientRejected) {
+        await this.fail(a, failure);
+        return withdrawConfirmationAfterRefusal(this.prisma, {
+          tenantId: a.tenantId,
+          outboxId: a.outboxId,
+          recipientKind: a.row.recipient_kind,
+          recipientEmail: a.row.recipient_email,
+          payload: a.row.payload,
+        });
+      }
       return this.fail(a, failure);
     }
     // The provider has accepted the message, so nothing from here may schedule another send.
@@ -351,7 +370,13 @@ export class NotificationOutboxWorkerService {
         status: NotificationOutboxStatus.SENDING,
         lease_token: a.leaseToken,
       },
-      data: { ...outcome, lease_token: null, lease_expires_at: null },
+      data: {
+        ...outcome,
+        // A terminal row keeps no approval link (ADR-0025 §7). Retries are scheduled elsewhere and keep the body.
+        body: redactApprovalLinks(a.row.body),
+        lease_token: null,
+        lease_expires_at: null,
+      },
     });
     if (result.count !== 1) {
       this.logger.warn(
@@ -421,11 +446,13 @@ function toProviderFailure(error: unknown): Failure & { transient: boolean } {
         ? 'The provider did not accept the message'
         : 'The provider refused the message',
       transient,
+      recipientRejected: error.kind === 'recipient_rejected',
     };
   }
   return {
     code: 'UNEXPECTED_ERROR',
     message: 'Unexpected sender error',
     transient: true,
+    recipientRejected: false,
   };
 }

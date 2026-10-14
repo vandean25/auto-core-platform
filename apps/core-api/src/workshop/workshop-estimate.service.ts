@@ -9,6 +9,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma, WorkshopEstimateStatus } from '@prisma/client';
+import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -48,6 +50,12 @@ import {
   type WorkshopEstimateOverrunWarning,
 } from './workshop-estimate-overrun.helpers.js';
 import { retainUntilAtSend } from './workshop-estimate-retention.helpers.js';
+import { parseApprovalBaseUrl } from './workshop-estimate-approval-token.helpers.js';
+import {
+  invalidateSupersededApprovalTokens,
+  queueEstimateEmailInTx,
+  wakeUpAfterCommit,
+} from './workshop-estimate-email-queue.js';
 import {
   WORKSHOP_ESTIMATE_VERSION_SUMMARY_SELECT,
   toWorkshopEstimateDto,
@@ -70,6 +78,11 @@ const ESTIMATE_ROLES: ReadonlySet<string> = new Set([
 const DEFAULT_OVERRUN_THRESHOLD_PCT = '15';
 
 type EstimateScope = { tenantId: string; siteId: string };
+
+/** Whether the send also emails the approval link to the customer (ADR-0025 §5 to §8). */
+export interface EstimateSendOptions {
+  notifyCustomerByEmail: boolean;
+}
 
 const ORDER_FOR_ESTIMATE_SELECT = {
   id: true,
@@ -148,6 +161,10 @@ export class WorkshopEstimateService {
     private readonly siteContext: SiteContextService,
     @Inject(WorkshopEstimatePdfService)
     private readonly pdf: WorkshopEstimatePdfService,
+    @Inject(NotificationOutboxService)
+    private readonly outbox: NotificationOutboxService,
+    @Inject(NotificationCloudTasksService)
+    private readonly wakeUps: NotificationCloudTasksService,
   ) {}
 
   /** Create the estimate (KV number, version 1 as DRAFT) for an open workshop order. */
@@ -290,6 +307,7 @@ export class WorkshopEstimateService {
    */
   async sendVersion(
     versionId: string,
+    options: EstimateSendOptions = { notifyCustomerByEmail: false },
   ): Promise<WorkshopEstimateVersionDetailDto> {
     this.assertEstimateRole();
     if (!isCustomerEstimateSendEnabled()) {
@@ -299,9 +317,19 @@ export class WorkshopEstimateService {
           'Sending estimates to customers is disabled until the legal copy is approved.',
       });
     }
+    const approvalBaseUrl = options.notifyCustomerByEmail
+      ? parseApprovalBaseUrl(process.env.ESTIMATE_APPROVAL_BASE_URL)
+      : null;
+    if (options.notifyCustomerByEmail && approvalBaseUrl === null) {
+      throw new ServiceUnavailableException({
+        code: 'ESTIMATE_APPROVAL_LINK_UNAVAILABLE',
+        message:
+          'The approval link base is not configured, so the estimate cannot be emailed.',
+      });
+    }
     const scope = await this.resolveScope();
 
-    await this.prisma
+    const queuedOutboxId = await this.prisma
       .$transaction(async (tx) => {
         const version = await tx.workshopEstimateVersion.findFirst({
           where: {
@@ -420,6 +448,12 @@ export class WorkshopEstimateService {
           },
           data: { status: WorkshopEstimateStatus.SUPERSEDED },
         });
+        await invalidateSupersededApprovalTokens(
+          tx,
+          scope.tenantId,
+          version.estimate_id,
+          issuedAt,
+        );
 
         const sent = await tx.workshopEstimateVersion.updateMany({
           where: {
@@ -460,10 +494,29 @@ export class WorkshopEstimateService {
             },
           });
         }
+
+        if (approvalBaseUrl === null) {
+          return null;
+        }
+        return queueEstimateEmailInTx(tx, this.outbox, {
+          tenantId: scope.tenantId,
+          versionId,
+          workshopOrderId: order.id,
+          vehicle: order.vehicle,
+          customer: order.customer,
+          sellerName: legalEntity.name,
+          estimateNumber: version.estimate.estimate_number,
+          approvalBaseUrl,
+          validUntil,
+          issuedAt,
+        });
       })
       .catch(mapEstimateWriteError);
 
     await this.queuePdfAfterSend(scope, versionId);
+    if (queuedOutboxId !== null) {
+      await wakeUpAfterCommit(this.wakeUps, queuedOutboxId, scope.tenantId);
+    }
     return this.readVersion(scope, versionId);
   }
 

@@ -22,6 +22,9 @@ export class CustomerResponseDto extends DryRunMetaDto {
   @ApiProperty({ type: String, required: false, nullable: true })
   email?: string | null;
 
+  @ApiProperty({ type: Boolean, required: false })
+  contact_email_ok?: boolean;
+
   @ApiProperty({ type: String, required: false, nullable: true })
   phone?: string | null;
 
