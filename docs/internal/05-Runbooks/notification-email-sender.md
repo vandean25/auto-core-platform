@@ -129,13 +129,13 @@ Stored error text is generic. Provider response bodies are never stored.
   { "ids": ["<outbox-id>"] }
   ```
 
-- Each FAILED row goes back to PENDING with a fresh attempt budget, and is woken once that change is committed. The answer lists `replayed` and `refused`. A refusal carries one code, and a refused row is never sent by that request:
+- Each FAILED row goes back to PENDING with a fresh attempt budget, and is woken once that change is committed. The answer lists `replayed` and `refused`. A refusal carries one code, and a refused row is never sent by that request. The first check that fails sets the code, in the order below:
   - `NOT_FOUND`: no such row in this tenant.
   - `NOT_FAILED`: the row is not FAILED. A row that another request has just replayed is refused this way too. A SUPPRESSED row stays suppressed.
   - `BODY_PURGED`: the 90-day purge has removed the body, so the notice cannot be sent again.
-  - `BODY_MISSING`: an email row has no stored body. A notice that was never sent (`STALE_UNSENT`) loses its body this way.
+  - `STALE_UNSENT`: the row is older than the 7-day sending window. The next sweep fails such a row and clears its body (§6), so replay refuses it. The remedy is the same as for `LINK_REDACTED`.
+  - `BODY_MISSING`: an email row written without a body.
   - `LINK_REDACTED`: a failed estimate email. The write that failed it removed the approval link (ADR-0025 §7), so sending the body again would send the placeholder. Send the estimate again as a new version: create a revision on the order, then send it with the customer email. The failed version stays on record, and its link stops working once the new version is sent.
-  - `STALE_UNSENT`: the row is older than the 7-day sending window. The next sweep would fail it again and clear its body (§6), so replay refuses it.
 - Replay never sends inline. A replayed row goes through the normal worker, so the mode and the allowlist still apply: under `off` it is recorded as SUPPRESSED. If the wake-up cannot be queued, the failure is logged and the row waits PENDING for the recovery sweep (§6).
 - Fix the cause first, and read `last_error_code` (§5). Replay is safe for `PROVIDER_NOT_CONFIGURED` and `MAX_ATTEMPTS_EXCEEDED` once the provider or the sender setting is healthy. `MAX_ATTEMPTS_EXCEEDED` is what a retryable error (`UNEXPECTED_ERROR`, `SENDER_NOT_CONFIGURED`, the transient codes) leaves behind after its last attempt; the row's message names that last error. A row that failed as `LEASE_EXPIRED` may already have reached the customer (§6), so confirm with the provider first. Do not replay `RECIPIENT_MISSING` or `RECIPIENT_INVALID`: the row keeps its recipient, so the notice has to be written again.
 - Replay writes no audit row yet. The change shows only in the row's `updatedAt` (§6).
