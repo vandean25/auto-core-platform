@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchWithAuth } from '@/api/client'
 import type { components } from '@/api/generated/openapi'
+import { workshopCommunicationKeys } from '@/api/workshop-communications'
 
 export type WorkshopEstimate = components['schemas']['WorkshopEstimateResponseDto']
 export type WorkshopEstimateVersionSummary = components['schemas']['WorkshopEstimateVersionSummaryDto']
@@ -76,7 +77,10 @@ export function useWorkshopEstimateVersion(versionId: string | null) {
 }
 
 function invalidateEstimate(queryClient: ReturnType<typeof useQueryClient>, orderId: string) {
-  return queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.order(orderId) })
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: workshopEstimateKeys.order(orderId) }),
+    queryClient.invalidateQueries({ queryKey: workshopCommunicationKeys.order(orderId) }),
+  ])
 }
 
 export function useCreateWorkshopEstimate() {

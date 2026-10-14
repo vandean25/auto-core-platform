@@ -7,6 +7,7 @@ import { useCatalogProviderSettings } from "@/api/useCatalogProviderSettings";
 import { useVehicle, useResolveVehicleIdentity } from "@/api/vehicles";
 import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
+import { WorkshopCommunicationTimeline } from "@/components/workshop/WorkshopCommunicationTimeline";
 import { WorkshopEstimateCard } from "@/components/workshop/WorkshopEstimateCard";
 import { canManageWorkshopEstimates } from "@/features/workshop/workshop-estimate-permissions";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
@@ -434,13 +435,16 @@ export function WorkshopOrderDetails() {
               }
             />
             {canManageEstimates && (
-              <WorkshopEstimateCard
-                orderId={order.id}
-                orderStatus={order.status}
-                isLocked={!!isLocked}
-                orderRevision={JSON.stringify(order.tasks ?? [])}
-                customer={order.customer ?? null}
-              />
+              <>
+                <WorkshopEstimateCard
+                  orderId={order.id}
+                  orderStatus={order.status}
+                  isLocked={!!isLocked}
+                  orderRevision={JSON.stringify(order.tasks ?? [])}
+                  customer={order.customer ?? null}
+                />
+                <WorkshopCommunicationTimeline orderId={order.id} />
+              </>
             )}
           </motion.div>
 
