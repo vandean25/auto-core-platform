@@ -12,6 +12,7 @@ import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { buildRealtimeSocketOptions } from '@/features/realtime/realtime-socket-options'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   ENTITY_UPDATED_EVENT,
@@ -123,12 +124,13 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     const connection = resolveRealtimeConnection()
     if (!connection || !token) return
 
-    const socket: Socket = io(connection.url, {
-      path: connection.path,
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-      auth: { token },
-    })
+    const socket: Socket = io(
+      connection.url,
+      buildRealtimeSocketOptions({
+        path: connection.path,
+        getIdToken: async () => (await firebaseAuth?.currentUser?.getIdToken()) ?? null,
+      }),
+    )
 
     const onEntityUpdated = (payload: unknown) => {
       if (!isEntityUpdatedPayload(payload)) return

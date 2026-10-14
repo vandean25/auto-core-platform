@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events';
+import type { Logger } from '@nestjs/common';
 import type { Socket, Server } from 'socket.io';
 import { jest } from '@jest/globals';
 import type { AuthService } from '../auth/auth.service.js';
@@ -42,7 +44,9 @@ const { createAdapter } = await import('@socket.io/redis-adapter');
 const { Redis } = await import('ioredis');
 const {
   DashboardGateway,
+  attachEngineConnectionErrorLogging,
   buildStockTransferPayload,
+  describeEngineConnectionError,
   extractBearerToken,
   formatAuthHeader,
 } = await import('./dashboard.gateway.js');
@@ -54,6 +58,81 @@ const {
   redactTransferForSockets,
 } = await import('./dashboard-redis.adapter.js');
 const { resolveCorsOrigins } = await import('../common/http/cors-origins.js');
+
+describe('engine.io connection error logging', () => {
+  it('describes a session-id mismatch without exposing the session id', () => {
+    const description = describeEngineConnectionError({
+      code: 1,
+      message: 'Session ID unknown',
+      context: { sid: 'session-secret' },
+      req: {
+        url: '/api/socket.io/?EIO=4&transport=polling&sid=session-secret',
+        headers: {},
+      },
+    });
+
+    expect(description).toEqual({
+      type: 'ws_engine_connection_error',
+      code: 1,
+      message: 'Session ID unknown',
+      reason: null,
+      transport: 'polling',
+      hasSid: true,
+      upgradeHeader: false,
+    });
+    expect(JSON.stringify(description)).not.toContain('session-secret');
+  });
+
+  it('reports the requested transport and whether an upgrade was attempted', () => {
+    const description = describeEngineConnectionError({
+      code: 3,
+      message: 'Bad request',
+      context: { name: 'TRANSPORT_HANDSHAKE_ERROR' },
+      req: {
+        url: '/api/socket.io/?EIO=4&transport=websocket',
+        headers: { upgrade: 'websocket' },
+      },
+    });
+
+    expect(description).toMatchObject({
+      code: 3,
+      reason: 'TRANSPORT_HANDSHAKE_ERROR',
+      transport: 'websocket',
+      hasSid: false,
+      upgradeHeader: true,
+    });
+  });
+
+  it('logs one structured warning for each engine.io connection error', () => {
+    const engine = new EventEmitter();
+    const logger = { warn: jest.fn() } as unknown as Logger;
+
+    attachEngineConnectionErrorLogging({ engine } as unknown as Server, logger);
+    engine.emit('connection_error', {
+      code: 1,
+      message: 'Session ID unknown',
+      context: { sid: 'session-secret' },
+      req: {
+        url: '/api/socket.io/?EIO=4&transport=websocket&sid=session-secret',
+        headers: { upgrade: 'websocket' },
+      },
+    });
+
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"ws_engine_connection_error"'),
+    );
+  });
+
+  it('ignores namespace objects that do not expose an engine', () => {
+    const logger = { warn: jest.fn() } as unknown as Logger;
+
+    expect(() =>
+      attachEngineConnectionErrorLogging({} as unknown as Server, logger),
+    ).not.toThrow();
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+});
 
 describe('resolveRedisUrl', () => {
   it('returns undefined when REDIS_URL is undefined or empty', () => {
