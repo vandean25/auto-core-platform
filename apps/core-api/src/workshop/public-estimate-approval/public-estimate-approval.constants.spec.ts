@@ -89,11 +89,25 @@ describe('public estimate approval throttling and token shape', () => {
     }
   });
 
-  it('counts a target it cannot read as a path as the route, so the fail-safe side is taken', () => {
-    const target = `http:/api/public/estimate-approvals/${'A'.repeat(43)}`;
+  it('matches the route when the target spells its separators with backslashes, or ends in a fragment', () => {
+    const skipIf = ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf;
+    const token = 'A'.repeat(43);
 
-    expect(isPublicEstimateApprovalRequest({ originalUrl: target, url: target })).toBe(true);
-    expect(ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf?.(contextFor(target))).toBe(false);
+    for (const target of [
+      `http://api.example.test/api\\public\\estimate-approvals\\${token}`,
+      `/api/public/estimate-approvals\\${token}#`,
+      `//user@api.example.test/api/public/estimate-approvals/${token}#`,
+    ]) {
+      expect(isPublicEstimateApprovalRequest({ originalUrl: target, url: target })).toBe(true);
+      expect(skipIf?.(contextFor(target))).toBe(false);
+    }
+  });
+
+  it('reads only the path, so a query or a fragment cannot make another route the approval route', () => {
+    const target = '/api/workshop/estimates/1/send?next=/estimate-approvals/x#/estimate-approvals/y';
+
+    expect(isPublicEstimateApprovalRequest({ originalUrl: target, url: target })).toBe(false);
+    expect(ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf?.(contextFor(target))).toBe(true);
   });
 
   it('leaves other routes alone in absolute form too', () => {

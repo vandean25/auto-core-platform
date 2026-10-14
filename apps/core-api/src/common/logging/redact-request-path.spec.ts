@@ -18,6 +18,15 @@ describe('redactRequestPath', () => {
     ).toBe('/API/Public/ESTIMATE-APPROVALS/:token');
   });
 
+  it('redacts the token when the route is spelled with backslashes, or the target ends in a fragment', () => {
+    expect(
+      redactRequestPath(`http://h/api\\public\\estimate-approvals\\${TOKEN}`),
+    ).toBe('http://h/api\\public\\estimate-approvals\\:token');
+    expect(
+      redactRequestPath(`/api/public/estimate-approvals/${TOKEN}#frag`),
+    ).toBe('/api/public/estimate-approvals/:token#frag');
+  });
+
   it('keeps the query string and leaves other paths alone', () => {
     expect(
       redactRequestPath(`/api/public/estimate-approvals/${TOKEN}?x=1`),

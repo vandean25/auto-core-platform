@@ -11,28 +11,21 @@ export const ESTIMATE_APPROVAL_IP_THROTTLER = 'estimate-approval-ip';
  */
 export const ESTIMATE_APPROVAL_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
-// Express routes paths case-insensitively by default, so the prefix match has to be case-insensitive too.
-const PUBLIC_ESTIMATE_APPROVAL_PATH = /^\/api\/public\/estimate-approvals\//i;
-
-// The scheme and authority of an absolute-form target, as a forward proxy sends it (`http://host:port`). Express
-// routes such a target by the path after the authority, whatever the authority holds, so the authority is dropped
-// without being parsed.
-const ABSOLUTE_FORM_AUTHORITY = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i;
+// Express reads a backslash in a request target as a path separator, so a target can spell the route with either
+// separator, in any letter case. Every request the approval controller answers has this segment in its path, before
+// any `?` or `#`, because the route needs it there.
+const APPROVAL_ROUTE_SEGMENT = /[\\/]estimate-approvals[\\/]/i;
 
 /**
  * Whether a request may be the approval route. It decides whether the per-IP throttler applies, whether the approval
- * headers are set, and whether tracing skips the request. Each of them fails safe, so a target that is not clearly
- * another route counts as the approval route.
+ * headers are set, and whether tracing skips the request. The test is a superset of the route, so each of those
+ * decisions fails safe for every spelling of the target that the router accepts.
  */
 export function isPublicEstimateApprovalRequest(
   request: Pick<Request, 'originalUrl' | 'url'>,
 ): boolean {
   const target = request.originalUrl ?? request.url ?? '';
-  if (target === '') {
-    return false;
-  }
-  const path = target.replace(ABSOLUTE_FORM_AUTHORITY, '').split(/[?#]/)[0];
-  return !path.startsWith('/') || PUBLIC_ESTIMATE_APPROVAL_PATH.test(path);
+  return APPROVAL_ROUTE_SEGMENT.test(target.split(/[?#]/, 1)[0]);
 }
 
 export const ESTIMATE_APPROVAL_THROTTLER_OPTIONS: ThrottlerOptions = {

@@ -10,6 +10,10 @@ describe('isPublicApprovalPath', () => {
 
   it('leaves other pages, and paths that only start like the prefix, alone', () => {
     expect(isPublicApprovalPath('/approval/token')).toBe(false)
+    expect(isPublicApprovalPath('/approved/1')).toBe(false)
+    expect(isPublicApprovalPath('/approver/x')).toBe(false)
+    expect(isPublicApprovalPath('/approve')).toBe(false)
+    expect(isPublicApprovalPath('//approve/x')).toBe(false)
     expect(isPublicApprovalPath('/workshop/orders/order-1')).toBe(false)
     expect(isPublicApprovalPath('/')).toBe(false)
   })

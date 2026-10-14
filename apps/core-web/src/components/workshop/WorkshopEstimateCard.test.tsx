@@ -500,6 +500,21 @@ describe('WorkshopEstimateCard send dialog', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
     expect(await within(dialog).findByText(/Dieser Auftrag ist nicht mehr offen/)).toBeTruthy()
   })
+
+  it('maps a refused role to German copy that names the missing permission', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    sendMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error('x'), {
+        status: 403,
+        data: { code: 'ESTIMATE_ROLE_FORBIDDEN', message: 'Kostenvoranschlag actions require the owner, admin or sales role.' },
+      }),
+    )
+    const dialog = await openSendDialog()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+    expect(await within(dialog).findByText('Für diese Aktion fehlt Ihnen die Berechtigung.')).toBeTruthy()
+  })
 })
 
 describe('WorkshopEstimateCard order refresh', () => {

@@ -1,10 +1,12 @@
 /**
  * The approval link token is a credential that sits in the URL path (ADR-0025 §7). Anything that logs or reports a
  * request path passes it through here, so the token never reaches application logs or error reports.
+ *
+ * The token follows `estimate-approvals` and a separator. The router reads a backslash as a separator and routes the
+ * segment in any letter case, so either separator and any case count. The token ends at the next separator, a query
+ * or a fragment.
  */
-// Case-insensitive, because Express routes the prefix in any letter case.
-const APPROVAL_TOKEN_SEGMENT =
-  /(\/api\/public\/estimate-approvals\/)[^/?#\s"]+/gi;
+const APPROVAL_TOKEN_SEGMENT = /(estimate-approvals[\\/])[^\\/?#\s"]+/gi;
 
 const MAX_SCRUB_DEPTH = 12;
 
