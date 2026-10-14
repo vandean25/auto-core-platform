@@ -5061,6 +5061,86 @@
         ]
       }
     },
+    "/api/workshop/estimates/{versionId}/approve-advisor": {
+      "post": {
+        "operationId": "WorkshopEstimateController_recordAdvisorDecision",
+        "parameters": [
+          {
+            "name": "versionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordWorkshopEstimateDecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopEstimateVersionDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/{id}/overrun/notify": {
+      "post": {
+        "operationId": "WorkshopEstimateController_recordOverrunNotice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordWorkshopOverrunNoticeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopOverrunNoticeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/estimates/{versionId}/pdf": {
       "post": {
         "operationId": "WorkshopEstimateController_requestPdf",
@@ -5105,6 +5185,36 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
+    "/api/workshop/orders/{id}/tasks/resume-waiting": {
+      "post": {
+        "operationId": "WorkshopWaitingTasksController_resumeWaitingTasks",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopResumeWaitingTasksResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -20110,6 +20220,70 @@
           "parts_turnover"
         ]
       },
+      "WorkshopEstimateApprovalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "LINK",
+              "ADVISOR_RECORDED",
+              "PHONE",
+              "IN_PERSON",
+              "EMAIL"
+            ]
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "DECLINED"
+            ]
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "amount_quoted_gross": {
+            "type": "string",
+            "nullable": true,
+            "description": "Gross amount quoted with the decision."
+          },
+          "customer_reaction": {
+            "type": "string",
+            "enum": [
+              "AGREED",
+              "DECLINED",
+              "QUESTIONED",
+              "CALLBACK_REQUESTED",
+              "NO_RESPONSE"
+            ],
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "recorded_by_user_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "The user who recorded an advisor decision. Null for a customer link decision."
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "decision",
+          "decided_at",
+          "amount_quoted_gross",
+          "customer_reaction",
+          "note",
+          "recorded_by_user_id"
+        ]
+      },
       "WorkshopEstimateVersionSummaryDto": {
         "type": "object",
         "properties": {
@@ -20176,6 +20350,15 @@
           "pdf_generation_error": {
             "type": "string",
             "nullable": true
+          },
+          "approval": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopEstimateApprovalDto"
+              }
+            ]
           }
         },
         "required": [
@@ -20193,7 +20376,8 @@
           "retain_until",
           "legal_hold",
           "pdf_generated_at",
-          "pdf_generation_error"
+          "pdf_generation_error",
+          "approval"
         ]
       },
       "WorkshopEstimateOverrunWarningDto": {
@@ -20216,6 +20400,46 @@
           },
           "new_line_count": {
             "type": "number"
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "notified_channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "IN_PERSON",
+              "EMAIL"
+            ],
+            "nullable": true
+          },
+          "notified_amount_gross": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_reaction": {
+            "type": "string",
+            "enum": [
+              "AGREED",
+              "DECLINED",
+              "QUESTIONED",
+              "CALLBACK_REQUESTED",
+              "NO_RESPONSE"
+            ],
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "requires_customer_notice": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -20224,7 +20448,14 @@
           "approved_total_gross",
           "current_total_gross",
           "threshold_pct",
-          "new_line_count"
+          "new_line_count",
+          "detected_at",
+          "notified_at",
+          "notified_channel",
+          "notified_amount_gross",
+          "customer_reaction",
+          "note",
+          "requires_customer_notice"
         ]
       },
       "WorkshopEstimateResponseDto": {
@@ -20299,13 +20530,14 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Outbox row id for an estimate email, approval id for a customer decision."
+            "description": "Outbox row id for an estimate email, approval id for a customer decision, overrun record id for an overrun notice."
           },
           "kind": {
             "type": "string",
             "enum": [
               "ESTIMATE_EMAIL",
-              "ESTIMATE_APPROVAL"
+              "ESTIMATE_APPROVAL",
+              "OVERRUN_NOTIFICATION"
             ]
           },
           "channel": {
@@ -20313,7 +20545,9 @@
             "enum": [
               "EMAIL",
               "LINK",
-              "ADVISOR_RECORDED"
+              "ADVISOR_RECORDED",
+              "PHONE",
+              "IN_PERSON"
             ]
           },
           "version": {
@@ -20672,6 +20906,15 @@
             "type": "string",
             "nullable": true
           },
+          "approval": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopEstimateApprovalDto"
+              }
+            ]
+          },
           "estimate_id": {
             "type": "string"
           },
@@ -20716,6 +20959,7 @@
           "legal_hold",
           "pdf_generated_at",
           "pdf_generation_error",
+          "approval",
           "estimate_id",
           "estimate_number",
           "workshop_order_id"
@@ -20729,6 +20973,162 @@
             "default": false
           }
         }
+      },
+      "RecordWorkshopEstimateDecisionDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "DECLINED"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "IN_PERSON",
+              "EMAIL"
+            ],
+            "description": "How the customer answered the workshop. The customer link is not a channel here."
+          },
+          "amount_quoted_gross": {
+            "type": "string",
+            "example": "192.00",
+            "description": "Gross amount the customer was quoted. It must equal the gross total of the sent version."
+          },
+          "note": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "customer_reaction": {
+            "type": "string",
+            "enum": [
+              "AGREED",
+              "DECLINED",
+              "QUESTIONED",
+              "CALLBACK_REQUESTED",
+              "NO_RESPONSE"
+            ]
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the customer decided, for example the time of the call. Defaults to now. Must lie between sending and now."
+          }
+        },
+        "required": [
+          "decision",
+          "channel",
+          "amount_quoted_gross",
+          "note"
+        ]
+      },
+      "RecordWorkshopOverrunNoticeDto": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "IN_PERSON",
+              "EMAIL"
+            ],
+            "description": "How the advisor informed the customer."
+          },
+          "amount_quoted_gross": {
+            "type": "string",
+            "example": "240.00",
+            "description": "Gross amount quoted to the customer. It must equal the current gross total of the order."
+          },
+          "customer_reaction": {
+            "type": "string",
+            "enum": [
+              "AGREED",
+              "DECLINED",
+              "QUESTIONED",
+              "CALLBACK_REQUESTED",
+              "NO_RESPONSE"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "channel",
+          "amount_quoted_gross",
+          "customer_reaction",
+          "note"
+        ]
+      },
+      "WorkshopOverrunNoticeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Id of the overrun record that holds the notice."
+          },
+          "version": {
+            "type": "number",
+            "description": "Version of the approved baseline."
+          },
+          "notified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "PHONE",
+              "IN_PERSON",
+              "EMAIL"
+            ]
+          },
+          "amount_quoted_gross": {
+            "type": "string"
+          },
+          "customer_reaction": {
+            "type": "string",
+            "enum": [
+              "AGREED",
+              "DECLINED",
+              "QUESTIONED",
+              "CALLBACK_REQUESTED",
+              "NO_RESPONSE"
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "notified_at",
+          "channel",
+          "amount_quoted_gross",
+          "customer_reaction",
+          "note"
+        ]
+      },
+      "WorkshopResumeWaitingTasksResponseDto": {
+        "type": "object",
+        "properties": {
+          "resumed_task_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "resumed_task_ids"
+        ]
       },
       "CreateVehiclePurchaseDto": {
         "type": "object",

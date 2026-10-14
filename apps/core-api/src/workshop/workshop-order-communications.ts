@@ -1,6 +1,7 @@
 import type {
   EstimateApprovalChannel,
   EstimateApprovalDecision,
+  EstimateNotificationChannel,
   NotificationOutboxStatus,
 } from '@prisma/client';
 import type {
@@ -38,9 +39,19 @@ export interface EstimateApprovalRecord {
   decided_at: Date;
 }
 
+/** The advisor's notice about an overrun (AUT-355). Only notices already written reach the timeline. */
+export interface OverrunNoticeRecord {
+  id: string;
+  workshop_estimate_version_id: string;
+  notified_at: Date | null;
+  notified_channel: EstimateNotificationChannel | null;
+}
+
 export interface WorkshopCommunicationsInput {
   emails: EstimateEmailRecord[];
   approvals: EstimateApprovalRecord[];
+  /** Overrun notices written for this order. Empty when the order has none. */
+  overrunNotices?: OverrunNoticeRecord[];
   /** Version number by version id, for the versions of this order. */
   versionNumbers: ReadonlyMap<string, number>;
 }
@@ -59,6 +70,7 @@ interface TimedEntry {
 export function buildWorkshopOrderCommunications({
   emails,
   approvals,
+  overrunNotices = [],
   versionNumbers,
 }: WorkshopCommunicationsInput): WorkshopOrderCommunicationDto[] {
   const entries: TimedEntry[] = [
@@ -78,6 +90,26 @@ export function buildWorkshopOrderCommunications({
         decision: null,
       },
     })),
+    ...overrunNotices.flatMap((row): TimedEntry[] =>
+      row.notified_channel === null || row.notified_at === null
+        ? []
+        : [
+            {
+              id: row.id,
+              at: row.notified_at,
+              dto: {
+                id: row.id,
+                kind: 'OVERRUN_NOTIFICATION',
+                channel: row.notified_channel,
+                version:
+                  versionNumbers.get(row.workshop_estimate_version_id) ?? null,
+                occurred_at: row.notified_at.toISOString(),
+                status: null,
+                decision: null,
+              },
+            },
+          ],
+    ),
     ...approvals.map((row): TimedEntry => ({
       id: row.id,
       at: row.decided_at,

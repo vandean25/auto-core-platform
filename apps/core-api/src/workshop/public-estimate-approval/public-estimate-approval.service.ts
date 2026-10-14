@@ -8,12 +8,17 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  AuditActorType,
+  AuditLogAction,
   EstimateApprovalChannel,
   EstimateApprovalDecision,
   WorkshopEstimateStatus,
 } from '@prisma/client';
+import { AuditService } from '../../audit/audit.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
+import { NotificationOutboxService } from '../../notifications/notification-outbox.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { enqueueEstimateDecisionEvent } from '../workshop-estimate-decision.helpers.js';
 import { hashApprovalToken } from '../workshop-estimate-approval-token.helpers.js';
 import type { WorkshopEstimateSnapshot } from '../workshop-estimate-snapshot.js';
 import {
@@ -68,6 +73,8 @@ export class PublicEstimateApprovalService {
     private readonly tenantContext: TenantContextService,
     private readonly prisma: PrismaService,
     private readonly limiter: PublicEstimateApprovalRateLimiter,
+    private readonly audit: AuditService,
+    private readonly outbox: NotificationOutboxService,
   ) {}
 
   async read(rawToken: string, now = new Date()): Promise<PublicEstimateView> {
@@ -128,6 +135,8 @@ export class PublicEstimateApprovalService {
         pdf_sha256: true,
         legal_text_version: true,
         legal_text_sha256: true,
+        total_gross: true,
+        estimate: { select: { workshop_order_id: true } },
       },
     });
     if (
@@ -180,7 +189,7 @@ export class PublicEstimateApprovalService {
         throw this.notDecidable();
       }
 
-      await tx.workshopEstimateApproval.create({
+      const created = await tx.workshopEstimateApproval.create({
         data: {
           tenant_id: approval.tenantId,
           workshop_estimate_version_id: approval.versionId,
@@ -202,7 +211,34 @@ export class PublicEstimateApprovalService {
             request.acceptLanguage,
             MAX_ACCEPT_LANGUAGE_LENGTH,
           ),
+          amount_quoted_gross: version.total_gross,
         },
+        select: { id: true },
+      });
+      await this.audit.recordTenantMutation(
+        {
+          entityType: 'WorkshopEstimateApproval',
+          entityId: created.id,
+          action: AuditLogAction.CREATE,
+          actorType: AuditActorType.SYSTEM,
+          source: 'public-estimate-approval',
+          after: {
+            workshop_estimate_version_id: approval.versionId,
+            decision,
+            channel: EstimateApprovalChannel.LINK,
+            decided_at: now.toISOString(),
+            content_sha256: contentSha256,
+          },
+        },
+        tx,
+      );
+      await enqueueEstimateDecisionEvent(tx, this.outbox, {
+        tenantId: approval.tenantId,
+        approvalId: created.id,
+        versionId: approval.versionId,
+        workshopOrderId: version.estimate.workshop_order_id,
+        decision,
+        channel: EstimateApprovalChannel.LINK,
       });
     });
 

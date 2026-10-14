@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { WorkshopEstimateStatus, WorkshopLineItemType } from '@prisma/client';
+import {
+  EstimateApprovalChannel,
+  EstimateApprovalDecision,
+  EstimateCustomerReaction,
+  EstimateNotificationChannel,
+  WorkshopEstimateStatus,
+  WorkshopLineItemType,
+} from '@prisma/client';
 
 export class WorkshopEstimateOverrunWarningDto {
   @ApiProperty()
@@ -19,6 +26,65 @@ export class WorkshopEstimateOverrunWarningDto {
 
   @ApiProperty()
   new_line_count!: number;
+
+  /** When the overrun was first seen against the approved baseline (AUT-355). */
+  @ApiProperty({ type: String, format: 'date-time' })
+  detected_at!: string;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  notified_at!: string | null;
+
+  @ApiProperty({ enum: EstimateNotificationChannel, nullable: true })
+  notified_channel!: EstimateNotificationChannel | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  notified_amount_gross!: string | null;
+
+  @ApiProperty({ enum: EstimateCustomerReaction, nullable: true })
+  customer_reaction!: EstimateCustomerReaction | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  note!: string | null;
+
+  /** True until the advisor has informed the customer about this overrun. */
+  @ApiProperty()
+  requires_customer_notice!: boolean;
+}
+
+/** A decision on a version, without IP address, user agent or typed name (AUT-355). */
+export class WorkshopEstimateApprovalDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ enum: EstimateApprovalChannel })
+  channel!: EstimateApprovalChannel;
+
+  @ApiProperty({ enum: EstimateApprovalDecision })
+  decision!: EstimateApprovalDecision;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  decided_at!: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Gross amount quoted with the decision.',
+  })
+  amount_quoted_gross!: string | null;
+
+  @ApiProperty({ enum: EstimateCustomerReaction, nullable: true })
+  customer_reaction!: EstimateCustomerReaction | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  note!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The user who recorded an advisor decision. Null for a customer link decision.',
+  })
+  recorded_by_user_id!: string | null;
 }
 
 export class WorkshopEstimateVersionSummaryDto {
@@ -68,6 +134,9 @@ export class WorkshopEstimateVersionSummaryDto {
   /** Safe message of the last failed PDF render (no internal detail). Null when the last attempt succeeded or none ran. */
   @ApiProperty({ type: String, nullable: true })
   pdf_generation_error!: string | null;
+
+  @ApiProperty({ type: WorkshopEstimateApprovalDto, nullable: true })
+  approval!: WorkshopEstimateApprovalDto | null;
 }
 
 export class WorkshopEstimateResponseDto {

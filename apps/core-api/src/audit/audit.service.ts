@@ -11,6 +11,8 @@ export type RecordTenantAuditParams = {
   entityId: string;
   action: AuditLogAction;
   actorUserId?: string | null;
+  /** USER unless the write is made by the system, such as a public estimate decision. */
+  actorType?: AuditActorType;
   source?: string | null;
   before?: unknown;
   after?: unknown;
@@ -65,7 +67,7 @@ export class AuditService {
         actor_user_id: params.actorUserId ?? null,
         actor_email: authUser?.email ?? null,
         actor_role: authUser?.role ?? null,
-        actor_type: AuditActorType.USER,
+        actor_type: params.actorType ?? AuditActorType.USER,
         request_id:
           requestMeta?.auditCorrelationId ?? requestMeta?.requestId ?? null,
         source: params.source ?? null,

@@ -180,6 +180,22 @@ Update `docs/deletion-policy.md` in implementation: estimate versions, approvals
 
 ## State machines
 
+### Advisor-recorded decision and overrun (AUT-355, implemented)
+
+- A sent version takes one decision, `APPROVED` or `DECLINED`, by a guarded update from `SENT`. A decision on `DRAFT`,
+  `SUPERSEDED`, `EXPIRED`, `APPROVED` or `DECLINED` is refused with 409 and a code of its own. A `SENT` version past
+  `valid_until` is marked `EXPIRED` first.
+- The amount must equal the version's gross total (422 `ESTIMATE_AMOUNT_MISMATCH`). A decision time must lie between
+  sending and now (422 `ESTIMATE_DECISION_TIME_INVALID`).
+- The decision writes the evidence row, the audit row (`CREATE`) and the domain event (`CUSTOMER_ESTIMATE_DECIDED`, internal
+  in-app, accepted at write time). Nothing is sent. The order gets no new status. The order's estimate badge is derived.
+- Overrun: `overrun_detected_at` is the first read that sees the order over the guide against the approved baseline.
+  The customer notice is written once per baseline (409 `OVERRUN_ALREADY_NOTIFIED` after that). The notice amount must
+  equal the order's current gross total. A new approved version starts a new baseline.
+- "Resume waiting tasks" moves `WAITING_CUSTOMER` to `PAUSED` under a guarded update, for an open order, and only for the
+  advisor roles. The mechanic continues from `PAUSED` through the existing start transition.
+- The invoice warning is advisory: the invoice can still be issued.
+
 ### Workshop order (unchanged v1)
 
 `SCHEDULED` → `INTAKE` → `IN_PROGRESS` → `COMPLETED` → `INVOICED` (see [[workshop-order-lifecycle]]).
@@ -207,7 +223,8 @@ Implementation tickets must follow OpenAPI contract-first (ADR-0010). Expected s
 | POST     | `/api/workshop/estimates/:versionId/send`            | Snapshot, PDF enqueue, token, outbox |
 | POST     | `/api/workshop/estimates/:versionId/approve-advisor` | Advisor-recorded decision            |
 | GET/POST | `/api/public/estimate-approvals/:token`              | Public view / decide                 |
-| POST     | `/api/workshop/orders/:id/overrun/notify`            | Record customer informed             |
+| POST     | `/api/workshop/orders/:id/overrun/notify`            | Record customer informed (AUT-355, implemented) |
+| POST     | `/api/workshop/orders/:id/tasks/resume-waiting`      | Resume waiting tasks (AUT-355, implemented) |
 | POST     | `/api/notifications/outbox/replay`                   | Admin replay (guarded): owner or admin only. Built in AUT-356 phase 6; a failed estimate email is refused (`LINK_REDACTED`) and re-sent as a new version |
 | GET      | `/api/workshop/orders/:id/communications`            | Customer communication timeline of an order. Built in AUT-356 phase 6 |
 

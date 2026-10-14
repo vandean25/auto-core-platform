@@ -76,6 +76,7 @@ model Tenant {
   notificationOutbox            NotificationOutbox[]
   estimateApprovalTokens        WorkshopEstimateApprovalToken[]
   estimateApprovals             WorkshopEstimateApproval[]
+  workshopEstimateOverruns      WorkshopEstimateOverrun[]
   purchaseInvoices              PurchaseInvoice[]
   purchaseInvoiceLines          PurchaseInvoiceLine[]
   inspectionTemplates           InspectionTemplate[]
@@ -226,6 +227,8 @@ model User {
   requestedDocumentBrandExtractions DocumentBrandExtraction[] @relation("DocumentBrandExtractionRequestedBy")
   createdTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyCreatedBy")
   revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
+  workshopEstimateApprovalsRecorded WorkshopEstimateApproval[] @relation("WorkshopEstimateApprovalRecordedBy")
+  workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]  @relation("WorkshopEstimateOverrunNotifiedBy")
   createdAt                         DateTime                  @default(now())
   updatedAt                         DateTime                  @updatedAt
 
@@ -2270,6 +2273,7 @@ model WorkshopEstimateVersion {
   brand_asset_reference  WorkshopEstimateBrandAssetReference?
   approval_tokens        WorkshopEstimateApprovalToken[]
   approvals              WorkshopEstimateApproval[]
+  overruns               WorkshopEstimateOverrun[]
   createdAt              DateTime                            @default(now())
   updatedAt              DateTime                            @updatedAt
 
@@ -2326,9 +2330,31 @@ model WorkshopEstimateApprovalToken {
   @@map("workshop_estimate_approval_tokens")
 }
 
+/// How a decision reached the workshop. LINK is the customer's own link (token evidence). PHONE, IN_PERSON and
+/// EMAIL are advisor-recorded (AUT-355). ADVISOR_RECORDED is legacy: nothing writes it, and enum values are not
+/// removed in v1 (ADR-0025 §11).
 enum EstimateApprovalChannel {
   LINK
   ADVISOR_RECORDED
+  PHONE
+  IN_PERSON
+  EMAIL
+}
+
+/// The customer's reaction, recorded by the advisor with a decision or with an overrun notice (AUT-355).
+enum EstimateCustomerReaction {
+  AGREED
+  DECLINED
+  QUESTIONED
+  CALLBACK_REQUESTED
+  NO_RESPONSE
+}
+
+/// Channel of the advisor's notice to the customer about an overrun (AUT-355). The link is not a channel here.
+enum EstimateNotificationChannel {
+  PHONE
+  IN_PERSON
+  EMAIL
 }
 
 enum EstimateApprovalDecision {
@@ -2363,6 +2389,11 @@ model WorkshopEstimateApproval {
   accept_language                  String?
   confirmation_email_sent_at       DateTime?
   confirmation_provider_message_id String?
+  amount_quoted_gross              Decimal?                       @db.Decimal(10, 2)
+  customer_reaction                EstimateCustomerReaction?
+  note                             String?                        @db.VarChar(500)
+  recorded_by_user_id              String?
+  recorded_by_user                 User?                          @relation("WorkshopEstimateApprovalRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
   createdAt                        DateTime                       @default(now())
 
   @@unique([tenant_id, id], map: "wea_tenant_id_uq")
@@ -2371,10 +2402,42 @@ model WorkshopEstimateApproval {
   @@map("workshop_estimate_approvals")
 }
 
-/// Event types that write the notification outbox (ADR-0025 §6, AUT-356). Enum additions only.
+/// Overrun state of one approved baseline (AUT-355, ADR-0025 §1). Written once when the live order first goes over
+/// the guide (gross over the approved total times (1 + threshold), or work lines the approved version did not
+/// contain). It also holds the advisor's notice to the customer. A revised version that is approved starts a new
+/// baseline and therefore a new row. Retention and legal hold follow the baseline version.
+model WorkshopEstimateOverrun {
+  id                           String                       @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "weo_tenant_fkey")
+  workshop_estimate_version_id String
+  version                      WorkshopEstimateVersion      @relation(fields: [tenant_id, workshop_estimate_version_id], references: [tenant_id, id], onDelete: Restrict, map: "weo_version_fkey")
+  detected_at                  DateTime
+  approved_total_gross         Decimal                      @db.Decimal(10, 2)
+  detected_total_gross         Decimal                      @db.Decimal(10, 2)
+  total_over_threshold         Boolean                      @default(false)
+  new_work_lines               Boolean                      @default(false)
+  notified_at                  DateTime?
+  notified_channel             EstimateNotificationChannel?
+  notified_by_user_id          String?
+  notified_by_user             User?                        @relation("WorkshopEstimateOverrunNotifiedBy", fields: [notified_by_user_id], references: [id], onDelete: SetNull)
+  notified_amount_gross        Decimal?                     @db.Decimal(10, 2)
+  customer_reaction            EstimateCustomerReaction?
+  note                         String?                      @db.VarChar(500)
+  createdAt                    DateTime                     @default(now())
+  updatedAt                    DateTime                     @updatedAt
+
+  @@unique([tenant_id, id], map: "weo_tenant_id_uq")
+  @@unique([tenant_id, workshop_estimate_version_id], map: "weo_tenant_version_uq")
+  @@index([tenant_id])
+  @@map("workshop_estimate_overruns")
+}
+
+/// Event types that write the notification outbox (ADR-0025 §6, AUT-356, AUT-355). Enum additions only.
 enum NotificationEventType {
   WORKSHOP_TASK_WAITING_CUSTOMER
   CUSTOMER_ESTIMATE_SENT
+  CUSTOMER_ESTIMATE_DECIDED
 }
 
 enum NotificationChannel {
