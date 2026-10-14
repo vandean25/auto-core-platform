@@ -1,23 +1,26 @@
-import {
-  Injectable,
-  Logger,
-  UnprocessableEntityException,
-} from '@nestjs/common';
-import { createHash } from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as Sentry from '@sentry/node';
+import type { Page } from 'playwright';
 import { PlaywrightBrowserService } from '../common/index.js';
-import { loadBundledBrandFontCss } from '../document-branding/bundled-brand-font-css.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
-import type { InvoiceSnapshot } from './invoice-snapshot.js';
+import { buildInvoiceHtmlDocument } from './invoice-pdf.layout.js';
+import { createInvoicePdfDateFormatter } from './invoice-pdf-date-format.helpers.js';
 import {
-  buildInvoiceFooterTemplate,
-  buildInvoiceHtmlDocument,
-  buildBrandedInvoiceHeaderTemplate,
-  isDachRechnungSnapshot,
-  type FormatDate,
-} from './invoice-pdf.layout.js';
+  createRenderInputUnavailableError,
+  loadInvoiceFontFaceCss,
+  resolveInvoiceLogoDataUrl,
+} from './invoice-pdf-render-inputs.helpers.js';
+import { buildInvoicePdfOptions } from './invoice-pdf-render-options.helpers.js';
+import type { InvoiceSnapshot } from './invoice-snapshot.js';
+
+interface RenderPageInput {
+  snapshot: InvoiceSnapshot;
+  branded: boolean;
+  fontFaceCss: string;
+  logoDataUrl: string | null;
+}
 
 @Injectable()
 export class InvoicePdfRenderer {
@@ -35,140 +38,82 @@ export class InvoicePdfRenderer {
   ): Promise<Buffer> {
     const branded = snapshot.template_version === 'invoice-brand-v1';
     if (branded && !snapshot.branding) {
-      throw this.renderInputUnavailable();
+      throw createRenderInputUnavailableError();
     }
-    const fontFaceCss = branded ? await this.loadBundledFontCss() : '';
+    const fontFaceCss = branded
+      ? await loadInvoiceFontFaceCss(this.assetDirectory)
+      : '';
     const logoDataUrl = branded
-      ? this.resolveLogoDataUrl(snapshot, assets.logoPng)
+      ? resolveInvoiceLogoDataUrl(snapshot, assets.logoPng)
       : null;
 
     return Sentry.startSpan(
       { name: 'Render PDF', op: 'pdf.render' },
       async () => {
-        const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
         const browser = await this.browserService.getBrowser();
         const page = await browser.newPage();
 
         try {
-          if (branded) {
-            await page.route(/^https?:\/\//, (route) => route.abort());
-          }
-
-          const formatDate: FormatDate = (value) =>
-            this.formatDateValue(value, isDachRechnungSnapshot(snapshot));
-          const html = buildInvoiceHtmlDocument(
+          return await this.renderPage(page, {
             snapshot,
-            invoiceNumber,
-            escapeHtml,
-            formatDate,
-            {
-              branded,
-              fontFaceCss,
-            },
-          );
-          await page.setContent(html, { timeout: 10_000 });
-
-          const pdf = await Sentry.startSpan(
-            { name: 'Render Page to PDF', op: 'pdf.browser.render' },
-            () =>
-              this.browserService.withTimeout(
-                page.pdf({
-                  format: 'A4',
-                  margin: branded
-                    ? {
-                        top: '32mm',
-                        right: '16mm',
-                        bottom: '28mm',
-                        left: '16mm',
-                      }
-                    : {
-                        top: '50px',
-                        right: '50px',
-                        bottom: '70px',
-                        left: '50px',
-                      },
-                  displayHeaderFooter: true,
-                  headerTemplate: branded
-                    ? buildBrandedInvoiceHeaderTemplate(
-                        snapshot,
-                        logoDataUrl,
-                        escapeHtml,
-                        fontFaceCss,
-                      )
-                    : '<div></div>',
-                  footerTemplate: buildInvoiceFooterTemplate(
-                    invoiceNumber,
-                    escapeHtml,
-                    snapshot,
-                    fontFaceCss,
-                  ),
-                  printBackground: true,
-                }),
-                15_000,
-                'Invoice PDF render timed out after 15 seconds',
-              ),
-          );
-
-          return Buffer.from(pdf);
-        } finally {
-          await page.close().catch((error) => {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            const stack = error instanceof Error ? error.stack : undefined;
-            this.logger.error(
-              `Failed to close page during PDF render cleanup: ${message}`,
-              stack,
-            );
+            branded,
+            fontFaceCss,
+            logoDataUrl,
           });
+        } finally {
+          await this.closePage(page);
         }
       },
     );
   }
 
-  private resolveLogoDataUrl(
-    snapshot: InvoiceSnapshot,
-    logoPng: Buffer | undefined,
-  ): string | null {
-    const logo = snapshot.branding?.logo;
-    if (!logo) return null;
-    if (
-      !logoPng ||
-      createHash('sha256').update(logoPng).digest('hex') !== logo.sha256
-    ) {
-      throw this.renderInputUnavailable();
+  private async renderPage(
+    page: Page,
+    { snapshot, branded, fontFaceCss, logoDataUrl }: RenderPageInput,
+  ): Promise<Buffer> {
+    const invoiceNumber = snapshot.invoice_number ?? snapshot.id;
+    if (branded) {
+      await page.route(/^https?:\/\//, (route) => route.abort());
     }
-    return `data:image/png;base64,${logoPng.toString('base64')}`;
+
+    const html = buildInvoiceHtmlDocument(
+      snapshot,
+      invoiceNumber,
+      escapeHtml,
+      createInvoicePdfDateFormatter(snapshot),
+      { branded, fontFaceCss },
+    );
+    await page.setContent(html, { timeout: 10_000 });
+
+    const pdf = await Sentry.startSpan(
+      { name: 'Render Page to PDF', op: 'pdf.browser.render' },
+      () =>
+        this.browserService.withTimeout(
+          page.pdf(
+            buildInvoicePdfOptions({
+              snapshot,
+              invoiceNumber,
+              branded,
+              logoDataUrl,
+              fontFaceCss,
+            }),
+          ),
+          15_000,
+          'Invoice PDF render timed out after 15 seconds',
+        ),
+    );
+
+    return Buffer.from(pdf);
   }
 
-  private async loadBundledFontCss(): Promise<string> {
-    const css = await loadBundledBrandFontCss(this.assetDirectory);
-    if (!css) {
-      throw this.renderInputUnavailable();
-    }
-    return css;
-  }
-
-  private renderInputUnavailable(): UnprocessableEntityException {
-    return new UnprocessableEntityException({
-      code: 'BRAND_RENDER_INPUT_UNAVAILABLE',
-      message: 'Frozen branding render inputs are unavailable.',
+  private async closePage(page: Page): Promise<void> {
+    await page.close().catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(
+        `Failed to close page during PDF render cleanup: ${message}`,
+        stack,
+      );
     });
-  }
-
-  private formatDateValue(value: string | Date, useGermanLocale: boolean) {
-    const date = typeof value === 'string' ? new Date(value) : value;
-    if (Number.isNaN(date.getTime())) {
-      return String(value);
-    }
-
-    if (useGermanLocale) {
-      return date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    }
-
-    return date.toISOString().slice(0, 10);
   }
 }
