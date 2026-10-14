@@ -176,7 +176,7 @@ When `core-api` boots with `REDIS_URL` set:
 
 ### Post-deploy realtime checks
 
-Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. All checks use the Hosting site `https://auto-core-platform-vande.web.app`, the site named in AUT-432. They are read-only.
+Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. Checks 1 to 4 use the Hosting site `https://auto-core-platform-vande.web.app`, the site named in AUT-432. Check 5 also uses the Cloud Run service URL. All checks are read-only.
 
 1. **Browser.** Sign in and watch the console for 5 minutes. Expect no `WebSocket connection ... failed` messages and no repeated `400` on `/api/socket.io`. The Network tab should show only `transport=polling` requests.
 2. **Cloud Logging.** Filter `textPayload:"ws_engine_connection_error"` over 30 minutes of normal use. The gateway writes a JSON object as text through Nest's console logger, so the entry arrives as `textPayload`, not `jsonPayload`. Expect no `"code":1` (`Session ID unknown`) lines. Read this with check 3, which is the count of record. If check 3 shows 400s but check 2 has no `ws_engine_connection_error` lines at all, the logging is not wired, so check 2 is not a pass.
@@ -190,6 +190,16 @@ Run these after the next `core-api` release. The tag pipeline applies `--session
    ```
 
    A `400` whose body is `Session ID unknown` means the affinity cookie is not reaching Cloud Run. A request held open until the timeout is a normal long-poll.
+5. **WebSocket upgrade through Hosting** (read-only). This is the live test of the assumption in section 1. The probe goes through Hosting:
+
+   ```bash
+   curl -sS -i --http1.1 --max-time 8 \
+     -H "Connection: Upgrade" -H "Upgrade: websocket" \
+     -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+     "https://auto-core-platform-vande.web.app/api/socket.io/?EIO=4&transport=websocket" | head -n 1
+   ```
+
+   A status other than `HTTP/1.1 101 Switching Protocols` through Hosting is consistent with the assumption. Only the comparison below tells a Hosting failure from a Cloud Run failure. Run the same request against the Cloud Run service URL, which `gcloud run services describe core-api --region=europe-west3 --project=auto-core-platform-vande --format='value(status.url)'` prints, and append the same path and query. A `101` there shows that Cloud Run accepts the upgrade. If Hosting returns `101`, the assumption is refuted, and the polling-only choice becomes a performance trade-off to revisit.
 
 ### Remaining infra step (outside the repo)
 

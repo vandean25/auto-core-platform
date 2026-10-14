@@ -75,7 +75,7 @@ describe('createHandshakeRetry', () => {
   })
 
   function expectReconnectAfter(
-    socket: { connect: () => unknown },
+    socket: { connect: () => unknown; active: boolean },
     retry: ReturnType<typeof createHandshakeRetry>,
     delayMs: number,
   ) {
@@ -91,7 +91,7 @@ describe('createHandshakeRetry', () => {
   }
 
   it('reconnects after a rejected handshake, with delays that double from 1 s and cap at 30 s', () => {
-    const socket = { connect: vi.fn() }
+    const socket = { connect: vi.fn(), active: false }
     // A random value of 0.5 gives zero jitter, so the delays are exact.
     const retry = createHandshakeRetry(socket, () => 0.5)
 
@@ -105,7 +105,7 @@ describe('createHandshakeRetry', () => {
   })
 
   it('adds up to +50% jitter to each delay and never exceeds the 30 s cap', () => {
-    const socket = { connect: vi.fn() }
+    const socket = { connect: vi.fn(), active: false }
     // A random value of 1 gives the maximum upward jitter, so each base delay
     // (1, 2, 4, 8, 16, 30 s) grows by half, and the cap then holds at 30 s.
     const retry = createHandshakeRetry(socket, () => 1)
@@ -120,7 +120,7 @@ describe('createHandshakeRetry', () => {
   })
 
   it('schedules a single reconnect while one is already pending', () => {
-    const socket = { connect: vi.fn() }
+    const socket = { connect: vi.fn(), active: false }
     const retry = createHandshakeRetry(socket, () => 0.5)
 
     retry.onConnectError()
@@ -131,7 +131,7 @@ describe('createHandshakeRetry', () => {
   })
 
   it('restarts from 1 s after a successful connection', () => {
-    const socket = { connect: vi.fn() }
+    const socket = { connect: vi.fn(), active: false }
     const retry = createHandshakeRetry(socket, () => 0.5)
 
     expectReconnectAfter(socket, retry, 1_000)
@@ -142,8 +142,31 @@ describe('createHandshakeRetry', () => {
     expectReconnectAfter(socket, retry, 1_000)
   })
 
+  it('does not retry while the socket is still active, because the Manager handles engine-level errors', () => {
+    const socket = { connect: vi.fn(), active: true }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    retry.onConnectError()
+    vi.advanceTimersByTime(60_000)
+
+    expect(socket.connect).not.toHaveBeenCalled()
+  })
+
+  it('retries a rejected handshake once socket.io-client has deactivated the socket', () => {
+    const socket = { connect: vi.fn(), active: true }
+    const retry = createHandshakeRetry(socket, () => 0.5)
+
+    retry.onConnectError()
+    vi.advanceTimersByTime(60_000)
+    expect(socket.connect).not.toHaveBeenCalled()
+
+    // A rejected handshake makes socket.io-client destroy the socket, which clears its subscriptions.
+    socket.active = false
+    expectReconnectAfter(socket, retry, 1_000)
+  })
+
   it('cancels a pending reconnect when disposed', () => {
-    const socket = { connect: vi.fn() }
+    const socket = { connect: vi.fn(), active: false }
     const retry = createHandshakeRetry(socket, () => 0.5)
 
     retry.onConnectError()

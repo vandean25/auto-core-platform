@@ -51,14 +51,16 @@ export function buildRealtimeSocketOptions({
 
 /**
  * Retries a socket after a rejected handshake. socket.io-client destroys the
- * socket on CONNECT_ERROR and does not reconnect it, so a token that could not
- * be refreshed would leave realtime off until the provider re-ran. This
- * reschedules `socket.connect()` with the same bounded backoff as transport
- * reconnects: doubling from 1 s, capped at 30 s, with up to 50% jitter. A
- * successful connection restarts the backoff.
+ * socket on a server-rejected handshake (CONNECT_ERROR) and does not reconnect
+ * it, so a token that could not be refreshed would leave realtime off until the
+ * provider re-ran. Engine-level errors also emit connect_error, but the socket
+ * stays active there and the Manager reconnects by itself, so the retry runs
+ * only when `socket.active` is false. It reschedules `socket.connect()` with the
+ * same bounded backoff as transport reconnects: doubling from 1 s, capped at
+ * 30 s, with up to 50% jitter. A successful connection restarts the backoff.
  */
 export function createHandshakeRetry(
-  socket: { connect: () => unknown },
+  socket: { connect: () => unknown; active: boolean },
   random: () => number = Math.random,
 ): HandshakeRetry {
   let attempts = 0
@@ -73,7 +75,7 @@ export function createHandshakeRetry(
 
   return {
     onConnectError() {
-      if (timer !== undefined) return
+      if (socket.active || timer !== undefined) return
       const base = Math.min(
         REALTIME_RECONNECT_MAX_MS,
         REALTIME_RECONNECT_MIN_MS * 2 ** attempts,

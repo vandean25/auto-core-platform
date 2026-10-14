@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => {
     off: vi.fn(),
     disconnect: vi.fn(),
     connect: vi.fn(),
+    active: false,
   };
 
   return {
