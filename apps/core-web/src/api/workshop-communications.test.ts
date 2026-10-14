@@ -69,6 +69,26 @@ describe('workshop communications API', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual([ENTRY])
   })
+
+  it('reads the timeline with no stale time, and a polling rule that follows its entries', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ data: [{ ...ENTRY, status: 'QUEUED', occurred_at: new Date().toISOString() }] }),
+    )
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children)
+
+    const { result } = renderHook(() => useWorkshopOrderCommunications('order-1'), { wrapper })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    const query = queryClient.getQueryCache().find({ queryKey: workshopCommunicationKeys.order('order-1') })
+    // The observer options are not part of the public Query type, so they are read as a plain object.
+    const options = query?.options as { staleTime?: number; refetchInterval?: unknown } | undefined
+    expect(options?.staleTime).toBe(0)
+    const refetchInterval = options?.refetchInterval as (query: { state: { data: unknown } }) => number | false
+    expect(refetchInterval({ state: { data: result.current.data } })).toBe(5_000)
+    expect(refetchInterval({ state: { data: [{ ...ENTRY, status: 'SENT' }] } })).toBe(false)
+  })
 })
 
 describe('communicationRefetchInterval', () => {

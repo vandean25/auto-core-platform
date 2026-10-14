@@ -285,19 +285,27 @@ describe("WorkshopOrderDetails Characterization", () => {
   });
 
   describe("communication timeline", () => {
-    it("is shown to an estimate role on the order", () => {
+    it("is shown beside the estimate card to an estimate role", async () => {
+      asMock(authSessionApi.useAuthSession).mockReturnValue({
+        data: { activeRole: "SALES" },
+      });
+
       renderComponent();
 
+      await waitFor(() => expect(screen.getAllByText("Oil Change").length).toBeGreaterThan(0));
+      expect(screen.getByRole("heading", { name: "Kostenvoranschlag" })).toBeInTheDocument();
       expect(screen.getByText("Kommunikation mit dem Kunden")).toBeInTheDocument();
     });
 
-    it("is hidden from a technician session, like the estimate card", () => {
+    it("is hidden from a technician session, together with the estimate card", async () => {
       asMock(authSessionApi.useAuthSession).mockReturnValue({
         data: { activeRole: "TECH" },
       });
 
       renderComponent();
 
+      await waitFor(() => expect(screen.getAllByText("Oil Change").length).toBeGreaterThan(0));
+      expect(screen.queryByRole("heading", { name: "Kostenvoranschlag" })).not.toBeInTheDocument();
       expect(screen.queryByText("Kommunikation mit dem Kunden")).not.toBeInTheDocument();
     });
   });

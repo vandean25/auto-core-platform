@@ -16,7 +16,7 @@ const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
 
 /** One German line per timeline entry. The estimate version is named when the entry knows it. */
 export function describeCommunication(entry: WorkshopOrderCommunication): string {
-  // The noun takes its article in each case the sentence needs, so every line is a full German sentence.
+  // The noun takes the article its case needs, so the lines read as German.
   const suffix = entry.version === null ? '' : ` (Version ${entry.version})`
   const nominative = `Der Kostenvoranschlag${suffix}`
   const accusative = `den Kostenvoranschlag${suffix}`
@@ -40,8 +40,8 @@ export function describeCommunication(entry: WorkshopOrderCommunication): string
 
   if (entry.channel === 'ADVISOR_RECORDED') {
     return entry.decision === 'APPROVED'
-      ? `Freigabe ${genitive} durch den Berater erfasst`
-      : `Ablehnung ${genitive} durch den Berater erfasst`
+      ? `Die Freigabe ${genitive} wurde vom Berater erfasst`
+      : `Die Ablehnung ${genitive} wurde vom Berater erfasst`
   }
   return entry.decision === 'APPROVED'
     ? `Der Kunde hat ${accusative} über den Link freigegeben`

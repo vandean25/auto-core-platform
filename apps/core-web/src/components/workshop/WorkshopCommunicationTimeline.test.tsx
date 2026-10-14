@@ -121,11 +121,11 @@ describe('describeCommunication', () => {
     ],
     [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'ADVISOR_RECORDED', decision: 'APPROVED', status: null }),
-      'Freigabe des Kostenvoranschlags (Version 1) durch den Berater erfasst',
+      'Die Freigabe des Kostenvoranschlags (Version 1) wurde vom Berater erfasst',
     ],
     [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'ADVISOR_RECORDED', decision: 'DECLINED', status: null }),
-      'Ablehnung des Kostenvoranschlags (Version 1) durch den Berater erfasst',
+      'Die Ablehnung des Kostenvoranschlags (Version 1) wurde vom Berater erfasst',
     ],
   ])('describes %j in German', (row, expected) => {
     expect(describeCommunication(row)).toBe(expected)
