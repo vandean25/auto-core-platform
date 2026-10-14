@@ -12,6 +12,7 @@ import {
   seedLabor,
   seedCustomersAndVehicles,
   seedDemoSiteAccess,
+  seedDemoUsers,
   seedDemoWorkshopAccountingProfile,
   seedVehicleStockAgeDemo,
   seedDemoGewaehrleistungSales,
@@ -41,6 +42,7 @@ async function main() {
   const labor = await seedLabor(prisma, foundation.defaultTenant.id);
   const vendors = await seedVendors(prisma, foundation.defaultTenant.id, brands.allBrands);
   const customers = await seedCustomersAndVehicles(prisma, foundation.defaultTenant.id);
+  await seedDemoUsers(prisma, foundation);
   await seedDemoSiteAccess(prisma, foundation);
   await seedVehicleStockAgeDemo(prisma, foundation, inventory.showroom);
   await seedDemoGewaehrleistungSales(
