@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const isCI = !!process.env.CI
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -8,13 +10,13 @@ export default defineConfig({
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  forbidOnly: isCI,
+  /* Retry once on CI. A test that only passes on the retry is reported as flaky and must be fixed. */
+  retries: isCI ? 1 : 0,
+  /* Each CI shard runs on its own 2-vCPU runner, so run two browsers per shard. */
+  workers: isCI ? 2 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -29,15 +31,30 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // login.spec.ts rewrites dev-server module URLs to show the sign-in form, so it runs on the dev server below.
+      testIgnore: /login\.spec\.ts$/,
+    },
+    {
+      name: 'chromium-dev-server',
+      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5175' },
+      testMatch: /login\.spec\.ts$/,
     },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command:
-      'cross-env VITE_E2E_SKIP_AUTH=true VITE_FEATURE_AGENT_SUPERVISION=true VITE_APP_VERSION=v1.0.0-e2e vite --port 5174 --strictPort',
-    url: 'http://localhost:5174',
-    reuseExistingServer: !process.env.CI,
-    cwd: './',
-  },
+  /* Serve the production bundle that `npm run build:e2e` writes (`npm run test:e2e` builds it first). */
+  webServer: [
+    {
+      command: 'vite preview --outDir dist-e2e --port 5174 --strictPort',
+      url: 'http://localhost:5174',
+      reuseExistingServer: !isCI,
+      cwd: './',
+    },
+    {
+      command:
+        'cross-env VITE_E2E_SKIP_AUTH=true VITE_FEATURE_AGENT_SUPERVISION=true VITE_APP_VERSION=v1.0.0-e2e vite --port 5175 --strictPort',
+      url: 'http://localhost:5175',
+      reuseExistingServer: !isCI,
+      cwd: './',
+    },
+  ],
 });
