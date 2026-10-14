@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 import { generateId } from './id'
 

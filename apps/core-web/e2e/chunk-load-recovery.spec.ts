@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
-const dashboardModulePattern = /DashboardPage\.tsx/
+// The suite runs against the production bundle (vite preview), so the lazy route chunk is a hashed asset.
+const dashboardModulePattern = /DashboardPage-[\w-]+\.js$/
 
 async function expectRecoveredUi(page: import('@playwright/test').Page) {
   const updateRequired = page.getByText('Update Required')

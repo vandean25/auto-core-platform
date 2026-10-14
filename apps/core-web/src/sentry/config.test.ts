@@ -1,3 +1,4 @@
+// @vitest-environment node
 import type { ErrorEvent } from '@sentry/react'
 import { describe, expect, it } from 'vitest'
 import { createSentryOptions } from './config'

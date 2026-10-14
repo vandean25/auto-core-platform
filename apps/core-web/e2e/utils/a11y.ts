@@ -37,7 +37,25 @@ function isAllowlisted(
   return entry.pathPattern.test(pathname);
 }
 
+/**
+ * axe reads colors as they are at scan time. A fade still running then blends text with its background, so
+ * the scan can report a contrast failure that is gone once the page settles (seen: #7b8697 on #fcfdfe, 3.61,
+ * on a card fading in). Wait for finite animations to finish. Infinite ones (spinners) never finish, so skip them.
+ */
+async function waitForFiniteAnimations(page: Page) {
+  await page.waitForFunction(
+    () =>
+      document.getAnimations().every((animation) => {
+        const running = animation.playState === 'running' || animation.playState === 'pending';
+        return !running || animation.effect?.getComputedTiming().endTime === Infinity;
+      }),
+    undefined,
+    { timeout: 10_000 },
+  );
+}
+
 export async function expectNoCriticalA11yViolations(page: Page) {
+  await waitForFiniteAnimations(page);
   const accessibilityScanResults = await new AxeBuilder({ page })
     .withTags(A11Y_AXE_TAGS)
     .analyze();

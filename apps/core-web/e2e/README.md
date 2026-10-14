@@ -12,10 +12,19 @@ module follows the same architectural patterns.
 
 ```bash
 # From apps/core-web directory
-npm run test:e2e          # Run all E2E tests (headless)
-npx playwright test --ui  # Interactive UI mode
+npm run test:e2e          # Build the E2E bundle, then run all E2E tests (headless)
+npm run test:e2e -- --shard=1/3  # Run one of three shards (CI runs them in parallel)
+npx playwright test --ui  # Interactive UI mode (run `npm run build:e2e` first)
 E2E_LIVE_BACKEND=true npm run test:e2e  # Include seed-based smoke tests against a live seeded backend
 ```
+
+The suite runs against a production bundle built by `npm run build:e2e` (mode `e2e`, with
+`VITE_E2E_SKIP_AUTH=true` baked in) and served by `vite preview` on port 5174, so first page loads do not
+wait on on-demand module transforms. `npx playwright test` does not rebuild the bundle: run
+`npm run build:e2e` first after changing app code (`npm run test:e2e` does this for you).
+
+The exception is `login.spec.ts`. It rewrites dev-server module URLs (`/src/lib/runtime-flags.ts`) to show
+the sign-in form, so it runs in the `chromium-dev-server` project against the Vite dev server on port 5175.
 
 ---
 
