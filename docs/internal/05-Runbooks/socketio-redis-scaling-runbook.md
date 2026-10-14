@@ -57,12 +57,12 @@ The browser client connects with `transports: ['polling']` and `upgrade: false` 
 
 The Firebase documentation was unreachable from the build environment in AUT-432, and no live probe ran. The local reproduction covers replica behaviour, not Hosting. The post-deploy checks in section 4 test the assumption on the live host.
 
-Read a `400` on `/api/socket.io` as a defect signal, not as expected noise. The structured log line `ws_engine_connection_error` says which path failed:
+Read a `400` on `/api/socket.io` as a defect signal, not as expected noise. The log entry `ws_engine_connection_error` is a JSON object written as text. Its fields say which path failed:
 
-| Log fields | Meaning | Action |
+| JSON fields in the log text | Meaning | Action |
 |---|---|---|
-| `code: 1`, `message: "Session ID unknown"` | A poll or upgrade reached a replica that does not hold the session. | Affinity is not reaching Cloud Run. See the remaining infra step in section 4. |
-| `code: 3`, `transport: "websocket"`, `upgradeHeader: false` | An upgrade was requested but its headers were dropped on the way. | Check Hosting routing for `/api/**`. |
+| `"code":1`, `"message":"Session ID unknown"` | A poll or upgrade reached a replica that does not hold the session. | Affinity is not reaching Cloud Run. See the remaining infra step in section 4. |
+| `"code":3`, `"transport":"websocket"`, `"upgradeHeader":false` | An upgrade was requested but its headers were dropped on the way. | Check Hosting routing for `/api/**`. |
 
 ### Session affinity for long-polling
 
@@ -179,7 +179,7 @@ When `core-api` boots with `REDIS_URL` set:
 Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. All checks use the Hosting site `https://auto-core-platform-vande.web.app`, the site named in AUT-432. They are read-only.
 
 1. **Browser.** Sign in and watch the console for 5 minutes. Expect no `WebSocket connection ... failed` messages and no repeated `400` on `/api/socket.io`. The Network tab should show only `transport=polling` requests.
-2. **Cloud Logging.** Filter `jsonPayload.type="ws_engine_connection_error"` over 30 minutes of normal use. Expect no `code: 1` (`Session ID unknown`) entries. Read this with check 3, which is the count of record. If check 3 shows 400s but check 2 has no `ws_engine_connection_error` rows at all, the logging is not wired, so check 2 is not a pass.
+2. **Cloud Logging.** Filter `textPayload:"ws_engine_connection_error"` over 30 minutes of normal use. The gateway writes a JSON object as text through Nest's console logger, so the entry arrives as `textPayload`, not `jsonPayload`. Expect no `"code":1` (`Session ID unknown`) lines. Read this with check 3, which is the count of record. If check 3 shows 400s but check 2 has no `ws_engine_connection_error` lines at all, the logging is not wired, so check 2 is not a pass.
 3. **Cloud Run request logs.** Count `httpRequest.status=400` for `httpRequest.requestUrl:"/api/socket.io/"`. Expect close to zero.
 4. **Affinity through Hosting** (read-only, no state change). Use one cookie jar:
 
