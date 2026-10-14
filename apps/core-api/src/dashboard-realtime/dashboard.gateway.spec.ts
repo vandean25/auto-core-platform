@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import type { Socket, Server } from 'socket.io';
 import { jest } from '@jest/globals';
 import type { AuthService } from '../auth/auth.service.js';
@@ -103,11 +103,12 @@ describe('engine.io connection error logging', () => {
     });
   });
 
-  it('logs one structured warning for each engine.io connection error', () => {
+  it('logs one structured warning for each engine.io connection error on the root server', () => {
     const engine = new EventEmitter();
+    const root = { adapter: jest.fn(), engine } as unknown as Server;
     const logger = { warn: jest.fn() } as unknown as Logger;
 
-    attachEngineConnectionErrorLogging({ engine } as unknown as Server, logger);
+    attachEngineConnectionErrorLogging(root, logger);
     engine.emit('connection_error', {
       code: 1,
       message: 'Session ID unknown',
@@ -124,7 +125,61 @@ describe('engine.io connection error logging', () => {
     );
   });
 
-  it('ignores namespace objects that do not expose an engine', () => {
+  it('reaches the root engine when Nest passes a namespace, which has no engine of its own', () => {
+    const engine = new EventEmitter();
+    const root = { adapter: jest.fn(), engine } as unknown as Server;
+    const namespace = { server: root, adapter: {} } as unknown as Server;
+    const logger = { warn: jest.fn() } as unknown as Logger;
+
+    attachEngineConnectionErrorLogging(namespace, logger);
+    engine.emit('connection_error', {
+      code: 1,
+      message: 'Session ID unknown',
+      context: { sid: 'session-secret' },
+      req: {
+        url: '/api/socket.io/?EIO=4&transport=polling&sid=session-secret',
+        headers: {},
+      },
+    });
+
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('wires engine connection errors into the gateway logger when afterInit receives a namespace', () => {
+    const engine = new EventEmitter();
+    const root = { adapter: jest.fn(), engine } as unknown as Server;
+    const namespace = {
+      server: root,
+      adapter: {},
+      use: jest.fn(),
+    } as unknown as Server;
+    const warn = jest
+      .spyOn(Logger.prototype, 'warn')
+      .mockImplementation(() => undefined);
+
+    const authService = { authenticateBearerToken: jest.fn() };
+    const namespaceGateway = new DashboardGateway(
+      authService as unknown as AuthService,
+    );
+
+    try {
+      namespaceGateway.afterInit(namespace, '');
+      engine.emit('connection_error', {
+        code: 3,
+        message: 'Bad request',
+        context: { name: 'TRANSPORT_HANDSHAKE_ERROR' },
+        req: { url: '/api/socket.io/?EIO=4&transport=websocket', headers: {} },
+      });
+
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('"reason":"TRANSPORT_HANDSHAKE_ERROR"'),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('ignores servers that expose no root engine', () => {
     const logger = { warn: jest.fn() } as unknown as Logger;
 
     expect(() =>

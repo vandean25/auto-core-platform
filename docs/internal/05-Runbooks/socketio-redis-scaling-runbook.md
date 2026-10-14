@@ -53,9 +53,9 @@ These flags apply **only to `core-api`**, not `core-api-pdf-worker` (set via `cl
 
 ### Transports: long-polling only behind Firebase Hosting
 
-The browser client connects with `transports: ['polling']` and `upgrade: false` (`apps/core-web/src/features/realtime/realtime-socket-options.ts`). Firebase Hosting serves the app and rewrites `/api/**` to `core-api` (`firebase.json`). This runbook records that the rewrite does not forward WebSocket upgrades. A WebSocket-first client therefore fails each handshake with `HTTP 400` ("Unexpected response code: 400" in Chrome) and then falls back to polling. Those failed handshakes produced the console errors reported in AUT-432. The client no longer starts one.
+The browser client connects with `transports: ['polling']` and `upgrade: false` (`apps/core-web/src/features/realtime/realtime-socket-options.ts`). Firebase Hosting serves the app and rewrites `/api/**` to `core-api` (`firebase.json`). **Assumed, not verified:** the rewrite does not forward WebSocket upgrades. An earlier version of this runbook stated it as fact. The reported `HTTP 400` handshakes ("Unexpected response code: 400" in Chrome) match the assumption. Polling avoids the WebSocket attempt either way. If the assumption is wrong, polling is less efficient than WebSocket, but it still works.
 
-The Hosting statement was **not** re-checked against Firebase documentation in AUT-432, because the documentation host was unreachable from the build environment. The local reproduction matches the reported symptom. The post-deploy checks in section 4 confirm it on the live host.
+The Firebase documentation was unreachable from the build environment in AUT-432, and no live probe ran. The local reproduction covers replica behaviour, not Hosting. The post-deploy checks in section 4 test the assumption on the live host.
 
 Read a `400` on `/api/socket.io` as a defect signal, not as expected noise. The structured log line `ws_engine_connection_error` says which path failed:
 
@@ -68,7 +68,7 @@ Read a `400` on `/api/socket.io` as a defect signal, not as expected noise. The 
 
 Socket.IO keeps each engine.io session in memory on the replica that created it. The Redis adapter fans room broadcasts out across replicas, but it does not move sessions. A polling client sends its `sid` on every request. Without affinity, requests reach random replicas and fail with `Session ID unknown`, which then triggers reconnects. This was the second part of the AUT-432 reconnect loop. The local reproduction (engine.io 6.6.11, two replicas, no affinity) returned exactly this `400` for a `sid` sent to the other replica.
 
-`cloudbuild.yaml` deploys `core-api` with `--session-affinity`, and `infra/main.tf` sets `session_affinity = true` so a Terraform apply does not remove it. Cloud Run affinity is implemented with a cookie set on responses. Whether Firebase Hosting passes that cookie back to Cloud Run is **not verified**. Section 4 has the check and the fallback options.
+`cloudbuild.yaml` deploys `core-api` with `--session-affinity`, and `infra/main.tf` sets `session_affinity = true` so a Terraform apply does not remove it. Cloud Run's session affinity uses a cookie on responses (not re-checked against Google's documentation in AUT-432). Whether Firebase Hosting passes that cookie back to Cloud Run is **not verified**. Section 4 has the check and the fallback options.
 
 Do not copy the Socket.IO flags onto the Playwright PDF worker.
 
@@ -178,7 +178,7 @@ When `core-api` boots with `REDIS_URL` set:
 Run these after the next `core-api` release. The tag pipeline applies `--session-affinity` with that release. Use the QA host unless noted.
 
 1. **Browser.** Sign in and watch the console for 5 minutes. Expect no `WebSocket connection ... failed` messages and no repeated `400` on `/api/socket.io`. The Network tab should show only `transport=polling` requests.
-2. **Cloud Logging.** Filter `jsonPayload.type="ws_engine_connection_error"` over 30 minutes of normal use. Expect no `code: 1` (`Session ID unknown`) entries.
+2. **Cloud Logging.** Filter `jsonPayload.type="ws_engine_connection_error"` over 30 minutes of normal use. Expect no `code: 1` (`Session ID unknown`) entries. Read this with check 3, which is the count of record. If check 3 shows 400s but check 2 has no `ws_engine_connection_error` rows at all, the logging is not wired, so check 2 is not a pass.
 3. **Cloud Run request logs.** Count `httpRequest.status=400` for `httpRequest.requestUrl:"/api/socket.io/"`. Expect close to zero.
 4. **Affinity through Hosting** (read-only, no state change). Use one cookie jar:
 

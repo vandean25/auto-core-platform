@@ -18,12 +18,12 @@ tags:
 
 ## Amendment (2026-10-14) — long-polling transport behind Firebase Hosting
 
-The browser socket uses **long-polling only** (`transports: ['polling']`, `upgrade: false`). Firebase Hosting rewrites `/api/**` to Cloud Run and does not forward WebSocket upgrades, so the earlier WebSocket-first order failed each handshake with HTTP 400. Consequences:
+The browser socket uses **long-polling only** (`transports: ['polling']`, `upgrade: false`). The runbook records that Firebase Hosting's `/api/**` rewrite does not forward WebSocket upgrades. That was not re-verified against Firebase documentation in AUT-432, but it matches the HTTP 400 handshakes that the earlier WebSocket-first order produced. If the assumption is wrong, polling still works, and WebSocket would have been the more efficient transport. Consequences:
 
 - **Sticky sessions are part of the architecture.** `core-api` deploys with `--session-affinity`, and Terraform carries the same setting. The Redis adapter still fans room broadcasts out across replicas, but it does not replace affinity for engine.io sessions.
 - **Concurrency.** Each connected dashboard holds one long-poll request, which occupies one of the 40 concurrency slots on a replica. Capacity planning must count connected clients.
 - **Reconnect behaviour.** Backoff is bounded between 1 s and 30 s with unlimited attempts, and each reconnect presents a current Firebase ID token.
-- **Open verification.** The Hosting cookie behaviour and the fallback options are in `docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md`, sections "Session affinity for long-polling" and "Remaining infra step (outside the repo)".
+- **Open verification.** Two claims are not confirmed on the live host: that the `/api/**` rewrite drops WebSocket upgrades, and that Hosting forwards Cloud Run's session-affinity cookie. The runbook sections "Transports: long-polling only behind Firebase Hosting", "Session affinity for long-polling" and "Remaining infra step (outside the repo)" record the checks and the fallback options.
 
 ## Amendment (2026-09-01) — site rooms
 

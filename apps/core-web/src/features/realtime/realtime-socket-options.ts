@@ -8,10 +8,12 @@ export type RealtimeSocketOptionsInput = {
 /**
  * Socket.IO client options for the dashboard realtime namespace.
  *
- * Long-polling only. Firebase Hosting forwards `/api/**` to Cloud Run without
- * forwarding WebSocket upgrades, so a WebSocket-first client fails every
- * handshake with HTTP 400. Polling sessions must stay on one Cloud Run replica
- * (session affinity). See docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md.
+ * Long-polling only. The runbook records that Firebase Hosting's `/api/**`
+ * rewrite does not forward WebSocket upgrades. That was not re-verified against
+ * Firebase documentation (AUT-432), but it matches the HTTP 400 handshakes seen
+ * with a WebSocket-first client. Polling sessions must stay on one Cloud Run
+ * replica (session affinity). See
+ * docs/internal/05-Runbooks/socketio-redis-scaling-runbook.md, sections 1 and 4.
  */
 export function buildRealtimeSocketOptions({
   path,

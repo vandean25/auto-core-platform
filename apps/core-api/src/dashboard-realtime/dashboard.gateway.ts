@@ -38,6 +38,7 @@ import {
   resolveRedisUrl,
   setupRedisAdapter,
   closeRedisClients,
+  getRootSocketServer,
   SITE_ROOM_PREFIX,
   reassignUserSocketsSiteRoom,
   redactTransferForSockets,
@@ -130,9 +131,15 @@ export function attachEngineConnectionErrorLogging(
   server: Server,
   logger: Logger,
 ): void {
-  server.engine?.on('connection_error', (event: EngineConnectionErrorEvent) => {
-    logger.warn(JSON.stringify(describeEngineConnectionError(event)));
-  });
+  // Nest passes a Namespace to afterInit when the gateway declares one. The
+  // engine belongs to the root server that the Namespace references.
+  const rootServer = getRootSocketServer(server);
+  rootServer?.engine?.on(
+    'connection_error',
+    (event: EngineConnectionErrorEvent) => {
+      logger.warn(JSON.stringify(describeEngineConnectionError(event)));
+    },
+  );
 }
 
 export function buildStockTransferPayload(

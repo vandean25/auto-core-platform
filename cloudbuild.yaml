@@ -150,9 +150,10 @@ steps:
         # Request-based billing (min 0, CPU throttled when idle) to avoid always-on cost.
         # Socket.IO still works: an open long-poll is an in-flight request, so CPU stays
         # allocated for heartbeats while clients are connected.
-        # Socket.IO runs long-polling only behind Firebase Hosting (its /api/** rewrite does
-        # not forward WebSocket upgrades), so each engine.io session must stay on one
-        # replica: --session-affinity. Runbook section 4 has the post-deploy verification.
+        # Socket.IO runs long-polling only behind Firebase Hosting. The runbook records that
+        # the /api/** rewrite does not forward WebSocket upgrades (not re-verified; see runbook
+        # section 1), so each engine.io session must stay on one replica: --session-affinity.
+        # Runbook section 4 has the post-deploy verification.
         # REDIS_URL is Upstash (public TLS) from GSM — no VPC connector.
         gcloud run deploy "${_RUN_SERVICE}" \
           --image "$$IMAGE" \
