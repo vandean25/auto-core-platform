@@ -5,9 +5,16 @@ import type {
   DashboardEntityAction,
   DashboardEntityType,
 } from '../dashboard-realtime/dashboard-events.types.js';
-import { toPrismaDelegateKey } from './prisma-delegate.js';
 import { SideEffectGuard } from '../dry-run/side-effect-guard.js';
-import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import {
+  extractEntityId,
+  operationToAction,
+} from './prisma-dashboard-realtime.mapper.js';
+import {
+  recordDryRunChange,
+  recordDryRunCreates,
+} from './prisma-dashboard-realtime.dry-run.js';
+import { upsertTargetExists } from './prisma-dashboard-realtime.upsert.js';
 
 const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PURCHASE_ORDER: true,
@@ -40,27 +47,6 @@ function modelNameToEntityType(modelName: string): DashboardEntityType | null {
   return transformed in SUPPORTED_ENTITY_TYPES ? transformed : null;
 }
 
-function operationToAction(operation: string): DashboardEntityAction | null {
-  if (operation === 'create') return 'CREATED';
-  if (operation === 'delete' || operation === 'deleteMany') return 'DELETED';
-  if (
-    operation === 'update' ||
-    operation === 'updateMany' ||
-    operation === 'upsert'
-  ) {
-    return 'UPDATED';
-  }
-
-  return null;
-}
-
-function extractEntityId(result: unknown): string | undefined {
-  if (!result || typeof result !== 'object') return undefined;
-
-  const candidate = result as { id?: unknown };
-  return typeof candidate.id === 'string' ? candidate.id : undefined;
-}
-
 function getTenantIdFromContext(): string | undefined {
   return TenantContextStorage.getUser()?.tenantId;
 }
@@ -74,36 +60,14 @@ export function emitRealtimeForOperation(
   result: unknown,
   actionOverride?: DashboardEntityAction,
 ) {
+  const action = actionOverride ?? operationToAction(operation);
   if (SideEffectGuard.isDryRun()) {
-    const collector = DryRunStorage.getCollector();
-    if (collector) {
-      const entityId = extractEntityId(result);
-      if (entityId) {
-        const action = actionOverride ?? operationToAction(operation);
-        const op =
-          action === 'CREATED'
-            ? 'create'
-            : action === 'DELETED'
-              ? 'delete'
-              : action === 'UPDATED'
-                ? 'update'
-                : undefined;
-        if (op) {
-          collector.recordChange({
-            entity: model,
-            id: entityId,
-            op,
-          });
-        }
-      }
-    }
+    recordDryRunChange(model, result, action);
     return;
   }
 
   const type = modelNameToEntityType(model);
-  const action = actionOverride ?? operationToAction(operation);
   const tenantId = getTenantIdFromContext();
-
   if (!type || !action || !tenantId) {
     return;
   }
@@ -115,6 +79,21 @@ export function emitRealtimeForOperation(
   });
 }
 
+type QueryParams<R> = {
+  model: string;
+  args: unknown;
+  query: (args: unknown) => Promise<R>;
+};
+
+/** Builds a `$allModels` handler that runs the write first and emits its realtime event after it resolves. */
+function emitAfterQuery(dashboardRealtime: RealtimeEmitter, operation: string) {
+  return async <R>({ model, args, query }: QueryParams<R>): Promise<R> => {
+    const result = await query(args);
+    emitRealtimeForOperation(dashboardRealtime, model, operation, result);
+    return result;
+  };
+}
+
 export function createDashboardRealtimeExtension(
   dashboardRealtime: DashboardRealtimeService,
 ) {
@@ -122,100 +101,32 @@ export function createDashboardRealtimeExtension(
     name: 'dashboard-realtime',
     query: {
       $allModels: {
-        async create({ model, args, query }) {
-          const result = await query(args);
-          emitRealtimeForOperation(dashboardRealtime, model, 'create', result);
-          return result;
-        },
+        create: emitAfterQuery(dashboardRealtime, 'create'),
         async createMany({ model, args, query }) {
           const result = await query(args);
           if (SideEffectGuard.isDryRun()) {
-            const collector = DryRunStorage.getCollector();
-            if (collector) {
-              const records = Array.isArray(args.data)
-                ? args.data
-                : args.data
-                  ? [args.data]
-                  : [];
-              for (const record of records) {
-                const entityId = extractEntityId(record);
-                if (entityId) {
-                  collector.recordChange({
-                    entity: model,
-                    id: entityId,
-                    op: 'create',
-                  });
-                }
-              }
-            }
+            recordDryRunCreates(model, args.data);
           }
           return result;
         },
-        async update({ model, args, query }) {
-          const result = await query(args);
-          emitRealtimeForOperation(dashboardRealtime, model, 'update', result);
-          return result;
-        },
-        async delete({ model, args, query }) {
-          const result = await query(args);
-          emitRealtimeForOperation(dashboardRealtime, model, 'delete', result);
-          return result;
-        },
-        async updateMany({ model, args, query }) {
-          const result = await query(args);
-          emitRealtimeForOperation(
-            dashboardRealtime,
-            model,
-            'updateMany',
-            result,
-          );
-          return result;
-        },
-        async deleteMany({ model, args, query }) {
-          const result = await query(args);
-          emitRealtimeForOperation(
-            dashboardRealtime,
-            model,
-            'deleteMany',
-            result,
-          );
-          return result;
-        },
+        update: emitAfterQuery(dashboardRealtime, 'update'),
+        delete: emitAfterQuery(dashboardRealtime, 'delete'),
+        updateMany: emitAfterQuery(dashboardRealtime, 'updateMany'),
+        deleteMany: emitAfterQuery(dashboardRealtime, 'deleteMany'),
         async upsert({ model, args, query }) {
-          // Distinguish between create and update by performing an existence pre-check
           const ctx = Prisma.getExtensionContext(this) as Record<
             string,
             unknown
           >;
-          const delegateKey = toPrismaDelegateKey(model);
-          const modelDelegate = (ctx[delegateKey] ?? ctx[model]) as
-            | {
-                findFirst?: (args: {
-                  where: unknown;
-                  select: { id: boolean };
-                }) => Promise<{ id: string } | null>;
-              }
-            | undefined;
-
-          const existing =
-            typeof modelDelegate?.findFirst === 'function'
-              ? await modelDelegate.findFirst({
-                  where: args.where,
-                  select: { id: true },
-                })
-              : null;
+          const existed = await upsertTargetExists(ctx, model, args.where);
 
           const result = await query(args);
-          const action: DashboardEntityAction = existing
-            ? 'UPDATED'
-            : 'CREATED';
-
           emitRealtimeForOperation(
             dashboardRealtime,
             model,
             'upsert',
             result,
-            action,
+            existed ? 'UPDATED' : 'CREATED',
           );
           return result;
         },
