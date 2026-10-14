@@ -3586,6 +3586,91 @@
         ]
       }
     },
+    "/api/public/estimate-approvals/{token}": {
+      "get": {
+        "description": "Repeatable and read-only. It never consumes the token. Answers only while the estimate can still be decided.",
+        "operationId": "PublicEstimateApprovalController_read",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The estimate document fields to show."
+          },
+          "404": {
+            "description": "The link is not valid."
+          },
+          "409": {
+            "description": "The estimate can no longer be decided."
+          },
+          "410": {
+            "description": "The link has expired or was used."
+          },
+          "429": {
+            "description": "Too many requests."
+          }
+        },
+        "summary": "Read a sent estimate by its approval link",
+        "tags": [
+          "public-estimate-approvals"
+        ]
+      },
+      "post": {
+        "description": "Consumes the token and records the decision with its evidence. Approval needs the legal confirmations and the typed name.",
+        "operationId": "PublicEstimateApprovalController_decide",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicEstimateDecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The decision that was recorded."
+          },
+          "404": {
+            "description": "The link is not valid."
+          },
+          "409": {
+            "description": "The estimate can no longer be decided."
+          },
+          "410": {
+            "description": "The link has expired or was used."
+          },
+          "422": {
+            "description": "The confirmations for an approval are missing."
+          },
+          "429": {
+            "description": "Too many requests."
+          }
+        },
+        "summary": "Approve or decline a sent estimate by its approval link",
+        "tags": [
+          "public-estimate-approvals"
+        ]
+      }
+    },
     "/api/workshop/holidays": {
       "get": {
         "operationId": "WorkshopController_listHolidays",
@@ -17305,6 +17390,42 @@
             "format": "uuid"
           }
         }
+      },
+      "PublicEstimateDecision": {
+        "type": "string",
+        "enum": [
+          "APPROVE",
+          "DECLINE"
+        ]
+      },
+      "PublicEstimateDecisionDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicEstimateDecision"
+              }
+            ]
+          },
+          "typed_full_name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "legal_blocks_accepted": {
+            "type": "boolean",
+            "description": "The customer has read the legal blocks shown above the button. Must be true to approve."
+          },
+          "b2c_declaration_accepted": {
+            "type": "boolean",
+            "description": "The customer has accepted the B2C non-binding declaration (KSchG § 5 Abs 2). Must be true to approve."
+          }
+        },
+        "required": [
+          "decision",
+          "legal_blocks_accepted",
+          "b2c_declaration_accepted"
+        ]
       },
       "WorkshopHolidaySource": {
         "type": "string",

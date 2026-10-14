@@ -8,6 +8,11 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
 import { OPENHOLIDAYS_FETCH } from './openholidays.client.js';
+import { PublicEstimateApprovalController } from './public-estimate-approval/public-estimate-approval.controller.js';
+import { PublicEstimateApprovalHeadersInterceptor } from './public-estimate-approval/public-estimate-approval.headers.interceptor.js';
+import { PublicEstimateApprovalLookup } from './public-estimate-approval/public-estimate-approval.lookup.js';
+import { PublicEstimateApprovalRateLimiter } from './public-estimate-approval/public-estimate-approval.rate-limit.js';
+import { PublicEstimateApprovalService } from './public-estimate-approval/public-estimate-approval.service.js';
 import { WorkshopPdfRenderer } from './workshop-pdf.renderer.js';
 import { WorkshopBoardService } from './workshop-board.service.js';
 import { WorkshopHolidayService } from './workshop-holiday.service.js';
@@ -46,6 +51,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     PartsRequisitionModule,
   ],
   controllers: [
+    PublicEstimateApprovalController,
     WorkshopHolidayController,
     WorkshopSettingsController,
     WorkshopPlannerController,
@@ -55,6 +61,10 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopEstimateController,
   ],
   providers: [
+    PublicEstimateApprovalService,
+    PublicEstimateApprovalLookup,
+    PublicEstimateApprovalRateLimiter,
+    PublicEstimateApprovalHeadersInterceptor,
     WorkshopEstimateService,
     WorkshopEstimatePdfService,
     WorkshopEstimatePdfRenderer,

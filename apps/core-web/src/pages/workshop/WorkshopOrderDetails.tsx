@@ -439,6 +439,7 @@ export function WorkshopOrderDetails() {
                 orderStatus={order.status}
                 isLocked={!!isLocked}
                 orderRevision={JSON.stringify(order.tasks ?? [])}
+                customer={order.customer ?? null}
               />
             )}
           </motion.div>

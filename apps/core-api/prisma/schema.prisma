@@ -75,6 +75,7 @@ model Tenant {
   workshopEstimateAssetRefs     WorkshopEstimateBrandAssetReference[]
   notificationOutbox            NotificationOutbox[]
   estimateApprovalTokens        WorkshopEstimateApprovalToken[]
+  estimateApprovals             WorkshopEstimateApproval[]
   purchaseInvoices              PurchaseInvoice[]
   purchaseInvoiceLines          PurchaseInvoiceLine[]
   inspectionTemplates           InspectionTemplate[]
@@ -2268,6 +2269,7 @@ model WorkshopEstimateVersion {
   pdf_generation_error   String?
   brand_asset_reference  WorkshopEstimateBrandAssetReference?
   approval_tokens        WorkshopEstimateApprovalToken[]
+  approvals              WorkshopEstimateApproval[]
   createdAt              DateTime                            @default(now())
   updatedAt              DateTime                            @updatedAt
 
@@ -2314,6 +2316,7 @@ model WorkshopEstimateApprovalToken {
   invalidated_at               DateTime?
   consumed_at                  DateTime?
   createdAt                    DateTime                @default(now())
+  approvals                    WorkshopEstimateApproval[]
 
   @@unique([tenant_id, id], map: "wat_tenant_id_uq")
   @@unique([tenant_id, token_sha256], map: "wat_tenant_token_sha256_uq")
@@ -2321,6 +2324,51 @@ model WorkshopEstimateApprovalToken {
   @@index([tenant_id])
   @@index([tenant_id, workshop_estimate_version_id], map: "wat_version_idx")
   @@map("workshop_estimate_approval_tokens")
+}
+
+enum EstimateApprovalChannel {
+  LINK
+  ADVISOR_RECORDED
+}
+
+enum EstimateApprovalDecision {
+  APPROVED
+  DECLINED
+}
+
+// Evidence for one decision on a sent estimate version (ADR-0025 §7). Append-only: the API never updates or
+// deletes a row. One decision per version, enforced by wea_tenant_version_uq. Expand-only: a new table, and no
+// existing row changes.
+model WorkshopEstimateApproval {
+  id                               String                         @id @default(uuid())
+  tenant_id                        String
+  tenant                           Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Restrict, map: "wea_tenant_fkey")
+  workshop_estimate_version_id     String
+  version                          WorkshopEstimateVersion        @relation(fields: [tenant_id, workshop_estimate_version_id], references: [tenant_id, id], onDelete: Restrict, map: "wea_version_fkey")
+  approval_token_id                String?
+  approval_token                   WorkshopEstimateApprovalToken? @relation(fields: [tenant_id, approval_token_id], references: [tenant_id, id], onDelete: Restrict, map: "wea_token_fkey")
+  channel                          EstimateApprovalChannel
+  decision                         EstimateApprovalDecision
+  decided_at                       DateTime
+  content_sha256                   String
+  pdf_sha256                       String?
+  legal_text_version               String
+  legal_text_sha256                String
+  recipient_email                  String?
+  typed_full_name                  String?
+  legal_blocks_accepted            Boolean                        @default(false)
+  b2c_declaration_accepted         Boolean                        @default(false)
+  ip_address                       String?
+  user_agent                       String?
+  accept_language                  String?
+  confirmation_email_sent_at       DateTime?
+  confirmation_provider_message_id String?
+  createdAt                        DateTime                       @default(now())
+
+  @@unique([tenant_id, id], map: "wea_tenant_id_uq")
+  @@unique([tenant_id, workshop_estimate_version_id], map: "wea_tenant_version_uq")
+  @@index([tenant_id])
+  @@map("workshop_estimate_approvals")
 }
 
 /// Event types that write the notification outbox (ADR-0025 §6, AUT-356). Enum additions only.

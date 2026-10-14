@@ -7,6 +7,10 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/auth/AuthProvider'
 import { registerVitePreloadErrorHandler } from '@/lib/chunk-load-recovery'
+import {
+  PUBLIC_APPROVAL_PATH_PREFIX,
+  PublicEstimateApprovalRoot,
+} from '@/pages/public/PublicEstimateApprovalRoot'
 
 registerVitePreloadErrorHandler()
 
@@ -19,16 +23,23 @@ const queryClient = new QueryClient({
   },
 })
 
+// The customer approval link is public: it renders without AuthProvider, App or any auth bootstrap.
+const isPublicApproval = window.location.pathname.startsWith(PUBLIC_APPROVAL_PATH_PREFIX)
+
 createRoot(document.getElementById('root')!, {
   onUncaughtError: reactErrorHandler(),
   onCaughtError: reactErrorHandler(),
   onRecoverableError: reactErrorHandler(),
 }).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </QueryClientProvider>
+    {isPublicApproval ? (
+      <PublicEstimateApprovalRoot />
+    ) : (
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </QueryClientProvider>
+    )}
   </StrictMode>,
 )

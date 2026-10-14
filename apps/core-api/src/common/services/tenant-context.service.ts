@@ -9,6 +9,19 @@ export class TenantContextService {
     TenantContextStorage.setUser(user);
   }
 
+  /**
+   * The public estimate approval route (ADR-0025 §7) has no session. Once the token lookup names its tenant,
+   * the request runs as that tenant under a service identity, so every later query is tenant-scoped.
+   */
+  setPublicEstimateApprovalTenant(tenantId: string): void {
+    this.setAuthenticatedUser({
+      userId: 'public-estimate-approval',
+      email: '',
+      tenantId,
+      role: 'PUBLIC_ESTIMATE_APPROVAL',
+    });
+  }
+
   setTenantIdForWorker(tenantId: string): void {
     this.setAuthenticatedUser({
       userId: 'cloud-tasks-worker',

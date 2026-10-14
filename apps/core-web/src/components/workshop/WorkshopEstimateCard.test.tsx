@@ -8,6 +8,7 @@ import type {
   WorkshopEstimateVersionSummary,
 } from '@/api/workshop-estimates'
 import * as estimateApi from '@/api/workshop-estimates'
+import * as customersApi from '@/api/customers'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { WorkshopEstimateCard, describeEstimateOverrun } from './WorkshopEstimateCard'
 
@@ -23,6 +24,7 @@ vi.mock('@/api/workshop-estimates', async () => {
     fetchWorkshopEstimatePdfError: vi.fn(),
   }
 })
+vi.mock('@/api/customers', () => ({ useCustomer: vi.fn(), useUpdateCustomer: vi.fn() }))
 vi.mock('@/hooks/usePdfDownload', () => ({ usePdfDownload: vi.fn() }))
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), loading: vi.fn().mockReturnValue('toast-id'), dismiss: vi.fn() },
@@ -112,10 +114,22 @@ const sendMutateAsync = vi.fn(async ({ versionId }: { orderId: string; versionId
   return { ...DRAFT_V2 } as WorkshopEstimateVersionDetail
 })
 const downloadMock = vi.fn(async (_config?: unknown) => true)
+const updateCustomerMutateAsync = vi.fn(async (_input: unknown) => ({ id: 'cust-1' }))
+
+const CUSTOMER = { id: 'cust-1', type: 'PRIVATE' as const, first_name: 'Erika', last_name: 'Beispiel', email: 'erika@example.test' }
+/** The customer record the send dialog reads. `contact_email_ok` is the stored contact confirmation. */
+const customerRecord: { contact_email_ok: boolean } = { contact_email_ok: false }
+let orderCustomer: typeof CUSTOMER | null = null
 
 function card(orderStatus = 'IN_PROGRESS', isLocked = false, orderRevision?: string): ReactElement {
   return (
-    <WorkshopEstimateCard orderId={ORDER_ID} orderStatus={orderStatus} isLocked={isLocked} orderRevision={orderRevision} />
+    <WorkshopEstimateCard
+      orderId={ORDER_ID}
+      orderStatus={orderStatus}
+      isLocked={isLocked}
+      orderRevision={orderRevision}
+      customer={orderCustomer}
+    />
   )
 }
 
@@ -153,6 +167,14 @@ beforeEach(() => {
   reviseMutateAsync.mockClear()
   sendMutateAsync.mockClear()
   downloadMock.mockClear()
+  updateCustomerMutateAsync.mockClear()
+  orderCustomer = null
+  customerRecord.contact_email_ok = false
+  asMock(customersApi.useCustomer).mockImplementation((id: string) => ({
+    data: id ? { ...CUSTOMER, contact_email_ok: customerRecord.contact_email_ok } : undefined,
+    isLoading: false,
+  }))
+  asMock(customersApi.useUpdateCustomer).mockReturnValue({ mutateAsync: updateCustomerMutateAsync, isPending: false })
   asMock(estimateApi.useCreateWorkshopEstimate).mockReturnValue({ mutateAsync: createMutateAsync, isPending: false })
   asMock(estimateApi.useReviseWorkshopEstimate).mockReturnValue({ mutateAsync: reviseMutateAsync, isPending: false })
   asMock(estimateApi.useSendWorkshopEstimateVersion).mockReturnValue({
@@ -254,10 +276,10 @@ describe('WorkshopEstimateCard', () => {
     store.sendEnabled = true
     rerenderCard(view)
     fireEvent.click(screen.getByRole('button', { name: 'An Kunden senden' }))
-    const firstDialog = await screen.findByRole('alertdialog')
+    const firstDialog = await screen.findByRole('dialog')
     expect(within(firstDialog).getByText('Version 1 an Kunden senden?')).toBeTruthy()
     fireEvent.click(within(firstDialog).getByRole('button', { name: 'Senden' }))
-    await waitFor(() => expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1' }))
+    await waitFor(() => expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1', notifyCustomerByEmail: false }))
     rerenderCard(view)
     expect(screen.getByTestId('estimate-version-1').textContent).toContain('Gesendet')
 
@@ -270,10 +292,10 @@ describe('WorkshopEstimateCard', () => {
 
     // 4. Send version 2: version 1 is superseded and stays readable.
     fireEvent.click(screen.getByRole('button', { name: 'An Kunden senden' }))
-    const secondDialog = await screen.findByRole('alertdialog')
+    const secondDialog = await screen.findByRole('dialog')
     expect(within(secondDialog).getByText('Version 2 an Kunden senden?')).toBeTruthy()
     fireEvent.click(within(secondDialog).getByRole('button', { name: 'Senden' }))
-    await waitFor(() => expect(sendMutateAsync).toHaveBeenLastCalledWith({ orderId: ORDER_ID, versionId: 'v2' }))
+    await waitFor(() => expect(sendMutateAsync).toHaveBeenLastCalledWith({ orderId: ORDER_ID, versionId: 'v2', notifyCustomerByEmail: false }))
     rerenderCard(view)
     expect(screen.getByTestId('estimate-version-1').textContent).toContain('Ersetzt')
     expect(screen.getByTestId('estimate-version-2').textContent).toContain('Gesendet')
@@ -319,6 +341,125 @@ describe('WorkshopEstimateCard', () => {
     const row = screen.getByTestId('estimate-version-1')
     expect(within(row).getByRole('alert').textContent).toBe('PDF generation failed. Please try again or contact support.')
     expect(within(row).getByRole('button', { name: 'PDF herunterladen' })).toBeTruthy()
+  })
+})
+
+describe('WorkshopEstimateCard send dialog', () => {
+  function openSendDialog() {
+    store.versions = [DRAFT_V1]
+    store.sendEnabled = true
+    renderCard()
+    fireEvent.click(screen.getByRole('button', { name: 'An Kunden senden' }))
+    return screen.findByRole('dialog')
+  }
+
+  it('shows the recipient, the validity and the snapshot note', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    const dialog = await openSendDialog()
+
+    expect(within(dialog).getByText('erika@example.test')).toBeTruthy()
+    expect(within(dialog).getByText('gültig 14 Tage ab Versand')).toBeTruthy()
+    expect(within(dialog).getByText(/als Momentaufnahme festgeschrieben/)).toBeTruthy()
+    const notify = within(dialog).getByRole('checkbox', { name: 'Per E-Mail an den Kunden senden' })
+    expect(notify.getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('emails a customer whose address is already confirmed, without the confirmation box or a customer update', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    const dialog = await openSendDialog()
+
+    expect(within(dialog).queryByRole('checkbox', { name: /Auftragskommunikation mitgeteilt/ })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+
+    await waitFor(() =>
+      expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1', notifyCustomerByEmail: true }),
+    )
+    expect(updateCustomerMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('keeps Senden disabled until the contact confirmation is ticked, then confirms the address before sending', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = false
+    const dialog = await openSendDialog()
+
+    const send = within(dialog).getByRole('button', { name: 'Senden' }) as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    fireEvent.click(
+      within(dialog).getByRole('checkbox', {
+        name: 'Der Kunde hat mir diese E-Mail-Adresse für die Auftragskommunikation mitgeteilt.',
+      }),
+    )
+    expect(send.disabled).toBe(false)
+    fireEvent.click(send)
+
+    await waitFor(() =>
+      expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1', notifyCustomerByEmail: true }),
+    )
+    expect(updateCustomerMutateAsync).toHaveBeenCalledWith({ id: 'cust-1', data: { contact_email_ok: true } })
+    expect(updateCustomerMutateAsync.mock.invocationCallOrder[0]).toBeLessThan(
+      sendMutateAsync.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('needs no contact confirmation for an advisor-recorded send, and sends without an email', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = false
+    const dialog = await openSendDialog()
+
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Per E-Mail an den Kunden senden' }))
+    expect(within(dialog).queryByRole('checkbox', { name: /Auftragskommunikation mitgeteilt/ })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+
+    await waitFor(() =>
+      expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1', notifyCustomerByEmail: false }),
+    )
+    expect(updateCustomerMutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('blocks the email send when the customer has no address, and keeps the advisor-recorded send', async () => {
+    orderCustomer = { ...CUSTOMER, email: null as unknown as string }
+    asMock(customersApi.useCustomer).mockReturnValue({
+      data: { ...CUSTOMER, email: null, contact_email_ok: false },
+      isLoading: false,
+    })
+    const dialog = await openSendDialog()
+
+    expect(within(dialog).getByText('Für den E-Mail-Versand fehlt die E-Mail-Adresse des Kunden.')).toBeTruthy()
+    const notify = within(dialog).getByRole('checkbox', { name: 'Per E-Mail an den Kunden senden' })
+    expect(notify.getAttribute('aria-checked')).toBe('false')
+    expect(notify.hasAttribute('disabled')).toBe(true)
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+    await waitFor(() =>
+      expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1', notifyCustomerByEmail: false }),
+    )
+  })
+
+  it('keeps the dialog open and shows the server message when the send is refused', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    sendMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error('x'), { status: 422, data: { code: 'ESTIMATE_VEHICLE_INCOMPLETE', message: 'Kennzeichen fehlt.' } }),
+    )
+    const dialog = await openSendDialog()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+    expect(await within(dialog).findByText('Kennzeichen fehlt.')).toBeTruthy()
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('falls back to a mapped German text when the server sends only a code', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    sendMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error('x'), { status: 503, data: { code: 'ESTIMATE_APPROVAL_LINK_UNAVAILABLE' } }),
+    )
+    const dialog = await openSendDialog()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+    expect(await within(dialog).findByText(/Der Freigabe-Link kann derzeit nicht erstellt werden/)).toBeTruthy()
   })
 })
 

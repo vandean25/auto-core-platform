@@ -22,7 +22,8 @@ async function readJson<T>(response: Response, fallbackMessage: string): Promise
     const payload = (await response.json().catch(() => ({}))) as { message?: unknown }
     const message =
       typeof payload.message === 'string' && payload.message.trim() ? payload.message : fallbackMessage
-    throw new Error(message)
+    // `status` and `data` let callers read the structured error code (see getErrorCode).
+    throw Object.assign(new Error(message), { status: response.status, data: payload })
   }
   return (await response.json()) as T
 }
@@ -103,11 +104,27 @@ export function useReviseWorkshopEstimate() {
   })
 }
 
+export type SendWorkshopEstimateVersionBody = Partial<components['schemas']['SendWorkshopEstimateVersionDto']>
+
 export function useSendWorkshopEstimateVersion() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ versionId }: { orderId: string; versionId: string }) => {
-      const response = await fetchWithAuth(`${WORKSHOP_API}/estimates/${versionId}/send`, { method: 'POST' })
+    mutationFn: async ({
+      versionId,
+      notifyCustomerByEmail,
+    }: {
+      orderId: string
+      versionId: string
+      notifyCustomerByEmail?: boolean
+    }) => {
+      // Without the flag the request has no body: the advisor records the send and nothing is emailed.
+      const body: SendWorkshopEstimateVersionBody | null = notifyCustomerByEmail ? { notifyCustomerByEmail: true } : null
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/estimates/${versionId}/send`,
+        body
+          ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+          : { method: 'POST' },
+      )
       return readJson<WorkshopEstimateVersionDetail>(response, 'Kostenvoranschlag konnte nicht gesendet werden.')
     },
     onSuccess: (_version, { orderId, versionId }) => {

@@ -12,11 +12,13 @@ import {
 import {
     Form,
     FormControl,
+    FormDescription,
     FormField,
     FormItem,
     FormLabel,
     FormMessage,
 } from '@/components/ui/form'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { useCreateCustomer, useUpdateCustomer } from '@/api/customers'
 import type { Customer } from '@/api/types'
@@ -37,6 +39,7 @@ const DEFAULT_CUSTOMER: Partial<Customer> = {
     last_name: '',
     company_name: '',
     email: '',
+    contact_email_ok: false,
     phone: '',
     vat_id: '',
     address_street: '',
@@ -209,6 +212,30 @@ export function CustomerDialog({ customer, trigger, open: controlledOpen, onOpen
                                 )}
                             />
                         </div>
+
+                        <FormField
+                            control={form.control}
+                            name="contact_email_ok"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <div className="flex items-start gap-2">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value === true}
+                                                onCheckedChange={(checked) => field.onChange(checked === true)}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="font-normal leading-snug">
+                                            E-Mail-Adresse für Auftragskommunikation bestätigt
+                                        </FormLabel>
+                                    </div>
+                                    <FormDescription>
+                                        Ohne diese Bestätigung kann der Kostenvoranschlag nicht per E-Mail gesendet werden.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <div className="space-y-4">
                             <h4 className="font-medium">Address</h4>

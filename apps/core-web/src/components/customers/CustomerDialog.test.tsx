@@ -68,3 +68,86 @@ describe('CustomerDialog create flow', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/customers/cust-9')
   })
 })
+
+describe('CustomerDialog email contact confirmation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  const CHECKBOX_LABEL = 'E-Mail-Adresse für Auftragskommunikation bestätigt'
+
+  it('sends contact_email_ok with a new customer and explains why it matters', async () => {
+    const createCustomer = vi.fn().mockResolvedValue({ id: 'cust-9' })
+    vi.mocked(customersApi.useCreateCustomer).mockReturnValue({
+      mutateAsync: createCustomer,
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useCreateCustomer>)
+    vi.mocked(customersApi.useUpdateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useUpdateCustomer>)
+
+    render(
+      <MemoryRouter>
+        <CustomerDialog open={true} onOpenChange={vi.fn()} />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByText('Ohne diese Bestätigung kann der Kostenvoranschlag nicht per E-Mail gesendet werden.'),
+    ).toBeTruthy()
+    const checkbox = screen.getByRole('checkbox', { name: CHECKBOX_LABEL })
+    expect(checkbox.getAttribute('aria-checked')).toBe('false')
+
+    fireEvent.change(screen.getByLabelText('First Name'), { target: { value: 'Ada' } })
+    fireEvent.change(screen.getByLabelText('Last Name'), { target: { value: 'Lovelace' } })
+    fireEvent.click(checkbox)
+    fireEvent.click(screen.getByRole('button', { name: 'Create Customer' }))
+
+    await waitFor(() => expect(createCustomer).toHaveBeenCalled())
+    expect(createCustomer.mock.calls[0][0]).toMatchObject({ contact_email_ok: true })
+  })
+
+  it('shows the stored value on edit and sends the changed value with the update', async () => {
+    const updateCustomer = vi.fn().mockResolvedValue({ id: 'cust-1' })
+    vi.mocked(customersApi.useCreateCustomer).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useCreateCustomer>)
+    vi.mocked(customersApi.useUpdateCustomer).mockReturnValue({
+      mutateAsync: updateCustomer,
+      isPending: false,
+    } as unknown as ReturnType<typeof customersApi.useUpdateCustomer>)
+
+    render(
+      <MemoryRouter>
+        <CustomerDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          customer={
+            {
+              id: 'cust-1',
+              type: 'PRIVATE',
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+              email: 'ada@example.test',
+              contact_email_ok: true,
+            } as never
+          }
+        />
+      </MemoryRouter>,
+    )
+
+    const checkbox = screen.getByRole('checkbox', { name: CHECKBOX_LABEL })
+    expect(checkbox.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(checkbox)
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => expect(updateCustomer).toHaveBeenCalled())
+    expect(updateCustomer.mock.calls[0][0]).toMatchObject({ id: 'cust-1', data: { contact_email_ok: false } })
+  })
+})
