@@ -18,9 +18,9 @@ import type {
 } from '@/api/workshop-estimates'
 import {
   ADVISOR_CHANNEL_OPTIONS,
-  CUSTOMER_REACTION_OPTIONS,
   RECORD_DECISION_ERROR_MESSAGES,
   formatEstimateMoney,
+  reactionOptionsFor,
   type AdvisorChannel,
   type CustomerReaction,
   type EstimateDecision,
@@ -68,6 +68,13 @@ function DecisionForm({
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const reactionOptions = reactionOptionsFor(decision)
+  /** A reaction that does not fit the new decision is cleared, so the form never sends one. */
+  const changeDecision = (next: EstimateDecision) => {
+    setDecision(next)
+    setReaction((current) => (reactionOptionsFor(next).some((option) => option.value === current) ? current : ''))
+  }
 
   const normalizedAmount = normalizeGrossAmount(amount)
   const amountMatches = normalizedAmount !== null && isSameGrossAmount(normalizedAmount, version.total_gross)
@@ -118,7 +125,7 @@ function DecisionForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="decision-kind">Entscheidung</Label>
-          <Select value={decision} onValueChange={(value) => setDecision(value as EstimateDecision)}>
+          <Select value={decision} onValueChange={(value) => changeDecision(value as EstimateDecision)}>
             <SelectTrigger id="decision-kind" aria-label="Entscheidung">
               <SelectValue />
             </SelectTrigger>
@@ -164,7 +171,7 @@ function DecisionForm({
               <SelectValue placeholder="Keine Angabe" />
             </SelectTrigger>
             <SelectContent>
-              {CUSTOMER_REACTION_OPTIONS.map((option) => (
+              {reactionOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>

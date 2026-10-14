@@ -189,12 +189,21 @@ Update `docs/deletion-policy.md` in implementation: estimate versions, approvals
   sending and now (422 `ESTIMATE_DECISION_TIME_INVALID`).
 - The decision writes the evidence row, the audit row (`CREATE`) and the domain event (`CUSTOMER_ESTIMATE_DECIDED`, internal
   in-app, accepted at write time). Nothing is sent. The order gets no new status. The order's estimate badge is derived.
-- Overrun: `overrun_detected_at` is the first read that sees the order over the guide against the approved baseline.
-  The customer notice is written once per baseline (409 `OVERRUN_ALREADY_NOTIFIED` after that). The notice amount must
-  equal the order's current gross total. A new approved version starts a new baseline.
+- Overrun: the first detection is recorded when a write changes the estimate lines of the order (task line items, catalog
+  lines, picked parts, part requests, requisition consume and release). Its audit row is written as the system. Every read
+  still detects the overrun as a backstop, so the detection time is whichever comes first. A new approved version starts a
+  new baseline.
+- The customer notice must equal the order's current gross total (422 `OVERRUN_AMOUNT_MISMATCH`). The same total cannot be
+  noticed twice (409 `OVERRUN_ALREADY_NOTIFIED`). When the total has moved since the last notice, a new notice replaces the
+  tracked notice fields. The audit trail keeps every change, and the timeline shows the latest notice.
+- The customer reaction is optional. When one is given it must fit the decision: an approval takes `AGREED` or `QUESTIONED`,
+  a refusal takes `DECLINED`, `QUESTIONED` or `CALLBACK_REQUESTED` (422 `ESTIMATE_REACTION_MISMATCH`).
+- The overrun banner offers "Überarbeiteten Kostenvoranschlag senden" while customer sending is on. It creates the next
+  draft and opens the send dialog on it. The send itself stays a separate, confirmed step.
 - "Resume waiting tasks" moves `WAITING_CUSTOMER` to `PAUSED` under a guarded update, for an open order, and only for the
   advisor roles. The mechanic continues from `PAUSED` through the existing start transition.
-- The invoice warning is advisory: the invoice can still be issued.
+- The invoice warning is advisory: the invoice can still be issued. It shows only while an invoice draft can be issued,
+  and only to OWNER, ADMIN and SALES, the roles that read estimates.
 
 ### Workshop order (unchanged v1)
 

@@ -1,5 +1,9 @@
 import { Prisma } from '@prisma/client';
-import { toOverrunView, type OverrunTrackingRow } from './workshop-estimate-overrun-tracking.helpers';
+import {
+  needsCustomerNotice,
+  toOverrunView,
+  type OverrunTrackingRow,
+} from './workshop-estimate-overrun-tracking.helpers';
 
 const warning = {
   total_over_threshold: true,
@@ -19,6 +23,31 @@ const detected: OverrunTrackingRow = {
   customer_reaction: null,
   note: null,
 };
+
+describe('needsCustomerNotice', () => {
+  const noticed = (amount: string) => ({
+    notified_at: new Date('2026-10-13T09:00:00.000Z'),
+    notified_amount_gross: new Prisma.Decimal(amount),
+  });
+
+  it('asks for a notice until the customer has been told a total', () => {
+    expect(
+      needsCustomerNotice('230.00', {
+        notified_at: null,
+        notified_amount_gross: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not ask again while the total is the one the customer was told', () => {
+    expect(needsCustomerNotice('230.00', noticed('230.00'))).toBe(false);
+    expect(needsCustomerNotice('230', noticed('230.00'))).toBe(false);
+  });
+
+  it('asks again once the total has moved since the customer was told', () => {
+    expect(needsCustomerNotice('241.50', noticed('230.00'))).toBe(true);
+  });
+});
 
 describe('toOverrunView', () => {
   it('shows the detection time and asks for a customer notice until one is recorded', () => {

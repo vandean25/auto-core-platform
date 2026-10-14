@@ -6070,9 +6070,12 @@ export interface components {
             /** @description Outbox row id for an estimate email, approval id for a customer decision, overrun record id for an overrun notice. */
             id: string;
             /** @enum {string} */
-            kind: "ESTIMATE_EMAIL" | "ESTIMATE_APPROVAL" | "OVERRUN_NOTIFICATION";
-            /** @enum {string} */
-            channel: "EMAIL" | "LINK" | "ADVISOR_RECORDED" | "PHONE" | "IN_PERSON";
+            kind: "ESTIMATE_EMAIL" | "ESTIMATE_APPROVAL" | "OVERRUN_DETECTED" | "OVERRUN_NOTIFICATION";
+            /**
+             * @description How the customer answered or was told. Null for an overrun detection.
+             * @enum {string|null}
+             */
+            channel: "EMAIL" | "LINK" | "ADVISOR_RECORDED" | "PHONE" | "IN_PERSON" | null;
             /** @description Estimate version the entry is about. */
             version: number | null;
             /** Format: date-time */

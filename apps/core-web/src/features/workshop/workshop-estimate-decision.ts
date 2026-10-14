@@ -25,6 +25,20 @@ export const CUSTOMER_REACTION_OPTIONS: ReadonlyArray<{ value: CustomerReaction;
   { value: 'NO_RESPONSE', label: 'Keine Reaktion' },
 ]
 
+/** The reactions that fit a recorded decision. The same rule the backend applies (AUT-355). */
+const REACTIONS_FOR_DECISION: Record<EstimateDecision, ReadonlyArray<CustomerReaction>> = {
+  APPROVED: ['AGREED', 'QUESTIONED'],
+  DECLINED: ['DECLINED', 'QUESTIONED', 'CALLBACK_REQUESTED'],
+}
+
+/** The reaction choices for a decision: an approval is not answered with a refusal, and a refusal not with agreement. */
+export function reactionOptionsFor(
+  decision: EstimateDecision,
+): ReadonlyArray<{ value: CustomerReaction; label: string }> {
+  const allowed = REACTIONS_FOR_DECISION[decision]
+  return CUSTOMER_REACTION_OPTIONS.filter((option) => allowed.includes(option.value))
+}
+
 const moneyFormat = new Intl.NumberFormat('de-AT', { style: 'currency', currency: 'EUR' })
 
 export function formatEstimateMoney(value: string | null | undefined): string {

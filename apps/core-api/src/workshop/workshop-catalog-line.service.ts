@@ -1,3 +1,4 @@
+import { syncWorkshopEstimateOverrunAfterWrite } from './workshop-estimate-overrun-sync.js';
 import {
   ConflictException,
   Injectable,
@@ -69,6 +70,25 @@ export class WorkshopCatalogLineService {
   ) {}
 
   async addLineFromCatalog(
+    orderId: string,
+    taskId: string,
+    dto: AddWorkshopTaskLineFromCatalogDto,
+  ) {
+    const result = await this.addLineFromCatalogWithoutSync(
+      orderId,
+      taskId,
+      dto,
+    );
+    // The new line changes the estimate lines, so an overrun is recorded now (AUT-355).
+    await syncWorkshopEstimateOverrunAfterWrite(
+      this.prisma,
+      await this.tenantContext.getTenantId(),
+      orderId,
+    );
+    return result;
+  }
+
+  private async addLineFromCatalogWithoutSync(
     orderId: string,
     taskId: string,
     dto: AddWorkshopTaskLineFromCatalogDto,

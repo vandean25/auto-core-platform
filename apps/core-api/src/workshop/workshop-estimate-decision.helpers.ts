@@ -136,6 +136,44 @@ export function resolveAdvisorDecidedAt(
   return decidedAt;
 }
 
+/**
+ * The customer reaction recorded with a decision must fit it (AUT-355). An approval never comes with a refusal, and a
+ * refusal never comes with an agreement. No reaction is always allowed.
+ */
+const REACTIONS_FOR_DECISION: Record<
+  EstimateApprovalDecision,
+  readonly EstimateCustomerReaction[]
+> = {
+  [EstimateApprovalDecision.APPROVED]: ['AGREED', 'QUESTIONED'],
+  [EstimateApprovalDecision.DECLINED]: [
+    'DECLINED',
+    'QUESTIONED',
+    'CALLBACK_REQUESTED',
+  ],
+};
+
+/**
+ * The reaction is optional. One that is given has to fit the decision, so a record never says "refused" and "agreed"
+ * at once. A null from a client counts as no reaction, the same as an absent one.
+ */
+export function assertReactionFits(
+  decision: EstimateApprovalDecision,
+  reaction: EstimateCustomerReaction | null | undefined,
+): void {
+  if (
+    reaction === undefined ||
+    reaction === null ||
+    REACTIONS_FOR_DECISION[decision].includes(reaction)
+  ) {
+    return;
+  }
+  throw new UnprocessableEntityException({
+    code: 'ESTIMATE_REACTION_MISMATCH',
+    message:
+      'The customer reaction does not fit the decision that was recorded.',
+  });
+}
+
 /** Version status a decision moves to. Only SENT versions are moved, and only by a guarded update. */
 export function decisionToVersionStatus(
   decision: EstimateApprovalDecision,

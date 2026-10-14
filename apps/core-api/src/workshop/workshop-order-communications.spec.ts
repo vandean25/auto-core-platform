@@ -8,8 +8,102 @@ import {
   buildWorkshopOrderCommunications,
   type EstimateApprovalRecord,
   type EstimateEmailRecord,
+  type OverrunRecord,
   WORKSHOP_COMMUNICATIONS_LIMIT,
 } from './workshop-order-communications.js';
+
+describe('buildWorkshopOrderCommunications for overrun records', () => {
+  const VERSION_1 = 'version-1';
+  const versionNumbers = new Map([[VERSION_1, 1]]);
+
+  const overrun = (overrides: Partial<OverrunRecord> = {}): OverrunRecord => ({
+    id: 'overrun-a',
+    workshop_estimate_version_id: VERSION_1,
+    detected_at: new Date('2026-10-12T08:00:00.000Z'),
+    notified_at: null,
+    notified_channel: null,
+    ...overrides,
+  });
+
+  it('shows a detection with no channel, and the version it is about', () => {
+    const [entry] = buildWorkshopOrderCommunications({
+      emails: [],
+      approvals: [],
+      overrunRecords: [overrun()],
+      versionNumbers,
+    });
+
+    expect(entry).toEqual({
+      id: 'overrun-a',
+      kind: 'OVERRUN_DETECTED',
+      channel: null,
+      version: 1,
+      occurred_at: '2026-10-12T08:00:00.000Z',
+      status: null,
+      decision: null,
+    });
+  });
+
+  it('adds the customer notice after the detection, newest first, with its channel', () => {
+    const entries = buildWorkshopOrderCommunications({
+      emails: [],
+      approvals: [],
+      overrunRecords: [
+        overrun({
+          notified_at: new Date('2026-10-13T09:00:00.000Z'),
+          notified_channel: 'PHONE',
+        }),
+      ],
+      versionNumbers,
+    });
+
+    expect(entries.map((entry) => [entry.kind, entry.channel])).toEqual([
+      ['OVERRUN_NOTIFICATION', 'PHONE'],
+      ['OVERRUN_DETECTED', null],
+    ]);
+  });
+
+  it('places overrun entries among the emails and decisions by their time', () => {
+    const entries = buildWorkshopOrderCommunications({
+      emails: [
+        {
+          id: 'outbox-a',
+          status: 'ACCEPTED',
+          createdAt: new Date('2026-10-10T08:00:00.000Z'),
+          source_entity_id: VERSION_1,
+        },
+      ],
+      approvals: [
+        {
+          id: 'approval-a',
+          workshop_estimate_version_id: VERSION_1,
+          channel: 'PHONE',
+          decision: 'APPROVED',
+          decided_at: new Date('2026-10-11T09:30:00.000Z'),
+        },
+      ],
+      overrunRecords: [overrun()],
+      versionNumbers,
+    });
+
+    expect(entries.map((entry) => entry.kind)).toEqual([
+      'OVERRUN_DETECTED',
+      'ESTIMATE_APPROVAL',
+      'ESTIMATE_EMAIL',
+    ]);
+  });
+
+  it('leaves the version blank when the overrun refers to a version the order does not list', () => {
+    const [entry] = buildWorkshopOrderCommunications({
+      emails: [],
+      approvals: [],
+      overrunRecords: [overrun({ workshop_estimate_version_id: 'unknown' })],
+      versionNumbers,
+    });
+
+    expect(entry.version).toBeNull();
+  });
+});
 
 describe('buildWorkshopOrderCommunications', () => {
   const VERSION_1 = 'version-1';

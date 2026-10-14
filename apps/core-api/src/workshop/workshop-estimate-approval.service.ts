@@ -19,6 +19,7 @@ import type { RecordWorkshopEstimateDecisionDto } from './dto/record-workshop-es
 import type { WorkshopEstimateVersionDetailDto } from './dto/workshop-estimate-response.dto.js';
 import {
   assertAmountQuoted,
+  assertReactionFits,
   assertVersionDecidable,
   buildAdvisorApprovalData,
   decisionToVersionStatus,
@@ -101,6 +102,7 @@ export class WorkshopEstimateApprovalService {
     const version = await this.loadVersion(tx, scope, versionId);
     assertVersionDecidable(version, now);
     assertAmountQuoted(dto.amount_quoted_gross, version.total_gross);
+    assertReactionFits(dto.decision, dto.customer_reaction);
     const decidedAt = resolveAdvisorDecidedAt(
       dto.decided_at,
       version.sent_at,

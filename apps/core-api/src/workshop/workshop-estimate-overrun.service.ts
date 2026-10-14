@@ -5,12 +5,10 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import {
-  AuditLogAction,
   type EstimateCustomerReaction,
   type EstimateNotificationChannel,
   Prisma,
 } from '@prisma/client';
-import { AuditService } from '../audit/audit.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { WorkshopEstimateOverrunWarning } from './workshop-estimate-overrun.helpers.js';
 import {
@@ -18,10 +16,13 @@ import {
   type OverrunTrackingRow,
   type WorkshopEstimateOverrunView,
 } from './workshop-estimate-overrun-tracking.helpers.js';
+import { recordFirstDetection } from './workshop-estimate-overrun-sync.js';
 
 const OVERRUN_ROW_SELECT = {
   id: true,
   detected_at: true,
+  approved_total_gross: true,
+  detected_total_gross: true,
   notified_at: true,
   notified_channel: true,
   notified_amount_gross: true,
@@ -40,16 +41,14 @@ export type OverrunNoticeInput = {
 };
 
 /**
- * Tracks the overrun of one approved baseline (ADR-0025 §1, AUT-355). The first detection is written once, and the
- * customer notice is written once, by a guarded update. Both are audited, since the audit extension does not cover
- * creates.
+ * Tracks the overrun of one approved baseline (ADR-0025 §1, AUT-355). The first detection is written once, with its
+ * audit row, in a transaction. A customer notice is written by a guarded update, and a notice is repeated only when
+ * the total has changed since the last one. Every change is in the audit trail, since the audit extension covers the
+ * updates.
  */
 @Injectable()
 export class WorkshopEstimateOverrunService {
-  constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(AuditService) private readonly audit: AuditService,
-  ) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   /**
    * Returns the live warning with its tracked state. The first time an overrun is seen against a baseline, its
@@ -79,19 +78,23 @@ export class WorkshopEstimateOverrunService {
     });
   }
 
-  /** Writes the customer notice once. A second notice for the same baseline finds notified_at set and is refused. */
+  /**
+   * Writes the customer notice. It is refused when the same amount was already noticed (409), and it replaces the
+   * last notice when the total has moved since then.
+   */
   async recordNotice(input: OverrunNoticeInput): Promise<OverrunTrackingRow> {
+    const amount = new Prisma.Decimal(input.amountGross);
     const updated = await this.prisma.workshopEstimateOverrun.updateMany({
       where: {
         tenant_id: input.tenantId,
         workshop_estimate_version_id: input.baselineVersionId,
-        notified_at: null,
+        OR: [{ notified_at: null }, { notified_amount_gross: { not: amount } }],
       },
       data: {
         notified_at: new Date(),
         notified_channel: input.channel,
         notified_by_user_id: input.actorUserId,
-        notified_amount_gross: new Prisma.Decimal(input.amountGross),
+        notified_amount_gross: amount,
         customer_reaction: input.reaction,
         note: input.note,
       },
@@ -99,7 +102,7 @@ export class WorkshopEstimateOverrunService {
     if (updated.count !== 1) {
       throw new ConflictException({
         code: 'OVERRUN_ALREADY_NOTIFIED',
-        message: 'The customer was already informed about this overrun.',
+        message: 'The customer was already informed about this total.',
       });
     }
     const row = await this.findRow(input.tenantId, input.baselineVersionId);
@@ -116,43 +119,17 @@ export class WorkshopEstimateOverrunService {
     baselineVersionId: string,
     warning: WorkshopEstimateOverrunWarning,
   ): Promise<OverrunTrackingRow> {
-    const created = await this.prisma.workshopEstimateOverrun.createMany({
-      data: [
-        {
-          tenant_id: tenantId,
-          workshop_estimate_version_id: baselineVersionId,
-          detected_at: new Date(),
-          approved_total_gross: new Prisma.Decimal(
-            warning.approved_total_gross,
-          ),
-          detected_total_gross: new Prisma.Decimal(warning.current_total_gross),
-          total_over_threshold: warning.total_over_threshold,
-          new_work_lines: warning.new_work_lines,
-        },
-      ],
-      skipDuplicates: true,
-    });
+    await recordFirstDetection(
+      this.prisma,
+      tenantId,
+      baselineVersionId,
+      warning,
+    );
     const row = await this.findRow(tenantId, baselineVersionId);
     if (!row) {
       throw new InternalServerErrorException(
         'The overrun record was not written for the approved baseline.',
       );
-    }
-    if (created.count === 1) {
-      await this.audit.recordTenantMutation({
-        entityType: 'WorkshopEstimateOverrun',
-        entityId: row.id,
-        action: AuditLogAction.CREATE,
-        source: 'workshop-estimate-overrun',
-        after: {
-          workshop_estimate_version_id: baselineVersionId,
-          detected_at: row.detected_at.toISOString(),
-          approved_total_gross: warning.approved_total_gross,
-          detected_total_gross: warning.current_total_gross,
-          total_over_threshold: warning.total_over_threshold,
-          new_work_lines: warning.new_work_lines,
-        },
-      });
     }
     return row;
   }

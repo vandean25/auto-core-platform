@@ -8,6 +8,7 @@ import {
   normalizeGrossAmount,
   OVERRUN_NOTICE_ERROR_MESSAGES,
   RECORD_DECISION_ERROR_MESSAGES,
+  reactionOptionsFor,
 } from './workshop-estimate-decision'
 
 const approval = (overrides: Partial<Parameters<typeof describeApproval>[0]>) => ({
@@ -72,6 +73,20 @@ describe('estimateBadgeLabel', () => {
     expect(estimateBadgeLabel('SENT')).toBe('Kunde ausstehend')
     expect(estimateBadgeLabel('APPROVED')).toBe('Freigegeben')
     expect(estimateBadgeLabel('SUPERSEDED')).toBe('Ersetzt')
+  })
+})
+
+describe('reactionOptionsFor', () => {
+  it('offers only the reactions that fit an approval', () => {
+    expect(reactionOptionsFor('APPROVED').map((option) => option.value)).toEqual(['AGREED', 'QUESTIONED'])
+  })
+
+  it('offers only the reactions that fit a refusal', () => {
+    expect(reactionOptionsFor('DECLINED').map((option) => option.value)).toEqual([
+      'DECLINED',
+      'QUESTIONED',
+      'CALLBACK_REQUESTED',
+    ])
   })
 })
 

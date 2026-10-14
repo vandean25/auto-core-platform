@@ -49,6 +49,17 @@ const OVERRUN_TRACKING = {
   requires_customer_notice: true,
 }
 
+/** An overrun over the threshold, with no new lines, that the customer has not been told about. */
+const OVERRUN_OVER_THRESHOLD = {
+  ...OVERRUN_TRACKING,
+  total_over_threshold: true,
+  new_work_lines: false,
+  approved_total_gross: '216.00',
+  current_total_gross: '270.00',
+  threshold_pct: '15.00',
+  new_line_count: 0,
+}
+
 function summary(overrides: Partial<WorkshopEstimateVersionSummary>): WorkshopEstimateVersionSummary {
   return {
     id: 'v1',
@@ -274,6 +285,39 @@ describe('WorkshopEstimateCard', () => {
     expect(within(banner).getByText(/€\s270,00/)).toBeTruthy()
     expect(within(banner).getByText(/Grenzwert: 15 %/)).toBeTruthy()
     expect(within(banner).getByText('2 neue Position(en) gegenüber dem freigegebenen Kostenvoranschlag.')).toBeTruthy()
+  })
+
+  it('answers an overrun in one step: the revised version is created and its send dialog opens', async () => {
+    store.versions = [sentVersion('v1', 1)]
+    asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
+      data: estimate(store.versions, { overrun_warning: OVERRUN_OVER_THRESHOLD, send_enabled: true }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    render(withClient(card()))
+
+    const banner = screen.getByTestId('estimate-overrun-banner')
+    fireEvent.click(within(banner).getByRole('button', { name: 'Überarbeiteten Kostenvoranschlag senden' }))
+
+    await waitFor(() => expect(reviseMutateAsync).toHaveBeenCalledWith(ORDER_ID))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Version 2 an Kunden senden?')).toBeTruthy()
+  })
+
+  it('offers no one-step revision while customer sending is off', () => {
+    store.versions = [sentVersion('v1', 1)]
+    asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
+      data: estimate(store.versions, { overrun_warning: OVERRUN_OVER_THRESHOLD, send_enabled: false }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    render(withClient(card()))
+
+    const banner = screen.getByTestId('estimate-overrun-banner')
+    expect(within(banner).queryByRole('button', { name: 'Überarbeiteten Kostenvoranschlag senden' })).toBeNull()
+    expect(reviseMutateAsync).not.toHaveBeenCalled()
   })
 
   it('creates, sends, revises and sends again, and downloads each sent version as it was', async () => {

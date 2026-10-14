@@ -261,7 +261,7 @@ export class WorkshopEstimateService {
       select: { id: true, version: true },
     });
     const versionIds = versions.map((version) => version.id);
-    const [emails, approvals, overrunNotices] = await Promise.all([
+    const [emails, approvals, overrunRecords] = await Promise.all([
       this.prisma.notificationOutbox.findMany({
         where: {
           tenant_id: scope.tenantId,
@@ -301,13 +301,13 @@ export class WorkshopEstimateService {
         where: {
           tenant_id: scope.tenantId,
           workshop_estimate_version_id: { in: versionIds },
-          notified_at: { not: null },
         },
-        orderBy: [{ notified_at: 'desc' }, { id: 'desc' }],
+        orderBy: [{ detected_at: 'desc' }, { id: 'desc' }],
         take: WORKSHOP_COMMUNICATIONS_LIMIT,
         select: {
           id: true,
           workshop_estimate_version_id: true,
+          detected_at: true,
           notified_at: true,
           notified_channel: true,
         },
@@ -323,7 +323,7 @@ export class WorkshopEstimateService {
       data: buildWorkshopOrderCommunications({
         emails,
         approvals,
-        overrunNotices,
+        overrunRecords,
         versionNumbers,
       }),
     };

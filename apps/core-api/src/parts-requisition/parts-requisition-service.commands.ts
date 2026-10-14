@@ -1,3 +1,4 @@
+import { syncWorkshopEstimateOverrunAfterWrite } from '../workshop/workshop-estimate-overrun-sync.js';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { SiteContextService } from '../common/services/site-context.service.js';
@@ -76,7 +77,28 @@ function queryPartsShortagesCommand(
   );
 }
 
-function consumePartsReservationCommand(
+/** Records an overrun after a reservation changed its line. The order is found through the line (AUT-355). */
+async function syncOverrunForReservation(
+  deps: PartsRequisitionServiceDeps,
+  reservationId: string,
+): Promise<void> {
+  const tenantId = await deps.tenantContext.getTenantId();
+  const reservation = await deps.prisma.partsReservation.findFirst({
+    where: { id: reservationId, tenant_id: tenantId },
+    select: {
+      workshop_task_line_item: {
+        select: { workshop_task: { select: { workshop_order_id: true } } },
+      },
+    },
+  });
+  const orderId =
+    reservation?.workshop_task_line_item.workshop_task.workshop_order_id;
+  if (orderId) {
+    await syncWorkshopEstimateOverrunAfterWrite(deps.prisma, tenantId, orderId);
+  }
+}
+
+async function consumePartsReservationCommand(
   deps: PartsRequisitionServiceDeps,
   reservationId: string,
   dto: ConsumePartsReservationDto,
@@ -84,7 +106,7 @@ function consumePartsReservationCommand(
   deps.logger.debug(
     `Consuming reservation ${reservationId} quantity ${dto.quantity}`,
   );
-  return runAuthorized(deps, (tx, tenantId, siteId) =>
+  const result = await runAuthorized(deps, (tx, tenantId, siteId) =>
     executeConsumeReservation(
       tx,
       tenantId,
@@ -94,9 +116,27 @@ function consumePartsReservationCommand(
       deps.ledgerService,
     ),
   );
+  await syncOverrunForReservation(deps, reservationId);
+  return result;
 }
 
 async function releasePartsReservationCommand(
+  deps: PartsRequisitionServiceDeps,
+  reservationId: string,
+  dto: ReleasePartsReservationDto,
+  transaction?: Prisma.TransactionClient,
+): Promise<PartsReservationResponseDto> {
+  const result = await releaseReservationWithoutSync(
+    deps,
+    reservationId,
+    dto,
+    transaction,
+  );
+  await syncOverrunForReservation(deps, reservationId);
+  return result;
+}
+
+async function releaseReservationWithoutSync(
   deps: PartsRequisitionServiceDeps,
   reservationId: string,
   dto: ReleasePartsReservationDto,

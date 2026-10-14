@@ -485,6 +485,117 @@ describe('Workshop estimate approval capture (e2e, AUT-355)', () => {
       .expect(409);
     expect(res.body.code).toBe('OVERRUN_NOT_DETECTED');
   });
+
+  it('refuses a customer reaction that contradicts the decision, and accepts one that fits', async () => {
+    const { orderId } = await createOrderWithLabor(2, 80);
+    const versionId = await sentVersion(orderId);
+
+    const mismatch = await decide(versionId, { ...validDecision, customer_reaction: 'DECLINED' }).expect(422);
+    expect(mismatch.body.code).toBe('ESTIMATE_REACTION_MISMATCH');
+    expect(
+      await prisma.workshopEstimateApproval.count({
+        where: { workshop_estimate_version_id: versionId },
+      }),
+    ).toBe(0);
+
+    await decide(versionId, { ...validDecision, customer_reaction: 'AGREED' }).expect(201);
+  });
+
+  it('takes an explicit null reaction as no reaction', async () => {
+    const { orderId } = await createOrderWithLabor(2, 80);
+    const versionId = await sentVersion(orderId);
+
+    await decide(versionId, { ...validDecision, customer_reaction: null }).expect(201);
+  });
+
+  it('asks for a new notice once the total has moved after the customer was told, and records it', async () => {
+    const { orderId } = await createOrderWithLabor(2, 80);
+    const versionId = await sentVersion(orderId);
+    await decide(versionId, validDecision).expect(201);
+    const brake = await api()
+      .post(`/api/workshop/orders/${orderId}/tasks`)
+      .set(adminAuth())
+      .send({ title: 'Bremsflüssigkeit' })
+      .expect(201);
+    await addLaborLine(orderId, brake.body.id as string, {
+      itemNo: 'LAB-BRF',
+      description: 'Bremsflüssigkeit wechseln',
+      qty: 1,
+      unitPrice: 45,
+    });
+    await api()
+      .post(`/api/workshop/orders/${orderId}/overrun/notify`)
+      .set(adminAuth())
+      .send({ channel: 'PHONE', amount_quoted_gross: '246.00', customer_reaction: 'AGREED', note: 'Zusatzarbeit zugestimmt' })
+      .expect(201);
+
+    // One more line moves the total past the notified amount, so the customer has to be told the new total.
+    const filter = await api()
+      .post(`/api/workshop/orders/${orderId}/tasks`)
+      .set(adminAuth())
+      .send({ title: 'Filter' })
+      .expect(201);
+    await addLaborLine(orderId, filter.body.id as string, {
+      itemNo: 'LAB-FIL',
+      description: 'Filter',
+      qty: 1,
+      unitPrice: 30,
+    });
+    const estimate = await api()
+      .get(`/api/workshop/orders/${orderId}/estimates`)
+      .set(adminAuth())
+      .expect(200);
+    expect(estimate.body.data[0].overrun_warning).toMatchObject({
+      current_total_gross: '282.00',
+      requires_customer_notice: true,
+    });
+
+    const renotice = await api()
+      .post(`/api/workshop/orders/${orderId}/overrun/notify`)
+      .set(adminAuth())
+      .send({ channel: 'EMAIL', amount_quoted_gross: '282.00', customer_reaction: 'QUESTIONED', note: 'Rückfrage zum Filter' })
+      .expect(201);
+    expect(renotice.body).toMatchObject({ channel: 'EMAIL', amount_quoted_gross: '282.00' });
+
+    const timeline = await api()
+      .get(`/api/workshop/orders/${orderId}/communications`)
+      .set(adminAuth())
+      .expect(200);
+    expect(timeline.body.data.filter((entry: { kind: string }) => entry.kind === 'OVERRUN_NOTIFICATION')).toEqual([
+      expect.objectContaining({ channel: 'EMAIL' }),
+    ]);
+  });
+
+  it('records the overrun when the line is added, so the timeline shows it without anyone reading the estimate', async () => {
+    const { orderId } = await createOrderWithLabor(2, 80);
+    const versionId = await sentVersion(orderId);
+    await decide(versionId, validDecision).expect(201);
+    const brake = await api()
+      .post(`/api/workshop/orders/${orderId}/tasks`)
+      .set(adminAuth())
+      .send({ title: 'Bremsflüssigkeit' })
+      .expect(201);
+
+    await addLaborLine(orderId, brake.body.id as string, {
+      itemNo: 'LAB-BRF',
+      description: 'Bremsflüssigkeit wechseln',
+      qty: 1,
+      unitPrice: 45,
+    });
+
+    expect(
+      await prisma.workshopEstimateOverrun.count({
+        where: { workshop_estimate_version_id: versionId },
+      }),
+    ).toBe(1);
+    const timeline = await api()
+      .get(`/api/workshop/orders/${orderId}/communications`)
+      .set(adminAuth())
+      .expect(200);
+    expect(timeline.body.data).toContainEqual(
+      expect.objectContaining({ kind: 'OVERRUN_DETECTED', version: 1, channel: null }),
+    );
+  });
 });
 
 function restoreEnv(name: string, value: string | undefined): void {

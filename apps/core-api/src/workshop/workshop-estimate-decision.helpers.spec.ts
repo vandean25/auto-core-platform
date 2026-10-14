@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import {
   assertAmountQuoted,
+  assertReactionFits,
   assertVersionDecidable,
   buildAdvisorApprovalData,
   decisionToVersionStatus,
@@ -158,6 +159,61 @@ describe('buildAdvisorApprovalData', () => {
         recordedByUserId: 'user-1',
       }),
     ).toThrow(ConflictException);
+  });
+});
+
+describe('assertReactionFits', () => {
+  it('accepts no reaction, and null from a client that sends one', () => {
+    expect(() =>
+      assertReactionFits(EstimateApprovalDecision.APPROVED, undefined),
+    ).not.toThrow();
+    expect(() =>
+      assertReactionFits(EstimateApprovalDecision.DECLINED, null),
+    ).not.toThrow();
+  });
+
+  it('accepts the reactions that fit an approval', () => {
+    expect(() =>
+      assertReactionFits(EstimateApprovalDecision.APPROVED, 'AGREED'),
+    ).not.toThrow();
+    expect(() =>
+      assertReactionFits(EstimateApprovalDecision.APPROVED, 'QUESTIONED'),
+    ).not.toThrow();
+  });
+
+  it('accepts the reactions that fit a refusal', () => {
+    for (const reaction of [
+      'DECLINED',
+      'QUESTIONED',
+      'CALLBACK_REQUESTED',
+    ] as const) {
+      expect(() =>
+        assertReactionFits(EstimateApprovalDecision.DECLINED, reaction),
+      ).not.toThrow();
+    }
+  });
+
+  it('refuses a reaction that contradicts the decision with 422 and its code', () => {
+    let caught: unknown;
+    try {
+      assertReactionFits(EstimateApprovalDecision.APPROVED, 'DECLINED');
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(UnprocessableEntityException);
+    expect((caught as UnprocessableEntityException).getResponse()).toMatchObject(
+      { code: 'ESTIMATE_REACTION_MISMATCH' },
+    );
+  });
+
+  it('refuses agreement on a refusal, and no response with any decision', () => {
+    expect(() =>
+      assertReactionFits(EstimateApprovalDecision.DECLINED, 'AGREED'),
+    ).toThrow(UnprocessableEntityException);
+    expect(() =>
+      assertReactionFits(EstimateApprovalDecision.APPROVED, 'NO_RESPONSE'),
+    ).toThrow(UnprocessableEntityException);
   });
 });
 

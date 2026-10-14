@@ -3,6 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export const WORKSHOP_COMMUNICATION_KINDS = [
   'ESTIMATE_EMAIL',
   'ESTIMATE_APPROVAL',
+  'OVERRUN_DETECTED',
   'OVERRUN_NOTIFICATION',
 ] as const;
 export type WorkshopCommunicationKind =
@@ -45,8 +46,13 @@ export class WorkshopOrderCommunicationDto {
   @ApiProperty({ enum: WORKSHOP_COMMUNICATION_KINDS })
   kind!: WorkshopCommunicationKind;
 
-  @ApiProperty({ enum: WORKSHOP_COMMUNICATION_CHANNELS })
-  channel!: WorkshopCommunicationChannel;
+  @ApiProperty({
+    enum: WORKSHOP_COMMUNICATION_CHANNELS,
+    nullable: true,
+    description:
+      'How the customer answered or was told. Null for an overrun detection.',
+  })
+  channel!: WorkshopCommunicationChannel | null;
 
   @ApiProperty({
     type: Number,

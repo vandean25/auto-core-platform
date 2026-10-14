@@ -20537,6 +20537,7 @@
             "enum": [
               "ESTIMATE_EMAIL",
               "ESTIMATE_APPROVAL",
+              "OVERRUN_DETECTED",
               "OVERRUN_NOTIFICATION"
             ]
           },
@@ -20548,7 +20549,9 @@
               "ADVISOR_RECORDED",
               "PHONE",
               "IN_PERSON"
-            ]
+            ],
+            "nullable": true,
+            "description": "How the customer answered or was told. Null for an overrun detection."
           },
           "version": {
             "type": "number",
