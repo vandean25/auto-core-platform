@@ -25,6 +25,29 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'NOT_A_CATALOG_LINE',
   // A 409 the workshop intake dialog turns into an "Open <order>" link. The filter drops `code` without this entry.
   'VEHICLE_HAS_ACTIVE_ORDER',
+  // Public estimate approval link (ADR-0025 §7). The page maps these codes to German copy.
+  'ESTIMATE_APPROVAL_NOT_FOUND',
+  'ESTIMATE_APPROVAL_UNAVAILABLE',
+  'ESTIMATE_NOT_DECIDABLE',
+  'ESTIMATE_APPROVAL_CONFIRMATION_INCOMPLETE',
+  'ESTIMATE_APPROVAL_RATE_LIMITED',
+  // Advisor estimate send gates (ADR-0025 §6 and §8). The send dialog maps these codes.
+  'ESTIMATE_SEND_DISABLED',
+  'ESTIMATE_APPROVAL_LINK_UNAVAILABLE',
+  'ESTIMATE_CUSTOMER_EMAIL_NOT_CONFIRMED',
+  'ESTIMATE_CUSTOMER_EMAIL_MISSING',
+  'ESTIMATE_CUSTOMER_EMAIL_INVALID',
+  'ESTIMATE_VEHICLE_INCOMPLETE',
+  'ESTIMATE_EMAIL_INCOMPLETE',
+  // Estimate send gates from before the email send, and the order and role gates a send can hit. The send dialog
+  // maps these codes too.
+  'ESTIMATE_NOT_DRAFT',
+  'ESTIMATE_NO_LINES',
+  'ESTIMATE_CUSTOMER_REQUIRED',
+  'ESTIMATE_CUSTOMER_INCOMPLETE',
+  'SELLER_IDENTITY_INCOMPLETE',
+  'WORKSHOP_ORDER_NOT_ESTIMATABLE',
+  'ESTIMATE_ROLE_FORBIDDEN',
 ]);
 
 /**

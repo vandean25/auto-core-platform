@@ -57,3 +57,6 @@ export class TenantContextStorage {
     return tenantContextStorage.getStore()?.requestMeta;
   }
 }
+
+/** The tenant-bound identity of the public estimate approval route (ADR-0025 §7). It is not a staff user. */
+export const PUBLIC_ESTIMATE_APPROVAL_ROLE = 'PUBLIC_ESTIMATE_APPROVAL';

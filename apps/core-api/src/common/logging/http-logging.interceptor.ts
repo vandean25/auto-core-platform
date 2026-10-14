@@ -10,6 +10,7 @@ import type { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import type { Request, Response } from 'express';
 import { TenantContextStorage } from '../services/tenant-context.storage.js';
+import { redactRequestPath } from './redact-request-path.js';
 
 export type HttpRequestLog = {
   type: 'http_request';
@@ -70,7 +71,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
     const requestMeta = TenantContextStorage.getRequestMeta();
 
     const statusCode = response?.statusCode ?? 200;
-    const path = request?.originalUrl ?? request?.url ?? '/';
+    const path = redactRequestPath(request?.originalUrl ?? request?.url ?? '/');
     const method = request?.method ?? 'GET';
     const requestId =
       requestMeta?.requestId ??
@@ -122,7 +123,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
       statusCode = 500;
     }
 
-    const path = request?.originalUrl ?? request?.url ?? '/';
+    const path = redactRequestPath(request?.originalUrl ?? request?.url ?? '/');
     const method = request?.method ?? 'GET';
     const requestId =
       requestMeta?.requestId ??

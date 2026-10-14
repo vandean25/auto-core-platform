@@ -228,8 +228,8 @@ describe('GlobalExceptionFilter', () => {
 
   it('does not forward code for non-allowlisted HttpException responses', () => {
     const exception = new UnprocessableEntityException({
-      code: 'SELLER_IDENTITY_INCOMPLETE',
-      message: 'Seller identity is incomplete.',
+      code: 'INTERNAL_LEDGER_STATE_UNLISTED',
+      message: 'Ledger state is inconsistent.',
     });
     filter.catch(exception, mockHost);
 
@@ -237,7 +237,7 @@ describe('GlobalExceptionFilter', () => {
     expect(mockJson).toHaveBeenCalledWith(
       expect.objectContaining({
         statusCode: 422,
-        message: 'Seller identity is incomplete.',
+        message: 'Ledger state is inconsistent.',
       }),
     );
     expect(mockJson.mock.calls[0][0]).not.toHaveProperty('code');

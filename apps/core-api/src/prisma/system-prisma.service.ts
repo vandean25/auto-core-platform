@@ -28,6 +28,7 @@ import {
  * - MechanicSchedulerService — LaborEntry (nightly cross-tenant close only)
  * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)
  * - ApiKeyLookupService — TenantApiKey (findUnique by key id, before tenant context exists; ADR-0026)
+ * - PublicEstimateApprovalLookup — WorkshopEstimateApprovalToken (findFirst by token hash, before tenant context exists; ADR-0025 §7)
  *
  * Tenant-scoped models (Customer, Vehicle, WorkshopOrder, …) are omitted from
  * the type and undefined at runtime. Use PrismaService so isolation applies.
@@ -95,6 +96,10 @@ export class SystemPrismaService
 
   get tenantApiKey(): PrismaClient['tenantApiKey'] {
     return this.prisma.tenantApiKey;
+  }
+
+  get workshopEstimateApprovalToken(): PrismaClient['workshopEstimateApprovalToken'] {
+    return this.prisma.workshopEstimateApprovalToken;
   }
 
   $transaction<Result>(

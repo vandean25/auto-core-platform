@@ -1,8 +1,9 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   AppObservabilityModule,
   ObserveInstrument,
+  ObserveModule,
   isObserveTelemetryConfigured,
 } from './observability.module.js';
 
@@ -52,6 +53,37 @@ describe('AppObservabilityModule', () => {
     }).compile();
 
     expect(moduleRef).toBeDefined();
+  });
+
+  it('excludes the approval route from HTTP tracing, so its token never reaches the APM', () => {
+    const forRoot = jest.spyOn(ObserveModule, 'forRoot');
+    const token = 'A'.repeat(43);
+
+    try {
+      AppObservabilityModule.register({ appKey: 'app-key', appSecret: 'app-secret' });
+
+      expect(forRoot).toHaveBeenCalledTimes(1);
+      const options = forRoot.mock.calls[0][0] as unknown as {
+        http: { ignore: (request: unknown) => boolean };
+      };
+      expect(
+        options.http.ignore({
+          originalUrl: `/api/public/estimate-approvals/${token}`,
+          url: `/api/public/estimate-approvals/${token}`,
+        }),
+      ).toBe(true);
+      expect(
+        options.http.ignore({
+          originalUrl: `http:///api/public/estimate-approvals/${token}`,
+          url: `http:///api/public/estimate-approvals/${token}`,
+        }),
+      ).toBe(true);
+      expect(
+        options.http.ignore({ originalUrl: '/api/workshop/orders', url: '/api/workshop/orders' }),
+      ).toBe(false);
+    } finally {
+      forRoot.mockRestore();
+    }
   });
 
   it('provides ObserveInstrument for method-level APM telemetry', () => {

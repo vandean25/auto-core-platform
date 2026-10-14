@@ -1,12 +1,28 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '../../auth/types/authenticated-user.js';
-import { TenantContextStorage } from './tenant-context.storage.js';
+import {
+  PUBLIC_ESTIMATE_APPROVAL_ROLE,
+  TenantContextStorage,
+} from './tenant-context.storage.js';
 
 @Injectable()
 export class TenantContextService {
   setAuthenticatedUser(user: AuthenticatedUser) {
     TenantContextStorage.setUser(user);
+  }
+
+  /**
+   * The public estimate approval route (ADR-0025 §7) has no session. Once the token lookup names its tenant,
+   * the request runs as that tenant under a service identity, so every later query is tenant-scoped.
+   */
+  setPublicEstimateApprovalTenant(tenantId: string): void {
+    this.setAuthenticatedUser({
+      userId: 'public-estimate-approval',
+      email: '',
+      tenantId,
+      role: PUBLIC_ESTIMATE_APPROVAL_ROLE,
+    });
   }
 
   setTenantIdForWorker(tenantId: string): void {

@@ -24,6 +24,7 @@ Calling it on a tenant model (for example `systemPrisma.customer`) silently bypa
 | `financeSettings`, `inspectionTemplate`, `inspectionTemplateItem` | Platform-admin new-tenant bootstrap only; writes use the new tenant ID |
 | `attendanceEvent` | HR attendance scheduler nightly close only |
 | `agentPolicyRule` | Agent policy platform-default rows (`tenant_id` null) only |
+| `workshopEstimateApprovalToken` | Public estimate approval link (ADR-0025 §7): one `findFirst` by the SHA-256 of the raw token before any tenant context exists. The token row names its tenant. Every later query runs through `PrismaService`. |
 | `tenantApiKey` | Public API key verification only: one `findUnique` by key id before any tenant context exists (ADR-0026). The key row names its tenant. Every later query runs through `PrismaService`. |
 
 Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELEGATES` **and** documented here with an explicit caller.
@@ -41,6 +42,7 @@ Any new Prisma model is forbidden until it is added to `SYSTEM_PRISMA_MODEL_DELE
 | `HrAttendanceSchedulerService` | `attendanceEvent` |
 | `AgentPolicyService` | `agentPolicyRule` (read platform defaults only) |
 | `ApiKeyLookupService` | `tenantApiKey` (`findUnique` by id, pre-tenant key verification only; ADR-0026) |
+| `PublicEstimateApprovalLookup` | `workshopEstimateApprovalToken` (`findFirst` by token hash, pre-tenant link lookup only; ADR-0025 §7) |
 | `NotificationOutboxWorkerService` | `tenant` (`findFirst` by id, reads `is_active` before a claim; ADR-0025) |
 | `NotificationOutboxRecoveryService` | `tenant` (`findMany`: the tenant list and `is_active`, for the minute sweep; ADR-0025) |
 | `NotificationOutboxRetentionService` | `tenant` (`findMany`: the tenant list, for the daily body purge; ADR-0025) |

@@ -118,7 +118,8 @@ VALUES
   ('workshop_estimate_brand_asset_references'),
   ('workshop_inspection_items'),
   ('credit_note_items'),
-  ('inventory_transactions');
+  ('inventory_transactions'),
+  ('workshop_estimate_approvals');
 
 CREATE TEMP TABLE tenant_restore_allowed_global_tables (
   table_name text PRIMARY KEY
@@ -385,6 +386,9 @@ VALUES
   ('warranty_claims', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_approval_tokens', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_approval_tokens', 'workshop_estimate_versions', 'tenant_id,workshop_estimate_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_approvals', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_approvals', 'workshop_estimate_approval_tokens', 'tenant_id,approval_token_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_estimate_approvals', 'workshop_estimate_versions', 'tenant_id,workshop_estimate_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_brand_asset_references', 'document_brand_assets', 'tenant_id,legal_entity_id,asset_id', 'tenant_id,legal_entity_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_brand_asset_references', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_brand_asset_references', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -615,6 +619,8 @@ UPDATE public."labor_categories"
 SET "parent_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 
+DELETE FROM public."workshop_estimate_approvals"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_transactions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."credit_note_items"

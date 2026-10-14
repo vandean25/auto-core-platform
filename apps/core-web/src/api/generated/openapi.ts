@@ -1011,6 +1011,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/estimate-approvals/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a sent estimate by its approval link
+         * @description Repeatable and read-only. It never consumes the token. Answers only while the estimate can still be decided.
+         */
+        get: operations["PublicEstimateApprovalController_read"];
+        put?: never;
+        /**
+         * Approve or decline a sent estimate by its approval link
+         * @description Consumes the token and records the decision with its evidence. Approval needs the legal confirmations and the typed name.
+         */
+        post: operations["PublicEstimateApprovalController_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/holidays": {
         parameters: {
             query?: never;
@@ -5153,6 +5177,16 @@ export interface components {
             siteId?: string;
             /** Format: uuid */
             expectedSiteId?: string;
+        };
+        /** @enum {string} */
+        PublicEstimateDecision: "APPROVE" | "DECLINE";
+        PublicEstimateDecisionDto: {
+            decision: components["schemas"]["PublicEstimateDecision"];
+            typed_full_name?: string;
+            /** @description The customer has read the legal blocks shown above the button. Must be true to approve. */
+            legal_blocks_accepted: boolean;
+            /** @description The customer has accepted the B2C non-binding declaration (KSchG § 5 Abs 2). Must be true to approve. */
+            b2c_declaration_accepted: boolean;
         };
         /** @enum {string} */
         WorkshopHolidaySource: "MANUAL" | "IMPORTED";
@@ -11274,6 +11308,113 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InvoiceResponseDto"];
                 };
+            };
+        };
+    };
+    PublicEstimateApprovalController_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The estimate document fields to show. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link is not valid. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The estimate can no longer be decided. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired or was used. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    PublicEstimateApprovalController_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicEstimateDecisionDto"];
+            };
+        };
+        responses: {
+            /** @description The decision that was recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link is not valid. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The estimate can no longer be decided. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link has expired or was used. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The confirmations for an approval are missing. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

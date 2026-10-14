@@ -108,7 +108,7 @@ At **send** (`DRAFT` → `SENT`), persist immutable JSON (and PDF bytes separate
 
 - Live `WorkshopOrder` / task / line edits **never** rewrite an approved or sent snapshot.
 - If the order total exceeds approved total × (1 + tenant overrun threshold) or material new lines appear, surface overrun UI and require notification and/or revised estimate per D5.
-- Customer or advisor approval returns **409** when the version is not `SENT` (already `SUPERSEDED`, `EXPIRED`, `APPROVED`, or `DECLINED`), when `valid_until` has passed, or when the link token is invalid or already consumed. Post-send order line changes alone do not trigger 409; use the overrun flow (D5).
+- Customer approval answers **404** for an unknown link, and **410** for an expired, used or superseded link (also when the version is past `valid_until`, which marks it `EXPIRED`), following ADR-0025 §7. It answers **409** when the version is no longer `SENT` for another reason (already `APPROVED` or `DECLINED`). Advisor approval follows the same version rule. Post-send order line changes alone do not trigger any of these; use the overrun flow (D5).
 
 ---
 
@@ -273,7 +273,7 @@ Aligned with [Austria Market Roadmap](https://linear.app/auto-core-platform/proj
 
 - RBAC: TECH cannot send/approve.
 - Token: GET idempotent, POST consumes, expiry at `valid_until`, re-send invalidates old token.
-- Snapshot immutability and 409 on stale approval.
+- Snapshot immutability; 404 or 410 for a stale link (used, expired or superseded), 409 only when the version is no longer `SENT` for another reason.
 - Outbox enqueued in same transaction as state change.
 - Overrun fields written to audit trail.
 

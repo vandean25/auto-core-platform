@@ -2,18 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { AlertTriangle, Download, Loader2, Plus, Send } from 'lucide-react'
+import { EstimateSendDialog } from '@/components/workshop/EstimateSendDialog'
+import type { EstimateSendCustomer } from '@/components/workshop/EstimateSendDialog'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -91,6 +83,8 @@ export interface WorkshopEstimateCardProps {
    * DRAFT totals depend on them, so the estimate is re-read when this value changes.
    */
   orderRevision?: string
+  /** The order's customer. The send dialog shows its email and checks the contact confirmation. */
+  customer?: EstimateSendCustomer | null
 }
 
 interface VersionRowProps {
@@ -179,7 +173,13 @@ function VersionRow({
  * only for OWNER, ADMIN and SALES. The backend enforces the same roles, the open-order
  * rule and the send flag; this card mirrors them so the advisor sees the right controls.
  */
-export function WorkshopEstimateCard({ orderId, orderStatus, isLocked, orderRevision }: WorkshopEstimateCardProps) {
+export function WorkshopEstimateCard({
+  orderId,
+  orderStatus,
+  isLocked,
+  orderRevision,
+  customer = null,
+}: WorkshopEstimateCardProps) {
   const queryClient = useQueryClient()
   const lastOrderRevision = useRef(orderRevision)
   useEffect(() => {
@@ -237,14 +237,15 @@ export function WorkshopEstimateCard({ orderId, orderStatus, isLocked, orderRevi
     }
   }
 
-  const handleSend = async (version: WorkshopEstimateVersionSummary) => {
+  /** Rejects with the API error: the send dialog stays open and shows it. */
+  const handleSend = async (version: WorkshopEstimateVersionSummary, notifyCustomerByEmail: boolean) => {
+    await sendVersion.mutateAsync({ orderId, versionId: version.id, notifyCustomerByEmail })
     setSendTarget(null)
-    try {
-      await sendVersion.mutateAsync({ orderId, versionId: version.id })
-      toast.success(`Version ${version.version} gesendet`)
-    } catch (error: unknown) {
-      toast.error(getErrorMessage(error, 'Kostenvoranschlag konnte nicht gesendet werden.'))
-    }
+    toast.success(
+      notifyCustomerByEmail
+        ? `Version ${version.version} gesendet, die E-Mail an den Kunden wird versendet`
+        : `Version ${version.version} gesendet`,
+    )
   }
 
   const handleDownload = async (version: WorkshopEstimateVersionSummary) => {
@@ -344,36 +345,13 @@ export function WorkshopEstimateCard({ orderId, orderStatus, isLocked, orderRevi
         )}
       </CardContent>
 
-      <AlertDialog
-        open={sendTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setSendTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {sendTarget ? `Version ${sendTarget.version} an Kunden senden?` : 'An Kunden senden?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Der Stand des Auftrags wird mit dem Versand festgeschrieben. Spätere Änderungen am Auftrag wirken erst
-              nach einer neuen Version.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={sendVersion.isPending}>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!sendTarget || sendVersion.isPending}
-              onClick={(event) => {
-                event.preventDefault()
-                if (sendTarget) void handleSend(sendTarget)
-              }}
-            >
-              {sendVersion.isPending ? 'Wird gesendet…' : 'Senden'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EstimateSendDialog
+        version={sendTarget}
+        customer={customer}
+        isSending={sendVersion.isPending}
+        onSend={handleSend}
+        onClose={() => setSendTarget(null)}
+      />
     </Card>
   )
 }

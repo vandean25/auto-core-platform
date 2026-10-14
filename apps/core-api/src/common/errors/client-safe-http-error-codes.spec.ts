@@ -30,6 +30,20 @@ describe('client-safe HTTP error codes', () => {
     ).toEqual({ orderId: 'wo-live', orderNumber: 'WO-2026-0007' });
   });
 
+  it('lists the estimate send gates the advisor dialog maps to German copy', () => {
+    for (const code of [
+      'ESTIMATE_NOT_DRAFT',
+      'ESTIMATE_NO_LINES',
+      'ESTIMATE_CUSTOMER_REQUIRED',
+      'ESTIMATE_CUSTOMER_INCOMPLETE',
+      'SELLER_IDENTITY_INCOMPLETE',
+      'WORKSHOP_ORDER_NOT_ESTIMATABLE',
+      'ESTIMATE_ROLE_FORBIDDEN',
+    ]) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
+
   it('forwards no detail fields for codes outside the allowlist', () => {
     expect(
       pickClientSafeHttpErrorDetails({ code: 'SOMETHING_ELSE', orderId: 'wo-live' }),

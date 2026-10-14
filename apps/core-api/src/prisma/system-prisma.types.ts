@@ -12,6 +12,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  * - agentPolicyRule: AgentPolicyService platform-default rows (tenant_id null)
  * - tenantApiKey: ApiKeyLookupService, one findUnique by key id before any tenant context exists (ADR-0026).
  *   The key row names its tenant, and every later query is tenant-scoped.
+ * - workshopEstimateApprovalToken: PublicEstimateApprovalLookup, one findFirst by token hash before any tenant context
+ *   exists (ADR-0025 §7). The token row names its tenant. Every later query runs through PrismaService.
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -25,6 +27,7 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'attendanceEvent',
   'agentPolicyRule',
   'tenantApiKey',
+  'workshopEstimateApprovalToken',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -83,5 +86,6 @@ export function createSystemPrismaTransactionClient(
     attendanceEvent: client.attendanceEvent,
     agentPolicyRule: client.agentPolicyRule,
     tenantApiKey: client.tenantApiKey,
+    workshopEstimateApprovalToken: client.workshopEstimateApprovalToken,
   };
 }

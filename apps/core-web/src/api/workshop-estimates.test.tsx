@@ -93,6 +93,40 @@ describe('workshop estimate mutations', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/workshop/estimates/v1/send', { method: 'POST' })
   })
 
+  it('sends the email flag as a JSON body only when the customer is to be emailed', async () => {
+    const queryClient = new QueryClient()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'v1', status: 'SENT' }))
+
+    const { result } = renderHook(() => useSendWorkshopEstimateVersion(), { wrapper: wrapperFor(queryClient) })
+    await result.current.mutateAsync({ orderId: 'order-1', versionId: 'v1', notifyCustomerByEmail: true })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/workshop/estimates/v1/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notifyCustomerByEmail: true }),
+    })
+  })
+
+  it('sends no body when the flag is false, as before', async () => {
+    const queryClient = new QueryClient()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'v1', status: 'SENT' }))
+
+    const { result } = renderHook(() => useSendWorkshopEstimateVersion(), { wrapper: wrapperFor(queryClient) })
+    await result.current.mutateAsync({ orderId: 'order-1', versionId: 'v1', notifyCustomerByEmail: false })
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/workshop/estimates/v1/send', { method: 'POST' })
+  })
+
+  it('keeps the error code and status on a refused send', async () => {
+    const queryClient = new QueryClient()
+    fetchMock.mockResolvedValueOnce(jsonResponse({ code: 'ESTIMATE_CUSTOMER_EMAIL_MISSING', message: 'Keine E-Mail.' }, 422))
+
+    const { result } = renderHook(() => useSendWorkshopEstimateVersion(), { wrapper: wrapperFor(queryClient) })
+    await expect(
+      result.current.mutateAsync({ orderId: 'order-1', versionId: 'v1', notifyCustomerByEmail: true }),
+    ).rejects.toMatchObject({ status: 422, data: { code: 'ESTIMATE_CUSTOMER_EMAIL_MISSING' } })
+  })
+
   it('reports success once the send is accepted', async () => {
     const queryClient = new QueryClient()
     fetchMock.mockResolvedValueOnce(jsonResponse({ id: 'v1', status: 'SENT' }))

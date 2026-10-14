@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { AutoCorePage } from './pom/AutoCorePage'
-import { createMockWorkshopOrder } from './utils/mock-factories'
+import { createMockCustomer, createMockWorkshopOrder } from './utils/mock-factories'
 
 const ORDER_ID = 'order-est-smoke'
 const ESTIMATES = `/api/workshop/orders/${ORDER_ID}/estimates`
@@ -8,6 +8,7 @@ const REVISIONS = `/api/workshop/orders/${ORDER_ID}/estimates/revisions`
 const VERSION_ACTION = /\/api\/workshop\/estimates\/([^/?]+)\/(send|pdf)(\?.*)?$/
 const VERSION_DETAIL = /\/api\/workshop\/estimates\/([^/?]+)(\?.*)?$/
 const PDF_BYTES = Buffer.from('%PDF-1.4 workshop estimate smoke fixture')
+const CONTACT_CONFIRMATION = 'Der Kunde hat mir diese E-Mail-Adresse für die Auftragskommunikation mitgeteilt.'
 
 type MockVersion = {
   id: string
@@ -64,6 +65,8 @@ test.describe('Workshop order: Kostenvoranschlag', () => {
       order_number: 'WO-2026-0555',
       status: 'IN_PROGRESS',
     })
+    const customer = createMockCustomer()
+    const customerState = { contact_email_ok: false }
     const state: MockEstimateState = { versions: [] }
 
     await page.route(AutoCorePage.apiRouteMatcher(`/api/workshop/orders/${ORDER_ID}`), async (route) => {
@@ -141,15 +144,30 @@ test.describe('Workshop order: Kostenvoranschlag', () => {
       })
     })
 
+    // The send dialog reads the customer's contact confirmation, and the advisor's confirmation is saved with PATCH.
+    await page.route(AutoCorePage.apiRouteMatcher(`/api/customers/${customer.id}`), async (route) => {
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON() as { contact_email_ok?: boolean }
+        customerState.contact_email_ok = body.contact_email_ok === true
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...customer, contact_email_ok: customerState.contact_email_ok }),
+      })
+    })
+
     await corePage.navigate(`/workshop/orders/${ORDER_ID}`)
 
     // 1. Create: a DRAFT version 1 appears.
     await page.getByRole('button', { name: 'Kostenvoranschlag erstellen' }).click()
     await expect(page.getByTestId('estimate-version-1')).toContainText('Entwurf')
 
-    // 2. Send version 1 after confirmation.
+    // 2. Send version 1: the advisor confirms the customer's address in the send dialog, then sends.
     await page.getByRole('button', { name: 'An Kunden senden' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Senden' }).click()
+    const sendDialog = page.getByRole('dialog')
+    await sendDialog.getByRole('checkbox', { name: CONTACT_CONFIRMATION }).check()
+    await sendDialog.getByRole('button', { name: 'Senden' }).click()
     await expect(page.getByTestId('estimate-version-1')).toContainText('Gesendet')
 
     // 3. Revise: version 2 is a DRAFT, and version 1 stays listed.
@@ -157,9 +175,11 @@ test.describe('Workshop order: Kostenvoranschlag', () => {
     await expect(page.getByTestId('estimate-version-2')).toContainText('Entwurf')
     await expect(page.getByTestId('estimate-version-1')).toContainText('Gesendet')
 
-    // 4. Send version 2: version 1 is superseded.
+    // 4. Send version 2: the address is confirmed now, so the dialog asks nothing more. Version 1 is superseded.
     await page.getByRole('button', { name: 'An Kunden senden' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Senden' }).click()
+    const revisedDialog = page.getByRole('dialog')
+    await expect(revisedDialog.getByRole('checkbox', { name: CONTACT_CONFIRMATION })).toHaveCount(0)
+    await revisedDialog.getByRole('button', { name: 'Senden' }).click()
     await expect(page.getByTestId('estimate-version-1')).toContainText('Ersetzt')
     await expect(page.getByTestId('estimate-version-2')).toContainText('Gesendet')
 
