@@ -16182,9 +16182,6 @@
           "email": {
             "type": "string"
           },
-          "contact_email_ok": {
-            "type": "boolean"
-          },
           "phone": {
             "type": "string"
           },
@@ -16202,6 +16199,9 @@
           },
           "address_country": {
             "type": "string"
+          },
+          "contact_email_ok": {
+            "type": "boolean"
           }
         }
       },

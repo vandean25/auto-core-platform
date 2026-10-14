@@ -25,7 +25,7 @@
 | `NOTIFICATION_EMAIL_FROM_ADDRESS` | unset | Sender on the ACP domain. Required when the mode is `fake` or `live`. |
 | `CLOUD_TASKS_NOTIFICATION_QUEUE` | unset | Queue name. Unset means no wake-ups; rows wait until it is set and the sweep runs. |
 | `CLOUD_TASKS_NOTIFICATION_TARGET_BASE_URL` | unset | Base URL of the service that handles wake-ups, in the same shape as `CLOUD_TASKS_TARGET_BASE_URL`. It must be a service that holds the `NOTIFICATION_*` settings. |
-| `ESTIMATE_APPROVAL_BASE_URL` | unset | Public https base of the approval link in the estimate email, without a trailing slash, query or credentials (ADR-0025 §7). Required while `CUSTOMER_ESTIMATE_SEND_ENABLED` is on; the boot check refuses otherwise. |
+| `ESTIMATE_APPROVAL_BASE_URL` | unset | Public https base of the approval link in the estimate email, without a trailing slash, query, fragment or credentials (ADR-0025 §7). Required while `CUSTOMER_ESTIMATE_SEND_ENABLED` is on, and checked for that shape in every environment: the boot check refuses a missing or malformed value. |
 
 The existing `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_INVOKER_SA`, `CLOUD_TASKS_WORKER_SECRET` and `CLOUD_TASKS_ENABLED` apply as they do for the PDF queue. The PDF target (`CLOUD_TASKS_TARGET_BASE_URL`) is never used for notifications.
 
@@ -48,7 +48,7 @@ Three messages render from `apps/core-api/src/notifications/templates/customer-e
 - The token is 32 random bytes, base64url, inside the link only. The database keeps its SHA-256 in `workshop_estimate_approval_tokens`. It expires at the version's `valid_until`, and it is invalidated when its version is superseded. The public GET and POST route and the `/approve/:token` page come in the next phase.
 - `Customer.contact_email_ok` is `false` until the advisor confirms the address, through the customer create and update endpoints. A permanent refusal of the address (`RECIPIENT_REJECTED`, a hard bounce) clears the flag for that customer and that exact address (ADR-0025 §8).
 - An approval link is removed from a row's body once the row reaches `ACCEPTED`, `FAILED` or `SUPPRESSED`. A notice that was never sent (`STALE_UNSENT`) loses its body. A retry keeps the link, because it still needs the body.
-- The first send is woken by a task enqueued right after its send commits. If that task cannot be queued, the recovery sweep wakes the row after its grace.
+- The first send is woken by a task enqueued right after its send commits. If that task cannot be queued, the failure is logged, the row stays PENDING, and the recovery sweep wakes it after its 5-minute grace (the sweep's wake path has its own tests).
 
 ## 3. Secrets (GSM names only, no values in the repository)
 
@@ -99,6 +99,6 @@ Stored error text is generic. Provider response bodies are never stored.
 - No delivery webhooks and no open or click tracking (ADR-0025 §6, §7).
 - A PENDING notice unsent after 7 days is failed with `STALE_UNSENT`, never sent late. The sweep re-wakes a PENDING row only after a 5-minute grace; a duplicate wake-up is harmless because claims are atomic.
 - Wake-ups for retries and for rows the sweep finds come from the recovery cron, which runs only in a live instance with CPU allocated. core-api deploys with `--cpu-throttling` and `--min-instances 0`, so a quiet service can delay those until a request keeps an instance alive. The 7-day `STALE_UNSENT` backstop still holds. Phase 4 writes EMAIL rows, so before `CUSTOMER_ESTIMATE_SEND_ENABLED` is on, add a Cloud Scheduler job for the sweep, or keep CPU allocated with a minimum instance (a cost decision).
-- A new row's first send is woken by a task enqueued right after the send commits (phase 4). If that task cannot be queued, the sweep wakes the row only after the 5-minute grace.
+- A new row's first send is woken by a task enqueued right after the send commits (phase 4). If that task cannot be queued, the failure is logged and the row stays PENDING until the sweep wakes it after the 5-minute grace.
 - A lost attempt (an expired lease) waits the same backoff as a failed send when the recovery sweep releases it. A Cloud Tasks redelivery of the same wake-up can reclaim an expired claim at once, so that resend has no backoff.
 - No replay endpoint yet (ADR-0025 lists `POST /api/notifications/outbox/replay` for a later phase).

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseApprovalBaseUrl } from '../workshop/workshop-estimate-approval-token.helpers.js';
 import {
   NOTIFICATION_ENV_KEYS,
   notificationEnvIssues,
@@ -175,6 +176,27 @@ const envSchema = z
       }
     }
 
+    // The estimate email carries the approval link, so the send needs a usable https base (ADR-0025 §7). Checked in every
+    // environment, so a test run refuses the same bad base that production would.
+    if (env.CUSTOMER_ESTIMATE_SEND_ENABLED) {
+      addRequiredIssue(
+        ctx,
+        'ESTIMATE_APPROVAL_BASE_URL',
+        env.ESTIMATE_APPROVAL_BASE_URL,
+      );
+      if (
+        env.ESTIMATE_APPROVAL_BASE_URL &&
+        parseApprovalBaseUrl(env.ESTIMATE_APPROVAL_BASE_URL) === null
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ESTIMATE_APPROVAL_BASE_URL'],
+          message: 'invalid',
+          continue: true,
+        });
+      }
+    }
+
     if (env.NODE_ENV === 'test') {
       return;
     }
@@ -194,15 +216,6 @@ const envSchema = z
         env.FIREBASE_PROJECT_ID ?? env.GOOGLE_CLOUD_PROJECT,
       );
       addRequiredIssue(ctx, 'FRONTEND_URL', env.FRONTEND_URL);
-    }
-
-    // The estimate email carries the approval link, so the send cannot be enabled without its base (ADR-0025 §7).
-    if (env.CUSTOMER_ESTIMATE_SEND_ENABLED) {
-      addRequiredIssue(
-        ctx,
-        'ESTIMATE_APPROVAL_BASE_URL',
-        env.ESTIMATE_APPROVAL_BASE_URL,
-      );
     }
 
     if (arePdfWorkersEnabled(env)) {

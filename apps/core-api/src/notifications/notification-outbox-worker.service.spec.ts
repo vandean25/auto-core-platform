@@ -35,7 +35,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
 describe('NotificationOutboxWorkerService', () => {
   let prisma: {
     notificationOutbox: { updateMany: jest.Mock; findFirst: jest.Mock };
-    customer: { updateMany: jest.Mock };
+    customer: { findFirst: jest.Mock; updateMany: jest.Mock };
   };
   let provider: { name: string; send: jest.Mock };
   let providers: { resolve: jest.Mock };
@@ -63,7 +63,10 @@ describe('NotificationOutboxWorkerService', () => {
   beforeEach(() => {
     prisma = {
       notificationOutbox: { updateMany: jest.fn(), findFirst: jest.fn() },
-      customer: { updateMany: jest.fn() },
+      customer: {
+        findFirst: jest.fn().mockResolvedValue({ email: 'kunde@example.at' }),
+        updateMany: jest.fn(),
+      },
     };
     provider = {
       name: 'fake',

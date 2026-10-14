@@ -5,6 +5,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PdfStorage } from '../src/common/pdf/pdf-storage.js';
+import { NotificationCloudTasksService } from '../src/notifications/notification-cloud-tasks.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { SiteService } from '../src/site/site.service.js';
@@ -372,13 +373,24 @@ describe('Workshop estimates (e2e)', () => {
     const created = await createEstimate(orderId);
     const versionId = created.body.versions[0].id as string;
 
-    // No wake-up queue is configured in this suite, so the wake-up fails and is logged. The send still succeeds.
+    // The wake-up is spied, so the test sees whether the row was already committed when it was enqueued (ADR-0025 §6).
+    let rowVisibleAtWakeUp: boolean | undefined;
+    const wakeUp = jest
+      .spyOn(app.get(NotificationCloudTasksService), 'enqueueWakeUp')
+      .mockImplementation(async ({ outboxId }) => {
+        rowVisibleAtWakeUp =
+          (await prisma.notificationOutbox.findUnique({
+            where: { id: outboxId },
+          })) !== null;
+      });
     const sent = await api()
       .post(`/api/workshop/estimates/${versionId}/send`)
       .set(adminAuth())
       .send({ notifyCustomerByEmail: true })
       .expect(200);
     expect(JSON.stringify(sent.body)).not.toContain('/approve/');
+    expect(wakeUp).toHaveBeenCalledTimes(1);
+    expect(rowVisibleAtWakeUp).toBe(true);
 
     const customer = await prisma.customer.findFirstOrThrow({
       where: { id: customerId },
@@ -395,6 +407,11 @@ describe('Workshop estimates (e2e)', () => {
     });
     expect(row.subject).toMatch(/^Kostenvoranschlag KV-/);
     expect(row.payload).toEqual({ customer_id: customerId });
+    expect(wakeUp).toHaveBeenCalledWith({
+      outboxId: row.id,
+      tenantId: row.tenant_id,
+    });
+    wakeUp.mockRestore();
 
     const rawToken = /\/approve\/([A-Za-z0-9_-]{43})/.exec(row.body ?? '')?.[1];
     expect(rawToken).toBeDefined();

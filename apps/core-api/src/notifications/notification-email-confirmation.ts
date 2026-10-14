@@ -14,9 +14,9 @@ export interface RefusedRecipient {
 
 /**
  * A permanent refusal of an address withdraws the advisor's email confirmation for that customer (ADR-0025 §8), so no
- * later estimate mail goes there until the advisor confirms it again. The update matches the customer named in the
- * row's payload and the exact address, so a corrected address keeps its own confirmation. Never throws: the row's
- * outcome is already recorded, and a failed update is logged.
+ * later estimate mail goes there until the advisor confirms it again. The customer is the one named in the row's
+ * payload, and the stored address must still be the refused one, so a corrected address keeps its own confirmation.
+ * Never throws: the row's outcome is already recorded, and a failed update is logged.
  */
 export async function withdrawConfirmationAfterRefusal(
   prisma: PrismaService,
@@ -31,11 +31,20 @@ export async function withdrawConfirmationAfterRefusal(
     return;
   }
   try {
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, tenant_id: refused.tenantId },
+      select: { email: true },
+    });
+    const storedEmail = customer?.email;
+    // The send trims the address it writes to the row, so a stored address with surrounding spaces is the same mailbox.
+    if (!storedEmail || storedEmail.trim() !== refused.recipientEmail.trim()) {
+      return;
+    }
     await prisma.customer.updateMany({
       where: {
         id: customerId,
         tenant_id: refused.tenantId,
-        email: refused.recipientEmail,
+        email: storedEmail,
       },
       data: { contact_email_ok: false },
     });

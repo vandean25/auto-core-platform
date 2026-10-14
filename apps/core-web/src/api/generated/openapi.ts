@@ -4854,13 +4854,13 @@ export interface components {
             first_name?: string;
             last_name?: string;
             email?: string;
-            contact_email_ok?: boolean;
             phone?: string;
             vat_id?: string;
             address_street?: string;
             address_city?: string;
             address_zip?: string;
             address_country?: string;
+            contact_email_ok?: boolean;
         };
         FinanceSettingsResponseDto: {
             id: string;
