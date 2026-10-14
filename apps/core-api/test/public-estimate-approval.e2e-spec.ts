@@ -226,6 +226,17 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
     expect(token.consumed_at).toBeNull();
   });
 
+  it('answers a malformed trace id with 400 and still sends the headers, because the headers middleware runs first', async () => {
+    const { rawToken } = await estimateSentByEmail();
+
+    const response = await publicRead(rawToken)
+      .set('X-Trace-Id', 'not-a-uuid')
+      .expect(400);
+
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['x-robots-tag']).toBe('noindex, nofollow');
+  });
+
   it('answers not found for an unknown or malformed link, with the same headers', async () => {
     const unknown = await publicRead('B'.repeat(43)).expect(404);
     const malformed = await publicRead('short').expect(404);

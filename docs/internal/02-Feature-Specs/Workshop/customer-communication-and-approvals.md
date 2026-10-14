@@ -273,7 +273,7 @@ Aligned with [Austria Market Roadmap](https://linear.app/auto-core-platform/proj
 
 - RBAC: TECH cannot send/approve.
 - Token: GET idempotent, POST consumes, expiry at `valid_until`, re-send invalidates old token.
-- Snapshot immutability; 404 or 410 for a stale link, 409 when the version is already decided.
+- Snapshot immutability; 404 or 410 for a stale link (used, expired or superseded), 409 only when the version is no longer `SENT` for another reason.
 - Outbox enqueued in same transaction as state change.
 - Overrun fields written to audit trail.
 

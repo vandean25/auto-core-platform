@@ -1,6 +1,5 @@
+import { PUBLIC_APPROVAL_PATH_PREFIX } from '@/lib/public-approval-path'
 import { PublicEstimateApprovalPage } from './PublicEstimateApprovalPage'
-
-export const PUBLIC_APPROVAL_PATH_PREFIX = '/approve/'
 
 /** The token is the path segment after /approve/. Anything after it (slashes, query) is ignored. */
 export function readApprovalToken(pathname: string): string {

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
 import type {
   WorkshopEstimate,
   WorkshopEstimateVersionDetail,
@@ -377,6 +378,10 @@ describe('WorkshopEstimateCard send dialog', () => {
       expect(sendMutateAsync).toHaveBeenCalledWith({ orderId: ORDER_ID, versionId: 'v1', notifyCustomerByEmail: true }),
     )
     expect(updateCustomerMutateAsync).not.toHaveBeenCalled()
+    // The send only queues the email, so the toast must not say it was delivered.
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Version 1 gesendet, die E-Mail an den Kunden wird versendet'),
+    )
   })
 
   it('keeps Senden disabled until the contact confirmation is ticked, then confirms the address before sending', async () => {
@@ -479,6 +484,21 @@ describe('WorkshopEstimateCard send dialog', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
     expect(await within(dialog).findByText(/Die Kundendaten sind für den Versand unvollständig/)).toBeTruthy()
     expect(within(dialog).queryByText(/konnte nicht gesendet werden/)).toBeNull()
+  })
+
+  it('maps a send to a completed order to German copy that says the order is closed', async () => {
+    orderCustomer = CUSTOMER
+    customerRecord.contact_email_ok = true
+    sendMutateAsync.mockRejectedValueOnce(
+      Object.assign(new Error('x'), {
+        status: 409,
+        data: { code: 'WORKSHOP_ORDER_NOT_ESTIMATABLE', message: 'Estimates can only be created or sent while the order is open.' },
+      }),
+    )
+    const dialog = await openSendDialog()
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Senden' }))
+    expect(await within(dialog).findByText(/Dieser Auftrag ist nicht mehr offen/)).toBeTruthy()
   })
 })
 

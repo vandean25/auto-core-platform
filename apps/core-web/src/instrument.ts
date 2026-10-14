@@ -2,12 +2,12 @@ import * as React from 'react'
 import * as Sentry from '@sentry/react'
 import { createRoutesFromChildren, matchRoutes, useLocation, useNavigationType } from 'react-router-dom'
 import { createSentryOptions } from '@/sentry/config'
+import { isPublicApprovalPath } from '@/lib/public-approval-path'
 
 const baseOptions = createSentryOptions(import.meta.env)
 
-// The approval page carries its token in the URL. It sends no replay, breadcrumbs or traces (ADR-0025 §7). The route
-// matches in any letter case, as the server's does, so the check does too.
-const isPublicApprovalPage = window.location.pathname.toLowerCase().startsWith('/approve/')
+// The approval page carries its token in the URL. It sends no replay, breadcrumbs or traces (ADR-0025 §7).
+const isPublicApprovalPage = isPublicApprovalPath(window.location.pathname)
 
 if (baseOptions.dsn && !isPublicApprovalPage) {
   Sentry.init({

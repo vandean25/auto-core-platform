@@ -39,12 +39,15 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'ESTIMATE_CUSTOMER_EMAIL_INVALID',
   'ESTIMATE_VEHICLE_INCOMPLETE',
   'ESTIMATE_EMAIL_INCOMPLETE',
-  // Estimate send gates from before the email send. The send dialog maps these codes too.
+  // Estimate send gates from before the email send, and the order and role gates a send can hit. The send dialog
+  // maps these codes too.
   'ESTIMATE_NOT_DRAFT',
   'ESTIMATE_NO_LINES',
   'ESTIMATE_CUSTOMER_REQUIRED',
   'ESTIMATE_CUSTOMER_INCOMPLETE',
   'SELLER_IDENTITY_INCOMPLETE',
+  'WORKSHOP_ORDER_NOT_ESTIMATABLE',
+  'ESTIMATE_ROLE_FORBIDDEN',
 ]);
 
 /**

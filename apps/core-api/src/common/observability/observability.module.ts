@@ -7,7 +7,7 @@ const { ObserveModule, ObserveInstrument } = createObserveModule({
   attachTraceIdToLogs: false,
 });
 
-export { ObserveInstrument };
+export { ObserveInstrument, ObserveModule };
 
 export interface AppObservabilityOptions {
   appKey?: string;
@@ -19,7 +19,7 @@ export interface AppObservabilityOptions {
  * Observe options. The approval route carries its token in the path (ADR-0025 §7), so its requests are not traced:
  * the token must not reach the third-party APM.
  */
-export function buildObserveRootOptions(
+function buildObserveRootOptions(
   appKey: string,
   appSecret: string,
   serviceId: string,

@@ -40,6 +40,9 @@ const SEND_ERROR_MESSAGES: Record<string, string> = {
   ESTIMATE_CUSTOMER_REQUIRED: 'Dem Auftrag ist noch kein Kunde zugeordnet.',
   ESTIMATE_CUSTOMER_INCOMPLETE: 'Die Kundendaten sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
   SELLER_IDENTITY_INCOMPLETE: 'Die Angaben zum Betrieb sind für den Versand unvollständig. Bitte ergänzen Sie sie.',
+  WORKSHOP_ORDER_NOT_ESTIMATABLE:
+    'Dieser Auftrag ist nicht mehr offen. Kostenvoranschläge werden nur für offene Aufträge gesendet.',
+  ESTIMATE_ROLE_FORBIDDEN: 'Für diese Aktion fehlt Ihnen die Berechtigung.',
 }
 
 export function describeSendError(error: unknown): string {

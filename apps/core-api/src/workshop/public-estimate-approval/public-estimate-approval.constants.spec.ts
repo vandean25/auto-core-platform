@@ -75,6 +75,34 @@ describe('public estimate approval throttling and token shape', () => {
     ).toBe(false);
   });
 
+  it('matches the route whatever the authority of an absolute-form target holds, because Express routes it by the path', () => {
+    const skipIf = ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf;
+    const token = 'A'.repeat(43);
+
+    for (const target of [
+      `http:///api/public/estimate-approvals/${token}`,
+      `http://host:99999/api/public/estimate-approvals/${token}`,
+      `http://host@/api/public/estimate-approvals/${token}`,
+    ]) {
+      expect(isPublicEstimateApprovalRequest({ originalUrl: target, url: target })).toBe(true);
+      expect(skipIf?.(contextFor(target))).toBe(false);
+    }
+  });
+
+  it('counts a target it cannot read as a path as the route, so the fail-safe side is taken', () => {
+    const target = `http:/api/public/estimate-approvals/${'A'.repeat(43)}`;
+
+    expect(isPublicEstimateApprovalRequest({ originalUrl: target, url: target })).toBe(true);
+    expect(ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf?.(contextFor(target))).toBe(false);
+  });
+
+  it('leaves other routes alone in absolute form too', () => {
+    const target = 'http://host:99999/api/workshop/estimates/1/send';
+
+    expect(isPublicEstimateApprovalRequest({ originalUrl: target, url: target })).toBe(false);
+    expect(ESTIMATE_APPROVAL_THROTTLER_OPTIONS.skipIf?.(contextFor(target))).toBe(true);
+  });
+
   it('accepts only 43 base64url characters as a raw token', () => {
     const valid = 'A'.repeat(42) + '-';
 

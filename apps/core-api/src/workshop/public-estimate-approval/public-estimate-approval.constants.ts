@@ -14,27 +14,25 @@ export const ESTIMATE_APPROVAL_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 // Express routes paths case-insensitively by default, so the prefix match has to be case-insensitive too.
 const PUBLIC_ESTIMATE_APPROVAL_PATH = /^\/api\/public\/estimate-approvals\//i;
 
+// The scheme and authority of an absolute-form target, as a forward proxy sends it (`http://host:port`). Express
+// routes such a target by the path after the authority, whatever the authority holds, so the authority is dropped
+// without being parsed.
+const ABSOLUTE_FORM_AUTHORITY = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i;
+
+/**
+ * Whether a request may be the approval route. It decides whether the per-IP throttler applies, whether the approval
+ * headers are set, and whether tracing skips the request. Each of them fails safe, so a target that is not clearly
+ * another route counts as the approval route.
+ */
 export function isPublicEstimateApprovalRequest(
   request: Pick<Request, 'originalUrl' | 'url'>,
 ): boolean {
-  return PUBLIC_ESTIMATE_APPROVAL_PATH.test(
-    requestPathOf(request.originalUrl ?? request.url ?? ''),
-  );
-}
-
-/**
- * The path of a request target. An origin-form target is `/path?query`. An absolute-form target, which a forward
- * proxy sends, is `http://host/path?query`, and Express routes that by its path too.
- */
-function requestPathOf(target: string): string {
-  if (target.startsWith('/')) {
-    return target.split('?')[0];
+  const target = request.originalUrl ?? request.url ?? '';
+  if (target === '') {
+    return false;
   }
-  try {
-    return new URL(target).pathname;
-  } catch {
-    return '';
-  }
+  const path = target.replace(ABSOLUTE_FORM_AUTHORITY, '').split(/[?#]/)[0];
+  return !path.startsWith('/') || PUBLIC_ESTIMATE_APPROVAL_PATH.test(path);
 }
 
 export const ESTIMATE_APPROVAL_THROTTLER_OPTIONS: ThrottlerOptions = {

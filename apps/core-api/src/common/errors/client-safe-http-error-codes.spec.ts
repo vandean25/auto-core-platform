@@ -37,6 +37,8 @@ describe('client-safe HTTP error codes', () => {
       'ESTIMATE_CUSTOMER_REQUIRED',
       'ESTIMATE_CUSTOMER_INCOMPLETE',
       'SELLER_IDENTITY_INCOMPLETE',
+      'WORKSHOP_ORDER_NOT_ESTIMATABLE',
+      'ESTIMATE_ROLE_FORBIDDEN',
     ]) {
       expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
     }
