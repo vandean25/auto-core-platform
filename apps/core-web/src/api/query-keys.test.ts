@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { inventoryKeys } from './inventory'
 import { laborKeys } from './labor'

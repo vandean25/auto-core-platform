@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
 
 import { buildDefaultDays, validateDays } from './work-schedule-form'

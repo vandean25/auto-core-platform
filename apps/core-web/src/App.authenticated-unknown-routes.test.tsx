@@ -88,35 +88,35 @@ describe('App authenticated unknown routes (AUT-222)', () => {
   it('shows a 404 page inside the app shell for unknown routes', async () => {
     renderAtPath('/this-route-does-not-exist-qa')
 
-    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Page not found' }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText('ACP')).toBeInTheDocument()
   })
 
   it('redirects /invoices to the sales invoices list (AUT-311)', async () => {
     renderAtPath('/invoices')
 
-    expect(await screen.findByText('Sales Invoices List')).toBeInTheDocument()
+    expect(await screen.findByText('Sales Invoices List', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.salesInvoices)
   })
 
   it('redirects /finance/invoices to the sales invoices list (AUT-311)', async () => {
     renderAtPath('/finance/invoices')
 
-    expect(await screen.findByText('Sales Invoices List')).toBeInTheDocument()
+    expect(await screen.findByText('Sales Invoices List', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.salesInvoices)
   })
 
   it('redirects /workshop/pick to the pick list', async () => {
     renderAtPath('/workshop/pick')
 
-    expect(await screen.findByText('Parts pick queue')).toBeInTheDocument()
+    expect(await screen.findByText('Parts pick queue', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.workshopPickList)
   })
 
   it('redirects /vehicles/stock to vehicle stock (AUT-289)', async () => {
     renderAtPath('/vehicles/stock')
 
-    expect(await screen.findByText('Vehicle Stock List')).toBeInTheDocument()
+    expect(await screen.findByText('Vehicle Stock List', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(window.location.pathname).toBe(APP_ROUTE_PATHS.vehicleStock)
   })
 

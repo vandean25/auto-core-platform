@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import { triggerBlobDownload } from '@/lib/download'
 import { cellToText, csvBlob, downloadCsv, escapeCsvField, serializeCsv } from './csv'

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { APP_ROUTE_PATHS, MECHANIC_ROUTE_PATHS, isKnownAppPath } from './app-route-paths'
 
