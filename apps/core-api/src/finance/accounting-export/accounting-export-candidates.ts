@@ -1,13 +1,22 @@
 import { InvoiceStatus, InvoiceTaxMode, Prisma } from '@prisma/client';
 import type { PrismaService } from '../../prisma/prisma.service.js';
-import type { ResolvedAccountingAllocation } from '../accounting-profile/accounting-profile.types.js';
 import { isInvoiceSnapshotV2 } from '../../invoices/invoice-snapshot-v2.validation.js';
-import type { CreditNoteSnapshotV2 } from '../../credit-notes/credit-note-snapshot.js';
 import {
   DATEV_ALLOCATION_RULES,
   type AccountingExportAllocationRules,
 } from './accounting-export-allocation-rules.js';
+import {
+  buildCreditRows,
+  buildInvoiceRows,
+  isCreditNoteSnapshotV2,
+  parseAllocation,
+} from './accounting-export-booking-rows.js';
 import { computeSnapshotHash } from './accounting-export-hash.js';
+import {
+  marginDocumentIssue,
+  marginLineIssue,
+  marginSchemeAvailability,
+} from './accounting-export-margin.js';
 import { buildExportDocumentDateFilter } from './accounting-export-period.js';
 import type {
   AccountingExportBlocker,
@@ -23,44 +32,6 @@ const ELIGIBLE_INVOICE_STATUSES: InvoiceStatus[] = [
   InvoiceStatus.ISSUED,
   InvoiceStatus.PAID,
 ];
-
-function isCreditNoteSnapshotV2(value: unknown): value is CreditNoteSnapshotV2 {
-  return (
-    value !== null &&
-    typeof value === 'object' &&
-    (value as { schema_version?: unknown }).schema_version === 2 &&
-    (value as { document_kind?: unknown }).document_kind === 'CREDIT_NOTE'
-  );
-}
-
-function parseAllocation(value: unknown): ResolvedAccountingAllocation | null {
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-  const allocation = value as ResolvedAccountingAllocation;
-  if (
-    !allocation.revenueAccount ||
-    !allocation.debtorAccount ||
-    !allocation.taxMode ||
-    !allocation.taxRate ||
-    !allocation.countryIso
-  ) {
-    return null;
-  }
-  return allocation;
-}
-
-function buildBookingText(input: {
-  documentKind: 'INVOICE' | 'CREDIT_NOTE';
-  documentNumber: string;
-  originalInvoiceNumber?: string;
-}): string {
-  const base =
-    input.documentKind === 'CREDIT_NOTE' && input.originalInvoiceNumber
-      ? `CN ${input.documentNumber} / RE ${input.originalInvoiceNumber}`
-      : `RE ${input.documentNumber}`;
-  return base.slice(0, 60);
-}
 
 export function collectBlockersForInvoice(
   invoice: {
@@ -114,12 +85,19 @@ export function collectBlockersForInvoice(
   }
 
   const snapshot = invoice.snapshot;
-
-  if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+  const isMarginDocument = snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  const marginAvailability = marginSchemeAvailability(rules);
+  const marginIssue = marginDocumentIssue({
+    isMarginDocument,
+    availability: marginAvailability,
+    notSupportedMessage:
+      'Margin-scheme invoices are not supported by the active export profile.',
+    margin: snapshot.margin,
+    lineGrosses: snapshot.items.map((line) => line.gross),
+  });
+  if (marginIssue) {
     blockers.push({
-      code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-      message:
-        'Margin-scheme invoices are not supported by the active export profile.',
+      ...marginIssue,
       documentId: invoice.id,
       documentKind: 'INVOICE',
       documentNumber: invoice.invoice_number,
@@ -152,11 +130,15 @@ export function collectBlockersForInvoice(
         documentNumber: invoice.invoice_number,
       });
     }
-    if (allocation.taxMode === 'MARGIN_SCHEME') {
+    const marginLine = marginLineIssue({
+      isMarginDocument,
+      availability: marginAvailability,
+      allocationTaxMode: allocation.taxMode,
+      allocationTaxTreatment: allocation.taxTreatment,
+    });
+    if (marginLine) {
       blockers.push({
-        code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-        message:
-          'Margin-scheme allocations cannot be exported with the active profile.',
+        ...marginLine,
         documentId: invoice.id,
         documentKind: 'INVOICE',
         documentNumber: invoice.invoice_number,
@@ -220,12 +202,19 @@ export function collectBlockersForCreditNote(
   }
 
   const snapshot = creditNote.snapshot;
-
-  if (snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME) {
+  const isMarginDocument = snapshot.tax_mode === InvoiceTaxMode.MARGIN_SCHEME;
+  const marginAvailability = marginSchemeAvailability(rules);
+  const marginIssue = marginDocumentIssue({
+    isMarginDocument,
+    availability: marginAvailability,
+    notSupportedMessage:
+      'Margin-scheme credits are not supported by the active export profile.',
+    margin: snapshot.margin,
+    lineGrosses: snapshot.items.map((line) => line.gross),
+  });
+  if (marginIssue) {
     blockers.push({
-      code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-      message:
-        'Margin-scheme credits are not supported by the active export profile.',
+      ...marginIssue,
       documentId: creditNote.id,
       documentKind: 'CREDIT_NOTE',
       documentNumber: creditNote.credit_number,
@@ -253,11 +242,15 @@ export function collectBlockersForCreditNote(
         documentNumber: creditNote.credit_number,
       });
     }
-    if (allocation.taxMode === 'MARGIN_SCHEME') {
+    const marginLine = marginLineIssue({
+      isMarginDocument,
+      availability: marginAvailability,
+      allocationTaxMode: allocation.taxMode,
+      allocationTaxTreatment: allocation.taxTreatment,
+    });
+    if (marginLine) {
       blockers.push({
-        code: 'UNSUPPORTED_EXPORT_TAX_MODE',
-        message:
-          'Margin-scheme allocations cannot be exported with the active profile.',
+        ...marginLine,
         documentId: creditNote.id,
         documentKind: 'CREDIT_NOTE',
         documentNumber: creditNote.credit_number,
@@ -296,103 +289,6 @@ export function collectBlockersForCreditNote(
   }
 
   return blockers;
-}
-
-function buildInvoiceRows(
-  invoice: {
-    id: string;
-    invoice_number: string | null;
-    snapshot: unknown;
-    items: { id: string; accounting_snapshot: unknown }[];
-  },
-  documentDate: string,
-): AccountingExportBookingRow[] {
-  if (!isInvoiceSnapshotV2(invoice.snapshot) || !invoice.invoice_number) {
-    return [];
-  }
-
-  const snapshot = invoice.snapshot;
-  const rows: AccountingExportBookingRow[] = [];
-
-  for (const item of invoice.items) {
-    const snapshotItem = snapshot.items.find((line) => line.id === item.id);
-    const allocation =
-      parseAllocation(item.accounting_snapshot) ??
-      parseAllocation(snapshotItem?.accounting_allocation);
-    const gross = snapshotItem?.gross;
-    if (!allocation || !gross || gross === '0.00') {
-      continue;
-    }
-
-    rows.push({
-      documentId: invoice.id,
-      documentKind: 'INVOICE',
-      documentNumber: invoice.invoice_number,
-      documentDate,
-      lineId: item.id,
-      polarity: 'S',
-      net: snapshotItem.net,
-      tax: snapshotItem.tax,
-      taxRate: allocation.taxRate,
-      gross,
-      debtorAccount: allocation.debtorAccount,
-      revenueAccount: allocation.revenueAccount,
-      buKey: allocation.taxTreatment === 'manual_bu' ? allocation.buKey : null,
-      bookingText: buildBookingText({
-        documentKind: 'INVOICE',
-        documentNumber: invoice.invoice_number,
-      }),
-    });
-  }
-
-  return rows;
-}
-
-function buildCreditRows(creditNote: {
-  id: string;
-  credit_number: string | null;
-  snapshot: unknown;
-}): AccountingExportBookingRow[] {
-  if (
-    !isCreditNoteSnapshotV2(creditNote.snapshot) ||
-    !creditNote.credit_number
-  ) {
-    return [];
-  }
-
-  const snapshot = creditNote.snapshot;
-  const rows: AccountingExportBookingRow[] = [];
-
-  for (const item of snapshot.items) {
-    const allocation = parseAllocation(item.accounting_allocation);
-    if (!allocation || item.gross === '0.00') {
-      continue;
-    }
-
-    rows.push({
-      documentId: creditNote.id,
-      documentKind: 'CREDIT_NOTE',
-      documentNumber: creditNote.credit_number,
-      documentDate: snapshot.date,
-      lineId: item.id,
-      polarity: 'H',
-      net: item.net,
-      tax: item.tax,
-      taxRate: allocation.taxRate,
-      gross: item.gross,
-      debtorAccount: allocation.debtorAccount,
-      revenueAccount: allocation.revenueAccount,
-      buKey: allocation.taxTreatment === 'manual_bu' ? allocation.buKey : null,
-      bookingText: buildBookingText({
-        documentKind: 'CREDIT_NOTE',
-        documentNumber: creditNote.credit_number,
-        originalInvoiceNumber: snapshot.original_document.number,
-      }),
-      originalInvoiceNumber: snapshot.original_document.number,
-    });
-  }
-
-  return rows;
 }
 
 function addSignedMoney(
@@ -513,7 +409,7 @@ export async function loadAccountingExportCandidates(
     const blockers = collectBlockersForInvoice(invoice, rules);
     const documentDate = invoice.date.toISOString().slice(0, 10);
     const rows =
-      blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate);
+      blockers.length > 0 ? [] : buildInvoiceRows(invoice, documentDate, rules);
 
     return {
       id: invoice.id,
@@ -529,7 +425,7 @@ export async function loadAccountingExportCandidates(
 
   const creditCandidates = creditNotes.map((creditNote) => {
     const blockers = collectBlockersForCreditNote(creditNote, rules);
-    const rows = blockers.length > 0 ? [] : buildCreditRows(creditNote);
+    const rows = blockers.length > 0 ? [] : buildCreditRows(creditNote, rules);
 
     return {
       id: creditNote.id,
@@ -593,7 +489,8 @@ export function buildManifestDocuments(
     date: candidate.date,
     siteId: candidate.siteId,
     snapshotHash: candidate.snapshotHash,
-    lineIds: candidate.rows.map((row) => row.lineId),
+    // A margin line books two rows, so its line id appears once in the manifest.
+    lineIds: [...new Set(candidate.rows.map((row) => row.lineId))],
   }));
 }
 

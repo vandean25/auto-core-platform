@@ -19,6 +19,16 @@ export type RzlSerializerParams = {
   steuercodes?: RzlSteuercodes;
 };
 
+/**
+ * Per-entity switch that lifts the margin-scheme export block (AUT-369). Off by
+ * default. The VAT account receives the frozen margin VAT; it is configured by
+ * the entity admin, never defaulted.
+ */
+export type MarginSchemeSerializerParams = {
+  enabled: boolean;
+  vatAccount: string | null;
+};
+
 export type BmdSerializerParams = {
   steuercodes?: BmdSteuercodes;
 };
@@ -26,9 +36,55 @@ export type BmdSerializerParams = {
 export type AccountingProfileSerializerParams = {
   rzl?: RzlSerializerParams;
   bmd?: BmdSerializerParams;
+  marginScheme?: MarginSchemeSerializerParams;
+};
+
+/** Request-side shape before parsing: a PATCH may send only some margin fields. */
+export type AccountingProfileSerializerParamsInput = {
+  rzl?: RzlSerializerParams | null;
+  bmd?: BmdSerializerParams | null;
+  marginScheme?: Partial<MarginSchemeSerializerParams> | null;
 };
 
 const STEUERCODE_PATTERN = /^[0-9]{1,4}$/;
+const MARGIN_VAT_ACCOUNT_PATTERN = /^[0-9]{1,9}$/;
+
+function parseMarginScheme(value: unknown): MarginSchemeSerializerParams {
+  if (!isPlainObject(value)) {
+    throw new BadRequestException(
+      'serializerParams.marginScheme must be an object',
+    );
+  }
+  if (value.enabled !== undefined && typeof value.enabled !== 'boolean') {
+    throw new BadRequestException(
+      'serializerParams.marginScheme.enabled must be a boolean',
+    );
+  }
+  if (
+    value.vatAccount !== undefined &&
+    value.vatAccount !== null &&
+    typeof value.vatAccount !== 'string'
+  ) {
+    throw new BadRequestException(
+      'serializerParams.marginScheme.vatAccount must be a string',
+    );
+  }
+
+  const enabled = value.enabled === true;
+  const vatAccount =
+    typeof value.vatAccount === 'string' ? value.vatAccount.trim() : '';
+  if (enabled && vatAccount.length === 0) {
+    throw new BadRequestException(
+      'serializerParams.marginScheme.vatAccount is required when margin export is enabled',
+    );
+  }
+  if (vatAccount.length > 0 && !MARGIN_VAT_ACCOUNT_PATTERN.test(vatAccount)) {
+    throw new BadRequestException(
+      'serializerParams.marginScheme.vatAccount must be 1 to 9 digits',
+    );
+  }
+  return { enabled, vatAccount: vatAccount || null };
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -133,6 +189,9 @@ export function parseAccountingProfileSerializerParams(
   }
 
   const parsed: AccountingProfileSerializerParams = {};
+  if (value.marginScheme !== undefined && value.marginScheme !== null) {
+    parsed.marginScheme = parseMarginScheme(value.marginScheme);
+  }
   if (value.rzl !== undefined && value.rzl !== null) {
     parsed.rzl = parseRzlSerializerParams(value.rzl);
   }
@@ -140,6 +199,23 @@ export function parseAccountingProfileSerializerParams(
     parsed.bmd = parseBmdSerializerParams(value.bmd);
   }
   return parsed;
+}
+
+/**
+ * Reads only the margin switch. The DATEV export checks the switch and must not fail
+ * on RZL or BMD blocks it never uses, so those blocks are not parsed here.
+ */
+export function parseMarginSchemeSerializerParams(
+  value: unknown,
+): MarginSchemeSerializerParams | null {
+  if (
+    !isPlainObject(value) ||
+    value.marginScheme === undefined ||
+    value.marginScheme === null
+  ) {
+    return null;
+  }
+  return parseMarginScheme(value.marginScheme);
 }
 
 export function serializeAccountingProfileSerializerParams(
@@ -164,5 +240,43 @@ export function serializeAccountingProfileSerializerParams(
       ),
     };
   }
+  // Default-off margin settings are not written, so default profiles keep their stored JSON.
+  if (value.marginScheme?.enabled || value.marginScheme?.vatAccount) {
+    serialized.marginScheme = {
+      enabled: value.marginScheme.enabled,
+      vatAccount: value.marginScheme.vatAccount ?? null,
+    };
+  }
   return serialized;
+}
+
+/**
+ * A profile PATCH replaces the RZL, BMD and margin blocks it carries. An omitted
+ * block keeps the stored one, and an explicit `null` clears it. Inside the margin
+ * block, omitted fields keep their stored value. A RZL-only save must not switch
+ * the margin scheme off, and a VAT-account-only patch must not disable it.
+ */
+export function mergeAccountingProfileSerializerParams(
+  stored: unknown,
+  patch: AccountingProfileSerializerParamsInput,
+): AccountingProfileSerializerParams {
+  const current = parseAccountingProfileSerializerParams(stored);
+  const { bmd: patchBmd, marginScheme: patchMargin, rzl: patchRzl } = patch;
+  const merged: Record<string, unknown> = {
+    rzl: patchRzl === undefined ? current.rzl : patchRzl,
+    bmd: patchBmd === undefined ? current.bmd : patchBmd,
+  };
+  if (
+    patchMargin !== null &&
+    (patchMargin !== undefined || current.marginScheme !== undefined)
+  ) {
+    merged.marginScheme = {
+      enabled: patchMargin?.enabled ?? current.marginScheme?.enabled ?? false,
+      vatAccount:
+        patchMargin?.vatAccount !== undefined
+          ? patchMargin.vatAccount
+          : (current.marginScheme?.vatAccount ?? null),
+    };
+  }
+  return parseAccountingProfileSerializerParams(merged);
 }

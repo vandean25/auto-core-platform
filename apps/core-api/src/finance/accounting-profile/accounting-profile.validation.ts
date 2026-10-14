@@ -7,8 +7,10 @@ import {
 import { isAccountingExportReleased } from './accounting-export-release.js';
 import { isBmdProfileCode } from './bmd-profile.codes.js';
 import {
-  parseAccountingProfileSerializerParams,
+  mergeAccountingProfileSerializerParams,
+  parseMarginSchemeSerializerParams,
   type AccountingProfileSerializerParams,
+  type AccountingProfileSerializerParamsInput,
 } from './accounting-profile.serializer-params.js';
 import { type AccountingMappingRule } from './accounting-profile.types.js';
 
@@ -127,8 +129,16 @@ export type AccountingProfilePatchInput = {
   fiscalYearStartMonth?: number | null;
   defaultDebtorAccount?: string | null;
   mappingRules?: AccountingMappingRule[];
-  serializerParams?: AccountingProfileSerializerParams;
+  serializerParams?: AccountingProfileSerializerParamsInput;
   isEnabled?: boolean;
+};
+
+/** A patch after validation: serializer params are parsed and merged with the stored ones. */
+export type ValidatedAccountingProfilePatch = Omit<
+  AccountingProfilePatchInput,
+  'serializerParams'
+> & {
+  serializerParams?: AccountingProfileSerializerParams;
 };
 
 export type AccountingProfileValidationContext = {
@@ -136,6 +146,8 @@ export type AccountingProfileValidationContext = {
   currentProfileCode: string | null;
   currentChart: string | null;
   currentIsEnabled?: boolean;
+  /** Stored serializer params: omitted fields of a patch keep these values. */
+  currentSerializerParams?: unknown;
 };
 
 function resolveProfileCodeAfterPatch(
@@ -151,9 +163,9 @@ function resolveProfileCodeAfterPatch(
 export function validateAccountingProfilePatch(
   patch: AccountingProfilePatchInput,
   context: AccountingProfileValidationContext,
-): AccountingProfilePatchInput {
+): ValidatedAccountingProfilePatch {
   const countryIso = context.countryIso;
-  const normalized: AccountingProfilePatchInput = {};
+  const normalized: ValidatedAccountingProfilePatch = {};
 
   if (patch.profileCode !== undefined) {
     normalized.profileCode = normalizeOptionalString(patch.profileCode);
@@ -205,12 +217,31 @@ export function validateAccountingProfilePatch(
   }
 
   if (patch.serializerParams !== undefined) {
-    normalized.serializerParams = parseAccountingProfileSerializerParams(
+    // Validate the state the profile will hold after the save, not the raw patch alone.
+    normalized.serializerParams = mergeAccountingProfileSerializerParams(
+      context.currentSerializerParams,
       patch.serializerParams,
     );
   }
 
   const effectiveProfileCode = resolveProfileCodeAfterPatch(patch, context);
+  // Only the DATEV export lifts the margin block. RZL and BMD never use the switch, so
+  // checking the effective state stops an enabled switch from being kept on those
+  // profiles and reactivating later. A patch that carries serializer params decides
+  // the state itself, so an explicit null clears it. Otherwise the stored switch holds.
+  const effectiveMargin =
+    normalized.serializerParams !== undefined
+      ? normalized.serializerParams.marginScheme
+      : parseMarginSchemeSerializerParams(context.currentSerializerParams);
+  if (
+    effectiveMargin?.enabled &&
+    (isRzlProfileCode(effectiveProfileCode) ||
+      isBmdProfileCode(effectiveProfileCode))
+  ) {
+    throw new BadRequestException(
+      'Disable the margin scheme before using the RZL or BMD profile',
+    );
+  }
   const effectiveChart =
     patch.chart !== undefined
       ? (normalized.chart ?? null)
