@@ -1431,7 +1431,7 @@ describe('AgentProposalService', () => {
 
       expect(mockPrisma.customer.findFirst).toHaveBeenCalledWith({
         where: { id: 'cust-1', tenant_id: tenantId },
-        select: { id: true },
+        select: { id: true, email: true },
       });
 
       expect(mockPrisma.customer.updateMany).toHaveBeenCalledWith({
