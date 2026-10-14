@@ -8,6 +8,10 @@ import { PendingActionExecutorModule } from '../pending-action-executor/pending-
 import { AgentProposalAuthorization } from './agent-proposal.authorization.js';
 import { AgentProposalController } from './agent-proposal.controller.js';
 import { AgentProposalService } from './agent-proposal.service.js';
+import { AgentProposalDecisionService } from './agent-proposal-decision.service.js';
+import { AgentProposalPolicyEvaluator } from './agent-proposal-policy-evaluator.service.js';
+import { AgentProposalReadService } from './agent-proposal-read.service.js';
+import { AgentProposalSubmissionService } from './agent-proposal-submission.service.js';
 
 @Module({
   imports: [
@@ -19,7 +23,14 @@ import { AgentProposalService } from './agent-proposal.service.js';
     AgentActionLogModule,
   ],
   controllers: [AgentProposalController],
-  providers: [AgentProposalService, AgentProposalAuthorization],
+  providers: [
+    AgentProposalService,
+    AgentProposalAuthorization,
+    AgentProposalReadService,
+    AgentProposalDecisionService,
+    AgentProposalSubmissionService,
+    AgentProposalPolicyEvaluator,
+  ],
   exports: [AgentProposalService],
 })
 export class AgentProposalModule {}

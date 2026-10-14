@@ -345,7 +345,7 @@ Invoice PDF: if `tax_mode === MARGIN_SCHEME`, print the margin-scheme legal line
 
 ## Testing Plan
 
-### Backend E2E (`apps/core-api/test/vehicle-stock.e2e-spec.ts`)
+### Backend E2E (`apps/core-api/test/vehicle-stock-*.e2e-spec.ts`)
 
 - [ ] Vendor purchase receive → vehicle `USED`/`IN_STOCK`, one `PURCHASE` ledger row, tenant isolation.
 - [ ] Private customer purchase receive → same, `seller_type=CUSTOMER`.
@@ -457,4 +457,4 @@ Decisions for the margin-scheme (`MARGIN_SCHEME`) document path under [ADR-0023]
 - **Stornorechnung is full-document only (ADR-0023).** It copies the original's seller, `tax_mode`, `margin` block and wording, and carries the title `Stornorechnung`. Partial margin credits are refused (LI-11 in `legal-invoicing-credit-notes.e2e-spec.ts`).
 - **Visual fixtures.** `apps/core-api/scripts/document-branding-visual-fixtures.ts` adds `at-margin-square-logo` (AT margin invoice, branded), `at-margin-credit-note` and `de-margin-credit-note` (unbranded Stornorechnungen). The render suite asserts the country's note, the absence of the other country's note and the absence of VAT lines, and writes the artifacts with an approval manifest that stays `PENDING`.
 - **Accountant gate (ADR-0023).** AT and DE margin wording and fixtures still need accountant approval before the margin profile is activated for production. Recording the reviewer, date and evidence in the manifest is the gate; nothing in the code waits for it.
-- **E2E.** `vehicle-stock.e2e-spec.ts` runs an AT dealer sale through finalize, renders the invoice with the real renderer, asserts the AT note and the absence of VAT amounts, issues a full Stornorechnung and asserts its snapshot.
+- **E2E.** `vehicle-stock-sale-invoicing.e2e-spec.ts` runs an AT dealer sale through finalize, renders the invoice with the real renderer, asserts the AT note and the absence of VAT amounts, issues a full Stornorechnung and asserts its snapshot.

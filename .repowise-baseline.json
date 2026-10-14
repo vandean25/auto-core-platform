@@ -2,8 +2,6 @@
   "version": 1,
   "files": {
     "apps/core-api/prisma/verify-seed.ts": 4.59,
-    "apps/core-api/src/agent-proposal/agent-proposal.service.spec.ts": 5.03,
-    "apps/core-api/src/agent-proposal/agent-proposal.service.ts": 2,
     "apps/core-api/src/common/services/cloud-tasks.service.ts": 5.85,
     "apps/core-api/src/decision/decision-live-apply.service.ts": 5.85,
     "apps/core-api/src/document-branding/document-branding-extraction.service.ts": 5.65,
@@ -16,7 +14,6 @@
     "apps/core-api/src/tyre-storage/tyre-storage.service.ts": 5.65,
     "apps/core-api/src/vehicle/vehicle.controller.ts": 5.98,
     "apps/core-api/src/workshop/workshop-board.service.ts": 5.39,
-    "apps/core-api/test/vehicle-stock.e2e-spec.ts": 5.13,
     "apps/core-web/src/api/agent-proposals.test.ts": 5.65,
     "apps/core-web/src/pages/agent/AgentSupervisionPage.test.tsx": 5.4,
     "apps/core-web/src/pages/agent/components/ActivityTab.tsx": 4.65,

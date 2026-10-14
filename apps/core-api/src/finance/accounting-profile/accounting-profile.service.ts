@@ -30,7 +30,7 @@ import {
   exportGapProfileName,
 } from './accounting-profile-export-gaps.js';
 import {
-  type AccountingProfilePatchInput,
+  type ValidatedAccountingProfilePatch,
   validateAccountingProfilePatch,
 } from './accounting-profile.validation.js';
 
@@ -98,6 +98,7 @@ export class AccountingProfileService {
         currentProfileCode: existing.profile_code,
         currentChart: existing.chart,
         currentIsEnabled: existing.is_enabled,
+        currentSerializerParams: existing.serializer_params,
       },
     );
 
@@ -146,6 +147,7 @@ export class AccountingProfileService {
       updateData.mapping_rules = patch.mappingRules;
     }
     if (patch.serializerParams !== undefined) {
+      // Already merged with the stored params by validateAccountingProfilePatch.
       updateData.serializer_params = serializeAccountingProfileSerializerParams(
         patch.serializerParams,
       ) as Prisma.InputJsonValue;
@@ -184,7 +186,7 @@ export class AccountingProfileService {
 
   private assertProfileReadyForEnablement(
     existing: LegalEntityAccountingProfile,
-    patch: AccountingProfilePatchInput,
+    patch: ValidatedAccountingProfilePatch,
     countryIso: 'AT' | 'DE',
     revenueGroups: {
       id: number;
