@@ -17,6 +17,7 @@ export const NOTIFICATION_REPLAY_REFUSAL_CODES = [
   'BODY_PURGED',
   'BODY_MISSING',
   'LINK_REDACTED',
+  'STALE_UNSENT',
 ] as const;
 
 export type NotificationReplayRefusalCode =
@@ -48,7 +49,7 @@ export class NotificationOutboxReplayResponseDto {
   @ApiProperty({
     type: [String],
     description:
-      'Rows that went back to PENDING and were queued for a wake-up.',
+      'Rows that went back to PENDING. A wake-up that could not be queued is logged, and the recovery sweep wakes the row later.',
   })
   replayed!: string[];
 

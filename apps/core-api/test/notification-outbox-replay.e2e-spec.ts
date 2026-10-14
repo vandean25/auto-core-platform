@@ -113,6 +113,12 @@ describe('Notification outbox replay (e2e)', () => {
         body: 'Guten Tag, Ihr Link: [Link entfernt]',
       }),
     });
+    // Older than the sending window: the next sweep would fail it again and clear its body.
+    const stale = await prisma.notificationOutbox.create({
+      data: failedRow({
+        createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+      }),
+    });
     const unknown = randomUUID();
 
     const response = await api()
@@ -126,6 +132,7 @@ describe('Notification outbox replay (e2e)', () => {
           purged.id,
           noHash.id,
           linkRedacted.id,
+          stale.id,
           unknown,
         ],
       })
@@ -138,6 +145,7 @@ describe('Notification outbox replay (e2e)', () => {
         { id: purged.id, code: 'BODY_PURGED' },
         { id: noHash.id, code: 'BODY_MISSING' },
         { id: linkRedacted.id, code: 'LINK_REDACTED' },
+        { id: stale.id, code: 'STALE_UNSENT' },
         { id: unknown, code: 'NOT_FOUND' },
       ],
     });

@@ -11,6 +11,7 @@ import { WorkshopEstimatePdfRenderer } from '../src/workshop/workshop-estimate-p
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { createInMemoryPdfArchive } from './support/in-memory-pdf-archive.js';
 import {
+  cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
@@ -39,6 +40,7 @@ describe('Workshop order communications (e2e)', () => {
   let adminToken: string;
   let customerId: string;
   let customerEmail: string;
+  let otherTenantId: string | undefined;
   let previousSendFlag: string | undefined;
   let previousApprovalBaseUrl: string | undefined;
 
@@ -203,6 +205,13 @@ describe('Workshop order communications (e2e)', () => {
     await prisma.workshopOrder.deleteMany();
     await prisma.vehicle.deleteMany();
     await prisma.customer.deleteMany();
+    if (otherTenantId) {
+      const other = createTenantAwarePrisma(basePrisma, otherTenantId);
+      await other.workshopOrder.deleteMany();
+      await other.vehicle.deleteMany();
+      await other.customer.deleteMany();
+      await cleanupTestTenantGraph(basePrisma, otherTenantId);
+    }
     await teardownTestApp(app, basePrisma);
   });
 
@@ -257,9 +266,71 @@ describe('Workshop order communications (e2e)', () => {
     expect(response.body).toEqual({ data: [] });
   });
 
-  it('answers 404 for an order that is not in this tenant', async () => {
+  it('answers 404 for an order that does not exist', async () => {
     await api()
       .get(`/api/workshop/orders/${randomUUID()}/communications`)
+      .set(adminAuth())
+      .expect(404);
+  });
+
+  it('answers 404 for an order of another tenant, even with this tenant’s admin session', async () => {
+    const other = await createTestTenant(basePrisma);
+    otherTenantId = other.tenantId;
+    const otherPrisma = createTenantAwarePrisma(basePrisma, other.tenantId);
+    // Each tenant numbers its orders from 1, and the order-number index is global in the database (see the PR body).
+    // Start this tenant's counter high, so its first number cannot collide with the first tenant's.
+    await otherPrisma.financeSettings.upsert({
+      where: { tenant_id: other.tenantId },
+      update: { next_workshop_order_number: 900000 },
+      create: {
+        tenant_id: other.tenantId,
+        fiscal_year_start_month: 1,
+        lock_date: null,
+        next_invoice_number: 1001,
+        invoice_prefix: 'RE-2026-',
+        next_sales_order_number: 1001,
+        sales_order_prefix: 'SO-2026-',
+        next_workshop_order_number: 900000,
+        workshop_order_prefix: `WO-${new Date().getFullYear()}-`,
+      },
+    });
+    const otherToken = createTestAuthToken(app.get(AuthService), other);
+    const otherCustomer = await otherPrisma.customer.create({
+      data: {
+        first_name: 'Bernd',
+        last_name: 'Fremd',
+        email: `fremd-${Date.now()}@example.com`,
+        type: 'PRIVATE',
+        address_street: 'Ringstraße 1',
+        address_zip: '1010',
+        address_city: 'Wien',
+        address_country: 'AT',
+        contact_email_ok: true,
+      },
+    });
+    const otherVehicle = await otherPrisma.vehicle.create({
+      data: {
+        make: 'Ford',
+        model: 'Focus',
+        year: 2018,
+        vin: `VIN-FREMD-${randomUUID()}`,
+        customer_id: otherCustomer.id,
+      },
+    });
+    const foreign = await api()
+      .post('/api/workshop/orders')
+      .set({ Authorization: `Bearer ${otherToken}` })
+      .send({
+        customerId: otherCustomer.id,
+        vehicleId: otherVehicle.id,
+        odometer: 50000,
+        fuelLevel: 30,
+        notes: 'Fremder Auftrag',
+      })
+      .expect(201);
+
+    await api()
+      .get(`/api/workshop/orders/${foreign.body.id as string}/communications`)
       .set(adminAuth())
       .expect(404);
   });

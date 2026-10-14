@@ -1,6 +1,7 @@
 import { ForbiddenException, Logger } from '@nestjs/common';
 import { REDACTED_APPROVAL_LINK } from './notification-body-redaction.js';
 import { NotificationOutboxReplayService } from './notification-outbox-replay.service.js';
+import { NOTIFICATION_UNSENT_WINDOW_MS } from './notification-retry.policy.js';
 
 describe('NotificationOutboxReplayService', () => {
   const ROW_ID = '5d0c1a1e-3b7e-4f8a-9c2d-1e2f3a4b5c6d';
@@ -25,6 +26,7 @@ describe('NotificationOutboxReplayService', () => {
     body: 'Guten Tag, anbei Ihr Kostenvoranschlag.',
     body_sha256: 'a'.repeat(64),
     body_purged_at: null,
+    createdAt: new Date(NOW.getTime() - 60 * 60 * 1000),
     ...overrides,
   });
 
@@ -145,6 +147,15 @@ describe('NotificationOutboxReplayService', () => {
         'is an email whose body was cleared',
         failedEmailRow({ body: null }),
         'BODY_MISSING',
+      ],
+      [
+        'waited longer than the sending window, so the next sweep would fail it again',
+        failedEmailRow({
+          createdAt: new Date(
+            NOW.getTime() - NOTIFICATION_UNSENT_WINDOW_MS - 1000,
+          ),
+        }),
+        'STALE_UNSENT',
       ],
       [
         'is an email whose approval link was removed when it failed',

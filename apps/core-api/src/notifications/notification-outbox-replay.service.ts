@@ -8,6 +8,7 @@ import type {
   NotificationOutboxReplayResponseDto,
   NotificationReplayRefusalCode,
 } from './notification-outbox-replay.dto.js';
+import { NOTIFICATION_UNSENT_WINDOW_MS } from './notification-retry.policy.js';
 
 /**
  * Roles that may replay a dead letter. A replay sends a customer message again, so it is an administrator's act,
@@ -74,6 +75,7 @@ export class NotificationOutboxReplayService {
         body: true,
         body_sha256: true,
         body_purged_at: true,
+        createdAt: true,
       },
     });
     if (!row) {
@@ -84,6 +86,13 @@ export class NotificationOutboxReplayService {
     }
     if (row.body_purged_at !== null) {
       return { refusal: 'BODY_PURGED' };
+    }
+    // The sweep fails a PENDING row this old as STALE_UNSENT and clears its body, so a replay would only wipe the
+    // row's last error. The worker claims rows inside the same window (ADR-0025 §6).
+    if (
+      row.createdAt < new Date(now.getTime() - NOTIFICATION_UNSENT_WINDOW_MS)
+    ) {
+      return { refusal: 'STALE_UNSENT' };
     }
     if (row.channel === NotificationChannel.EMAIL) {
       if (row.body === null || row.body_sha256 === null) {
