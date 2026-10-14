@@ -185,6 +185,9 @@ describe('VehicleService', () => {
         id: 'sale-1',
         kaufvertrag_generated_at: new Date('2026-10-09T10:00:00.000Z'),
         kaufvertrag_generation_error: null,
+        gewaehrleistung_status: null,
+        gewaehrleistung_ends_on_expired: false,
+        presumption_ends_on_expired: false,
       },
     ]);
   });

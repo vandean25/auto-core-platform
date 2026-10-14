@@ -27,6 +27,11 @@ import { costBasis } from './vehicle-cost.js';
 import { assertTenantCustomerExists } from './vehicle-stock-ref.validator.js';
 import type { PatchVehicleStockDto } from './dto/patch-vehicle-stock.dto.js';
 import type { GewaehrleistungDueListQueryDto } from './dto/gewaehrleistung-due-list.dto.js';
+import {
+  gewaehrleistungDueWindow,
+  viennaIsoDay,
+} from './gewaehrleistung/gewaehrleistung-status.js';
+import { toGewaehrleistungReadFields } from './vehicle-sale.warranty.js';
 
 const STOCK_SORT_WHITELIST = [
   'make',
@@ -370,11 +375,10 @@ export class VehicleStockQueryService {
       this.tenantContext.getTenantId(),
       this.siteContext.getSiteId(),
     ]);
-    const windowStart = new Date();
-    windowStart.setUTCHours(0, 0, 0, 0);
-    const windowEnd = new Date(windowStart);
-    windowEnd.setUTCDate(windowEnd.getUTCDate() + query.endsWithinDays);
-    windowEnd.setUTCHours(23, 59, 59, 999);
+    const { windowStart, windowEnd } = gewaehrleistungDueWindow(
+      viennaIsoDay(new Date()),
+      query.endsWithinDays,
+    );
 
     const data = await this.prisma.vehicleSale.findMany({
       where: {
@@ -498,7 +502,10 @@ export class VehicleStockQueryService {
     }
     return {
       ...stripVehicleIdentityResolutionState(vehicle),
-      sales: vehicle.sales.map((sale) => omitKaufvertragArchiveInternals(sale)),
+      sales: vehicle.sales.map((sale) => ({
+        ...omitKaufvertragArchiveInternals(sale),
+        ...toGewaehrleistungReadFields(sale, viennaIsoDay(new Date())),
+      })),
       cost_basis: costBasis(vehicle.ledger_entries),
     };
   }

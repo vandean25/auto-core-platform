@@ -58,7 +58,9 @@ import {
   computeSaleWarrantySnapshot,
   finalizeWarrantyInput,
   resolveDraftGarantie,
+  toGewaehrleistungReadFields,
 } from './vehicle-sale.warranty.js';
+import { viennaIsoDay } from './gewaehrleistung/gewaehrleistung-status.js';
 import {
   DEFAULT_VAT_RATE,
   assignInvoiceNumber,
@@ -153,7 +155,10 @@ export class VehicleSaleService {
           ...warrantySnapshot,
         },
       });
-      return omitKaufvertragArchiveInternals(created);
+      return {
+        ...omitKaufvertragArchiveInternals(created),
+        ...toGewaehrleistungReadFields(created, viennaIsoDay(new Date())),
+      };
     });
   }
 
@@ -185,6 +190,7 @@ export class VehicleSaleService {
     const vat = marginVatGross(sale.sale_price, basis, DEFAULT_VAT_RATE);
     return {
       ...omitKaufvertragArchiveInternals(sale),
+      ...toGewaehrleistungReadFields(sale, viennaIsoDay(new Date())),
       invoice: sale.invoice ? omitInvoiceSnapshot(sale.invoice) : sale.invoice,
       vehicle: stripVehicleIdentityResolutionState(sale.vehicle),
       trade_in_purchase: tradeIn,

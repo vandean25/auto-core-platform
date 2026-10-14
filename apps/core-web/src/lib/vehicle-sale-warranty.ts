@@ -1,3 +1,25 @@
+/** Basisfrist status from the API: expired, expiring soon (due within 30 days), or active. */
+export type GewaehrleistungStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED'
+
+const GEWAEHRLEISTUNG_BADGES: Record<GewaehrleistungStatus, { status: string; label: string }> = {
+  ACTIVE: { status: 'GEWAEHRLEISTUNG_ACTIVE', label: 'Aktiv' },
+  EXPIRING_SOON: { status: 'GEWAEHRLEISTUNG_EXPIRING_SOON', label: 'Läuft bald ab' },
+  EXPIRED: { status: 'GEWAEHRLEISTUNG_EXPIRED', label: 'Abgelaufen' },
+}
+
+/** The shared StatusBadge key and German label for a Gewährleistung status. */
+export function gewaehrleistungStatusBadge(status: GewaehrleistungStatus) {
+  return GEWAEHRLEISTUNG_BADGES[status]
+}
+
+/** A stored date-only value (`YYYY-MM-DD`) as a German day, e.g. `14.10.2026`. */
+export function formatWarrantyDay(value: string | null | undefined): string {
+  if (!value) return '—'
+  return new Intl.DateTimeFormat('de-AT', { dateStyle: 'medium', timeZone: 'UTC' }).format(
+    new Date(`${value.slice(0, 10)}T00:00:00Z`),
+  )
+}
+
 export const GARANTIE_MONTHS_MIN = 1
 export const GARANTIE_MONTHS_MAX = 120
 export const GARANTIE_MONTHS_MESSAGE = 'Bitte eine Dauer zwischen 1 und 120 Monaten angeben.'

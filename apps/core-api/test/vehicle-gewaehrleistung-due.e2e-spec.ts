@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { viennaIsoDay } from '../src/vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 import {
   cleanupTestTenantGraph,
   createTestAuthToken,
@@ -136,8 +137,8 @@ describe('Vehicle Gewaehrleistung due list (e2e)', () => {
         last_name: 'Buyer',
       },
     });
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    // Seeds sit on the Europe/Vienna day, the day the due-list window starts from.
+    const today = new Date(`${viennaIsoDay(new Date())}T00:00:00.000Z`);
     const plusDays = (days: number) => {
       const due = new Date(today);
       due.setUTCDate(due.getUTCDate() + days);

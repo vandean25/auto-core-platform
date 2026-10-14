@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   addOneYearIsoDay,
+  formatWarrantyDay,
+  gewaehrleistungStatusBadge,
   negotiatedShorteningBlockReason,
   parseGarantieMonths,
 } from './vehicle-sale-warranty'
@@ -72,5 +74,27 @@ describe('parseGarantieMonths', () => {
 
   it.each(['0', '121', '12.5', '-3', 'twelve'])('rejects %s', (raw) => {
     expect(parseGarantieMonths(raw)).toEqual({ value: null, valid: false })
+  })
+})
+
+describe('gewaehrleistungStatusBadge', () => {
+  it.each([
+    ['ACTIVE', 'GEWAEHRLEISTUNG_ACTIVE', 'Aktiv'],
+    ['EXPIRING_SOON', 'GEWAEHRLEISTUNG_EXPIRING_SOON', 'Läuft bald ab'],
+    ['EXPIRED', 'GEWAEHRLEISTUNG_EXPIRED', 'Abgelaufen'],
+  ] as const)('maps %s to a German badge', (status, badgeStatus, label) => {
+    expect(gewaehrleistungStatusBadge(status)).toEqual({ status: badgeStatus, label })
+  })
+})
+
+describe('formatWarrantyDay', () => {
+  it('formats a stored date-only value as a German day without a time-zone shift', () => {
+    expect(formatWarrantyDay('2026-10-14')).toBe('14.10.2026')
+    expect(formatWarrantyDay('2026-10-14T00:00:00.000Z')).toBe('14.10.2026')
+  })
+
+  it('shows a dash for a missing date', () => {
+    expect(formatWarrantyDay(null)).toBe('—')
+    expect(formatWarrantyDay(undefined)).toBe('—')
   })
 })
