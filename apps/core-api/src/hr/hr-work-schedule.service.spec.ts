@@ -3,6 +3,9 @@ import {
   ForbiddenException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { HrWorkScheduleReader } from './hr-work-schedule-reader.service.js';
+import { HrWorkScheduleSeeder } from './hr-work-schedule-seeder.service.js';
+import { HrWorkScheduleWriter } from './hr-work-schedule-writer.service.js';
 import { HrWorkScheduleService } from './hr-work-schedule.service.js';
 import { averageExpectedMinutesPerWorkday } from './hr-work-schedule.time.js';
 
@@ -43,8 +46,6 @@ function createSchedule(id = 'schedule-1', effectiveFrom = '2026-01-01') {
 describe('HrWorkScheduleService', () => {
   it('uses the 480-minute fallback when no opening hours exist', () => {
     const service = new HrWorkScheduleService(
-      {} as never,
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -99,11 +100,18 @@ describe('HrWorkScheduleService', () => {
         timezone: 'Europe/Vienna',
       });
       service = new HrWorkScheduleService(
-        prisma as never,
-        settingsService as never,
-        identityService as never,
-        tenantContext as never,
-        siteContext as never,
+        new HrWorkScheduleReader(
+          prisma as never,
+          settingsService as never,
+          tenantContext as never,
+        ),
+        new HrWorkScheduleWriter(
+          prisma as never,
+          identityService as never,
+          tenantContext as never,
+          siteContext as never,
+        ),
+        new HrWorkScheduleSeeder(settingsService as never),
       );
     });
 
