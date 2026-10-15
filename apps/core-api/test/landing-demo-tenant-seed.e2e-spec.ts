@@ -56,7 +56,6 @@ describe('Landing demo tenant seed (e2e)', () => {
 
   it('is rerun-safe for the same tenant slug', async () => {
     runLandingDemoSeed(slug);
-    runLandingDemoSeed(slug);
 
     const tenant = await prisma.tenant.findUniqueOrThrow({
       where: { slug },
@@ -66,10 +65,27 @@ describe('Landing demo tenant seed (e2e)', () => {
     expect(tenant.is_landing_demo_tenant).toBe(true);
 
     const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
-    const brandCount = await tenantPrisma.brand.count();
-    const catalogCount = await tenantPrisma.catalogItem.count();
+    const countsAfterFirst = {
+      brands: await tenantPrisma.brand.count(),
+      catalogItems: await tenantPrisma.catalogItem.count(),
+      customers: await tenantPrisma.customer.count(),
+      vehicles: await tenantPrisma.vehicle.count(),
+    };
 
-    expect(brandCount).toBeGreaterThan(0);
-    expect(catalogCount).toBeGreaterThan(0);
+    expect(countsAfterFirst.brands).toBeGreaterThan(0);
+    expect(countsAfterFirst.catalogItems).toBeGreaterThan(0);
+    expect(countsAfterFirst.customers).toBeGreaterThan(0);
+    expect(countsAfterFirst.vehicles).toBeGreaterThan(0);
+
+    runLandingDemoSeed(slug);
+
+    const countsAfterSecond = {
+      brands: await tenantPrisma.brand.count(),
+      catalogItems: await tenantPrisma.catalogItem.count(),
+      customers: await tenantPrisma.customer.count(),
+      vehicles: await tenantPrisma.vehicle.count(),
+    };
+
+    expect(countsAfterSecond).toEqual(countsAfterFirst);
   });
 });

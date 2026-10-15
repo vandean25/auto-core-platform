@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
+  cleanupTestTenantGraph,
   createTenantAwarePrisma,
   createTestTenant,
   resolveTestMainSiteId,
@@ -65,43 +66,11 @@ describe('Legacy global unique indexes (AUT-550)', () => {
   });
 
   afterAll(async () => {
-    if (tenantAPrisma && tenantBPrisma) {
-      await tenantAPrisma.salesOrder.deleteMany({
-        where: { order_number: { startsWith: prefix } },
-      });
-      await tenantBPrisma.salesOrder.deleteMany({
-        where: { order_number: { startsWith: prefix } },
-      });
-      await tenantAPrisma.customer.deleteMany({
-        where: { email: { startsWith: prefix } },
-      });
-      await tenantBPrisma.customer.deleteMany({
-        where: { email: { startsWith: prefix } },
-      });
-      await tenantAPrisma.laborOperation.deleteMany({
-        where: { code: { startsWith: prefix } },
-      });
-      await tenantBPrisma.laborOperation.deleteMany({
-        where: { code: { startsWith: prefix } },
-      });
-      await tenantAPrisma.laborCategory.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-      await tenantBPrisma.laborCategory.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-      await tenantAPrisma.catalogItem.deleteMany({
-        where: { sku: { startsWith: prefix } },
-      });
-      await tenantBPrisma.catalogItem.deleteMany({
-        where: { sku: { startsWith: prefix } },
-      });
-      await tenantAPrisma.revenueGroup.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
-      await tenantBPrisma.revenueGroup.deleteMany({
-        where: { name: { startsWith: prefix } },
-      });
+    if (tenantAId) {
+      await cleanupTestTenantGraph(prisma, tenantAId);
+    }
+    if (tenantBId) {
+      await cleanupTestTenantGraph(prisma, tenantBId);
     }
 
     if (app) {

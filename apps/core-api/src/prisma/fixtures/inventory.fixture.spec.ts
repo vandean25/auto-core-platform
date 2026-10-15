@@ -112,7 +112,7 @@ describe('seedInventory', () => {
     expect(run1Stock).toEqual(run2Stock);
   });
 
-  it('skips ledger bootstrap when seed transactions already exist', async () => {
+  it('skips duplicate ledger rows but still ensures cached stock rows exist', async () => {
     const mockPrisma: any = createMockPrisma();
     mockPrisma.inventoryTransaction.findFirst.mockResolvedValueOnce({
       id: 'existing-tx',
@@ -121,7 +121,10 @@ describe('seedInventory', () => {
     await seedInventory(mockPrisma, foundation, finance, brands as any);
 
     expect(mockPrisma.inventoryTransaction.createMany).not.toHaveBeenCalled();
-    expect(mockPrisma.inventoryStock.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.inventoryStock.createMany).toHaveBeenCalledTimes(1);
+    expect(
+      mockPrisma.inventoryStock.createMany.mock.calls[0][0].skipDuplicates,
+    ).toBe(true);
   });
 
   it('throws an error if no part manufacturer brands are provided', async () => {

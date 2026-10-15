@@ -174,21 +174,11 @@ export async function seedInventory(
 
   if (seedLedgerExists) {
     console.log(
-      '  → seed inventory ledger already present, skipping stock bootstrap',
+      '  → seed inventory ledger already present, skipping duplicate ledger rows',
     );
-    return {
-      locations,
-      showroom,
-      storage,
-      tireHotel,
-      partA,
-      partB,
-      partC,
-      otherParts,
-    };
+  } else {
+    console.log('Seeding stock using batched ledger-based transactions...');
   }
-
-  console.log('Seeding stock using batched ledger-based transactions...');
   const initialStockEntries: Array<{
     itemId: string;
     locationId: string;
@@ -238,7 +228,7 @@ export async function seedInventory(
     cost_basis: entry.costBasis,
   }));
 
-  if (transactionsData.length > 0) {
+  if (!seedLedgerExists && transactionsData.length > 0) {
     await prisma.inventoryTransaction.createMany({
       data: transactionsData,
     });
