@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { completeLandingDemoEmailLinkSignIn } from '@/auth/completeLandingDemoEmailLinkSignIn'
 import {
   clearFirebaseEmailLinkQueryParams,
-  describeLandingDemoEmailLinkError,
   isFirebaseEmailLinkSignInUrl,
-  isLandingDemoEmailLinkExpiredError,
   readStoredLandingDemoEmail,
   resolveLandingDemoAccessUrl,
 } from '@/auth/landing-demo-email-link'
+import { resolveLandingDemoCompletionFailure } from '@/auth/resolveLandingDemoCompletionFailure'
 import { warmLandingDemoAuthSession } from '@/auth/warmLandingDemoAuthSession'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -77,9 +76,10 @@ export default function LandingDemoEmailLinkCompletionPage() {
         navigate(APP_ROUTE_PATHS.inventory, { replace: true })
       } catch (error) {
         autoCompletionStartedForHref.delete(emailLinkUrl)
+        const failure = resolveLandingDemoCompletionFailure(error)
         setPhase('error')
-        setErrorMessage(describeLandingDemoEmailLinkError(error))
-        setShowRequestNewLink(isLandingDemoEmailLinkExpiredError(error))
+        setErrorMessage(failure.message)
+        setShowRequestNewLink(failure.showRequestNewLink)
       } finally {
         completionInFlightRef.current = false
         setSubmitting(false)

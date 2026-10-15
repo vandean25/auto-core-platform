@@ -5,6 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LandingDemoEmailLinkCompletionPage, {
   resetLandingDemoAutoCompletionGuardForTests,
 } from './LandingDemoEmailLinkCompletionPage'
+import {
+  LandingDemoAuthSessionError,
+  LANDING_DEMO_SIGN_IN_GRANT_INVALID_CODE,
+} from '@/auth/landing-demo-auth-session-error'
 import { LANDING_DEMO_EMAIL_FOR_SIGN_IN_STORAGE_KEY } from '@/auth/landing-demo-email-link'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 
@@ -107,6 +111,26 @@ describe('LandingDemoEmailLinkCompletionPage', () => {
 
     expect(await screen.findByLabelText('E-Mail')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Demo starten' })).toBeInTheDocument()
+  })
+
+  it('shows expired-link recovery when the server rejects the demo grant', async () => {
+    globalThis.localStorage.setItem(LANDING_DEMO_EMAIL_FOR_SIGN_IN_STORAGE_KEY, 'demo@example.com')
+    completeSignIn.mockResolvedValue(undefined)
+    warmSession.mockRejectedValue(
+      new LandingDemoAuthSessionError(
+        'Demo sign-in link is missing, expired, or already used.',
+        LANDING_DEMO_SIGN_IN_GRANT_INVALID_CODE,
+      ),
+    )
+
+    renderCompletionPage()
+
+    expect(
+      await screen.findByText(/abgelaufen oder wurde bereits verwendet/i),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Neuen Demo-Link anfordern' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Erneut versuchen' })).not.toBeInTheDocument()
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('shows expired-link recovery when Firebase reports an invalid action code', async () => {

@@ -4,8 +4,7 @@ import { firebaseAuth } from '@/lib/firebase'
 /** Matches Firebase email-link flow; landing page should use the same key when storing the address. */
 export const LANDING_DEMO_EMAIL_FOR_SIGN_IN_STORAGE_KEY = 'emailForSignIn'
 
-const DEMO_GRANT_SESSION_ERROR_EN =
-  'Demo sign-in link is missing, expired, or already used.'
+import { isLandingDemoSignInGrantInvalidError } from '@/auth/landing-demo-auth-session-error'
 
 function isDevOrE2eMagicLinkQuery(href: string): boolean {
   if (!import.meta.env.DEV && import.meta.env.MODE !== 'e2e') {
@@ -64,7 +63,7 @@ export function clearStoredLandingDemoEmail(): void {
 }
 
 export function isDemoGrantSessionErrorMessage(message: string): boolean {
-  return message.includes(DEMO_GRANT_SESSION_ERROR_EN)
+  return isLandingDemoSignInGrantInvalidError(new Error(message))
 }
 
 const FIREBASE_EMAIL_LINK_QUERY_KEYS = [
