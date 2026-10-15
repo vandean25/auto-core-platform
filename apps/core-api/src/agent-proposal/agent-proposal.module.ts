@@ -31,6 +31,10 @@ import { AgentProposalSubmissionService } from './agent-proposal-submission.serv
     AgentProposalSubmissionService,
     AgentProposalPolicyEvaluator,
   ],
-  exports: [AgentProposalService],
+  exports: [
+    AgentProposalService,
+    AgentProposalReadService,
+    AgentProposalAuthorization,
+  ],
 })
 export class AgentProposalModule {}

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { agentActionKeys } from './agent-actions'
+import { agentSupervisionTriageKeys } from './agent-supervision-triage'
 import { fetchWithAuth } from './client'
 
 export type AgentProposal = components['schemas']['AgentProposalResponseDto']
@@ -72,6 +73,7 @@ export function useApproveAgentProposal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: agentProposalKeys.all })
       queryClient.invalidateQueries({ queryKey: agentActionKeys.all })
+      queryClient.invalidateQueries({ queryKey: agentSupervisionTriageKeys.all })
     },
   })
 }
@@ -96,6 +98,7 @@ export function useRejectAgentProposal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: agentProposalKeys.all })
       queryClient.invalidateQueries({ queryKey: agentActionKeys.all })
+      queryClient.invalidateQueries({ queryKey: agentSupervisionTriageKeys.all })
     },
   })
 }

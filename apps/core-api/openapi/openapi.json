@@ -12977,6 +12977,50 @@
         ]
       }
     },
+    "/api/agent-supervision/triage": {
+      "get": {
+        "description": "Merges pending agent proposals, customer-waiting workshop work, and overdue loaners for authorized sites.",
+        "operationId": "AgentSupervisionController_listTriage",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from a previous triage list response.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSupervisionTriageListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Deterministic read-only supervision triage inbox",
+        "tags": [
+          "Agent Supervision"
+        ]
+      }
+    },
     "/api/decision-shadow-logs": {
       "get": {
         "description": "Returns cursor-paginated, read-only Jev/decision-adapter shadow rows for the authenticated tenant. Suggestions are never applied.",
@@ -30242,6 +30286,75 @@
         "required": [
           "action_type",
           "payload_json"
+        ]
+      },
+      "AgentSupervisionTriageItemDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "PENDING_APPROVAL",
+              "CUSTOMER_WAITING",
+              "OVERDUE_LOANER"
+            ]
+          },
+          "entity_id": {
+            "type": "string"
+          },
+          "site_id": {
+            "type": "string",
+            "description": "Authorized site that owns this inbox item."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Stable machine reason code for ordering and display."
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "due_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "record_link": {
+            "type": "string",
+            "description": "In-app path to the underlying record."
+          },
+          "allowed_action": {
+            "type": "string",
+            "enum": [
+              "APPROVE_REJECT",
+              "OPEN_RECORD"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "entity_id",
+          "site_id",
+          "reason",
+          "created_at",
+          "record_link",
+          "allowed_action"
+        ]
+      },
+      "AgentSupervisionTriageListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentSupervisionTriageItemDto"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "data"
         ]
       },
       "DecisionShadowSuggestionDto": {

@@ -5,6 +5,7 @@ import type {
 } from '@prisma/client';
 import type { WorkshopCommunicationStatus } from './dto/workshop-order-communications.dto.js';
 import {
+  buildCustomerWaitingTriageCandidates,
   buildWorkshopOrderCommunications,
   type EstimateApprovalRecord,
   type EstimateEmailRecord,
@@ -302,4 +303,98 @@ describe('buildWorkshopOrderCommunications', () => {
       });
     },
   );
+});
+
+describe('buildCustomerWaitingTriageCandidates', () => {
+  it('maps waiting tasks and KVA rows to deterministic triage payloads', () => {
+    const created = new Date('2026-01-05T10:00:00.000Z');
+    const rows = buildCustomerWaitingTriageCandidates([
+      {
+        entity_id: 'task-1',
+        site_id: 'site-1',
+        workshop_order_id: 'wo-1',
+        source: 'WORKSHOP_TASK_WAITING_CUSTOMER',
+        created_at: created,
+        due_at: null,
+      },
+      {
+        entity_id: 'est-1',
+        site_id: 'site-1',
+        workshop_order_id: 'wo-2',
+        source: 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE',
+        created_at: created,
+        due_at: null,
+      },
+    ]);
+
+    expect(rows).toEqual([
+      {
+        kind: 'CUSTOMER_WAITING',
+        entity_id: 'task-1',
+        site_id: 'site-1',
+        reason: 'WORKSHOP_TASK_WAITING_CUSTOMER',
+        created_at: created,
+        due_at: null,
+        record_link: '/workshop/orders/wo-1',
+        allowed_action: 'OPEN_RECORD',
+      },
+      {
+        kind: 'CUSTOMER_WAITING',
+        entity_id: 'est-1',
+        site_id: 'site-1',
+        reason: 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE',
+        created_at: created,
+        due_at: null,
+        record_link: '/workshop/orders/wo-2',
+        allowed_action: 'OPEN_RECORD',
+      },
+    ]);
+  });
+});
+
+describe('buildCustomerWaitingTriageCandidates', () => {
+  it('maps waiting tasks and KVA rows to deterministic triage payloads', () => {
+    const created = new Date('2026-01-05T10:00:00.000Z');
+    const rows = buildCustomerWaitingTriageCandidates([
+      {
+        entity_id: 'task-1',
+        site_id: 'site-1',
+        workshop_order_id: 'wo-1',
+        source: 'WORKSHOP_TASK_WAITING_CUSTOMER',
+        created_at: created,
+        due_at: null,
+      },
+      {
+        entity_id: 'est-1',
+        site_id: 'site-1',
+        workshop_order_id: 'wo-2',
+        source: 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE',
+        created_at: created,
+        due_at: null,
+      },
+    ]);
+
+    expect(rows).toEqual([
+      {
+        kind: 'CUSTOMER_WAITING',
+        entity_id: 'task-1',
+        site_id: 'site-1',
+        reason: 'WORKSHOP_TASK_WAITING_CUSTOMER',
+        created_at: created,
+        due_at: null,
+        record_link: '/workshop/orders/wo-1',
+        allowed_action: 'OPEN_RECORD',
+      },
+      {
+        kind: 'CUSTOMER_WAITING',
+        entity_id: 'est-1',
+        site_id: 'site-1',
+        reason: 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE',
+        created_at: created,
+        due_at: null,
+        record_link: '/workshop/orders/wo-2',
+        allowed_action: 'OPEN_RECORD',
+      },
+    ]);
+  });
 });

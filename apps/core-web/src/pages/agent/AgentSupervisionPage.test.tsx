@@ -12,10 +12,20 @@ import {
   useApproveAgentProposal,
   useRejectAgentProposal,
 } from '@/api/agent-proposals'
+import { useAgentSupervisionTriage } from '@/api/agent-supervision-triage'
 import { useAgentActions, useAgentActionTraceDetail } from '@/api/agent-actions'
 import { useDecisionShadowLogs } from '@/api/decision-shadow-logs'
 import { toast } from 'sonner'
+import { MemoryRouter } from 'react-router-dom'
 import AgentSupervisionPage from './AgentSupervisionPage'
+
+function renderSupervisionPage() {
+  return render(
+    <MemoryRouter>
+      <AgentSupervisionPage />
+    </MemoryRouter>,
+  )
+}
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -29,6 +39,10 @@ vi.mock('@/api/agent-proposals', () => ({
   useAgentProposals: vi.fn(),
   useApproveAgentProposal: vi.fn(),
   useRejectAgentProposal: vi.fn(),
+}))
+
+vi.mock('@/api/agent-supervision-triage', () => ({
+  useAgentSupervisionTriage: vi.fn(),
 }))
 
 vi.mock('@/api/agent-actions', () => ({
@@ -218,10 +232,28 @@ const mockTraceDetail = {
   ],
 }
 
+function triageItemsFromProposals(
+  proposals: Array<{ id: string; status: string; created_at: string; expires_at: string }>,
+) {
+  return proposals
+    .filter((proposal) => proposal.status === 'PENDING')
+    .map((proposal) => ({
+      kind: 'PENDING_APPROVAL' as const,
+      entity_id: proposal.id,
+      site_id: 'site-1',
+      reason: 'AGENT_PROPOSAL_PENDING',
+      created_at: proposal.created_at,
+      due_at: proposal.expires_at,
+      record_link: '/agent/supervision',
+      allowed_action: 'APPROVE_REJECT' as const,
+    }))
+}
+
 describe('AgentSupervisionPage', () => {
   const mockMutateApprove = vi.fn().mockResolvedValue({})
   const mockMutateReject = vi.fn().mockResolvedValue({})
   const mockRefetchProposals = vi.fn()
+  const mockRefetchTriage = vi.fn()
   const mockRefetchActions = vi.fn()
 
   afterEach(() => {
@@ -237,6 +269,16 @@ describe('AgentSupervisionPage', () => {
       isError: false,
       refetch: mockRefetchProposals,
     } as unknown as ReturnType<typeof useAgentProposals>)
+
+    vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+      data: {
+        data: triageItemsFromProposals(mockProposals),
+        next_cursor: null,
+      },
+      isLoading: false,
+      isError: false,
+      refetch: mockRefetchTriage,
+    } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
 
     vi.mocked(useApproveAgentProposal).mockReturnValue({
       mutateAsync: mockMutateApprove,
@@ -277,7 +319,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('renders persistent safety banner and header', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Agent Supervision' }),
@@ -291,7 +333,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('toggles language between English and German', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     // Initially English
     expect(
@@ -320,7 +362,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('renders proposal cards with details and amounts in Approvals tab', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     expect(screen.getByText('sales_order.apply_discount')).toBeInTheDocument()
     expect(screen.getByText('sales-agent')).toBeInTheDocument()
@@ -329,43 +371,51 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('renders canonical customer and line-item targets and effective EUR totals', () => {
-    vi.mocked(useAgentProposals).mockReturnValue({
-      data: {
-        data: [
-          {
-            ...mockProposals[0],
-            id: 'customer-proposal',
-            action_type: 'customer.update',
-            payload_json: { customer_id: 'customer-123', amount_eur: 125 },
-            effective_summary: {
-              target_type: 'Customer',
-              target_id: 'customer-123',
-              amount_eur: 125,
-            },
-          },
-          {
-            ...mockProposals[0],
-            id: 'line-proposal',
-            action_type: 'workshop_order.add_line',
-            payload_json: {
-              order_id: 'order-456',
-              unit_price: 25,
-              quantity: 4,
-            },
-            effective_summary: {
-              target_type: 'WorkshopOrder',
-              target_id: 'order-456',
-              amount_eur: 100,
-            },
-          },
-        ],
+    const proposals = [
+      {
+        ...mockProposals[0],
+        id: 'customer-proposal',
+        action_type: 'customer.update',
+        payload_json: { customer_id: 'customer-123', amount_eur: 125 },
+        effective_summary: {
+          target_type: 'Customer',
+          target_id: 'customer-123',
+          amount_eur: 125,
+        },
       },
+      {
+        ...mockProposals[0],
+        id: 'line-proposal',
+        action_type: 'workshop_order.add_line',
+        payload_json: {
+          order_id: 'order-456',
+          unit_price: 25,
+          quantity: 4,
+        },
+        effective_summary: {
+          target_type: 'WorkshopOrder',
+          target_id: 'order-456',
+          amount_eur: 100,
+        },
+      },
+    ]
+    vi.mocked(useAgentProposals).mockReturnValue({
+      data: { data: proposals },
       isLoading: false,
       isError: false,
       refetch: mockRefetchProposals,
     } as unknown as ReturnType<typeof useAgentProposals>)
+    vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+      data: {
+        data: triageItemsFromProposals(proposals),
+        next_cursor: null,
+      },
+      isLoading: false,
+      isError: false,
+      refetch: mockRefetchTriage,
+    } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
 
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     expect(screen.getByText('Customer (customer)')).toBeInTheDocument()
     expect(screen.queryByText(/WorkshopOrder \(/)).not.toBeInTheDocument()
@@ -375,7 +425,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('localizes approval detail labels in German', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     fireEvent.click(screen.getByTestId('toggle-language-btn'))
     fireEvent.click(screen.getByTestId('toggle-preview-prop-1'))
@@ -387,7 +437,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('CRITICAL SAFETY GUARD: suppresses Approve button for HUMAN_ONLY proposals and displays "Do this manually"', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     // For prop-1 (PROPOSE): Approve and Reject buttons exist
     expect(screen.getByTestId('approve-btn-prop-1')).toBeInTheDocument()
@@ -405,7 +455,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('calls approve mutation when clicking Approve button', async () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     const approveBtn = screen.getByTestId('approve-btn-prop-1')
     fireEvent.click(approveBtn)
@@ -416,7 +466,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('opens RejectProposalDialog and calls reject mutation with optional reason', async () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     const rejectBtn = screen.getByTestId('reject-btn-prop-1')
     fireEvent.click(rejectBtn)
@@ -451,7 +501,7 @@ describe('AgentSupervisionPage', () => {
     'keeps the rejection dialog and reason after a %s',
     async (_label, error) => {
       mockMutateReject.mockRejectedValueOnce(error)
-      render(<AgentSupervisionPage />)
+      renderSupervisionPage()
 
       fireEvent.click(screen.getByTestId('reject-btn-prop-1'))
       const reasonInput = screen.getByLabelText(/Reason \(optional\)/i)
@@ -488,14 +538,14 @@ describe('AgentSupervisionPage', () => {
       refetch: mockRefetchActions,
     } as unknown as ReturnType<typeof useAgentActions>)
 
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
     fireEvent.click(screen.getByTestId('tab-activity'))
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }))
 
     expect(fetchNextPage).toHaveBeenCalledTimes(1)
   })
   it('toggles preview / payload expandable panel', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     const toggleBtn = screen.getByTestId('toggle-preview-prop-1')
     expect(screen.queryByTestId('preview-panel-prop-1')).not.toBeInTheDocument()
@@ -511,7 +561,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('switches to Activity tab, displays activity logs and opens trace audit dialog', async () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     const activityTab = screen.getByTestId('tab-activity')
     fireEvent.click(activityTab)
@@ -537,7 +587,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('updates Activity tab date range filters and passes startDate and endDate to useAgentActions', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     const activityTab = screen.getByTestId('tab-activity')
     fireEvent.click(activityTab)
@@ -570,7 +620,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('passes Activity tab agent search text to useAgentActions as agentId', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     fireEvent.click(screen.getByTestId('tab-activity'))
 
@@ -585,7 +635,7 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('switches to the Decision shadow tab and filters its read-only log by use case', () => {
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     fireEvent.click(screen.getByTestId('tab-decision-shadow'))
 
@@ -613,11 +663,17 @@ describe('AgentSupervisionPage', () => {
       isError: false,
       refetch: mockRefetchProposals,
     } as unknown as ReturnType<typeof useAgentProposals>)
+    vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+      data: { data: [], next_cursor: null },
+      isLoading: false,
+      isError: false,
+      refetch: mockRefetchTriage,
+    } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
 
-    render(<AgentSupervisionPage />)
+    renderSupervisionPage()
 
     expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
-    expect(screen.getByText('No pending proposals')).toBeInTheDocument()
+    expect(screen.getByText(/Supervision inbox is clear/i)).toBeInTheDocument()
   })
 
   describe('workshop order approval cards', () => {
@@ -672,7 +728,23 @@ describe('AgentSupervisionPage', () => {
         isError: false,
         refetch: mockRefetchProposals,
       } as unknown as ReturnType<typeof useAgentProposals>)
-      return render(<AgentSupervisionPage />)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: triageItemsFromProposals(
+            proposals as Array<{
+              id: string
+              status: string
+              created_at: string
+              expires_at: string
+            }>,
+          ),
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+      return renderSupervisionPage()
     }
 
     it('shows order number, customer and vehicle instead of the raw order UUID', () => {
@@ -890,6 +962,23 @@ describe('AgentSupervisionPage', () => {
         refetch: mockRefetchProposals,
       } as unknown as ReturnType<typeof useAgentProposals>)
 
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: triageItemsFromProposals(
+            proposals as Array<{
+              id: string
+              status: string
+              created_at: string
+              expires_at: string
+            }>,
+          ),
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
       vi.mocked(useAgentActions).mockReturnValue({
         data: { pages: [{ data: logs, nextCursor: null }] },
         isLoading: false,
@@ -900,7 +989,14 @@ describe('AgentSupervisionPage', () => {
         refetch: mockRefetchActions,
       } as unknown as ReturnType<typeof useAgentActions>)
 
-      return render(<AgentSupervisionPage />)
+      const view = renderSupervisionPage()
+      const hasNonPending = (proposals as Array<{ status?: string }>).some(
+        (proposal) => proposal.status && proposal.status !== 'PENDING',
+      )
+      if (hasNonPending) {
+        fireEvent.click(screen.getByTestId('filter-all-btn'))
+      }
+      return view
     }
 
     it('shows the same agent name on the approval card and in the matching Activity row', () => {
@@ -1020,6 +1116,142 @@ describe('AgentSupervisionPage', () => {
       await waitFor(() =>
         expect(toast.success).toHaveBeenCalledWith('Proposal rejected'),
       )
+    })
+  })
+
+  describe('supervision triage inbox (AUT-514)', () => {
+    it('shows the empty inbox state when triage returns no items', () => {
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: { data: [] },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: { data: [], next_cursor: null },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
+      expect(screen.getByText(/Supervision inbox is clear/i)).toBeInTheDocument()
+    })
+
+    it('does not show the empty inbox when triage fails to load', () => {
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      expect(screen.getByTestId('approvals-error-state')).toBeInTheDocument()
+      expect(screen.queryByTestId('approvals-empty-state')).not.toBeInTheDocument()
+      expect(
+        screen.queryByText(/Supervision inbox is clear/i),
+      ).not.toBeInTheDocument()
+    })
+
+    it('renders triage rows in server order with equal due dates sorted by age then id', () => {
+      const sharedDue = '2026-02-01T12:00:00.000Z'
+      const olderProposal = {
+        ...mockProposals[0],
+        id: 'prop-older',
+        created_at: '2026-01-01T00:00:00.000Z',
+        expires_at: sharedDue,
+      }
+      const youngerProposal = {
+        ...mockProposals[0],
+        id: 'prop-younger',
+        created_at: '2026-01-02T00:00:00.000Z',
+        expires_at: sharedDue,
+      }
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: {
+          data: [youngerProposal, olderProposal],
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: [
+            {
+              kind: 'OVERDUE_LOANER',
+              entity_id: 'loaner-b',
+              site_id: 'site-1',
+              reason: 'LOANER_RETURN_OVERDUE',
+              created_at: '2026-01-02T00:00:00.000Z',
+              due_at: sharedDue,
+              record_link: '/workshop/loaner-vehicles',
+              allowed_action: 'OPEN_RECORD',
+            },
+            {
+              kind: 'PENDING_APPROVAL',
+              entity_id: 'prop-older',
+              site_id: 'site-1',
+              reason: 'AGENT_PROPOSAL_PENDING',
+              created_at: '2026-01-01T00:00:00.000Z',
+              due_at: sharedDue,
+              record_link: '/agent/supervision',
+              allowed_action: 'APPROVE_REJECT',
+            },
+            {
+              kind: 'PENDING_APPROVAL',
+              entity_id: 'prop-younger',
+              site_id: 'site-1',
+              reason: 'AGENT_PROPOSAL_PENDING',
+              created_at: '2026-01-02T00:00:00.000Z',
+              due_at: sharedDue,
+              record_link: '/agent/supervision',
+              allowed_action: 'APPROVE_REJECT',
+            },
+          ],
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      const inbox = screen.getByTestId('triage-inbox-list')
+      const orderedIds = within(inbox)
+        .getAllByTestId(/triage-card-|proposal-card-/)
+        .map((node) => node.getAttribute('data-testid') ?? '')
+      expect(orderedIds[0]).toBe('triage-card-OVERDUE_LOANER-loaner-b')
+      expect(orderedIds[1]).toBe('proposal-card-prop-older')
+      expect(orderedIds[2]).toBe('proposal-card-prop-younger')
+    })
+
+    it('still renders approve actions for pending proposals listed via triage', async () => {
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: { data: [mockProposals[0]] },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: triageItemsFromProposals([mockProposals[0]]),
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+      fireEvent.click(screen.getByTestId('approve-btn-prop-1'))
+
+      await waitFor(() => expect(mockMutateApprove).toHaveBeenCalledWith('prop-1'))
     })
   })
 })

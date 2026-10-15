@@ -11,6 +11,7 @@ import {
   type AgentProposalListResponse,
 } from './agent-proposals'
 import { agentActionKeys } from './agent-actions'
+import { agentSupervisionTriageKeys } from './agent-supervision-triage'
 import { fetchWithAuth } from './client'
 
 vi.mock('./client', () => ({
@@ -196,6 +197,9 @@ describe('agent-proposals api hooks', () => {
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: agentActionKeys.all,
       })
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: agentSupervisionTriageKeys.all,
+      })
     })
 
     it('handles approve failure', async () => {
@@ -259,6 +263,9 @@ describe('agent-proposals api hooks', () => {
       })
       expect(invalidateSpy).toHaveBeenCalledWith({
         queryKey: agentActionKeys.all,
+      })
+      expect(invalidateSpy).toHaveBeenCalledWith({
+        queryKey: agentSupervisionTriageKeys.all,
       })
     })
 

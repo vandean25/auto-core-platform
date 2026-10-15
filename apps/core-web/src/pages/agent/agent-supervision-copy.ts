@@ -214,12 +214,42 @@ export const SUPERVISION_COPY = {
       de: 'Diese Aktion ist als HUMAN_ONLY eingestuft und kann nicht automatisiert ausgeführt werden. Bitte führen Sie diesen Vorgang manuell durch.',
     },
     emptyState: {
-      en: 'No pending proposals',
-      de: 'Keine ausstehenden Vorschläge',
+      en: 'Supervision inbox is clear',
+      de: 'Überwachungs-Posteingang ist leer',
     },
     emptyStateDesc: {
-      en: 'All agent proposals have been processed. Great job!',
-      de: 'Alle vorgeschlagenen Agenten-Aktionen wurden bearbeitet. Gute Arbeit!',
+      en: 'No overdue loaners, customer blockers, or pending proposals need attention.',
+      de: 'Keine überfälligen Leihfahrzeuge, Kundenblocker oder ausstehenden Vorschläge.',
+    },
+    triageLoadError: {
+      en: 'Could not load the supervision inbox. Retry or check your site access.',
+      de: 'Der Überwachungs-Posteingang konnte nicht geladen werden. Erneut versuchen oder Standortzugriff prüfen.',
+    },
+    openRecord: {
+      en: 'Open record',
+      de: 'Datensatz öffnen',
+    },
+    dueAt: {
+      en: 'Due',
+      de: 'Fällig',
+    },
+    triageReason: {
+      LOANER_RETURN_OVERDUE: {
+        en: 'Loaner return overdue',
+        de: 'Leihfahrzeug-Rückgabe überfällig',
+      },
+      WORKSHOP_TASK_WAITING_CUSTOMER: {
+        en: 'Work blocked — waiting on customer',
+        de: 'Werkstatt blockiert — Kunde wartet',
+      },
+      ESTIMATE_AWAITING_CUSTOMER_RESPONSE: {
+        en: 'Estimate (KVA) awaiting customer answer',
+        de: 'Kostenvoranschlag wartet auf Kundenantwort',
+      },
+      AGENT_PROPOSAL_PENDING: {
+        en: 'Agent proposal pending approval',
+        de: 'Agenten-Vorschlag wartet auf Freigabe',
+      },
     },
     approveSuccess: {
       en: 'Proposal approved',

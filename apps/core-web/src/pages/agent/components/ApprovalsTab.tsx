@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   CheckCircle2,
@@ -19,6 +20,10 @@ import {
   useRejectAgentProposal,
 } from '@/api/agent-proposals'
 import type { AgentProposal } from '@/api/agent-proposals'
+import {
+  useAgentSupervisionTriage,
+  type AgentSupervisionTriageItem,
+} from '@/api/agent-supervision-triage'
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { resolveDecidedByLabel, resolveProposalAgentName } from '../agent-labels'
@@ -77,18 +82,67 @@ export function ApprovalsTab({
 
   const {
     data: proposalsData,
-    isLoading,
-    isError,
-    refetch,
+    isLoading: proposalsLoading,
+    isError: proposalsError,
+    refetch: refetchProposals,
   } = useAgentProposals({
     status: pendingOnly ? 'PENDING' : undefined,
-    limit: 50,
+    limit: 100,
   })
+
+  const {
+    data: triageData,
+    isLoading: triageLoading,
+    isError: triageError,
+    refetch: refetchTriage,
+  } = useAgentSupervisionTriage({ limit: 50 }, pendingOnly)
 
   const approveMutation = useApproveAgentProposal()
   const rejectMutation = useRejectAgentProposal()
 
   const proposals = proposalsData?.data ?? []
+  const triageItems = triageData?.data ?? []
+  const proposalById = useMemo(
+    () => new Map(proposals.map((proposal) => [proposal.id, proposal])),
+    [proposals],
+  )
+
+  const isLoading = pendingOnly
+    ? triageLoading || proposalsLoading
+    : proposalsLoading
+  const isError = pendingOnly ? triageError : proposalsError
+
+  const refetch = () => {
+    void refetchProposals()
+    if (pendingOnly) {
+      void refetchTriage()
+    }
+  }
+
+  type DisplayRow =
+    | { type: 'proposal'; proposal: AgentProposal }
+    | { type: 'triage'; item: AgentSupervisionTriageItem }
+
+  const displayRows: DisplayRow[] = pendingOnly
+    ? triageItems.flatMap((item) => {
+        if (item.kind === 'PENDING_APPROVAL') {
+          const proposal = proposalById.get(item.entity_id)
+          return proposal ? [{ type: 'proposal' as const, proposal }] : []
+        }
+        return [{ type: 'triage' as const, item }]
+      })
+    : proposals.map((proposal) => ({ type: 'proposal' as const, proposal }))
+
+  const resolveTriageReasonLabel = (reason: string) => {
+    const copy = t.triageReason[reason as keyof typeof t.triageReason]
+    return copy ? getCopy(copy, language) : reason
+  }
+
+  const triageStatusForItem = (item: AgentSupervisionTriageItem) => {
+    if (item.kind === 'OVERDUE_LOANER') return 'OUT_OF_STOCK'
+    if (item.kind === 'CUSTOMER_WAITING') return 'WAITING_CUSTOMER'
+    return 'PENDING'
+  }
 
   const handleApprove = async (proposal: AgentProposal) => {
     try {
@@ -179,9 +233,14 @@ export function ApprovalsTab({
 
       {/* Error state */}
       {isError && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center">
+        <div
+          className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center"
+          data-testid="approvals-error-state"
+        >
           <p className="text-sm font-medium text-rose-800">
-            {getCopy(common.error, language)}
+            {pendingOnly
+              ? getCopy(t.triageLoadError, language)
+              : getCopy(common.error, language)}
           </p>
           <Button
             type="button"
@@ -196,7 +255,7 @@ export function ApprovalsTab({
       )}
 
       {/* Empty state */}
-      {!isLoading && !isError && proposals.length === 0 && (
+      {!isLoading && !isError && displayRows.length === 0 && (
         <div
           className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
           data-testid="approvals-empty-state"
@@ -215,9 +274,60 @@ export function ApprovalsTab({
       )}
 
       {/* Proposal Cards */}
-      {!isLoading && !isError && proposals.length > 0 && (
-        <div className="space-y-4" data-testid="proposals-list">
-          {proposals.map((proposal) => {
+      {!isLoading && !isError && displayRows.length > 0 && (
+        <div
+          className="space-y-4"
+          data-testid={pendingOnly ? 'triage-inbox-list' : 'proposals-list'}
+        >
+          {displayRows.map((row) => {
+            if (row.type === 'triage') {
+              const item = row.item
+              return (
+                <article
+                  key={`${item.kind}-${item.entity_id}`}
+                  className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+                  data-testid={`triage-card-${item.kind}-${item.entity_id}`}
+                  aria-label={resolveTriageReasonLabel(item.reason)}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge
+                          status={triageStatusForItem(item)}
+                          label={resolveTriageReasonLabel(item.reason)}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        <Clock
+                          className="mr-1 inline h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
+                        {new Date(item.created_at).toLocaleString(
+                          language === 'de' ? 'de-DE' : 'en-US',
+                        )}
+                        {item.due_at
+                          ? ` · ${getCopy(t.dueAt, language)} ${new Date(
+                              item.due_at,
+                            ).toLocaleString(
+                              language === 'de' ? 'de-DE' : 'en-US',
+                            )}`
+                          : null}
+                      </p>
+                    </div>
+                    <Link
+                      to={item.record_link}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      data-testid={`triage-open-${item.entity_id}`}
+                    >
+                      {getCopy(t.openRecord, language)}
+                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Link>
+                  </div>
+                </article>
+              )
+            }
+
+            const proposal = row.proposal
             const isExpanded = expandedId === proposal.id
             const isHumanOnly = proposal.tier === 'HUMAN_ONLY'
             const isPending = proposal.status === 'PENDING'

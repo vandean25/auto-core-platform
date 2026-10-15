@@ -3978,6 +3978,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent-supervision/triage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Deterministic read-only supervision triage inbox
+         * @description Merges pending agent proposals, customer-waiting workshop work, and overdue loaners for authorized sites.
+         */
+        get: operations["AgentSupervisionController_listTriage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/decision-shadow-logs": {
         parameters: {
             query?: never;
@@ -9123,6 +9143,25 @@ export interface components {
             payload_json: {
                 [key: string]: unknown;
             };
+        };
+        AgentSupervisionTriageItemDto: {
+            /** @enum {string} */
+            kind: "PENDING_APPROVAL" | "CUSTOMER_WAITING" | "OVERDUE_LOANER";
+            entity_id: string;
+            /** @description Authorized site that owns this inbox item. */
+            site_id: string;
+            /** @description Stable machine reason code for ordering and display. */
+            reason: string;
+            created_at: string;
+            due_at?: string | null;
+            /** @description In-app path to the underlying record. */
+            record_link: string;
+            /** @enum {string} */
+            allowed_action: "APPROVE_REJECT" | "OPEN_RECORD";
+        };
+        AgentSupervisionTriageListResponseDto: {
+            data: components["schemas"]["AgentSupervisionTriageItemDto"][];
+            next_cursor?: string | null;
         };
         DecisionShadowSuggestionDto: {
             /** @description Choice suggested by the shadow provider. Never applied. */
@@ -17498,6 +17537,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentSupervisionController_listTriage: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from a previous triage list response. */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentSupervisionTriageListResponseDto"];
                 };
             };
         };
