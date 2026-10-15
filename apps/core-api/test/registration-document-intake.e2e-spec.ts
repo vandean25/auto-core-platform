@@ -379,10 +379,10 @@ describe('Registration document intake (e2e)', () => {
       .expect(409);
     expect(res.body.code).toBe('REGISTRATION_INTAKE_FIELD_CONFLICT');
     expect(await tenantPrisma.vehicle.count()).toBe(1);
-    const vehicle = await tenantPrisma.vehicle.findFirst({
+    const vehicleAfter = await tenantPrisma.vehicle.findFirst({
       where: { vin: 'WVWZZZSYNTH000001' },
     });
-    expect(vehicle?.national_code).toBe('OTHER-CODE');
+    expect(vehicleAfter?.national_code).toBe('OTHER-CODE');
   });
 
   it('returns 409 when two intakes confirm the same new VIN in parallel', async () => {
