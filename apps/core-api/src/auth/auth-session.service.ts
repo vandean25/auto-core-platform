@@ -244,10 +244,7 @@ export class AuthSessionService {
     const demoOnlyUser = userRecord.memberships.every(
       (membership) => membership.role === TenantMemberRole.DEMO,
     );
-    if (
-      demoOnlyUser &&
-      requestedMembership.role !== TenantMemberRole.DEMO
-    ) {
+    if (demoOnlyUser && requestedMembership.role !== TenantMemberRole.DEMO) {
       throw new ForbiddenException(
         'Demo accounts may only access the demo tenant.',
       );
@@ -321,7 +318,9 @@ export class AuthSessionService {
     };
   }
 
-  private isMembershipCurrentlyValid(membership: UserAccessMembership): boolean {
+  private isMembershipCurrentlyValid(
+    membership: UserAccessMembership,
+  ): boolean {
     if (!membership.demo_access_expires_at) {
       return true;
     }

@@ -13,9 +13,7 @@ import {
   LandingDemoAccessOkDto,
   LandingDemoAccessRequestDto,
 } from './landing-demo-access.dto.js';
-import {
-  LANDING_DEMO_IP_THROTTLER,
-} from './landing-demo-access.constants.js';
+import { LANDING_DEMO_IP_THROTTLER } from './landing-demo-access.constants.js';
 import { LandingDemoAccessService } from './landing-demo-access.service.js';
 
 @ApiTags('public-landing-demo')
@@ -33,7 +31,9 @@ export class LandingDemoAccessController {
       'Creates or refreshes a demo user in the landing demo tenant and emails a one-time magic sign-in link. Always returns {ok:true} for honeypot submissions.',
   })
   @ApiOkResponse({ type: LandingDemoAccessOkDto })
-  @ApiUnprocessableEntityResponse({ description: 'Validation or captcha failed.' })
+  @ApiUnprocessableEntityResponse({
+    description: 'Validation or captcha failed.',
+  })
   @ApiTooManyRequestsResponse({ description: 'Rate limit exceeded.' })
   submit(
     @Body() body: LandingDemoAccessRequestDto,

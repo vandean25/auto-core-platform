@@ -9,7 +9,10 @@ export type TurnstileVerifyInput = {
 @Injectable()
 export class TurnstileVerifier {
   async verify(
-    config: Pick<LandingDemoAccessConfig, 'turnstileEnabled' | 'turnstileSecret'>,
+    config: Pick<
+      LandingDemoAccessConfig,
+      'turnstileEnabled' | 'turnstileSecret'
+    >,
     input: TurnstileVerifyInput,
   ): Promise<boolean> {
     if (!config.turnstileEnabled) {

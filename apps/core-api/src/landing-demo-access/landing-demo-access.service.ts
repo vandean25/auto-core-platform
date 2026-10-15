@@ -111,8 +111,8 @@ export class LandingDemoAccessService {
 
     const now = new Date();
     const normalizedEmail = normalizeDemoEmail(body.email);
-    const accessRequest = await this.systemPrisma.landingDemoAccessRequest.create(
-      {
+    const accessRequest =
+      await this.systemPrisma.landingDemoAccessRequest.create({
         data: {
           id: randomUUID(),
           email: normalizedEmail,
@@ -123,8 +123,7 @@ export class LandingDemoAccessService {
           consent_recorded_at: now,
           client_ip_hash: hashClientIp(meta.ip),
         },
-      },
-    );
+      });
 
     const { userId, firebaseUid } = await this.provisionDemoUser({
       email: normalizedEmail,
@@ -279,10 +278,7 @@ export class LandingDemoAccessService {
 
     let user = await this.systemPrisma.user.findFirst({
       where: {
-        OR: [
-          { firebaseUid: firebaseUser.uid },
-          { email: input.email },
-        ],
+        OR: [{ firebaseUid: firebaseUser.uid }, { email: input.email }],
       },
     });
 
@@ -304,11 +300,7 @@ export class LandingDemoAccessService {
       });
     }
 
-    await setActiveTenant(
-      this.systemPrisma.user,
-      user.id,
-      input.demoTenantId,
-    );
+    await setActiveTenant(this.systemPrisma.user, user.id, input.demoTenantId);
 
     await this.systemPrisma.tenantMember.upsert({
       where: {

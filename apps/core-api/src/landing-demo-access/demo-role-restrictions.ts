@@ -15,9 +15,7 @@ const BLOCKED_DEMO_MUTATION_PREFIXES = [
   '/api/mcp',
 ] as const;
 
-const BLOCKED_DEMO_MUTATION_EXACT = new Set([
-  '/api/workshop/estimates',
-]);
+const BLOCKED_DEMO_MUTATION_EXACT = new Set(['/api/workshop/estimates']);
 
 export function hashClientIp(ip: string | null | undefined): string | null {
   const normalized = ip?.trim();
@@ -31,16 +29,19 @@ export function normalizeDemoEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export function isLandingDemoHoneypotTriggered(website?: string | null): boolean {
+export function isLandingDemoHoneypotTriggered(
+  website?: string | null,
+): boolean {
   return Boolean(website && website.trim() !== '');
 }
 
-export function isDemoMutationAllowed(
-  method: string,
-  path: string,
-): boolean {
+export function isDemoMutationAllowed(method: string, path: string): boolean {
   const upperMethod = method.toUpperCase();
-  if (upperMethod === 'GET' || upperMethod === 'HEAD' || upperMethod === 'OPTIONS') {
+  if (
+    upperMethod === 'GET' ||
+    upperMethod === 'HEAD' ||
+    upperMethod === 'OPTIONS'
+  ) {
     return true;
   }
 
@@ -71,7 +72,9 @@ export function isDemoMutationAllowed(
 }
 
 export function demoAccessExpiresAt(from: Date = new Date()): Date {
-  return new Date(from.getTime() + DEMO_ACCESS_DURATION_DAYS * 24 * 60 * 60 * 1000);
+  return new Date(
+    from.getTime() + DEMO_ACCESS_DURATION_DAYS * 24 * 60 * 60 * 1000,
+  );
 }
 
 export function demoMagicLinkExpiresAt(from: Date = new Date()): Date {

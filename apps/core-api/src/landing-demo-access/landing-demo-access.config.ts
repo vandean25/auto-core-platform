@@ -79,8 +79,7 @@ export function readLandingDemoAccessConfig(
     enabled: parsed.LANDING_DEMO_ACCESS_ENABLED ?? false,
     landingPageOrigins,
     demoTenantSlug: parsed.LANDING_DEMO_TENANT_SLUG ?? DEFAULT_DEMO_TENANT_SLUG,
-    operatorEmail:
-      parsed.LANDING_DEMO_OPERATOR_EMAIL ?? DEFAULT_OPERATOR_EMAIL,
+    operatorEmail: parsed.LANDING_DEMO_OPERATOR_EMAIL ?? DEFAULT_OPERATOR_EMAIL,
     signInContinueUrl: parsed.LANDING_DEMO_SIGN_IN_CONTINUE_URL,
     turnstileEnabled: parsed.LANDING_DEMO_TURNSTILE_ENABLED ?? false,
     turnstileSecret: parsed.LANDING_DEMO_TURNSTILE_SECRET,

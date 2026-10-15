@@ -10,7 +10,7 @@ ALTER TABLE "tenants" ADD COLUMN "is_landing_demo_tenant" BOOLEAN NOT NULL DEFAU
 ALTER TABLE "tenant_members" ADD COLUMN "demo_access_expires_at" TIMESTAMPTZ;
 
 CREATE TABLE "landing_demo_access_requests" (
-    "id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
     "email" VARCHAR(320) NOT NULL,
     "name" VARCHAR(200) NOT NULL,
     "betrieb" VARCHAR(200) NOT NULL,

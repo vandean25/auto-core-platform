@@ -18,7 +18,5 @@ export const LANDING_DEMO_THROTTLER_OPTIONS: ThrottlerOptions = {
   limit: 30,
   ttl: 60_000,
   skipIf: (context: ExecutionContext): boolean =>
-    !isLandingDemoAccessRequest(
-      context.switchToHttp().getRequest<Request>(),
-    ),
+    !isLandingDemoAccessRequest(context.switchToHttp().getRequest<Request>()),
 };
