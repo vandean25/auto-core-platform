@@ -500,7 +500,7 @@ Added by the implementation slices, not by this spec PR.
 | `workshop_command_sessions` | `site_id` | uuid | no | Operative site at interpret |
 | `workshop_command_sessions` | `source` | text | no | `keyboard` or `voice_transcript` |
 | `workshop_command_sessions` | `normalized_json` | jsonb | no | Structured parse. No raw `text` field |
-| `workshop_command_sessions` | `expires_at` | timestamptz | no | `created_at` plus 7 days |
+| `workshop_command_sessions` | `expires_at` | timestamptz | no | `created_at` plus 7 days. On propose, `min` of that instant and the proposal `expires_at`. Never later than 7 days after the session row |
 
 Preset lookup prefers the operative site row and otherwise the tenant-wide row. Prices stay on `LaborOperation` and `CatalogItem`. The preset does not store a price.
 
@@ -526,17 +526,18 @@ The raw sentence and the voice transcript are not stored. Interpret writes `work
 
 `offered_choices` is the exact `{ "slot", "value" }` list returned on the last clarification. A ready interpret stores `[]`. Propose accepts a selection only when that pair is in `offered_choices`. Any other pair is HTTP 409 `SELECTION_NOT_OFFERED`. The server then recomputes the intent from the normalized tokens, the accepted selections, and the live tenant rows. A selected id that no longer resolves is HTTP 409 `PLAN_STALE`.
 
-Interpret and propose load `AgentProposal` for the authenticated tenant and `command_id`. The proposal payload stores `command_fingerprint`, the SHA-256 of the canonical token object plus the accepted `selections`. The fingerprint contains no raw sentence.
+Interpret and propose load `AgentProposal` for the authenticated tenant and `command_id`. `command_fingerprint` is the SHA-256 of the canonical token object plus the accepted `selections`. It is stored at `preview_json.command_fingerprint`. It is not a field of `WorkshopIntent` and it is not written into `payload_json`. The fingerprint contains no raw sentence.
 
 | Caller | Existing proposal | Input | Result |
 | --- | --- | --- | --- |
-| Propose | none | ready intent | Slice 3 inserts one `PENDING` row and returns it |
+| Propose | none, session exists | ready intent | Slice 3 inserts one `PENDING` row and returns HTTP 201, matching `POST /api/agent-proposals/submit` |
 | Propose | `PENDING` | same tokens and same selections | HTTP 200 with that row's `pending_action_id` and `trace_id` |
 | Propose | `PENDING` | tokens or selections differ | HTTP 409 `COMMAND_ID_REUSED` |
 | Propose | any status other than `PENDING` | any | HTTP 409 `COMMAND_ID_REUSED`, including when the session row is already gone |
 | Propose | none and no session | any | HTTP 404 `SESSION_NOT_FOUND` |
-| Interpret | none | same tokens, selections added from `offered_choices` | HTTP 200, update the one session row |
-| Interpret | none | tokens differ | HTTP 409 `COMMAND_ID_REUSED` |
+| Interpret | none and no session | first command | HTTP 200, insert one session row |
+| Interpret | none, session exists | same tokens, selections added from `offered_choices` | HTTP 200, update the one session row |
+| Interpret | none, session exists | tokens differ | HTTP 409 `COMMAND_ID_REUSED` |
 | Interpret | `PENDING` | same tokens and same selections | HTTP 200 ready intent. No second proposal |
 | Interpret | `PENDING` | tokens or selections differ | HTTP 409 `COMMAND_ID_REUSED` |
 | Interpret | not `PENDING` | any | HTTP 409 `COMMAND_ID_REUSED` |
@@ -545,9 +546,9 @@ A double submit, a timeout retry, or a reload uses the same `command_id` and rec
 
 Propose sends only `contract_version`, `command_id`, and `selections`. A client field other than those three is HTTP 400 `CONTRACT_UNKNOWN_FIELD`. Prices, customer ids, and site ids in a propose body are not accepted.
 
-`AgentProposal.payload_json` is the recomputed `WorkshopIntent` (ids, instants, preset keys, prices). `agent_action_log.inputSummary.payload` is that same object. It has no `text`, surname, plate, or VIN. `resultSummary` keeps `would_change` and ids.
+`AgentProposal.payload_json` is the recomputed `WorkshopIntent` (ids, instants, preset keys, prices) and nothing else. `POST /api/agent-proposals/submit` accepts that object only. `agent_action_log.inputSummary.payload` is that same object. It has no `text`, surname, plate, VIN, or `command_fingerprint`. `resultSummary` keeps `would_change` and ids. The fingerprint stays on `preview_json`, which is retained with the proposal row, so the retry check still works after `deleteForCommand`.
 
-The interpreter slice owns session deletion. `WorkshopCommandSessionService.deleteForCommand(tenantId, commandId)` hard-deletes the row. AUT-535 calls it in the same transaction when a proposal that has a `command_id` leaves `PENDING` through apply, reject, or the single-row expire path (`EXECUTED`, `FAILED`, `REJECTED`, or `EXPIRED`). `AgentProposalReadService` also bulk-expires `PENDING` rows with `updateMany` on the list endpoint and does not call `deleteForCommand`. AUT-535 adds the same delete to that bulk path: after the `updateMany`, delete sessions whose `command_id` is among the rows just marked `EXPIRED`. Until that hook runs, and if a row is missed, the interpreter slice still deletes sessions with `expires_at` in the past at the start of interpret and propose. Session `expires_at` is set to the same instant as the proposal `expires_at` when the proposal is created, and never later, so that purge removes the surname, plate, or VIN within seven days. Tenant deletion deletes the rows with the tenant.
+The interpreter slice owns session deletion. `WorkshopCommandSessionService.deleteForCommand(tenantId, commandId)` hard-deletes the row. AUT-535 calls it in the same transaction when a proposal that has a `command_id` leaves `PENDING` through apply, reject, or the single-row expire path (`EXECUTED`, `FAILED`, `REJECTED`, or `EXPIRED`). `AgentProposalReadService` also bulk-expires `PENDING` rows with `updateMany` on the list endpoint and does not call `deleteForCommand`. AUT-535 adds the same delete to that bulk path: after the `updateMany`, delete sessions whose `command_id` is among the rows just marked `EXPIRED`. Until that hook runs, and if a row is missed, the interpreter slice still deletes sessions with `expires_at` in the past at the start of interpret and propose. A new session sets `expires_at` to `created_at` plus 7 days. When the proposal is created, that value becomes `min(session.created_at + 7 days, proposal.expires_at)`. It is never moved later, so the purge removes the surname, plate, or VIN within seven days of interpret even when the proposal's own expiry is further out. Tenant deletion deletes the rows with the tenant.
 
 The interpreter-slice migration adds `workshop_command_sessions` and `agent_proposals.command_id` to the tenant-restore manifest by running `node tools/tenant-restore/generate-tenant-restore-sql.mjs` and committing the generated SQL. AUT-540 does the same for `workshop_command_presets`, and in that same PR adds the preset row to `docs/deletion-policy.md`. The interpreter slice adds the session row to that policy in its own PR.
 
@@ -600,7 +601,7 @@ Apply does not move the order to `INTAKE`. Existing `updateMany` status guards s
 | Method | Route | Request Body | Response | Auth |
 | --- | --- | --- | --- | --- |
 | `POST` | `/api/workshop/commands/interpret` | `CommandInput` plus optional `selections` | `WorkshopIntent` or `Clarification` | Active site membership and tenant role `OWNER`, `ADMIN`, or `SALES`. No domain writes. Writes one session row |
-| `POST` | `/api/workshop/commands/propose` | `{ contract_version, command_id, selections }` | `ProposalResult` with `pending_action_id` and `trace_id` | Tenant role `OWNER` or `ADMIN`. Route registered in slice 3. Until then only `buildProposal` exists, and its result omits those two ids |
+| `POST` | `/api/workshop/commands/propose` | `{ contract_version, command_id, selections }` | `ProposalResult` with `pending_action_id` and `trace_id`. First persist is HTTP 201. A matching `PENDING` retry is HTTP 200 | Tenant role `OWNER` or `ADMIN`. Route registered in slice 3. Until then only `buildProposal` exists, and its result omits those two ids |
 
 `TenantMemberRole` is `OWNER`, `ADMIN`, `TECH`, and `SALES`. There is no `ADVISOR` tenant role. `assertSupervisor` still lists the string `ADVISOR`, and this spec does not add that role or change the guard. With the roles that exist, only `OWNER` and `ADMIN` pass propose and apply. `SALES` may interpret and receives HTTP 403 on propose and apply. `TECH` receives HTTP 403 on interpret, propose, and apply. The 403 body stays the current `ForbiddenException` text and has no `not_permitted` code. Giving `SALES` propose access is a separate authorization change.
 
@@ -661,14 +662,14 @@ The sentence field submits on an explicit Interpret action. It is not an auto-sa
 
 | Module | Location | Owner |
 | --- | --- | --- |
-| Local interpreter and both command endpoints | `apps/core-api/src/workshop-command/` | Interpreter slice below. AUT-542 consumes the HTTP API |
+| Local interpreter and `POST /interpret` | `apps/core-api/src/workshop-command/` | Interpreter slice. AUT-535 registers `POST /propose`. AUT-542 consumes both |
 | Executor branch | `pending-action-executor.service.ts` | AUT-535 |
 
 ---
 
 ## Testing Plan
 
-The corpus is the acceptance test. A future test loads every file in [`fixtures`](command-first-workshop/fixtures), merges `world_patch` with RFC 7396 onto [`world.json`](command-first-workshop/fixtures/world.json), and freezes `now`. A file with `cases` runs each case. When `expect.body` contains `position_plan` or `code`, it deep-equals the response body. Otherwise it is a deep subset of that body. `$anyUuid` matches any UUID. Omitted `http_status` means 200. `provider_invoked` is `false` and `outbound_bodies` is `[]`. Every string in `forbidden_substrings` is absent from `outbound_bodies`. Fields next to `body` are exact when present, including `queries_other_site` and `named_site_membership_active`. The loader reads `world.caller.site_memberships`. A site counts as a membership only when that list has a row for the site with `is_active: true`. `named_site_membership_active` is true only when that membership exists for the site whose `code` equals `recognized.named_site_code`. On `canonical-huber-golf.json`, slice 2 compares `buildProposal` to `propose_expect.body`, which has no `pending_action_id` and no `trace_id`. Slice 3 compares the persisted `POST /propose` response to `propose_persist_expect.body`, including those ids, and a second identical propose returns the same ids. `domain_rows_before_apply` is empty: no `WorkshopOrder`, `WorkshopTask`, `WorkshopTaskLineItem`, `LoanerBooking`, or `PartsReservation` exists before Apply.
+The corpus is the acceptance test. A future test loads every file in [`fixtures`](command-first-workshop/fixtures), merges `world_patch` with RFC 7396 onto [`world.json`](command-first-workshop/fixtures/world.json), and freezes `now`. A file with `cases` runs each case. When `expect.body` contains `position_plan` or `code`, it deep-equals the response body. Otherwise it is a deep subset of that body. `$anyUuid` matches any UUID. Omitted `http_status` means 200. `provider_invoked` is `false` and `outbound_bodies` is `[]`. Every string in `forbidden_substrings` is absent from `outbound_bodies`. Fields next to `body` are exact when present, including `queries_other_site` and `named_site_membership_active`. The loader reads `world.caller.site_memberships`. A site counts as a membership only when that list has a row for the site with `is_active: true`. `named_site_membership_active` is true only when that membership exists for the site whose `code` equals `recognized.named_site_code`. `slice` names which implementation slice asserts that block: `2` is `buildProposal`, `3` is the persisted route. `retry_returns_same_ids` means a second propose with the same tokens and selections returns the same `pending_action_id` and `trace_id` and inserts no second row. `retry_http_status` is the status of that second call. On `canonical-huber-golf.json`, slice 2 compares `buildProposal` to `propose_expect.body`, which has no `pending_action_id` and no `trace_id`. Slice 3 compares the first persisted `POST /propose` response to `propose_persist_expect`: HTTP 201, and the body includes those ids. The retry is HTTP 200 with the same ids. `domain_rows_before_apply` is empty: no `WorkshopOrder`, `WorkshopTask`, `WorkshopTaskLineItem`, `LoanerBooking`, or `PartsReservation` exists before Apply.
 
 | Fixture | Acceptance case |
 | --- | --- |
@@ -688,7 +689,7 @@ The corpus is the acceptance test. A future test loads every file in [`fixtures`
 
 - [ ] Slice 2 loads the corpus through `buildProposal` and `propose_expect`. `POST /propose` is not registered in this slice. The test does not call `submitPendingAction` and does not require the policy row.
 - [ ] Slice 2 covers a clarification follow-up that reuses `command_id` and adds a selection, `SELECTION_NOT_OFFERED` when a selection is outside `offered_choices`, and `COMMAND_ID_REUSED` when tokens differ.
-- [ ] AUT-535 registers `POST /propose`. The canonical `propose_persist_expect` asserts `pending_action_id` and `trace_id`. A second propose with the same tokens and selections returns those same ids and does not insert a second row. A propose after `EXPIRED` or `REJECTED` returns 409.
+- [ ] AUT-535 registers `POST /propose`. The canonical `propose_persist_expect` asserts HTTP 201 plus `pending_action_id` and `trace_id`. A second propose with the same tokens and selections returns HTTP 200 and those same ids, and does not insert a second row. A propose after `EXPIRED` or `REJECTED` returns 409.
 - [ ] AUT-535 covers `deleteForCommand` on apply, reject, the single-row expire path, and the `AgentProposalReadService` bulk `updateMany`. It also covers REST 422 when the policy row is missing or disabled, 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM` on an `AUTO` upsert, 403 for `SALES`, `LOANER_NOT_PERMITTED` on interpret for `SALES`, 409 `PLAN_STALE`, and a loaner conflict that rolls back the order.
 - [ ] After slice 3, the happy path loads `canonical-huber-golf.json` and asserts no domain row exists before Apply.
 
@@ -708,7 +709,7 @@ Existing tests `GlobalSearch.navigation.test.tsx` and `agent-proposal-submission
 | 2 | A new Linear issue that does not exist yet. The implementer creates it and marks AUT-542 blocked by it. This spec does not create the issue | Interpreter module, session table, `agent_proposals.command_id`, `deleteForCommand`, the expiry purge, and `POST /interpret`. `buildProposal` is a function, not a route. Corpus `propose_expect` has no pending ids. Deletion-policy row and tenant-restore SQL for the session table and `command_id` |
 | 3 | AUT-535 | Policy seed, executor, `POST /propose` persisted through `submitPendingAction`, idempotent return of a `PENDING` row, `deleteForCommand` on apply, reject, single-row expire, and the read-service bulk expire. Site capture and apply-site check for `workshop.booking_package`. Fail closed when position lines are present |
 | 4 | AUT-540 | Preset table, position lines, deletion-policy row, tenant-restore SQL, reservation through the parts service |
-| 5 | AUT-542 | Cmd+K preview and the existing advisor voice route only. It calls the slice-2 endpoints and does not own the interpreter. It stays blocked by the new interpreter issue as well as AUT-535 and AUT-540 |
+| 5 | AUT-542 | Cmd+K preview and the existing advisor voice route only. It calls the slice-2 interpret endpoint and the slice-3 propose endpoint, and it does not own the interpreter. It stays blocked by the new interpreter issue as well as AUT-535 and AUT-540 |
 
 Slice 2 can prove the corpus, including the canonical proposal body, before slice 3. Slice 3 is what first persists an `AgentProposal`. After slice 3, apply of a non-empty plan before slice 4 returns `POSITION_PLAN_EXECUTOR_REQUIRED`.
 

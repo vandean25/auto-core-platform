@@ -134,7 +134,8 @@
   },
   "propose_persist_expect": {
     "slice": 3,
-    "http_status": 200,
+    "http_status": 201,
+    "retry_http_status": 200,
     "retry_returns_same_ids": true,
     "body": {
       "pending_action_id": "$anyUuid",
