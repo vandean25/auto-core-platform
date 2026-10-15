@@ -24,6 +24,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `search_vehicles`      | Search tenant vehicles                                       | Read   | AUTO                                                  |
 | `get_vehicle`          | Get a tenant vehicle                                         | Read   | AUTO                                                  |
 | `get_vehicle_history` | Get a tenant vehicle: Pickerl status, recent inspections, and compact orders (paged) and the first page of documents for the active site | Read | AUTO |
+| `get_vehicle_context` | Compact vehicle work context by section (identity, open workshop orders, inspections, documents, warranty claims, Gewährleistung periods) with per-section totals and cursors | Read | AUTO |
 | `list_workshop_orders` | List workshop orders for the active site                     | Read   | AUTO                                                  |
 | `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
@@ -83,7 +84,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. No other MCP tool accepts a cursor or a `limit` argument.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 41 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 42 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -124,6 +125,7 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `get_vehicle_history` returns the vehicle's identity, `pickerl_due`, `orders` (the same rows and paging), the newest ten `inspections` with `meta.total`, and the first page of `documents`. Inspection dates are `YYYY-MM-DD`; a sticker's validity is `YYYY-MM`.
 - For more documents of a vehicle, call `list_documents` with `entity_type` `vehicle` and the same `entity_id`, and pass `documents.meta.next_cursor` as `cursor`.
 - `get_vehicle` is unchanged. It returns the full vehicle detail, which can be truncated for busy vehicles; prefer `get_vehicle_history` for the order and inspection history.
+- `get_vehicle_context` returns a bounded work context for one vehicle. `sections` selects from `identity`, `open_workshop`, `inspections`, `documents`, `warranty_claims`, and `warranty_periods` (default: all). Vehicle identity and inspections are tenant-wide; open workshop orders, documents, warranty claims, and Gewährleistung periods are scoped to the active site and report `active_site_required` when no site is set. Each section returns `state`, compact real IDs and document refs, optional `meta.total` and `meta.next_cursor`, and `incomplete` when more rows exist. Pass `cursor` from a section's `meta.next_cursor` to continue that section. Inspection and Gewährleistung values name their source and rule limits; complaint, decision, and Gewährleistung note text are omitted. The top-level `disclaimer` states that the payload is context only, not a legal warranty promise.
 
 ### Document reads
 

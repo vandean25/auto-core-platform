@@ -1,0 +1,603 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import type { z } from 'zod';
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { OPEN_WORKSHOP_ORDER_STATUSES } from '../parts-requisition/parts-requisition-lifecycle.helpers.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { attachPickerlDue } from '../vehicle/pickerl/attach-pickerl-due.js';
+import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
+import { toGewaehrleistungReadFields } from '../vehicle-stock/vehicle-sale.warranty.js';
+import { buildMcpKeysetPage, keysetCursorOf } from './mcp-audit-read.mapper.js';
+import { McpDocumentReadService } from './mcp-document-read.service.js';
+import {
+  clampMcpPageSize,
+  decodeMcpKeysetCursor,
+  encodeMcpKeysetCursor,
+  type McpKeysetCursor,
+} from './mcp-output.util.js';
+import {
+  decodeMcpVehicleContextCursor,
+  encodeMcpVehicleContextCursor,
+  MCP_VEHICLE_CONTEXT_DISCLAIMER,
+  MCP_VEHICLE_CONTEXT_OPERATIONAL_SECTIONS,
+  MCP_VEHICLE_CONTEXT_SECTIONS,
+  type McpVehicleContextPaginatedSection,
+  type McpVehicleContextSection,
+  toMcpOpenWorkshopRow,
+  toMcpVehicleContextInspectionRow,
+  toMcpWarrantyClaimContextRow,
+  toMcpWarrantyPeriodRow,
+} from './mcp-vehicle-context.mapper.js';
+import type { getVehicleContextInputSchema } from './mcp-tool-schemas.js';
+
+type GetVehicleContextInput = z.infer<typeof getVehicleContextInputSchema>;
+
+type SectionUnavailable = {
+  state: 'unavailable';
+  reason: 'active_site_required';
+  message: string;
+};
+
+type SectionError = {
+  state: 'error';
+  message: string;
+};
+
+type SectionOk<T> = {
+  state: 'ok';
+  data: T;
+  meta?: {
+    total: number;
+    page_size: number;
+    next_cursor: string | null;
+  };
+  truncated?: boolean;
+  incomplete?: boolean;
+};
+
+type SectionResult<T> = SectionOk<T> | SectionUnavailable | SectionError;
+
+const ACTIVE_SITE_REQUIRED_MESSAGE =
+  'An active site is required for this section.';
+
+const DEFAULT_SECTIONS: McpVehicleContextSection[] = [
+  ...MCP_VEHICLE_CONTEXT_SECTIONS,
+];
+
+function inspectionsOlderThan(cursor: McpKeysetCursor) {
+  const at = new Date(cursor.at);
+  return {
+    OR: [
+      { inspected_on: { lt: at } },
+      { inspected_on: at, id: { lt: cursor.id } },
+    ],
+  };
+}
+
+function ordersOlderThan(cursor: McpKeysetCursor) {
+  const at = new Date(cursor.at);
+  return {
+    OR: [{ createdAt: { lt: at } }, { createdAt: at, id: { lt: cursor.id } }],
+  };
+}
+
+function claimsOlderThan(cursor: McpKeysetCursor) {
+  const at = new Date(cursor.at);
+  return {
+    OR: [{ createdAt: { lt: at } }, { createdAt: at, id: { lt: cursor.id } }],
+  };
+}
+
+function salesOlderThan(cursor: McpKeysetCursor) {
+  const at = new Date(cursor.at);
+  return {
+    OR: [{ createdAt: { lt: at } }, { createdAt: at, id: { lt: cursor.id } }],
+  };
+}
+
+function unavailableSection(): SectionUnavailable {
+  return {
+    state: 'unavailable',
+    reason: 'active_site_required',
+    message: ACTIVE_SITE_REQUIRED_MESSAGE,
+  };
+}
+
+@Injectable()
+export class McpVehicleContextReadService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantContext: TenantContextService,
+    private readonly siteContext: SiteContextService,
+    private readonly documentReads: McpDocumentReadService,
+  ) {}
+
+  async getVehicleContext(input: GetVehicleContextInput) {
+    const tenantId = await this.tenantContext.getTenantId();
+    const asOf = new Date();
+    const pageSize = clampMcpPageSize(input.pageSize);
+    const requested = this.resolveSections(input.sections);
+    const continuation = input.cursor
+      ? decodeMcpVehicleContextCursor(input.cursor)
+      : null;
+    if (input.cursor && !continuation) {
+      throw new BadRequestException('cursor is invalid');
+    }
+    if (
+      continuation &&
+      !requested.includes(continuation.section as McpVehicleContextSection)
+    ) {
+      throw new BadRequestException(
+        'cursor section is not included in sections',
+      );
+    }
+
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: { id: input.vehicle_id, tenant_id: tenantId },
+      select: {
+        id: true,
+        make: true,
+        model: true,
+        year: true,
+        plate: true,
+        vin: true,
+        first_registration_date: true,
+        inspection_records: {
+          orderBy: [{ inspected_on: 'desc' }, { id: 'desc' }],
+          select: {
+            id: true,
+            inspection_type: true,
+            inspected_on: true,
+            plaketten_valid_until_year: true,
+            plaketten_valid_until_month: true,
+            station_name: true,
+          },
+        },
+      },
+    });
+    if (!vehicle) {
+      throw new NotFoundException(
+        `Vehicle with ID ${input.vehicle_id} not found`,
+      );
+    }
+
+    const siteId = await this.siteContext.findSiteId();
+    const sections: Partial<
+      Record<McpVehicleContextSection, SectionResult<unknown>>
+    > = {};
+
+    const shouldLoad = (section: McpVehicleContextSection) =>
+      !continuation || continuation.section === section;
+
+    if (requested.includes('identity') && shouldLoad('identity')) {
+      const { inspection_records, ...identity } = vehicle;
+      const { pickerl_due } = attachPickerlDue(
+        { ...identity, inspection_records },
+        asOf,
+      );
+      sections.identity = {
+        state: 'ok',
+        data: {
+          vehicle: {
+            id: identity.id,
+            make: identity.make,
+            model: identity.model,
+            year: identity.year,
+            plate: identity.plate,
+            vin: identity.vin,
+            first_registration_date: identity.first_registration_date
+              ? identity.first_registration_date.toISOString().slice(0, 10)
+              : null,
+          },
+          pickerl_due,
+        },
+      };
+    }
+
+    if (requested.includes('inspections') && shouldLoad('inspections')) {
+      sections.inspections = await this.loadInspectionsSection(
+        vehicle.id,
+        tenantId,
+        pageSize,
+        continuation?.section === 'inspections'
+          ? continuation.keyset ?? null
+          : null,
+      );
+    }
+
+    for (const operational of MCP_VEHICLE_CONTEXT_OPERATIONAL_SECTIONS) {
+      if (!requested.includes(operational) || !shouldLoad(operational)) {
+        continue;
+      }
+      if (!siteId) {
+        sections[operational] = unavailableSection();
+        continue;
+      }
+      switch (operational) {
+        case 'open_workshop':
+          sections.open_workshop = await this.loadOpenWorkshopSection(
+            tenantId,
+            siteId,
+            vehicle.id,
+            pageSize,
+            continuation?.section === 'open_workshop'
+              ? continuation.keyset ?? null
+              : null,
+          );
+          break;
+        case 'documents':
+          sections.documents = await this.loadDocumentsSection(
+            vehicle.id,
+            pageSize,
+            continuation?.section === 'documents'
+              ? continuation.keyset ?? null
+              : null,
+          );
+          break;
+        case 'warranty_claims':
+          sections.warranty_claims = await this.loadWarrantyClaimsSection(
+            tenantId,
+            siteId,
+            vehicle.id,
+            pageSize,
+            continuation?.section === 'warranty_claims'
+              ? continuation.keyset ?? null
+              : null,
+          );
+          break;
+        case 'warranty_periods':
+          sections.warranty_periods = await this.loadWarrantyPeriodsSection(
+            tenantId,
+            siteId,
+            vehicle.id,
+            asOf,
+            pageSize,
+            continuation?.section === 'warranty_periods'
+              ? continuation.keyset ?? null
+              : null,
+          );
+          break;
+        default:
+          break;
+      }
+    }
+
+    return {
+      vehicle_id: vehicle.id,
+      as_of: asOf.toISOString(),
+      disclaimer: MCP_VEHICLE_CONTEXT_DISCLAIMER,
+      site_id: siteId,
+      sections,
+    };
+  }
+
+  private resolveSections(
+    sections: McpVehicleContextSection[] | undefined,
+  ): McpVehicleContextSection[] {
+    if (!sections || sections.length === 0) {
+      return DEFAULT_SECTIONS;
+    }
+    const unique = [...new Set(sections)];
+    return unique;
+  }
+
+  private async loadInspectionsSection(
+    vehicleId: string,
+    tenantId: string,
+    pageSize: number,
+    cursor: McpKeysetCursor | null,
+  ): Promise<SectionResult<unknown>> {
+    const cursorWhere = cursor ? { AND: [inspectionsOlderThan(cursor)] } : {};
+    const [total, records] = await Promise.all([
+      this.prisma.vehicleInspectionRecord.count({
+        where: { tenant_id: tenantId, vehicle_id: vehicleId },
+      }),
+      this.prisma.vehicleInspectionRecord.findMany({
+        where: {
+          tenant_id: tenantId,
+          vehicle_id: vehicleId,
+          ...cursorWhere,
+        },
+        orderBy: [{ inspected_on: 'desc' }, { id: 'desc' }],
+        take: pageSize + 1,
+        select: {
+          id: true,
+          inspection_type: true,
+          inspected_on: true,
+          plaketten_valid_until_year: true,
+          plaketten_valid_until_month: true,
+          station_name: true,
+        },
+      }),
+    ]);
+
+    const page = buildMcpKeysetPage({
+      records,
+      pageSize,
+      cursorOf: (record) =>
+        keysetCursorOf(record.inspected_on, record.id),
+      mapRow: toMcpVehicleContextInspectionRow,
+    });
+
+    return {
+      state: 'ok',
+      data: page.data,
+      meta: {
+        total,
+        page_size: page.meta.page_size,
+        next_cursor: this.wrapSectionCursor('inspections', page.meta.next_cursor),
+      },
+      truncated: page.truncated,
+      incomplete: page.meta.next_cursor !== null,
+    };
+  }
+
+  private async loadOpenWorkshopSection(
+    tenantId: string,
+    siteId: string,
+    vehicleId: string,
+    pageSize: number,
+    cursor: McpKeysetCursor | null,
+  ): Promise<SectionResult<unknown>> {
+    const baseWhere: Prisma.WorkshopOrderWhereInput = {
+      tenant_id: tenantId,
+      site_id: siteId,
+      vehicle_id: vehicleId,
+      status: { in: [...OPEN_WORKSHOP_ORDER_STATUSES] },
+    };
+    const cursorWhere = cursor ? { AND: [ordersOlderThan(cursor)] } : {};
+    const [total, records] = await Promise.all([
+      this.prisma.workshopOrder.count({ where: baseWhere }),
+      this.prisma.workshopOrder.findMany({
+        where: { ...baseWhere, ...cursorWhere },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: pageSize + 1,
+        select: {
+          id: true,
+          order_number: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const page = buildMcpKeysetPage({
+      records,
+      pageSize,
+      cursorOf: (record) => keysetCursorOf(record.createdAt, record.id),
+      mapRow: toMcpOpenWorkshopRow,
+    });
+
+    return {
+      state: 'ok',
+      data: page.data,
+      meta: {
+        total,
+        page_size: page.meta.page_size,
+        next_cursor: this.wrapSectionCursor(
+          'open_workshop',
+          page.meta.next_cursor,
+        ),
+      },
+      truncated: page.truncated,
+      incomplete: page.meta.next_cursor !== null,
+    };
+  }
+
+  private async loadDocumentsSection(
+    vehicleId: string,
+    pageSize: number,
+    cursor: McpKeysetCursor | null,
+  ): Promise<SectionResult<unknown>> {
+    const [documents, total] = await Promise.all([
+      this.documentReads.listDocuments({
+        entity_type: 'vehicle',
+        entity_id: vehicleId,
+        pageSize,
+        cursor: cursor ? encodeMcpKeysetCursor(cursor) : undefined,
+      }),
+      this.countVehicleDocuments(vehicleId),
+    ]);
+
+    return {
+      state: 'ok',
+      data: documents.data,
+      meta: {
+        total,
+        page_size: documents.meta.page_size,
+        next_cursor: this.wrapSectionCursor(
+          'documents',
+          documents.meta.next_cursor,
+        ),
+      },
+      truncated: documents.truncated,
+      incomplete: documents.meta.next_cursor !== null,
+    };
+  }
+
+  private async countVehicleDocuments(vehicleId: string): Promise<number> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    const scoped = { tenant_id: tenantId, site_id: siteId };
+    const pdfReady = [
+      {
+        OR: [
+          { pdf_archive_key: { not: null } },
+          { pdf_storage_key: { not: null } },
+        ],
+      },
+      { pdf_generated_at: { not: null } },
+    ];
+    const [invoices, creditNotes, workshopOrders, sales] = await Promise.all([
+      this.prisma.invoice.count({
+        where: {
+          ...scoped,
+          vehicle_id: vehicleId,
+          AND: pdfReady,
+        },
+      }),
+      this.prisma.creditNote.count({
+        where: {
+          ...scoped,
+          pdf_storage_key: { not: null },
+          pdf_generated_at: { not: null },
+          original_invoice: { vehicle_id: vehicleId },
+        },
+      }),
+      this.prisma.workshopOrder.count({
+        where: {
+          ...scoped,
+          vehicle_id: vehicleId,
+          pdf_storage_key: { not: null },
+          pdf_generated_at: { not: null },
+        },
+      }),
+      this.prisma.vehicleSale.count({
+        where: {
+          ...scoped,
+          vehicle_id: vehicleId,
+          pdf_storage_key: { not: null },
+          pdf_generated_at: { not: null },
+        },
+      }),
+    ]);
+    return invoices + creditNotes + workshopOrders + sales;
+  }
+
+  private async loadWarrantyClaimsSection(
+    tenantId: string,
+    siteId: string,
+    vehicleId: string,
+    pageSize: number,
+    cursor: McpKeysetCursor | null,
+  ): Promise<SectionResult<unknown>> {
+    const orderScope = {
+      tenant_id: tenantId,
+      site_id: siteId,
+      vehicle_id: vehicleId,
+    };
+    const baseWhere: Prisma.WarrantyClaimWhereInput = {
+      tenant_id: tenantId,
+      workshop_order: orderScope,
+    };
+    const cursorWhere = cursor ? { AND: [claimsOlderThan(cursor)] } : {};
+    const [total, records] = await Promise.all([
+      this.prisma.warrantyClaim.count({ where: baseWhere }),
+      this.prisma.warrantyClaim.findMany({
+        where: { ...baseWhere, ...cursorWhere },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: pageSize + 1,
+        select: {
+          id: true,
+          workshop_order_id: true,
+          type: true,
+          status: true,
+          claimed_amount_net: true,
+          external_reference: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const page = buildMcpKeysetPage({
+      records,
+      pageSize,
+      cursorOf: (record) => keysetCursorOf(record.createdAt, record.id),
+      mapRow: toMcpWarrantyClaimContextRow,
+    });
+
+    return {
+      state: 'ok',
+      data: page.data,
+      meta: {
+        total,
+        page_size: page.meta.page_size,
+        next_cursor: this.wrapSectionCursor(
+          'warranty_claims',
+          page.meta.next_cursor,
+        ),
+      },
+      truncated: page.truncated,
+      incomplete: page.meta.next_cursor !== null,
+    };
+  }
+
+  private async loadWarrantyPeriodsSection(
+    tenantId: string,
+    siteId: string,
+    vehicleId: string,
+    asOf: Date,
+    pageSize: number,
+    cursor: McpKeysetCursor | null,
+  ): Promise<SectionResult<unknown>> {
+    const today = viennaIsoDay(asOf);
+    const baseWhere: Prisma.VehicleSaleWhereInput = {
+      tenant_id: tenantId,
+      site_id: siteId,
+      vehicle_id: vehicleId,
+    };
+    const cursorWhere = cursor ? { AND: [salesOlderThan(cursor)] } : {};
+    const [total, records] = await Promise.all([
+      this.prisma.vehicleSale.count({ where: baseWhere }),
+      this.prisma.vehicleSale.findMany({
+        where: { ...baseWhere, ...cursorWhere },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: pageSize + 1,
+        select: {
+          id: true,
+          sale_number: true,
+          contract_concluded_at: true,
+          handed_over_at: true,
+          gewaehrleistung_ends_on: true,
+          presumption_ends_on: true,
+          gewaehrleistung_rule_version: true,
+          gewaehrleistung_shortened_negotiated: true,
+          buyer_is_consumer: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    const page = buildMcpKeysetPage({
+      records,
+      pageSize,
+      cursorOf: (record) => keysetCursorOf(record.createdAt, record.id),
+      mapRow: (sale) =>
+        toMcpWarrantyPeriodRow(sale, toGewaehrleistungReadFields(sale, today)),
+    });
+
+    return {
+      state: 'ok',
+      data: page.data,
+      meta: {
+        total,
+        page_size: page.meta.page_size,
+        next_cursor: this.wrapSectionCursor(
+          'warranty_periods',
+          page.meta.next_cursor,
+        ),
+      },
+      truncated: page.truncated,
+      incomplete: page.meta.next_cursor !== null,
+    };
+  }
+
+  private wrapSectionCursor(
+    section: McpVehicleContextPaginatedSection,
+    nextCursor: string | null,
+  ): string | null {
+    if (!nextCursor) {
+      return null;
+    }
+    const keyset = decodeMcpKeysetCursor(nextCursor);
+    if (!keyset) {
+      return null;
+    }
+    return encodeMcpVehicleContextCursor({ section, keyset });
+  }
+}

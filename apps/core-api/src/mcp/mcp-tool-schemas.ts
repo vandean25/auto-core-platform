@@ -28,6 +28,10 @@ import {
   normalizeMcpRangeEnd,
   normalizeMcpRangeStart,
 } from './mcp-output.util.js';
+import {
+  decodeMcpVehicleContextCursor,
+  MCP_VEHICLE_CONTEXT_SECTIONS,
+} from './mcp-vehicle-context.mapper.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const pageSizeSchema = z.number().int().min(1).max(25).optional();
@@ -279,6 +283,32 @@ export const getCustomerInputSchema = z.object({
 export const getVehicleHistoryInputSchema = z.object({
   vehicle_id: uuidSchema,
   ...orderHistoryPageFields,
+});
+
+const vehicleContextSectionSchema = z.enum(MCP_VEHICLE_CONTEXT_SECTIONS);
+
+const vehicleContextCursorSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]+$/, 'cursor is invalid')
+  .refine(
+    (cursor) => decodeMcpVehicleContextCursor(cursor) !== null,
+    'cursor is invalid',
+  );
+
+/** AUT-513 compact vehicle work context with a finite section allowlist. */
+export const getVehicleContextInputSchema = z.object({
+  vehicle_id: uuidSchema,
+  sections: z
+    .array(vehicleContextSectionSchema)
+    .min(1)
+    .optional()
+    .describe(
+      'identity, open_workshop, inspections, documents, warranty_claims, warranty_periods. Default: all',
+    ),
+  pageSize: pageSizeCamelSchema,
+  cursor: vehicleContextCursorSchema
+    .optional()
+    .describe('Cursor from a section meta.next_cursor'),
 });
 
 /** AUT-459 document reads: a document ID is `<type>:<uuid>`, and list paging is the AUT-455 keyset contract. */
@@ -581,6 +611,7 @@ export const mcpToolInputSchemas: Record<
   get_agent_action: getAgentActionInputSchema,
   list_agent_actions: listAgentActionsInputSchema,
   get_vehicle_history: getVehicleHistoryInputSchema,
+  get_vehicle_context: getVehicleContextInputSchema,
   list_documents: listDocumentsInputSchema,
   get_document_pdf: getDocumentPdfInputSchema,
   get_tenant_settings: getTenantSettingsInputSchema,

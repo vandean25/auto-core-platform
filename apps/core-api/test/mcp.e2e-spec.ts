@@ -103,6 +103,7 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_invoice',
   'get_agent_action',
   'get_vehicle_history',
+  'get_vehicle_context',
   'get_document_pdf',
   'get_legal_entity',
   'get_purchase_order',
@@ -752,6 +753,10 @@ describe('MCP server (e2e)', () => {
       {
         name: 'get_vehicle_history',
         arguments: { vehicle_id: fixtures.vehicleId },
+      },
+      {
+        name: 'get_vehicle_context',
+        arguments: { vehicle_id: fixtures.vehicleId, sections: ['identity'] },
       },
       {
         name: 'list_documents',
@@ -3679,6 +3684,39 @@ describe('MCP server (e2e)', () => {
       expect(detail.orders.data.map((row) => row.id)).not.toContain(
         historyOtherSiteOrderId,
       );
+
+      const vehicleContext = parsePayload<{
+        sections: {
+          open_workshop?: {
+            state: string;
+            data?: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+          documents?: {
+            state: string;
+            data?: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+        };
+      }>(
+        await historyCall('get_vehicle_context', {
+          vehicle_id: historyVehicleId,
+          sections: ['open_workshop', 'documents'],
+        }),
+      );
+      const openIds =
+        vehicleContext.sections.open_workshop?.state === 'ok'
+          ? (vehicleContext.sections.open_workshop.data ?? []).map((row) => row.id)
+          : [];
+      expect(openIds).not.toContain(historyOtherSiteOrderId);
+      expect(vehicleContext.sections.open_workshop?.meta?.total ?? 0).toBe(
+        openIds.length,
+      );
+      const documentIds =
+        vehicleContext.sections.documents?.state === 'ok'
+          ? (vehicleContext.sections.documents.data ?? []).map((row) => row.id)
+          : [];
+      expect(documentIds).not.toContain(documentId);
     });
 
     it('does not reveal another tenant document, customer, or vehicle', async () => {
@@ -3689,6 +3727,11 @@ describe('MCP server (e2e)', () => {
       ).toContain(`Document with ID ${otherTenantDocumentId} not found`);
       expect(
         await historyCallErrorText('get_vehicle_history', {
+          vehicle_id: otherTenantVehicleId,
+        }),
+      ).toContain(`Vehicle with ID ${otherTenantVehicleId} not found`);
+      expect(
+        await historyCallErrorText('get_vehicle_context', {
           vehicle_id: otherTenantVehicleId,
         }),
       ).toContain(`Vehicle with ID ${otherTenantVehicleId} not found`);

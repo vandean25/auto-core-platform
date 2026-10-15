@@ -897,6 +897,123 @@ export const mcpToolOutputSchemas = {
     }),
     documents: z.object(keysetPageShape(z.object(documentRowShape))),
   }),
+  get_vehicle_context: resultOf({
+    vehicle_id: idString,
+    as_of: isoDateTime,
+    disclaimer: nonEmptyString,
+    site_id: nullableIdString,
+    sections: z.object({
+      identity: z
+        .object({
+          state: z.literal('ok'),
+          data: z.object({
+            vehicle: z.object({
+              id: idString,
+              make: z.string(),
+              model: z.string(),
+              year: z.number().int(),
+              plate: nullableString,
+              vin: nullableString,
+              first_registration_date: isoDateOnly.nullable(),
+            }),
+            pickerl_due: pickerlDueSchema,
+          }),
+        })
+        .optional(),
+      open_workshop: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(
+              z.object({
+                id: idString,
+                number: nonEmptyString,
+                status: z.string(),
+                opened_at: isoDateTime,
+                workshop_order_ref: idString,
+              }),
+            ),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+      inspections: z
+        .object({
+          state: z.literal('ok'),
+          data: z.array(z.record(z.string(), z.unknown())),
+          meta: totalCursorMeta,
+          truncated: z.boolean().optional(),
+          incomplete: z.boolean().optional(),
+        })
+        .optional(),
+      documents: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(z.object(documentRowShape)),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+      warranty_claims: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(
+              z.object({
+                id: idString,
+                workshop_order_id: idString,
+                type: z.string(),
+                status: z.string(),
+                claimed_amount_net: nullableDecimalString,
+                external_reference: nullableString,
+                created_at: isoDateTime,
+                workshop_order_ref: idString,
+              }),
+            ),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+      warranty_periods: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(z.record(z.string(), z.unknown())),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+    }),
+  }),
   list_documents: resultOf(keysetPageShape(z.object(documentRowShape))),
   get_document_pdf: resultOf({
     ...documentRowShape,

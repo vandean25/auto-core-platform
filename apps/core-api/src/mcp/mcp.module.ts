@@ -18,6 +18,7 @@ import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
+import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpReadToolService } from './mcp-read-tool.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
@@ -60,6 +61,7 @@ import { SiteModule } from '../site/site.module.js';
     McpDocumentReadService,
     McpInvoiceReadService,
     McpOrderHistoryReadService,
+    McpVehicleContextReadService,
     McpPurchasingReadService,
     McpReadToolService,
     McpRecordReadService,
