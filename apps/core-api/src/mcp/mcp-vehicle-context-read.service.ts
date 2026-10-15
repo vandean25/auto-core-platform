@@ -360,7 +360,13 @@ export class McpVehicleContextReadService {
     const [total, records] = await Promise.all([
       this.prisma.workshopOrder.count({ where: baseWhere }),
       this.prisma.workshopOrder.findMany({
-        where: { ...baseWhere, ...cursorWhere },
+        where: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          vehicle_id: vehicleId,
+          status: { in: [...OPEN_WORKSHOP_ORDER_STATUSES] },
+          ...cursorWhere,
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: pageSize + 1,
         select: {
@@ -433,7 +439,6 @@ export class McpVehicleContextReadService {
     siteId: string,
     vehicleId: string,
   ): Promise<number> {
-    const scoped = { tenant_id: tenantId, site_id: siteId };
     const pdfReady = [
       {
         OR: [
@@ -446,14 +451,16 @@ export class McpVehicleContextReadService {
     const [invoices, creditNotes, workshopOrders, sales] = await Promise.all([
       this.prisma.invoice.count({
         where: {
-          ...scoped,
+          tenant_id: tenantId,
+          site_id: siteId,
           vehicle_id: vehicleId,
           AND: pdfReady,
         },
       }),
       this.prisma.creditNote.count({
         where: {
-          ...scoped,
+          tenant_id: tenantId,
+          site_id: siteId,
           pdf_storage_key: { not: null },
           pdf_generated_at: { not: null },
           original_invoice: { vehicle_id: vehicleId },
@@ -461,7 +468,8 @@ export class McpVehicleContextReadService {
       }),
       this.prisma.workshopOrder.count({
         where: {
-          ...scoped,
+          tenant_id: tenantId,
+          site_id: siteId,
           vehicle_id: vehicleId,
           pdf_storage_key: { not: null },
           pdf_generated_at: { not: null },
@@ -469,7 +477,8 @@ export class McpVehicleContextReadService {
       }),
       this.prisma.vehicleSale.count({
         where: {
-          ...scoped,
+          tenant_id: tenantId,
+          site_id: siteId,
           vehicle_id: vehicleId,
           kaufvertrag_archive_key: { not: null },
           kaufvertrag_generated_at: { not: null },
@@ -499,7 +508,11 @@ export class McpVehicleContextReadService {
     const [total, records] = await Promise.all([
       this.prisma.warrantyClaim.count({ where: baseWhere }),
       this.prisma.warrantyClaim.findMany({
-        where: { ...baseWhere, ...cursorWhere },
+        where: {
+          tenant_id: tenantId,
+          workshop_order: orderScope,
+          ...cursorWhere,
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: pageSize + 1,
         select: {
@@ -555,7 +568,12 @@ export class McpVehicleContextReadService {
     const [total, records] = await Promise.all([
       this.prisma.vehicleSale.count({ where: baseWhere }),
       this.prisma.vehicleSale.findMany({
-        where: { ...baseWhere, ...cursorWhere },
+        where: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          vehicle_id: vehicleId,
+          ...cursorWhere,
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: pageSize + 1,
         select: {

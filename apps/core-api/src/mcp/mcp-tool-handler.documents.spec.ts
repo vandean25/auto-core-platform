@@ -73,6 +73,7 @@ describe('McpToolHandlerService documents and history reads', () => {
       unused,
       unused,
       orderHistoryReads as unknown as McpOrderHistoryReadService,
+      unused,
       documentReads as unknown as McpDocumentReadService,
       unused,
       unused,
