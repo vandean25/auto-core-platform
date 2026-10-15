@@ -252,7 +252,7 @@ describe('enqueueEstimateDecisionEvent', () => {
       channel: EstimateApprovalChannel.PHONE,
       decidedAt: new Date('2026-10-15T10:00:00.000Z'),
       traceId: '00000000-0000-4000-8000-000000000001',
-      domainEventStore: domainEventStore as never,
+      domainEventStore,
     });
 
     expect(outbox.enqueueInTx).toHaveBeenCalledWith(tx, {

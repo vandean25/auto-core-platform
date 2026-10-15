@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -113,60 +114,67 @@ describe('Domain event store (e2e, AUT-536)', () => {
   });
 
   it('rolls back the order when a domain event insert fails', async () => {
-    const orderId = '00000000-0000-4000-8000-00000000dead';
+    const orderId = randomUUID();
+    const seedEventId = randomUUID();
     const occurrenceKey = `workshop_order.scheduled.v1:${orderId}`;
     await prisma.domainEvent.create({
       data: {
-        id: '00000000-0000-4000-8000-00000000beef',
+        id: seedEventId,
         event_type: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
         schema_version: 1,
         tenant_id: tenantId,
         site_id: siteId,
         entity_id: orderId,
         occurred_at: new Date('2026-09-02T08:00:00.000Z'),
-        trace_id: '00000000-0000-4000-8000-000000000010',
+        trace_id: randomUUID(),
         occurrence_key: occurrenceKey,
       },
     });
 
-    await expect(
-      prisma.$transaction(async (tx) => {
-        await tx.workshopOrder.create({
-          data: {
-            id: orderId,
-            tenant_id: tenantId,
-            site_id: siteId,
-            order_number: `WO-ROLLBACK-${Date.now()}`,
-            purpose: 'CUSTOMER_REPAIR',
-            customer_id: customerId,
-            vehicle_id: vehicleId,
-            status: 'SCHEDULED',
-            bay_id: bayId,
-            scheduled_start_at: new Date('2026-09-02T08:00:00.000Z'),
-            scheduled_end_at: new Date('2026-09-02T09:00:00.000Z'),
-            odometer: 0,
-            fuel_level: 0,
-          },
-        });
-        await tx.domainEvent.create({
-          data: {
-            event_type: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
-            schema_version: 1,
-            tenant_id: tenantId,
-            site_id: siteId,
-            entity_id: orderId,
-            occurred_at: new Date('2026-09-02T08:00:00.000Z'),
-            trace_id: '00000000-0000-4000-8000-000000000011',
-            occurrence_key: occurrenceKey,
-          },
-        });
-      }),
-    ).rejects.toThrow();
+    try {
+      await expect(
+        prisma.$transaction(async (tx) => {
+          await tx.workshopOrder.create({
+            data: {
+              id: orderId,
+              tenant_id: tenantId,
+              site_id: siteId,
+              order_number: `WO-ROLLBACK-${Date.now()}`,
+              purpose: 'CUSTOMER_REPAIR',
+              customer_id: customerId,
+              vehicle_id: vehicleId,
+              status: 'SCHEDULED',
+              bay_id: bayId,
+              scheduled_start_at: new Date('2026-09-02T08:00:00.000Z'),
+              scheduled_end_at: new Date('2026-09-02T09:00:00.000Z'),
+              odometer: 0,
+              fuel_level: 0,
+            },
+          });
+          await tx.domainEvent.create({
+            data: {
+              event_type: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
+              schema_version: 1,
+              tenant_id: tenantId,
+              site_id: siteId,
+              entity_id: orderId,
+              occurred_at: new Date('2026-09-02T08:00:00.000Z'),
+              trace_id: randomUUID(),
+              occurrence_key: occurrenceKey,
+            },
+          });
+        }),
+      ).rejects.toThrow();
 
-    const order = await prisma.workshopOrder.findFirst({
-      where: { id: orderId, tenant_id: tenantId },
-    });
-    expect(order).toBeNull();
+      const order = await prisma.workshopOrder.findFirst({
+        where: { id: orderId, tenant_id: tenantId },
+      });
+      expect(order).toBeNull();
+    } finally {
+      await prisma.domainEvent.deleteMany({
+        where: { tenant_id: tenantId, id: seedEventId },
+      });
+    }
   });
 
   it('pages the feed by monotonic sequence with a versioned cursor', async () => {

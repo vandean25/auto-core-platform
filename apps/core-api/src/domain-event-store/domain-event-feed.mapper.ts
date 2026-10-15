@@ -16,7 +16,9 @@ export type DomainEventEnvelopeDto = {
   decision?: EstimateApprovalDecision;
 };
 
-export function toDomainEventEnvelope(row: DomainEvent): DomainEventEnvelopeDto {
+export function toDomainEventEnvelope(
+  row: DomainEvent,
+): DomainEventEnvelopeDto {
   const base: DomainEventEnvelopeDto = {
     event_id: row.id,
     event_type: row.event_type,

@@ -9,9 +9,10 @@ export type DomainEventFeedCursor = {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function encodeDomainEventFeedCursor(
-  position: { sequence: bigint; id: string },
-): string {
+export function encodeDomainEventFeedCursor(position: {
+  sequence: bigint;
+  id: string;
+}): string {
   const cursor: DomainEventFeedCursor = {
     v: DOMAIN_EVENT_CURSOR_VERSION,
     seq: position.sequence.toString(),

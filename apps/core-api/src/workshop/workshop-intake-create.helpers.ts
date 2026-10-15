@@ -12,7 +12,6 @@ import {
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { SiteContextService } from '../site/site-context.service.js';
-import type { WorkshopScheduleService } from './workshop-schedule.service.js';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 import type { WorkshopOrderWithRelations } from './workshop-order.helpers.js';
 import {
