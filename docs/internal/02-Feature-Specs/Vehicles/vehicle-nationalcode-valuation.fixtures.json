@@ -185,7 +185,6 @@
         "idempotencyKey": "synthetic-missing-mileage",
         "body": {
           "valuationType": "MARKET_VALUE",
-          "mileageKm": null,
           "condition": "ROADWORTHY_AVERAGE",
           "requestedAsOf": "2026-10-15",
           "currency": "EUR"

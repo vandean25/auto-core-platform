@@ -111,7 +111,7 @@ Eurotax Austria also says more than 97 percent of vehicles can be identified fro
 | National code | The server reads `Vehicle.national_code`. It is not a field of `CreateVehicleValuation`. A body that contains `nationalCode` is rejected by the global `ValidationPipe` (`whitelist` and `forbidNonWhitelisted` in `validation.pipe.ts`) with HTTP 400, and the service does not run. The stored code is copied onto `ValuationQuoteInput` and into `inputSha256` only after that pipe accepts the body. |
 | As-of | `requestedAsOf` is `YYYY-MM-DD` and not after today in `Europe/Vienna`. When `first_registration_date` is present, the date is not before that registration. Omitted means today in `Europe/Vienna`. |
 | Currency | Requested `EUR`. A provider amount in another currency is `CURRENCY_CONFLICT`, amount null, and nothing is stored. |
-| Mileage | Integer kilometres from 0 through 999999, supplied on this request. `Vehicle.mileage` is not a silent default. This is an input of this slice. It is not a claim that Eurotax refuses the subject vehicle. |
+| Mileage | Integer kilometres from 0 through 999999 when the caller sends it. `Vehicle.mileage` is not a silent default. Omitting `mileageKm`, or sending JSON null, is `MISSING_DATA`. A present value that is not an integer in that range is HTTP 400 from the pipe, and the service does not run. |
 | Condition | `ROADWORTHY_AVERAGE`, `POOR`, and `NOT_ROADWORTHY` are all sent. They describe the vehicle being quoted. |
 | First registration | Not required. A null `first_registration_date` does not block the quote and is not `MISSING_DATA`. `Vehicle.year` is not sent as an age. |
 | Source | On a real quote, `EUROTAX_AT_AUTOVALUATION`. Otherwise `source` is null and `sourceState` is `UNKNOWN`. |
@@ -131,7 +131,7 @@ The public valuation relaunch note says kilometre corrections are included in th
 | `QUOTED` | One amount, currency `EUR`, known source, known `providerAsOf`, known `referenceVersion` | Yes | 201 |
 | `UNCERTAIN_IDENTITY` | National code missing, not six digits, equal to the VIN, 17 characters, or equal to `typenschein_no` | No | 422 |
 | `AMBIGUOUS_VARIANT` | The fake or future provider returns more than one type for that code. Labels are synthetic in tests. No candidate is selected. | No | 409 |
-| `MISSING_DATA` | Mileage or condition absent on an otherwise valid body | No | 422 |
+| `MISSING_DATA` | The pipe accepted the body, and `mileageKm` or `condition` was omitted or JSON null | No | 422 |
 | `CONFLICT_REPLAY` | The same `Idempotency-Key` is reused with a different `inputSha256` | No new row and no provider call | 409 |
 | `REFERENCE_VERSION_UNKNOWN` | A provider body has an amount but no version string | No | 422 |
 | `AS_OF_UNKNOWN` | A provider body has an amount but no observation date | No | 422 |
@@ -205,12 +205,14 @@ Request body for `POST /api/vehicles/:id/valuations`:
 ```typescript
 export interface CreateVehicleValuation {
   valuationType: 'MARKET_VALUE';
-  mileageKm: number;
-  condition: 'ROADWORTHY_AVERAGE' | 'POOR' | 'NOT_ROADWORTHY';
+  mileageKm?: number;
+  condition?: 'ROADWORTHY_AVERAGE' | 'POOR' | 'NOT_ROADWORTHY';
   requestedAsOf?: string;
   currency: 'EUR';
 }
 ```
+
+`mileageKm` and `condition` are optional on this HTTP type. AUT-551 decorates each with `@IsOptional()`, then `@IsInt()`, `@Min(0)`, and `@Max(999999)` for mileage, and `@IsIn` for the three conditions. `@IsOptional()` treats an omitted property and JSON `null` as empty, so the global pipe accepts the body and the service answers `422` `MISSING_DATA`. A present mileage outside that range, or a condition outside the three values, is HTTP 400 and the service does not run. `ValuationQuoteInput.mileageKm` and `condition` stay required. The provider is called only after `MISSING_DATA` has been ruled out.
 
 Header `Idempotency-Key` is required, 8 to 80 characters from `A-Za-z0-9-_`. A missing header is `422` `VALUATION_IDEMPOTENCY_KEY_INVALID`.
 
@@ -373,7 +375,7 @@ AUT-551 loads [vehicle-nationalcode-valuation.fixtures.json](./vehicle-nationalc
 - [ ] `national-code-in-body` returns 400 and does not quote either the body code or the stored code.
 - [ ] `uncertain-identity-vin-shaped` and `uncertain-identity-equals-typenschein` return 422 and write nothing. The rejected code is the stored column.
 - [ ] `ambiguous-variant` returns 409, stores nothing, and does not pick a candidate.
-- [ ] `missing-mileage` returns 422.
+- [ ] `missing-mileage` omits `mileageKm`, the pipe accepts the body, and the service returns 422 `MISSING_DATA`.
 - [ ] `quoted-poor-without-first-registration` stores a `POOR` quote when `first_registration_date` is null.
 - [ ] `stale-valuation` returns `result: "QUOTED"` and `stale: true` on a read dated 2026-10-15, and does not start a new provider call.
 - [ ] `conflict-replay` returns 409 and does not insert a second row.
