@@ -15,6 +15,9 @@ import {
   pickClosestScheduledOrder,
 } from './workshop-intake-query.helpers.js';
 import { createPickerlTaskAndInspection } from './workshop-pickerl.helpers.js';
+import type { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import { appendWorkshopOrderScheduledDomainEvent } from './workshop-domain-event.helpers.js';
+import { randomUUID } from 'node:crypto';
 
 export interface ExecuteCreateOrderParams {
   tx: Prisma.TransactionClient;
@@ -26,6 +29,8 @@ export interface ExecuteCreateOrderParams {
   isScheduled: boolean;
   scheduleService: Pick<WorkshopScheduleService, 'assertCanBook'>;
   generateOrderNumber: (tx: Prisma.TransactionClient) => Promise<string>;
+  domainEventStore: DomainEventStoreService;
+  traceId?: string;
 }
 
 export interface InsertWorkshopOrderParams {
@@ -229,6 +234,8 @@ export async function executeCreateOrder(
     isScheduled,
     scheduleService,
     generateOrderNumber,
+    domainEventStore,
+    traceId,
   } = params;
 
   await lockSitesAndAssertActive(tx, tenantId, [siteId]);
@@ -265,6 +272,16 @@ export async function executeCreateOrder(
     booked,
     orderNumber,
   });
+  if (isScheduled && booked) {
+    const occurredAt = booked.start;
+    await appendWorkshopOrderScheduledDomainEvent(tx, domainEventStore, {
+      tenantId,
+      siteId,
+      orderId: order.id,
+      occurredAt,
+      traceId: traceId ?? randomUUID(),
+    });
+  }
   return attachPickerlTaskIfRequested(
     tx,
     tenantId,

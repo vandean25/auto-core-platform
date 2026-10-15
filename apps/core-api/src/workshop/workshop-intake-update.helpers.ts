@@ -5,6 +5,8 @@ import type { TenantContextService } from '../common/services/tenant-context.ser
 import type { SiteContextService } from '../site/site-context.service.js';
 import type { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
 import type { WorkshopScheduleService } from './workshop-schedule.service.js';
+import type { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import type { RequestContextService } from '../common/services/request-context.service.js';
 import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
 import {
   assertOrderEditable,
@@ -20,6 +22,8 @@ export interface WorkshopIntakeServices {
   siteContext: SiteContextService;
   scheduleService: WorkshopScheduleService;
   partsRequisitionService: Pick<PartsRequisitionService, 'releaseReservation'>;
+  domainEventStore: DomainEventStoreService;
+  requestContext: RequestContextService;
 }
 
 export interface ExecuteBasicOrderUpdateParams {

@@ -12,6 +12,8 @@ import {
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
+import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -65,6 +67,10 @@ export class WorkshopEstimateApprovalService {
     private readonly siteContext: SiteContextService,
     @Inject(NotificationOutboxService)
     private readonly outbox: NotificationOutboxService,
+    @Inject(DomainEventStoreService)
+    private readonly domainEventStore: DomainEventStoreService,
+    @Inject(RequestContextService)
+    private readonly requestContext: RequestContextService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(WorkshopEstimateService)
     private readonly estimates: WorkshopEstimateService,
@@ -150,11 +156,15 @@ export class WorkshopEstimateApprovalService {
     );
     await enqueueEstimateDecisionEvent(tx, this.outbox, {
       tenantId: scope.tenantId,
+      siteId: scope.siteId,
       approvalId: approval.id,
       versionId,
       workshopOrderId: version.estimate.workshop_order_id,
       decision,
       channel,
+      decidedAt,
+      traceId: this.requestContext.getTraceId() ?? approval.id,
+      domainEventStore: this.domainEventStore,
     });
   }
 

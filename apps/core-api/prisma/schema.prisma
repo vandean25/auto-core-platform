@@ -144,6 +144,7 @@ model Tenant {
   agentPolicyRules              AgentPolicyRule[]
   agentProposals                AgentProposal[]
   mcpWriteCommandReceipts       McpWriteCommandReceipt[]
+  domainEvents                  DomainEvent[]
   registrationDocumentIntakes   RegistrationDocumentIntake[]
   registrationIntakeBytePurges  RegistrationIntakeBytePurge[]
   payments                      Payment[]
@@ -800,6 +801,7 @@ model Site {
   loanerVehicles           LoanerVehicle[]
   fiscal_register          FiscalRegister?
   payments                 Payment[]
+  domainEvents             DomainEvent[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -2798,6 +2800,31 @@ model NotificationOutbox {
   @@index([tenant_id, workshop_order_id, createdAt])
   @@index([tenant_id, status, next_attempt_at])
   @@map("notification_outbox")
+}
+
+/// Transactional domain occurrence log (AUT-536). Written in the same transaction as the state change
+/// it records. `sequence` gives stable feed ordering; consumers resume with a versioned cursor on
+/// `(sequence, id)`, not `occurred_at` alone. Rows are append-only and have no delete API.
+model DomainEvent {
+  id             String   @id @default(uuid())
+  sequence       BigInt   @default(autoincrement())
+  event_type     String
+  schema_version Int
+  tenant_id      String
+  tenant         Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id        String
+  site           Site     @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  entity_id      String
+  occurred_at    DateTime
+  trace_id       String   @db.Uuid
+  occurrence_key String
+  payload        Json?
+
+  @@unique([tenant_id, occurrence_key])
+  @@unique([tenant_id, id])
+  @@index([tenant_id, sequence])
+  @@index([tenant_id, site_id, sequence])
+  @@map("domain_events")
 }
 
 enum LoanerVehicleStatus {

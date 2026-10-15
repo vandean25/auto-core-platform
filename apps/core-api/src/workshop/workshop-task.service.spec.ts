@@ -9,6 +9,8 @@ import { WorkshopIntakeService } from './workshop-intake.service.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import { WorkshopTaskService } from './workshop-task.service.js';
 import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
+import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import {
   mockPrisma,
   resetWorkshopMocks,
@@ -45,6 +47,14 @@ describe('WorkshopTaskService', () => {
         {
           provide: PartsRequisitionService,
           useValue: { releaseReservation: jest.fn() },
+        },
+        {
+          provide: DomainEventStoreService,
+          useValue: { appendInTx: jest.fn() },
+        },
+        {
+          provide: RequestContextService,
+          useValue: { getTraceId: jest.fn() },
         },
       ],
     }).compile();

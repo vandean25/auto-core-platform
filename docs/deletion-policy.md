@@ -130,6 +130,13 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 
 Retention and tenant-purge exceptions require a separate approved policy; this baseline authorizes no historical deletion or snapshot repair.
 
+## AUT-536 — Domain event store
+
+- `domain_events` has no delete endpoint. Each row is written in the same transaction as the committed domain change it records.
+- `occurrence_key` is unique per tenant, so one business occurrence yields at most one row. Consumers deduplicate replays by `event_id` (`id`).
+- The agent feed orders rows by monotonic `sequence`, not `occurred_at` alone. Cursors are versioned and tenant-scoped.
+- Rows are retained for orchestration replay and audit; they follow tenant purge (SQL generator includes the table). No message bodies or customer tokens are stored in the envelope.
+
 ## ADR-0025 / AUT-356 — Notification outbox
 
 - `notification_outbox` has no delete endpoint. Each row is written in the same transaction as the state change it announces, and its foreign key to `workshop_orders` is `ON DELETE RESTRICT`, so an order with notifications cannot be hard-deleted.

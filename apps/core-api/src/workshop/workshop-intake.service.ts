@@ -6,7 +6,9 @@ import type { RegisterIntakeDto } from './dto/register-intake.dto.js';
 import type { UpdateWorkshopOrderDto } from './dto/update-workshop-order.dto.js';
 import type { Prisma } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
+import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
 import { normalizeWorkshopOrder } from './workshop-order.helpers.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import {
@@ -27,6 +29,8 @@ export class WorkshopIntakeService {
   private readonly siteContext: SiteContextService;
   private readonly scheduleService: WorkshopScheduleService;
   private readonly partsRequisitionService: PartsRequisitionService;
+  private readonly domainEventStore: DomainEventStoreService;
+  private readonly requestContext: RequestContextService;
 
   constructor(
     @Inject(PrismaService) prisma: PrismaService,
@@ -34,12 +38,16 @@ export class WorkshopIntakeService {
     @Inject(SiteContextService) siteContext: SiteContextService,
     scheduleService: WorkshopScheduleService,
     partsRequisitionService: PartsRequisitionService,
+    domainEventStore: DomainEventStoreService,
+    requestContext: RequestContextService,
   ) {
     this.prisma = prisma;
     this.tenantContext = tenantContext;
     this.siteContext = siteContext;
     this.scheduleService = scheduleService;
     this.partsRequisitionService = partsRequisitionService;
+    this.domainEventStore = domainEventStore;
+    this.requestContext = requestContext;
   }
 
   private getServices(): WorkshopIntakeServices {
@@ -49,6 +57,8 @@ export class WorkshopIntakeService {
       siteContext: this.siteContext,
       scheduleService: this.scheduleService,
       partsRequisitionService: this.partsRequisitionService,
+      domainEventStore: this.domainEventStore,
+      requestContext: this.requestContext,
     };
   }
 
