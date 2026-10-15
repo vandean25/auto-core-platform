@@ -4,6 +4,7 @@ import {
   MCP_TOOL_NAMES,
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 
 /** Contract lists are stated as one space-separated string each, so the spec does not restate the constants' array literals. */
 const names = (list: string): string[] => list.split(' ');
@@ -108,5 +109,18 @@ describe('MCP Constants - Never Exposed Actions', () => {
     it('MCP_READ_TOOL_NAMES only contains allowed read tools', () => {
       expect(MCP_READ_TOOL_NAMES).toEqual(ALLOWED_READ_TOOLS);
     });
+  });
+});
+
+describe('MCP tool output schemas (AUT-427)', () => {
+  it('publishes an output schema for every registered tool and for no other name', () => {
+    expect(Object.keys(mcpToolOutputSchemas).sort()).toEqual(
+      [...MCP_TOOL_NAMES].sort(),
+    );
+  });
+
+  it('keeps the registry at 37 read tools and 4 write tools', () => {
+    expect(MCP_READ_TOOL_NAMES).toHaveLength(37);
+    expect(MCP_WRITE_TOOL_NAMES).toHaveLength(4);
   });
 });

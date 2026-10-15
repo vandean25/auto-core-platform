@@ -6,6 +6,15 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * The value as its JSON text carries it: a Date becomes its ISO string, and a Prisma Decimal
+ * becomes its decimal string. The SDK checks structuredContent against the output schema before
+ * it serializes, so the schema sees these JSON values, not the in-memory objects.
+ */
+export function toMcpJsonObject(value: unknown): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
 export function capMcpToolPayload<T>(value: T): T | Record<string, unknown> {
   const serialized = JSON.stringify(value);
   if (serialized.length <= MCP_TOOL_RESULT_MAX_BYTES) {

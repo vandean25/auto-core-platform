@@ -8,6 +8,8 @@ import { DryRunService } from '../dry-run/dry-run.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
+import { toMcpJsonObject } from './mcp-output.util.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 
 describe('McpWritePipelineService', () => {
   let service: McpWritePipelineService;
@@ -344,5 +346,75 @@ describe('McpWritePipelineService', () => {
       }),
     );
     expect(execution.execute).toHaveBeenCalledTimes(0);
+  });
+
+  describe('output contract (AUT-427)', () => {
+    const wouldChange = [
+      { entity: 'WorkshopOrder', id: 'order-1', op: 'create' as const, provisional: false },
+    ];
+    const provisionalChange = [
+      { entity: 'WorkshopTaskLineItem', id: 'line-preview', op: 'create' as const, provisional: true },
+    ];
+
+    /** Asserts the JSON the handler returns passes the tool's published output schema. */
+    function expectOutputMatchesSchema(
+      toolName: keyof typeof mcpToolOutputSchemas,
+      output: unknown,
+    ) {
+      const parsed = mcpToolOutputSchemas[toolName].safeParse(toMcpJsonObject(output));
+      expect(parsed.success ? [] : parsed.error.issues).toEqual([]);
+    }
+
+    it('an executed write matches the output schema of its tool', async () => {
+      const execution = createMockExecution('draft_workshop_order');
+      mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.AUTO));
+      mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
+        result: await fn(),
+        wouldChange,
+      }));
+      mockAgentActionLog.record.mockImplementation(async (options, executeFn) => ({
+        traceId: 'trace-executed-1',
+        workResult: await executeFn(),
+      }));
+
+      const result = await service.run(
+        execution,
+        { customer_id: 'cust-1', vehicle_id: 'veh-1' },
+        mockContext,
+      );
+
+      expect(result.status).toBe('executed');
+      expectOutputMatchesSchema('draft_workshop_order', result);
+    });
+
+    it('a PROPOSE call matches the output schema of its tool, with a provisional preview', async () => {
+      const execution = createMockExecution('propose_line_item');
+      mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.AUTO));
+      mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
+        result: await fn(),
+        wouldChange: provisionalChange,
+      }));
+      mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-propose-2' } as any);
+
+      const result = await service.run(
+        execution,
+        { workshop_order_id: 'order-1', workshop_task_id: 'task-1' },
+        mockContext,
+      );
+
+      expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
+      expect(result.status).toBe('needs_approval');
+      expectOutputMatchesSchema('propose_line_item', result);
+    });
+
+    it('a refused write is a thrown error with no result body', async () => {
+      const execution = createMockExecution('reserve_part');
+      mockAgentPolicy.evaluateAction.mockResolvedValue(createMockEvaluation(AgentPolicyTier.HUMAN_ONLY));
+
+      await expect(service.run(execution, {}, mockContext)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(execution.execute).not.toHaveBeenCalled();
+    });
   });
 });
