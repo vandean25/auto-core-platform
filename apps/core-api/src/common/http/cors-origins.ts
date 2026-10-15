@@ -9,14 +9,9 @@ const DEVELOPMENT_DEFAULT_ORIGINS = [
 export function resolveCorsOrigins(
   frontendUrl = process.env.FRONTEND_URL,
   nodeEnv = process.env.NODE_ENV,
-  landingPageOrigins = process.env.LANDING_PAGE_ORIGINS,
 ): string[] {
   const configuredOrigins = [
     ...(frontendUrl
-      ?.split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean) ?? []),
-    ...(landingPageOrigins
       ?.split(',')
       .map((origin) => origin.trim())
       .filter(Boolean) ?? []),

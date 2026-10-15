@@ -2,6 +2,10 @@ import type { INestApplication } from '@nestjs/common';
 import helmet from 'helmet';
 import type { AppEnv } from '../../config/env.js';
 import { resolveCorsOrigins } from './cors-origins.js';
+import {
+  configureHttpCors,
+  resolveLandingPageOrigins,
+} from './landing-demo-cors.js';
 
 export interface HttpSecurityOptions {
   frontendUrl?: string;
@@ -21,9 +25,11 @@ export function configureHttpSecurity(
     app.use(helmet());
   }
 
-  app.enableCors({
-    origin: resolveCorsOrigins(options.frontendUrl, options.nodeEnv),
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+  configureHttpCors(app, {
+    dashboardOrigins: resolveCorsOrigins(
+      options.frontendUrl,
+      options.nodeEnv,
+    ),
+    landingPageOrigins: resolveLandingPageOrigins(),
   });
 }

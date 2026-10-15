@@ -3,19 +3,75 @@ import { createHash } from 'node:crypto';
 export const DEMO_ACCESS_DURATION_DAYS = 14;
 export const DEMO_MAGIC_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
-const BLOCKED_DEMO_MUTATION_PREFIXES = [
-  '/api/tenant-members',
-  '/api/platform-admin',
-  '/api/tenant-api-keys',
-  '/api/settings',
+const DEMO_MUTATION_ALLOWED_EXACT = new Set([
   '/api/auth/switch-tenant',
-  '/api/notifications',
-  '/api/import',
-  '/api/accounting-exports',
-  '/api/mcp',
+  '/api/me/active-site',
+]);
+
+const DEMO_MUTATION_ALLOWED_PREFIXES = [
+  '/api/customers',
+  '/api/vehicles',
+  '/api/workshop/orders',
+  '/api/workshop/estimates',
+  '/api/workshop/waiting-tasks',
+  '/api/workshop/planner',
+  '/api/workshop/capacity',
+  '/api/workshop/loaner-vehicles',
+  '/api/workshop/loaner-bookings',
+  '/api/catalog',
+  '/api/inventory',
+  '/api/labor',
+  '/api/brands',
+  '/api/bays',
+  '/api/tyre-sets',
+  '/api/stock-transfers',
+  '/api/mechanic',
+  '/api/parts-reservations',
+  '/api/parts-requisitions',
 ] as const;
 
-const BLOCKED_DEMO_MUTATION_EXACT = new Set(['/api/workshop/estimates']);
+const DEMO_MUTATION_BLOCKED_PREFIXES = [
+  '/api/settings',
+  '/api/platform-admin',
+  '/api/platform/',
+  '/api/tenant-members',
+  '/api/tenant-api-keys',
+  '/api/employees',
+  '/api/sites',
+  '/api/legal-entities',
+  '/api/invoices',
+  '/api/purchase-orders',
+  '/api/purchase-invoices',
+  '/api/purchase',
+  '/api/finance',
+  '/api/import',
+  '/api/mcp',
+  '/api/hr',
+  '/api/agent-',
+  '/api/notifications',
+  '/api/accounting-exports',
+  '/api/document-branding',
+  '/api/vehicle-stock',
+  '/api/vehicle-purchases',
+  '/api/vehicle-sales',
+  '/api/sales',
+  '/api/vendors',
+  '/api/credit-notes',
+  '/api/margin-rules',
+  '/api/voice-translation',
+  '/api/audit-logs',
+  '/api/decision-shadow-logs',
+  '/api/workshop/settings',
+  '/api/workshop/holidays',
+] as const;
+
+const DEMO_MUTATION_BLOCKED_SUBSTRINGS = [
+  '/send',
+  '/finalize',
+  '/pay',
+  '/issue',
+  '/invite',
+] as const;
 
 export function hashClientIp(ip: string | null | undefined): string | null {
   const normalized = ip?.trim();
@@ -23,6 +79,12 @@ export function hashClientIp(ip: string | null | undefined): string | null {
     return null;
   }
   return createHash('sha256').update(normalized).digest('hex');
+}
+
+export function hashDemoEmail(email: string): string {
+  return createHash('sha256')
+    .update(normalizeDemoEmail(email))
+    .digest('hex');
 }
 
 export function normalizeDemoEmail(email: string): string {
@@ -35,6 +97,39 @@ export function isLandingDemoHoneypotTriggered(
   return Boolean(website && website.trim() !== '');
 }
 
+function normalizeDemoRequestPath(path: string): string {
+  const withoutQuery = path.split('?')[0]?.toLowerCase() ?? '';
+  return withoutQuery.startsWith('/api/')
+    ? withoutQuery
+    : `/api${withoutQuery.startsWith('/') ? '' : '/'}${withoutQuery}`;
+}
+
+function isDemoMutationPathAllowed(normalizedPath: string): boolean {
+  for (const prefix of DEMO_MUTATION_BLOCKED_PREFIXES) {
+    if (normalizedPath.startsWith(prefix)) {
+      return false;
+    }
+  }
+
+  for (const fragment of DEMO_MUTATION_BLOCKED_SUBSTRINGS) {
+    if (normalizedPath.includes(fragment)) {
+      return false;
+    }
+  }
+
+  if (DEMO_MUTATION_ALLOWED_EXACT.has(normalizedPath)) {
+    return true;
+  }
+
+  for (const prefix of DEMO_MUTATION_ALLOWED_PREFIXES) {
+    if (normalizedPath.startsWith(prefix)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function isDemoMutationAllowed(method: string, path: string): boolean {
   const upperMethod = method.toUpperCase();
   if (
@@ -45,30 +140,12 @@ export function isDemoMutationAllowed(method: string, path: string): boolean {
     return true;
   }
 
-  const normalizedPath = path.split('?')[0]?.toLowerCase() ?? '';
-  if (BLOCKED_DEMO_MUTATION_EXACT.has(normalizedPath)) {
-    return false;
-  }
-
-  for (const prefix of BLOCKED_DEMO_MUTATION_PREFIXES) {
-    if (normalizedPath.startsWith(prefix)) {
-      return false;
-    }
-  }
-
   if (upperMethod === 'DELETE') {
     return false;
   }
 
-  if (
-    normalizedPath.includes('/send') ||
-    normalizedPath.includes('/finalize') ||
-    normalizedPath.includes('/submit')
-  ) {
-    return false;
-  }
-
-  return true;
+  const normalizedPath = normalizeDemoRequestPath(path);
+  return isDemoMutationPathAllowed(normalizedPath);
 }
 
 export function demoAccessExpiresAt(from: Date = new Date()): Date {

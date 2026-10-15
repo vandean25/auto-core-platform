@@ -18,6 +18,12 @@ describe('Landing demo access (e2e)', () => {
   });
 
   it('returns ok for honeypot submissions without enabling side effects', async () => {
+    const { SystemPrismaService } = await import(
+      '../src/prisma/system-prisma.service.js'
+    );
+    const prisma = app.get(SystemPrismaService);
+    const before = await prisma.landingDemoAccessRequest.count();
+
     const response = await request(app.getHttpServer())
       .post('/api/public/landing-demo/access')
       .set('Origin', 'https://landing-demo.web.app')
@@ -31,6 +37,8 @@ describe('Landing demo access (e2e)', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ ok: true });
+    const after = await prisma.landingDemoAccessRequest.count();
+    expect(after).toBe(before);
   });
 
   it('rejects missing consent with 400', async () => {

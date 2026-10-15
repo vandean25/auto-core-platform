@@ -36,8 +36,16 @@ export class LandingDemoAccessCleanupService {
         data: { is_active: false },
       });
 
+      const remainingActiveMemberships =
+        await this.systemPrisma.tenantMember.count({
+          where: {
+            user_id: membership.user.id,
+            is_active: true,
+          },
+        });
+
       const uid = membership.user.firebaseUid;
-      if (uid) {
+      if (uid && remainingActiveMemberships === 0) {
         try {
           await firebaseAuth.updateUser(uid, { disabled: true });
         } catch (error) {

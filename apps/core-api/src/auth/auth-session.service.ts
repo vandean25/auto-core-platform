@@ -11,6 +11,7 @@ import { DASHBOARD_REALTIME_SERVICE_TOKEN } from '../dashboard-realtime/dashboar
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { setActiveTenant } from '../common/services/user-active-tenant.js';
 import { getFirebaseAdminAuth } from './firebase-admin.js';
+import { LandingDemoSignInGrantService } from '../landing-demo-access/landing-demo-sign-in-grant.service.js';
 import type {
   AuthenticatedUser,
   PlatformAuthenticatedUser,
@@ -114,6 +115,7 @@ const USER_ACCESS_SELECT = {
 export class AuthSessionService {
   constructor(
     private readonly systemPrisma: SystemPrismaService,
+    private readonly landingDemoGrants: LandingDemoSignInGrantService,
     @Optional()
     @Inject(DASHBOARD_REALTIME_SERVICE_TOKEN)
     private readonly dashboardRealtime?: DashboardRealtimeService,
@@ -204,6 +206,10 @@ export class AuthSessionService {
       return null;
     }
 
+    if (activeMembership.role === TenantMemberRole.DEMO) {
+      await this.landingDemoGrants.assertDemoSignInGrantForSession(user.id);
+    }
+
     return {
       session: this.buildSession(user, activeMembership),
       user,
@@ -226,7 +232,11 @@ export class AuthSessionService {
       );
     }
 
-    const requestedMembership = userRecord.memberships.find(
+    const validMemberships = userRecord.memberships.filter((membership) =>
+      this.isMembershipCurrentlyValid(membership),
+    );
+
+    const requestedMembership = validMemberships.find(
       (membership) => membership.tenant_id === tenantId,
     );
 
@@ -241,7 +251,7 @@ export class AuthSessionService {
       throw new ForbiddenException('Requested tenant is inactive.');
     }
 
-    const demoOnlyUser = userRecord.memberships.every(
+    const demoOnlyUser = validMemberships.every(
       (membership) => membership.role === TenantMemberRole.DEMO,
     );
     if (demoOnlyUser && requestedMembership.role !== TenantMemberRole.DEMO) {

@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, TenantMemberRole } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import {
@@ -25,8 +25,42 @@ const pool = new Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+async function assertSlugNotHijacked(): Promise<void> {
+  const existing = await prisma.tenant.findUnique({
+    where: { slug: DEMO_TENANT_SLUG },
+    select: { id: true, is_landing_demo_tenant: true },
+  });
+
+  if (!existing) {
+    return;
+  }
+
+  if (!existing.is_landing_demo_tenant) {
+    throw new Error(
+      `Refusing to seed landing demo tenant: slug "${DEMO_TENANT_SLUG}" already belongs to a non-demo tenant.`,
+    );
+  }
+
+  const nonDemoMember = await prisma.tenantMember.findFirst({
+    where: {
+      tenant_id: existing.id,
+      is_active: true,
+      role: { not: TenantMemberRole.DEMO },
+    },
+    select: { id: true },
+  });
+
+  if (nonDemoMember) {
+    throw new Error(
+      `Refusing to seed landing demo tenant: slug "${DEMO_TENANT_SLUG}" already has non-demo memberships.`,
+    );
+  }
+}
+
 async function main() {
   console.log(`Seeding landing demo tenant (${DEMO_TENANT_SLUG})...`);
+
+  await assertSlugNotHijacked();
 
   const tenant = await prisma.tenant.upsert({
     where: { slug: DEMO_TENANT_SLUG },

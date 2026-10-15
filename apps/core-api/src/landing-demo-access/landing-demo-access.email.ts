@@ -45,6 +45,7 @@ export function renderLandingDemoOperatorAlertEmail(input: {
   email: string;
   telefon: string | null;
   nachricht: string | null;
+  existingAccountBlocked?: boolean;
 }): EmailDraft {
   const subject = `Neue Demo-Anfrage: ${input.betrieb}`;
   const lines = [
@@ -58,6 +59,13 @@ export function renderLandingDemoOperatorAlertEmail(input: {
     'Nachricht:',
     input.nachricht?.trim() ? input.nachricht.trim() : '—',
   ];
+
+  if (input.existingAccountBlocked) {
+    lines.push(
+      '',
+      'Hinweis: Für diese E-Mail-Adresse existiert bereits ein Konto mit weiteren Mandanten-Zugehörigkeiten. Es wurde kein Demo-Zugang angelegt und keine Magic-Link-E-Mail versendet.',
+    );
+  }
 
   return {
     recipientEmail: input.operatorEmail,
