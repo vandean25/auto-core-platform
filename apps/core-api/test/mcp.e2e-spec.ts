@@ -979,10 +979,11 @@ describe('MCP server (e2e)', () => {
         level.bins.some((bin) => bin.location_id === fixtures.locationId),
       ).toBe(true);
 
+      expect(level.bin_id).not.toBeNull();
       const reserveResult = await session.call('reserve_part', {
         workshop_task_line_item_id: fixtures.workshopTaskLineItemId,
         quantity: 1,
-        location_id: level.bin_id as string,
+        location_id: level.bin_id,
       });
       expect(reserveResult.isError).not.toBe(true);
     });

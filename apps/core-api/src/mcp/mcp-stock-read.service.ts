@@ -15,6 +15,7 @@ import {
 import {
   binFieldsFromLevels,
   mapInventoryStocksToBinLevels,
+  type McpStockBinLevel,
   mcpStockBinStockSelect,
   mcpStockBinWhere,
 } from './mcp-stock-read.mapper.js';
@@ -128,7 +129,7 @@ export class McpStockReadService {
     return {
       ...result,
       data: result.data.map((row) => {
-        const bins = binsByItem.get(row.id) ?? [];
+        const bins: McpStockBinLevel[] = binsByItem.get(row.id) ?? [];
         return {
           ...row,
           catalog_item_id: row.id,
@@ -163,7 +164,9 @@ export class McpStockReadService {
       ...result,
       parts: result.parts.map((part) => {
         const isCatalogItem = catalogIds.has(part.id);
-        const bins = isCatalogItem ? binsByItem.get(part.id) ?? [] : [];
+        const bins: McpStockBinLevel[] = isCatalogItem
+          ? (binsByItem.get(part.id) ?? [])
+          : [];
         return {
           ...part,
           catalog_item_id: isCatalogItem ? part.id : null,
@@ -173,7 +176,9 @@ export class McpStockReadService {
     };
   }
 
-  private async loadPrimaryBinsByCatalogItem(catalogItemIds: string[]) {
+  private async loadPrimaryBinsByCatalogItem(
+    catalogItemIds: string[],
+  ): Promise<Map<string, McpStockBinLevel[]>> {
     if (catalogItemIds.length === 0) {
       return new Map();
     }
