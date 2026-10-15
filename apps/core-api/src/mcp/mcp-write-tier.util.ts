@@ -10,7 +10,11 @@ export function effectiveMcpWriteTier(
   toolName: McpWriteToolName,
   tier: AgentPolicyTier,
 ): AgentPolicyTier {
-  if (toolName === 'propose_line_item' && tier === AgentPolicyTier.AUTO) {
+  if (
+    (toolName === 'propose_line_item' ||
+      toolName === 'propose_registration_intake') &&
+    tier === AgentPolicyTier.AUTO
+  ) {
     return AgentPolicyTier.PROPOSE;
   }
   return tier;

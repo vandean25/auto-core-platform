@@ -57,6 +57,8 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   reserve_part: schemas.mcpWriteToolInputSchemas.reserve_part,
   release_reservation: schemas.mcpWriteToolInputSchemas.release_reservation,
   propose_line_item: schemas.mcpWriteToolInputSchemas.propose_line_item,
+  propose_registration_intake:
+    schemas.mcpWriteToolInputSchemas.propose_registration_intake,
 };
 
 export type McpServerSessionContext = {

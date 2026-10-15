@@ -94,13 +94,13 @@ export class AgentProposalSubmissionService {
       );
     }
 
+    const executionContext = await executor.buildExecutionContext?.(
+      dto.payload_json,
+    );
     const intendedSiteId =
-      actionType === 'workshop_order.create'
-        ? await this.siteContext.getSiteId()
+      typeof executionContext?.site_id === 'string'
+        ? executionContext.site_id
         : undefined;
-    const executionContext = intendedSiteId
-      ? { site_id: intendedSiteId }
-      : undefined;
     const simulation = await this.dryRun.executeInRollbackTransaction(() =>
       executor.execute(dto.payload_json, executionContext),
     );

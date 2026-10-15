@@ -75,4 +75,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Release a parts reservation (counter-tool of reserve_part)',
   propose_line_item:
     'Propose a workshop task line item (never executes; records a pending proposal)',
+  propose_registration_intake:
+    'Propose applying a reviewed registration document intake (never executes; records a pending proposal)',
 };

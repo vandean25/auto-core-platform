@@ -159,6 +159,7 @@ export class McpToolHandlerService {
       reserve_part: 'inventory.part_reserve',
       release_reservation: 'inventory.part_release',
       propose_line_item: 'workshop_order.propose_line',
+      propose_registration_intake: 'registration_intake.apply',
     };
     const executor = this.pendingActionExecutors.resolve(
       actionTypeByTool[toolName],
@@ -168,7 +169,7 @@ export class McpToolHandlerService {
       policyActionType: executor.actionType,
       buildPolicyContext: (input) => executor.buildPolicyContext(input),
       buildExecutionContext: executor.buildExecutionContext
-        ? () => executor.buildExecutionContext!()
+        ? (input) => executor.buildExecutionContext!(input)
         : undefined,
       execute: (input, executionContext) =>
         executor.execute(input, executionContext),
@@ -185,6 +186,7 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'reserve_part',
   'release_reservation',
   'propose_line_item',
+  'propose_registration_intake',
 ]);
 
 function isWriteTool(toolName: McpToolName): toolName is McpWriteToolName {

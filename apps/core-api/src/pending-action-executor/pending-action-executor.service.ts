@@ -28,6 +28,8 @@ import {
   refreshImportJobTotals,
 } from '../decision/decision-live-apply.util.js';
 import { DOCUMENT_SORT_TYPES } from '../decision/decision.constants.js';
+import { RegistrationIntakeApplyService } from '../registration-intake/registration-intake-apply.service.js';
+import { proposeRegistrationIntakeInputSchema } from '../mcp/mcp-tool-schemas.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
@@ -39,12 +41,13 @@ export type PendingActionType =
   | 'workshop_order.add_line'
   | 'customer.update'
   | 'decision.import_row_match'
-  | 'decision.document_sort';
+  | 'decision.document_sort'
+  | 'registration_intake.apply';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
   buildPolicyContext(input: unknown): Promise<AgentPolicyEvaluateContext>;
-  buildExecutionContext?(): Promise<Record<string, unknown>>;
+  buildExecutionContext?(input: unknown): Promise<Record<string, unknown>>;
   execute(
     input: unknown,
     executionContext?: Record<string, unknown>,
@@ -65,6 +68,7 @@ export class PendingActionExecutorService {
     private readonly siteContext: SiteContextService,
     private readonly workshopIntake: WorkshopIntakeService,
     private readonly partsRequisition: PartsRequisitionService,
+    private readonly registrationIntakeApply: RegistrationIntakeApplyService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -184,6 +188,22 @@ export class PendingActionExecutorService {
             entityType: 'DocumentBrandAsset',
             entityId: (result as { id: string }).id,
             reversible: false,
+          }),
+        };
+      case 'registration_intake.apply':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          buildExecutionContext: (input) =>
+            this.registrationIntakeExecutionContext(input),
+          execute: (input) => this.applyRegistrationIntake(input),
+          buildResultSummary: (result) => ({
+            intake_id: (result as { vehicleId: string }).vehicleId,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'Vehicle',
+            entityId: (result as { vehicleId: string }).vehicleId,
+            reversible: true,
           }),
         };
       default:
@@ -596,6 +616,54 @@ export class PendingActionExecutorService {
       );
     }
     return { id: assetId, entityId: assetId };
+  }
+
+  private async registrationIntakeExecutionContext(
+    input: unknown,
+  ): Promise<Record<string, unknown>> {
+    const record = proposeRegistrationIntakeInputSchema.parse(input);
+    const tenantId = await this.tenantContext.getTenantId();
+    const activeSiteId = await this.siteContext.getSiteId();
+    const intake = await this.prisma.registrationDocumentIntake.findFirst({
+      where: {
+        id: record.intake_id,
+        tenant_id: tenantId,
+        site_id: activeSiteId,
+      },
+      select: { site_id: true },
+    });
+    if (!intake) {
+      throw new NotFoundException(
+        `Registration intake ${record.intake_id} not found`,
+      );
+    }
+    return { site_id: intake.site_id };
+  }
+
+  private async applyRegistrationIntake(input: unknown): Promise<unknown> {
+    const record = proposeRegistrationIntakeInputSchema.parse(input);
+    return this.registrationIntakeApply.apply(record.intake_id, {
+      vin: record.vin,
+      plate: record.plate,
+      holder: {
+        firstName: record.holder.first_name,
+        lastName: record.holder.last_name,
+      },
+      nationalcode: record.nationalcode,
+      firstRegistration: record.first_registration,
+      co2: record.co2 ?? null,
+      make: record.make,
+      model: record.model,
+      year: record.year,
+      customerId: record.customer_id,
+      vehicleId: record.vehicle_id,
+      ownershipCorrection: record.ownership_correction
+        ? {
+            expectedCustomerId: record.ownership_correction.expected_customer_id,
+            nextCustomerId: record.ownership_correction.next_customer_id,
+          }
+        : undefined,
+    });
   }
 
   private asRecord(value: unknown): Record<string, unknown> {
