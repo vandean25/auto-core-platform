@@ -30,7 +30,7 @@ describe('WorkshopBookingPackageService', () => {
       mockSchedule as never,
       mockLoanerAuth as never,
       mockLoanerVehicles as never,
-      mockDomainEventStore as never,
+      mockDomainEventStore,
     );
   });
 
