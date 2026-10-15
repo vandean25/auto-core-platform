@@ -1,7 +1,10 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
+import { createGlobalValidationPipe } from '../../common/validation.pipe.js';
 import { NovaCalculateRequestDto } from './nova-calculate.dto.js';
+
+const validationPipe = createGlobalValidationPipe();
 
 describe('NovaCalculateRequestDto', () => {
   it('lets the engine map negative monetary and CO2 values to stable 422 codes', () => {
@@ -75,6 +78,36 @@ describe('NovaCalculateRequestDto', () => {
     });
 
     expect(validateSync(dto).map((error) => error.property)).toContain(property);
+  });
+
+  it('rejects a non-string taxableEventDate on eu_used_m1 with HTTP 400 semantics', async () => {
+    await expect(
+      validationPipe.transform(
+        {
+          importMode: 'eu_used_m1',
+          vehicleClass: 'passenger_z3',
+          co2GramsPerKm: 160,
+          firstRegistrationDate: '2024-06-01',
+          taxableEventDate: 20_240_601,
+          netPriceEuro: 20_000,
+          valueBasis: 'achtelung',
+        },
+        { type: 'body', metatype: NovaCalculateRequestDto },
+      ),
+    ).rejects.toBeDefined();
+  });
+
+  it('does not require emissionCycle, driveType, or taxableEventDate for eu_used_m1 without vehicleId', () => {
+    const dto = plainToInstance(NovaCalculateRequestDto, {
+      importMode: 'eu_used_m1',
+      vehicleClass: 'passenger_z3',
+      co2GramsPerKm: 160,
+      firstRegistrationDate: '2024-06-01',
+      netPriceEuro: 20_000,
+      valueBasis: 'achtelung',
+    });
+
+    expect(validateSync(dto)).toEqual([]);
   });
 
   it('does not advertise a CO2 maximum the calculator does not enforce', () => {
