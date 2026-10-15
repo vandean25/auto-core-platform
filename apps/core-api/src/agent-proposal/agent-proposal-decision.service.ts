@@ -341,7 +341,8 @@ export class AgentProposalDecisionService {
   ): Promise<void> {
     if (
       proposal.action_type !== 'workshop_order.create' &&
-      proposal.action_type !== 'registration_intake.apply'
+      proposal.action_type !== 'registration_intake.apply' &&
+      proposal.action_type !== 'workshop.booking_package'
     ) {
       return;
     }
@@ -414,7 +415,8 @@ export class AgentProposalDecisionService {
               executor.execute(
                 proposal.payload_json,
                 proposal.action_type === 'workshop_order.create' ||
-                  proposal.action_type === 'registration_intake.apply'
+                  proposal.action_type === 'registration_intake.apply' ||
+                  proposal.action_type === 'workshop.booking_package'
                   ? { site_id: readExecutionSiteId(proposal.preview_json) }
                   : undefined,
               ),

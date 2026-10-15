@@ -36,6 +36,7 @@ import {
   decodeMcpVehicleContextCursor,
   MCP_VEHICLE_CONTEXT_SECTIONS,
 } from './mcp-vehicle-context.mapper.js';
+import { proposeWorkshopBookingInputSchema } from '../workshop/workshop-booking-package.schema.js';
 
 const pageSchema = z.number().int().min(1).optional();
 const pageSizeSchema = z.number().int().min(1).max(25).optional();
@@ -781,4 +782,5 @@ export const mcpWriteToolInputSchemas: Record<
   release_reservation: releaseReservationInputSchema,
   propose_line_item: proposeLineItemInputSchema,
   propose_registration_intake: proposeRegistrationIntakeInputSchema,
+  propose_workshop_booking: proposeWorkshopBookingInputSchema,
 };

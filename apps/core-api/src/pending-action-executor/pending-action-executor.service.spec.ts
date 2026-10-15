@@ -31,6 +31,16 @@ describe('PendingActionExecutorService', () => {
     registrationDocumentIntake: { findFirst: jest.fn() },
   };
   const mockRegistrationIntakeApply = { apply: jest.fn() };
+  const mockWorkshopBookingPackage = {
+    applyPackage: jest.fn().mockResolvedValue({
+      id: 'order-1',
+      entityId: 'order-1',
+      workshop_order_id: 'order-1',
+    }),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+  };
   const mockTenant = { getTenantId: jest.fn().mockResolvedValue('tenant-1') };
   const mockSite = { getSiteId: jest.fn().mockResolvedValue('site-1') };
   const mockWorkshop = {
@@ -55,7 +65,27 @@ describe('PendingActionExecutorService', () => {
       mockWorkshop as never,
       mockParts as never,
       mockRegistrationIntakeApply as never,
+      mockWorkshopBookingPackage as never,
     );
+  });
+
+  describe('workshop.booking_package', () => {
+    it('binds site in execution context and delegates apply to the package service', async () => {
+      const executor = service.resolve('workshop.booking_package');
+      const context = await executor.buildExecutionContext?.({});
+      expect(context).toEqual({ site_id: 'site-1' });
+      await executor.execute(
+        {
+          customer_id: '00000000-0000-4000-8000-000000000001',
+          vehicle_id: '00000000-0000-4000-8000-000000000002',
+          bay_id: '00000000-0000-4000-8000-000000000004',
+          scheduled_start_at: '2026-10-12T09:00:00.000Z',
+          scheduled_end_at: '2026-10-12T10:00:00.000Z',
+        },
+        context,
+      );
+      expect(mockWorkshopBookingPackage.applyPackage).toHaveBeenCalled();
+    });
   });
 
   describe('registration_intake.apply', () => {

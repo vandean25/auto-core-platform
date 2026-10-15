@@ -110,12 +110,25 @@ export function createAgentProposalSpecHarness() {
     }),
   };
 
+  const mockRegistrationIntakeApply = { apply: jest.fn() };
+  const mockWorkshopBookingPackage = {
+    applyPackage: jest.fn().mockResolvedValue({
+      id: 'order-1',
+      entityId: 'order-1',
+      workshop_order_id: 'order-1',
+    }),
+    buildExecutionContext: jest
+      .fn()
+      .mockResolvedValue({ site_id: 'site-1' }),
+  };
   const mockPendingActionExecutors = new PendingActionExecutorService(
     mockPrisma,
     mockTenantContext,
     mockSiteContext,
     mockWorkshopIntake,
     mockPartsRequisition,
+    mockRegistrationIntakeApply,
+    mockWorkshopBookingPackage,
   );
 
   const policyEvaluator = new AgentProposalPolicyEvaluator(mockAgentPolicyService);

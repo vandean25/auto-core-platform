@@ -44,10 +44,13 @@ import { WorkshopInspectionService } from './workshop-inspection.service.js';
 import { WorkshopKpiReportsController } from './workshop-kpi-reports.controller.js';
 import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
+import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
+import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
 
 @Module({
   imports: [
     PrismaModule,
+    LoanerVehiclesModule,
     NotificationsModule,
     DocumentBrandingModule,
     InvoicesModule,
@@ -95,11 +98,13 @@ import { RegistrationIntakeModule } from '../registration-intake/registration-in
     WorkshopCapacityService,
     WorkshopScheduleService,
     WorkshopKpiReportsService,
+    WorkshopBookingPackageService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
   exports: [
     WorkshopSettingsService,
     WorkshopIntakeService,
+    WorkshopBookingPackageService,
     WorkshopTaskService,
     WorkshopBoardService,
     WorkshopKpiReportsService,

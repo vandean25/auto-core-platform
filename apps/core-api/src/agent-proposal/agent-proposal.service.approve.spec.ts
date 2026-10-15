@@ -34,6 +34,23 @@ describe('AgentProposalService approve', () => {
       expect(mockWorkshopIntake.create).not.toHaveBeenCalled();
     });
 
+    it('refuses workshop booking package apply when the active site differs from the simulation site', async () => {
+      mockSiteContext.getSiteId.mockResolvedValue('site-2');
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(
+        createMockProposal({
+          action_type: 'workshop.booking_package',
+          preview_json: {
+            execution_context: { site_id: 'site-1' },
+          },
+        }),
+      );
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Select the site where this action was simulated before applying it',
+      );
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
+    });
+
     it('re-evaluates policy, atomically locks, executes payload, logs action, and marks EXECUTED', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst

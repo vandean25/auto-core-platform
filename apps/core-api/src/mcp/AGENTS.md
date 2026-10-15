@@ -64,8 +64,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `release_reservation`  | Release a parts reservation                                  | Write  | Off by default; AUTO when enabled                     |
 | `propose_line_item`    | Propose a part or labor line on a workshop task              | Write  | Off by default; PROPOSE when enabled                  |
 | `propose_registration_intake` | Apply a reviewed registration document intake to customer/vehicle records | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_workshop_booking` | Propose a scheduled workshop order with an optional reserved loaner booking | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
-Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item` and `propose_registration_intake` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, and `propose_workshop_booking` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
 

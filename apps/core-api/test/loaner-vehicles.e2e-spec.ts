@@ -777,6 +777,73 @@ describe('Loaner vehicles (e2e)', () => {
     );
   });
 
+  it('AUT-535: applying workshop.booking_package creates a linked order and loaner booking', async () => {
+    await request(app.getHttpServer())
+      .put('/api/agent-policy/rules/workshop.booking_package')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ tier: 'PROPOSE', enabled: true })
+      .expect(200);
+
+    const bay = await prisma.bay.create({
+      data: {
+        site_id: siteId,
+        name: 'Package Bay',
+        is_active: true,
+      },
+    });
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'Seat',
+        model: 'Leon',
+        year: 2019,
+        plate: 'W-PKG-535',
+      },
+    });
+    const from = '2026-11-10T08:00:00.000Z';
+    const to = '2026-11-10T10:00:00.000Z';
+    const submitted = await request(app.getHttpServer())
+      .post('/api/agent-proposals/submit')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        action_type: 'workshop.booking_package',
+        payload_json: {
+          customer_id: customerId,
+          vehicle_id: vehicle.id,
+          bay_id: bay.id,
+          scheduled_start_at: from,
+          scheduled_end_at: to,
+          loaner_vehicle_id: loanerVehicleId,
+          planned_from: from,
+          planned_to: to,
+        },
+      })
+      .expect(201);
+
+    expect(
+      await prisma.workshopOrder.findFirst({ where: { vehicle_id: vehicle.id } }),
+    ).toBeNull();
+    expect(
+      await prisma.loanerBooking.findFirst({
+        where: { loaner_vehicle_id: loanerVehicleId, workshop_order_id: { not: null } },
+      }),
+    ).toBeNull();
+
+    await request(app.getHttpServer())
+      .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+
+    const order = await prisma.workshopOrder.findFirst({
+      where: { vehicle_id: vehicle.id },
+    });
+    expect(order).toBeTruthy();
+    const booking = await prisma.loanerBooking.findFirst({
+      where: { workshop_order_id: order!.id },
+    });
+    expect(booking?.loaner_vehicle_id).toBe(loanerVehicleId);
+  });
+
   it('marks a reserved booking as no-show', async () => {
     const created = await createReservedBooking();
     const response = await request(app.getHttpServer())

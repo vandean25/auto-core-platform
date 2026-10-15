@@ -4793,5 +4793,91 @@ describe('MCP server (e2e)', () => {
     });
   });
 
+  it('propose_workshop_booking PROPOSE: preview is provisional and apply commits order and loaner', async () => {
+    await setPolicyTier('workshop.booking_package', 'PROPOSE');
+    const draftVehicle = await createDraftVehicle('mcp-booking-package');
+    const schedule = scheduledBooking(16);
+    const loanerVehicleRecord = await prismaA.vehicle.create({
+      data: {
+        customer_id: draftVehicle.customerId,
+        make: 'VW',
+        model: 'Golf',
+        year: 2020,
+        plate: 'W-MCP-LOAN',
+        vin: 'MCPLOANERVIN00001',
+      },
+    });
+    const loanerFleet = await prismaA.loanerVehicle.create({
+      data: {
+        site_id: fixtures.siteId,
+        vehicle_id: loanerVehicleRecord.id,
+        display_name: 'MCP Pool',
+        status: 'AVAILABLE',
+        active: true,
+      },
+    });
+
+    const traceId = '00000000-0000-4000-8000-000000000535';
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-booking-package'),
+      'propose_workshop_booking',
+      {
+        customer_id: draftVehicle.customerId,
+        vehicle_id: draftVehicle.vehicleId,
+        bay_id: workshopBayId,
+        scheduled_start_at: schedule.scheduled_start_at,
+        scheduled_end_at: schedule.scheduled_end_at,
+        loaner_vehicle_id: loanerFleet.id,
+        planned_from: schedule.scheduled_start_at,
+        planned_to: schedule.scheduled_end_at,
+      },
+      traceId,
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      would_change: WouldChangeEntry[];
+      proposal: { provisional: boolean };
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+    expect(proposed.proposal.provisional).toBe(true);
+    const previewOrder = previewCreatedRow(
+      proposed.would_change,
+      'WorkshopOrder',
+    );
+    const previewLoaner = previewCreatedRow(
+      proposed.would_change,
+      'LoanerBooking',
+    );
+    expect(
+      await prismaA.workshopOrder.findFirst({ where: { id: previewOrder.id } }),
+    ).toBeNull();
+    expect(
+      await prismaA.loanerBooking.findFirst({
+        where: { id: previewLoaner.id },
+      }),
+    ).toBeNull();
+
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const committedOrder = await prismaA.workshopOrder.findFirst({
+      where: { vehicle_id: draftVehicle.vehicleId },
+      select: { id: true },
+    });
+    expect(committedOrder).toBeTruthy();
+    expect(committedOrder?.id).not.toBe(previewOrder.id);
+    const committedLoaner = await prismaA.loanerBooking.findFirst({
+      where: { loaner_vehicle_id: loanerFleet.id },
+      select: { id: true, workshop_order_id: true },
+    });
+    expect(committedLoaner?.workshop_order_id).toBe(committedOrder?.id);
+    expect(committedLoaner?.id).not.toBe(previewLoaner.id);
+
+    await expectActionLogRow(traceId, 'mcp.propose_workshop_booking', {
+      status: 'PROPOSED',
+      tier: 'PROPOSE',
+    });
+  });
+
   // Note: MCP_SERVER_ENABLED=false → 404 is already tested above
 });

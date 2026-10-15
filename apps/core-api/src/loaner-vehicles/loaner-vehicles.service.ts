@@ -333,6 +333,85 @@ export class LoanerVehiclesService {
     }
   }
 
+  /** Reserved booking linked to a workshop order inside an existing transaction. */
+  async createReservedBookingInTransaction(
+    tx: Prisma.TransactionClient,
+    input: {
+      tenantId: string;
+      siteId: string;
+      loanerVehicleId: string;
+      customerId: string;
+      workshopOrderId: string;
+      plannedFrom: string;
+      plannedTo: string;
+      notes?: string;
+    },
+  ): Promise<{ id: string }> {
+    const plannedFrom = this.parseDate(input.plannedFrom, 'plannedFrom');
+    const plannedTo = this.parseDate(input.plannedTo, 'plannedTo');
+    this.assertPlannedRange(plannedFrom, plannedTo);
+
+    const fleetVehicle = await tx.loanerVehicle.findFirst({
+      where: {
+        tenant_id: input.tenantId,
+        site_id: input.siteId,
+        id: input.loanerVehicleId,
+      },
+    });
+    if (!fleetVehicle) {
+      throw new NotFoundException(
+        `Loaner vehicle ${input.loanerVehicleId} not found`,
+      );
+    }
+    this.assertFleetBookable(fleetVehicle);
+
+    const customer = await tx.customer.findFirst({
+      where: { tenant_id: input.tenantId, id: input.customerId },
+      select: { id: true },
+    });
+    if (!customer) {
+      throw new NotFoundException(`Customer ${input.customerId} not found`);
+    }
+
+    const order = await tx.workshopOrder.findFirst({
+      where: {
+        tenant_id: input.tenantId,
+        id: input.workshopOrderId,
+        site_id: input.siteId,
+      },
+      select: { id: true },
+    });
+    if (!order) {
+      throw new NotFoundException(
+        `Workshop order ${input.workshopOrderId} not found`,
+      );
+    }
+
+    const authUser = this.tenantContext.getAuthenticatedUser();
+    const createdByUserId = authUser?.userId
+      ? await this.resolveInternalUserId(authUser.userId, input.tenantId)
+      : null;
+
+    try {
+      const created = await tx.loanerBooking.create({
+        data: {
+          loaner_vehicle_id: input.loanerVehicleId,
+          customer_id: input.customerId,
+          workshop_order_id: input.workshopOrderId,
+          planned_from: plannedFrom,
+          planned_to: plannedTo,
+          notes: input.notes,
+          created_by_user_id: createdByUserId,
+        } as Prisma.LoanerBookingUncheckedCreateInput,
+        select: { id: true },
+      });
+      return created;
+    } catch (error) {
+      this.rethrowLoanerBookingCreateError(error);
+      throw error;
+    }
+  }
+
   async updateBooking(id: string, dto: UpdateLoanerBookingDto) {
     await this.authorization.assertWriteAccess();
     const [tenantId, siteId] = await Promise.all([
