@@ -25,6 +25,7 @@ import {
   RZL_RECORD_COLUMNS,
   RZL_RECORD_HEADER,
   RZL_STEUERCODE_KEY_BY_TAX_RATE,
+  type RzlBookingColumn,
 } from './rzl-format.constants.js';
 
 export type RzlFibuImportResult = AccountingExportSerializerResult & {
@@ -120,7 +121,10 @@ function buildHeaderFields(
   ];
 }
 
-function buildBookingFields(
+/**
+ * Booking fields for one frozen line in `RZL_BOOKING_COLUMNS` order (ACP draft).
+ */
+export function buildRzlFibuImportBookingFields(
   row: AccountingExportBookingRow,
   steuercodes: RzlSteuercodes,
 ): string[] {
@@ -139,21 +143,23 @@ function buildBookingFields(
     throw new Error('RZL credit rows require the original invoice number');
   }
 
-  return [
-    RZL_RECORD_BOOKING,
-    RZL_BUCHUNGSART_BY_DOCUMENT_KIND[row.documentKind],
-    formatRzlDate(row.documentDate),
-    quoteRzlText(row.documentNumber),
-    row.polarity,
-    formatRzlAmount(row.gross),
-    quoteRzlText(row.debtorAccount),
-    quoteRzlText(row.revenueAccount),
-    resolveRzlSteuercode(row.taxRate, steuercodes),
-    quoteRzlText(row.bookingText),
-    quoteRzlText(opReference),
-    RZL_OP_MODUS_BY_DOCUMENT_KIND[row.documentKind],
-    '',
-  ];
+  const byColumn: Record<RzlBookingColumn, string> = {
+    SATZART: RZL_RECORD_BOOKING,
+    BUCHUNGSART: RZL_BUCHUNGSART_BY_DOCUMENT_KIND[row.documentKind],
+    BELEGDATUM: formatRzlDate(row.documentDate),
+    BELEGNUMMER: quoteRzlText(row.documentNumber),
+    SOLL_HABEN: row.polarity,
+    BETRAG: formatRzlAmount(row.gross),
+    KONTO: quoteRzlText(row.debtorAccount),
+    GEGENKONTO: quoteRzlText(row.revenueAccount),
+    STEUERCODE: resolveRzlSteuercode(row.taxRate, steuercodes),
+    BUCHUNGSTEXT: quoteRzlText(row.bookingText),
+    OP_BELEGNUMMER: quoteRzlText(opReference),
+    OP_MODUS: RZL_OP_MODUS_BY_DOCUMENT_KIND[row.documentKind],
+    KOSTENSTELLE: '',
+  };
+
+  return RZL_BOOKING_COLUMNS.map((name) => byColumn[name]);
 }
 
 /**
@@ -178,7 +184,9 @@ export function serializeRzlFibuImport(
       RZL_FIELD_SEPARATOR,
     ),
     ...input.rows.map((row) =>
-      buildBookingFields(row, steuercodes).join(RZL_FIELD_SEPARATOR),
+      buildRzlFibuImportBookingFields(row, steuercodes).join(
+        RZL_FIELD_SEPARATOR,
+      ),
     ),
   ];
 

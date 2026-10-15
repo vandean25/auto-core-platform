@@ -477,6 +477,63 @@ describe('RZL accounting export (e2e)', () => {
     });
   });
 
+  it('RZ-05: keeps completed export bytes when live profile settings change', async () => {
+    process.env[RZL_SERIALIZER_RELEASE_ENV] = 'true';
+    await openFinancePeriod();
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: profileWhere(),
+      data: {
+        is_enabled: true,
+        serializer_params: {
+          rzl: {
+            firmNumber: 'FN-AT-1',
+            costCenterLength: null,
+            steuercodes: { vat20: '20', vat13: '13', vat10: '10' },
+          },
+        },
+      },
+    });
+    await finalizeAtInvoice(1, 100, '2029-03-10');
+    await closeFinancePeriod(prisma, tenant.tenantId, '2029-03-31');
+
+    const preview = await previewRzlExport('2029-03-01', '2029-03-31').expect(200);
+    const generated = await generateRzlExport({
+      legalEntityId: atEntityId,
+      dateFrom: '2029-03-01',
+      dateTo: '2029-03-31',
+      previewHash: preview.body.previewHash,
+      profileVersion: preview.body.profileVersion,
+      idempotencyKey: `rzl-frozen-${randomUUID()}`,
+      acknowledgeOverlap: true,
+    }).expect(201);
+
+    const beforeMutation = await downloadRun(generated.body.id);
+
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: profileWhere(),
+      data: {
+        serializer_params: {
+          rzl: {
+            firmNumber: 'FN-CHANGED',
+            costCenterLength: null,
+            steuercodes: { vat20: '99', vat13: '88', vat10: '77' },
+          },
+        },
+      },
+    });
+
+    const afterMutation = await downloadRun(generated.body.id);
+    expect(afterMutation.body.equals(beforeMutation.body)).toBe(true);
+    expect(
+      createHash('sha256').update(afterMutation.body as Buffer).digest('hex'),
+    ).toBe(generated.body.sha256);
+
+    await tenantPrisma.legalEntityAccountingProfile.update({
+      where: profileWhere(),
+      data: { is_enabled: false },
+    });
+  });
+
   it('RZ-04: refuses to save an enabled RZL profile whose firm number the file cannot carry', async () => {
     process.env[RZL_SERIALIZER_RELEASE_ENV] = 'true';
     await tenantPrisma.legalEntityAccountingProfile.update({

@@ -4,6 +4,7 @@ date: "2026-10-12"
 module: "Finance"
 status: implementation-draft
 linear-issue: "https://linear.app/auto-core-platform/issue/AUT-350"
+linear-hardening: "https://linear.app/auto-core-platform/issue/AUT-521"
 linear-project: "https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695"
 tags: [feature-spec, finance, accounting, export, austria]
 ---
@@ -16,7 +17,7 @@ AT legal entities export a closed period of STANDARD-VAT invoices and credit not
 
 It depends on [[datev-accounting-export]] (run, replay and authorization model), [[legal-invoicing-and-credit-notes]], and [[2026-09-20-legal-invoicing-and-accounting-export|ADR-0023]]. It follows ADR-0023's rule that a supported PDF does not imply a supported accounting export.
 
-**Status: implementation draft.** The layout is ACP's own pinned reading of the RZL format. It is not certified against RZL. Real validation is **AUT-368** (human, with the accountant and an RZL installation). Until AUT-368 passes, the platform flag stays off and no production tenant enables the profile.
+**Status: implementation draft, profile disabled.** The on-disk file is ACP's own **K/C/B draft** layout (`RZL-FIBU-IMPORT-ACP-DRAFT-1`), not RZL's published Euro-Version column file. Public handbook sources are mapped in the source matrix below (AUT-521). Golden tests do **not** claim vendor acceptance. Real import validation remains a human step (see "Open items"); **AUT-361** and **AUT-368** stay cancelled — engineering does not wait on them. Until an import validation passes, the platform flag stays off and no production tenant enables the profile.
 
 ## Scope
 
@@ -24,19 +25,62 @@ Must-have: serializer registered in the existing export serializer registry; pro
 
 Out of scope: real RZL import validation (AUT-368); enabling the profile for any tenant; margin-scheme postings; exempt, reverse-charge and intra-community treatments; BMD (AUT-351); the margin snapshot work (AUT-349); the lift of the export block (AUT-369); purchases, payments and general-ledger balancing.
 
-## Pinned specification
+## Sources consulted
+
+Retrieval pass **2026-10-15** (AUT-521). Earlier AUT-350 notes are updated where a source could be read.
+
+| # | Source | Version / date on document | Retrieved | Result |
+|---|---|---|---|---|
+| S1 | https://rzlsoftware.at/fileadmin/user_upload/PDF_Schnittstelle/RZL_FIBU_Import_Schnittstelle.pdf | Title metadata: **August 2026** (`RZL FIBU Import Schnittstelle August 2026`); PDF `Last-Modified` 2026-08-12 | 2026-10-15 | **Read.** Official RZL handbook *Datenimport Buchungen (Euro-Version)*: semicolon-separated variable-length rows, CRLF, Codepage 1252, 41 booking columns (chapter 2.2.1), `Belegkreis` `AR` on Ausgangsrechnung examples, numeric `Buchungsart` `1` with Gegenbuchung, `USt-Schlüssel` / `USt-Code` pair, separate Soll/Haben/Steuer amounts. Committed field list: `fixtures/rzl-fibu-euro-public-fields.reference.txt`; handbook line: `fixtures/rzl-fibu-public-ausgangsrechnung.reference.txt`. |
+| S2 | Third-party BMD/RZL practice articles (invoicedataextraction.com, etc.) | n/a | 2026-10-13 | Not used for RZL layout evidence (BMD MTF is AUT-520). |
+| S3 | Live RZL import on a tenant installation | n/a | not tried | Out of scope for AUT-521. No vendor acceptance claimed. |
+
+Pinned official revision for the **Euro-Version** import: **August 2026 handbook (S1).** ACP still emits the separate **draft** file shape below; it is not a byte-compatible export of S1.
+
+## Source matrix (ACP K/C/B draft vs public evidence)
+
+Maps each ACP draft field to handbook evidence. **E** = evidenced in S1 for the official shape; **A** = ACP assumption only (see "Assumptions [UNVERIFIED]").
+
+| ACP record / field | Evidence | Sources | Notes |
+|---|---|---|---|
+| File encoding Windows-1252 | E | S1 §1.2 | ACP rejects non–Win-1252 text. |
+| Field separator `;` | E | S1 §1.2.1 | Semicolon; text must not contain `;`. |
+| Line endings CRLF | E | S1 §1.2.1 | Trailing CRLF after last record (**A5** detail for draft file). |
+| Header `K` + column `C` + booking `B` | A | — | **A1.** Official import is a flat 41-column row per line; no K/C/B records in S1. |
+| Header firm number (`Firmennummer`) | A | — | **A2.** Not in S1 booking columns; ACP profile field. |
+| Header period dates `DD.MM.YYYY` | A | S1 | Official `Beleg-Datum` is `TTMMJJJJ` (**A6**). |
+| `BUCHUNGSART` `AR` / `AG` | A | S1 | S1 uses numeric `Buchungsart` (e.g. `1`) and `Belegkreis` `AR` on sales examples; credits use `AR` + signed amounts, not `AG` (**A3**, **A4**). |
+| `BELEGDATUM` `DD.MM.YYYY` | A | S1 | Official date format differs (**A6**). |
+| `BELEGNUMMER` quoted document number | A | S1 | Official `Belegnummer` is alphanumeric, often unquoted in examples (**A7**). |
+| `SOLL_HABEN` + unsigned `BETRAG` | A | S1 | Official rows use `Sollbetrag` / `Habenbetrag` and signed `Steuerbetrag` on credits (**A8**). |
+| `KONTO` / `GEGENKONTO` collective debtor + revenue | E (accounts) | S1 examples | ACP uses one collective debtor per entity (ADR-0023). |
+| `STEUERCODE` from profile | A | S1 | Official pair is `USt-Schlüssel` + `USt-Code` (**A9**). |
+| `BUCHUNGSTEXT` (60 chars) | A | S1 | Handbook max 40 chars per line (**A10**). |
+| `OP_BELEGNUMMER` + `OP_MODUS` `E`/`M` | A | S1 | Official `OP-Nummer` is numeric on personenkonto lines (**A11**, **A12**). |
+| `KOSTENSTELLE` empty | E (optional column) | S1 | Column exists; ACP leaves it empty. |
+
+**Fixtures (synthetic vs format-evidenced)**
+
+| Artifact | Role |
+|---|---|
+| `fixtures/rzl-sample-export.csv` | **Synthetic** committed sample (AUT-350). |
+| `fixtures/rzl-golden-*.csv` | **Synthetic** per-scenario bytes (invoice/credit rates, mixed partial credit). |
+| `fixtures/rzl-draft-evidenced-export.csv` | **Format-evidenced** pilot-customer bytes for the ACP draft layout; row amounts align with handbook mixed-rate examples, not vendor-validated. |
+| `fixtures/rzl-fibu-euro-public-fields.reference.txt` | Verbatim 41-column handbook order from S1. |
+| `fixtures/rzl-fibu-public-ausgangsrechnung.reference.txt` | Handbook Ausgangsrechnung example line (parsed without the ACP serializer). |
+
+## Pinned specification (ACP draft file)
 
 | Item | Pinned value |
 |---|---|
-| Source document | RZL FIBU Import Schnittstelle, https://rzlsoftware.at/fileadmin/user_upload/PDF_Schnittstelle/RZL_FIBU_Import_Schnittstelle.pdf |
-| Official document version and date | **UNVERIFIED.** The host did not resolve from the build environment on 2026-10-12, so neither the version nor the date could be read. Record the official revision here when AUT-368 obtains it. |
-| ACP layout identifier (written into the header record) | `RZL-FIBU-IMPORT-ACP-DRAFT-1`. This is an ACP label. It is not an RZL-published version. |
+| Source document (official, for mapping only) | RZL FIBU Import Schnittstelle (S1, August 2026) |
+| On-disk layout identifier (header record) | `RZL-FIBU-IMPORT-ACP-DRAFT-1`. ACP label; **not** S1's Euro-Version row shape. |
 | Encoding | Windows-1252 (ANSI), no BOM. Characters outside Windows-1252 block the run. |
 | Field separator | `;` |
 | Text quoting | Text fields are wrapped in double quotes. Embedded `;`, `"`, CR and LF are rejected, not escaped. Leading `=`, `+`, `-` or `@` is rejected (formula safety). |
 | Numbers | Amounts use a decimal comma, two places, no thousands separator, unsigned. Credits keep positive amounts and use polarity `H`. |
-| Dates | `DD.MM.YYYY` (document and period dates) |
-| Creation timestamp | `YYYYMMDDHHmmss` in UTC, frozen at run creation |
+| Dates | `DD.MM.YYYY` (document and period dates) — **ACP draft (A6)** |
+| Creation timestamp | `YYYYMMDDHHmmss` in UTC, frozen at run creation — **ACP draft (A2)** |
 | Line endings | CRLF, with a trailing CRLF after the last record |
 | Limits | Same as DATEV: 10,000 documents and 20 MiB encoded per run |
 
@@ -85,7 +129,7 @@ The export reads Steuercodes only from the run's frozen profile snapshot (`profi
 | `AR` | Ausgangsrechnung: a committed invoice (FINALIZED, ISSUED or PAID) |
 | `AG` | Ausgangsgutschrift: a finalized credit note. Its title in ACP is still a commercial correction (`Rechnungskorrektur` or `Stornorechnung`), not a self-billing Gutschrift. |
 
-These codes are ACP's own. The RZL codes have not been verified (AUT-368).
+These codes are ACP draft labels. S1 uses `Belegkreis` `AR` on sales invoice **and** Gutschrift examples, with numeric `Buchungsart` `1` — not `AG` (**A3**, **A4**).
 
 ## Open-item (OP) handling
 
@@ -129,25 +173,57 @@ None. Firm number and Steuercodes are stored in the existing `serializer_params`
 
 | Criterion | Evidence |
 |---|---|
-| Serializer per public RZL docs; flag default off | ACP draft layout, **not verified against the RZL PDF** (AUT-368). Release gate and fail-closed behavior: `accounting-export-serializer.registry.spec.ts`, `accounting-profile.validation.spec.ts`. |
+| Serializer per public RZL docs; flag default off | Source matrix + S1 (August 2026); ACP draft file is **not** byte-compatible with S1. Release gate: `accounting-export-serializer.registry.spec.ts`, `accounting-profile.validation.spec.ts`. |
 | Sample export committed, with a note that real validation is AUT-368 | `accounting-export/fixtures/rzl-sample-export.csv` and `fixtures/README.md`; `rzl-sample-export.spec.ts` pins the bytes. |
 | DATEV golden tests and bytes unchanged | `datev-serializer.golden.spec.ts` and `datev-serializer.spec.ts` are untouched. The DATEV candidate messages are unchanged (`accounting-export-candidates.rzl.spec.ts`). |
-| Golden files for 20%, 13% and 10% invoices and credit notes; positive amounts with opposite polarity; 13% fixture | `rzl-fibu-import.golden.spec.ts`: one pinned file per rate, and a mixed 20/13/10 invoice with a partial 13% credit. |
+| Golden files for 20%, 13% and 10% invoices and credit notes; positive amounts with opposite polarity; 13% fixture | `rzl-fibu-import.golden.spec.ts` + committed `fixtures/rzl-golden-*.csv` (AUT-521); no inline string expectations. |
 | 0% handling decided and recorded | Section "Zero-rate (0%) decision". Tested in `accounting-export-candidates.rzl.spec.ts` and `accounting-export-allocation-rules.spec.ts`. |
 | Totals reconcile per Steuercode against the frozen facts | `rzl-sample-export.spec.ts`: gross per Steuercode from the file equals net plus tax from the frozen rows. |
 | Re-download returns identical bytes; same authorization as DATEV | Storage and download path unchanged from DATEV. E2E coverage: see the PR description. |
 | OpenAPI and generated types regenerated | `apps/core-api/openapi/openapi.json` and `apps/core-web/src/api/generated/openapi.ts`, regenerated from the code. |
 | Migrations expand-only | No migration. |
 | Tenant isolation lint passes | `npm run lint:prisma-tenant --workspace=core-api` (see the PR description for the result). |
-| Profile not enabled for production; no pilot import claimed | Flag default off. No tenant data is changed. Real import is AUT-368. |
+| Profile not enabled for production; no pilot import claimed | Flag default off. Fixtures use synthetic pilot-customer labels only. No live RZL import attempted in AUT-521. |
 
-## Open items for AUT-368
+## Acceptance mapping (AUT-521)
 
-1. Obtain the official RZL FIBU Import specification, record its revision and date here, and confirm field order, separators, record types, date format, encoding and open-item semantics. Replace the ACP identifier if RZL requires its own version string.
-2. Confirm the Steuercodes 10, 13 and 20 and what 01, 02 and 03 mean. Confirm whether 0% has an approved code. This decides the zero-rate rule above.
-3. Confirm the Buchungsart codes `AR` and `AG`.
-4. Run a test import with the accountant's RZL installation. Compare imported gross, net and tax totals per Steuercode with the frozen facts.
-5. Decide whether due dates or other fields are needed for open-item handling.
+| Criterion | Evidence |
+|---|---|
+| Public RZL sources mapped to K/C/B draft, encoding, OP/firm/tax keys | This document: "Sources consulted", "Source matrix". `RZL_FIBU_EURO_PUBLIC_FIELD_NAMES`, reference fixtures. |
+| Synthetic vs evidenced vs tried separated | Fixtures table; handbook line parsed without serializer; pilot CSV is draft-layout only. |
+| Invoice, mixed rates, partial credit with full bytes | `fixtures/rzl-golden-*.csv`, `fixtures/rzl-draft-evidenced-export.csv`; `rzl-fibu-import.golden.spec.ts`. |
+| Replay/hash regression; live profile does not alter completed export | Generic export immutability; `accounting-export-rzl.e2e-spec.ts` RZ-03, RZ-05. |
+| Default-off gate and business exclusions unchanged | No change to release env or candidate rules; blocker golden JSON in AUT-521. |
+| Tests bind serializer output, not mirrored assertions | Golden tests compare `result.bytes` to committed files. |
+| No vendor acceptance claimed | Blocker tests and spec disclaimers. |
+
+## Assumptions [UNVERIFIED]
+
+ACP draft file choices not confirmed by a live RZL import.
+
+| ID | Assumption | Status after AUT-521 | Basis |
+|---|---|---|---|
+| A1 | K/C/B records instead of flat 41-column Euro-Version rows. | **Still unverified** | Entire ACP draft shape. S1 describes flat rows only. |
+| A2 | Header carries firm number, UTC timestamp, period, chart, account length. | **Still unverified** | Not in S1 booking columns. |
+| A3 | `BUCHUNGSART` `AR` / `AG` on booking lines. | **Still unverified** | S1: `Belegkreis` `AR` + numeric `Buchungsart` on examples. |
+| A4 | Credits use `AG` and positive `H` amounts. | **Still unverified** | S1 Gutschrift example: `AR`, Haben/Soll split, negative tax. |
+| A5 | CRLF with trailing CRLF on the draft file. | **Evidenced (file format)** | S1 §1.2.1 for import files generally. |
+| A6 | `DD.MM.YYYY` dates in the draft file. | **Still unverified** | S1: `TTMMJJJJ` on `Beleg-Datum`. |
+| A7 | Quoted alphanumeric `BELEGNUMMER`. | **Still unverified** | S1 examples vary. |
+| A8 | Single unsigned `BETRAG` + `S`/`H` instead of Soll/Haben columns. | **Still unverified** | S1 amount model differs. |
+| A9 | One `STEUERCODE` per line from profile. | **Still unverified** | S1: `USt-Schlüssel` + `USt-Code`. |
+| A10 | Booking text up to 60 characters. | **Still unverified** | S1: 40 per line. |
+| A11 | `OP_BELEGNUMMER` equals document or original invoice number. | **Partial** | S1 requires OP on personenkonto lines; semantics differ. |
+| A12 | `OP_MODUS` `E` / `M`. | **Still unverified** | Not in S1 column list. |
+
+## Open items: RZL import validation (human, not AUT-521)
+
+**AUT-361 / AUT-368 remain cancelled** as engineering blockers. Before any production enablement, a human should still:
+
+1. Import the ACP draft file (or a future S1-aligned export) into a non-production RZL client and compare totals per tax key with frozen facts.
+2. Decide whether the draft K/C/B shape is acceptable or the export must be rebuilt to the 41-column Euro-Version (and whether a Listenform is required).
+3. Confirm Steuercodes / `USt-Schlüssel` mapping with the accountant and whether 0% needs a approved code.
+4. Confirm open-item and due-date requirements with the accountant.
 
 ## References
 
