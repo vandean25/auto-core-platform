@@ -15,13 +15,20 @@ import { useMySites, useSetActiveSite, type MeSite } from '@/api/sites'
 import { Toaster } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/auth/AuthProvider'
+import { isDemoGrantSessionErrorMessage, isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
 import { AppSidebar } from '@/components/navigation/AppSidebar'
 import { GlobalSearch } from '@/components/GlobalSearch'
 import { DashboardWidgetsProvider } from '@/features/dashboard-widgets/DashboardWidgetsProvider'
 import { RealtimeDashboardSyncProvider } from '@/features/realtime/RealtimeDashboardSyncProvider'
 import { SavedViewsProvider } from '@/features/saved-views/SavedViewsProvider'
 import { generateId } from '@/lib/id'
-import { isKnownAppPath, APP_ROUTE_PATHS, LOGIN_PATH, MECHANIC_ROUTE_PATHS } from '@/lib/app-route-paths'
+import {
+  APP_ROUTE_PATHS,
+  LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH,
+  LOGIN_PATH,
+  MECHANIC_ROUTE_PATHS,
+  isKnownAppPath,
+} from '@/lib/app-route-paths'
 import { isAgentSupervisionEnabled } from '@/lib/runtime-flags'
 import { isMechanicPath, isPlatformPath } from '@/lib/shell-paths'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
@@ -31,6 +38,8 @@ import { PageBreadcrumbsProvider, PageContainerWithBreadcrumbs } from '@/compone
 import { PageLoader } from '@/components/ui/PageLoader'
 import { lazyWithRetry } from '@/lib/lazyWithRetry'
 
+import LandingDemoEmailLinkCompletionPage from '@/pages/LandingDemoEmailLinkCompletionPage'
+import LandingDemoSessionRejectedPage from '@/pages/LandingDemoSessionRejectedPage'
 import LoginPage from '@/pages/LoginPage'
 
 const PickerlDueList = lazyWithRetry(() => import('@/pages/vehicles/PickerlDueList'))
@@ -503,6 +512,9 @@ function AuthLoadingScreen() {
 function LoginRoute() {
   const { user, loading } = useAuth()
   const location = useLocation()
+  const emailLinkSignIn =
+    typeof globalThis.location !== 'undefined' &&
+    isFirebaseEmailLinkSignInUrl(globalThis.location.href)
 
   if (loading) {
     return <AuthLoadingScreen />
@@ -510,6 +522,17 @@ function LoginRoute() {
 
   if (user) {
     return <Navigate to={resolvePostLoginPath(location.state)} replace />
+  }
+
+  if (emailLinkSignIn) {
+    return (
+      <>
+        <GlobalErrorBoundary>
+          <LandingDemoEmailLinkCompletionPage />
+        </GlobalErrorBoundary>
+        <Toaster />
+      </>
+    )
   }
 
   return (
@@ -546,6 +569,16 @@ function AuthenticatedApp() {
     }
 
     return <Navigate to={LOGIN_PATH} replace state={{ from: location }} />
+  }
+
+  if (sessionQuery.isError) {
+    const message =
+      sessionQuery.error instanceof Error ? sessionQuery.error.message : ''
+    if (isDemoGrantSessionErrorMessage(message)) {
+      return (
+        <LandingDemoSessionRejectedPage onSignOut={() => void signOutUser()} />
+      )
+    }
   }
 
   if (!sessionQuery.data) {
@@ -586,6 +619,7 @@ function App() {
       <RouteTitle />
       <Routes>
         <Route path={LOGIN_PATH} element={<LoginRoute />} />
+        <Route path={LANDING_DEMO_SIGN_IN_FINISH_ALT_PATH} element={<LoginRoute />} />
         <Route path="*" element={<AuthenticatedApp />} />
       </Routes>
     </Router>
