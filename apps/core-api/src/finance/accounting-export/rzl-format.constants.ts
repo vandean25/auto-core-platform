@@ -5,9 +5,61 @@ import {
 } from './datev-format.constants.js';
 
 /**
+ * Official RZL FIBU Euro-Version import field order (41 columns), evidenced from
+ * RZL "Handbuch Datenimport" Buchungen chapter 2.2.1 (source S1, August 2026).
+ * ACP does not emit this shape; see `RZL_BOOKING_COLUMNS` for the draft K/C/B file.
+ */
+export const RZL_FIBU_EURO_PUBLIC_FIELD_NAMES = [
+  'Kontonummer',
+  'Gegenkonto',
+  'OP-Nummer',
+  'Beleg-Datum',
+  'Valuta-Datum',
+  'Waehrung',
+  'Sollbetrag',
+  'Habenbetrag',
+  'Steuerbetrag',
+  'Fremdwaehrung',
+  'Fremdwaehrung-Sollbetrag',
+  'Fremdwaehrung-Habenbetrag',
+  'Kostenstelle',
+  'Belegkreis',
+  'Belegnummer',
+  'USt-Land',
+  'USt-Schluessel',
+  'USt-Code',
+  'USt-Sondercode',
+  'Buchungsart',
+  'Abweichende Zahlungsfrist',
+  'Abweichende Skontofrist',
+  'Abw. Skontoprozentsatz',
+  'Buchungstext',
+  'Buchungstext 2. Zeile',
+  'UID-Nummer',
+  'Dienstleistungsnummer',
+  'Dienstleistungsland',
+  'Dienstleistungsexport',
+  'DMS-Schluessel',
+  'Kostentraeger',
+  'Fremdbelegnummer',
+  'Wert 1',
+  'Wert 2',
+  'Mahnsperre',
+  'Zahlungsreferenz',
+  'Belegpfad',
+  'Reserviert',
+  'OSS-Korrekturzeitraum',
+  'OSS-Korrekturart',
+  'DMS-GUID',
+] as const;
+
+export type RzlFibuEuroPublicFieldName =
+  (typeof RZL_FIBU_EURO_PUBLIC_FIELD_NAMES)[number];
+
+/**
  * ACP draft RZL FIBU import layout (see rzl-fibu-import.serializer.ts and the
- * RZL spec). Field names and order are ACP's own pinned reading; they are not
- * copied from an RZL-published schema and must be validated in AUT-368.
+ * RZL spec). K/C/B booking columns are ACP's own pinned reading, not the official
+ * Euro-Version column list above.
  */
 export const RZL_ENCODING = 'windows-1252';
 export const RZL_FIELD_SEPARATOR = ';';
@@ -33,6 +85,8 @@ export const RZL_BOOKING_COLUMNS = [
   'OP_MODUS',
   'KOSTENSTELLE',
 ] as const;
+
+export type RzlBookingColumn = (typeof RZL_BOOKING_COLUMNS)[number];
 
 export const RZL_CURRENCY = 'EUR';
 

@@ -1,149 +1,357 @@
-import { DEFAULT_RZL_FORMAT_VERSION } from '../accounting-profile/accounting-profile.codes.js';
-import type {
-  AccountingExportBookingRow,
-  AccountingExportProfileSnapshot,
-} from './accounting-export.types.js';
+import { readFileSync } from 'node:fs';
+import type { AccountingExportBookingRow } from './accounting-export.types.js';
+import { buildRzlAllocationRules } from './accounting-export-allocation-rules.js';
+import { collectBlockersForInvoice } from './accounting-export-candidates.js';
+import {
+  RZL_DRAFT_EVIDENCED_CREATED_AT,
+  RZL_DRAFT_EVIDENCED_DATE_FROM,
+  RZL_DRAFT_EVIDENCED_DATE_TO,
+  rzlDraftEvidencedProfile,
+  rzlDraftEvidencedRows,
+} from './fixtures/rzl-draft-evidenced.fixture.js';
+import {
+  RZL_GOLDEN_CREATED_AT,
+  RZL_GOLDEN_DATE_FROM,
+  RZL_GOLDEN_DATE_TO,
+  rzlGoldenMixedRows,
+  rzlGoldenProfile,
+  rzlGoldenRate10Rows,
+  rzlGoldenRate13Rows,
+  rzlGoldenRate20Rows,
+} from './fixtures/rzl-golden-scenarios.fixture.js';
+import {
+  RZL_SAMPLE_CREATED_AT,
+  RZL_SAMPLE_DATE_FROM,
+  RZL_SAMPLE_DATE_TO,
+  rzlSampleProfile,
+  rzlSampleRows,
+} from './fixtures/rzl-sample-export.fixture.js';
+import { RZL_FIBU_EURO_PUBLIC_FIELD_NAMES } from './rzl-format.constants.js';
 import { serializeRzlFibuImport } from './rzl-fibu-import.serializer.js';
 
-const rzlProfile: AccountingExportProfileSnapshot = {
-  version: 3,
-  profileCode: 'ACP-RZL-AT-EUR-1',
-  formatVersion: DEFAULT_RZL_FORMAT_VERSION,
-  chart: 'UGB',
-  accountLength: 4,
-  advisorNumber: null,
-  clientNumber: null,
-  fiscalYearStartMonth: 1,
-  defaultDebtorAccount: '2000',
-  serializerParams: {
-    rzl: {
-      firmNumber: 'FN-4711',
-      costCenterLength: null,
-      steuercodes: { vat20: '20', vat13: '13', vat10: '10' },
-    },
-  },
-  isEnabled: true,
-};
+const SYNTHETIC_SAMPLE_SHA256 =
+  '97f49ca328f7e7c4fd208fa0e2b9900969293a0bfc385a903263b814a4795b54';
 
-const createdAt = new Date('2026-01-15T10:04:04.000Z');
+const DRAFT_EVIDENCED_SHA256 =
+  'a7827089b121ff486fbaa03c555dde171ce60f3b74f84b3cf115c6393289b588';
 
-const EXPECTED_HEADER =
-  'K;"RZL-FIBU-IMPORT-ACP-DRAFT-1";"FN-4711";20260115100404;01.01.2026;31.01.2026;"EUR";"UGB";4';
-const EXPECTED_COLUMNS =
-  'C;BUCHUNGSART;BELEGDATUM;BELEGNUMMER;SOLL_HABEN;BETRAG;KONTO;GEGENKONTO;STEUERCODE;BUCHUNGSTEXT;OP_BELEGNUMMER;OP_MODUS;KOSTENSTELLE';
+const DRAFT_EVIDENCED_GUTSCHRIFT_SHA256 =
+  '6c005ea612ed42c465692dbfef24059274febd7c1aa071657fb798e2ebdfd254';
 
-function bookingRow(
-  overrides: Partial<AccountingExportBookingRow> &
-    Pick<AccountingExportBookingRow, 'taxRate' | 'gross'>,
-): AccountingExportBookingRow {
-  return {
-    documentId: 'invoice-1',
-    documentKind: 'INVOICE',
-    documentNumber: 'RE-2026-0001',
-    documentDate: '2026-01-10',
-    lineId: 'line-1',
-    polarity: 'S',
-    net: '0.00',
-    tax: '0.00',
-    debtorAccount: '2000',
-    revenueAccount: '8400',
-    buKey: null,
-    bookingText: 'RE RE-2026-0001',
-    ...overrides,
-  };
-}
+const steuercodes = { vat20: '20', vat13: '13', vat10: '10' };
 
-function creditRow(
-  overrides: Partial<AccountingExportBookingRow> &
-    Pick<AccountingExportBookingRow, 'taxRate' | 'gross'>,
-): AccountingExportBookingRow {
-  return bookingRow({
-    documentId: 'credit-1',
-    documentKind: 'CREDIT_NOTE',
-    documentNumber: 'CN-2026-0002',
-    documentDate: '2026-01-21',
-    lineId: 'credit-line-1',
-    polarity: 'H',
-    bookingText: 'CN CN-2026-0002 / RE RE-2026-0001',
-    originalInvoiceNumber: 'RE-2026-0001',
-    ...overrides,
-  });
-}
-
-function serialize(rows: AccountingExportBookingRow[]) {
+function serializeSample(rows: typeof rzlSampleRows) {
   return serializeRzlFibuImport({
-    profile: rzlProfile,
-    dateFrom: '2026-01-01',
-    dateTo: '2026-01-31',
-    createdAt,
+    profile: rzlSampleProfile,
+    dateFrom: RZL_SAMPLE_DATE_FROM,
+    dateTo: RZL_SAMPLE_DATE_TO,
+    createdAt: RZL_SAMPLE_CREATED_AT,
     rows,
   });
 }
 
-describe('rzl-fibu-import golden bytes', () => {
-  it.each([
-    {
-      rate: '20.00',
-      code: '20',
-      gross: '120.00',
-      expectedSha256:
-        'd9b7869f7cc10e96b8f87feac209759a10125e400db040b66d4152c17f5988c1',
-    },
-    {
-      rate: '13.00',
-      code: '13',
-      gross: '113.00',
-      expectedSha256:
-        'c36b1307f5922f513002d20cad0df401b42f72be8ed81b08cf307924694d0a1f',
-    },
-    {
-      rate: '10.00',
-      code: '10',
-      gross: '110.00',
-      expectedSha256:
-        '5817761d186f6cf84f84bd40845e9384760a85c21fc7c5f498873107c6a53a18',
-    },
-  ])(
-    'pins the $rate% invoice and mirrored credit note layout',
-    ({ rate, code, gross, expectedSha256 }) => {
-      const result = serialize([
-        bookingRow({ taxRate: rate, gross }),
-        creditRow({ taxRate: rate, gross }),
-      ]);
+function serializeGolden(rows: AccountingExportBookingRow[]) {
+  return serializeRzlFibuImport({
+    profile: rzlGoldenProfile,
+    dateFrom: RZL_GOLDEN_DATE_FROM,
+    dateTo: RZL_GOLDEN_DATE_TO,
+    createdAt: RZL_GOLDEN_CREATED_AT,
+    rows,
+  });
+}
 
-      expect(result.csvText).toBe(
-        [
-          EXPECTED_HEADER,
-          EXPECTED_COLUMNS,
-          `B;AR;10.01.2026;"RE-2026-0001";S;${gross.replace('.', ',')};"2000";"8400";${code};"RE RE-2026-0001";"RE-2026-0001";E;`,
-          `B;AG;21.01.2026;"CN-2026-0002";H;${gross.replace('.', ',')};"2000";"8400";${code};"CN CN-2026-0002 / RE RE-2026-0001";"RE-2026-0001";M;`,
-          '',
-        ].join('\r\n'),
-      );
-      expect(result.rowCount).toBe(2);
-      expect(result.sha256).toBe(expectedSha256);
+function serializeDraftEvidenced(rows: typeof rzlDraftEvidencedRows) {
+  return serializeRzlFibuImport({
+    profile: rzlDraftEvidencedProfile,
+    dateFrom: RZL_DRAFT_EVIDENCED_DATE_FROM,
+    dateTo: RZL_DRAFT_EVIDENCED_DATE_TO,
+    createdAt: RZL_DRAFT_EVIDENCED_CREATED_AT,
+    rows,
+  });
+}
+
+/** Margin-scheme invoice with one line, as a finalized v2 invoice would present it. */
+function marginSchemeInvoiceFixture() {
+  const allocation = {
+    profileCode: 'ACP-RZL-AT-EUR-1',
+    profileVersion: 3,
+    sourceCategoryKey: 'vehicle_margin',
+    sourceCategoryLabel: 'Vehicle margin',
+    revenueAccount: '8400',
+    debtorAccount: '2000',
+    taxMode: 'MARGIN_SCHEME',
+    taxRate: '20.00',
+    taxTreatment: 'automatic',
+    buKey: null,
+    countryIso: 'AT',
+    currency: 'EUR',
+  };
+
+  return {
+    id: 'inv-margin-1',
+    status: 'FINALIZED' as const,
+    invoice_number: 'RE-2026-0003',
+    site_id: 'site-1',
+    legal_entity_id: 'le-1',
+    tax_mode: 'MARGIN_SCHEME' as const,
+    snapshot: {
+      schema_version: 2,
+      document_kind: 'INVOICE',
+      site_id: 'site-1',
+      legal_entity_id: 'le-1',
+      currency: 'EUR',
+      seller: { name: 'Seller GmbH' },
+      items: [
+        {
+          id: 'line-margin-1',
+          net: '100.00',
+          tax: '0.00',
+          gross: '120.00',
+          accounting_allocation: allocation,
+        },
+      ],
+      tax_breakdown: [],
+      total_net: '100.00',
+      total_tax: '0.00',
+      total_gross: '120.00',
+      snapshot_created_at: '2026-01-10T00:00:00.000Z',
+      tax_mode: 'MARGIN_SCHEME',
     },
-  );
+    items: [{ id: 'line-margin-1', accounting_snapshot: allocation }],
+  };
+}
 
-  it('pins a mixed 20/13/10 invoice with a partial 13% credit', () => {
-    const result = serialize([
-      bookingRow({ lineId: 'l-20', taxRate: '20.00', gross: '120.00' }),
-      bookingRow({ lineId: 'l-13', taxRate: '13.00', gross: '56.50' }),
-      bookingRow({ lineId: 'l-10', taxRate: '10.00', gross: '33.00' }),
-      creditRow({ lineId: 'c-13', taxRate: '13.00', gross: '22.60' }),
-    ]);
+function zeroRateInvoiceFixture() {
+  const allocation = {
+    profileCode: 'ACP-RZL-AT-EUR-1',
+    profileVersion: 3,
+    sourceCategoryKey: 'manual_line',
+    sourceCategoryLabel: 'Manual invoice lines',
+    revenueAccount: '8400',
+    debtorAccount: '2000',
+    taxMode: 'STANDARD',
+    taxRate: '0.00',
+    taxTreatment: 'automatic',
+    buKey: null,
+    countryIso: 'AT',
+    currency: 'EUR',
+  };
 
-    expect(result.csvText).toBe(
-      [
-        EXPECTED_HEADER,
-        EXPECTED_COLUMNS,
-        'B;AR;10.01.2026;"RE-2026-0001";S;120,00;"2000";"8400";20;"RE RE-2026-0001";"RE-2026-0001";E;',
-        'B;AR;10.01.2026;"RE-2026-0001";S;56,50;"2000";"8400";13;"RE RE-2026-0001";"RE-2026-0001";E;',
-        'B;AR;10.01.2026;"RE-2026-0001";S;33,00;"2000";"8400";10;"RE RE-2026-0001";"RE-2026-0001";E;',
-        'B;AG;21.01.2026;"CN-2026-0002";H;22,60;"2000";"8400";13;"CN CN-2026-0002 / RE RE-2026-0001";"RE-2026-0001";M;',
-        '',
-      ].join('\r\n'),
+  return {
+    id: 'inv-1',
+    status: 'FINALIZED' as const,
+    invoice_number: 'RE-2026-0001',
+    site_id: 'site-1',
+    legal_entity_id: 'le-1',
+    tax_mode: 'STANDARD' as const,
+    snapshot: {
+      schema_version: 2,
+      document_kind: 'INVOICE',
+      site_id: 'site-1',
+      legal_entity_id: 'le-1',
+      currency: 'EUR',
+      seller: { name: 'Seller GmbH' },
+      items: [
+        {
+          id: 'line-zero',
+          net: '50.00',
+          tax: '0.00',
+          gross: '50.00',
+          accounting_allocation: allocation,
+        },
+      ],
+      tax_breakdown: [],
+      total_net: '50.00',
+      total_tax: '0.00',
+      total_gross: '50.00',
+      snapshot_created_at: '2026-01-10T00:00:00.000Z',
+      tax_mode: 'STANDARD',
+    },
+    items: [{ id: 'line-zero', accounting_snapshot: allocation }],
+  };
+}
+
+describe('rzl-fibu-import golden files', () => {
+  const publicEuroFields = readFileSync(
+    new URL(
+      './fixtures/rzl-fibu-euro-public-fields.reference.txt',
+      import.meta.url,
+    ),
+    'utf8',
+  ).trimEnd();
+
+  const publicAusgangsrechnung = readFileSync(
+    new URL(
+      './fixtures/rzl-fibu-public-ausgangsrechnung.reference.txt',
+      import.meta.url,
+    ),
+    'utf8',
+  ).trimEnd();
+
+  it('pins the official Euro-Version field order from source S1 (handbook 2.2.1)', () => {
+    expect(RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.join(';')).toBe(publicEuroFields);
+    expect(RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.length).toBe(41);
+  });
+
+  it('reads the handbook Ausgangsrechnung example without using the ACP serializer', () => {
+    const fields = publicAusgangsrechnung.split(';');
+    expect(
+      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Belegkreis')],
+    ).toBe('AR');
+    expect(
+      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('Buchungsart')],
+    ).toBe('1');
+    expect(
+      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Schluessel')],
+    ).toBe('20');
+    expect(
+      fields[RZL_FIBU_EURO_PUBLIC_FIELD_NAMES.indexOf('USt-Code')],
+    ).toBe('2');
+  });
+
+  it('pins the ACP draft column record line against a committed reference', () => {
+    const columnsRef = readFileSync(
+      new URL('./fixtures/rzl-acp-draft-columns.reference.txt', import.meta.url),
+      'utf8',
+    ).trimEnd();
+    const [, columnLine] = serializeDraftEvidenced([
+      rzlDraftEvidencedRows[0],
+    ]).csvText.split('\r\n');
+
+    expect(columnLine).toBe(columnsRef);
+  });
+
+  describe('synthetic sample (AUT-350 committed fixture)', () => {
+    const committed = readFileSync(
+      new URL('./fixtures/rzl-sample-export.csv', import.meta.url),
     );
-    expect(result.sha256).toBe('95dd62d89034e4546fc3db66d761271777f8397300c63d17bdb099a9523a7bdc');
+
+    it('pins the committed synthetic sample byte for byte', () => {
+      const result = serializeSample(rzlSampleRows);
+
+      expect(result.bytes.equals(committed)).toBe(true);
+      expect(result.sha256).toBe(SYNTHETIC_SAMPLE_SHA256);
+      expect(result.rowCount).toBe(5);
+    });
+  });
+
+  describe('per-rate invoice and credit (committed bytes)', () => {
+    it.each([
+      {
+        rate: '20',
+        file: 'rzl-golden-rate-20-invoice-credit.csv',
+        rows: rzlGoldenRate20Rows,
+        expectedSha256:
+          'd9b7869f7cc10e96b8f87feac209759a10125e400db040b66d4152c17f5988c1',
+      },
+      {
+        rate: '13',
+        file: 'rzl-golden-rate-13-invoice-credit.csv',
+        rows: rzlGoldenRate13Rows,
+        expectedSha256:
+          'c36b1307f5922f513002d20cad0df401b42f72be8ed81b08cf307924694d0a1f',
+      },
+      {
+        rate: '10',
+        file: 'rzl-golden-rate-10-invoice-credit.csv',
+        rows: rzlGoldenRate10Rows,
+        expectedSha256:
+          '5817761d186f6cf84f84bd40845e9384760a85c21fc7c5f498873107c6a53a18',
+      },
+    ])(
+      'pins the $rate % standard invoice and mirrored credit',
+      ({ file, rows, expectedSha256 }) => {
+        const committed = readFileSync(
+          new URL(`./fixtures/${file}`, import.meta.url),
+        );
+        const result = serializeGolden(rows);
+
+        expect(result.bytes.equals(committed)).toBe(true);
+        expect(result.sha256).toBe(expectedSha256);
+        expect(result.rowCount).toBe(2);
+      },
+    );
+  });
+
+  describe('mixed invoice and partial credit (committed bytes)', () => {
+    const committed = readFileSync(
+      new URL(
+        './fixtures/rzl-golden-mixed-invoice-partial-credit.csv',
+        import.meta.url,
+      ),
+    );
+
+    it('pins mixed 20 / 13 / 10 % lines and a partial 13 % credit', () => {
+      const result = serializeGolden(rzlGoldenMixedRows);
+
+      expect(result.bytes.equals(committed)).toBe(true);
+      expect(result.sha256).toBe(
+        '5fb0dfba73c062dd6f9ed9ff3c2fccf774cdb452ac8bb4679d6d82fab4860051',
+      );
+      expect(result.rowCount).toBe(4);
+    });
+  });
+
+  describe('format-evidenced handbook examples (AUT-521, source S1 §2.3)', () => {
+    const committed = readFileSync(
+      new URL('./fixtures/rzl-draft-evidenced-export.csv', import.meta.url),
+    );
+    const committedGutschrift = readFileSync(
+      new URL(
+        './fixtures/rzl-draft-evidenced-gutschrift-only.csv',
+        import.meta.url,
+      ),
+    );
+
+    it('pins handbook single-rate invoices and Gutschrift in ACP draft bytes', () => {
+      const result = serializeDraftEvidenced(rzlDraftEvidencedRows);
+
+      expect(result.bytes.equals(committed)).toBe(true);
+      expect(result.sha256).toBe(DRAFT_EVIDENCED_SHA256);
+      expect(result.rowCount).toBe(4);
+    });
+
+    it('pins the Gutschrift booking file against a committed single-document CSV', () => {
+      const result = serializeDraftEvidenced([rzlDraftEvidencedRows[3]]);
+
+      expect(result.bytes.equals(committedGutschrift)).toBe(true);
+      expect(result.sha256).toBe(DRAFT_EVIDENCED_GUTSCHRIFT_SHA256);
+      expect(result.rowCount).toBe(1);
+    });
+  });
+
+  describe('documented export blockers (no RZL vendor acceptance claimed)', () => {
+    it('pins the margin-scheme outcome: blocked, so no rows are produced', () => {
+      const blockers = collectBlockersForInvoice(
+        marginSchemeInvoiceFixture(),
+        buildRzlAllocationRules(steuercodes),
+      );
+      const golden = JSON.parse(
+        readFileSync(
+          new URL(
+            './fixtures/rzl-margin-scheme-blockers.golden.json',
+            import.meta.url,
+          ),
+          'utf8',
+        ),
+      );
+
+      expect(blockers).toEqual(golden);
+    });
+
+    it('pins the zero-rate outcome for a non-zero gross line', () => {
+      const blockers = collectBlockersForInvoice(
+        zeroRateInvoiceFixture(),
+        buildRzlAllocationRules(steuercodes),
+      );
+      const golden = JSON.parse(
+        readFileSync(
+          new URL('./fixtures/rzl-zero-rate-blockers.golden.json', import.meta.url),
+          'utf8',
+        ),
+      );
+
+      expect(blockers).toEqual(golden);
+    });
   });
 });

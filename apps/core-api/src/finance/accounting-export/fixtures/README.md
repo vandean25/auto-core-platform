@@ -1,12 +1,23 @@
-# RZL sample export (AUT-350)
+# RZL sample export (AUT-350 / AUT-521)
 
 `rzl-sample-export.csv` is generated from `rzl-sample-export.fixture.ts` by the RZL serializer (`../rzl-fibu-import.serializer.ts`). `rzl-sample-export.spec.ts` fails if the committed bytes drift from the serializer output.
 
-**Not validated against RZL.** This file shows the ACP draft layout `RZL-FIBU-IMPORT-ACP-DRAFT-1`. It was not imported into any RZL product and has not been checked against the official RZL FIBU import specification, which could not be retrieved while this was written. Real validation is **AUT-368**, a human step with an accountant and a test import.
+**Not validated against RZL.** This file shows the ACP **draft** layout `RZL-FIBU-IMPORT-ACP-DRAFT-1` (K/C/B records). It is not byte-compatible with the official RZL Euro-Version 41-column import (handbook source S1, August 2026 — see `docs/internal/02-Feature-Specs/Finance/rzl-accounting-export.md`). No live RZL import was attempted in AUT-521.
 
-The accounts (2000 debtor, 8200/8300/8400 revenue) and the firm number `FN-4711` are fixture values, not production defaults. Do not enable the RZL profile for any production tenant until AUT-368 passes; the platform release flag `ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED` stays `false` until then.
+| Artifact | Kind |
+|---|---|
+| `rzl-sample-export.csv` | Synthetic committed sample (AUT-350). |
+| `rzl-golden-*.csv` | Synthetic scenario bytes (per-rate invoice/credit, mixed partial credit). |
+| `rzl-draft-evidenced-export.csv` | Format-evidenced **draft-layout** bytes from handbook §2.3 single-rate examples (12.000 / 1.100 / 1.130 / 1.200 Gutschrift); not the synthetic mixed sample. |
+| `rzl-draft-evidenced-gutschrift-only.csv` | Same for the handbook Gutschrift row only (committed single-document file). |
+| `rzl-acp-draft-columns.reference.txt` | Committed `C` record for ACP draft column order. |
+| `rzl-fibu-euro-public-fields.reference.txt` | Official 41-column order from handbook S1. |
+| `rzl-fibu-public-ausgangsrechnung.reference.txt` | Handbook Ausgangsrechnung example line (parsed without the serializer). |
+| `rzl-*-blockers.golden.json` | Documented blocker outcomes (margin, zero-rate); no vendor acceptance. |
 
-To regenerate after an intended layout change, run the serializer on the fixture and update the pinned SHA-256 in `rzl-sample-export.spec.ts` in the same commit.
+The accounts (2000 debtor, 8200/8300/8400 revenue) and firm numbers (`FN-4711`, `FN-PILOT`) are fixture values for a **pilot customer**, not production defaults. The platform release flag `ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED` stays `false` until a human import validation passes.
+
+To regenerate after an intended layout change, run the serializer on the fixture and update the pinned SHA-256 in the matching spec in the same commit.
 
 # BMD sample export (AUT-351) — synthetic
 

@@ -2,10 +2,10 @@ export const DEFAULT_DE_PROFILE_CODE = 'ACP-DATEV-DE-EUR-1';
 export const DEFAULT_AT_PROFILE_CODE = 'ACP-RZL-AT-EUR-1';
 export const DEFAULT_FORMAT_VERSION = 'EXTF-700-Buchungsstapel-13';
 /**
- * ACP identifier of the RZL FIBU import layout implemented in
- * `rzl-fibu-import.serializer.ts`. It is not a version number published by RZL:
- * the official RZL specification could not be retrieved while this layout was
- * written. See docs/internal/02-Feature-Specs/Finance/rzl-accounting-export.md.
+ * ACP identifier of the RZL FIBU K/C/B draft layout in
+ * `rzl-fibu-import.serializer.ts`. It is not RZL's Euro-Version column file.
+ * Public handbook source S1 (August 2026) is mapped in the RZL spec; see
+ * docs/internal/02-Feature-Specs/Finance/rzl-accounting-export.md.
  */
 export const DEFAULT_RZL_FORMAT_VERSION = 'RZL-FIBU-IMPORT-ACP-DRAFT-1';
 /** Platform release gate for RZL CSV generation and enablement. Default OFF until AUT-368. */
