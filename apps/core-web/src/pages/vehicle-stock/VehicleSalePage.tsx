@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { CustomerSearch } from '@/components/sales/CustomerSearch'
+import { GewaehrleistungFristen } from '@/components/vehicles/GewaehrleistungFristen'
 import {
   VehicleSaleTradeInSection,
   type VehicleSaleTradeInHandle,
@@ -24,6 +25,7 @@ import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
 import {
   GARANTIE_MONTHS_MESSAGE,
+  gewaehrleistungStatusBadge,
   negotiatedShorteningBlockReason,
   parseGarantieMonths,
 } from '@/lib/vehicle-sale-warranty'
@@ -349,6 +351,9 @@ export default function VehicleSalePage() {
 
   const vatPreview = existing?.margin_vat_preview
   const costPreview = existing?.cost_basis_preview ?? vehicle?.cost_basis
+  const warrantyBadge = existing?.gewaehrleistung_status
+    ? gewaehrleistungStatusBadge(existing.gewaehrleistung_status)
+    : null
 
   return (
     <div className="space-y-6">
@@ -371,6 +376,14 @@ export default function VehicleSalePage() {
             </p>
           </div>
           {existing ? <StatusBadge status={existing.status} /> : null}
+          {existing?.invoice ? (
+            <Link
+              to={`/sales/invoices/${existing.invoice.id}`}
+              className="text-sm font-medium text-slate-700 underline-offset-4 hover:underline"
+            >
+              {existing.invoice.invoice_number ? `Rechnung ${existing.invoice.invoice_number}` : 'Rechnung öffnen'}
+            </Link>
+          ) : null}
         </div>
         <div className="flex items-center gap-3">
           {saveStatus === 'saving' && <span className="text-sm text-slate-500">Saving...</span>}
@@ -424,7 +437,11 @@ export default function VehicleSalePage() {
             />
           </label>
           <section aria-labelledby="gewaehrleistung-form-title" className="space-y-3 rounded-lg border p-4">
-            <h2 id="gewaehrleistung-form-title" className="font-medium">Gewährleistung</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 id="gewaehrleistung-form-title" className="font-medium">Gewährleistung</h2>
+              {warrantyBadge ? <StatusBadge status={warrantyBadge.status} label={warrantyBadge.label} /> : null}
+            </div>
+            {existing?.gewaehrleistung_ends_on ? <GewaehrleistungFristen sale={existing} /> : null}
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Vertragsdatum</span>
               <Input

@@ -39,4 +39,22 @@ describe('GewaehrleistungDueList', () => {
     await waitFor(() => expect(screen.getByText('1', { selector: 'span' })).toBeInTheDocument())
     expect(screen.getByText('AB-0 · 2020')).toBeInTheDocument()
   })
+
+  it('uses the same Basisfrist and Vermutungsfrist terms as the vehicle card', () => {
+    vi.mocked(vehicleStockApi.useGewaehrleistungDueList).mockReturnValue({
+      data: { data: [] },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof vehicleStockApi.useGewaehrleistungDueList>)
+
+    render(
+      <MemoryRouter initialEntries={['/vehicles/gewaehrleistung-due']}>
+        <GewaehrleistungDueList />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Basisfrist bis')).toBeInTheDocument()
+    expect(screen.getByText('Vermutungsfrist bis')).toBeInTheDocument()
+    expect(screen.queryByText('Gewährleistung bis')).not.toBeInTheDocument()
+  })
 })

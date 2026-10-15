@@ -4,6 +4,7 @@ import type { DataTableQueryParams } from '@/hooks/useDataTableQuery'
 import { buildDataTableUrl } from './data-table-query'
 import type { components } from './generated/openapi'
 import { vehicleKeys } from './vehicles'
+import type { GewaehrleistungStatus } from '@/lib/vehicle-sale-warranty'
 
 export const vehicleStockKeys = {
   all: ['vehicle-stock'] as const,
@@ -200,6 +201,10 @@ type SaleWarrantyResponseFields = {
   gewaehrleistung_note?: string | null
   gewaehrleistung_ends_on?: string | null
   presumption_ends_on?: string | null
+  /** Basisfrist badge status, computed by the API on the Europe/Vienna day; null without a snapshot. */
+  gewaehrleistung_status?: GewaehrleistungStatus | null
+  gewaehrleistung_ends_on_expired?: boolean
+  presumption_ends_on_expired?: boolean
   garantie_months?: number | null
   garantie_terms?: string | null
   kaufvertrag_generated_at?: string | null

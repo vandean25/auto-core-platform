@@ -5,6 +5,10 @@ import type { CreateVehicleSaleDto } from './dto/create-vehicle-sale.dto.js';
 import type { PatchVehicleSaleDto } from './dto/patch-vehicle-sale.dto.js';
 import { computeGewaehrleistung } from './gewaehrleistung/compute-gewaehrleistung.js';
 import { resolveGewaehrleistungRuleSet } from './gewaehrleistung/gewaehrleistung-rule-sets.js';
+import {
+  deriveGewaehrleistungStatus,
+  isPeriodExpired,
+} from './gewaehrleistung/gewaehrleistung-status.js';
 import { resolveGarantieFacts } from './kaufvertrag/kaufvertrag-garantie.js';
 
 type WarrantyInput = {
@@ -91,6 +95,27 @@ export function toGewaehrleistungSnapshot(
     gewaehrleistung_ends_on: sale.gewaehrleistung_ends_on,
     presumption_ends_on: sale.presumption_ends_on,
     gewaehrleistung_rule_version: sale.gewaehrleistung_rule_version,
+  };
+}
+
+/** Read-only badge status and expired flags for a sale response. `today` is the Europe/Vienna day. */
+export function toGewaehrleistungReadFields(
+  sale: Pick<VehicleSale, 'gewaehrleistung_ends_on' | 'presumption_ends_on'>,
+  today: string,
+) {
+  return {
+    gewaehrleistung_status: deriveGewaehrleistungStatus(
+      sale.gewaehrleistung_ends_on,
+      today,
+    ),
+    gewaehrleistung_ends_on_expired: isPeriodExpired(
+      sale.gewaehrleistung_ends_on,
+      today,
+    ),
+    presumption_ends_on_expired: isPeriodExpired(
+      sale.presumption_ends_on,
+      today,
+    ),
   };
 }
 

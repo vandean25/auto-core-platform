@@ -2,7 +2,9 @@ import {
   projectVehicleListOperationalFields,
   projectVehicleOperationalFields,
 } from '../common/projections/vehicle-entity.projection.js';
+import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 import { omitKaufvertragArchiveInternals } from '../vehicle-stock/kaufvertrag/kaufvertrag-sale-response.js';
+import { toGewaehrleistungReadFields } from '../vehicle-stock/vehicle-sale.warranty.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 import { stripVehicleIdentityResolutionState } from './vehicle-identity.util.js';
 import type { VehiclePersistenceService } from './vehicle-persistence.service.js';
@@ -41,10 +43,14 @@ export function toVehicleDetailResponse(
   authorizedSiteIds: readonly string[],
   onDate: Date,
 ) {
+  const today = viennaIsoDay(onDate);
   const projected = projectVehicleOperationalFields(
     stripVehicleIdentityResolutionState({
       ...vehicle,
-      sales: vehicle.sales.map((sale) => omitKaufvertragArchiveInternals(sale)),
+      sales: vehicle.sales.map((sale) => ({
+        ...omitKaufvertragArchiveInternals(sale),
+        ...toGewaehrleistungReadFields(sale, today),
+      })),
     }),
     authorizedSiteIds,
   );

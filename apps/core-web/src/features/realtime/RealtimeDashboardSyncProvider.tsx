@@ -12,6 +12,7 @@ import { workshopKeys } from '@/api/workshop'
 import { API_BASE_URL } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { getQueryKeysToInvalidateForEntityType, isEntityUpdatedPayload } from '@/features/realtime/dashboard-entity-map'
+import { buildRealtimeSocketOptions, createHandshakeRetry } from '@/features/realtime/realtime-socket-options'
 import {
   AUTH_CLAIMS_UPDATED_EVENT,
   ENTITY_UPDATED_EVENT,
@@ -123,12 +124,16 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
     const connection = resolveRealtimeConnection()
     if (!connection || !token) return
 
-    const socket: Socket = io(connection.url, {
-      path: connection.path,
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-      auth: { token },
-    })
+    const socket: Socket = io(
+      connection.url,
+      buildRealtimeSocketOptions({
+        path: connection.path,
+        getIdToken: async () => (await firebaseAuth?.currentUser?.getIdToken()) ?? null,
+      }),
+    )
+    const handshakeRetry = createHandshakeRetry(socket)
+    socket.on('connect', handshakeRetry.onConnect)
+    socket.on('connect_error', handshakeRetry.onConnectError)
 
     const onEntityUpdated = (payload: unknown) => {
       if (!isEntityUpdatedPayload(payload)) return
@@ -229,6 +234,9 @@ export function RealtimeDashboardSyncProvider({ children }: RealtimeDashboardSyn
       socket.off(AUTH_CLAIMS_UPDATED_EVENT, onClaimsUpdated)
       socket.off(SITE_CONTEXT_UPDATED_EVENT, onSiteContextUpdated)
       socket.off(SITE_ACCESS_SCOPE_UPDATED_EVENT, onSiteAccessScopeUpdated)
+      socket.off('connect', handshakeRetry.onConnect)
+      socket.off('connect_error', handshakeRetry.onConnectError)
+      handshakeRetry.dispose()
       socket.disconnect()
     }
   }, [queryClient, shouldSkipRealtime, signOutUser, token])
