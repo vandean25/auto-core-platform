@@ -270,6 +270,8 @@ VALUES
   ('labor_fitments', 'labor_operations', 'labor_operation_id', 'id', 'CASCADE', 'CASCADE'),
   ('labor_operations', 'labor_categories', 'category_id', 'id', 'RESTRICT', 'CASCADE'),
   ('labor_operations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('landing_demo_sign_in_grants', 'landing_demo_access_requests', 'access_request_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('landing_demo_sign_in_grants', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('leave_requests', 'employees', 'tenant_id,employee_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('leave_requests', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('legal_entities', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),

@@ -14,6 +14,8 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { AUTH_THROTTLER_OPTIONS } from './auth/auth-throttling.js';
+import { LANDING_DEMO_THROTTLER_OPTIONS } from './landing-demo-access/landing-demo-access.constants.js';
+import { LandingDemoAccessModule } from './landing-demo-access/landing-demo-access.module.js';
 import { ESTIMATE_APPROVAL_THROTTLER_OPTIONS } from './workshop/public-estimate-approval/public-estimate-approval.constants.js';
 import { PublicEstimateApprovalHeadersMiddleware } from './workshop/public-estimate-approval/public-estimate-approval.headers.middleware.js';
 import { ApiKeyAuthGuard } from './public-api/api-keys/api-key.guard.js';
@@ -74,6 +76,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     ThrottlerModule.forRoot([
       AUTH_THROTTLER_OPTIONS,
       ESTIMATE_APPROVAL_THROTTLER_OPTIONS,
+      LANDING_DEMO_THROTTLER_OPTIONS,
     ]),
     DryRunModule,
     InventoryModule,
@@ -121,6 +124,7 @@ import { SettlementModule } from './settlement/settlement.module.js';
     DecisionShadowLogModule,
     McpModule,
     PublicApiModule,
+    LandingDemoAccessModule,
   ],
   controllers: [AppController, HealthController],
   providers: [

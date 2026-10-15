@@ -10,13 +10,15 @@ export function resolveCorsOrigins(
   frontendUrl = process.env.FRONTEND_URL,
   nodeEnv = process.env.NODE_ENV,
 ): string[] {
-  const configuredOrigins = frontendUrl
-    ?.split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const configuredOrigins = [
+    ...(frontendUrl
+      ?.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean) ?? []),
+  ];
 
-  if (configuredOrigins && configuredOrigins.length > 0) {
-    return configuredOrigins;
+  if (configuredOrigins.length > 0) {
+    return [...new Set(configuredOrigins)];
   }
 
   if (nodeEnv === 'production') {

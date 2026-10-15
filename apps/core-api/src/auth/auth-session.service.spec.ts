@@ -1,6 +1,14 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import type { LandingDemoSignInGrantService } from '../landing-demo-access/landing-demo-sign-in-grant.service.js';
 import { AuthSessionService } from './auth-session.service.js';
+
+function createLandingDemoGrantMock(): LandingDemoSignInGrantService {
+  return {
+    assertDemoSignInGrantForSession: jest.fn().mockResolvedValue(undefined),
+    userHasNonDemoActiveMembership: jest.fn().mockResolvedValue(false),
+  } as unknown as LandingDemoSignInGrantService;
+}
 
 const ACTIVE_TENANT_ID = 'tenant-1';
 const ACTIVE_SITE_ID = 'site-1';
@@ -32,7 +40,10 @@ describe('AuthSessionService active-site session projection', () => {
       user: { findFirst },
     } as unknown as SystemPrismaService;
 
-    const service = new AuthSessionService(systemPrisma);
+    const service = new AuthSessionService(
+      systemPrisma,
+      createLandingDemoGrantMock(),
+    );
     const authenticatedUser = await service.resolveTenantUser({
       sub: 'firebase-user-1',
       email: 'user@example.com',
@@ -81,7 +92,10 @@ describe('AuthSessionService identity resolution and email verification', () => 
       user: { findFirst },
     } as unknown as SystemPrismaService;
 
-    const service = new AuthSessionService(systemPrisma);
+    const service = new AuthSessionService(
+      systemPrisma,
+      createLandingDemoGrantMock(),
+    );
     const result = await service.resolveTenantUser({
       sub: 'legit-uid',
       email: 'user@example.com',
@@ -102,7 +116,10 @@ describe('AuthSessionService identity resolution and email verification', () => 
       user: { findFirst },
     } as unknown as SystemPrismaService;
 
-    const service = new AuthSessionService(systemPrisma);
+    const service = new AuthSessionService(
+      systemPrisma,
+      createLandingDemoGrantMock(),
+    );
     const result = await service.resolveTenantUser({
       sub: 'attacker-uid',
       email: 'user@example.com',
@@ -128,7 +145,10 @@ describe('AuthSessionService identity resolution and email verification', () => 
       user: { findFirst },
     } as unknown as SystemPrismaService;
 
-    const service = new AuthSessionService(systemPrisma);
+    const service = new AuthSessionService(
+      systemPrisma,
+      createLandingDemoGrantMock(),
+    );
     const result = await service.resolveTenantUser({
       sub: 'attacker-uid',
       email: 'user@example.com',
@@ -168,7 +188,10 @@ describe('AuthSessionService identity resolution and email verification', () => 
       user: { findFirst, update },
     } as unknown as SystemPrismaService;
 
-    const service = new AuthSessionService(systemPrisma);
+    const service = new AuthSessionService(
+      systemPrisma,
+      createLandingDemoGrantMock(),
+    );
     const result = await service.resolveTenantUser({
       sub: 'new-uid',
       email: 'user@example.com',

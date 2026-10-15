@@ -14015,6 +14015,45 @@
           "stock:read"
         ]
       }
+    },
+    "/api/public/landing-demo/access": {
+      "post": {
+        "description": "Creates or refreshes a demo user in the landing demo tenant and emails a one-time magic sign-in link. Always returns {ok:true} for honeypot submissions.",
+        "operationId": "LandingDemoAccessController_submit",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LandingDemoAccessRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LandingDemoAccessOkDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation or captcha failed."
+          },
+          "429": {
+            "description": "Rate limit exceeded."
+          }
+        },
+        "summary": "Request self-service demo access (landing page form)",
+        "tags": [
+          "public-landing-demo"
+        ]
+      }
     }
   },
   "info": {
@@ -14065,7 +14104,8 @@
           "OWNER",
           "ADMIN",
           "TECH",
-          "SALES"
+          "SALES",
+          "DEMO"
         ]
       },
       "AuthSessionMembershipDto": {
@@ -31604,6 +31644,62 @@
           "quantityReserved",
           "quantityAvailable",
           "updatedAt"
+        ]
+      },
+      "LandingDemoAccessRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Maria Muster"
+          },
+          "betrieb": {
+            "type": "string",
+            "example": "Autowerkstatt Muster GmbH"
+          },
+          "email": {
+            "type": "string",
+            "example": "demo@example.com"
+          },
+          "telefon": {
+            "type": "string",
+            "example": "+43 660 1234567"
+          },
+          "nachricht": {
+            "type": "string",
+            "example": "Wir möchten die Werkstattsoftware testen."
+          },
+          "consent": {
+            "type": "boolean",
+            "description": "Must be true (GDPR consent)."
+          },
+          "website": {
+            "type": "string",
+            "description": "Honeypot field; must be empty.",
+            "example": ""
+          },
+          "turnstileToken": {
+            "type": "string",
+            "description": "Cloudflare Turnstile token when captcha is enabled."
+          }
+        },
+        "required": [
+          "name",
+          "betrieb",
+          "email",
+          "consent"
+        ]
+      },
+      "LandingDemoAccessOkDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "ok"
         ]
       }
     }
