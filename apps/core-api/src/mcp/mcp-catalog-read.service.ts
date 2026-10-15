@@ -9,6 +9,12 @@ import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  mapInventoryStocksToBinLevels,
+  mcpStockBinStockSelect,
+  mcpStockBinWhere,
+  pickPrimaryBin,
+} from './mcp-stock-read.mapper.js';
+import {
   MCP_PRICE_HISTORY_LIMIT,
   mcpCatalogItemPositionSchema,
   mcpMarginRulePositionSchema,
@@ -307,25 +313,37 @@ export class McpCatalogReadService {
   }
 
   /**
-   * The bin at the active site that holds the most stock of the item. The schema
-   * has no default bin flag, so the bin with the most stock stands in for it.
-   * Warehouse locations and deleted bins are never chosen.
+   * The bin at the active site with the most available stock. Uses the same
+   * selection as MCP stock reads ({@link pickPrimaryBin}).
    */
-  private defaultBin(tenantId: string, siteId: string, catalogItemId: string) {
-    return this.prisma.inventoryStock.findFirst({
-      where: {
-        tenant_id: tenantId,
-        site_id: siteId,
-        catalog_item_id: catalogItemId,
-        quantity_on_hand: { gt: 0 },
-        location: { type: 'bin', deletedAt: null },
-      },
-      orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
+  private async defaultBin(
+    tenantId: string,
+    siteId: string,
+    catalogItemId: string,
+  ) {
+    const stocks = await this.prisma.inventoryStock.findMany({
+      where: mcpStockBinWhere(tenantId, siteId, [catalogItemId]),
       select: {
-        quantity_on_hand: true,
+        ...mcpStockBinStockSelect,
         location: { select: { id: true, code: true, name: true } },
       },
     });
+    const bins =
+      mapInventoryStocksToBinLevels(stocks).get(catalogItemId) ?? [];
+    const primary = pickPrimaryBin(bins);
+    if (!primary) {
+      return null;
+    }
+    const stock = stocks.find(
+      (row) => row.location_id === primary.location_id,
+    );
+    if (!stock) {
+      return null;
+    }
+    return {
+      quantity_on_hand: stock.quantity_on_hand,
+      location: stock.location,
+    };
   }
 
   /**

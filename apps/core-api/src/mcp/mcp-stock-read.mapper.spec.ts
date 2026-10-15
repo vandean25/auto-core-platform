@@ -6,7 +6,32 @@ import {
 } from './mcp-stock-read.mapper.js';
 
 describe('mcp-stock-read.mapper (AUT-428)', () => {
-  it('picks the bin with the most on-hand stock', () => {
+  it('picks the bin with the most available stock, not on-hand alone', () => {
+    const bins = [
+      {
+        location_id: '00000000-0000-4000-8000-0000000000b2',
+        name: 'Shelf B',
+        code: 'B-02',
+        quantity_on_hand: 10,
+        quantity_reserved: 10,
+        quantity_available: 0,
+      },
+      {
+        location_id: '00000000-0000-4000-8000-0000000000b1',
+        name: 'Shelf A',
+        code: 'A-01',
+        quantity_on_hand: 5,
+        quantity_reserved: 1,
+        quantity_available: 4,
+      },
+    ];
+
+    expect(pickPrimaryBin(bins)?.location_id).toBe(
+      '00000000-0000-4000-8000-0000000000b1',
+    );
+  });
+
+  it('picks the bin with the most on-hand stock when availability matches', () => {
     const bins = [
       {
         location_id: '00000000-0000-4000-8000-0000000000b2',

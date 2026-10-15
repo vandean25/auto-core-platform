@@ -803,7 +803,7 @@ export const mcpToolOutputSchemas = {
   get_workshop_order: resultOf(workshopOrderShape, { loose: true }),
   search_parts: searchPartsResult,
   get_stock_level: resultOf({
-    catalog_item_id: idString,
+    catalog_item_id: idString.optional(),
     sku: nonEmptyString,
     name: z.string(),
     brand: z.string(),

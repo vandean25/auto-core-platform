@@ -23,7 +23,10 @@ function toQuantity(value: Prisma.Decimal): number {
 
 function toBinLevel(stock: StockRow): McpStockBinLevel {
   const onHand = toQuantity(stock.quantity_on_hand);
-  const reserved = toQuantity(stock.quantity_reserved);
+  const reserved =
+    stock.quantity_reserved === undefined
+      ? 0
+      : toQuantity(stock.quantity_reserved);
   return {
     location_id: stock.location_id,
     name: stock.location.name,
@@ -34,26 +37,27 @@ function toBinLevel(stock: StockRow): McpStockBinLevel {
   };
 }
 
-/** Highest on-hand bin stock for an item, matching get_catalog_item default_bin selection. */
+/** Shared with get_catalog_item default_bin: most available ATP, then lowest location_id. */
+export function compareBinsForPrimarySelection(
+  left: McpStockBinLevel,
+  right: McpStockBinLevel,
+): number {
+  if (right.quantity_available !== left.quantity_available) {
+    return right.quantity_available - left.quantity_available;
+  }
+  return left.location_id.localeCompare(right.location_id);
+}
+
 export function pickPrimaryBin(
   bins: McpStockBinLevel[],
 ): McpStockBinLevel | null {
-  const withStock = bins.filter((bin) => bin.quantity_on_hand > 0);
-  if (withStock.length === 0) {
+  const withAvailability = bins.filter((bin) => bin.quantity_available > 0);
+  if (withAvailability.length === 0) {
     return null;
   }
-  return withStock.reduce((best, current) => {
-    if (current.quantity_on_hand > best.quantity_on_hand) {
-      return current;
-    }
-    if (
-      current.quantity_on_hand === best.quantity_on_hand &&
-      current.location_id < best.location_id
-    ) {
-      return current;
-    }
-    return best;
-  });
+  return withAvailability.reduce((best, current) =>
+    compareBinsForPrimarySelection(best, current) > 0 ? current : best,
+  );
 }
 
 export function mapInventoryStocksToBinLevels(
@@ -66,12 +70,7 @@ export function mapInventoryStocksToBinLevels(
     byItem.set(stock.catalog_item_id, levels);
   }
   for (const levels of byItem.values()) {
-    levels.sort((left, right) => {
-      if (right.quantity_on_hand !== left.quantity_on_hand) {
-        return right.quantity_on_hand - left.quantity_on_hand;
-      }
-      return left.location_id.localeCompare(right.location_id);
-    });
+    levels.sort(compareBinsForPrimarySelection);
   }
   return byItem;
 }

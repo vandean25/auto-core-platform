@@ -13,6 +13,8 @@ const SITE_REQUESTED = '00000000-0000-4000-8000-0000000000a9';
 const TENANT_A = '00000000-0000-4000-8000-000000000001';
 const CATALOG_ITEM = '00000000-0000-4000-8000-0000000000c1';
 const BIN_ID = '00000000-0000-4000-8000-0000000000b1';
+const MASTER_PART_ID = '00000000-0000-4000-8000-0000000000m1';
+const WORKSHOP_ORDER = '00000000-0000-4000-8000-0000000000w1';
 
 const emptyStockAge = {
   data: [],
@@ -176,6 +178,115 @@ describe('McpStockReadService AUT-428 stock ids', () => {
         },
       ],
     });
+  });
+
+  it('enriches workshop catalog search parts with catalog_item_id and bin_id', async () => {
+    const catalogService = {
+      search: jest.fn().mockResolvedValue({
+        labor: [],
+        parts: [
+          {
+            id: CATALOG_ITEM,
+            supplierPartNumber: 'FILTER-DEMO-01',
+            oemNumber: null,
+            description: 'Oil filter',
+            brand: 'Demo',
+            quantityOnHand: 3,
+            binLocation: 'A-01',
+            costPrice: 1,
+            retailPrice: 2,
+          },
+          {
+            id: MASTER_PART_ID,
+            supplierPartNumber: 'MASTER-01',
+            oemNumber: 'OEM-1',
+            description: 'Master part',
+            brand: 'Demo',
+            quantityOnHand: 0,
+            binLocation: null,
+            costPrice: null,
+            retailPrice: null,
+          },
+        ],
+        meta: { laborCount: 0, partCount: 2, limit: 25 },
+      }),
+    };
+    const prisma = {
+      catalogItem: {
+        findMany: jest.fn().mockResolvedValue([{ id: CATALOG_ITEM }]),
+      },
+      inventoryStock: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            catalog_item_id: CATALOG_ITEM,
+            location_id: BIN_ID,
+            quantity_on_hand: new Prisma.Decimal(3),
+            quantity_reserved: new Prisma.Decimal(0),
+            location: { name: 'Shelf A', code: 'A-01' },
+          },
+        ]),
+      },
+    };
+    const tenantContext = { getTenantId: jest.fn().mockResolvedValue(TENANT_A) };
+    const siteContext = { getSiteId: jest.fn().mockResolvedValue(SITE_ACTIVE) };
+    const service = new McpStockReadService(
+      catalogService as unknown as CatalogService,
+      {} as InventoryService,
+      prisma as unknown as PrismaService,
+      siteContext as unknown as SiteContextService,
+      tenantContext as unknown as TenantContextService,
+      {} as VehicleStockReportsService,
+    );
+
+    const result = await service.searchParts({
+      query: 'filter',
+      workshop_order_id: WORKSHOP_ORDER,
+    });
+
+    expect(catalogService.search).toHaveBeenCalledWith('filter', WORKSHOP_ORDER);
+    expect(result.parts[0]).toMatchObject({
+      catalog_item_id: CATALOG_ITEM,
+      bin_id: BIN_ID,
+      bin_label: 'Shelf A',
+    });
+    expect(result.parts[1]).toMatchObject({
+      catalog_item_id: null,
+      bin_id: null,
+      bin_label: null,
+    });
+  });
+
+  it('skips catalog item lookup when workshop catalog search returns no parts', async () => {
+    const catalogService = {
+      search: jest.fn().mockResolvedValue({
+        labor: [],
+        parts: [],
+        meta: { laborCount: 0, partCount: 0, limit: 25 },
+      }),
+    };
+    const prisma = {
+      catalogItem: { findMany: jest.fn() },
+      inventoryStock: { findMany: jest.fn() },
+    };
+    const tenantContext = { getTenantId: jest.fn().mockResolvedValue(TENANT_A) };
+    const siteContext = { getSiteId: jest.fn().mockResolvedValue(SITE_ACTIVE) };
+    const service = new McpStockReadService(
+      catalogService as unknown as CatalogService,
+      {} as InventoryService,
+      prisma as unknown as PrismaService,
+      siteContext as unknown as SiteContextService,
+      tenantContext as unknown as TenantContextService,
+      {} as VehicleStockReportsService,
+    );
+
+    const result = await service.searchParts({
+      query: 'filter',
+      workshop_order_id: WORKSHOP_ORDER,
+    });
+
+    expect(result.parts).toEqual([]);
+    expect(prisma.catalogItem.findMany).not.toHaveBeenCalled();
+    expect(prisma.inventoryStock.findMany).not.toHaveBeenCalled();
   });
 });
 

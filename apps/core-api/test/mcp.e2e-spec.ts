@@ -1621,6 +1621,27 @@ describe('MCP server (e2e)', () => {
     );
     expect(hit?.bin_id).toBe(fixtures.locationId);
 
+    const catalogSearchResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-catalog-search'),
+      'search_parts',
+      {
+        query: fixtures.searchToken,
+        workshop_order_id: fixtures.workshopOrderId,
+      },
+      '00000000-0000-4000-8000-00000000042c',
+    );
+    expect(catalogSearchResult.isError).not.toBe(true);
+    const catalogSearch = parsePayload<{
+      parts: Array<{
+        catalog_item_id: string | null;
+        bin_id: string | null;
+      }>;
+    }>(catalogSearchResult);
+    const catalogHit = catalogSearch.parts.find(
+      (part) => part.catalog_item_id === fixtures.catalogItemId,
+    );
+    expect(catalogHit?.bin_id).toBe(fixtures.locationId);
+
     const levelResult = await callMcpTool(
       caller(adminHeaderA, 'e2e-stock-ids-level'),
       'get_stock_level',
