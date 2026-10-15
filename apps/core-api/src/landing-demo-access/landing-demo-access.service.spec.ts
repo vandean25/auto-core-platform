@@ -1,11 +1,21 @@
 import { describe, expect, it, jest, beforeEach } from '@jest/globals';
-import { LandingDemoAccessService } from './landing-demo-access.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import type { PublicRateLimitStore } from './public-rate-limit.store.js';
 import type { TurnstileVerifier } from './turnstile.verifier.js';
 import type { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
 import type { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
 import type { LandingDemoSignInGrantService } from './landing-demo-sign-in-grant.service.js';
+
+const getUserByEmail = jest.fn();
+const getFirebaseAdminAuth = jest.fn(() => ({ getUserByEmail }));
+
+jest.unstable_mockModule('../auth/firebase-admin.js', () => ({
+  getFirebaseAdminAuth: () => getFirebaseAdminAuth(),
+}));
+
+const { LandingDemoAccessService } = await import(
+  './landing-demo-access.service.js'
+);
 
 describe('LandingDemoAccessService account isolation', () => {
   const createAccessRequest = jest.fn();
@@ -38,6 +48,7 @@ describe('LandingDemoAccessService account isolation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    getUserByEmail.mockRejectedValue(new Error('not found'));
     process.env.LANDING_DEMO_ACCESS_ENABLED = 'true';
     process.env.LANDING_DEMO_SIGN_IN_CONTINUE_URL = 'https://app.example/login';
     process.env.LANDING_DEMO_OPERATOR_EMAIL = 'ops@example.com';
@@ -53,12 +64,7 @@ describe('LandingDemoAccessService account isolation', () => {
       nachricht: null,
     });
     transaction.mockImplementation(async (callback: (tx: unknown) => unknown) =>
-      callback({
-        landingDemoSignInGrant: {
-          updateMany: jest.fn(),
-          create: jest.fn(),
-        },
-      }),
+      callback({}),
     );
 
     const systemPrisma = {
