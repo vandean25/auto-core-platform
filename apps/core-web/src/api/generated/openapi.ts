@@ -9131,6 +9131,8 @@ export interface components {
             invoiceStatus: string;
             /** @enum {string} */
             rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
+            /** @example Europe/Vienna */
+            siteTimezone?: string;
             payment?: components["schemas"]["SettlementPaymentSummaryDto"] | null;
         };
         RecordSettlementDto: {
