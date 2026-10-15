@@ -1,0 +1,1021 @@
+{
+  "contractId": "nova2-dok-fid-7888-observed-2026-10-15",
+  "fieldNameSha256": "21e8e6303bb3694e2ae57dd7d2c3343b0ff9a93aca232ad90a39c865187d839d",
+  "partyLabel": "pilot customer",
+  "numberOrigin": "synthetic",
+  "independentValidation": false,
+  "cases": [
+    {
+      "id": "ready-factor-one",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": "SYNTHETICVIN00001",
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "BENZIN",
+        "co2WltpGKm": 160,
+        "co2NedcGKm": null,
+        "mileage": null,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "sessionSiteId": "00000000-0000-4000-8000-000000000099",
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001",
+        "form_abgabepflichtiger_name": "pilot customer",
+        "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+        "form_abgabepflichtiger_plz": "1010",
+        "form_abgabepflichtiger_ort": "Wien"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000,
+        "response": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 50,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "READY_FOR_REVIEW",
+        "reviewState": "UNREVIEWED",
+        "status": "OPEN",
+        "incompletenessCodes": [],
+        "conflictCodes": [],
+        "warnings": [
+          "legal_entity_tax_number_not_used"
+        ],
+        "check": {
+          "status": "UNKNOWN",
+          "observedAt": null,
+          "evidence": null
+        },
+        "submittedToAuthority": false,
+        "fields": {
+          "rec_ob_id_1_1": null,
+          "rec_ob_val_1_1": null,
+          "rec_ob_name_1_1": null,
+          "rec_ob_id_2_1": null,
+          "rec_ob_val_2_1": null,
+          "rec_ob_name_2_1": null,
+          "rec_addrlist_1": null,
+          "rec_name_1": null,
+          "rec_street_1": null,
+          "rec_plz_1": null,
+          "rec_place_1": null,
+          "form_steuernummer": "00 000/0001",
+          "form_versicherungsnummer": null,
+          "form_geburtsdatum": null,
+          "form_abgabepflichtiger_name": "pilot customer",
+          "form_abgabepflichtiger_zustell_name": null,
+          "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+          "form_abgabepflichtiger_plz": "1010",
+          "form_abgabepflichtiger_ort": "Wien",
+          "form_abgabepflichtiger_telefon": null,
+          "form_vertretung": "pilot customer, Synthetic Street 1, 1010 Wien, +43000000000",
+          "form_antrieb": "Benzin",
+          "form_fahrzeug_typ": "Synthetic Make Synthetic Model",
+          "form_fahrzeug_nummer": "SYNTHETICVIN00001",
+          "form_fahrzeug_erwerb": null,
+          "form_fahrzeug_eu_zulassung": "2024-06-01",
+          "form_fahrzeug_baujahr": 2024,
+          "form_fahrzeug_kmstand_erwerb": null,
+          "form_ccm": null,
+          "form_co2_WMTC": null,
+          "form_co2_WLTP": 160,
+          "form_co2_NEFZ": null,
+          "form_fahrzeug_leistung": 100,
+          "form_fahrzeug_noX_emission": null,
+          "form_fahrzeug_diesel_gkm": null,
+          "form_cons_liter": null,
+          "from_verwendungszweck": null,
+          "form_option_nova": true,
+          "form_option_vergf": false,
+          "form_option_fahrzeugeinzelbesteuerung": false,
+          "form_datum": "2026-10-15",
+          "form_rechtslage": "01.01.2024 - 31.12.2024",
+          "form_artkraftfahrzeug": "PKW",
+          "form_bemessungsgrundlage": 20000,
+          "form_steuersatz": 13,
+          "form_co2malus": 400,
+          "form_co2bonus": null,
+          "form_co2bonus_special": null,
+          "form_co2malus_special": null,
+          "form_abzugsposten": 350,
+          "form_abh": null,
+          "form_wahlrecht": false,
+          "form_ant1": false,
+          "ant1_datum": null,
+          "ant2_datum": null,
+          "form_ant_cb1_1": false,
+          "form_ant_cb1_2": false,
+          "form_ant_cb1_3": false,
+          "form_check_verminderung": false,
+          "form_check_inland": false,
+          "form_ant_betrag1": null,
+          "form_verguetung_optiona": false,
+          "form_verguetung_optionb": false,
+          "form_verguetung_optionc": false,
+          "form_verguetung_optiond": false,
+          "ver1_datum": null,
+          "ver2_datum": null,
+          "form_verguetung_o123": false,
+          "form_verguetung_grund": null,
+          "form_hoeheverguetung": null,
+          "form_verguetung_optionX1": false,
+          "form_verguetung_optionX2": false,
+          "form_verguetung_konto": null,
+          "form_einzel_bemessungsgrundlage": null,
+          "form_option_JungholzOrMittelberg": false,
+          "form_fahrzeuglieferant": null,
+          "form_mitgliedstaat": null
+        },
+        "confirmedNovaAmountEuro": 2650,
+        "documentSiteId": "00000000-0000-4000-8000-000000000010",
+        "responsibleLegalEntityId": "00000000-0000-4000-8000-000000000020",
+        "fieldCount": 77
+      }
+    },
+    {
+      "id": "scaled-wertentwicklung",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": "SYNTHETICVIN00001",
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "BENZIN",
+        "co2WltpGKm": 160,
+        "co2NedcGKm": null,
+        "mileage": null,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001",
+        "form_abgabepflichtiger_name": "pilot customer",
+        "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+        "form_abgabepflichtiger_plz": "1010",
+        "form_abgabepflichtiger_ort": "Wien"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 40000,
+        "response": {
+          "novaAmountEuro": 2625,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 25,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 2
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "READY_FOR_REVIEW",
+        "incompletenessCodes": [],
+        "conflictCodes": [],
+        "fields": {
+          "form_co2malus": 200,
+          "form_abzugsposten": 175,
+          "form_bemessungsgrundlage": 20000,
+          "form_steuersatz": 13,
+          "form_rechtslage": "01.01.2024 - 31.12.2024",
+          "form_fahrzeug_eu_zulassung": "2024-06-01"
+        },
+        "confirmedNovaAmountEuro": 2625,
+        "submittedToAuthority": false
+      }
+    },
+    {
+      "id": "incomplete-taxpayer",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": "SYNTHETICVIN00001",
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "BENZIN",
+        "co2WltpGKm": 160,
+        "co2NedcGKm": null,
+        "mileage": null,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "sessionSiteId": "00000000-0000-4000-8000-000000000099",
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000,
+        "response": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 50,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "INCOMPLETE",
+        "reviewState": "UNREVIEWED",
+        "status": "OPEN",
+        "incompletenessCodes": [
+          "TAXPAYER_NAME_MISSING",
+          "TAXPAYER_ADDRESS_MISSING",
+          "TAXPAYER_POSTCODE_MISSING",
+          "TAXPAYER_CITY_MISSING"
+        ],
+        "conflictCodes": [],
+        "warnings": [
+          "legal_entity_tax_number_not_used"
+        ],
+        "check": {
+          "status": "UNKNOWN",
+          "observedAt": null,
+          "evidence": null
+        },
+        "submittedToAuthority": false,
+        "fields": {
+          "form_abgabepflichtiger_name": null,
+          "form_steuernummer": "00 000/0001",
+          "form_bemessungsgrundlage": 20000
+        },
+        "confirmedNovaAmountEuro": 2650,
+        "documentSiteId": "00000000-0000-4000-8000-000000000010",
+        "responsibleLegalEntityId": "00000000-0000-4000-8000-000000000020",
+        "reviewRejected": {
+          "http": 422,
+          "code": "DRAFT_INCOMPLETE"
+        }
+      }
+    },
+    {
+      "id": "incomplete-vin",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": null,
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "BENZIN",
+        "co2WltpGKm": 160,
+        "co2NedcGKm": null,
+        "mileage": null,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "sessionSiteId": "00000000-0000-4000-8000-000000000099",
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001",
+        "form_abgabepflichtiger_name": "pilot customer",
+        "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+        "form_abgabepflichtiger_plz": "1010",
+        "form_abgabepflichtiger_ort": "Wien"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000,
+        "response": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 50,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "INCOMPLETE",
+        "reviewState": "UNREVIEWED",
+        "status": "OPEN",
+        "incompletenessCodes": [
+          "VIN_MISSING"
+        ],
+        "conflictCodes": [],
+        "warnings": [
+          "legal_entity_tax_number_not_used"
+        ],
+        "check": {
+          "status": "UNKNOWN",
+          "observedAt": null,
+          "evidence": null
+        },
+        "submittedToAuthority": false,
+        "fields": {
+          "form_fahrzeug_nummer": null
+        },
+        "confirmedNovaAmountEuro": 2650,
+        "documentSiteId": "00000000-0000-4000-8000-000000000010",
+        "responsibleLegalEntityId": "00000000-0000-4000-8000-000000000020"
+      }
+    },
+    {
+      "id": "conflict-co2",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": "SYNTHETICVIN00001",
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "BENZIN",
+        "co2WltpGKm": 161,
+        "co2NedcGKm": null,
+        "mileage": null,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "sessionSiteId": "00000000-0000-4000-8000-000000000099",
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001",
+        "form_abgabepflichtiger_name": "pilot customer",
+        "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+        "form_abgabepflichtiger_plz": "1010",
+        "form_abgabepflichtiger_ort": "Wien"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000,
+        "response": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 50,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "INCOMPLETE",
+        "reviewState": "UNREVIEWED",
+        "status": "OPEN",
+        "incompletenessCodes": [
+          "CO2_MISSING"
+        ],
+        "conflictCodes": [
+          "CO2_SNAPSHOT_MISMATCH"
+        ],
+        "warnings": [
+          "legal_entity_tax_number_not_used"
+        ],
+        "check": {
+          "status": "UNKNOWN",
+          "observedAt": null,
+          "evidence": null
+        },
+        "submittedToAuthority": false,
+        "fields": {
+          "form_co2_WLTP": null
+        },
+        "confirmedNovaAmountEuro": 2650,
+        "documentSiteId": "00000000-0000-4000-8000-000000000010",
+        "responsibleLegalEntityId": "00000000-0000-4000-8000-000000000020"
+      }
+    },
+    {
+      "id": "antrieb-ambiguous",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": "SYNTHETICVIN00001",
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "HYBRID",
+        "co2WltpGKm": 160,
+        "co2NedcGKm": null,
+        "mileage": null,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "sessionSiteId": "00000000-0000-4000-8000-000000000099",
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001",
+        "form_abgabepflichtiger_name": "pilot customer",
+        "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+        "form_abgabepflichtiger_plz": "1010",
+        "form_abgabepflichtiger_ort": "Wien"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000,
+        "response": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 50,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "INCOMPLETE",
+        "reviewState": "UNREVIEWED",
+        "status": "OPEN",
+        "incompletenessCodes": [
+          "ANTRIEB_MISSING"
+        ],
+        "conflictCodes": [
+          "ANTRIEB_AMBIGUOUS"
+        ],
+        "warnings": [
+          "legal_entity_tax_number_not_used"
+        ],
+        "check": {
+          "status": "UNKNOWN",
+          "observedAt": null,
+          "evidence": null
+        },
+        "submittedToAuthority": false,
+        "fields": {
+          "form_antrieb": null
+        },
+        "confirmedNovaAmountEuro": 2650,
+        "documentSiteId": "00000000-0000-4000-8000-000000000010",
+        "responsibleLegalEntityId": "00000000-0000-4000-8000-000000000020"
+      }
+    },
+    {
+      "id": "mileage-not-acquisition",
+      "harness": "draft-create",
+      "vehicle": {
+        "vin": "SYNTHETICVIN00001",
+        "make": "Synthetic Make",
+        "model": "Synthetic Model",
+        "year": 2024,
+        "powerKw": 100,
+        "fuelType": "BENZIN",
+        "co2WltpGKm": 160,
+        "co2NedcGKm": 140,
+        "mileage": 99999,
+        "siteId": "00000000-0000-4000-8000-000000000010"
+      },
+      "legalEntity": {
+        "id": "00000000-0000-4000-8000-000000000020",
+        "name": "pilot customer",
+        "countryIso": "AT",
+        "isActive": true,
+        "addressStreet": "Synthetic Street 1",
+        "addressZip": "1010",
+        "addressCity": "Wien",
+        "phone": "+43000000000",
+        "taxNumber": "SYNTHETIC-TAX",
+        "vatId": "ATU00000000"
+      },
+      "sessionSiteId": "00000000-0000-4000-8000-000000000099",
+      "membershipSiteIds": [
+        "00000000-0000-4000-8000-000000000010"
+      ],
+      "human": {
+        "form_steuernummer": "00 000/0001",
+        "form_abgabepflichtiger_name": "pilot customer",
+        "form_abgabepflichtiger_adresse": "Synthetic Street 1",
+        "form_abgabepflichtiger_plz": "1010",
+        "form_abgabepflichtiger_ort": "Wien"
+      },
+      "confirmation": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000,
+        "response": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "intermediates": {
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fixedAfterDevelopmentEuro": 50,
+            "baseAmountEuro": 2600,
+            "valueDevelopmentFactor": {
+              "numerator": 1,
+              "denominator": 1
+            },
+            "valueBasis": "known_new_net"
+          }
+        }
+      },
+      "createdOnViennaDate": "2026-10-15",
+      "expect": {
+        "http": 201,
+        "completeness": "READY_FOR_REVIEW",
+        "reviewState": "UNREVIEWED",
+        "status": "OPEN",
+        "incompletenessCodes": [],
+        "conflictCodes": [],
+        "warnings": [
+          "legal_entity_tax_number_not_used",
+          "mileage_not_acquisition_km",
+          "nedc_present_not_copied"
+        ],
+        "check": {
+          "status": "UNKNOWN",
+          "observedAt": null,
+          "evidence": null
+        },
+        "submittedToAuthority": false,
+        "fields": {
+          "form_fahrzeug_kmstand_erwerb": null,
+          "form_co2_NEFZ": null,
+          "form_steuernummer": "00 000/0001"
+        },
+        "confirmedNovaAmountEuro": 2650,
+        "documentSiteId": "00000000-0000-4000-8000-000000000010",
+        "responsibleLegalEntityId": "00000000-0000-4000-8000-000000000020"
+      }
+    },
+    {
+      "id": "v1-preview-refused",
+      "harness": "confirmation-create",
+      "calculateResponse": {
+        "novaAmountEuro": 2850,
+        "tariffVersionId": "at-m1-2026",
+        "warnings": [
+          "wertentwicklung_not_applied",
+          "eu_import_tariff_hint"
+        ],
+        "hasScopeLimitations": true,
+        "hasUnverifiedRules": false
+      },
+      "expect": {
+        "http": 422,
+        "code": "UNCONFIRMED_PREVIEW",
+        "confirmationId": null
+      }
+    },
+    {
+      "id": "check-unknown-when-no-row",
+      "harness": "check-read",
+      "rows": [],
+      "expect": {
+        "http": 200,
+        "status": "UNKNOWN",
+        "observedAt": null,
+        "recordedAt": null,
+        "evidence": null,
+        "authorityLookupPerformed": false
+      }
+    },
+    {
+      "id": "check-checked-human",
+      "harness": "check-create",
+      "body": {
+        "status": "CHECKED",
+        "observedAt": "2026-10-15T09:30:00+02:00",
+        "evidenceNote": "Synthetic observation for the pilot customer. No authority response is attached.",
+        "recordedDatabaseState": "RELEASE",
+        "recordedStateOrigin": "human_observation"
+      },
+      "expect": {
+        "http": 201,
+        "status": "CHECKED",
+        "recordedDatabaseState": "RELEASE",
+        "recordedStateOrigin": "human_observation",
+        "observedAt": "2026-10-15T09:30:00+02:00",
+        "evidenceNote": "Synthetic observation for the pilot customer. No authority response is attached.",
+        "submittedToAuthority": false,
+        "authorityLookupPerformed": false,
+        "setsDraftFiled": false
+      }
+    },
+    {
+      "id": "check-rejects-online",
+      "harness": "check-create",
+      "body": {
+        "status": "CHECKED",
+        "observedAt": "2026-10-15T09:30:00+02:00",
+        "evidenceNote": "no",
+        "recordedDatabaseState": "RELEASE",
+        "recordedStateOrigin": "finanzonline_api"
+      },
+      "expect": {
+        "http": 400,
+        "code": "ORIGIN_NOT_ALLOWED"
+      }
+    },
+    {
+      "id": "check-rejects-unknown-post",
+      "harness": "check-create",
+      "body": {
+        "status": "UNKNOWN"
+      },
+      "expect": {
+        "http": 400,
+        "code": "STATUS_NOT_RECORDABLE"
+      }
+    },
+    {
+      "id": "check-requires-evidence",
+      "harness": "check-create",
+      "body": {
+        "status": "CHECKED",
+        "observedAt": "2026-10-15T09:30:00+02:00",
+        "evidenceNote": "",
+        "recordedDatabaseState": "BLOCK",
+        "recordedStateOrigin": "human_observation"
+      },
+      "expect": {
+        "http": 400,
+        "code": "EVIDENCE_REQUIRED"
+      }
+    },
+    {
+      "id": "repeat-open-draft",
+      "harness": "draft-create-twice",
+      "expect": {
+        "secondHttp": 409,
+        "code": "DRAFT_ALREADY_OPEN"
+      }
+    },
+    {
+      "id": "supersede-correction",
+      "harness": "draft-supersede",
+      "reason": "Synthetic correction for the pilot customer",
+      "expect": {
+        "http": 201,
+        "previousStatus": "SUPERSEDED",
+        "nextStatus": "OPEN",
+        "nextReviewState": "UNREVIEWED",
+        "submittedToAuthority": false,
+        "checkStatusUnchanged": true
+      }
+    },
+    {
+      "id": "review-ready",
+      "harness": "draft-review",
+      "body": {
+        "filingAuthorized": false
+      },
+      "expect": {
+        "http": 200,
+        "reviewState": "REVIEWED",
+        "filingAuthorized": false,
+        "submittedToAuthority": false,
+        "checkStatus": "UNKNOWN"
+      }
+    },
+    {
+      "id": "review-rejects-filing-flag",
+      "harness": "draft-review",
+      "body": {
+        "filingAuthorized": true
+      },
+      "expect": {
+        "http": 400,
+        "code": "FILING_NOT_AUTHORIZED"
+      }
+    },
+    {
+      "id": "refund-section-incomplete",
+      "harness": "draft-patch-human",
+      "patch": {
+        "form_option_vergf": true
+      },
+      "expect": {
+        "http": 200,
+        "completeness": "INCOMPLETE",
+        "incompletenessCodes": [
+          "REFUND_OPTION_REQUIRED",
+          "REFUND_REASON_MISSING",
+          "REFUND_PAYOUT_REQUIRED"
+        ],
+        "submittedToAuthority": false
+      }
+    },
+    {
+      "id": "calculated-field-not-editable",
+      "harness": "draft-patch-human",
+      "patch": {
+        "form_bemessungsgrundlage": 1
+      },
+      "expect": {
+        "http": 400,
+        "code": "FIELD_NOT_EDITABLE"
+      }
+    },
+    {
+      "id": "export-is-not-filing",
+      "harness": "draft-export",
+      "expect": {
+        "http": 200,
+        "filing": false,
+        "submittedToAuthority": false,
+        "authorityLookupPerformed": false,
+        "covers": [
+          "nova_declaration"
+        ],
+        "doesNotCover": [
+          "erwerbsteuer",
+          "verguetung",
+          "genehmigungsdatenbank_write",
+          "finanzonline_submission"
+        ],
+        "checkStatus": "UNKNOWN"
+      }
+    },
+    {
+      "id": "component-rounding-guard",
+      "harness": "mapper-only",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "intermediates": {
+        "malusGrossEuro": 1.01,
+        "deductionGrossEuro": 0.02,
+        "fixedAfterDevelopmentEuro": 0.33,
+        "valueDevelopmentFactor": {
+          "numerator": 1,
+          "denominator": 3
+        }
+      },
+      "expect": {
+        "scaledMalus": 0.34,
+        "scaledDeduction": 0.01,
+        "difference": 0.33,
+        "matchesFixedAfter": true,
+        "completenessEffect": "fields_kept"
+      }
+    },
+    {
+      "id": "component-rounding-mismatch",
+      "harness": "mapper-only",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "intermediates": {
+        "malusGrossEuro": 1.01,
+        "deductionGrossEuro": 0.02,
+        "fixedAfterDevelopmentEuro": 9.99,
+        "valueDevelopmentFactor": {
+          "numerator": 1,
+          "denominator": 3
+        }
+      },
+      "expect": {
+        "scaledMalus": null,
+        "scaledDeduction": null,
+        "incompletenessCodes": [
+          "COMPONENT_MISMATCH"
+        ],
+        "conflictCodes": [
+          "COMPONENT_MISMATCH"
+        ]
+      }
+    }
+  ]
+}
