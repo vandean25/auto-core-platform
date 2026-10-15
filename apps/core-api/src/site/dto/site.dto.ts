@@ -141,6 +141,13 @@ export class UpdateLegalEntityDto {
   @IsString()
   @MaxLength(1000)
   paymentTermsText?: string;
+
+  @ApiPropertyOptional({
+    enum: ['OFF', 'UNKNOWN', 'REQUIRED_EXTERNAL_KASSE', 'REQUIRED_ACP_RKSV'],
+  })
+  @IsOptional()
+  @IsIn(['OFF', 'UNKNOWN', 'REQUIRED_EXTERNAL_KASSE', 'REQUIRED_ACP_RKSV'])
+  rksvMode?: 'OFF' | 'UNKNOWN' | 'REQUIRED_EXTERNAL_KASSE' | 'REQUIRED_ACP_RKSV';
 }
 
 export class LegalEntitySellerReadinessDto {
@@ -217,6 +224,11 @@ export class LegalEntityResponseDto {
 
   @ApiProperty({ type: LegalEntitySellerReadinessDto })
   seller_readiness!: LegalEntitySellerReadinessDto;
+
+  @ApiProperty({
+    enum: ['OFF', 'UNKNOWN', 'REQUIRED_EXTERNAL_KASSE', 'REQUIRED_ACP_RKSV'],
+  })
+  rksv_mode!: string;
 }
 
 export class CreateSiteOpeningHourDto {
@@ -306,6 +318,35 @@ export class CreateSiteDto {
   openingHours?: CreateSiteOpeningHourDto[];
 }
 
+export class UpdateSiteFiscalRegisterDto {
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  providerCashRegisterId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4')
+  providerScuId?: string;
+
+  @ApiPropertyOptional({ enum: ['TEST', 'LIVE'] })
+  @IsOptional()
+  @IsIn(['TEST', 'LIVE'])
+  env?: 'TEST' | 'LIVE';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  providerState?: string;
+
+  @ApiPropertyOptional({ description: 'Opaque GSM secret ref; never the API key.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(256)
+  credentialsSecretRef?: string | null;
+}
+
 export class UpdateSiteDto {
   @ApiPropertyOptional({ maxLength: 120 })
   @IsOptional()
@@ -337,6 +378,12 @@ export class UpdateSiteDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ type: UpdateSiteFiscalRegisterDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateSiteFiscalRegisterDto)
+  fiscalRegister?: UpdateSiteFiscalRegisterDto;
 }
 
 export class CreateSiteMembershipDto {

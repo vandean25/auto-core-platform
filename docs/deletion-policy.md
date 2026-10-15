@@ -47,6 +47,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
+| Payment | No | Status transitions only; no hard delete. Tenant purge may remove rows with the tenant. |
+| FiscalReceipt | No | Immutable `request_body` and stored `response_body`; no hard delete. |
+| FiscalRegister | No | No hard delete in this slice; decommission in fiskaly is a later change. |
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |
 | PurchaseInvoice | Draft-only | Allow only in `DRAFT`. Posted and paid bills are financial documents; use the status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |

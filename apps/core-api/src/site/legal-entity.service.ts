@@ -184,6 +184,7 @@ export class LegalEntityService {
         ...(sellerUpdate.payment_terms_text !== undefined
           ? { payment_terms_text: sellerUpdate.payment_terms_text }
           : {}),
+        ...(dto.rksvMode !== undefined ? { rksv_mode: dto.rksvMode } : {}),
       },
     });
 

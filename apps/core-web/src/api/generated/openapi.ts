@@ -3803,6 +3803,58 @@ export interface paths {
         patch: operations["MarginRuleController_patch"];
         trace?: never;
     };
+    "/api/invoices/{id}/settlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get settlement state for an invoice (OWNER/ADMIN) */
+        get: operations["SettlementController_getSettlement"];
+        put?: never;
+        /** Record full settlement for an issued invoice (OWNER/ADMIN) */
+        post: operations["SettlementController_recordSettlement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/invoices/{id}/settlement/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconcile PENDING/UNKNOWN fiscal receipt (OWNER/ADMIN) */
+        post: operations["SettlementController_reconcileSettlement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fiscal-receipts/{id}/cancellation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign fiscal cancellation receipt (OWNER/ADMIN) */
+        post: operations["FiscalReceiptsController_cancelFiscalReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent-policy/rules": {
         parameters: {
             query?: never;
@@ -8117,6 +8169,8 @@ export interface components {
             payment_terms_days?: number | null;
             payment_terms_text?: string | null;
             seller_readiness: components["schemas"]["LegalEntitySellerReadinessDto"];
+            /** @enum {string} */
+            rksv_mode: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
         };
         RzlSteuercodesDto: {
             /** @description RZL Steuercode for 20% VAT (1 to 4 digits). */
@@ -8241,6 +8295,8 @@ export interface components {
             representatives?: string;
             paymentTermsDays?: number;
             paymentTermsText?: string;
+            /** @enum {string} */
+            rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
         };
         CreateSiteOpeningHourDto: {
             weekday: number;
@@ -8266,6 +8322,17 @@ export interface components {
             holidaySubdivisionCode?: string;
             openingHours?: components["schemas"]["CreateSiteOpeningHourDto"][];
         };
+        UpdateSiteFiscalRegisterDto: {
+            /** Format: uuid */
+            providerCashRegisterId?: string;
+            /** Format: uuid */
+            providerScuId?: string;
+            /** @enum {string} */
+            env?: "TEST" | "LIVE";
+            providerState?: string;
+            /** @description Opaque GSM secret ref; never the API key. */
+            credentialsSecretRef?: Record<string, never>;
+        };
         UpdateSiteDto: {
             name?: string;
             addressStreet?: string;
@@ -8273,6 +8340,7 @@ export interface components {
             addressZip?: string;
             addressCountry?: string;
             isActive?: boolean;
+            fiscalRegister?: components["schemas"]["UpdateSiteFiscalRegisterDto"];
         };
         CreateSiteMembershipDto: {
             userId: string;
@@ -9033,6 +9101,23 @@ export interface components {
              * @example true
              */
             is_active?: boolean;
+        };
+        RecordSettlementDto: {
+            /** Format: uuid */
+            idempotencyKey: string;
+            /** @enum {string} */
+            method: "CASH" | "CARD";
+            externalReceiptNumber?: string;
+            /** Format: date */
+            externalReceiptDate?: string;
+        };
+        ReconcileSettlementDto: {
+            /** Format: uuid */
+            idempotencyKey: string;
+        };
+        CancelFiscalReceiptDto: {
+            /** Format: uuid */
+            idempotencyKey: string;
         };
         AgentPolicyConditionsDto: {
             amount_max?: number | null;
@@ -17345,6 +17430,98 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MarginRuleResponseDto"];
                 };
+            };
+        };
+    };
+    SettlementController_getSettlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settlement summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SettlementController_recordSettlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordSettlementDto"];
+            };
+        };
+        responses: {
+            /** @description Settlement result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SettlementController_reconcileSettlement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconcileSettlementDto"];
+            };
+        };
+        responses: {
+            /** @description Settlement after reconcile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FiscalReceiptsController_cancelFiscalReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelFiscalReceiptDto"];
+            };
+        };
+        responses: {
+            /** @description Settlement after cancellation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

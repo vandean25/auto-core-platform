@@ -118,6 +118,14 @@ const entityInvalidationMap: Record<
     dashboardSourceKeys: ["credit-notes"],
     domainQueryKeys: [creditNoteKeys.all, invoiceKeys.all],
   },
+  PAYMENT: {
+    dashboardSourceKeys: ["invoices"],
+    domainQueryKeys: [invoiceKeys.all],
+  },
+  FISCAL_RECEIPT: {
+    dashboardSourceKeys: ["invoices"],
+    domainQueryKeys: [invoiceKeys.all],
+  },
 };
 
 const emptyInvalidationTarget: EntityInvalidationTarget = {

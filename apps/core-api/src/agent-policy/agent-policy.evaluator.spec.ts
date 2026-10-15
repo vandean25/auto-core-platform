@@ -3,6 +3,9 @@ import { evaluateAgentPolicy } from './agent-policy.evaluator.js';
 import type { ResolvedAgentPolicyRule } from './agent-policy.types.js';
 
 const floorCases = [
+  'payment.record',
+  'fiscal_receipt.sign',
+  'payment.allocate',
   'invoice.finalize',
   'credit_note.issue',
   'credit_note.adjust',

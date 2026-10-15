@@ -37,6 +37,8 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PARTS_RESERVATION: true,
   PARTS_REQUISITION: true,
   CREDIT_NOTE: true,
+  PAYMENT: true,
+  FISCAL_RECEIPT: true,
 };
 
 function modelNameToEntityType(modelName: string): DashboardEntityType | null {

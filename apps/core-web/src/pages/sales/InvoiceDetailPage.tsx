@@ -6,6 +6,7 @@ import { useInvoiceCreditContext } from '@/api/useCreditNotes'
 import { useWorkshopOrder } from '@/api/workshop'
 import type { InvoiceItem, WorkshopTask } from '@/api/types'
 import { CreateCreditNoteDialog } from '@/components/finance/CreateCreditNoteDialog'
+import { InvoiceSettlementPanel } from '@/components/finance/InvoiceSettlementPanel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -337,6 +338,16 @@ export default function InvoiceDetailPage() {
           </div>
         </div>
       </div>
+
+      {invoice.workshop_order_id &&
+      (invoice.status === 'ISSUED' || invoice.status === 'PAID') ? (
+        <InvoiceSettlementPanel
+          invoiceId={invoice.id}
+          invoiceStatus={invoice.status}
+          totalGross={toNumber(invoice.total_gross)}
+          canManage={canManageCreditNote}
+        />
+      ) : null}
 
       {creditContext && creditContext.creditNotes.length > 0 ? (
         <Card>

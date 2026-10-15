@@ -64,6 +64,7 @@ import { DecisionModule } from './decision/decision.module.js';
 import { DecisionShadowLogModule } from './decision-shadow-log/decision-shadow-log.module.js';
 import { DryRunModule } from './dry-run/dry-run.module.js';
 import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
+import { SettlementModule } from './settlement/settlement.module.js';
 
 @Module({
   imports: [
@@ -112,6 +113,7 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
     ImportModule,
     TyreStorageModule,
     MarginRuleModule,
+    SettlementModule,
     AgentPolicyModule,
     AgentProposalModule,
     AgentSupervisionModule,
