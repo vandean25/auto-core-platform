@@ -1,16 +1,20 @@
 import { seedCustomersAndVehicles } from './customer.fixture.js';
 
 describe('customer.fixture', () => {
-  it('creates customers and batch creates vehicles', async () => {
+  it('upserts customers and creates vehicles when missing', async () => {
     const mockPrisma: any = {
       customer: {
-        create: jest.fn().mockImplementation(async ({ data }) => ({
-          id: `cust-${data.first_name}`,
-          ...data,
+        upsert: jest.fn().mockImplementation(async ({ create }) => ({
+          id: `cust-${create.first_name}`,
+          ...create,
         })),
       },
       vehicle: {
-        createMany: jest.fn().mockResolvedValue({ count: 7 }),
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(async ({ data }) => ({
+          id: `veh-${data.vin}`,
+          ...data,
+        })),
       },
     };
 
@@ -18,12 +22,11 @@ describe('customer.fixture', () => {
 
     expect(result.customers).toHaveLength(5);
     expect(result.vehicleCount).toBe(6);
-    expect(mockPrisma.customer.create).toHaveBeenCalledTimes(5);
-    expect(mockPrisma.vehicle.createMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.customer.upsert).toHaveBeenCalledTimes(5);
+    expect(mockPrisma.vehicle.create).toHaveBeenCalledTimes(6);
 
-    const vehicleArgs = mockPrisma.vehicle.createMany.mock.calls[0][0];
-    expect(vehicleArgs.data).toHaveLength(6);
-    expect(vehicleArgs.data[0].tenant_id).toBe('tenant-1');
-    expect(vehicleArgs.data[0].customer_id).toBe('cust-Max');
+    const vehicleArgs = mockPrisma.vehicle.create.mock.calls[0][0];
+    expect(vehicleArgs.data.tenant_id).toBe('tenant-1');
+    expect(vehicleArgs.data.customer_id).toBe('cust-Max');
   });
 });

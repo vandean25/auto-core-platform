@@ -163,7 +163,11 @@ export async function seedInventory(
   );
 
   const seedLedgerExists = await prisma.inventoryTransaction.findFirst({
-    where: { tenant_id: tenantId, reference_id: 'SEED_SCRIPT' },
+    where: {
+      tenant_id: tenantId,
+      site_id: mainSiteId,
+      reference_id: 'SEED_SCRIPT',
+    },
     select: { id: true },
   });
 

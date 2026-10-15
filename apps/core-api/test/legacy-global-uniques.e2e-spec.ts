@@ -73,10 +73,10 @@ describe('Legacy global unique indexes (AUT-550)', () => {
         where: { order_number: { startsWith: prefix } },
       });
       await tenantAPrisma.customer.deleteMany({
-        where: { name: { startsWith: prefix } },
+        where: { email: { startsWith: prefix } },
       });
       await tenantBPrisma.customer.deleteMany({
-        where: { name: { startsWith: prefix } },
+        where: { email: { startsWith: prefix } },
       });
       await tenantAPrisma.laborOperation.deleteMany({
         where: { code: { startsWith: prefix } },
@@ -130,10 +130,20 @@ describe('Legacy global unique indexes (AUT-550)', () => {
     const sharedOrderNumber = `${prefix}-SO-001`;
 
     await tenantAPrisma.revenueGroup.create({
-      data: { tenant_id: tenantAId, name: sharedRevenueName },
+      data: {
+        tenant_id: tenantAId,
+        name: sharedRevenueName,
+        tax_rate: 20,
+        account_number: '8400',
+      },
     });
     await tenantBPrisma.revenueGroup.create({
-      data: { tenant_id: tenantBId, name: sharedRevenueName },
+      data: {
+        tenant_id: tenantBId,
+        name: sharedRevenueName,
+        tax_rate: 20,
+        account_number: '8400',
+      },
     });
 
     await tenantAPrisma.catalogItem.create({

@@ -5,7 +5,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
-import { cleanupTestTenantGraph } from './tenant-test-utils.js';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+} from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 const apiRoot = join(process.cwd());
@@ -44,6 +47,8 @@ describe('Landing demo tenant seed (e2e)', () => {
       select: { id: true },
     });
     if (tenant) {
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
+      await tenantPrisma.laborOperation.deleteMany({});
       await cleanupTestTenantGraph(prisma, tenant.id);
     }
     if (app) {
@@ -62,12 +67,9 @@ describe('Landing demo tenant seed (e2e)', () => {
 
     expect(tenant.is_landing_demo_tenant).toBe(true);
 
-    const brandCount = await prisma.brand.count({
-      where: { tenant_id: tenant.id },
-    });
-    const catalogCount = await prisma.catalogItem.count({
-      where: { tenant_id: tenant.id },
-    });
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
+    const brandCount = await tenantPrisma.brand.count();
+    const catalogCount = await tenantPrisma.catalogItem.count();
 
     expect(brandCount).toBeGreaterThan(0);
     expect(catalogCount).toBeGreaterThan(0);

@@ -3,30 +3,26 @@ import { seedInventory } from './inventory.fixture.js';
 describe('seedInventory', () => {
   const createMockPrisma = () => ({
     storageLocation: {
-      create: jest
+      upsert: jest
         .fn()
-        .mockImplementation(async ({ data }) => ({
-          id: `loc-${data.code}`,
-          ...data,
+        .mockImplementation(async ({ create }) => ({
+          id: `loc-${create.code}`,
+          site_id: create.site_id,
+          ...create,
         })),
       findMany: jest.fn().mockResolvedValue([]),
-      upsert: jest.fn().mockResolvedValue({}),
     },
     catalogItem: {
-      create: jest
+      upsert: jest
         .fn()
-        .mockImplementation(async ({ data }) => ({
-          id: `part-${data.sku}`,
-          ...data,
+        .mockImplementation(async ({ create }) => ({
+          id: `part-${create.sku}`,
+          ...create,
         })),
       update: jest.fn().mockResolvedValue({}),
-      createManyAndReturn: jest
-        .fn()
-        .mockImplementation(async ({ data }) =>
-          data.map((d: any, i: number) => ({ id: `batch-part-${i}`, ...d })),
-        ),
     },
     inventoryTransaction: {
+      findFirst: jest.fn().mockResolvedValue(null),
       createMany: jest.fn().mockResolvedValue({ count: 10 }),
     },
     inventoryStock: {
@@ -58,7 +54,7 @@ describe('seedInventory', () => {
     { id: 2, name: 'Bosch', isPartManufacturer: true, isVehicleMake: false },
   ];
 
-  it('creates supersession items individually and batches 47 auto parts via createManyAndReturn', async () => {
+  it('upserts supersession items and batches 47 auto parts via upsert', async () => {
     const mockPrisma: any = createMockPrisma();
 
     const result = await seedInventory(
@@ -74,19 +70,16 @@ describe('seedInventory', () => {
     expect(result.partC.sku).toBe('06J-115-561-B');
     expect(result.otherParts).toHaveLength(47);
 
-    // 3 individual creates for supersession parts A, B, C
-    expect(mockPrisma.catalogItem.create).toHaveBeenCalledTimes(3);
+    expect(mockPrisma.catalogItem.upsert).toHaveBeenCalledTimes(50);
 
-    // 1 batch createManyAndReturn for the 47 additional parts
-    expect(mockPrisma.catalogItem.createManyAndReturn).toHaveBeenCalledTimes(1);
-    const batchPartsPayload =
-      mockPrisma.catalogItem.createManyAndReturn.mock.calls[0][0].data;
+    const batchPartsPayload = mockPrisma.catalogItem.upsert.mock.calls
+      .slice(3)
+      .map((call: any) => call[0].create);
     expect(batchPartsPayload).toHaveLength(47);
     expect(batchPartsPayload[0].sku).toBe('OF-1001-VOL');
     expect(batchPartsPayload[0].cost_price).toBe(11);
     expect(batchPartsPayload[0].retail_price).toBe(61);
 
-    // 1 batch createMany for ledger transactions and 1 for cached stock
     expect(mockPrisma.inventoryTransaction.createMany).toHaveBeenCalledTimes(1);
     expect(mockPrisma.inventoryStock.createMany).toHaveBeenCalledTimes(1);
   });
@@ -98,26 +91,37 @@ describe('seedInventory', () => {
     await seedInventory(run1Prisma, foundation, finance, brands as any);
     await seedInventory(run2Prisma, foundation, finance, brands as any);
 
-    // Assert catalogItem.createManyAndReturn payloads are identical
-    const run1Parts =
-      run1Prisma.catalogItem.createManyAndReturn.mock.calls[0][0].data;
-    const run2Parts =
-      run2Prisma.catalogItem.createManyAndReturn.mock.calls[0][0].data;
+    const run1Parts = run1Prisma.catalogItem.upsert.mock.calls
+      .slice(3)
+      .map((call: any) => call[0].create);
+    const run2Parts = run2Prisma.catalogItem.upsert.mock.calls
+      .slice(3)
+      .map((call: any) => call[0].create);
     expect(run1Parts).toEqual(run2Parts);
 
-    // Assert inventoryTransaction.createMany payloads are identical
     const run1Tx =
       run1Prisma.inventoryTransaction.createMany.mock.calls[0][0].data;
     const run2Tx =
       run2Prisma.inventoryTransaction.createMany.mock.calls[0][0].data;
     expect(run1Tx).toEqual(run2Tx);
 
-    // Assert inventoryStock.createMany payloads are identical
     const run1Stock =
       run1Prisma.inventoryStock.createMany.mock.calls[0][0].data;
     const run2Stock =
       run2Prisma.inventoryStock.createMany.mock.calls[0][0].data;
     expect(run1Stock).toEqual(run2Stock);
+  });
+
+  it('skips ledger bootstrap when seed transactions already exist', async () => {
+    const mockPrisma: any = createMockPrisma();
+    mockPrisma.inventoryTransaction.findFirst.mockResolvedValueOnce({
+      id: 'existing-tx',
+    });
+
+    await seedInventory(mockPrisma, foundation, finance, brands as any);
+
+    expect(mockPrisma.inventoryTransaction.createMany).not.toHaveBeenCalled();
+    expect(mockPrisma.inventoryStock.createMany).not.toHaveBeenCalled();
   });
 
   it('throws an error if no part manufacturer brands are provided', async () => {
