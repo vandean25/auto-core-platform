@@ -22,8 +22,8 @@ Checked against `main` at `d1bb14539b71d4ad3d03ff0b06c595d8a3700c8c`. The pilot 
 
 ## User Stories
 
-- As an **OWNER, ADMIN, or ADVISOR**, I want to turn one supported sentence into a preview of an existing customer, their vehicle, a site-local appointment, local presets, and an optional loaner, so that I can accept one proposal.
-- As an **OWNER, ADMIN, ADVISOR, or SALES** member, I want an exact choice when several customers, vehicles, times, or resources match, so that the system does not pick for me.
+- As an **OWNER or ADMIN**, I want to turn one supported sentence into a preview of an existing customer, their vehicle, a site-local appointment, local presets, and an optional loaner, so that I can accept one proposal.
+- As an **OWNER, ADMIN, or SALES** member, I want an exact choice when several customers, vehicles, times, or resources match, so that the system does not pick for me.
 - As an **owner**, I want names, plates, and VINs to stay inside the tenant API, so that the flow ships without a provider decision and without [AUT-395](https://linear.app/auto-core-platform/issue/AUT-395).
 
 ---
@@ -346,10 +346,10 @@ Eligible bays: active bays on the operative site whose window does not overlap a
 | --- | --- |
 | 0 bays | `RESOURCE_MISSING` with `choices: []` |
 | 1 bay | Bind it and show it in the preview |
-| 2 or more bays | `RESOURCE_AMBIGUOUS`. Choices are those bays |
+| 2 or more bays | `RESOURCE_AMBIGUOUS`. Each choice has `slot` `bay_id` and `value` set to that bay's id |
 | 0 loaners and loaner requested | `RESOURCE_MISSING`. The only choice is `continue_without_loaner` |
 | 1 loaner | Bind it |
-| 2 or more loaners | `RESOURCE_AMBIGUOUS`. Choices are those loaners plus `continue_without_loaner` |
+| 2 or more loaners | `RESOURCE_AMBIGUOUS`. Each loaner choice has `slot` `loaner_vehicle_id` and `value` set to that loaner's id. One more choice has `slot` `loaner` and `value` `continue_without_loaner` |
 
 An empty `choices` array means the advisor continues only by sending a new sentence. Closing the dialog writes nothing, so the contract has no `stop` choice.
 
@@ -401,7 +401,7 @@ v1 calls no `DecisionProvider`. `DECISION_USE_CASES` stays `import_row_matching`
 | `customer_id`, `vehicle_id`, `schedule`, `bay_id`, `loaner` | AUT-535 | `WorkshopOrder` `SCHEDULED` via `WorkshopIntakeService.createAtSite`, and optionally `LoanerBooking` `RESERVED` linked to that order |
 | `position_plan` | AUT-540 | One `WorkshopTask` per labor or part line, status `NOT_STARTED`, lines priced from the recomputed plan. Catalog part reservations go through `PartsRequisitionService` |
 
-Action key: `workshop.booking_package`. Platform policy row: tier `PROPOSE`, `enabled: false`. `AUTO` ranks looser than `PROPOSE` (`TIER_RANK` in `agent-policy-tier.util.ts`). A tenant upsert that sets `AUTO` is rejected with HTTP 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM`. The evaluator does not clamp the tier. A stricter tenant tier such as `HUMAN_ONLY` is stored. A missing rule evaluates to `HUMAN_ONLY` with reason `unknown_action_fail_closed`. A disabled rule evaluates to `HUMAN_ONLY` with reason `rule_disabled_fail_closed` (`agent-policy.evaluator.ts`). REST propose then follows `submitPendingAction`: when the tier is not `PROPOSE`, it throws HTTP 422 `UnprocessableEntityException` with the message `Only actions currently evaluated as PROPOSE can be submitted for approval`, and it stores nothing. That response has no `not_permitted` code. HTTP 403 `not_permitted` exists on the MCP write path only. v1 registers no MCP tool for this action. A later typed MCP tool, if added, uses this payload and that MCP path.
+Action key: `workshop.booking_package`. Platform policy row: tier `PROPOSE`, `enabled: false`. `AUTO` ranks looser than `PROPOSE` (`TIER_RANK` in `agent-policy-tier.util.ts`). A tenant upsert that sets `AUTO` is rejected with HTTP 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM`. The evaluator does not clamp the tier. A stricter tenant tier such as `HUMAN_ONLY` is stored. A missing rule evaluates to `HUMAN_ONLY` with reason `unknown_action_fail_closed`. A disabled rule evaluates to `HUMAN_ONLY` with reason `rule_disabled_fail_closed` (`agent-policy.evaluator.ts`). REST propose then follows `submitPendingAction`: when the tier is not `PROPOSE`, it throws HTTP 422 `UnprocessableEntityException` with the message `Only actions currently evaluated as PROPOSE can be submitted for approval`, and it stores nothing. That 422 applies once slice 3 routes propose through `submitPendingAction`. Slice 2 `buildProposal` does not evaluate the policy row. That response has no `not_permitted` code. HTTP 403 `not_permitted` exists on the MCP write path only. v1 registers no MCP tool for this action. A later typed MCP tool, if added, uses this payload and that MCP path.
 
 `HUMAN_ONLY` floor actions in `agent-policy-floor.ts` are never emitted. The never-exposed MCP actions, including `estimate.send_customer_message`, `invoice.finalize`, `invoice.send`, and `invoice.cancel`, are never emitted. A `HUMAN_ONLY` evaluation does not preview and does not execute.
 
@@ -411,7 +411,7 @@ Today `submitPendingAction`, `assertSiteMatchesSimulation`, and the apply execut
 
 Existing estimate send, public approval, and the communication timeline remain the next manual steps after `EXECUTED`. Start Service consumes the stored plan and must not duplicate tasks, lines, or reservations (AUT-540).
 
-Idempotency uses the session row in [Replay storage](#replay-storage). The same `command_id`, the same normalized input, and a `PENDING` proposal return that proposal. Any other normalized input for that `command_id` is HTTP 409 `COMMAND_ID_REUSED`.
+Idempotency is in [Replay storage](#replay-storage). A `command_id` that already has an `AgentProposal` row is refused even after the session row is gone.
 
 ---
 
@@ -430,7 +430,9 @@ Idempotency uses the session row in [Replay storage](#replay-storage). The same 
 | `LOANER_FORBIDDEN_WRITE` | 403 | Propose or apply fails `assertWriteAccess` after interpret already offered `continue_without_loaner` |
 | `LOANER_NOT_PERMITTED` | 200 as clarification | Interpret, loaner requested, caller fails the loaner write rule |
 | `INTENT_INCOMPLETE` | 409 | Propose while the recomputed result is still a clarification |
-| `COMMAND_ID_REUSED` | 409 | Same id with a different normalized input, or the linked proposal is no longer `PENDING` |
+| `COMMAND_ID_REUSED` | 409 | An `AgentProposal` already exists for this tenant and `command_id`, or the stored normalized input differs. Returned by interpret and by propose |
+| `SELECTION_NOT_OFFERED` | 409 | A propose `selections` entry is not in the session's `offered_choices` |
+| `SESSION_NOT_FOUND` | 404 | Propose has no session and no `AgentProposal` for that `command_id` |
 | `PLAN_STALE` | 409 | Price, preset, site, or occupancy changed after preview |
 | `POSITION_PLAN_EXECUTOR_REQUIRED` | 409 | Lines present and the position executor is absent |
 | `BAY_UNAVAILABLE` | 409 | Domain booking conflict, including outside opening hours |
@@ -469,8 +471,8 @@ Clarification prompts are fixed:
 | `SITE_MISMATCH` | One choice, `value` `continue_at_operative_site`. The named site is not a choice, including when the caller has no active membership there |
 | `RESOURCE_MISSING` for a bay | `[]` |
 | `RESOURCE_MISSING` for a loaner | One choice, `value` `continue_without_loaner` |
-| `RESOURCE_AMBIGUOUS` | The eligible rows. A loaner ambiguity also offers `continue_without_loaner` |
-| `LOANER_NOT_PERMITTED` | One choice, `value` `continue_without_loaner` |
+| `RESOURCE_AMBIGUOUS` | Bays: `slot` `bay_id`, `value` the bay id. Loaners: `slot` `loaner_vehicle_id`, `value` the loaner id, plus `slot` `loaner`, `value` `continue_without_loaner` |
+| `LOANER_NOT_PERMITTED` | One choice, `slot` `loaner`, `value` `continue_without_loaner` |
 
 ---
 
@@ -492,7 +494,7 @@ Added by the implementation slices, not by this spec PR.
 | `workshop_command_presets` | `duration_minutes` | int | yes | Labor presets used for the end time |
 | `workshop_command_presets` | `quantity_milli` | int | yes | Part quantity times 1000 |
 | `workshop_command_presets` | `active` | boolean | no | Default true |
-| `agent_proposals` | `command_id` | uuid | yes | Unique `(tenant_id, command_id)`. AUT-535 |
+| `agent_proposals` | `command_id` | uuid | yes | Unique `(tenant_id, command_id)`. Interpreter slice |
 | `workshop_command_sessions` | `id` | uuid | no | Replay row for one `command_id`. Interpreter slice |
 | `workshop_command_sessions` | `tenant_id` | uuid | no | From auth context |
 | `workshop_command_sessions` | `command_id` | uuid | no | Unique with `tenant_id` |
@@ -516,23 +518,30 @@ The raw sentence and the voice transcript are not stored. Interpret writes `work
   "preset_keys": ["service.major", "inspection.pickerl_57a", "inspection.brakes_front"],
   "loaner_requested": true,
   "named_site": null,
-  "selections": []
+  "selections": [],
+  "offered_choices": []
 }
 ```
 
 `identity.kind` is `surname_model`, `plate`, or `vin`. The matching token fields are `surname` and `model`, or `plate`, or `vin`. Those tokens are identifying. They live only in this table, for at most 7 days. `named_site` is the matched site code when the clause was present, otherwise `null`.
 
-Propose sends only `contract_version`, `command_id`, and `selections`. The server loads the session for the authenticated tenant, applies `selections` that the last clarification offered, and recomputes the intent from `normalized_json` and the live tenant rows. A client field other than those three is HTTP 400 `CONTRACT_UNKNOWN_FIELD`. Prices, customer ids, and site ids in a propose body are not accepted.
+`offered_choices` is the exact `{ "slot", "value" }` list returned on the last clarification. A ready interpret stores `[]`. Propose accepts a selection only when that pair is in `offered_choices`. Any other pair is HTTP 409 `SELECTION_NOT_OFFERED`. The server then recomputes the intent from the normalized tokens, the accepted selections, and the live tenant rows. A selected id that no longer resolves is HTTP 409 `PLAN_STALE`.
+
+Interpret and propose both start by loading `AgentProposal` for the authenticated tenant and `command_id`, including rows that are not `PENDING`. If that row exists, the response is HTTP 409 `COMMAND_ID_REUSED` and no new session is inserted. That check still works after the session has been deleted. If no proposal exists and the session's normalized input differs from the new sentence, interpret also returns `COMMAND_ID_REUSED`. If no proposal and no session exist, propose returns HTTP 404 `SESSION_NOT_FOUND`.
+
+Propose sends only `contract_version`, `command_id`, and `selections`. A client field other than those three is HTTP 400 `CONTRACT_UNKNOWN_FIELD`. Prices, customer ids, and site ids in a propose body are not accepted.
 
 `AgentProposal.payload_json` is the recomputed `WorkshopIntent` (ids, instants, preset keys, prices). `agent_action_log.inputSummary.payload` is that same object. It has no `text`, surname, plate, or VIN. `resultSummary` keeps `would_change` and ids.
 
-A session is hard-deleted when its proposal leaves `PENDING`, and when `expires_at` is past. Tenant deletion deletes the rows with the tenant. The interpreter-slice migration adds the table to the tenant-restore manifest by running `node tools/tenant-restore/generate-tenant-restore-sql.mjs` and committing the generated SQL. AUT-535 does the same for `agent_proposals.command_id`. AUT-540 does the same for `workshop_command_presets`, and in that same PR adds the `docs/deletion-policy.md` rows below.
+The interpreter slice owns session deletion. `WorkshopCommandSessionService.deleteForCommand(tenantId, commandId)` hard-deletes the row. AUT-535 calls it in the same transaction as the agent-proposal status change when a proposal that has a `command_id` leaves `PENDING` (`EXECUTED`, `FAILED`, `REJECTED`, or `EXPIRED`). The interpreter slice also deletes sessions with `expires_at` in the past at the start of interpret and propose, so a session does not wait for a later approval request. Tenant deletion deletes the rows with the tenant.
+
+The interpreter-slice migration adds `workshop_command_sessions` and `agent_proposals.command_id` to the tenant-restore manifest by running `node tools/tenant-restore/generate-tenant-restore-sql.mjs` and committing the generated SQL. AUT-540 does the same for `workshop_command_presets`, and in that same PR adds the preset row to `docs/deletion-policy.md`. The interpreter slice adds the session row to that policy in its own PR.
 
 ### Modified Tables
 
 | Table | Change | Migration Required? |
 | --- | --- | --- |
-| `agent_proposals` | Nullable `command_id` plus unique `(tenant_id, command_id)` | Yes, in AUT-535 |
+| `agent_proposals` | Nullable `command_id` plus unique `(tenant_id, command_id)` | Yes, in the interpreter slice |
 | `agent_policy_rules` | Seed `workshop.booking_package` as disabled `PROPOSE` | Yes, in AUT-535 |
 
 No change to `InventoryStock` except through `InventoryTransaction` inside `PartsRequisitionService`. No invoice table is written. `FinanceSettings.lock_date` is not involved. Workshop order numbers keep the existing singleton counter inside the intake transaction.
@@ -560,7 +569,7 @@ No new status values.
 | `LoanerBooking` | `RESERVED` |
 | `AgentProposal` | `PENDING` on propose. Apply of a live row ends `EXECUTED` or `FAILED` |
 
-`AgentProposal.expires_at` stays the database default of seven days. Apply of a row past `expires_at` marks it `EXPIRED` and does not execute, which is the current decision-service behavior. Reject marks it `REJECTED` and does not execute. `preview_json` remains on the retained proposal row. A `command_id` whose proposal is `EXPIRED`, `REJECTED`, `EXECUTED`, or `FAILED` cannot be proposed again. The next sentence uses a new `command_id`. The session row for the old id is hard-deleted.
+`AgentProposal.expires_at` stays the database default of seven days. Apply of a row past `expires_at` marks it `EXPIRED` and does not execute, which is the current decision-service behavior. Reject marks it `REJECTED` and does not execute. `preview_json` remains on the retained proposal row. Each of those transitions calls `deleteForCommand`. A later interpret with the same `command_id` returns `COMMAND_ID_REUSED` because the proposal row remains. The next sentence uses a new `command_id`.
 
 Apply does not move the order to `INTAKE`. Existing `updateMany` status guards stay in the domain services.
 
@@ -576,12 +585,12 @@ Apply does not move the order to `INTAKE`. Existing `updateMany` status guards s
 
 | Method | Route | Request Body | Response | Auth |
 | --- | --- | --- | --- | --- |
-| `POST` | `/api/workshop/commands/interpret` | `CommandInput` plus optional `selections` | `WorkshopIntent` or `Clarification` | Active site membership and tenant role `OWNER`, `ADMIN`, `ADVISOR`, or `SALES`. No domain writes. Writes one session row |
-| `POST` | `/api/workshop/commands/propose` | `{ contract_version, command_id, selections }` | `ProposalResult` | `assertSupervisor`: session role `OWNER`, `ADMIN`, or `ADVISOR` |
+| `POST` | `/api/workshop/commands/interpret` | `CommandInput` plus optional `selections` | `WorkshopIntent` or `Clarification` | Active site membership and tenant role `OWNER`, `ADMIN`, or `SALES`. No domain writes. Writes one session row |
+| `POST` | `/api/workshop/commands/propose` | `{ contract_version, command_id, selections }` | `ProposalResult` | Tenant role `OWNER` or `ADMIN` |
 
-`TenantMemberRole` in the schema is `OWNER`, `ADMIN`, `TECH`, `SALES`. `assertSupervisor` also allows the session role `ADVISOR`. `SALES` is the desk role used by tyre storage and may interpret. `SALES` and `TECH` receive HTTP 403 from propose and apply, with the supervisor message and no `not_permitted` code. `TECH` receives HTTP 403 from interpret as well.
+`TenantMemberRole` is `OWNER`, `ADMIN`, `TECH`, and `SALES`. There is no `ADVISOR` tenant role. `assertSupervisor` still lists the string `ADVISOR`, and this spec does not add that role or change the guard. With the roles that exist, only `OWNER` and `ADMIN` pass propose and apply. `SALES` may interpret and receives HTTP 403 on propose and apply. `TECH` receives HTTP 403 on interpret, propose, and apply. The 403 body stays the current `ForbiddenException` text and has no `not_permitted` code. Giving `SALES` propose access is a separate authorization change.
 
-The source of truth for propose is the session row. The server recomputes the intent from `normalized_json` and the current tenant data. Selections must be values the stored clarification offered.
+The source of truth for propose is the session row plus the `AgentProposal` lookup above. Selections must be pairs stored in `offered_choices`.
 
 ### Modified Endpoints
 
@@ -645,7 +654,7 @@ The sentence field submits on an explicit Interpret action. It is not an auto-sa
 
 ## Testing Plan
 
-The corpus is the acceptance test. A future test loads every file in [`fixtures`](command-first-workshop/fixtures), merges `world_patch` with RFC 7396 onto [`world.json`](command-first-workshop/fixtures/world.json), and freezes `now`. A file with `cases` runs each case. When `expect.body` contains `position_plan` or `code`, it deep-equals the response body. Otherwise it is a deep subset of that body. `$anyUuid` matches any UUID. Omitted `http_status` means 200. `provider_invoked` is `false` and `outbound_bodies` is `[]`. `queries_other_site`, when present, is exact. Every string in `forbidden_substrings` is absent from `outbound_bodies`. On `canonical-huber-golf.json`, `propose_expect.body` deep-equals the proposal and its `intent` deep-equals the interpret body without `status`. `domain_rows_before_apply` is empty: no `WorkshopOrder`, `WorkshopTask`, `WorkshopTaskLineItem`, `LoanerBooking`, or `PartsReservation` exists before Apply.
+The corpus is the acceptance test. A future test loads every file in [`fixtures`](command-first-workshop/fixtures), merges `world_patch` with RFC 7396 onto [`world.json`](command-first-workshop/fixtures/world.json), and freezes `now`. A file with `cases` runs each case. When `expect.body` contains `position_plan` or `code`, it deep-equals the response body. Otherwise it is a deep subset of that body. `$anyUuid` matches any UUID. Omitted `http_status` means 200. `provider_invoked` is `false` and `outbound_bodies` is `[]`. Every string in `forbidden_substrings` is absent from `outbound_bodies`. Fields next to `body` are exact when present, including `queries_other_site` and `named_site_membership_active`. The loader reads `world.caller.site_memberships`. A site counts as a membership only when that list has a row for the site with `is_active: true`. `named_site_membership_active` is true only when that membership exists for the site whose `code` equals `recognized.named_site_code`. On `canonical-huber-golf.json`, `propose_expect.body` deep-equals the proposal and its `intent` deep-equals the interpret body without `status`. `domain_rows_before_apply` is empty: no `WorkshopOrder`, `WorkshopTask`, `WorkshopTaskLineItem`, `LoanerBooking`, or `PartsReservation` exists before Apply.
 
 | Fixture | Acceptance case |
 | --- | --- |
@@ -663,8 +672,10 @@ The corpus is the acceptance test. A future test loads every file in [`fixtures`
 
 ### Backend E2E
 
-- [ ] Happy-path test in `apps/core-api/test/` loads `canonical-huber-golf.json` and asserts no domain row exists before Apply.
-- [ ] Error and edge fixtures above, plus REST 422 when the policy row is missing or disabled, 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM` on an `AUTO` upsert, 403 supervisor and `LOANER_FORBIDDEN_WRITE` failures, 409 `PLAN_STALE`, 409 `COMMAND_ID_REUSED`, and a loaner conflict that rolls back the order.
+- [ ] Slice 2 loads the corpus, including `propose_expect`, through `buildProposal`. That test does not call `submitPendingAction` and does not require the policy row.
+- [ ] Slice 2 covers `COMMAND_ID_REUSED` when an `AgentProposal` with that `command_id` exists and the session does not, and `SELECTION_NOT_OFFERED` when a selection is outside `offered_choices`.
+- [ ] AUT-535 covers reject, expire, and apply each calling `deleteForCommand`, then a second interpret with the same `command_id` returning 409. It also covers REST 422 when the policy row is missing or disabled, 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM` on an `AUTO` upsert, 403 for `SALES`, `LOANER_FORBIDDEN_WRITE`, 409 `PLAN_STALE`, and a loaner conflict that rolls back the order.
+- [ ] After slice 3, the happy path loads `canonical-huber-golf.json` and asserts no domain row exists before Apply.
 
 Existing tests `GlobalSearch.navigation.test.tsx` and `agent-proposal-submission.service.spec.ts` stay the regression baseline. They do not prove this feature.
 
@@ -679,12 +690,12 @@ Existing tests `GlobalSearch.navigation.test.tsx` and `agent-proposal-submission
 | Slice | Issue | Delivers |
 | --- | --- | --- |
 | 1 | AUT-515 | This spec and the fixtures |
-| 2 | New backend issue, command interpreter. Blocks AUT-542. AUT-535 end-to-end propose tests depend on it | `apps/core-api/src/workshop-command/`, `workshop_command_sessions`, `POST /interpret` and `POST /propose`, corpus tests, deletion-policy row, tenant-restore SQL for the session table |
-| 3 | AUT-535 | Policy seed, `command_id`, executor for booking and loaner, fail closed when lines are present, site capture and apply-site check for `workshop.booking_package` in `submitPendingAction`, `assertSiteMatchesSimulation`, and the apply execution context. Tenant-restore SQL for the new column |
+| 2 | A new Linear issue that does not exist yet. The implementer creates it and marks AUT-542 blocked by it. This spec does not create the issue | Interpreter module, session table, `agent_proposals.command_id`, `deleteForCommand`, the expiry purge, `POST /interpret`, and `POST /propose` as `buildProposal` plus the corpus. Propose tests do not call `submitPendingAction` and do not need the policy row. Deletion-policy row and tenant-restore SQL for the session table and `command_id` |
+| 3 | AUT-535 | Policy seed, executor, wiring `buildProposal` to `submitPendingAction`, `deleteForCommand` on every transition out of `PENDING`, site capture and apply-site check for `workshop.booking_package`. Fail closed when position lines are present |
 | 4 | AUT-540 | Preset table, position lines, deletion-policy row, tenant-restore SQL, reservation through the parts service |
-| 5 | AUT-542 | Cmd+K preview and the existing advisor voice route only. It calls the slice-2 endpoints and does not own the interpreter |
+| 5 | AUT-542 | Cmd+K preview and the existing advisor voice route only. It calls the slice-2 endpoints and does not own the interpreter. It stays blocked by the new interpreter issue as well as AUT-535 and AUT-540 |
 
-Until slice 3 registers the action, slice 2 propose hits the REST 422 PROPOSE check and stores no proposal. After slice 3, apply of a non-empty plan before slice 4 returns `POSITION_PLAN_EXECUTOR_REQUIRED`.
+Slice 2 can prove the corpus, including the canonical proposal body, before slice 3. Slice 3 is what first persists an `AgentProposal`. After slice 3, apply of a non-empty plan before slice 4 returns `POSITION_PLAN_EXECUTOR_REQUIRED`.
 
 ---
 
@@ -696,6 +707,8 @@ No product question is left open for v1. These decisions are closed:
 2. One singleton eligible resource is bound and shown. Two resources are a choice.
 3. A non-empty position plan is part of the same proposal. Apply refuses the whole package until the position executor exists.
 4. Document review follows the project workflow. This spec does not request a new external legal or tax approval.
+5. `ADVISOR` is not added as a tenant role. Propose and apply stay with `OWNER` and `ADMIN`.
+6. The interpreter Linear issue is created by the implementer of slice 2, and AUT-542 is then marked blocked by it. This document does not open that issue.
 
 ---
 
