@@ -11,6 +11,7 @@ import { DASHBOARD_REALTIME_SERVICE_TOKEN } from '../dashboard-realtime/dashboar
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import { setActiveTenant } from '../common/services/user-active-tenant.js';
 import { getFirebaseAdminAuth } from './firebase-admin.js';
+import { LandingDemoSignInGrantService } from '../landing-demo-access/landing-demo-sign-in-grant.service.js';
 import type {
   AuthenticatedUser,
   PlatformAuthenticatedUser,
@@ -27,6 +28,7 @@ type UserAccessMembership = {
   tenant_id: string;
   role: TenantMemberRole;
   is_active: boolean;
+  demo_access_expires_at: Date | null;
   tenant: {
     id: string;
     name: string;
@@ -96,6 +98,7 @@ const USER_ACCESS_SELECT = {
       tenant_id: true,
       role: true,
       is_active: true,
+      demo_access_expires_at: true,
       tenant: {
         select: {
           id: true,
@@ -112,6 +115,7 @@ const USER_ACCESS_SELECT = {
 export class AuthSessionService {
   constructor(
     private readonly systemPrisma: SystemPrismaService,
+    private readonly landingDemoGrants: LandingDemoSignInGrantService,
     @Optional()
     @Inject(DASHBOARD_REALTIME_SERVICE_TOKEN)
     private readonly dashboardRealtime?: DashboardRealtimeService,
@@ -192,10 +196,18 @@ export class AuthSessionService {
       return null;
     }
 
+    user.memberships = user.memberships.filter((membership) =>
+      this.isMembershipCurrentlyValid(membership),
+    );
+
     const activeMembership = await this.ensureActiveMembership(user);
 
     if (!activeMembership) {
       return null;
+    }
+
+    if (activeMembership.role === TenantMemberRole.DEMO) {
+      await this.landingDemoGrants.assertDemoSignInGrantForSession(user.id);
     }
 
     return {
@@ -220,7 +232,11 @@ export class AuthSessionService {
       );
     }
 
-    const requestedMembership = userRecord.memberships.find(
+    const validMemberships = userRecord.memberships.filter((membership) =>
+      this.isMembershipCurrentlyValid(membership),
+    );
+
+    const requestedMembership = validMemberships.find(
       (membership) => membership.tenant_id === tenantId,
     );
 
@@ -233,6 +249,15 @@ export class AuthSessionService {
       !requestedMembership.tenant.is_active
     ) {
       throw new ForbiddenException('Requested tenant is inactive.');
+    }
+
+    const demoOnlyUser = validMemberships.every(
+      (membership) => membership.role === TenantMemberRole.DEMO,
+    );
+    if (demoOnlyUser && requestedMembership.role !== TenantMemberRole.DEMO) {
+      throw new ForbiddenException(
+        'Demo accounts may only access the demo tenant.',
+      );
     }
 
     if (userRecord.active_tenant_id !== requestedMembership.tenant_id) {
@@ -301,6 +326,15 @@ export class AuthSessionService {
       ...byEmail,
       firebaseUid: claims.sub,
     };
+  }
+
+  private isMembershipCurrentlyValid(
+    membership: UserAccessMembership,
+  ): boolean {
+    if (!membership.demo_access_expires_at) {
+      return true;
+    }
+    return membership.demo_access_expires_at.getTime() > Date.now();
   }
 
   private async ensureActiveMembership(

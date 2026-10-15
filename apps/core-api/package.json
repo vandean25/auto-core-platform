@@ -35,6 +35,7 @@
     "gcs:lifecycle": "tsx scripts/apply-gcs-lifecycle.ts",
     "db:seed:platform-admin": "tsx scripts/seed-platform-admin.ts",
     "db:seed:tenant-member": "tsx scripts/seed-tenant-member.ts",
+    "db:seed:landing-demo-tenant": "tsx scripts/seed-landing-demo-tenant.ts",
     "db:baseline": "tsx scripts/baseline-prisma-migrations.ts",
     "secrets:pull": "node ../../tools/pull-secrets-from-gsm.mjs --mapping ../../secrets/gsm-mapping.json --target core-api",
     "agent-eval": "tsx scripts/agent-eval.ts",

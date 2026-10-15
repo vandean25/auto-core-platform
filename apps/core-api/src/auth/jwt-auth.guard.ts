@@ -10,6 +10,7 @@ import { ALLOW_PLATFORM_ADMIN_KEY } from '../common/decorators/allow-platform-ad
 import { MECHANIC_ACCESSIBLE_KEY } from '../common/decorators/mechanic-accessible.decorator.js';
 import { IS_PUBLIC_KEY } from '../common/decorators/public.decorator.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { isDemoMutationAllowed } from '../landing-demo-access/demo-role-restrictions.js';
 import { AuthService } from './auth.service.js';
 import {
   isApiKeyPrincipal,
@@ -67,6 +68,19 @@ export class JwtAuthGuard implements CanActivate {
     // endpoints explicitly marked with @MechanicAccessible(). All other
     // back-office endpoints must reject the request even if the underlying
     // tenant member still maps to TenantMemberRole.TECH.
+    if ('role' in request.user && request.user.role === 'DEMO') {
+      const path =
+        request.path ??
+        request.url?.split('?')[0] ??
+        request.originalUrl?.split('?')[0] ??
+        '';
+      if (!isDemoMutationAllowed(request.method, path)) {
+        throw new ForbiddenException(
+          'Demo accounts cannot perform this action.',
+        );
+      }
+    }
+
     if ('role' in request.user && request.user.role === 'TECH') {
       const isMechanicAccessible =
         this.reflector.getAllAndOverride<boolean>(MECHANIC_ACCESSIBLE_KEY, [

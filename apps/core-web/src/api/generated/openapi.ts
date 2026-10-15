@@ -4321,6 +4321,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/landing-demo/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request self-service demo access (landing page form)
+         * @description Creates or refreshes a demo user in the landing demo tenant and emails a one-time magic sign-in link. Always returns {ok:true} for honeypot submissions.
+         */
+        post: operations["LandingDemoAccessController_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4331,7 +4351,7 @@ export interface components {
             slug: string;
         };
         /** @enum {string} */
-        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES";
+        TenantMemberRole: "OWNER" | "ADMIN" | "TECH" | "SALES" | "DEMO";
         AuthSessionMembershipDto: {
             tenantId: string;
             tenantName: string;
@@ -9559,6 +9579,31 @@ export interface components {
             quantityAvailable: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        LandingDemoAccessRequestDto: {
+            /** @example Maria Muster */
+            name: string;
+            /** @example Autowerkstatt Muster GmbH */
+            betrieb: string;
+            /** @example demo@example.com */
+            email: string;
+            /** @example +43 660 1234567 */
+            telefon?: string;
+            /** @example Wir möchten die Werkstattsoftware testen. */
+            nachricht?: string;
+            /** @description Must be true (GDPR consent). */
+            consent: boolean;
+            /**
+             * @description Honeypot field; must be empty.
+             * @example
+             */
+            website?: string;
+            /** @description Cloudflare Turnstile token when captcha is enabled. */
+            turnstileToken?: string;
+        };
+        LandingDemoAccessOkDto: {
+            /** @example true */
+            ok: boolean;
         };
     };
     responses: never;
@@ -18323,6 +18368,43 @@ export interface operations {
                         data?: components["schemas"]["PublicStockLevelDto"][];
                     };
                 };
+            };
+        };
+    };
+    LandingDemoAccessController_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LandingDemoAccessRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LandingDemoAccessOkDto"];
+                };
+            };
+            /** @description Validation or captcha failed. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -25,6 +25,7 @@ enum TenantMemberRole {
   ADMIN
   TECH
   SALES
+  DEMO
 }
 
 enum PlatformAdminRole {
@@ -39,6 +40,8 @@ model Tenant {
   created_at DateTime   @default(now())
   updated_at DateTime   @updatedAt
   is_active  Boolean    @default(true)
+  /// AUT-547 dedicated tenant for self-service landing demos (isolated from QA seed data).
+  is_landing_demo_tenant Boolean @default(false)
   /// AUT-413 tenant opt-out for decision live-apply. Only `shadow` is valid; NULL inherits the environment.
   decision_apply_mode String? @db.VarChar(16)
   /// AUT-411 per-key request budget for the public API (requests per 1-minute window, each key).
@@ -261,6 +264,7 @@ model User {
   revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
   workshopEstimateApprovalsRecorded WorkshopEstimateApproval[] @relation("WorkshopEstimateApprovalRecordedBy")
   workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]  @relation("WorkshopEstimateOverrunNotifiedBy")
+  landingDemoSignInGrants           LandingDemoSignInGrant[]
   createdAt                         DateTime                  @default(now())
   updatedAt                         DateTime                  @updatedAt
 
@@ -276,6 +280,8 @@ model TenantMember {
   user      User             @relation(fields: [user_id], references: [id])
   role      TenantMemberRole
   is_active Boolean          @default(true)
+  /// AUT-547 self-service demo memberships expire automatically (enforced in auth session).
+  demo_access_expires_at DateTime?
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
@@ -285,6 +291,53 @@ model TenantMember {
   @@index([tenant_id])
   @@index([user_id])
   @@map("tenant_members")
+}
+
+/// AUT-547 landing-page demo form submission (privacy-minimal retention; see docs/deletion-policy.md).
+model LandingDemoAccessRequest {
+  id                  String   @id @default(uuid())
+  email               String   @db.VarChar(320)
+  name                String   @db.VarChar(200)
+  betrieb             String   @db.VarChar(200)
+  telefon             String?  @db.VarChar(80)
+  nachricht           String?  @db.VarChar(2000)
+  consent_recorded_at DateTime
+  client_ip_hash      String?  @db.VarChar(64)
+  createdAt           DateTime @default(now()) @map("created_at")
+  signInGrants        LandingDemoSignInGrant[]
+
+  @@index([email, createdAt(sort: Desc)])
+  @@map("landing_demo_access_requests")
+}
+
+/// AUT-547 issued magic-link grant for one access request (24h validity; superseded grants invalidated).
+model LandingDemoSignInGrant {
+  id                String                   @id @default(uuid())
+  access_request_id String
+  accessRequest     LandingDemoAccessRequest @relation(fields: [access_request_id], references: [id], onDelete: Restrict)
+  user_id           String
+  user              User                     @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  expires_at        DateTime
+  consumed_at       DateTime?
+  invalidated_at    DateTime?
+  createdAt         DateTime                 @default(now()) @map("created_at")
+
+  @@index([user_id, createdAt(sort: Desc)])
+  @@index([expires_at])
+  @@map("landing_demo_sign_in_grants")
+}
+
+/// Durable fixed-window rate limits for unauthenticated public endpoints (AUT-547).
+model PublicRateLimitCounter {
+  scope        String   @db.VarChar(64)
+  key          String   @db.VarChar(128)
+  count        Int
+  window_start DateTime
+  expires_at   DateTime
+
+  @@id([scope, key])
+  @@index([expires_at])
+  @@map("public_rate_limit_counters")
 }
 
 model PlatformAdmin {
@@ -2540,6 +2593,8 @@ enum NotificationEventType {
   WORKSHOP_TASK_WAITING_CUSTOMER
   CUSTOMER_ESTIMATE_SENT
   CUSTOMER_ESTIMATE_DECIDED
+  LANDING_DEMO_MAGIC_LINK
+  LANDING_DEMO_OPERATOR_ALERT
 }
 
 enum NotificationChannel {
