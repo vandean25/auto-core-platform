@@ -31,6 +31,26 @@ describe('agent-action-log-query.builder', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('filters agent_id with a case-insensitive substring match', () => {
+    expect(
+      buildAgentActionWhere('tenant-1', { agentId: 'qa-fresh' }),
+    ).toEqual({
+      tenant_id: 'tenant-1',
+      agent_id: { contains: 'qa-fresh', mode: 'insensitive' },
+    });
+  });
+
+  it('keeps tenant scoping when filtering by agent substring', () => {
+    const where = buildAgentActionWhere('tenant-42', {
+      agentId: 'mcp:QA-FRESH',
+    });
+    expect(where.tenant_id).toBe('tenant-42');
+    expect(where.agent_id).toEqual({
+      contains: 'mcp:QA-FRESH',
+      mode: 'insensitive',
+    });
+  });
+
   it('rejects cursor when id is not a string', () => {
     const cursor = Buffer.from(
       JSON.stringify({

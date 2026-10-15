@@ -294,7 +294,10 @@ describe('AgentActionLogService', () => {
 
     expect(prisma.agentActionLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { tenant_id: 'tenant-1', agent_id: 'workshop-agent' },
+        where: {
+          tenant_id: 'tenant-1',
+          agent_id: { contains: 'workshop-agent', mode: 'insensitive' },
+        },
       }),
     );
     expect(result.data[0]?.agentId).toBe('workshop-agent');

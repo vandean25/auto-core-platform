@@ -41,7 +41,10 @@ export class QueryAgentActionsDto {
   @IsUUID()
   traceId?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by agent identifier' })
+  @ApiPropertyOptional({
+    description:
+      'Filter by agent identifier (case-insensitive substring match)',
+  })
   @IsOptional()
   @IsString()
   agentId?: string;

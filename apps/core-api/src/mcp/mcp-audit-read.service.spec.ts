@@ -354,7 +354,7 @@ describe('McpAuditReadService', () => {
       const args = prisma.agentActionLog.findMany.mock.calls[0][0];
       expect(args.where).toMatchObject({
         tenant_id: TENANT_A,
-        agent_id: 'mcp:cursor',
+        agent_id: { contains: 'mcp:cursor', mode: 'insensitive' },
         tier: 'PROPOSE',
         status: 'PROPOSED',
         input_summary_json: { path: ['tool'], equals: 'reserve_part' },
