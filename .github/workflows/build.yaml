@@ -462,6 +462,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
+      # Transient npm/registry ECONNRESET during browser download has failed shard 1/3 without running tests.
       - name: Install Playwright Browsers
         run: |
           set -euo pipefail
