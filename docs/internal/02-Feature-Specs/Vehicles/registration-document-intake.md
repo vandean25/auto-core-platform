@@ -97,9 +97,9 @@ Out of scope:
 
 | Rule | Value |
 |---|---|
-| Count | 1 or 2 files per intake. `RegistrationIntakeUploadInterceptor` turns multer's file-count error into `HttpException` `400` `REGISTRATION_INTAKE_TOO_MANY_FILES`. The generic multer text is not returned |
+| Count | 1 or 2 files per intake. `FilesInterceptor` already turns multer `LIMIT_FILE_COUNT` and `LIMIT_UNEXPECTED_FILE` into `BadRequestException` (400). `RegistrationIntakeUploadInterceptor` is registered before it and maps that exception to `REGISTRATION_INTAKE_TOO_MANY_FILES`. The generic multer text is not returned |
 | Types | `image/jpeg`, `image/png`, `application/pdf`, detected from bytes. Anything else is `400` `REGISTRATION_INTAKE_UNSUPPORTED_FILE` |
-| Size | 10 MiB (10 × 1024 × 1024) per file. The same interceptor turns multer `LIMIT_FILE_SIZE` into `HttpException` `413` `REGISTRATION_INTAKE_FILE_TOO_LARGE`. `GlobalExceptionFilter` writes the body. `HttpStatus[413]` is `PAYLOAD_TOO_LARGE`, and that is the REST `error` value |
+| Size | 10 MiB (10 × 1024 × 1024) per file. `FilesInterceptor` already turns multer `LIMIT_FILE_SIZE` into `PayloadTooLargeException` (413). The upload interceptor maps that exception to `REGISTRATION_INTAKE_FILE_TOO_LARGE`. `GlobalExceptionFilter` writes the body. `HttpStatus[413]` is `PAYLOAD_TOO_LARGE`, and that is the REST `error` value |
 | PDF | Pages 1 and 2 are read. Page 1 is the front, page 2 is the back. Further pages set provider warning `EXTRA_PAGES_IGNORED` and are not read |
 | Image | One side per file. The client labels `FRONT` or `BACK` |
 | Reject | Empty file, encrypted PDF, or a PDF with no readable page: provider warning `ILLEGIBLE` after the row exists, or `400` `REGISTRATION_INTAKE_UNSUPPORTED_FILE` when the bytes are not a JPEG, PNG, or PDF |
@@ -319,7 +319,7 @@ Apply and proposal approval do not delete objects inside their database transact
 
 REST JSON is what `GlobalExceptionFilter` writes: `statusCode`, `message`, `error`, and `code` only when the code is listed in `CLIENT_SAFE_HTTP_ERROR_CODES`. A status of 500 or above also includes `requestId` when the request has one. S2 adds every registration code in the fixture file to that set, including the codes S5 throws. S5 does not edit the allowlist. `503` is not in the filter's status-name switch, so `error` is `SERVICE_UNAVAILABLE` (`HttpStatus[503]`).
 
-Multer raises file-count and `LIMIT_FILE_SIZE` before the controller. A scoped exception filter cannot delegate that exception to `GlobalExceptionFilter`, so S2 does not add one. `RegistrationIntakeUploadInterceptor` catches those two multer errors and throws `HttpException` with `{ message, code }`. The global filter then writes `statusCode`, `message`, `error`, and `code`. Both statuses are below 500, so those two bodies have no `requestId`. Any later 5xx on the route still goes through the global filter and includes `requestId`.
+`FilesInterceptor` converts multer errors before the controller runs. `LIMIT_FILE_SIZE` becomes `PayloadTooLargeException` (413). `LIMIT_FILE_COUNT` and `LIMIT_UNEXPECTED_FILE` become `BadRequestException` (400). A scoped exception filter cannot replace that body, so S2 does not add one. `RegistrationIntakeUploadInterceptor` is listed before `FilesInterceptor` so it wraps that call. It maps the thrown `HttpException` by status and by the multer code (`LIMIT_FILE_SIZE`, `LIMIT_FILE_COUNT`, `LIMIT_UNEXPECTED_FILE`) and rethrows `HttpException` with `{ message, code }`. It does not parse a raw multer error. The global filter then writes `statusCode`, `message`, `error`, and `code`. Both statuses are below 500, so those two bodies have no `requestId`. Any later 5xx on the route still goes through the global filter and includes `requestId`.
 
 MCP does not return `statusCode`. A thrown `HttpException` becomes a tool result with `isError: true` and text equal to `exception.message`. That is why each new message starts with its code. Policy refusal stays the existing message that starts with `not_permitted`. `ZodError` stays a schema failure with tier `NOT_EVALUATED` and log status `FAILED`.
 
@@ -421,6 +421,8 @@ The three `applied_*` foreign keys reference `id` alone, the same shape as `Vehi
 
 Unique `(tenant_id, id)` and unique `intake_id`, so a replayed apply does not insert a second row. Partial index `registration_intake_byte_purges_pending_idx` on `created_at` where `processed_at` is null. The job reads that index.
 
+Two Cloud Run instances can run the cron at once. The claim is a conditional `updateMany`, the same shape as `NotificationOutboxRecoveryService.wakeDueRows`. The worker reads a pending id, then updates that row only where `processed_at` is null and `attempts` is still the value it read, and increments `attempts`. `count === 1` means this instance owns the row. `count === 0` means another instance claimed it, and this instance skips it. Object delete is idempotent. The claim is what keeps `attempts` and `last_error` from being written twice. Success sets `processed_at` with a second `updateMany` that still requires `processed_at` null. Failure writes `last_error` under that same condition and leaves `processed_at` null.
+
 Page bytes live in object storage at `registration-intakes/{tenantId}/{intakeId}/page-{n}`. They are not a `DocumentBrandAsset`. Until the job runs, an applied intake's pages are still stored. S2 schedules `RegistrationIntakeBytePurgeService` with `@Cron(CronExpression.EVERY_MINUTE)`, name `registration-intake-byte-purge`, in the same shape as `DocumentBrandingUploadRecoveryService.recoverAndClean`. The wait is at most one minute plus that pass. The manual purge route does not wait for the cron.
 
 ### Modified Tables
@@ -439,7 +441,7 @@ Add these rules to `docs/deletion-policy.md` in the schema slice:
 |---|---|---|
 | `RegistrationDocumentIntake` | Before `APPLIED` | Hard delete the row and the page objects from `UPLOADED`, `QUEUED`, `RUNNING`, `FAILED`, `ABORTED`, and `AWAITING_REVIEW` |
 | `RegistrationDocumentIntake` | `APPLIED` | Refuse. The row is audit. Page objects are deleted by the outbox job |
-| `RegistrationIntakeBytePurge` | With the intake | Keep the row after `processed_at` is set. Tenant purge deletes pending prefixes, then these rows, then the intakes. `onDelete: Restrict` stops an intake delete that still has an outbox row |
+| `RegistrationIntakeBytePurge` | With the intake | Keep the row after `processed_at` is set. Tenant purge deletes the tenant object prefix first, then these rows, then the intakes. `onDelete: Restrict` stops an intake delete that still has an outbox row |
 | `Customer` | Existing rule | An applied intake does not block `CustomerService.remove`. `onDelete: SetNull` clears `applied_customer_id`. `CustomerService.remove` does not open a transaction today. S5 wraps the evidence update and `deleteMany` in one `$transaction`. That update clears `evidence.holder` and `match_snapshot` so the holder line is erased. It is not a foreign-key guard |
 | `Vehicle` | Existing rule | `vehicle.service.ts` has no delete method today. `onDelete: SetNull` clears `applied_vehicle_id`. S5 exports `clearRegistrationEvidenceForVehicle` and tests it. The first vehicle delete endpoint calls it in its transaction |
 | `WorkshopOrder` | Existing rule | There is no order-delete route today. `onDelete: SetNull` clears `applied_workshop_order_id` |
@@ -447,7 +449,9 @@ Add these rules to `docs/deletion-policy.md` in the schema slice:
 
 `match_snapshot` is set to null in the apply transaction, after the chosen ids are stored. It does not keep other customers' names on an applied row. The raw holder line is removed from `evidence` in that same transaction. Normalized names stay until the customer delete above clears them.
 
-S2 owns the cleanup job. It deletes unapplied rows whose `expires_at` is past, and their page objects, through the same byte helper as abort. Applied intake rows are removed only by tenant purge. `SetNull` does not require `registration_document_intakes` to be purged before customers, vehicles, or workshop orders. The outbox is the opposite: S1's purge notes delete each pending `object_prefix`, delete `registration_intake_byte_purges`, and only then delete `registration_document_intakes`. S1 still checks the generated purge SQL. The generator does not delete object storage.
+S2 owns the cleanup job. Its expiry pass deletes unapplied rows whose `expires_at` is past, and their page objects, through the same byte helper as abort. That pass only sees rows that still exist. Applied intake rows are removed only by tenant purge. `SetNull` does not require `registration_document_intakes` to be purged before customers, vehicles, or workshop orders.
+
+Unapplied pages are not outbox rows. A tenant purge that deleted only pending `object_prefix` values would leave `AWAITING_REVIEW` and `FAILED` bytes in the bucket, and the expiry pass would not see them after the intake rows were gone. S2's byte helper therefore deletes the whole prefix `registration-intakes/{tenantId}/`. That covers applied pages named by the outbox and every unapplied page for that tenant. S1 writes this order into `docs/deletion-policy.md`. S2 implements the prefix delete. The operator runs it before the SQL purge. If the prefix delete fails, the SQL purge does not run, and the expiry pass can still delete objects for rows that remain. The generated purge SQL does not touch object storage. After a successful prefix delete, SQL deletes `registration_intake_byte_purges` and then `registration_document_intakes`. S1 still checks the generated purge SQL.
 
 ### Tenant restore
 

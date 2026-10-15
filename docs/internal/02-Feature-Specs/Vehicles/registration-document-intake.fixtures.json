@@ -278,6 +278,44 @@
           }
         }
       ]
+    },
+    {
+      "id": "existing-vehicle-field-conflict",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "tenantRows": {
+        "vehicles": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000a1",
+            "vin": "WVWZZZSYNTH000001",
+            "plate": "W SYNTH 1",
+            "customer_id": "00000000-0000-4000-8000-0000000000c1",
+            "national_code": "NC2002",
+            "first_registration_date": "2018-01-15",
+            "co2_wltp_g_km": 140,
+            "make": "Synthetic",
+            "model": "Demo",
+            "year": 2018
+          }
+        ]
+      },
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.1": "Synthetic",
+            "D.3": "Demo",
+            "E": "WVWZZZSYNTH000001",
+            "Nationalcode": "NC1001",
+            "V.7": "119 g/km WLTP"
+          }
+        }
+      ]
     }
   ],
   "extractions": {
@@ -407,6 +445,21 @@
         "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
         "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
         "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "existing-vehicle-field-conflict": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 },
+        "firstRegistration": { "raw": "12.03.2019", "normalized": "2019-03-12", "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 },
+        "co2": { "raw": "119", "normalized": 119, "cycle": "WLTP", "source": { "page": 1, "region": { "x": 0.15, "y": 0.62, "width": 0.25, "height": 0.05 } }, "uncertainty": 0.05 },
+        "make": { "raw": "Synthetic", "normalized": "Synthetic", "source": { "page": 1, "region": { "x": 0.1, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "model": { "raw": "Demo", "normalized": "Demo", "source": { "page": 1, "region": { "x": 0.42, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "year": { "raw": "2019", "normalized": 2019, "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 }
       }
     }
   },
@@ -567,7 +620,7 @@
     },
     "fileTooLarge": {
       "rest": { "statusCode": 413, "message": "REGISTRATION_INTAKE_FILE_TOO_LARGE: Each file must be at most 10 MiB.", "error": "PAYLOAD_TOO_LARGE", "code": "REGISTRATION_INTAKE_FILE_TOO_LARGE" },
-      "note": "RegistrationIntakeUploadInterceptor rethrows HttpException. GlobalExceptionFilter writes this body. 413 is not in getHttpStatusName, so error is HttpStatus[413], PAYLOAD_TOO_LARGE. Status is below 500, so there is no requestId."
+      "note": "FilesInterceptor already throws PayloadTooLargeException for LIMIT_FILE_SIZE. RegistrationIntakeUploadInterceptor is registered before it and maps status 413 plus that multer code. GlobalExceptionFilter writes this body. 413 is not in getHttpStatusName, so error is HttpStatus[413], PAYLOAD_TOO_LARGE. Status is below 500, so there is no requestId."
     },
     "intakeIdInBody": {
       "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_ID_MISMATCH: The intake id is taken from the path.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_ID_MISMATCH" }
