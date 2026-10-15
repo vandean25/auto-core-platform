@@ -85,6 +85,7 @@
     }
   },
   "propose_expect": {
+    "slice": 2,
     "http_status": 200,
     "provider_invoked": false,
     "outbound_bodies": [],
@@ -93,8 +94,6 @@
       "contract_version": "workshop-command/v1",
       "status": "needs_approval",
       "command_id": "51500000-0000-4000-8000-0000000000c1",
-      "pending_action_id": "$anyUuid",
-      "trace_id": "$anyUuid",
       "action_type": "workshop.booking_package",
       "tier": "PROPOSE",
       "provisional": true,
@@ -131,6 +130,17 @@
           "status": "RESERVED"
         }
       ]
+    }
+  },
+  "propose_persist_expect": {
+    "slice": 3,
+    "http_status": 200,
+    "retry_returns_same_ids": true,
+    "body": {
+      "pending_action_id": "$anyUuid",
+      "trace_id": "$anyUuid",
+      "status": "needs_approval",
+      "applied": false
     }
   }
 }
