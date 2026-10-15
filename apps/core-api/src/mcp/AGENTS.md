@@ -230,6 +230,9 @@ These policy actions are intentionally not registered as MCP tools:
 | `credit_note.create`             |
 | `credit_note.issue`              |
 | `credit_note.finalize`           |
+| `payment.record`                 |
+| `fiscal_receipt.sign`            |
+| `fiscal_receipt.cancel`          |
 | `accounting_export.create`       |
 | `accounting_export.submit`       |
 | `customer.delete`                |
