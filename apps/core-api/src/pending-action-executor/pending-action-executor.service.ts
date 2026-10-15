@@ -31,10 +31,13 @@ import { DOCUMENT_SORT_TYPES } from '../decision/decision.constants.js';
 import { RegistrationIntakeApplyService } from '../registration-intake/registration-intake-apply.service.js';
 import { proposeRegistrationIntakeInputSchema } from '../mcp/mcp-tool-schemas.js';
 import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
+import { PurchaseService } from '../purchase/purchase.service.js';
+import { proposePurchaseOrderInputSchema } from '../purchase/purchase-propose-draft.schema.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
   | 'workshop.booking_package'
+  | 'purchase_order.propose_draft'
   | 'workshop_task.reserve_part'
   | 'inventory.part_reserve'
   | 'workshop_task.release_reservation'
@@ -72,6 +75,7 @@ export class PendingActionExecutorService {
     private readonly partsRequisition: PartsRequisitionService,
     private readonly registrationIntakeApply: RegistrationIntakeApplyService,
     private readonly workshopBookingPackage: WorkshopBookingPackageService,
+    private readonly purchaseService: PurchaseService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -227,6 +231,31 @@ export class PendingActionExecutorService {
             entityType: 'WorkshopOrder',
             entityId: (result as { workshop_order_id: string })
               .workshop_order_id,
+            reversible: true,
+          }),
+        };
+      case 'purchase_order.propose_draft':
+        return {
+          actionType,
+          buildPolicyContext: (input) =>
+            Promise.resolve(this.purchaseOrderProposePolicyContext(input)),
+          buildExecutionContext: () =>
+            this.purchaseService.buildProposedPurchaseOrderExecutionContext(),
+          execute: (input, context) =>
+            this.purchaseService.applyProposedPurchaseOrderDraft(
+              input,
+              context,
+            ),
+          buildResultSummary: (result) => ({
+            purchase_order_id: (result as { purchase_order_id: string })
+              .purchase_order_id,
+            status: (result as { status: string }).status,
+            totals: (result as { totals: { net: string } }).totals,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'PurchaseOrder',
+            entityId: (result as { purchase_order_id: string })
+              .purchase_order_id,
             reversible: true,
           }),
         };
@@ -391,6 +420,20 @@ export class PendingActionExecutorService {
           parsed.data.line_item.unit_price_cents) /
         100,
     };
+  }
+
+  private purchaseOrderProposePolicyContext(
+    input: unknown,
+  ): AgentPolicyEvaluateContext {
+    const parsed = proposePurchaseOrderInputSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new BadRequestException('Invalid purchase order proposal payload');
+    }
+    const amountEur = parsed.data.lines.reduce((sum, line) => {
+      const unitCost = Number(line.cost_basis.unit_cost_net);
+      return sum + unitCost;
+    }, 0);
+    return { amount_eur: amountEur };
   }
 
   private addProposedLineItem(input: unknown): Promise<unknown> {

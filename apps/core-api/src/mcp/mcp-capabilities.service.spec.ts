@@ -73,10 +73,13 @@ const TENANT_A_RULES: Record<string, ResolvedAgentPolicyRule | null> = {
   'workshop.booking_package': policyRule('workshop.booking_package', {
     enabled: false,
   }),
+  'purchase_order.propose_draft': policyRule('purchase_order.propose_draft', {
+    enabled: false,
+  }),
 };
 
-// Visible tools: every read tool plus 5 write tools (release_reservation is HUMAN_ONLY).
-const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 5;
+// Visible tools: every read tool plus 6 write tools (release_reservation is HUMAN_ONLY).
+const VISIBLE_TOOL_COUNT = MCP_READ_TOOL_NAMES.length + 6;
 
 function createService() {
   const authenticated: { user?: SessionUser } = { user: AGENT_USER };
@@ -261,6 +264,7 @@ describe('McpCapabilitiesService.getCapabilities', () => {
       'propose_line_item',
       'propose_registration_intake',
       'propose_workshop_booking',
+      'propose_purchase_order',
     ]);
     expect(page.meta).toEqual({
       total: VISIBLE_TOOL_COUNT,

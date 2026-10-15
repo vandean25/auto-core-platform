@@ -65,8 +65,9 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `propose_line_item`    | Propose a part or labor line on a workshop task              | Write  | Off by default; PROPOSE when enabled                  |
 | `propose_registration_intake` | Apply a reviewed registration document intake to customer/vehicle records | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 | `propose_workshop_booking` | Propose a scheduled workshop order with an optional reserved loaner booking | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
+| `propose_purchase_order` | Propose a DRAFT purchase order from verified local parts requisition demand | Write | Off by default; PROPOSE when enabled (clamped from AUTO) |
 
-Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, and `propose_workshop_booking` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
+Write tools start Off (`enabled: false`) in the platform policy table. A tenant admin must enable a tool through the policy table before it can run; the admin cannot loosen the platform tier or conditions. `propose_line_item`, `propose_registration_intake`, `propose_workshop_booking`, and `propose_purchase_order` are clamped to `PROPOSE`. The server evaluates every write call, so never infer permission from this table alone.
 
 ### Reservation rules
 
@@ -88,7 +89,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 46 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 47 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
@@ -162,7 +163,8 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `receipts.movement_count` counts the goods-receipt ledger rows booked against the order at its site, and `last_received_at` is the newest of them, or `null` when nothing was received. Receipt detail is not returned. Each line's `quantity_received` is the received total.
 - `lines_truncated: true` means some lines did not fit the result cap, and `lines_total` is the full count. Say so and point the person to the order in the app. Lines cannot be paged.
 - A `list_vendors` row is `id`, `name`, and `active`. `active` is `true` for every vendor, because the vendor record has no deactivation flag and removing a vendor deletes it. Bank details, account numbers, and contact details are never returned.
-- Creating, sending, receiving, and approving purchase orders are not MCP tools. Leave them to a person.
+- `propose_purchase_order` is the only purchase write tool. It is PROPOSE-only: the server builds net amounts, vendor, site, lines, unit of measure, unit costs, and cost sources from tenant catalog and supplier-article data; it never sends an order externally. Apply creates exactly one `DRAFT` purchase order through the same requisition rules as the back office. Each line needs a `reservation_id`, matching `catalog_item_id`, and a version-1 `cost_basis.unit_cost_net` that matches the server-resolved net unit cost; stale demand, foreign IDs, inactive sites, unsupported brands, or an unverified purchase price are rejected. The preview includes a disclaimer that supplier CSV price lists do not guarantee part fitment.
+- Sending, receiving, and approving purchase orders remain human actions and are not MCP tools.
 
 ### Catalog and price reads
 
@@ -286,7 +288,7 @@ All names and records below are fictional German examples.
 ### Parts reorder
 
 1. Use `search_parts` and `get_stock_level` to check fictional item “FILTER-DEMO-01” (AUTO).
-2. Use `list_purchase_orders` with the item's `part_id` to list its orders (AUTO). Orders in `DRAFT`, `SENT`, or `PARTIAL` are open, and `COMPLETED` orders are closed. There is no purchase-order write tool. Report the stock and order results and leave ordering to a person. Expected tier: AUTO for reads; no MCP write is available.
+2. Use `list_purchase_orders` with the item's `part_id` to list its orders (AUTO). Orders in `DRAFT`, `SENT`, or `PARTIAL` are open, and `COMPLETED` orders are closed. To draft a new order from verified requisition demand, a tenant admin must enable `propose_purchase_order`; when enabled it is PROPOSE and returns `needs_approval` without creating a purchase order until a person applies the pending action. Expected tier: AUTO for reads; PROPOSE for the draft when enabled.
 
 ### Ready notice / Pickerl reminder
 

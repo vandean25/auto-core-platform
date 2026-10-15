@@ -4888,6 +4888,162 @@ describe('MCP server (e2e)', () => {
     });
   });
 
+  async function seedRequisitionDemandForPurchasePropose() {
+    const makeName = `McpPoBrand${Date.now()}`;
+    const brand = await prismaA.brand.create({
+      data: {
+        name: makeName,
+        normalized_name: makeName.toLowerCase(),
+        isVehicleMake: true,
+      },
+    });
+    await prismaA.catalogItem.update({
+      where: { id: fixtures.catalogItemId },
+      data: { brand_id: brand.id, cost_price: 1 },
+    });
+    await prismaA.vendor.update({
+      where: { id: fixtures.vendorId },
+      data: {
+        supportedBrands: { connect: [{ id: brand.id }] },
+      },
+    });
+    await prismaA.vendorArticle.create({
+      data: {
+        tenant_id: tenantA,
+        vendor_id: fixtures.vendorId,
+        catalog_item_id: fixtures.catalogItemId,
+        vendor_article_no: `MCP-VA-${Date.now()}`,
+        last_cost: 3.5,
+      },
+    });
+    const sheet = await request(app.getHttpServer())
+      .post('/api/parts-requisitions')
+      .set('Authorization', adminHeaderA)
+      .send({
+        vehicleMakeBrandId: brand.id,
+        items: [
+          {
+            workshopTaskLineItemId: fixtures.workshopTaskLineItemId,
+            quantity: 1,
+          },
+        ],
+      });
+    expect(sheet.status).toBe(201);
+    const reservationId = sheet.body.lines[0].reservationId as string;
+    return {
+      requisitionId: sheet.body.id as string,
+      reservationId,
+      unitCostNet: '3.50',
+    };
+  }
+
+  it('propose_purchase_order PROPOSE: preview is provisional and apply commits one DRAFT only', async () => {
+    await setPolicyTier('purchase_order.propose_draft', 'PROPOSE');
+    const demand = await seedRequisitionDemandForPurchasePropose();
+    const poCountBefore = await prismaA.purchaseOrder.count({
+      where: { site_id: fixtures.siteId, status: 'DRAFT' },
+    });
+
+    const traceId = '00000000-0000-4000-8000-000000000539';
+    const result = await callMcpTool(
+      caller(adminHeaderA, 'e2e-purchase-propose'),
+      'propose_purchase_order',
+      {
+        vendor_id: fixtures.vendorId,
+        requisition_id: demand.requisitionId,
+        lines: [
+          {
+            reservation_id: demand.reservationId,
+            catalog_item_id: fixtures.catalogItemId,
+            cost_basis: { version: 1, unit_cost_net: demand.unitCostNet },
+          },
+        ],
+      },
+      traceId,
+    );
+    const proposed = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      would_change: WouldChangeEntry[];
+      proposal: { provisional: boolean; preview: { totals: { net: string } } };
+    }>(result);
+    expect(proposed.status).toBe('needs_approval');
+    expect(proposed.proposal.provisional).toBe(true);
+    expect(proposed.proposal.preview.totals.net).toBe('3.50');
+    const previewPo = previewCreatedRow(proposed.would_change, 'PurchaseOrder');
+    expect(
+      await prismaA.purchaseOrder.findFirst({ where: { id: previewPo.id } }),
+    ).toBeNull();
+    expect(
+      await prismaA.purchaseOrder.count({
+        where: { site_id: fixtures.siteId, status: 'DRAFT' },
+      }),
+    ).toBe(poCountBefore);
+
+    await applyProposal(proposed.pending_action_id, adminHeaderA).expect(200);
+
+    const committed = await prismaA.purchaseOrder.findFirst({
+      where: {
+        vendor_id: fixtures.vendorId,
+        site_id: fixtures.siteId,
+        status: 'DRAFT',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(committed).toBeTruthy();
+    expect(committed?.id).not.toBe(previewPo.id);
+    expect(
+      await prismaA.purchaseOrder.count({
+        where: { vendor_id: fixtures.vendorId, status: 'DRAFT' },
+      }),
+    ).toBe(poCountBefore + 1);
+
+    await expectActionLogRow(traceId, 'mcp.propose_purchase_order', {
+      status: 'PROPOSED',
+      tier: 'PROPOSE',
+    });
+  });
+
+  it('AUT-539: replays propose_purchase_order with the same command_id', async () => {
+    await setPolicyTier('purchase_order.propose_draft', 'PROPOSE');
+    const demand = await seedRequisitionDemandForPurchasePropose();
+    const commandId = '00000000-0000-4000-8000-000000000540';
+    const args = {
+      vendor_id: fixtures.vendorId,
+      requisition_id: demand.requisitionId,
+      lines: [
+        {
+          reservation_id: demand.reservationId,
+          catalog_item_id: fixtures.catalogItemId,
+          cost_basis: { version: 1, unit_cost_net: demand.unitCostNet },
+        },
+      ],
+      command_id: commandId,
+    };
+    const first = await callMcpTool(
+      caller(adminHeaderA, 'e2e-purchase-replay'),
+      'propose_purchase_order',
+      args,
+      '00000000-0000-4000-8000-000000000541',
+    );
+    const second = await callMcpTool(
+      caller(adminHeaderA, 'e2e-purchase-replay'),
+      'propose_purchase_order',
+      args,
+      '00000000-0000-4000-8000-000000000542',
+    );
+    const firstPayload = parsePayload<{
+      pending_action_id: string;
+      replayed?: boolean;
+    }>(first);
+    const secondPayload = parsePayload<{
+      pending_action_id: string;
+      replayed?: boolean;
+    }>(second);
+    expect(secondPayload.pending_action_id).toBe(firstPayload.pending_action_id);
+    expect(secondPayload.replayed).toBe(true);
+  });
+
   it('AUT-535: replays propose_workshop_booking with the same command_id', async () => {
     await setPolicyTier('workshop.booking_package', 'PROPOSE');
     const draftVehicle = await createDraftVehicle('mcp-booking-replay');
