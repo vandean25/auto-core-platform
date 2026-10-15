@@ -85,4 +85,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Propose applying a reviewed registration document intake (never executes; records a pending proposal)',
   propose_workshop_booking:
     'Propose a scheduled workshop order with an optional reserved loaner booking (never executes alone; records one pending proposal)',
+  propose_purchase_order:
+    'Propose a DRAFT purchase order from verified local parts requisition demand (never sends externally; records one pending proposal)',
 };

@@ -29,6 +29,10 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { PurchaseReceiptService } from './purchase-receipt.service.js';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto.js';
 import * as helpers from './purchase-order.helpers.js';
+import {
+  PurchaseProposeDraftService,
+  type PurchaseProposeDraftResult,
+} from './purchase-propose-draft.service.js';
 
 @Injectable()
 export class PurchaseService {
@@ -36,17 +40,33 @@ export class PurchaseService {
   private readonly tenantContext: TenantContextService;
   private readonly siteContext: SiteContextService;
   private readonly receiptService: PurchaseReceiptService;
+  private readonly proposeDraft: PurchaseProposeDraftService;
 
   constructor(
     prisma: PrismaService,
     tenantContext: TenantContextService,
     siteContext: SiteContextService,
     receiptService: PurchaseReceiptService,
+    proposeDraft: PurchaseProposeDraftService,
   ) {
     this.prisma = prisma;
     this.tenantContext = tenantContext;
     this.siteContext = siteContext;
     this.receiptService = receiptService;
+    this.proposeDraft = proposeDraft;
+  }
+
+  applyProposedPurchaseOrderDraft(
+    input: unknown,
+    executionContext?: Record<string, unknown>,
+  ): Promise<PurchaseProposeDraftResult> {
+    return this.proposeDraft.applyDraft(input, executionContext);
+  }
+
+  buildProposedPurchaseOrderExecutionContext(): Promise<
+    Record<string, unknown>
+  > {
+    return this.proposeDraft.buildExecutionContext();
   }
 
   async createPurchaseOrder(vendorId: string, items: PurchaseOrderItemInput[]) {

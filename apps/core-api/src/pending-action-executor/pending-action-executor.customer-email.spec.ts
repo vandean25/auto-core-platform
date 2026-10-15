@@ -19,6 +19,7 @@ describe('customer.update and the estimate email confirmation', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
     );
     return service.resolve('customer.update');
   }

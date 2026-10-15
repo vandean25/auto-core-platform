@@ -1314,6 +1314,731 @@
         ]
       }
     },
+    "/api/parts-reservations": {
+      "post": {
+        "operationId": "PartsRequisitionController_createReservation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/consume": {
+      "post": {
+        "operationId": "PartsRequisitionController_consumeReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-reservations/{id}/release": {
+      "post": {
+        "operationId": "PartsRequisitionController_releaseReservation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleasePartsReservationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsReservationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/shortages": {
+      "get": {
+        "operationId": "PartsRequisitionController_getShortages",
+        "parameters": [
+          {
+            "name": "workshopOrderId",
+            "required": false,
+            "in": "query",
+            "description": "Limit the queue to one workshop order.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PartsShortageResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions": {
+      "post": {
+        "operationId": "PartsRequisitionController_createRequisitionSheet",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartsRequisitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsRequisitionResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/parts-requisitions/{id}/create-purchase-order": {
+      "post": {
+        "operationId": "PartsRequisitionController_createPurchaseOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequisitionPurchaseOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "parts-requisitions"
+        ]
+      }
+    },
+    "/api/legal-entities": {
+      "get": {
+        "operationId": "LegalEntityController_listLegalEntities",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LegalEntityResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List legal entities (OWNER/ADMIN, includes inactive by default)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "post": {
+        "operationId": "LegalEntityController_createLegalEntity",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLegalEntityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/legal-entities/{id}/accounting-profile": {
+      "get": {
+        "operationId": "LegalEntityController_getAccountingProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get accounting profile for a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "patch": {
+        "operationId": "LegalEntityController_updateAccountingProfile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountingProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update accounting profile for a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/legal-entities/{id}": {
+      "get": {
+        "operationId": "LegalEntityController_getLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "patch": {
+        "operationId": "LegalEntityController_updateLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLegalEntityDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalEntityResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update a legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      },
+      "delete": {
+        "operationId": "LegalEntityController_deleteLegalEntity",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Hard-delete an unused legal entity (OWNER/ADMIN)",
+        "tags": [
+          "legal-entities"
+        ]
+      }
+    },
+    "/api/sites": {
+      "get": {
+        "operationId": "SiteController_listSites",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Active site directory or full list (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "SiteController_createSite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}": {
+      "get": {
+        "operationId": "SiteController_getSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get a single site",
+        "tags": [
+          "sites"
+        ]
+      },
+      "patch": {
+        "operationId": "SiteController_updateSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Update a site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      },
+      "delete": {
+        "operationId": "SiteController_deleteSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Hard-delete a pristine site (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}/memberships": {
+      "get": {
+        "operationId": "SiteController_listSiteMemberships",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List site memberships",
+        "tags": [
+          "sites"
+        ]
+      },
+      "post": {
+        "operationId": "SiteController_addSiteMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSiteMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Add a site membership (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/sites/{id}/memberships/{userId}": {
+      "delete": {
+        "operationId": "SiteController_removeSiteMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a site membership (OWNER/ADMIN)",
+        "tags": [
+          "sites"
+        ]
+      }
+    },
+    "/api/me/sites": {
+      "get": {
+        "operationId": "MeSiteController_listMySites",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MeSiteDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List activatable sites for the current session (ruling 47)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/me/active-site": {
+      "patch": {
+        "description": "Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.",
+        "operationId": "MeSiteController_setActiveSite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetActiveSiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveSiteResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Set the session active site (ruling 9)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
     "/api/vendors": {
       "post": {
         "operationId": "VendorController_create",
@@ -6695,234 +7420,6 @@
         ]
       }
     },
-    "/api/parts-reservations": {
-      "post": {
-        "operationId": "PartsRequisitionController_createReservation",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-reservations/{id}/consume": {
-      "post": {
-        "operationId": "PartsRequisitionController_consumeReservation",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConsumePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-reservations/{id}/release": {
-      "post": {
-        "operationId": "PartsRequisitionController_releaseReservation",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReleasePartsReservationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsReservationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions/shortages": {
-      "get": {
-        "operationId": "PartsRequisitionController_getShortages",
-        "parameters": [
-          {
-            "name": "workshopOrderId",
-            "required": false,
-            "in": "query",
-            "description": "Limit the queue to one workshop order.",
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/PaginatedResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/PartsShortageResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions": {
-      "post": {
-        "operationId": "PartsRequisitionController_createRequisitionSheet",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePartsRequisitionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PartsRequisitionResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
-    "/api/parts-requisitions/{id}/create-purchase-order": {
-      "post": {
-        "operationId": "PartsRequisitionController_createPurchaseOrder",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRequisitionPurchaseOrderDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PurchaseOrderResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "parts-requisitions"
-        ]
-      }
-    },
     "/api/workshop/registration-intakes": {
       "post": {
         "operationId": "RegistrationIntakeController_create",
@@ -10423,503 +10920,6 @@
         },
         "tags": [
           "bays"
-        ]
-      }
-    },
-    "/api/legal-entities": {
-      "get": {
-        "operationId": "LegalEntityController_listLegalEntities",
-        "parameters": [
-          {
-            "name": "includeInactive",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LegalEntityResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "List legal entities (OWNER/ADMIN, includes inactive by default)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "post": {
-        "operationId": "LegalEntityController_createLegalEntity",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateLegalEntityDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalEntityResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      }
-    },
-    "/api/legal-entities/{id}/accounting-profile": {
-      "get": {
-        "operationId": "LegalEntityController_getAccountingProfile",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get accounting profile for a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "patch": {
-        "operationId": "LegalEntityController_updateAccountingProfile",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateAccountingProfileDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AccountingProfileResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Update accounting profile for a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      }
-    },
-    "/api/legal-entities/{id}": {
-      "get": {
-        "operationId": "LegalEntityController_getLegalEntity",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalEntityResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "patch": {
-        "operationId": "LegalEntityController_updateLegalEntity",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateLegalEntityDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LegalEntityResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Update a legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      },
-      "delete": {
-        "operationId": "LegalEntityController_deleteLegalEntity",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Hard-delete an unused legal entity (OWNER/ADMIN)",
-        "tags": [
-          "legal-entities"
-        ]
-      }
-    },
-    "/api/sites": {
-      "get": {
-        "operationId": "SiteController_listSites",
-        "parameters": [
-          {
-            "name": "includeInactive",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Active site directory or full list (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      },
-      "post": {
-        "operationId": "SiteController_createSite",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSiteDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Create a site (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/sites/{id}": {
-      "get": {
-        "operationId": "SiteController_getSite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Get a single site",
-        "tags": [
-          "sites"
-        ]
-      },
-      "patch": {
-        "operationId": "SiteController_updateSite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSiteDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Update a site (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      },
-      "delete": {
-        "operationId": "SiteController_deleteSite",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Hard-delete a pristine site (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/sites/{id}/memberships": {
-      "get": {
-        "operationId": "SiteController_listSiteMemberships",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "List site memberships",
-        "tags": [
-          "sites"
-        ]
-      },
-      "post": {
-        "operationId": "SiteController_addSiteMembership",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateSiteMembershipDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Add a site membership (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/sites/{id}/memberships/{userId}": {
-      "delete": {
-        "operationId": "SiteController_removeSiteMembership",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Remove a site membership (OWNER/ADMIN)",
-        "tags": [
-          "sites"
-        ]
-      }
-    },
-    "/api/me/sites": {
-      "get": {
-        "operationId": "MeSiteController_listMySites",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MeSiteDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "List activatable sites for the current session (ruling 47)",
-        "tags": [
-          "me"
-        ]
-      }
-    },
-    "/api/me/active-site": {
-      "patch": {
-        "description": "Validates tenant, site activity, active TenantMember and active SiteMembership before switching. Emits site:context_updated on user_{firebaseUid}.",
-        "operationId": "MeSiteController_setActiveSite",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetActiveSiteDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ActiveSiteResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Set the session active site (ruling 9)",
-        "tags": [
-          "me"
         ]
       }
     },
@@ -15470,6 +15470,1199 @@
           "quantityInvoiced",
           "quantityPending",
           "lastUnitCost"
+        ]
+      },
+      "CreatePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity",
+          "locationId"
+        ]
+      },
+      "PartsReservationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "quantityReceived": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityConsumed": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityStaged": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "quantityReturned": {
+            "type": "string",
+            "example": "0.000"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ON_HAND",
+              "REQUISITION"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "locationId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "workshopTaskLineItemId",
+          "quantity",
+          "quantityReceived",
+          "quantityConsumed",
+          "quantityStaged",
+          "quantityReturned",
+          "kind",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "ConsumePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "quantity"
+        ]
+      },
+      "ReleasePartsReservationDto": {
+        "type": "object",
+        "properties": {
+          "returnLocationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PartsShortageResponseDto": {
+        "type": "object",
+        "properties": {
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "workshopTaskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "lineQuantity": {
+            "type": "string",
+            "example": "4.000"
+          },
+          "consumedQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "activeCommitment": {
+            "type": "string",
+            "example": "1.000"
+          },
+          "shortageQuantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "siteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleMake": {
+            "type": "string",
+            "description": "Vehicle make label from the workshop order vehicle."
+          },
+          "vehicleMakeBrandId": {
+            "type": "number",
+            "nullable": true,
+            "description": "Vehicle-make Brand id used to group the requisition sheet."
+          }
+        },
+        "required": [
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "workshopTaskId",
+          "workshopTaskLineItemId",
+          "itemNo",
+          "description",
+          "lineQuantity",
+          "consumedQuantity",
+          "activeCommitment",
+          "shortageQuantity",
+          "siteId",
+          "vehicleMake"
+        ]
+      },
+      "PartsRequisitionItemDto": {
+        "type": "object",
+        "properties": {
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1.5,
+            "minimum": 0.001,
+            "multipleOf": 0.001
+          }
+        },
+        "required": [
+          "workshopTaskLineItemId",
+          "quantity"
+        ]
+      },
+      "CreatePartsRequisitionDto": {
+        "type": "object",
+        "properties": {
+          "vehicleMakeBrandId": {
+            "type": "number",
+            "description": "Vehicle-make Brand the sheet is raised for.",
+            "example": 1
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartsRequisitionItemDto"
+            }
+          }
+        },
+        "required": [
+          "vehicleMakeBrandId",
+          "items"
+        ]
+      },
+      "PartsRequisitionLineResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopTaskLineItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workshopOrderNumber": {
+            "type": "string"
+          },
+          "itemNo": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string",
+            "example": "1.500"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "ORDERED",
+              "STAGED",
+              "FULFILLED",
+              "CANCELLED"
+            ]
+          },
+          "purchaseOrderItemId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reservationId",
+          "workshopTaskLineItemId",
+          "workshopOrderId",
+          "workshopOrderNumber",
+          "itemNo",
+          "description",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "PartsRequisitionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vehicleMakeBrandId": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "ORDERED",
+              "COMPLETED",
+              "CANCELLED"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PartsRequisitionLineResponseDto"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "vehicleMakeBrandId",
+          "status",
+          "lines",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "RequisitionPurchaseOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "reservationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitCost": {
+            "type": "number",
+            "description": "Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.",
+            "example": 10.5,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "reservationId",
+          "unitCost"
+        ]
+      },
+      "CreateRequisitionPurchaseOrderDto": {
+        "type": "object",
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequisitionPurchaseOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "vendorId",
+          "items"
+        ]
+      },
+      "LegalEntitySellerReadinessDto": {
+        "type": "object",
+        "properties": {
+          "is_ready": {
+            "type": "boolean"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "is_ready",
+          "missing_fields"
+        ]
+      },
+      "LegalEntityResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "country_iso": {
+            "type": "string",
+            "enum": [
+              "AT",
+              "DE"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "address_street": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_line2": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_zip": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_city": {
+            "type": "string",
+            "nullable": true
+          },
+          "tax_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "vat_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "iban": {
+            "type": "string",
+            "nullable": true
+          },
+          "bic": {
+            "type": "string",
+            "nullable": true
+          },
+          "bank_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "registration_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "registration_court": {
+            "type": "string",
+            "nullable": true
+          },
+          "representatives": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_terms_days": {
+            "type": "number",
+            "nullable": true
+          },
+          "payment_terms_text": {
+            "type": "string",
+            "nullable": true
+          },
+          "seller_readiness": {
+            "$ref": "#/components/schemas/LegalEntitySellerReadinessDto"
+          },
+          "rksv_mode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "name",
+          "country_iso",
+          "is_active",
+          "seller_readiness",
+          "rksv_mode"
+        ]
+      },
+      "RzlSteuercodesDto": {
+        "type": "object",
+        "properties": {
+          "vat20": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 20% VAT (1 to 4 digits)."
+          },
+          "vat13": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 13% VAT (1 to 4 digits)."
+          },
+          "vat10": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "RZL Steuercode for 10% VAT (1 to 4 digits)."
+          }
+        }
+      },
+      "RzlSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "firmNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "costCenterLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 16
+          },
+          "steuercodes": {
+            "$ref": "#/components/schemas/RzlSteuercodesDto"
+          }
+        }
+      },
+      "BmdSteuercodesDto": {
+        "type": "object",
+        "properties": {
+          "vat20": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits)."
+          },
+          "vat13": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits)."
+          },
+          "vat10": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 4,
+            "description": "BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits)."
+          }
+        }
+      },
+      "BmdSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "steuercodes": {
+            "$ref": "#/components/schemas/BmdSteuercodesDto"
+          }
+        }
+      },
+      "MarginSchemeSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default."
+          },
+          "vatAccount": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 9,
+            "description": "Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled."
+          }
+        }
+      },
+      "AccountingProfileSerializerParamsDto": {
+        "type": "object",
+        "properties": {
+          "rzl": {
+            "$ref": "#/components/schemas/RzlSerializerParamsDto"
+          },
+          "bmd": {
+            "$ref": "#/components/schemas/BmdSerializerParamsDto"
+          },
+          "marginScheme": {
+            "$ref": "#/components/schemas/MarginSchemeSerializerParamsDto"
+          }
+        }
+      },
+      "AccountingMappingRuleDto": {
+        "type": "object",
+        "properties": {
+          "sourceCategoryKey": {
+            "type": "string"
+          },
+          "sourceCategoryLabel": {
+            "type": "string"
+          },
+          "taxMode": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "MARGIN_SCHEME"
+            ]
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "revenueAccount": {
+            "type": "string"
+          },
+          "taxTreatment": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual_bu"
+            ]
+          },
+          "buKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "sourceCategoryKey",
+          "sourceCategoryLabel",
+          "taxMode",
+          "taxRate",
+          "revenueAccount",
+          "taxTreatment"
+        ]
+      },
+      "SourceCategoryDefinitionDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "taxMode": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "MARGIN_SCHEME"
+            ]
+          },
+          "taxRate": {
+            "type": "string"
+          },
+          "suggestedRevenueAccount": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "taxMode",
+          "taxRate"
+        ]
+      },
+      "AccountingProfileReadinessDto": {
+        "type": "object",
+        "properties": {
+          "is_ready": {
+            "type": "boolean"
+          },
+          "missing_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unmapped_categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "is_ready",
+          "missing_fields",
+          "unmapped_categories"
+        ]
+      },
+      "AccountingProfileResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "legal_entity_id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "profile_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "format_version": {
+            "type": "string",
+            "nullable": true
+          },
+          "chart": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_length": {
+            "type": "number",
+            "nullable": true
+          },
+          "advisor_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "client_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "fiscal_year_start_month": {
+            "type": "number",
+            "nullable": true
+          },
+          "default_debtor_account": {
+            "type": "string",
+            "nullable": true
+          },
+          "serializer_params": {
+            "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+          },
+          "serializer_released": {
+            "type": "boolean",
+            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED)."
+          },
+          "export_missing_fields": {
+            "description": "Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mapping_rules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingMappingRuleDto"
+            }
+          },
+          "required_source_categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceCategoryDefinitionDto"
+            }
+          },
+          "mapping_readiness": {
+            "$ref": "#/components/schemas/AccountingProfileReadinessDto"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "legal_entity_id",
+          "version",
+          "is_enabled",
+          "serializer_params",
+          "serializer_released",
+          "export_missing_fields",
+          "mapping_rules",
+          "required_source_categories",
+          "mapping_readiness"
+        ]
+      },
+      "UpdateAccountingProfileDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number",
+            "description": "Optimistic-lock version from the last GET response"
+          },
+          "profileCode": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "formatVersion": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 64
+          },
+          "chart": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "accountLength": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 8
+          },
+          "advisorNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "clientNumber": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 32
+          },
+          "fiscalYearStartMonth": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 12
+          },
+          "defaultDebtorAccount": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 16
+          },
+          "mappingRules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountingMappingRuleDto"
+            }
+          },
+          "serializerParams": {
+            "description": "Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
+              }
+            ]
+          },
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Gates accounting CSV export only; does not affect invoice issuance readiness"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "CreateLegalEntityDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "countryIso": {
+            "type": "string",
+            "enum": [
+              "AT",
+              "DE"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "countryIso"
+        ]
+      },
+      "UpdateLegalEntityDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "addressStreet": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "addressLine2": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "addressZip": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "addressCity": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "taxNumber": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "vatId": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "iban": {
+            "type": "string",
+            "maxLength": 34
+          },
+          "bic": {
+            "type": "string",
+            "maxLength": 11
+          },
+          "bankName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 254
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "registrationNumber": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "registrationCourt": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "representatives": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "paymentTermsDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "paymentTermsText": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "rksvMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
+          }
+        }
+      },
+      "CreateSiteOpeningHourDto": {
+        "type": "object",
+        "properties": {
+          "weekday": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "isClosed": {
+            "type": "boolean"
+          },
+          "openTime": {
+            "type": "string",
+            "example": "07:30"
+          },
+          "closeTime": {
+            "type": "string",
+            "example": "17:00"
+          }
+        },
+        "required": [
+          "weekday",
+          "isClosed",
+          "openTime",
+          "closeTime"
+        ]
+      },
+      "CreateSiteDto": {
+        "type": "object",
+        "properties": {
+          "legalEntityId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "addressStreet": {
+            "type": "string"
+          },
+          "addressCity": {
+            "type": "string"
+          },
+          "addressZip": {
+            "type": "string"
+          },
+          "addressCountry": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
+          "slotMinutes": {
+            "type": "number",
+            "minimum": 15,
+            "maximum": 60
+          },
+          "holidayCountryIso": {
+            "type": "string",
+            "example": "AT"
+          },
+          "holidaySubdivisionCode": {
+            "type": "string"
+          },
+          "openingHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateSiteOpeningHourDto"
+            }
+          }
+        },
+        "required": [
+          "legalEntityId",
+          "code",
+          "name"
+        ]
+      },
+      "UpdateSiteFiscalRegisterDto": {
+        "type": "object",
+        "properties": {
+          "providerCashRegisterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerScuId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "env": {
+            "type": "string",
+            "enum": [
+              "TEST",
+              "LIVE"
+            ]
+          },
+          "providerState": {
+            "type": "string"
+          },
+          "credentialsSecretRef": {
+            "type": "object",
+            "description": "Opaque GSM secret ref; never the API key."
+          }
+        }
+      },
+      "UpdateSiteDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "addressStreet": {
+            "type": "string"
+          },
+          "addressCity": {
+            "type": "string"
+          },
+          "addressZip": {
+            "type": "string"
+          },
+          "addressCountry": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "fiscalRegister": {
+            "$ref": "#/components/schemas/UpdateSiteFiscalRegisterDto"
+          }
+        }
+      },
+      "CreateSiteMembershipDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "MeSiteDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "legalEntityId": {
+            "type": "string"
+          },
+          "legalEntityName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "legalEntityId"
+        ]
+      },
+      "SetActiveSiteDto": {
+        "type": "object",
+        "properties": {
+          "siteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Site id to activate from GET /api/me/sites, or null to clear."
+          }
+        },
+        "required": [
+          "siteId"
+        ]
+      },
+      "ActiveSiteResponseDto": {
+        "type": "object",
+        "properties": {
+          "activeSiteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "required": [
+          "activeSiteId"
         ]
       },
       "CreateVendorDto": {
@@ -23249,398 +24442,6 @@
           "meta"
         ]
       },
-      "CreatePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          },
-          "locationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        },
-        "required": [
-          "workshopTaskLineItemId",
-          "quantity",
-          "locationId"
-        ]
-      },
-      "PartsReservationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "quantityReceived": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityConsumed": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityStaged": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "quantityReturned": {
-            "type": "string",
-            "example": "0.000"
-          },
-          "kind": {
-            "type": "string",
-            "enum": [
-              "ON_HAND",
-              "REQUISITION"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "ORDERED",
-              "STAGED",
-              "FULFILLED",
-              "CANCELLED"
-            ]
-          },
-          "locationId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "workshopTaskLineItemId",
-          "quantity",
-          "quantityReceived",
-          "quantityConsumed",
-          "quantityStaged",
-          "quantityReturned",
-          "kind",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "ConsumePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          }
-        },
-        "required": [
-          "quantity"
-        ]
-      },
-      "ReleasePartsReservationDto": {
-        "type": "object",
-        "properties": {
-          "returnLocationId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "PartsShortageResponseDto": {
-        "type": "object",
-        "properties": {
-          "workshopOrderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderNumber": {
-            "type": "string"
-          },
-          "workshopTaskId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "lineQuantity": {
-            "type": "string",
-            "example": "4.000"
-          },
-          "consumedQuantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "activeCommitment": {
-            "type": "string",
-            "example": "1.000"
-          },
-          "shortageQuantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "siteId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleMake": {
-            "type": "string",
-            "description": "Vehicle make label from the workshop order vehicle."
-          },
-          "vehicleMakeBrandId": {
-            "type": "number",
-            "nullable": true,
-            "description": "Vehicle-make Brand id used to group the requisition sheet."
-          }
-        },
-        "required": [
-          "workshopOrderId",
-          "workshopOrderNumber",
-          "workshopTaskId",
-          "workshopTaskLineItemId",
-          "itemNo",
-          "description",
-          "lineQuantity",
-          "consumedQuantity",
-          "activeCommitment",
-          "shortageQuantity",
-          "siteId",
-          "vehicleMake"
-        ]
-      },
-      "PartsRequisitionItemDto": {
-        "type": "object",
-        "properties": {
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "quantity": {
-            "type": "number",
-            "example": 1.5,
-            "minimum": 0.001,
-            "multipleOf": 0.001
-          }
-        },
-        "required": [
-          "workshopTaskLineItemId",
-          "quantity"
-        ]
-      },
-      "CreatePartsRequisitionDto": {
-        "type": "object",
-        "properties": {
-          "vehicleMakeBrandId": {
-            "type": "number",
-            "description": "Vehicle-make Brand the sheet is raised for.",
-            "example": 1
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PartsRequisitionItemDto"
-            }
-          }
-        },
-        "required": [
-          "vehicleMakeBrandId",
-          "items"
-        ]
-      },
-      "PartsRequisitionLineResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "reservationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopTaskLineItemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "workshopOrderNumber": {
-            "type": "string"
-          },
-          "itemNo": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "string",
-            "example": "1.500"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "OPEN",
-              "ORDERED",
-              "STAGED",
-              "FULFILLED",
-              "CANCELLED"
-            ]
-          },
-          "purchaseOrderItemId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "reservationId",
-          "workshopTaskLineItemId",
-          "workshopOrderId",
-          "workshopOrderNumber",
-          "itemNo",
-          "description",
-          "quantity",
-          "status",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "PartsRequisitionResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "tenantId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "vehicleMakeBrandId": {
-            "type": "number"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "DRAFT",
-              "ORDERED",
-              "COMPLETED",
-              "CANCELLED"
-            ]
-          },
-          "lines": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PartsRequisitionLineResponseDto"
-            }
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "vehicleMakeBrandId",
-          "status",
-          "lines",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "RequisitionPurchaseOrderItemDto": {
-        "type": "object",
-        "properties": {
-          "reservationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "unitCost": {
-            "type": "number",
-            "description": "Clerk-confirmed unit cost for this reservation slice. Must be a JSON number.",
-            "example": 10.5,
-            "minimum": 0
-          }
-        },
-        "required": [
-          "reservationId",
-          "unitCost"
-        ]
-      },
-      "CreateRequisitionPurchaseOrderDto": {
-        "type": "object",
-        "properties": {
-          "vendorId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/RequisitionPurchaseOrderItemDto"
-            }
-          }
-        },
-        "required": [
-          "vendorId",
-          "items"
-        ]
-      },
       "HolderDto": {
         "type": "object",
         "properties": {
@@ -27659,807 +28460,6 @@
         },
         "required": [
           "id"
-        ]
-      },
-      "LegalEntitySellerReadinessDto": {
-        "type": "object",
-        "properties": {
-          "is_ready": {
-            "type": "boolean"
-          },
-          "missing_fields": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "is_ready",
-          "missing_fields"
-        ]
-      },
-      "LegalEntityResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "country_iso": {
-            "type": "string",
-            "enum": [
-              "AT",
-              "DE"
-            ]
-          },
-          "is_active": {
-            "type": "boolean"
-          },
-          "address_street": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_line2": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_zip": {
-            "type": "string",
-            "nullable": true
-          },
-          "address_city": {
-            "type": "string",
-            "nullable": true
-          },
-          "tax_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "vat_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "iban": {
-            "type": "string",
-            "nullable": true
-          },
-          "bic": {
-            "type": "string",
-            "nullable": true
-          },
-          "bank_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "email": {
-            "type": "string",
-            "nullable": true
-          },
-          "phone": {
-            "type": "string",
-            "nullable": true
-          },
-          "registration_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "registration_court": {
-            "type": "string",
-            "nullable": true
-          },
-          "representatives": {
-            "type": "string",
-            "nullable": true
-          },
-          "payment_terms_days": {
-            "type": "number",
-            "nullable": true
-          },
-          "payment_terms_text": {
-            "type": "string",
-            "nullable": true
-          },
-          "seller_readiness": {
-            "$ref": "#/components/schemas/LegalEntitySellerReadinessDto"
-          },
-          "rksv_mode": {
-            "type": "string",
-            "enum": [
-              "OFF",
-              "UNKNOWN",
-              "REQUIRED_EXTERNAL_KASSE",
-              "REQUIRED_ACP_RKSV"
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "tenant_id",
-          "name",
-          "country_iso",
-          "is_active",
-          "seller_readiness",
-          "rksv_mode"
-        ]
-      },
-      "RzlSteuercodesDto": {
-        "type": "object",
-        "properties": {
-          "vat20": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "RZL Steuercode for 20% VAT (1 to 4 digits)."
-          },
-          "vat13": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "RZL Steuercode for 13% VAT (1 to 4 digits)."
-          },
-          "vat10": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "RZL Steuercode for 10% VAT (1 to 4 digits)."
-          }
-        }
-      },
-      "RzlSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "firmNumber": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "costCenterLength": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1,
-            "maximum": 16
-          },
-          "steuercodes": {
-            "$ref": "#/components/schemas/RzlSteuercodesDto"
-          }
-        }
-      },
-      "BmdSteuercodesDto": {
-        "type": "object",
-        "properties": {
-          "vat20": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "BMD Steuercode (tax key defined per BMD client) for 20% VAT (1 to 4 digits)."
-          },
-          "vat13": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "BMD Steuercode (tax key defined per BMD client) for 13% VAT (1 to 4 digits)."
-          },
-          "vat10": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 4,
-            "description": "BMD Steuercode (tax key defined per BMD client) for 10% VAT (1 to 4 digits)."
-          }
-        }
-      },
-      "BmdSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "steuercodes": {
-            "$ref": "#/components/schemas/BmdSteuercodesDto"
-          }
-        }
-      },
-      "MarginSchemeSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Lifts the margin-scheme export block for this legal entity on the DATEV profile (AUT-369). Off by default."
-          },
-          "vatAccount": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 9,
-            "description": "Ledger account for the frozen margin VAT (1 to 9 digits). Required when enabled."
-          }
-        }
-      },
-      "AccountingProfileSerializerParamsDto": {
-        "type": "object",
-        "properties": {
-          "rzl": {
-            "$ref": "#/components/schemas/RzlSerializerParamsDto"
-          },
-          "bmd": {
-            "$ref": "#/components/schemas/BmdSerializerParamsDto"
-          },
-          "marginScheme": {
-            "$ref": "#/components/schemas/MarginSchemeSerializerParamsDto"
-          }
-        }
-      },
-      "AccountingMappingRuleDto": {
-        "type": "object",
-        "properties": {
-          "sourceCategoryKey": {
-            "type": "string"
-          },
-          "sourceCategoryLabel": {
-            "type": "string"
-          },
-          "taxMode": {
-            "type": "string",
-            "enum": [
-              "STANDARD",
-              "MARGIN_SCHEME"
-            ]
-          },
-          "taxRate": {
-            "type": "string"
-          },
-          "revenueAccount": {
-            "type": "string"
-          },
-          "taxTreatment": {
-            "type": "string",
-            "enum": [
-              "automatic",
-              "manual_bu"
-            ]
-          },
-          "buKey": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "sourceCategoryKey",
-          "sourceCategoryLabel",
-          "taxMode",
-          "taxRate",
-          "revenueAccount",
-          "taxTreatment"
-        ]
-      },
-      "SourceCategoryDefinitionDto": {
-        "type": "object",
-        "properties": {
-          "key": {
-            "type": "string"
-          },
-          "label": {
-            "type": "string"
-          },
-          "taxMode": {
-            "type": "string",
-            "enum": [
-              "STANDARD",
-              "MARGIN_SCHEME"
-            ]
-          },
-          "taxRate": {
-            "type": "string"
-          },
-          "suggestedRevenueAccount": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "key",
-          "label",
-          "taxMode",
-          "taxRate"
-        ]
-      },
-      "AccountingProfileReadinessDto": {
-        "type": "object",
-        "properties": {
-          "is_ready": {
-            "type": "boolean"
-          },
-          "missing_fields": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "unmapped_categories": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "is_ready",
-          "missing_fields",
-          "unmapped_categories"
-        ]
-      },
-      "AccountingProfileResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
-          },
-          "legal_entity_id": {
-            "type": "string"
-          },
-          "version": {
-            "type": "number"
-          },
-          "is_enabled": {
-            "type": "boolean"
-          },
-          "profile_code": {
-            "type": "string",
-            "nullable": true
-          },
-          "format_version": {
-            "type": "string",
-            "nullable": true
-          },
-          "chart": {
-            "type": "string",
-            "nullable": true
-          },
-          "account_length": {
-            "type": "number",
-            "nullable": true
-          },
-          "advisor_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "client_number": {
-            "type": "string",
-            "nullable": true
-          },
-          "fiscal_year_start_month": {
-            "type": "number",
-            "nullable": true
-          },
-          "default_debtor_account": {
-            "type": "string",
-            "nullable": true
-          },
-          "serializer_params": {
-            "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
-          },
-          "serializer_released": {
-            "type": "boolean",
-            "description": "Whether the platform releases this profile code for CSV generation (RZL is gated by ACCOUNTING_EXPORT_RZL_SERIALIZER_ENABLED, BMD by ACCOUNTING_EXPORT_BMD_SERIALIZER_ENABLED)."
-          },
-          "export_missing_fields": {
-            "description": "Export-only configuration gaps (RZL firm number and Steuercodes; BMD Steuercodes; format version; chart; account length; default debtor account). Empty when complete or not applicable. Does not affect invoice issuance.",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "mapping_rules": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AccountingMappingRuleDto"
-            }
-          },
-          "required_source_categories": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SourceCategoryDefinitionDto"
-            }
-          },
-          "mapping_readiness": {
-            "$ref": "#/components/schemas/AccountingProfileReadinessDto"
-          }
-        },
-        "required": [
-          "id",
-          "tenant_id",
-          "legal_entity_id",
-          "version",
-          "is_enabled",
-          "serializer_params",
-          "serializer_released",
-          "export_missing_fields",
-          "mapping_rules",
-          "required_source_categories",
-          "mapping_readiness"
-        ]
-      },
-      "UpdateAccountingProfileDto": {
-        "type": "object",
-        "properties": {
-          "expectedVersion": {
-            "type": "number",
-            "description": "Optimistic-lock version from the last GET response"
-          },
-          "profileCode": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 64
-          },
-          "formatVersion": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 64
-          },
-          "chart": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "accountLength": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1,
-            "maximum": 8
-          },
-          "advisorNumber": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "clientNumber": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 32
-          },
-          "fiscalYearStartMonth": {
-            "type": "number",
-            "nullable": true,
-            "minimum": 1,
-            "maximum": 12
-          },
-          "defaultDebtorAccount": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 16
-          },
-          "mappingRules": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AccountingMappingRuleDto"
-            }
-          },
-          "serializerParams": {
-            "description": "Serializer-specific parameters: RZL firm number and Steuercodes, BMD Steuercodes. Expand-only JSON storage.",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AccountingProfileSerializerParamsDto"
-              }
-            ]
-          },
-          "isEnabled": {
-            "type": "boolean",
-            "description": "Gates accounting CSV export only; does not affect invoice issuance readiness"
-          }
-        },
-        "required": [
-          "expectedVersion"
-        ]
-      },
-      "CreateLegalEntityDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "countryIso": {
-            "type": "string",
-            "enum": [
-              "AT",
-              "DE"
-            ]
-          }
-        },
-        "required": [
-          "name",
-          "countryIso"
-        ]
-      },
-      "UpdateLegalEntityDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "addressStreet": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "addressLine2": {
-            "type": "string",
-            "maxLength": 200
-          },
-          "addressZip": {
-            "type": "string",
-            "maxLength": 20
-          },
-          "addressCity": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "taxNumber": {
-            "type": "string",
-            "maxLength": 32
-          },
-          "vatId": {
-            "type": "string",
-            "maxLength": 32
-          },
-          "iban": {
-            "type": "string",
-            "maxLength": 34
-          },
-          "bic": {
-            "type": "string",
-            "maxLength": 11
-          },
-          "bankName": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "email": {
-            "type": "string",
-            "nullable": true,
-            "maxLength": 254
-          },
-          "phone": {
-            "type": "string",
-            "maxLength": 40
-          },
-          "registrationNumber": {
-            "type": "string",
-            "maxLength": 64
-          },
-          "registrationCourt": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "representatives": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "paymentTermsDays": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 365
-          },
-          "paymentTermsText": {
-            "type": "string",
-            "maxLength": 1000
-          },
-          "rksvMode": {
-            "type": "string",
-            "enum": [
-              "OFF",
-              "UNKNOWN",
-              "REQUIRED_EXTERNAL_KASSE",
-              "REQUIRED_ACP_RKSV"
-            ]
-          }
-        }
-      },
-      "CreateSiteOpeningHourDto": {
-        "type": "object",
-        "properties": {
-          "weekday": {
-            "type": "number",
-            "minimum": 1,
-            "maximum": 7
-          },
-          "isClosed": {
-            "type": "boolean"
-          },
-          "openTime": {
-            "type": "string",
-            "example": "07:30"
-          },
-          "closeTime": {
-            "type": "string",
-            "example": "17:00"
-          }
-        },
-        "required": [
-          "weekday",
-          "isClosed",
-          "openTime",
-          "closeTime"
-        ]
-      },
-      "CreateSiteDto": {
-        "type": "object",
-        "properties": {
-          "legalEntityId": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string",
-            "maxLength": 64
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "addressStreet": {
-            "type": "string"
-          },
-          "addressCity": {
-            "type": "string"
-          },
-          "addressZip": {
-            "type": "string"
-          },
-          "addressCountry": {
-            "type": "string"
-          },
-          "timezone": {
-            "type": "string",
-            "example": "Europe/Vienna"
-          },
-          "slotMinutes": {
-            "type": "number",
-            "minimum": 15,
-            "maximum": 60
-          },
-          "holidayCountryIso": {
-            "type": "string",
-            "example": "AT"
-          },
-          "holidaySubdivisionCode": {
-            "type": "string"
-          },
-          "openingHours": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/CreateSiteOpeningHourDto"
-            }
-          }
-        },
-        "required": [
-          "legalEntityId",
-          "code",
-          "name"
-        ]
-      },
-      "UpdateSiteFiscalRegisterDto": {
-        "type": "object",
-        "properties": {
-          "providerCashRegisterId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "providerScuId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "env": {
-            "type": "string",
-            "enum": [
-              "TEST",
-              "LIVE"
-            ]
-          },
-          "providerState": {
-            "type": "string"
-          },
-          "credentialsSecretRef": {
-            "type": "object",
-            "description": "Opaque GSM secret ref; never the API key."
-          }
-        }
-      },
-      "UpdateSiteDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "addressStreet": {
-            "type": "string"
-          },
-          "addressCity": {
-            "type": "string"
-          },
-          "addressZip": {
-            "type": "string"
-          },
-          "addressCountry": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "fiscalRegister": {
-            "$ref": "#/components/schemas/UpdateSiteFiscalRegisterDto"
-          }
-        }
-      },
-      "CreateSiteMembershipDto": {
-        "type": "object",
-        "properties": {
-          "userId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "userId"
-        ]
-      },
-      "MeSiteDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "legalEntityId": {
-            "type": "string"
-          },
-          "legalEntityName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "code",
-          "name",
-          "legalEntityId"
-        ]
-      },
-      "SetActiveSiteDto": {
-        "type": "object",
-        "properties": {
-          "siteId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true,
-            "description": "Site id to activate from GET /api/me/sites, or null to clear."
-          }
-        },
-        "required": [
-          "siteId"
-        ]
-      },
-      "ActiveSiteResponseDto": {
-        "type": "object",
-        "properties": {
-          "activeSiteId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          }
-        },
-        "required": [
-          "activeSiteId"
         ]
       },
       "StockTransferLineResponseDto": {
