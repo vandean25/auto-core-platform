@@ -310,7 +310,7 @@ VALUES
   ('registration_document_intakes', 'users', 'captured_by_user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('registration_document_intakes', 'vehicles', 'applied_vehicle_id', 'id', 'SET NULL', 'CASCADE'),
   ('registration_document_intakes', 'workshop_orders', 'applied_workshop_order_id', 'id', 'SET NULL', 'CASCADE'),
-  ('registration_intake_byte_purges', 'registration_document_intakes', 'intake_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('registration_intake_byte_purges', 'registration_document_intakes', 'tenant_id,intake_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('registration_intake_byte_purges', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('revenue_groups', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('sales_order_items', 'catalog_items', 'catalog_item_id', 'id', 'SET NULL', 'CASCADE'),

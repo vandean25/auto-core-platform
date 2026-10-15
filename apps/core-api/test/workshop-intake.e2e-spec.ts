@@ -346,7 +346,15 @@ describe('Workshop intake — registration document (AUT-537)', () => {
 
   afterAll(async () => {
     if (tenantId) {
-      await cleanupTestTenantGraph(app.get(PrismaService), tenantId);
+      const prisma = app.get(PrismaService);
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+      await tenantPrisma.registrationIntakeBytePurge.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+      await tenantPrisma.registrationDocumentIntake.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+      await cleanupTestTenantGraph(prisma, tenantId);
     }
     await teardownTestApp(app);
   });
