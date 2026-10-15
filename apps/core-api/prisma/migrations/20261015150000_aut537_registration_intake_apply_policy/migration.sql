@@ -3,12 +3,12 @@ INSERT INTO "agent_policy_rules" (
   "tenant_id",
   "action_type",
   "tier",
-  "conditions",
+  "conditions_json",
   "enabled",
   "version",
-  "created_by_user_id",
-  "createdAt",
-  "updatedAt"
+  "created_by",
+  "created_at",
+  "updated_at"
 )
 VALUES (
   gen_random_uuid(),

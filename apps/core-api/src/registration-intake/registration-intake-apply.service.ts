@@ -247,8 +247,8 @@ export class RegistrationIntakeApplyService {
       });
 
       if (!DryRunStorage.isDryRun()) {
-        const existingPurge = await tx.registrationIntakeBytePurge.findUnique({
-          where: { intake_id: intakeId },
+        const existingPurge = await tx.registrationIntakeBytePurge.findFirst({
+          where: { tenant_id: tenantId, intake_id: intakeId },
         });
         if (!existingPurge) {
           await tx.registrationIntakeBytePurge.create({

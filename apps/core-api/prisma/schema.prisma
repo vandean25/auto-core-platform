@@ -1992,7 +1992,7 @@ model RegistrationIntakeBytePurge {
   id            String                   @id @default(uuid())
   tenant_id     String
   tenant        Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
-  intake_id     String                   @unique
+  intake_id     String
   intake        RegistrationDocumentIntake @relation(fields: [intake_id], references: [id], onDelete: Restrict)
   object_prefix String                   @db.VarChar(256)
   attempts      Int                      @default(0)
@@ -2001,6 +2001,7 @@ model RegistrationIntakeBytePurge {
   processed_at  DateTime?
 
   @@unique([tenant_id, id])
+  @@unique([tenant_id, intake_id])
   @@index([created_at], map: "registration_intake_byte_purges_pending_idx")
   @@map("registration_intake_byte_purges")
 }

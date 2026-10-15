@@ -63,7 +63,7 @@ CREATE INDEX "registration_document_intakes_expires_at_idx" ON "registration_doc
 CREATE UNIQUE INDEX "registration_intake_byte_purges_tenant_id_id_key" ON "registration_intake_byte_purges"("tenant_id", "id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "registration_intake_byte_purges_intake_id_key" ON "registration_intake_byte_purges"("intake_id");
+CREATE UNIQUE INDEX "registration_intake_byte_purges_tenant_id_intake_id_key" ON "registration_intake_byte_purges"("tenant_id", "intake_id");
 
 -- CreateIndex
 CREATE INDEX "registration_intake_byte_purges_pending_idx" ON "registration_intake_byte_purges"("created_at") WHERE "processed_at" IS NULL;
