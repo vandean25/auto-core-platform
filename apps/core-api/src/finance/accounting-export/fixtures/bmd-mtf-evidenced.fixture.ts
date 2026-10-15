@@ -13,7 +13,9 @@ import type {
  * (source matrix, S8). Document numbers and accounts are synthetic fixture values for a
  * pilot customer; they are not production defaults and do not claim BMD vendor acceptance.
  */
-export const BMD_MTF_EVIDENCED_CREATED_AT = new Date('2026-02-28T12:00:00.000Z');
+export const BMD_MTF_EVIDENCED_CREATED_AT = new Date(
+  '2026-02-28T12:00:00.000Z',
+);
 export const BMD_MTF_EVIDENCED_DATE_FROM = '2026-02-01';
 export const BMD_MTF_EVIDENCED_DATE_TO = '2026-02-28';
 
