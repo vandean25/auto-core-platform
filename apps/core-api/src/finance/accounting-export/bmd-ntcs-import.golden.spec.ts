@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { BMD_MTF_PUBLIC_FIELD_NAMES } from './bmd-format.constants.js';
 import { buildBmdAllocationRules } from './accounting-export-allocation-rules.js';
 import { collectBlockersForInvoice } from './accounting-export-candidates.js';
-import { serializeBmdNtcsImport } from './bmd-ntcs-import.serializer.js';
+import {
+  buildBmdNtcsBookingFields,
+  serializeBmdNtcsImport,
+} from './bmd-ntcs-import.serializer.js';
 import {
   BMD_MTF_EVIDENCED_CREATED_AT,
   BMD_MTF_EVIDENCED_DATE_FROM,
@@ -153,8 +156,23 @@ describe('bmd-ntcs-import golden files', () => {
     'utf8',
   ).trimEnd();
 
-  it('keeps the serializer field order aligned with the public MTF header (source S8)', () => {
+  it('writes booking columns in the public S3 MTF order produced by the serializer', () => {
     expect(BMD_MTF_PUBLIC_FIELD_NAMES.join(';')).toBe(publicMtfHeader);
+
+    const fields = buildBmdNtcsBookingFields(
+      bmdMtfEvidencedRows[0],
+      steuercodes,
+    );
+    const record = serializeMtfEvidenced([bmdMtfEvidencedRows[0]])
+      .csvText.replace(/\r\n$/, '');
+
+    expect(fields.join(';')).toBe(record);
+    expect(fields[BMD_MTF_PUBLIC_FIELD_NAMES.indexOf('Steuercode')]).toBe(
+      '5020',
+    );
+    expect(
+      fields[BMD_MTF_PUBLIC_FIELD_NAMES.indexOf('Sollhabenkennzeichen')],
+    ).toBe('S');
   });
 
   describe('synthetic sample (hand-authored before serializer, AUT-351)', () => {
@@ -193,7 +211,7 @@ describe('bmd-ntcs-import golden files', () => {
     });
   });
 
-  describe('format-evidenced MTF pilot export (AUT-520, source S8)', () => {
+  describe('format-evidenced MTF pilot export (AUT-520, source S3)', () => {
     const committed = readFileSync(
       new URL('./fixtures/bmd-mtf-evidenced-export.csv', import.meta.url),
     );

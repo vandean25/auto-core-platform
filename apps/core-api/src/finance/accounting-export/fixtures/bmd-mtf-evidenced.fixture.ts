@@ -10,7 +10,7 @@ import type {
 /**
  * Format-evidenced pilot run: row facts follow the public BMD NTCS Massentransferformat
  * (MTF) field order and semantics in docs/internal/02-Feature-Specs/Finance/bmd-accounting-export.md
- * (source matrix, S8). Document numbers and accounts are synthetic fixture values for a
+ * (source matrix, S3). Document numbers and accounts are synthetic fixture values for a
  * pilot customer; they are not production defaults and do not claim BMD vendor acceptance.
  */
 export const BMD_MTF_EVIDENCED_CREATED_AT = new Date(

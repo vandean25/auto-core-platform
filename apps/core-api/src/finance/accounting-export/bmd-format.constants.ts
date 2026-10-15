@@ -6,7 +6,7 @@ import {
 
 /**
  * ACP draft BMD NTCS booking layout (see bmd-ntcs-import.serializer.ts and the
- * BMD spec source matrix). Public MTF field order is evidenced by source S8 in
+ * BMD spec source matrix). Public MTF field order is evidenced by source S3 in
  * docs/internal/02-Feature-Specs/Finance/bmd-accounting-export.md; see
  * fixtures/bmd-mtf-public-header.reference.txt.
  */
@@ -23,6 +23,8 @@ export const BMD_MTF_PUBLIC_FIELD_NAMES = [
   'Kostenstelle',
   'OP-Nummer',
 ] as const;
+
+export type BmdMtfPublicFieldName = (typeof BMD_MTF_PUBLIC_FIELD_NAMES)[number];
 
 export const BMD_ENCODING = 'win1252';
 export const BMD_FIELD_SEPARATOR = ';';

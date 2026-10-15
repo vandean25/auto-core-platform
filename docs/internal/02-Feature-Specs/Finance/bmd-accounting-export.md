@@ -57,7 +57,7 @@ Maps each field in the pinned eleven-column MTF layout to sources. **E** = evide
 | 4 | Konto | yes | E | S3 | Debtor (collective) in ACP; S8 Cosmo uses Personenkonto semantics for sales — different file shape. |
 | 5 | Gegenkonto | yes | E | S3 | Revenue account of the line. |
 | 6 | Betrag | no | E | S3 | Decimal comma, unsigned; credits stay positive with `H` — **A7** detail. |
-| 7 | Sollhabenkennzeichen | no | E | S3 | `S` / `H` on the debtor side for invoice / credit. |
+| 7 | Sollhabenkennzeichen | no | A | S3, **A16** | S3 documents `S`/`H` on incoming MTF; sales-side debtor assignment is **A16** (not incoming Storno rules). |
 | 8 | Steuercode | no | E | S3, S9 | Client-specific digits; ACP maps 20 / 13 / 10 % only from frozen profile — **A10**. |
 | 9 | Text | yes | E | S3 | Booking text; ACP caps at 60 characters — product rule, not MTF evidence. |
 | 10 | Kostenstelle | no | E | S3 | Column present; ACP always leaves it empty (not modeled). |
@@ -110,7 +110,7 @@ One record per frozen line allocation with a non-zero gross. Eleven fields, in t
 | 4 | Konto | Frozen collective debtor account (`default_debtor_account`) | yes |
 | 5 | Gegenkonto | Frozen revenue account of the line's allocation | yes |
 | 6 | Betrag | Frozen gross of the line, decimal comma, positive | no |
-| 7 | Sollhabenkennzeichen | `S` for an invoice line, `H` for a credit line. Refers to the side of Konto (the debtor). | no |
+| 7 | Sollhabenkennzeichen | `S` for an invoice line, `H` for a credit line on the debtor (**A16**). | no |
 | 8 | Steuercode | BMD tax key for the line's frozen VAT rate, read from the run's frozen profile snapshot | no |
 | 9 | Text | Deterministic booking text: `RE <number>`, or `CN <number> / RE <original number>` for a credit. The candidate step cuts it to 60 characters for every profile, so a long number shortens this field. OP-Nummer keeps the full number. | yes |
 | 10 | Kostenstelle | Always empty. Cost centers are not modeled. | no |
@@ -220,7 +220,8 @@ Items below are **not** confirmed by BMD. Where AUT-520 found public third-party
 | A5 | Line endings CRLF. | **Still unverified** | ACP pins CRLF; not stated in S3. |
 | A6 | Dates `DD.MM.YYYY`. | **Evidenced (third-party)** | S3. |
 | A7 | Amounts: decimal comma, two places, unsigned; credits use `H`. | **Evidenced (third-party)** for comma format; unsigned + `H` is ACP sales convention | S3; Cosmo S8 uses signed amounts in a different CSV shape — not mixed into this layout. |
-| A8 | `S` / `H` on the debtor line for invoice / credit. | **Evidenced (third-party)** for `S`/`H` values | S3. |
+| A8 | MTF uses `S` and `H` as Sollhabenkennzeichen values. | **Evidenced (third-party)** for the values only | S3. |
+| A16 | For Ausgangsrechnung / Gutschrift export, `S`/`H` refer to the collective debtor line (`S` invoice, `H` credit). | **Still unverified** (ACP sales convention) | S3 describes incoming MTF and allows negative amounts or S/H swap per profile; not sales export proof. |
 | A9 | Double quotes around text fields; numeric/date/flag unquoted. | **Still unverified** | ACP pins quoting; S3 does not describe quoting. |
 | A10 | Steuercode digits are client-specific; 20/13/10 % map from profile only. | **Evidenced (client-specific)**; gross-derived VAT split **unverified** | S3, S9. |
 | A11 | `OP-Nummer` links invoice and credit open items. | **Partially evidenced** — column exists; ACP always fills it | S3 (optional in practice). |

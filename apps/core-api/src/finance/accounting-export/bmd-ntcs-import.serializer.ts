@@ -20,8 +20,10 @@ import {
   BMD_ENCODING,
   BMD_FIELD_SEPARATOR,
   BMD_LINE_BREAK,
+  BMD_MTF_PUBLIC_FIELD_NAMES,
   BMD_SOLLHABEN_BY_DOCUMENT_KIND,
   BMD_STEUERCODE_KEY_BY_TAX_RATE,
+  type BmdMtfPublicFieldName,
 } from './bmd-format.constants.js';
 
 export type BmdNtcsImportResult = AccountingExportSerializerResult & {
@@ -93,10 +95,11 @@ function assertProfileLayout(profile: AccountingExportProfileSnapshot): void {
 }
 
 /**
- * The eleven booking fields in the order fixed by the spec (A1). Booking date
- * equals document date, because the period is closed. Kostenstelle stays empty.
+ * The eleven booking fields in `BMD_MTF_PUBLIC_FIELD_NAMES` order (spec A1 / S3).
+ * Booking date equals document date, because the period is closed. Kostenstelle
+ * stays empty.
  */
-function buildBookingFields(
+export function buildBmdNtcsBookingFields(
   row: AccountingExportBookingRow,
   steuercodes: BmdSteuercodes,
 ): string[] {
@@ -120,19 +123,21 @@ function buildBookingFields(
     throw new Error('BMD credit rows require the original invoice number');
   }
 
-  return [
-    formatBmdDate(row.documentDate),
-    formatBmdDate(row.documentDate),
-    quoteBmdText(row.documentNumber),
-    quoteBmdText(row.debtorAccount),
-    quoteBmdText(row.revenueAccount),
-    formatBmdAmount(row.gross),
-    BMD_SOLLHABEN_BY_DOCUMENT_KIND[row.documentKind],
-    resolveBmdSteuercode(row.taxRate, steuercodes),
-    quoteBmdText(row.bookingText),
-    '',
-    quoteBmdText(opReference),
-  ];
+  const byName: Record<BmdMtfPublicFieldName, string> = {
+    Buchungsdatum: formatBmdDate(row.documentDate),
+    Belegdatum: formatBmdDate(row.documentDate),
+    Belegnummer: quoteBmdText(row.documentNumber),
+    Konto: quoteBmdText(row.debtorAccount),
+    Gegenkonto: quoteBmdText(row.revenueAccount),
+    Betrag: formatBmdAmount(row.gross),
+    Sollhabenkennzeichen: BMD_SOLLHABEN_BY_DOCUMENT_KIND[row.documentKind],
+    Steuercode: resolveBmdSteuercode(row.taxRate, steuercodes),
+    Text: quoteBmdText(row.bookingText),
+    Kostenstelle: '',
+    'OP-Nummer': quoteBmdText(opReference),
+  };
+
+  return BMD_MTF_PUBLIC_FIELD_NAMES.map((name) => byName[name]);
 }
 
 /**
@@ -152,7 +157,7 @@ export function serializeBmdNtcsImport(
     parseAccountingProfileSerializerParams(input.profile.serializerParams).bmd
       ?.steuercodes ?? {};
   const records = input.rows.map((row) =>
-    buildBookingFields(row, steuercodes).join(BMD_FIELD_SEPARATOR),
+    buildBmdNtcsBookingFields(row, steuercodes).join(BMD_FIELD_SEPARATOR),
   );
 
   const csvText = `${records.join(BMD_LINE_BREAK)}${BMD_LINE_BREAK}`;
