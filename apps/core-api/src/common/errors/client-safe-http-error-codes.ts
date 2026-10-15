@@ -23,6 +23,10 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'WARRANTY_CLAIM_LINE_ALREADY_CLAIMED',
   'WARRANTY_CLAIM_STATE_CHANGED',
   'NOT_A_CATALOG_LINE',
+  // Vehicle sale warranty 422s. The sale form shows the message inline on the Verkürzung checkbox.
+  'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+  'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW',
+  'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
   // A 409 the workshop intake dialog turns into an "Open <order>" link. The filter drops `code` without this entry.
   'VEHICLE_HAS_ACTIVE_ORDER',
   // Public estimate approval link (ADR-0025 §7). The page maps these codes to German copy.

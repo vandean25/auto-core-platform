@@ -294,6 +294,24 @@ describe('GlobalExceptionFilter', () => {
     });
   });
 
+  it('forwards the stable code of a 422 Gewährleistung shortening rejection', () => {
+    filter.catch(
+      new UnprocessableEntityException({
+        code: 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+        message: 'Für die Verkürzung ist das Datum der Erstzulassung erforderlich.',
+      }),
+      mockHost,
+    );
+
+    expect(mockStatus).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+    expect(mockJson).toHaveBeenCalledWith({
+      statusCode: 422,
+      message: 'Für die Verkürzung ist das Datum der Erstzulassung erforderlich.',
+      error: 'Unprocessable Entity',
+      code: 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+    });
+  });
+
   it('does not forward order fields for codes outside the allowlist', () => {
     filter.catch(
       new ConflictException({

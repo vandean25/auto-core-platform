@@ -6,7 +6,30 @@ import {
   gewaehrleistungStatusBadge,
   negotiatedShorteningBlockReason,
   parseGarantieMonths,
+  shorteningSaveErrorMessage,
 } from './vehicle-sale-warranty'
+
+function saveError(status: number, code: string, message: string) {
+  return Object.assign(new Error(message), { status, data: { statusCode: status, message, code } })
+}
+
+describe('shorteningSaveErrorMessage', () => {
+  it.each([
+    'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+    'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW',
+    'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
+  ])('returns the server message for %s', (code) => {
+    expect(shorteningSaveErrorMessage(saveError(422, code, 'Serverseitige Meldung'))).toBe('Serverseitige Meldung')
+  })
+
+  it('leaves other sale save failures to the generic feedback', () => {
+    expect(
+      shorteningSaveErrorMessage(saveError(422, 'GEWAEHRLEISTUNG_RULE_NOT_AVAILABLE', 'Keine Regel')),
+    ).toBeNull()
+    expect(shorteningSaveErrorMessage(saveError(500, '', 'Something went wrong'))).toBeNull()
+    expect(shorteningSaveErrorMessage(new Error('Network down'))).toBeNull()
+  })
+})
 
 describe('addOneYearIsoDay', () => {
   it('adds one calendar year to an ISO day', () => {
