@@ -8,9 +8,9 @@ import { WorkshopSettingsService } from '../workshop/workshop-settings.service.j
 import { parsePlannerRange } from '../workshop/workshop-planner.window.js';
 import { clampMcpPageSize } from './mcp-output.util.js';
 import {
-  availabilityOffsetFromCursor,
   MCP_AVAILABILITY_SNAPSHOT_NOTE,
-  toMcpAvailabilityPageMeta,
+  paginateLoanerRows,
+  paginateWorkshopSlotRows,
   toMcpAvailableLoanerRow,
   toMcpWorkshopSlotRow,
 } from './mcp-availability-read.mapper.js';
@@ -41,11 +41,12 @@ export class McpAvailabilityReadService {
       durationMinutes: input.duration_minutes,
       bayId: input.bay_id,
     });
-    const scope = {
-      offset: availabilityOffsetFromCursor(input.cursor),
-      pageSize: clampMcpPageSize(input.pageSize),
-    };
-    const rows = result.slots.map(toMcpWorkshopSlotRow);
+    const pageSize = clampMcpPageSize(input.pageSize);
+    const page = paginateWorkshopSlotRows(
+      result.slots.map(toMcpWorkshopSlotRow),
+      pageSize,
+      input.cursor,
+    );
     return {
       site_id: siteId,
       timezone: result.timezone,
@@ -54,8 +55,8 @@ export class McpAvailabilityReadService {
       duration_minutes: result.durationMinutes,
       slot_minutes: result.slotMinutes,
       availability_note: MCP_AVAILABILITY_SNAPSHOT_NOTE,
-      data: rows.slice(scope.offset, scope.offset + scope.pageSize),
-      meta: toMcpAvailabilityPageMeta(rows.length, scope),
+      data: page.data,
+      meta: page.meta,
     };
   }
 
@@ -73,10 +74,7 @@ export class McpAvailabilityReadService {
       from: input.from,
       to: input.to,
     });
-    const scope = {
-      offset: availabilityOffsetFromCursor(input.cursor),
-      pageSize: clampMcpPageSize(input.pageSize),
-    };
+    const pageSize = clampMcpPageSize(input.pageSize);
     const availableRows = availability.data
       .filter((row) => row.available)
       .map((row) =>
@@ -87,6 +85,7 @@ export class McpAvailabilityReadService {
           status: row.vehicle.status,
         }),
       );
+    const page = paginateLoanerRows(availableRows, pageSize, input.cursor);
     return {
       site_id: siteId,
       timezone: settings.timezone,
@@ -94,8 +93,8 @@ export class McpAvailabilityReadService {
       to: range.to.toISOString(),
       as_of: availability.asOf,
       availability_note: MCP_AVAILABILITY_SNAPSHOT_NOTE,
-      data: availableRows.slice(scope.offset, scope.offset + scope.pageSize),
-      meta: toMcpAvailabilityPageMeta(availableRows.length, scope),
+      data: page.data,
+      meta: page.meta,
     };
   }
 }

@@ -11,6 +11,10 @@ import {
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
 import {
+  loanerAvailabilityCursorPositionSchema,
+  workshopSlotCursorPositionSchema,
+} from './mcp-availability-read.mapper.js';
+import {
   MCP_CATALOG_ITEM_TYPES,
   mcpCatalogItemPositionSchema,
   mcpMarginRulePositionSchema,
@@ -569,7 +573,7 @@ export const listWorkshopSlotsInputSchema = z.object({
     .optional()
     .describe('Optional bay at the active site; omit for all bays'),
   pageSize: reportPageSizeSchema,
-  cursor: offsetCursorSchema
+  cursor: positionCursorSchema(workshopSlotCursorPositionSchema)
     .optional()
     .describe('Cursor from meta.next_cursor'),
 });
@@ -579,7 +583,7 @@ export const listAvailableLoanersInputSchema = z.object({
   from: z.string().min(1).describe('Range start as an ISO-8601 UTC instant'),
   to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
   pageSize: reportPageSizeSchema,
-  cursor: offsetCursorSchema
+  cursor: positionCursorSchema(loanerAvailabilityCursorPositionSchema)
     .optional()
     .describe('Cursor from meta.next_cursor'),
 });

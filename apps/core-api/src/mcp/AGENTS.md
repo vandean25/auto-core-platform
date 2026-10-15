@@ -83,7 +83,7 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 ### Paging and response size
 
-List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. No other MCP tool accepts a cursor or a `limit` argument.
+List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
 - `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 43 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
@@ -92,6 +92,8 @@ List and search tools accept `page` and `page_size`; the server defaults to page
 - `list_documents` pages with `pageSize` and a keyset `cursor` over generation time and record ID, with the same default and maximum. It is newest first. The order lists of `get_customer` and `get_vehicle_history` page with `orders_page_size` and `orders_cursor`, newest first, with the same default and maximum.
 - `list_purchase_orders` and `list_vendors` page the same way: `pageSize` and a keyset `cursor`, newest first, with the same default and maximum.
 - `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, and `list_pickerl_due` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
+- `list_workshop_slots` pages with `pageSize` and a keyset `cursor` over `start_at` then `bay_id`, ascending. Rows are sorted that way before paging, so pages stay stable when the underlying slot list does not change between calls.
+- `list_available_loaners` pages with `pageSize` and a keyset `cursor` over `loaner_vehicle_id`, ascending. Treat availability as a snapshot: re-check before booking if you page across calls.
 
 The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 

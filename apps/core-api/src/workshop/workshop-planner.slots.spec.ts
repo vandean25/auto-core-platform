@@ -82,6 +82,36 @@ describe('workshop-planner.slots', () => {
       expect(slots).toEqual([]);
     });
 
+    it('snaps the first cursor to the opening grid at or after from (Vienna Mon 2026-08-24)', () => {
+      const rangeFrom = new Date('2026-08-24T06:10:00.000Z');
+      const slots = findWorkshopSlots({
+        timeZone: TZ,
+        slotMinutes: 30,
+        durationMinutes: 60,
+        range: {
+          from: rangeFrom,
+          to: new Date('2026-08-25T00:00:00.000Z'),
+        },
+        bays: [{ id: 'bay-1', sort_order: 0 }],
+        holidays: [],
+        openingHours: [...OPENINGS],
+        orders: [],
+        now: new Date('2026-08-23T10:00:00.000Z'),
+      });
+      expect(slots[0]).toEqual({
+        bayId: 'bay-1',
+        startAt: new Date('2026-08-24T06:30:00.000Z'),
+        endAt: new Date('2026-08-24T07:30:00.000Z'),
+      });
+      const badStarts = [
+        '2026-08-24T06:10:00.000Z',
+        '2026-08-24T06:40:00.000Z',
+      ];
+      for (const iso of badStarts) {
+        expect(slots.some((s) => s.startAt.toISOString() === iso)).toBe(false);
+      }
+    });
+
     it('offers a slot immediately after an adjacent booking ends', () => {
       const slots = findWorkshopSlots({
         timeZone: TZ,

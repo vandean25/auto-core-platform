@@ -109,6 +109,20 @@ function openingWindowForDay(
   };
 }
 
+/** First opening-grid slot start at or after the searchable window lower bound. */
+export function firstGridAlignedSlotStart(
+  dayOpening: TimeWindow,
+  searchable: TimeWindow,
+  stepMs: number,
+): number {
+  let cursor = dayOpening.start.getTime();
+  const floor = searchable.start.getTime();
+  while (cursor < floor) {
+    cursor += stepMs;
+  }
+  return cursor;
+}
+
 function intersectWindow(
   window: TimeWindow,
   range: PlannerRange,
@@ -197,7 +211,7 @@ export function findWorkshopSlots(
       if (!searchable) {
         continue;
       }
-      let cursor = searchable.start.getTime();
+      let cursor = firstGridAlignedSlotStart(dayOpening, searchable, stepMs);
       const lastStart = searchable.end.getTime() - durationMs;
       while (cursor <= lastStart) {
         const start = new Date(cursor);

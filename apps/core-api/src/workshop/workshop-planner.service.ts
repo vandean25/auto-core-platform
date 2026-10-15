@@ -7,6 +7,7 @@ import type {
   PlannerGridResponseDto,
   PlannerQueryDto,
 } from './dto/workshop-planner.dto.js';
+import type { PlannerBookableOrder } from './workshop-planner.bookings.js';
 import { buildPlannerGrid } from './workshop-planner.grid.js';
 import {
   effectiveHours as effectiveHoursForDate,
@@ -151,15 +152,6 @@ export class WorkshopPlannerService {
           status: true,
           bay_id: true,
           mechanic_id: true,
-          mechanic: { select: { name: true } },
-          customer: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              company_name: true,
-            },
-          },
           scheduled_start_at: true,
           scheduled_end_at: true,
           vehicle: {
@@ -168,7 +160,6 @@ export class WorkshopPlannerService {
               make: true,
               model: true,
               year: true,
-              plate: true,
             },
           },
         },
@@ -187,7 +178,7 @@ export class WorkshopPlannerService {
       bays,
       holidays,
       openingHours: settings.openingHours,
-      orders,
+      orders: orders as PlannerBookableOrder[],
       now: new Date(),
     });
 
