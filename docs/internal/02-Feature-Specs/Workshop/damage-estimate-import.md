@@ -94,11 +94,11 @@ Until (1) or (2) is obtained without a production credential, the parser reads *
 
 Provenance on every proposed and applied line is the JSON object `import_provenance` (column defined under Database Impact). `source_system` on the line is always `AUDATEX_BMS`.
 
-Document key: `document_id + "|" + document_ver_code + "|" + document_ver_num`. Example: `SYN-EST-1001|EM|0`.
+Document key, and `ExternalIdMapping.external_id`: `document_id + "|" + document_ver_code + "|" + document_ver_num`. Example: `SYN-EST-1001|EM|0`. A supplement keeps the same `DocumentID` and gets its own key, so the original mapping row stays.
 
 | BMS path | Local field | Rule |
 | --- | --- | --- |
-| `DocumentInfo/DocumentID` | `import_provenance.document_id`, `ExternalIdMapping.external_id` | Estimate / damage document id. Required. |
+| `DocumentInfo/DocumentID` | `import_provenance.document_id` | Estimate / damage document id. Required. It is not the `ExternalIdMapping` key by itself. |
 | `DocumentInfo/BMSVer` | `import_provenance.bms_version` | Must be `5.7.0`. |
 | `DocumentInfo/DocumentVer/DocumentVerCode` | `import_provenance.document_ver_code` | `EM` original, `SV` supplement. |
 | `DocumentInfo/DocumentVer/DocumentVerNum` | `import_provenance.document_ver_num` | Integer 0–99. |
@@ -107,7 +107,13 @@ Document key: `document_id + "|" + document_ver_code + "|" + document_ver_num`. 
 | `DamageLineInfo/LineNum` | `import_provenance.line_num` | Display order. Rows are sorted by `LineNum`, then kind order part, body labour, refinish. |
 | `DamageLineInfo/UniqueSequenceNum` | `import_provenance.unique_sequence_num` | Stable line id across versions. Required on every line that is mapped or blocked. Missing value blocks that line with `LINE_IDENTITY_MISSING`. |
 | `DamageLineInfo/LineDesc` | `description` | Trimmed, 1–500 characters. Empty description blocks the line with `LINE_DESC_MISSING`. |
-| `DamageLineInfo/ParentLineNum` | `import_provenance.parent_line_num` | Stored only. Lines stay flat. |
+| `DamageLineInfo/ParentLineNum` | `import_provenance.parent_line_num` | Stored only. Lines stay flat. Absent means null. |
+| `DamageLineInfo/SupplementNum` | `import_provenance.supplement_num` | Stored only. Recognized so it is not `UNMAPPABLE_ELEMENT`. |
+| `DamageLineInfo/EstimateVerCode` | `import_provenance.estimate_ver_code` | Stored only. Same treatment. |
+| `DamageLineInfo/ManualLineInd` | `import_provenance.manual_line` | Stored only. Same treatment. |
+| `DamageLineInfo/AutomatedEntry` | `import_provenance.automated_entry` | Stored only. Present on the 12 August 2021 fragment. |
+| `DamageLineInfo/LineStatusCode` | `import_provenance.line_status_code` | Stored only. Present on that fragment. |
+| `DamageLineInfo/DescJudgmentInd` | `import_provenance.desc_judgment` | Stored only. Present on that fragment and the CCC field list. |
 | `PartInfo/PartNum` | `item_no` | Part line. Required when `PartInfo` is billable. |
 | `PartInfo/OEMPartNum` | `oem_numbers` | JSON array of one string, or omitted when absent. |
 | `PartInfo/PartType` | `import_provenance.part_type` | One of `PAA`, `PAG`, `PAL`, `PAM`, `PAN`, `PAND`, `PAO`, `PAP`, `PAR`. Any other value blocks the line with `UNKNOWN_PART_TYPE`. |
@@ -115,7 +121,9 @@ Document key: `document_id + "|" + document_ver_code + "|" + document_ver_num`. 
 | `PartInfo/UnitPartPrice` | Price input | Net unit is this value after a confirmed discount or markup. |
 | `PartInfo/PartPrice` | Check only | Must equal `UnitPartPrice * Quantity` within 0.01. Otherwise `PRICE_UNIT_CONFLICT`. |
 | `PartInfo/PriceInclInd` | Skip | `true` produces a `SKIP` row and no line. |
-| `PartInfo/TaxableInd` | `import_provenance.taxable` | `true` or `false`. Missing blocks the line with `TAXABLE_FLAG_MISSING`. |
+| `PartInfo/TaxableInd` | `import_provenance.taxable` | Required on a billable part. `true` or `false`. Missing or any other text blocks the line with `TAXABLE_FLAG_MISSING`. |
+| `LaborInfo/TaxableInd` | `import_provenance.taxable` on the body-labour line | Required. The 12 August 2021 fragment includes it. Missing or any other text blocks that labour line with `TAXABLE_FLAG_MISSING`. |
+| `RefinishLaborInfo/TaxableInd` | `import_provenance.taxable` on the refinish line | Optional. The public fragment does not include it. Present `true` or `false` is stored and `taxable_source` is `element`. Absent means `taxable` false and `taxable_source` `absent`. Any other text blocks the refinish line with `TAXABLE_FLAG_MISSING`. |
 | `PartInfo/PriceAdjustment/AdjustmentType` | Discount, markup, or blocker | `Discount` and `Markup` change the proposed unit. `Betterment` blocks with `BETTERMENT_REVIEW`. |
 | `PartInfo/PriceAdjustment/AdjustmentPct` and `AdjustmentAmt` | Proposed `unit_price` | Both required together for Discount and Markup. They must agree within 0.01: `AdjustmentAmt = UnitPartPrice * Quantity * AdjustmentPct / 100`. Discount proposed unit = `UnitPartPrice * (1 - AdjustmentPct/100)`. Markup proposed unit = `UnitPartPrice * (1 + AdjustmentPct/100)`. Proposed extended = proposed unit * quantity. |
 | `LaborInfo` | One `LABOR` line, kind `BODY_LABOR` | `LaborType` must be `LAB`. |
@@ -257,7 +265,7 @@ Tax is not an amount in this result. `taxable_net` is the sum of line nets whose
 | 3 | REFINISH_LABOR | LABOR | OP-SYN-2 | Synthetische Stossstangenverkleidung (refinish) | 0.500 | 80.00 | 5.00 | 0.50 | 40.00 | false |
 | 4 | PART | PART | SYN-PART-2 | Synthetischer Halter | 1.000 | 105.00 |  |  | 105.00 | true |
 
-`SYN-PART-1` provenance records `source_unit_price` `200.00`, `adjustment_type` `Discount`, `adjustment_pct` `10`, `adjustment_amt` `20.00`. `SYN-PART-2` records `Markup`, `5`, `5.00`. Labour provenance records `source_extended` `96.00` and `40.00`.
+`SYN-PART-1` provenance records `source_unit_price` `200.00`, `adjustment_type` `Discount`, `adjustment_pct` `10`, `adjustment_amt` `20.00`. `SYN-PART-2` records `Markup`, `5`, `5.00`. Labour provenance records `source_extended` `96.00` and `40.00`. Both labour lines have `TaxableInd` `false`, so `taxable` is false and `taxable_source` is `element`. `SupplementNum`, `EstimateVerCode`, and `ManualLineInd` are stored on each line and do not block it. A refinish line with no `TaxableInd` is still billable, with `taxable` false and `taxable_source` `absent`.
 
 Review totals: `line_net` **421.00**, `taxable_net` **285.00**, `non_taxable_net` **136.00**, `tax_amount` **null**. One `SKIP` row: line 2 body labour, reason `INCLUDED`, no local line.
 
@@ -357,7 +365,7 @@ The write is one transaction:
 10. When step 5 passes and `create_revision` is true, insert one `WorkshopEstimateVersion` with `version = latest + 1` and `status = DRAFT`. Do not copy the previous snapshot. Do not update the previous row. Do not send the draft.
 11. Insert `CREATE` lines. Update a matched unconsumed line only when `accept_price_changes` is true. Leave every line whose `source_system` is not `AUDATEX_BMS` untouched. Do not `deleteMany` lines.
 12. Call `incrementTaskLineItemsVersion` once for the task.
-13. Upsert `ExternalIdMapping` for the document key to the workshop order id. Set the job `APPLIED` and `appliedAt`.
+13. Upsert `ExternalIdMapping` with `external_id` set to the document key (`SYN-EST-1001|EM|0` for the happy fixture) and `entity_id` set to the workshop order id. Do not use `DocumentID` alone. Set the job `APPLIED` and `appliedAt`.
 
 The approved version's `snapshot_sha256` after a successful revision apply is the same bytes it had before the transaction. The new version's `snapshot` is null until the existing send action freezes it.
 
@@ -418,9 +426,10 @@ No new number sequence. A revision keeps the existing `WorkshopEstimate.estimate
 | Method | Route | Request Body | Response | Auth |
 | --- | --- | --- | --- | --- |
 | POST | `/api/imports/damage-estimates` | multipart `file`, `workshopOrderId`, `taskId` | 201 job, or 200 existing job | JWT, `OWNER` / `ADMIN` / `SALES`, active site |
-| POST | `/api/imports/:id/apply` | JSON body in the apply section | 200 job after apply | Same |
 
 Existing `GET /api/imports/:id` and `GET /api/imports/:id/rows` return the new job. They stay tenant-scoped.
+
+`POST /api/imports/:id/apply` already exists. This slice does not replace that route and does not remove `accept_all_price_jumps` or `accepted_row_numbers`.
 
 ### Modified Endpoints
 
@@ -428,6 +437,7 @@ Existing `GET /api/imports/:id` and `GET /api/imports/:id/rows` return the new j
 | --- | --- | --- |
 | POST | `/api/imports` | Unchanged CSV dry-run. It rejects `entityType=DAMAGE_ESTIMATE` with the existing invalid-entity response. |
 | GET | `/api/imports/templates/:entityType` | `DAMAGE_ESTIMATE` is **404**. No CSV template. |
+| POST | `/api/imports/:id/apply` | Same route. `CUSTOMER`, `VEHICLE`, and `SUPPLIER_PRICE_LIST` still accept only `accept_all_price_jumps` and `accepted_row_numbers`. A body that also sends `expected_line_items_version`, `create_revision`, `accept_price_changes`, `rate_choice`, or `price_choice` returns **422** `APPLY_BODY_MISMATCH` and does not apply. `DAMAGE_ESTIMATE` accepts only the body in the apply section. A body that sends `accept_all_price_jumps` or `accepted_row_numbers` returns **422** `APPLY_BODY_MISMATCH` and does not apply. |
 | POST | `/api/orders/:id/estimates/revisions` | Unchanged. Apply does not call this HTTP route. It performs the same insert inside its own transaction. |
 
 Error body shape for every code in this spec:
@@ -444,6 +454,7 @@ Error body shape for every code in this spec:
 | `CORRUPT_FILE` | 422 | The damage estimate file is not valid XML. |
 | `UNSUPPORTED_DOCUMENT` | 422 | The damage estimate document type is not supported. |
 | `FILE_TOO_LARGE` | 422 | The damage estimate file is larger than 10 MiB. |
+| `APPLY_BODY_MISMATCH` | 422 | The apply body does not match this import type. |
 | `VEHICLE_IDENTITY_INVALID` | 422 | The damage estimate VIN is missing or not 17 letters or digits. |
 | `ORDER_NOT_FOUND` | 404 | The workshop order was not found. |
 | `TASK_NOT_FOUND` | 404 | The workshop task was not found on this order. |
@@ -547,6 +558,7 @@ The one implementation issue adds these tests. Fixtures are the XML in this spec
 - [ ] Service test: a second upload of the same bytes returns the same job id and does not increment `line_items_version`.
 - [ ] Service test: `expected_line_items_version` mismatch returns the existing 409 conflict and writes nothing. Start from `agent-proposal.service.approve-lines.spec.ts`, which already covers that compare-and-swap.
 - [ ] HTTP dry-run shape follows `test/catalog-external.e2e-spec.ts` only as the existing import test style. That file does not assert this feature.
+- [ ] Service test: `POST /api/imports/:id/apply` on a `SUPPLIER_PRICE_LIST` job still accepts `accept_all_price_jumps: true` and does not require `expected_line_items_version`. The same fields on a `DAMAGE_ESTIMATE` job return `APPLY_BODY_MISMATCH`.
 
 ### Frontend
 
