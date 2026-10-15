@@ -1,0 +1,658 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "notice": "Shape contract for the one settlement slice. No live fiskaly call, no sandbox credential, no real register, no real signature. qr_code_data is the public OpenAPI example string and is not a signature of these amounts. The only customer label is pilot customer.",
+  "retrievedOn": "2026-10-15",
+  "provider": {
+    "name": "fiskaly SIGN AT",
+    "apiVersion": "1.2.6",
+    "openapi": "3.0.3",
+    "baseUrl": "https://rksv.fiskaly.com",
+    "signPath": "/api/v1/cash-register/{cash_register_id}/receipt/{receipt_id}",
+    "signMethod": "PUT",
+    "retrievePath": "/api/v1/cash-register/{cash_register_id}/receipt/{receipt_id_or_number}",
+    "retrieveMethod": "GET",
+    "authPath": "/api/v1/auth",
+    "authMethod": "POST",
+    "authScheme": "Authorization: Bearer <access_token>",
+    "providerRetryKey": "receipt_id path parameter plus the identical JSON body",
+    "sources": [
+      "https://workspace.fiskaly.com/specs/spec-sign-at.json",
+      "https://workspace.fiskaly.com/api/rksv/v1/operations/signreceipt/",
+      "https://workspace.fiskaly.com/countries/austria/quickstart/",
+      "https://workspace.fiskaly.com/countries/austria/faq/"
+    ]
+  },
+  "ids": {
+    "tenantId": "00000000-0000-4000-8000-0000000000a1",
+    "legalEntityId": "00000000-0000-4000-8000-0000000000b1",
+    "siteId": "00000000-0000-4000-8000-0000000000c1",
+    "invoiceId": "00000000-0000-4000-8000-0000000000d1",
+    "paymentId": "00000000-0000-4000-8000-0000000000e1",
+    "cancellationPaymentId": "00000000-0000-4000-8000-0000000000e2",
+    "actorUserId": "00000000-0000-4000-8000-0000000000f1",
+    "cashRegisterId": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "normalReceiptId": "11111111-2222-4333-8444-555555555555",
+    "cancellationReceiptId": "66666666-7777-4888-8999-aaaaaaaaaaaa"
+  },
+  "acpContext": {
+    "role": "OWNER",
+    "activeSiteId": "00000000-0000-4000-8000-0000000000c1",
+    "invoiceSiteId": "00000000-0000-4000-8000-0000000000c1",
+    "invoiceStatusBefore": "ISSUED",
+    "invoiceNumber": "RE-2026-0101",
+    "workshopOrderId": "00000000-0000-4000-8000-0000000000a2",
+    "currency": "EUR",
+    "conversion": null,
+    "amount": "120.00",
+    "taxRate": "20.00",
+    "vatContainer": "STANDARD",
+    "customerLabel": "pilot customer"
+  },
+  "authExample": {
+    "note": "Synthetic credentials. SIGN AT OpenAPI types expires_in as integers and publishes example 0. The grouped authentication guide shows 86400 and 172800 next to a SIGN DE URL. The client stores the response fields and does not hard-code those durations.",
+    "request": {
+      "method": "POST",
+      "url": "https://rksv.fiskaly.com/api/v1/auth",
+      "body": {
+        "api_key": "synthetic-api-key",
+        "api_secret": "synthetic-api-secret"
+      }
+    },
+    "responseStatus": 200,
+    "response": {
+      "access_token": "synthetic-access-token",
+      "access_token_claims": {
+        "env": "TEST",
+        "organization_id": "00000000-0000-4000-8000-0000000000aa"
+      },
+      "access_token_expires_in": 86400,
+      "access_token_expires_at": 1760608800,
+      "refresh_token": "synthetic-refresh-token",
+      "refresh_token_expires_in": 172800,
+      "refresh_token_expires_at": 1760695200
+    }
+  },
+  "normalBody": {
+    "receipt_type": "NORMAL",
+    "schema": {
+      "standard_v1": {
+        "amounts_per_vat_rate": [
+          {
+            "vat_rate": "STANDARD",
+            "amount": "120.00"
+          }
+        ],
+        "amounts_per_payment_type": [
+          {
+            "payment_type": "CASH",
+            "amount": "120.00",
+            "currency_code": "EUR"
+          }
+        ],
+        "line_items": [
+          {
+            "quantity": "1",
+            "text": "Rechnung RE-2026-0101",
+            "price_per_unit": "120.00"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+      "acp_invoice_no": "RE-2026-0101",
+      "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+    }
+  },
+  "signedNormalResponse": {
+    "_id": "11111111-2222-4333-8444-555555555555",
+    "_type": "RECEIPT",
+    "_env": "TEST",
+    "_version": "1.2.6",
+    "receipt_type": "NORMAL",
+    "receipt_number": "42",
+    "time_signature": 1577833200,
+    "cash_register_serial_number": "1",
+    "qr_code_data": "_R1-AT3_dGxx_19_2017-10-24T11:07:32_0,00_0,00_0,00_0,00_0,00_7eti9M9dETz2_5474185F_M8LJDeWizNY=_4CtUHTuHoWvNfY0Ty+K8SuUVPYfZHjkM70/ZzATkb7Oj6G8PNWR6K1vsFWTXg2YsMyYHxVXpGJYEiAn0Uojfzw==",
+    "signed": true,
+    "schema": {
+      "standard_v1": {
+        "amounts_per_vat_rate": [
+          {
+            "vat_rate": "STANDARD",
+            "amount": "120.00"
+          }
+        ],
+        "amounts_per_payment_type": [
+          {
+            "payment_type": "CASH",
+            "amount": "120.00",
+            "currency_code": "EUR"
+          }
+        ],
+        "line_items": [
+          {
+            "quantity": "1",
+            "text": "Rechnung RE-2026-0101",
+            "price_per_unit": "120.00"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+      "acp_invoice_no": "RE-2026-0101",
+      "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+    },
+    "cash_register_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    "signature_creation_unit_id": "00000000-0000-4000-8000-0000000000bb"
+  },
+  "cases": [
+    {
+      "id": "success-normal",
+      "acp": {
+        "command": "recordSettlement",
+        "rksvMode": "REQUIRED_ACP_RKSV",
+        "paymentMethod": "CASH",
+        "idempotencyKey": "00000000-0000-4000-8000-0000000000c2",
+        "providerReceiptId": "11111111-2222-4333-8444-555555555555",
+        "paymentStateAfter": "SETTLED",
+        "invoiceStatusAfter": "PAID",
+        "fiscalReceiptStateAfter": "SIGNED",
+        "secondSign": false
+      },
+      "providerRequest": {
+        "method": "PUT",
+        "url": "https://rksv.fiskaly.com/api/v1/cash-register/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/receipt/11111111-2222-4333-8444-555555555555",
+        "headers": {
+          "Authorization": "Bearer synthetic-access-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "receipt_type": "NORMAL",
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+          }
+        }
+      },
+      "providerResponse": {
+        "status": 200,
+        "headers": {
+          "request-id": "synthetic-request-success"
+        },
+        "body": {
+          "_id": "11111111-2222-4333-8444-555555555555",
+          "_type": "RECEIPT",
+          "_env": "TEST",
+          "_version": "1.2.6",
+          "receipt_type": "NORMAL",
+          "receipt_number": "42",
+          "time_signature": 1577833200,
+          "cash_register_serial_number": "1",
+          "qr_code_data": "_R1-AT3_dGxx_19_2017-10-24T11:07:32_0,00_0,00_0,00_0,00_0,00_7eti9M9dETz2_5474185F_M8LJDeWizNY=_4CtUHTuHoWvNfY0Ty+K8SuUVPYfZHjkM70/ZzATkb7Oj6G8PNWR6K1vsFWTXg2YsMyYHxVXpGJYEiAn0Uojfzw==",
+          "signed": true,
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+          },
+          "cash_register_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          "signature_creation_unit_id": "00000000-0000-4000-8000-0000000000bb"
+        }
+      }
+    },
+    {
+      "id": "rejection-schema",
+      "note": "signReceipt's OpenAPI response list names 200 and 404. E_FAILED_SCHEMA_VALIDATION is the general 400 documented for a body that fails the schema. A definite 400 rejects this attempt and does not allocate another receipt_id.",
+      "acp": {
+        "command": "recordSettlement",
+        "rksvMode": "REQUIRED_ACP_RKSV",
+        "paymentMethod": "CASH",
+        "idempotencyKey": "00000000-0000-4000-8000-0000000000c3",
+        "providerReceiptId": "11111111-2222-4333-8444-555555555556",
+        "paymentStateAfter": "REJECTED",
+        "invoiceStatusAfter": "ISSUED",
+        "fiscalReceiptStateAfter": "REJECTED",
+        "secondSign": false
+      },
+      "providerRequest": {
+        "method": "PUT",
+        "url": "https://rksv.fiskaly.com/api/v1/cash-register/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/receipt/11111111-2222-4333-8444-555555555556",
+        "headers": {
+          "Authorization": "Bearer synthetic-access-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "receipt_type": "NORMAL",
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "TWENTY",
+                  "amount": "120.00"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "providerResponse": {
+        "status": 400,
+        "headers": {
+          "request-id": "synthetic-request-reject"
+        },
+        "body": {
+          "status_code": 400,
+          "error": "Bad Request",
+          "code": "E_FAILED_SCHEMA_VALIDATION",
+          "message": "Synthetic illustration only. The live provider sentence for this schema failure was not captured."
+        }
+      }
+    },
+    {
+      "id": "timeout-after-possible-acceptance",
+      "note": "The PUT may have been stored. ACP keeps the same receipt_id, sets UNKNOWN, and reconciles with GET. The GET 200 below is acceptance. A later PUT of a new receipt_id is forbidden.",
+      "acp": {
+        "command": "recordSettlement",
+        "rksvMode": "REQUIRED_ACP_RKSV",
+        "paymentMethod": "CASH",
+        "idempotencyKey": "00000000-0000-4000-8000-0000000000c2",
+        "providerReceiptId": "11111111-2222-4333-8444-555555555555",
+        "paymentStateAfterPut": "UNKNOWN",
+        "invoiceStatusAfterPut": "ISSUED",
+        "paymentStateAfterReconcile": "SETTLED",
+        "invoiceStatusAfterReconcile": "PAID",
+        "fiscalReceiptStateAfterReconcile": "SIGNED",
+        "secondSign": false
+      },
+      "providerRequest": {
+        "method": "PUT",
+        "url": "https://rksv.fiskaly.com/api/v1/cash-register/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/receipt/11111111-2222-4333-8444-555555555555",
+        "body": {
+          "receipt_type": "NORMAL",
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+          }
+        }
+      },
+      "providerResponse": {
+        "status": null,
+        "transport": "timeout",
+        "body": null
+      },
+      "reconciliation": {
+        "method": "GET",
+        "url": "https://rksv.fiskaly.com/api/v1/cash-register/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/receipt/11111111-2222-4333-8444-555555555555",
+        "status": 200,
+        "body": {
+          "_id": "11111111-2222-4333-8444-555555555555",
+          "_type": "RECEIPT",
+          "_env": "TEST",
+          "_version": "1.2.6",
+          "receipt_type": "NORMAL",
+          "receipt_number": "42",
+          "time_signature": 1577833200,
+          "cash_register_serial_number": "1",
+          "qr_code_data": "_R1-AT3_dGxx_19_2017-10-24T11:07:32_0,00_0,00_0,00_0,00_0,00_7eti9M9dETz2_5474185F_M8LJDeWizNY=_4CtUHTuHoWvNfY0Ty+K8SuUVPYfZHjkM70/ZzATkb7Oj6G8PNWR6K1vsFWTXg2YsMyYHxVXpGJYEiAn0Uojfzw==",
+          "signed": true,
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+          },
+          "cash_register_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          "signature_creation_unit_id": "00000000-0000-4000-8000-0000000000bb"
+        }
+      }
+    },
+    {
+      "id": "replay-same-body",
+      "note": "Documented idempotency: the same receipt_id and the same body are signed once. ACP returns the stored row and does not send a second sign when the fiscal receipt is already SIGNED. If it is still UNKNOWN, the client repeats this same PUT or the GET, still with this receipt_id.",
+      "acp": {
+        "command": "recordSettlement",
+        "idempotencyKey": "00000000-0000-4000-8000-0000000000c2",
+        "providerReceiptId": "11111111-2222-4333-8444-555555555555",
+        "newProviderReceiptId": null,
+        "secondSign": false
+      },
+      "providerRequest": {
+        "method": "PUT",
+        "url": "https://rksv.fiskaly.com/api/v1/cash-register/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/receipt/11111111-2222-4333-8444-555555555555",
+        "body": {
+          "receipt_type": "NORMAL",
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+          }
+        }
+      },
+      "providerResponse": {
+        "status": 200,
+        "headers": {
+          "request-id": "synthetic-request-replay"
+        },
+        "body": {
+          "_id": "11111111-2222-4333-8444-555555555555",
+          "_type": "RECEIPT",
+          "_env": "TEST",
+          "_version": "1.2.6",
+          "receipt_type": "NORMAL",
+          "receipt_number": "42",
+          "time_signature": 1577833200,
+          "cash_register_serial_number": "1",
+          "qr_code_data": "_R1-AT3_dGxx_19_2017-10-24T11:07:32_0,00_0,00_0,00_0,00_0,00_7eti9M9dETz2_5474185F_M8LJDeWizNY=_4CtUHTuHoWvNfY0Ty+K8SuUVPYfZHjkM70/ZzATkb7Oj6G8PNWR6K1vsFWTXg2YsMyYHxVXpGJYEiAn0Uojfzw==",
+          "signed": true,
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Rechnung RE-2026-0101",
+                  "price_per_unit": "120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e1"
+          },
+          "cash_register_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          "signature_creation_unit_id": "00000000-0000-4000-8000-0000000000bb"
+        }
+      }
+    },
+    {
+      "id": "cancellation",
+      "note": "A Storno is a new receipt_id with receipt_type CANCELLATION and the original gross amounts negated. It does not edit the NORMAL receipt, the invoice lines, or a credit note. FAQ example: 500 becomes a CANCELLATION of -500.",
+      "acp": {
+        "command": "cancelFiscalReceipt",
+        "rksvMode": "REQUIRED_ACP_RKSV",
+        "idempotencyKey": "00000000-0000-4000-8000-0000000000c4",
+        "originalProviderReceiptId": "11111111-2222-4333-8444-555555555555",
+        "providerReceiptId": "66666666-7777-4888-8999-aaaaaaaaaaaa",
+        "paymentStateAfter": "REVERSED",
+        "invoiceStatusAfter": "ISSUED",
+        "originalFiscalReceiptState": "SIGNED",
+        "cancellationFiscalReceiptState": "SIGNED",
+        "secondSignOfOriginal": false
+      },
+      "providerRequest": {
+        "method": "PUT",
+        "url": "https://rksv.fiskaly.com/api/v1/cash-register/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/receipt/66666666-7777-4888-8999-aaaaaaaaaaaa",
+        "headers": {
+          "Authorization": "Bearer synthetic-access-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "receipt_type": "CANCELLATION",
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "-120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "-120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Storno Rechnung RE-2026-0101",
+                  "price_per_unit": "-120.00"
+                }
+              ]
+            }
+          },
+          "metadata": {
+            "acp_invoice_id": "00000000-0000-4000-8000-0000000000d1",
+            "acp_invoice_no": "RE-2026-0101",
+            "acp_payment_id": "00000000-0000-4000-8000-0000000000e2",
+            "acp_original_receipt_id": "11111111-2222-4333-8444-555555555555"
+          }
+        }
+      },
+      "providerResponse": {
+        "status": 200,
+        "headers": {
+          "request-id": "synthetic-request-cancel"
+        },
+        "body": {
+          "_id": "66666666-7777-4888-8999-aaaaaaaaaaaa",
+          "_type": "RECEIPT",
+          "_env": "TEST",
+          "_version": "1.2.6",
+          "receipt_type": "CANCELLATION",
+          "receipt_number": "43",
+          "time_signature": 1577836800,
+          "cash_register_serial_number": "1",
+          "qr_code_data": "_R1-AT3_dGxx_19_2017-10-24T11:07:32_0,00_0,00_0,00_0,00_0,00_7eti9M9dETz2_5474185F_M8LJDeWizNY=_4CtUHTuHoWvNfY0Ty+K8SuUVPYfZHjkM70/ZzATkb7Oj6G8PNWR6K1vsFWTXg2YsMyYHxVXpGJYEiAn0Uojfzw==",
+          "signed": true,
+          "hints": [
+            "Stornobuchung"
+          ],
+          "schema": {
+            "standard_v1": {
+              "amounts_per_vat_rate": [
+                {
+                  "vat_rate": "STANDARD",
+                  "amount": "-120.00"
+                }
+              ],
+              "amounts_per_payment_type": [
+                {
+                  "payment_type": "CASH",
+                  "amount": "-120.00",
+                  "currency_code": "EUR"
+                }
+              ],
+              "line_items": [
+                {
+                  "quantity": "1",
+                  "text": "Storno Rechnung RE-2026-0101",
+                  "price_per_unit": "-120.00"
+                }
+              ]
+            }
+          },
+          "cash_register_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          "signature_creation_unit_id": "00000000-0000-4000-8000-0000000000bb"
+        }
+      }
+    },
+    {
+      "id": "external-kasse-reference",
+      "note": "REQUIRED_EXTERNAL_KASSE stores the human-entered register receipt. No provider HTTP.",
+      "acp": {
+        "command": "recordSettlement",
+        "rksvMode": "REQUIRED_EXTERNAL_KASSE",
+        "paymentMethod": "CARD",
+        "providerPaymentType": null,
+        "idempotencyKey": "00000000-0000-4000-8000-0000000000c5",
+        "externalReceiptNumber": "K-1001",
+        "externalReceiptDate": "2026-10-15",
+        "providerReceiptId": null,
+        "paymentStateAfter": "SETTLED_EXTERNAL",
+        "invoiceStatusAfter": "PAID",
+        "fiscalReceiptStateAfter": null,
+        "secondSign": false
+      },
+      "providerRequest": null,
+      "providerResponse": null
+    },
+    {
+      "id": "fiscal-path-off",
+      "note": "OFF and UNKNOWN both refuse the command. No payment row and no provider HTTP.",
+      "acp": {
+        "command": "recordSettlement",
+        "rksvModes": [
+          "OFF",
+          "UNKNOWN"
+        ],
+        "paymentMethod": "CASH",
+        "httpStatus": 422,
+        "code": "FISCAL_PATH_DISABLED",
+        "paymentRow": false,
+        "providerRequest": null
+      }
+    }
+  ],
+  "open": [
+    "HTTP status when the same receipt_id is PUT with a different body. OpenAPI signReceipt lists 200 and 404 only. ACP still freezes the body and refuses a second receipt_id.",
+    "GET 404 E_RECEIPT_NOT_FOUND after a timeout means the receipt was not stored, so the same receipt_id may be PUT again with the frozen body. That branch is specified and is not this timeout fixture, which is the accepted branch.",
+    "Percent values are not in OpenAPI 1.2.6. This file maps only 20.00 gross to STANDARD."
+  ]
+}
