@@ -350,6 +350,11 @@ export class DashboardGateway
     }
     const room = `${TENANT_ROOM_PREFIX}${tenantId}`;
     this.server.to(room).emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
+    if (payload.siteId) {
+      this.server
+        .to(`${SITE_ROOM_PREFIX}${payload.siteId}`)
+        .emit(DASHBOARD_ENTITY_UPDATED_EVENT, payload);
+    }
     this.logger.debug(
       JSON.stringify({
         type: 'ws_emit',
@@ -358,6 +363,7 @@ export class DashboardGateway
         entityType: payload.type,
         action: payload.action,
         ...(payload.entityId ? { entityId: payload.entityId } : {}),
+        ...(payload.siteId ? { siteId: payload.siteId } : {}),
       }),
     );
   }

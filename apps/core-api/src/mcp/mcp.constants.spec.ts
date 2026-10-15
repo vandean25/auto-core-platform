@@ -10,7 +10,7 @@ import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 const names = (list: string): string[] => list.split(' ');
 
 const FORBIDDEN_ACTIONS = names(
-  'invoice.finalize invoice.cancel invoice.send credit_note.create credit_note.issue credit_note.finalize accounting_export.create accounting_export.submit customer.delete vehicle.delete workshop_order.delete tenant_member.role_change tenant_member.invite consent.update consent.revoke estimate.send_customer_message legal_entity.update tax_rate.update number_range.update',
+  'invoice.finalize invoice.cancel invoice.send credit_note.create credit_note.issue credit_note.finalize accounting_export.create accounting_export.submit customer.delete vehicle.delete workshop_order.delete tenant_member.role_change tenant_member.invite consent.update consent.revoke estimate.send_customer_message legal_entity.update tax_rate.update number_range.update payment.record fiscal_receipt.sign fiscal_receipt.cancel',
 );
 const ALLOWED_WRITE_TOOLS = names(
   'draft_workshop_order reserve_part release_reservation propose_line_item',
@@ -27,8 +27,8 @@ describe('MCP Constants - Never Exposed Actions', () => {
       );
     });
 
-    it('has exactly 19 forbidden actions', () => {
-      expect(MCP_NEVER_EXPOSED_ACTIONS).toHaveLength(19);
+    it('has exactly 22 forbidden actions', () => {
+      expect(MCP_NEVER_EXPOSED_ACTIONS).toHaveLength(22);
     });
   });
 

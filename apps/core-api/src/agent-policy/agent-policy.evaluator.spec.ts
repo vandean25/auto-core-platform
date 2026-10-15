@@ -3,6 +3,10 @@ import { evaluateAgentPolicy } from './agent-policy.evaluator.js';
 import type { ResolvedAgentPolicyRule } from './agent-policy.types.js';
 
 const floorCases = [
+  'payment.record',
+  'fiscal_receipt.sign',
+  'fiscal_receipt.cancel',
+  'payment.allocate',
   'invoice.finalize',
   'credit_note.issue',
   'credit_note.adjust',
@@ -78,6 +82,17 @@ describe('evaluateAgentPolicy', () => {
     expect(result.reasons).toContain('rule_disabled_fail_closed');
     expect(result.rule_id).toBe('rule-v2');
     expect(result.rule_version).toBe(2);
+  });
+
+  it('returns HUMAN_ONLY for payment.record when rule tier is PROPOSE', () => {
+    const result = evaluateAgentPolicy(
+      'payment.record',
+      {},
+      rule({ action_type: 'payment.record', tier: AgentPolicyTier.PROPOSE }),
+    );
+
+    expect(result.tier).toBe(AgentPolicyTier.HUMAN_ONLY);
+    expect(result.reasons).toContain('hard_floor_category');
   });
 
   it('escalates AUTO to PROPOSE when amount exceeds threshold', () => {

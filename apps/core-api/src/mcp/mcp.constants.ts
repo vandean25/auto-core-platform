@@ -136,4 +136,7 @@ export const MCP_NEVER_EXPOSED_ACTIONS = [
   'legal_entity.update',
   'tax_rate.update',
   'number_range.update',
+  'payment.record',
+  'fiscal_receipt.sign',
+  'fiscal_receipt.cancel',
 ] as const;

@@ -12647,6 +12647,158 @@
         ]
       }
     },
+    "/api/invoices/{id}/settlement": {
+      "get": {
+        "operationId": "SettlementController_getSettlement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get settlement state for an invoice (OWNER/ADMIN)",
+        "tags": [
+          "Settlement"
+        ]
+      },
+      "post": {
+        "operationId": "SettlementController_recordSettlement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordSettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record full settlement for an issued invoice (OWNER/ADMIN)",
+        "tags": [
+          "Settlement"
+        ]
+      }
+    },
+    "/api/invoices/{id}/settlement/reconcile": {
+      "post": {
+        "operationId": "SettlementController_reconcileSettlement",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileSettlementDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reconcile PENDING/UNKNOWN fiscal receipt (OWNER/ADMIN)",
+        "tags": [
+          "Settlement"
+        ]
+      }
+    },
+    "/api/fiscal-receipts/{id}/cancellation": {
+      "post": {
+        "operationId": "FiscalReceiptsController_cancelFiscalReceipt",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelFiscalReceiptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Sign fiscal cancellation receipt (OWNER/ADMIN)",
+        "tags": [
+          "FiscalReceipts"
+        ]
+      }
+    },
     "/api/agent-policy/rules": {
       "get": {
         "operationId": "AgentPolicyController_listRules",
@@ -27133,6 +27285,15 @@
           },
           "seller_readiness": {
             "$ref": "#/components/schemas/LegalEntitySellerReadinessDto"
+          },
+          "rksv_mode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
           }
         },
         "required": [
@@ -27141,7 +27302,8 @@
           "name",
           "country_iso",
           "is_active",
-          "seller_readiness"
+          "seller_readiness",
+          "rksv_mode"
         ]
       },
       "RzlSteuercodesDto": {
@@ -27606,6 +27768,15 @@
           "paymentTermsText": {
             "type": "string",
             "maxLength": 1000
+          },
+          "rksvMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
           }
         }
       },
@@ -27691,6 +27862,33 @@
           "name"
         ]
       },
+      "UpdateSiteFiscalRegisterDto": {
+        "type": "object",
+        "properties": {
+          "providerCashRegisterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "providerScuId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "env": {
+            "type": "string",
+            "enum": [
+              "TEST",
+              "LIVE"
+            ]
+          },
+          "providerState": {
+            "type": "string"
+          },
+          "credentialsSecretRef": {
+            "type": "object",
+            "description": "Opaque GSM secret ref; never the API key."
+          }
+        }
+      },
       "UpdateSiteDto": {
         "type": "object",
         "properties": {
@@ -27712,6 +27910,9 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "fiscalRegister": {
+            "$ref": "#/components/schemas/UpdateSiteFiscalRegisterDto"
           }
         }
       },
@@ -29995,6 +30196,195 @@
             "example": true
           }
         }
+      },
+      "FiscalReceiptSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "providerReceiptId": {
+            "type": "string"
+          },
+          "receiptType": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "receiptNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeSignature": {
+            "type": "number",
+            "nullable": true
+          },
+          "cashRegisterSerialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrCodeData": {
+            "type": "string",
+            "nullable": true
+          },
+          "signed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "hints": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providerRequestId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "providerReceiptId",
+          "receiptType",
+          "state"
+        ]
+      },
+      "SettlementPaymentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "externalReceiptNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalReceiptDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "fiscalReceipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FiscalReceiptSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "idempotencyKey",
+          "status",
+          "method",
+          "amount",
+          "currency",
+          "fiscalReceipts"
+        ]
+      },
+      "SettlementResponseDto": {
+        "type": "object",
+        "properties": {
+          "invoiceId": {
+            "type": "string"
+          },
+          "invoiceStatus": {
+            "type": "string"
+          },
+          "rksvMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
+          },
+          "siteTimezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
+          "payment": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettlementPaymentSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "invoiceId",
+          "invoiceStatus"
+        ]
+      },
+      "RecordSettlementDto": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "CASH",
+              "CARD"
+            ]
+          },
+          "externalReceiptNumber": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "externalReceiptDate": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "method"
+        ]
+      },
+      "ReconcileSettlementDto": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "idempotencyKey"
+        ]
+      },
+      "CancelFiscalReceiptDto": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "idempotencyKey"
+        ]
       },
       "AgentPolicyConditionsDto": {
         "type": "object",

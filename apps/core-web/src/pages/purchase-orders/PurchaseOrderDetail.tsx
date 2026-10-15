@@ -73,8 +73,8 @@ export default function PurchaseOrderDetail() {
 
   const [highlightedRowId, setHighlightedRowId] = useState<string | null>(null);
   const [poppedQtyRowId, setPoppedQtyRowId] = useState<string | null>(null);
-  const rowFlashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const qtyPopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rowFlashTimeoutRef = useRef<number | null>(null);
+  const qtyPopTimeoutRef = useRef<number | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");

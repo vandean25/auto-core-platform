@@ -71,6 +71,7 @@ VALUES
   ('catalog_price_histories'),
   ('document_brand_extractions'),
   ('employee_work_schedules'),
+  ('fiscal_registers'),
   ('labor_fitments'),
   ('parts_requisition_lines'),
   ('purchase_orders'),
@@ -114,12 +115,14 @@ VALUES
   ('invoice_brand_asset_references'),
   ('invoice_items'),
   ('parts_reservations'),
+  ('payments'),
   ('warranty_claim_lines'),
   ('workshop_estimate_approval_tokens'),
   ('workshop_estimate_brand_asset_references'),
   ('workshop_estimate_overruns'),
   ('workshop_inspection_items'),
   ('credit_note_items'),
+  ('fiscal_receipts'),
   ('inventory_transactions'),
   ('workshop_estimate_approvals');
 
@@ -221,6 +224,13 @@ VALUES
   ('external_id_mappings', 'import_jobs', 'tenant_id,first_seen_import_job_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('external_id_mappings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('finance_settings', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_receipts', 'fiscal_receipts', 'tenant_id,original_fiscal_receipt_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_receipts', 'fiscal_registers', 'tenant_id,fiscal_register_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_receipts', 'payments', 'tenant_id,payment_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_receipts', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_registers', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_registers', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('fiscal_registers', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('import_job_rows', 'import_jobs', 'tenant_id,import_job_id', 'tenant_id,id', 'CASCADE', 'CASCADE'),
   ('import_job_rows', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('import_jobs', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -292,6 +302,11 @@ VALUES
   ('parts_reservations', 'storage_locations', 'location_id', 'id', 'SET NULL', 'CASCADE'),
   ('parts_reservations', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('parts_reservations', 'workshop_task_line_items', 'workshop_task_line_item_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('payments', 'invoices', 'tenant_id,invoice_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('payments', 'legal_entities', 'tenant_id,legal_entity_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('payments', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('payments', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('payments', 'users', 'recorded_by_user_id', 'id', 'SET NULL', 'CASCADE'),
   ('platform_admins', 'users', 'user_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_invoice_lines', 'purchase_invoices', 'purchase_invoice_id', 'id', 'CASCADE', 'CASCADE'),
   ('purchase_invoice_lines', 'purchase_order_items', 'purchase_order_item_id', 'id', 'SET NULL', 'CASCADE'),
@@ -612,6 +627,9 @@ UPDATE public."users"
 SET "active_tenant_id" = NULL
 WHERE "active_tenant_id" = current_setting('app.target_tenant_id');
 
+UPDATE public."fiscal_receipts"
+SET "original_fiscal_receipt_id" = NULL
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 UPDATE public."document_brand_assets"
 SET "source_asset_id" = NULL
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -632,6 +650,8 @@ DELETE FROM public."workshop_estimate_approvals"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."inventory_transactions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."fiscal_receipts"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."credit_note_items"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_inspection_items"
@@ -643,6 +663,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."workshop_estimate_approval_tokens"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."warranty_claim_lines"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."payments"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."parts_reservations"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
@@ -730,6 +752,8 @@ DELETE FROM public."parts_requisition_lines"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_fitments" AS child
 WHERE EXISTS (SELECT 1 FROM public."labor_operations" AS parent_0 WHERE parent_0."id" = child."labor_operation_id" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'));
+DELETE FROM public."fiscal_registers"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."employee_work_schedules"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."document_brand_extractions"

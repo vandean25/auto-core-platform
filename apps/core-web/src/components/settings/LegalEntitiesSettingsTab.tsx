@@ -58,6 +58,7 @@ type SellerFormState = {
   representatives: string
   paymentTermsDays: string
   paymentTermsText: string
+  rksvMode: LegalEntityRecord['rksv_mode']
 }
 
 function toFormState(entity: LegalEntityRecord): SellerFormState {
@@ -80,6 +81,7 @@ function toFormState(entity: LegalEntityRecord): SellerFormState {
     paymentTermsDays:
       entity.payment_terms_days === null ? '' : String(entity.payment_terms_days),
     paymentTermsText: entity.payment_terms_text ?? '',
+    rksvMode: entity.rksv_mode ?? 'OFF',
   }
 }
 
@@ -116,6 +118,7 @@ function buildUpdatePayload(
     representatives: normalizeOptionalFormString(form.representatives),
     paymentTermsDays,
     paymentTermsText: normalizeOptionalFormString(form.paymentTermsText),
+    rksvMode: form.rksvMode,
   }
 }
 
@@ -982,6 +985,26 @@ function LegalEntitySellerForm({
             value={form.representatives}
             onChange={(event) => updateField('representatives', event.target.value)}
           />
+        </div>
+
+        <div className="grid gap-2 md:col-span-2">
+          <Label>Fiscal settlement mode (RKSV)</Label>
+          <Select
+            value={form.rksvMode}
+            onValueChange={(value) =>
+              updateField('rksvMode', value as LegalEntityRecord['rksv_mode'])
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="OFF">Off</SelectItem>
+              <SelectItem value="UNKNOWN">Unknown</SelectItem>
+              <SelectItem value="REQUIRED_EXTERNAL_KASSE">External Kasse</SelectItem>
+              <SelectItem value="REQUIRED_ACP_RKSV">ACP RKSV (fiskaly)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid gap-2">

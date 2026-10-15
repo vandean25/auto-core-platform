@@ -116,6 +116,7 @@ The following actions are intentionally never exposed as MCP tools, as they requ
 - Invoice finalization (`invoice.finalize`)
 - Invoice cancellation and sending (`invoice.cancel`, `invoice.send`)
 - Credit note creation, issuance, and finalization (`credit_note.create`, `credit_note.issue`, `credit_note.finalize`)
+- Payment recording and RKSV fiscal receipt signing or cancellation (`payment.record`, `fiscal_receipt.sign`, `fiscal_receipt.cancel`)
 - Accounting exports (`accounting_export.create`, `accounting_export.submit`)
 - Deletions of customers, vehicles, or workshop orders
 - User/role/consent changes (`tenant_member.role_change`, `tenant_member.invite`, `consent.update`, `consent.revoke`)

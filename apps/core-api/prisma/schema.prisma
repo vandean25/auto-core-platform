@@ -144,6 +144,9 @@ model Tenant {
   agentPolicyRules              AgentPolicyRule[]
   agentProposals                AgentProposal[]
   mcpWriteCommandReceipts       McpWriteCommandReceipt[]
+  payments                      Payment[]
+  fiscalRegisters               FiscalRegister[]
+  fiscalReceipts                FiscalReceipt[]
   vendorArticles                VendorArticle[]
   marginRules                   MarginRule[]
   catalogPriceHistories         CatalogPriceHistory[]
@@ -261,6 +264,7 @@ model User {
   revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
   workshopEstimateApprovalsRecorded WorkshopEstimateApproval[] @relation("WorkshopEstimateApprovalRecordedBy")
   workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]  @relation("WorkshopEstimateOverrunNotifiedBy")
+  paymentsRecorded                  Payment[]                 @relation("PaymentRecordedBy")
   landingDemoSignInGrants           LandingDemoSignInGrant[]
   createdAt                         DateTime                  @default(now())
   updatedAt                         DateTime                  @updatedAt
@@ -353,6 +357,44 @@ model PlatformAdmin {
 // Multi-Location: LegalEntity + Site + SiteMembership (ADR-0022)
 // ============================================================================
 
+enum RksvMode {
+  OFF
+  UNKNOWN
+  REQUIRED_EXTERNAL_KASSE
+  REQUIRED_ACP_RKSV
+}
+
+enum FiscalRegisterEnv {
+  TEST
+  LIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  UNKNOWN
+  SETTLED
+  SETTLED_EXTERNAL
+  REJECTED
+  REVERSED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+enum FiscalReceiptState {
+  PENDING
+  UNKNOWN
+  SIGNED
+  REJECTED
+}
+
+enum FiscalReceiptType {
+  NORMAL
+  CANCELLATION
+}
+
 model LegalEntity {
   id                          String                        @id @default(uuid())
   tenant_id                   String
@@ -376,7 +418,10 @@ model LegalEntity {
   representatives             String?
   payment_terms_days          Int?
   payment_terms_text          String?
+  rksv_mode                   RksvMode                      @default(OFF)
   sites                       Site[]
+  fiscal_registers            FiscalRegister[]
+  payments                    Payment[]
   accountingProfile           LegalEntityAccountingProfile?
   accountingExports           AccountingExport[]
   documentBrandProfile        DocumentBrandProfile?
@@ -394,6 +439,90 @@ model LegalEntity {
   @@unique([tenant_id, name])
   @@index([tenant_id])
   @@map("legal_entities")
+}
+
+model FiscalRegister {
+  id                         String            @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant            @relation(fields: [tenant_id], references: [id])
+  legal_entity_id            String
+  legal_entity               LegalEntity       @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                    String
+  site                       Site              @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  provider                   String
+  env                        FiscalRegisterEnv
+  provider_cash_register_id  String            @db.Uuid
+  provider_scu_id            String            @db.Uuid
+  provider_state             String
+  credentials_secret_ref     String?
+  fiscal_receipts            FiscalReceipt[]
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+
+  @@unique([tenant_id, site_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@map("fiscal_registers")
+}
+
+model Payment {
+  id                       String         @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant         @relation(fields: [tenant_id], references: [id])
+  invoice_id               String
+  invoice                  Invoice        @relation(fields: [tenant_id, invoice_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                  String
+  site                     Site           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  legal_entity_id          String
+  legal_entity             LegalEntity    @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  recorded_by_user_id      String?
+  recorded_by_user         User?          @relation("PaymentRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
+  status                   PaymentStatus
+  method                   PaymentMethod
+  amount                   Decimal        @db.Decimal(10, 2)
+  currency                 String
+  idempotency_key          String
+  request_hash             String
+  external_receipt_number  String?
+  external_receipt_date    DateTime?      @db.Date
+  fiscal_receipts          FiscalReceipt[]
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  @@unique([tenant_id, idempotency_key])
+  @@index([tenant_id, invoice_id, status])
+  @@unique([tenant_id, id])
+  @@map("payments")
+}
+
+model FiscalReceipt {
+  id                        String             @id @default(uuid())
+  tenant_id                 String
+  tenant                    Tenant             @relation(fields: [tenant_id], references: [id])
+  payment_id                String
+  payment                   Payment            @relation(fields: [tenant_id, payment_id], references: [tenant_id, id], onDelete: Restrict)
+  fiscal_register_id        String
+  fiscal_register           FiscalRegister     @relation(fields: [tenant_id, fiscal_register_id], references: [tenant_id, id], onDelete: Restrict)
+  sign_idempotency_key      String?
+  provider_receipt_id       String             @db.Uuid
+  receipt_type              FiscalReceiptType
+  state                     FiscalReceiptState
+  request_body              Json
+  response_body             Json?
+  provider_http_status      Int?
+  provider_error_code       String?
+  provider_request_id       String?
+  original_fiscal_receipt_id String?
+  original_fiscal_receipt   FiscalReceipt?     @relation("FiscalReceiptCancellation", fields: [tenant_id, original_fiscal_receipt_id], references: [tenant_id, id], onDelete: Restrict)
+  cancellation_receipts     FiscalReceipt[]    @relation("FiscalReceiptCancellation")
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+
+  @@unique([tenant_id, provider_receipt_id])
+  @@unique([tenant_id, sign_idempotency_key])
+  @@index([tenant_id, fiscal_register_id, createdAt])
+  @@unique([tenant_id, id])
+  @@map("fiscal_receipts")
 }
 
 enum DocumentBrandAssetPurpose {
@@ -665,6 +794,8 @@ model Site {
   creditNotes              CreditNote[]
   workshopEstimates        WorkshopEstimate[]
   loanerVehicles           LoanerVehicle[]
+  fiscal_register          FiscalRegister?
+  payments                 Payment[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1784,6 +1915,7 @@ model Invoice {
 
   items                 InvoiceItem[]
   credit_notes          CreditNote[]
+  payments              Payment[]
   brand_asset_reference InvoiceBrandAssetReference?
 
   createdAt DateTime @default(now())
