@@ -447,18 +447,34 @@
         "model": "Demo",
         "year": 2019,
         "holderRawStripped": true,
-        "bytesDeleted": true
-      }
+        "bytesDeleted": false,
+        "bytePurgeQueued": true
+      },
+      "note": "Apply inserts RegistrationIntakeBytePurge and returns before the job deletes objects. bytesDeleted stays false on this response."
     },
     "createFailedProvider": {
+      "http": 503,
+      "body": {
+        "statusCode": 503,
+        "message": "REGISTRATION_EXTRACTION_UNAVAILABLE: Registration document extraction is not currently available.",
+        "error": "SERVICE_UNAVAILABLE",
+        "code": "REGISTRATION_EXTRACTION_UNAVAILABLE"
+      },
+      "rowCreated": false,
+      "bytesKept": false,
+      "providerCalls": 0,
+      "note": "isAvailable() is false, so create returns before any insert. This is not a stored FAILED row."
+    },
+    "extractFailed": {
       "http": 201,
       "body": {
         "state": "FAILED",
-        "failureCode": "REGISTRATION_EXTRACTION_UNAVAILABLE",
-        "bytesKept": true
+        "failureCode": "REGISTRATION_INTAKE_EXTRACT_FAILED"
       },
+      "rowCreated": true,
+      "bytesKept": true,
       "providerCalls": 1,
-      "note": "Create does not return 503 when the disabled provider throws. The exception is caught and stored."
+      "note": "The provider was available and extract failed after the row and bytes were stored. Replay of the same Idempotency-Key returns this 201 and does not call the provider again."
     },
     "lowConfidence": {
       "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_LOW_CONFIDENCE: A low-confidence identity field cannot be saved.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_LOW_CONFIDENCE" },
@@ -542,7 +558,42 @@
       "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_TOO_MANY_FILES: At most 2 files are accepted.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_TOO_MANY_FILES" }
     },
     "fileTooLarge": {
-      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_FILE_TOO_LARGE: Each file must be at most 10 MiB.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_FILE_TOO_LARGE" }
+      "rest": { "statusCode": 413, "message": "REGISTRATION_INTAKE_FILE_TOO_LARGE: Each file must be at most 10 MiB.", "error": "PAYLOAD_TOO_LARGE", "code": "REGISTRATION_INTAKE_FILE_TOO_LARGE" },
+      "note": "RegistrationIntakeUploadExceptionFilter maps multer LIMIT_FILE_SIZE. 413 is not in GlobalExceptionFilter.getHttpStatusName, so error is HttpStatus[413], which is PAYLOAD_TOO_LARGE."
+    },
+    "intakeIdInBody": {
+      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_ID_MISMATCH: The intake id is taken from the path.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_ID_MISMATCH" }
+    },
+    "vehicleHasActiveOrder": {
+      "rest": {
+        "statusCode": 409,
+        "message": "Vehicle already has active order WO-SYNTH-0001",
+        "error": "Conflict",
+        "code": "VEHICLE_HAS_ACTIVE_ORDER",
+        "orderId": "00000000-0000-4000-8000-0000000000f1",
+        "orderNumber": "WO-SYNTH-0001"
+      },
+      "appliedWorkshopOrderId": null,
+      "note": "Existing assertNoLiveOrderForVehicle body. The intake does not store this order."
+    },
+    "existingVehicleFillBlank": {
+      "http": 200,
+      "body": {
+        "state": "APPLIED",
+        "vehicleId": "00000000-0000-4000-8000-0000000000a1",
+        "nationalCodeWritten": true,
+        "firstRegistrationWritten": true,
+        "co2Written": true,
+        "makeUnchanged": true,
+        "modelUnchanged": true,
+        "yearUnchanged": true
+      }
+    },
+    "existingVehicleFieldConflict": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_FIELD_CONFLICT: Stored Nationalcode, first registration, or CO2 differs from the document.", "error": "Conflict", "code": "REGISTRATION_INTAKE_FIELD_CONFLICT" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_FIELD_CONFLICT: Stored Nationalcode, first registration, or CO2 differs from the document." },
+      "cases": ["NATIONALCODE_CONFLICT", "FIRST_REGISTRATION_CONFLICT", "CO2_CONFLICT"],
+      "columnsUnchanged": ["national_code", "first_registration_date", "co2_wltp_g_km", "co2_nedc_g_km", "make", "model", "year"]
     },
     "stateChanged": {
       "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_STATE_CHANGED: The intake changed; please reload.", "error": "Conflict", "code": "REGISTRATION_INTAKE_STATE_CHANGED" },
