@@ -28,11 +28,7 @@ export async function seedInventory(
   const grzSiteId = foundation.grzSite.id;
   const defaultRevenueGroup = finance.defaultRevenueGroup;
 
-  const upsertWarehouse = (
-    siteId: string,
-    code: string,
-    name: string,
-  ) =>
+  const upsertWarehouse = (siteId: string, code: string, name: string) =>
     prisma.storageLocation.upsert({
       where: {
         tenant_id_site_id_code: {
@@ -73,7 +69,12 @@ export async function seedInventory(
   console.log('Seeding supersession items (Phase 1: Creation)...');
   const vwBrand = allBrands.find((b) => b.name === 'Volkswagen');
 
-  const upsertCatalogPart = (sku: string, name: string, cost: number, retail: number) =>
+  const upsertCatalogPart = (
+    sku: string,
+    name: string,
+    cost: number,
+    retail: number,
+  ) =>
     prisma.catalogItem.upsert({
       where: { tenant_id_sku: { tenant_id: tenantId, sku } },
       update: {
@@ -172,7 +173,9 @@ export async function seedInventory(
   });
 
   if (seedLedgerExists) {
-    console.log('  → seed inventory ledger already present, skipping stock bootstrap');
+    console.log(
+      '  → seed inventory ledger already present, skipping stock bootstrap',
+    );
     return {
       locations,
       showroom,

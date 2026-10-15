@@ -47,8 +47,6 @@ describe('Landing demo tenant seed (e2e)', () => {
       select: { id: true },
     });
     if (tenant) {
-      const tenantPrisma = createTenantAwarePrisma(prisma, tenant.id);
-      await tenantPrisma.laborOperation.deleteMany({});
       await cleanupTestTenantGraph(prisma, tenant.id);
     }
     if (app) {

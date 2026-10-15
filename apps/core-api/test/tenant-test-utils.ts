@@ -497,6 +497,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.catalogProviderSettings.deleteMany({});
   await tenantPrisma.customer.deleteMany({});
   await tenantPrisma.catalogItem.deleteMany({});
+  await tenantPrisma.revenueGroup.deleteMany({});
   await tenantPrisma.vendor.deleteMany({});
   await tenantPrisma.storageLocation.deleteMany({});
   await tenantPrisma.brand.deleteMany({});

@@ -192,14 +192,16 @@ describe('Legacy global unique indexes (AUT-550)', () => {
     const customerA = await tenantAPrisma.customer.create({
       data: {
         tenant_id: tenantAId,
-        name: `${prefix}-cust-a`,
+        first_name: 'A',
+        last_name: `${prefix}-cust`,
         email: `${prefix}-a@example.com`,
       },
     });
     const customerB = await tenantBPrisma.customer.create({
       data: {
         tenant_id: tenantBId,
-        name: `${prefix}-cust-b`,
+        first_name: 'B',
+        last_name: `${prefix}-cust`,
         email: `${prefix}-b@example.com`,
       },
     });
