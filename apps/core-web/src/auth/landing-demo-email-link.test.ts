@@ -4,6 +4,7 @@ import {
   clearStoredLandingDemoEmail,
   describeLandingDemoEmailLinkError,
   isDemoGrantSessionErrorMessage,
+  isFirebaseEmailLinkSignInUrl,
   readStoredLandingDemoEmail,
   storeLandingDemoEmailForSignIn,
 } from '@/auth/landing-demo-email-link'
@@ -30,6 +31,16 @@ describe('landing-demo email-link storage', () => {
     expect(readStoredLandingDemoEmail()).toBe('demo@example.com')
     clearStoredLandingDemoEmail()
     expect(readStoredLandingDemoEmail()).toBeNull()
+  })
+})
+
+describe('isFirebaseEmailLinkSignInUrl', () => {
+  it('accepts oobCode sign-in URLs in e2e mode without Firebase', () => {
+    vi.stubEnv('MODE', 'e2e')
+    expect(
+      isFirebaseEmailLinkSignInUrl('http://localhost:5175/login?oobCode=abc&mode=signIn'),
+    ).toBe(true)
+    vi.unstubAllEnvs()
   })
 })
 

@@ -31,13 +31,13 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      // login.spec.ts rewrites dev-server module URLs to show the sign-in form, so it runs on the dev server below.
-      testIgnore: /login\.spec\.ts$/,
+      // login.spec.ts and landing-demo-email-link.spec.ts rewrite dev-server modules; they run on the dev server below.
+      testIgnore: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$/,
     },
     {
       name: 'chromium-dev-server',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5175' },
-      testMatch: /login\.spec\.ts$/,
+      testMatch: /login\.spec\.ts$|landing-demo-email-link\.spec\.ts$/,
     },
   ],
 

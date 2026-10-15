@@ -520,7 +520,7 @@ function LoginRoute() {
     return <AuthLoadingScreen />
   }
 
-  if (user) {
+  if (user && !emailLinkSignIn) {
     return <Navigate to={resolvePostLoginPath(location.state)} replace />
   }
 
