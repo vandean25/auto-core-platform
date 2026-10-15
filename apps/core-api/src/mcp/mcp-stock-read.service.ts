@@ -199,11 +199,7 @@ export class McpStockReadService {
       tenantId ?? (await this.tenantContext.getTenantId());
     const resolvedSiteId = siteId ?? (await this.siteContext.getSiteId());
     const stocks = await this.prisma.inventoryStock.findMany({
-      where: mcpStockBinWhere(
-        resolvedTenantId,
-        resolvedSiteId,
-        catalogItemIds,
-      ),
+      where: mcpStockBinWhere(resolvedTenantId, resolvedSiteId, catalogItemIds),
       select: mcpStockBinStockSelect,
       orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
     });

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import { LocationType, type Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -11,7 +11,6 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import {
   mapInventoryStocksToBinLevels,
   mcpStockBinStockSelect,
-  mcpStockBinWhere,
   pickPrimaryBin,
 } from './mcp-stock-read.mapper.js';
 import {
@@ -322,21 +321,28 @@ export class McpCatalogReadService {
     catalogItemId: string,
   ) {
     const stocks = await this.prisma.inventoryStock.findMany({
-      where: mcpStockBinWhere(tenantId, siteId, [catalogItemId]),
+      where: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        catalog_item_id: { in: [catalogItemId] },
+        location: {
+          type: LocationType.bin,
+          deletedAt: null,
+          site_id: siteId,
+          tenant_id: tenantId,
+        },
+      },
       select: {
         ...mcpStockBinStockSelect,
         location: { select: { id: true, code: true, name: true } },
       },
     });
-    const bins =
-      mapInventoryStocksToBinLevels(stocks).get(catalogItemId) ?? [];
+    const bins = mapInventoryStocksToBinLevels(stocks).get(catalogItemId) ?? [];
     const primary = pickPrimaryBin(bins);
     if (!primary) {
       return null;
     }
-    const stock = stocks.find(
-      (row) => row.location_id === primary.location_id,
-    );
+    const stock = stocks.find((row) => row.location_id === primary.location_id);
     if (!stock) {
       return null;
     }
