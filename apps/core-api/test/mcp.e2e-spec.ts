@@ -4902,12 +4902,12 @@ describe('MCP server (e2e)', () => {
     async function seedRequisitionDemandForPurchasePropose(
       options: { secondLineOnSamePart?: boolean } = {},
     ): Promise<PurchaseDemandSeed> {
-      const catalogBefore = await prismaA.catalogItem.findUniqueOrThrow({
-        where: { id: fixtures.catalogItemId },
+      const catalogBefore = await prismaA.catalogItem.findFirstOrThrow({
+        where: { id: fixtures.catalogItemId, tenant_id: tenantA },
         select: { brand_id: true, cost_price: true, unit: true },
       });
-      const vehicleBefore = await prismaA.vehicle.findUniqueOrThrow({
-        where: { id: fixtures.vehicleId },
+      const vehicleBefore = await prismaA.vehicle.findFirstOrThrow({
+        where: { id: fixtures.vehicleId, tenant_id: tenantA },
         select: { make: true, make_brand_id: true },
       });
       let vehicleMakeBrandId = vehicleBefore.make_brand_id;
@@ -4956,7 +4956,6 @@ describe('MCP server (e2e)', () => {
           quantity: 1,
         },
       ];
-      let extraLineId: string | undefined;
       if (options.secondLineOnSamePart) {
         const secondTask = await prismaA.workshopTask.create({
           data: {
@@ -4972,7 +4971,6 @@ describe('MCP server (e2e)', () => {
           unit_price: 2,
           catalog_item_id: fixtures.catalogItemId,
         });
-        extraLineId = secondLine.id;
         requisitionItems.push({
           workshopTaskLineItemId: secondLine.id,
           quantity: 1,
@@ -5020,11 +5018,6 @@ describe('MCP server (e2e)', () => {
               data: { make_brand_id: vehicleBefore.make_brand_id },
             });
             await prismaA.brand.delete({ where: { id: createdMakeBrandId } });
-          }
-          if (extraLineId) {
-            await prismaA.workshopTaskLineItem.deleteMany({
-              where: { id: extraLineId },
-            });
           }
         },
       };
