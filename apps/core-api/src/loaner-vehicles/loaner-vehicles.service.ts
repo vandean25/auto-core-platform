@@ -661,6 +661,48 @@ export class LoanerVehiclesService {
     };
   }
 
+  /**
+   * Overdue loaner rows for the supervision triage inbox across every site
+   * the caller may operate on. Does not require an active session site.
+   */
+  async listOverdueTriageCandidates(
+    tenantId: string,
+    siteIds: readonly string[],
+    asOf: Date = getLoanerNow(),
+  ) {
+    if (siteIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.prisma.loanerBooking.findMany({
+      where: {
+        tenant_id: tenantId,
+        loaner_vehicle: { site_id: { in: [...siteIds] } },
+        status: { in: [...ACTIVE_LOANER_BOOKING_STATUSES] },
+        planned_to: { lt: asOf },
+        returned_at: null,
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        planned_to: true,
+        loaner_vehicle: { select: { site_id: true } },
+      },
+      orderBy: [{ planned_to: 'asc' }],
+    });
+
+    return rows.map((row) => ({
+      kind: 'OVERDUE_LOANER' as const,
+      entity_id: row.id,
+      site_id: row.loaner_vehicle.site_id,
+      reason: 'LOANER_RETURN_OVERDUE',
+      created_at: row.createdAt,
+      due_at: row.planned_to,
+      record_link: '/workshop/loaner-vehicles',
+      allowed_action: 'OPEN_RECORD' as const,
+    }));
+  }
+
   /** @internal exposed for unit tests */
   parseDate(value: string, field: string): Date {
     const parsed = new Date(value);

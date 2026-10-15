@@ -158,3 +158,55 @@ export function buildWorkshopOrderCommunications({
     .slice(0, WORKSHOP_COMMUNICATIONS_LIMIT)
     .map((entry) => entry.dto);
 }
+
+export type CustomerWaitingTriageSource =
+  'WORKSHOP_TASK_WAITING_CUSTOMER' | 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE';
+
+export interface CustomerWaitingTriageRecord {
+  entity_id: string;
+  site_id: string;
+  workshop_order_id: string;
+  source: CustomerWaitingTriageSource;
+  created_at: Date;
+  due_at: Date | null;
+}
+
+export function customerWaitingTriageReason(
+  source: CustomerWaitingTriageSource,
+): string {
+  return source;
+}
+
+export function customerWaitingTriageRecordLink(
+  workshopOrderId: string,
+): string {
+  return `/workshop/orders/${workshopOrderId}`;
+}
+
+/**
+ * Maps preloaded customer-waiting rows into deterministic triage candidates.
+ * No I/O — callers batch-load tasks and sent estimate versions first.
+ */
+export function buildCustomerWaitingTriageCandidates(
+  records: CustomerWaitingTriageRecord[],
+): Array<{
+  kind: 'CUSTOMER_WAITING';
+  entity_id: string;
+  site_id: string;
+  reason: string;
+  created_at: Date;
+  due_at: Date | null;
+  record_link: string;
+  allowed_action: 'OPEN_RECORD';
+}> {
+  return records.map((row) => ({
+    kind: 'CUSTOMER_WAITING' as const,
+    entity_id: row.entity_id,
+    site_id: row.site_id,
+    reason: customerWaitingTriageReason(row.source),
+    created_at: row.created_at,
+    due_at: row.due_at,
+    record_link: customerWaitingTriageRecordLink(row.workshop_order_id),
+    allowed_action: 'OPEN_RECORD' as const,
+  }));
+}

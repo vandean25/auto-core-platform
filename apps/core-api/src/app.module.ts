@@ -58,6 +58,7 @@ import { ImportModule } from './import/import.module.js';
 import { TyreStorageModule } from './tyre-storage/tyre-storage.module.js';
 import { AgentPolicyModule } from './agent-policy/agent-policy.module.js';
 import { AgentProposalModule } from './agent-proposal/agent-proposal.module.js';
+import { AgentSupervisionModule } from './agent-supervision/agent-supervision.module.js';
 import { McpModule } from './mcp/mcp.module.js';
 import { DecisionModule } from './decision/decision.module.js';
 import { DecisionShadowLogModule } from './decision-shadow-log/decision-shadow-log.module.js';
@@ -113,6 +114,7 @@ import { MarginRuleModule } from './margin-rule/margin-rule.module.js';
     MarginRuleModule,
     AgentPolicyModule,
     AgentProposalModule,
+    AgentSupervisionModule,
     DecisionModule,
     DecisionShadowLogModule,
     McpModule,

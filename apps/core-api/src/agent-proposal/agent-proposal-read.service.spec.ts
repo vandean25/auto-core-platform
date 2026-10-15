@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { AgentProposalStatus } from '@prisma/client';
+import { AgentProposalStatus, WorkshopTaskStatus } from '@prisma/client';
 import {
   createAgentProposalSpecHarness,
   createMockProposal,
@@ -116,5 +116,154 @@ describe('AgentProposalReadService', () => {
 
     expect(h.mockPrisma.workshopOrder.findMany).not.toHaveBeenCalled();
     expect(result.data[0].workshop_order_summary).toBeNull();
+  });
+
+  it('returns no pending-approval triage rows without authorized sites', async () => {
+    h.mockSiteContext.listAuthorizedSiteIds.mockResolvedValue([]);
+
+    const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, []);
+
+    expect(rows).toEqual([]);
+    expect(h.mockPrisma.agentProposal.findMany).not.toHaveBeenCalled();
+  });
+
+  it('scopes pending-approval triage rows to authorized workshop order sites', async () => {
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([
+      createMockProposal({
+        id: 'allowed',
+        action_type: 'workshop_order.add_line',
+        payload_json: { order_id: 'wo-allowed' },
+        expires_at: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+      createMockProposal({
+        id: 'other-site',
+        action_type: 'workshop_order.add_line',
+        payload_json: { order_id: 'wo-other' },
+        expires_at: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+    ]);
+    h.mockPrisma.workshopOrder.findMany.mockResolvedValue([
+      { id: 'wo-allowed', site_id: 'site-1' },
+    ]);
+
+    const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, [
+      'site-1',
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      kind: 'PENDING_APPROVAL',
+      entity_id: 'allowed',
+      site_id: 'site-1',
+      reason: 'AGENT_PROPOSAL_PENDING',
+      allowed_action: 'APPROVE_REJECT',
+    });
+  });
+
+  it('drops pending-approval triage when the workshop order is outside authorized sites even if preview has a site', async () => {
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([
+      createMockProposal({
+        id: 'preview-only',
+        action_type: 'workshop_order.add_line',
+        payload_json: { order_id: 'wo-other' },
+        preview_json: {
+          execution_context: { site_id: 'site-1' },
+        },
+        expires_at: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+    ]);
+    h.mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
+
+    const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, [
+      'site-1',
+    ]);
+
+    expect(rows).toEqual([]);
+  });
+
+  it('omits proposals that are no longer pending after a concurrent decision', async () => {
+    const stillPending = createMockProposal({
+      id: 'still-pending',
+      status: AgentProposalStatus.PENDING,
+      expires_at: new Date('2099-01-01T00:00:00.000Z'),
+      payload_json: { order_id: 'wo-1' },
+      action_type: 'workshop_order.add_line',
+    });
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([stillPending]);
+    h.mockPrisma.workshopOrder.findMany.mockResolvedValue([
+      { id: 'wo-1', site_id: 'site-1' },
+    ]);
+
+    const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, [
+      'site-1',
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].entity_id).toBe('still-pending');
+    expect(h.mockPrisma.agentProposal.updateMany).toHaveBeenCalled();
+    expect(h.mockPrisma.agentProposal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+          expires_at: { gte: expect.any(Date) },
+        },
+      }),
+    );
+  });
+
+  it('filters list proposals by explicit ids', async () => {
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([
+      createMockProposal({ id: 'p-target' }),
+    ]);
+
+    await h.reads.listProposals({ ids: ['p-target', 'p-missing'] });
+
+    expect(h.mockPrisma.agentProposal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ['p-target', 'p-missing'] },
+        }),
+        take: 2,
+      }),
+    );
+  });
+
+  it('loads customer-waiting triage rows in one query per source', async () => {
+    h.mockPrisma.workshopTask = {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          id: 'task-1',
+          createdAt: new Date('2026-01-03T00:00:00.000Z'),
+          workshop_order_id: 'wo-1',
+          workshop_order: { site_id: 'site-1' },
+        },
+      ]),
+    };
+    h.mockPrisma.workshopEstimateVersion = {
+      findMany: jest.fn().mockResolvedValue([]),
+    };
+
+    const rows = await h.reads.listCustomerWaitingTriageCandidates(tenantId, [
+      'site-1',
+    ]);
+
+    expect(h.mockPrisma.workshopTask.findMany).toHaveBeenCalledTimes(1);
+    expect(h.mockPrisma.workshopEstimateVersion.findMany).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(rows[0]).toMatchObject({
+      kind: 'CUSTOMER_WAITING',
+      entity_id: 'task-1',
+      reason: 'WORKSHOP_TASK_WAITING_CUSTOMER',
+      record_link: '/workshop/orders/wo-1',
+    });
+    expect(h.mockPrisma.workshopTask.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: WorkshopTaskStatus.WAITING_CUSTOMER,
+        }),
+      }),
+    );
   });
 });
