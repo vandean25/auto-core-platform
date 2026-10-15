@@ -71,11 +71,23 @@ function buildService(tier: AgentPolicyTier) {
       traceId: 'trace-1',
       workResult: { id: 'reservation-1' },
     })),
+    recordInTransaction: jest.fn(async () => ({
+      id: 'log-1',
+      traceId: 'trace-1',
+      workResult: { id: 'reservation-1' },
+    })),
+  };
+  const prisma = {
+    $transaction: jest.fn(
+      async (callback: (tx: { tag: 'tx' }) => unknown) =>
+        callback({ tag: 'tx' }),
+    ),
   };
   const agentProposals = {
     persistPendingAction: jest.fn(async () => ({ id: 'pending-1' })),
   };
   return new McpWritePipelineService(
+    prisma as never,
     agentPolicy as never,
     dryRun as never,
     agentActionLog as never,

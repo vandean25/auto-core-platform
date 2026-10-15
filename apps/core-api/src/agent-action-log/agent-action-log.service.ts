@@ -91,6 +91,9 @@ export class AgentActionLogService {
     input: AgentActionRecordInput,
     transaction: Prisma.TransactionClient,
     work?: () => Promise<T>,
+    metadataFromResult?: (
+      result: T | undefined,
+    ) => Partial<AgentActionRecordInput>,
   ): Promise<AgentActionRecordResult<T>> {
     const parsed = agentActionRecordInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
@@ -104,11 +107,15 @@ export class AgentActionLogService {
       data: buildAgentActionLogCreateData(
         parsed,
         { tenantId, traceId },
-        resolveWorkRecordFields(parsed, {
-          failed: false,
-          error: undefined,
-          result: workResult,
-        }),
+        resolveWorkRecordFields(
+          parsed,
+          {
+            failed: false,
+            error: undefined,
+            result: workResult,
+          },
+          metadataFromResult,
+        ),
       ),
     });
 

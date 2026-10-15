@@ -7,6 +7,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { AgentActionLogService } from '../src/agent-action-log/agent-action-log.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   MCP_READ_TOOL_NAMES,
@@ -1352,6 +1353,70 @@ describe('MCP server (e2e)', () => {
     expect(log?.entity_type).toBe('WorkshopOrder');
     expect(log?.entity_id).toBe(order.id);
     expect(log?.reversible).toBe(true);
+  });
+
+  it('AUT-511: rolls back an AUTO draft when the EXECUTED agent action log insert fails', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-atomic-rollback');
+    const notes = `MCP AUT-511 rollback ${Date.now()}`;
+    const traceId = '00000000-0000-4000-8000-000000000511';
+
+    const agentActionLog = app.get(AgentActionLogService);
+    const realRecordInTransaction =
+      agentActionLog.recordInTransaction.bind(agentActionLog);
+    const recordSpy = jest
+      .spyOn(agentActionLog, 'recordInTransaction')
+      .mockImplementation(async (input, tx, work, metadata) => {
+        const inputSummary = input.inputSummary as {
+          tool?: string;
+          args?: { notes?: string };
+        };
+        if (
+          input.status === 'EXECUTED' &&
+          inputSummary.tool === 'draft_workshop_order' &&
+          inputSummary.args?.notes === notes
+        ) {
+          if (work) {
+            await work();
+          }
+          throw new Error('simulated EXECUTED log insert failure');
+        }
+        return realRecordInTransaction(input, tx, work, metadata);
+      });
+
+    try {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-auto-atomic-rollback'),
+        'draft_workshop_order',
+        { ...draftOrderArgs(draftVehicle), notes },
+        traceId,
+      );
+
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toContain(
+        'simulated EXECUTED log insert failure',
+      );
+
+      const orders = await prismaA.workshopOrder.count({
+        where: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          notes,
+        },
+      });
+      expect(orders).toBe(0);
+
+      const executedLogs = await prismaA.agentActionLog.count({
+        where: {
+          trace_id: traceId,
+          action_type: 'mcp.draft_workshop_order',
+          status: 'EXECUTED',
+        },
+      });
+      expect(executedLogs).toBe(0);
+    } finally {
+      recordSpy.mockRestore();
+    }
   });
 
   it('disabled write policy refuses without creating an order and records a REFUSED log', async () => {
