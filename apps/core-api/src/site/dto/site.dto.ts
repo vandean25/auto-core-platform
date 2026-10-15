@@ -147,7 +147,8 @@ export class UpdateLegalEntityDto {
   })
   @IsOptional()
   @IsIn(['OFF', 'UNKNOWN', 'REQUIRED_EXTERNAL_KASSE', 'REQUIRED_ACP_RKSV'])
-  rksvMode?: 'OFF' | 'UNKNOWN' | 'REQUIRED_EXTERNAL_KASSE' | 'REQUIRED_ACP_RKSV';
+  rksvMode?:
+    'OFF' | 'UNKNOWN' | 'REQUIRED_EXTERNAL_KASSE' | 'REQUIRED_ACP_RKSV';
 }
 
 export class LegalEntitySellerReadinessDto {
@@ -340,7 +341,9 @@ export class UpdateSiteFiscalRegisterDto {
   @MaxLength(64)
   providerState?: string;
 
-  @ApiPropertyOptional({ description: 'Opaque GSM secret ref; never the API key.' })
+  @ApiPropertyOptional({
+    description: 'Opaque GSM secret ref; never the API key.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(256)

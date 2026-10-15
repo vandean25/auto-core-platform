@@ -3,7 +3,10 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { SiteModule } from '../site/site.module.js';
 import { CommonModule } from '../common/index.js';
 import { SettlementService } from './settlement.service.js';
-import { SettlementController, FiscalReceiptsController } from './settlement.controller.js';
+import {
+  SettlementController,
+  FiscalReceiptsController,
+} from './settlement.controller.js';
 import { FiskalySignAtFixtureProvider } from './fiskaly-sign-at-fixture.provider.js';
 import { FISKALY_SIGN_AT_PROVIDER } from './fiskaly-sign-at.types.js';
 import { FiskalySignAtHttpAdapter } from './fiskaly-sign-at-http.adapter.js';

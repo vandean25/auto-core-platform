@@ -1,14 +1,16 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { join } from 'node:path';
 import { FakeFiskalySignAtContractServer } from './fiskaly-sign-at-contract.server.js';
 import { FiskalySignAtFixtureProvider } from './fiskaly-sign-at-fixture.provider.js';
 
-const fixtures = JSON.parse(
-  readFileSync(
-    '/workspace/docs/internal/02-Feature-Specs/Finance/at-settlement-rksv.fixtures.json',
-    'utf8',
-  ),
-) as {
+const fixturePath = join(
+  process.cwd(),
+  '../../docs/internal/02-Feature-Specs/Finance/at-settlement-rksv.fixtures.json',
+);
+
+const fixtures = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
+  ids: Record<string, string>;
+  normalBody: Record<string, unknown>;
   cases: Array<{ id: string; providerResponse?: { status: number | null; transport?: string } }>;
 };
 
@@ -23,10 +25,10 @@ describe('FiskalySignAtFixtureProvider', () => {
   });
 
   it('maps success-normal with a single PUT 200 and no GET', async () => {
-    const body = fixtures.normalBody as Record<string, unknown>;
-    const receiptId = fixtures.ids.normalReceiptId as string;
+    const body = fixtures.normalBody;
+    const receiptId = fixtures.ids.normalReceiptId;
     const result = await provider.signReceipt({
-      cashRegisterId: fixtures.ids.cashRegisterId as string,
+      cashRegisterId: fixtures.ids.cashRegisterId,
       receiptId,
       body,
     });
@@ -42,7 +44,7 @@ describe('FiskalySignAtFixtureProvider', () => {
   it('maps rejection-schema as definite 400', async () => {
     server.configure({ putBehavior: 'reject400' });
     const result = await provider.signReceipt({
-      cashRegisterId: fixtures.ids.cashRegisterId as string,
+      cashRegisterId: fixtures.ids.cashRegisterId,
       receiptId: '11111111-2222-4333-8444-555555555556',
       body: { receipt_type: 'NORMAL' },
     });
@@ -55,16 +57,16 @@ describe('FiskalySignAtFixtureProvider', () => {
 
   it('maps timeout-after-possible-acceptance with GET 200 on reconcile', async () => {
     server.configure({ putBehavior: 'timeout_maybe_stored' });
-    const receiptId = fixtures.ids.normalReceiptId as string;
-    const body = fixtures.normalBody as Record<string, unknown>;
+    const receiptId = fixtures.ids.normalReceiptId;
+    const body = fixtures.normalBody;
     const put = await provider.signReceipt({
-      cashRegisterId: fixtures.ids.cashRegisterId as string,
+      cashRegisterId: fixtures.ids.cashRegisterId,
       receiptId,
       body,
     });
     expect(put.kind).toBe('transport');
     const get = await provider.retrieveReceipt({
-      cashRegisterId: fixtures.ids.cashRegisterId as string,
+      cashRegisterId: fixtures.ids.cashRegisterId,
       receiptId,
     });
     expect(get.kind).toBe('http');
@@ -77,15 +79,15 @@ describe('FiskalySignAtFixtureProvider', () => {
   });
 
   it('replay-same-body does not sign twice for the same receipt id', async () => {
-    const receiptId = fixtures.ids.normalReceiptId as string;
-    const body = fixtures.normalBody as Record<string, unknown>;
+    const receiptId = fixtures.ids.normalReceiptId;
+    const body = fixtures.normalBody;
     await provider.signReceipt({
-      cashRegisterId: fixtures.ids.cashRegisterId as string,
+      cashRegisterId: fixtures.ids.cashRegisterId,
       receiptId,
       body,
     });
     await provider.signReceipt({
-      cashRegisterId: fixtures.ids.cashRegisterId as string,
+      cashRegisterId: fixtures.ids.cashRegisterId,
       receiptId,
       body,
     });

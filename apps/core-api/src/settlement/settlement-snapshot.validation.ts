@@ -11,7 +11,9 @@ import { SETTLEMENT_ERROR_CODES } from './settlement.constants.js';
 
 const STANDARD_VAT = '20.00';
 
-export function assertSettlementInvoiceSlice(invoice: Invoice): InvoiceSnapshotV2 {
+export function assertSettlementInvoiceSlice(
+  invoice: Invoice,
+): InvoiceSnapshotV2 {
   if (invoice.status !== InvoiceStatus.ISSUED) {
     throw settlementNotInSlice('Only ISSUED workshop invoices can be settled.');
   }

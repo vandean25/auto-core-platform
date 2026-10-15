@@ -10,7 +10,6 @@ import {
   FiscalReceiptState,
   FiscalReceiptType,
   InvoiceStatus,
-  PaymentMethod,
   PaymentStatus,
   Prisma,
   RksvMode,
@@ -96,13 +95,15 @@ export class SettlementService {
       if (existingByKey.invoice_id !== invoiceId) {
         throw new ConflictException({
           code: SETTLEMENT_ERROR_CODES.IDEMPOTENCY_MISMATCH,
-          message: 'This idempotency key was already used with a different invoice.',
+          message:
+            'This idempotency key was already used with a different invoice.',
         });
       }
       if (existingByKey.request_hash !== requestHash) {
         throw new ConflictException({
           code: SETTLEMENT_ERROR_CODES.IDEMPOTENCY_MISMATCH,
-          message: 'This idempotency key was already used with a different request body.',
+          message:
+            'This idempotency key was already used with a different request body.',
         });
       }
       if (
@@ -115,10 +116,19 @@ export class SettlementService {
             receipt.state === FiscalReceiptState.UNKNOWN,
         );
         if (openReceipt) {
-          await this.syncOpenFiscalReceipt(tenantId, invoiceId, existingByKey, openReceipt);
+          await this.syncOpenFiscalReceipt(
+            tenantId,
+            invoiceId,
+            existingByKey,
+            openReceipt,
+          );
         }
       }
-      const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
+      const invoice = await this.loadInvoiceForSite(
+        tenantId,
+        siteId,
+        invoiceId,
+      );
       const refreshed = await this.prisma.payment.findFirstOrThrow({
         where: { id: existingByKey.id, tenant_id: tenantId },
         include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
@@ -163,7 +173,8 @@ export class SettlementService {
     if (blocking) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,
-        message: 'An open or completed settlement already exists for this invoice.',
+        message:
+          'An open or completed settlement already exists for this invoice.',
       });
     }
 
@@ -226,7 +237,10 @@ export class SettlementService {
     return mapSettlementResponse(invoice, refreshed);
   }
 
-  async cancelFiscalReceipt(fiscalReceiptId: string, dto: CancelFiscalReceiptDto) {
+  async cancelFiscalReceipt(
+    fiscalReceiptId: string,
+    dto: CancelFiscalReceiptDto,
+  ) {
     const { tenantId, siteId } = await this.resolveScope();
     await this.assertSettlementAccess(tenantId, siteId);
 
@@ -252,15 +266,19 @@ export class SettlementService {
     if (original.state !== FiscalReceiptState.SIGNED) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.FISCAL_RECEIPT_UNKNOWN,
-        message: 'Cancellation is not allowed while the original receipt is unfinished.',
+        message:
+          'Cancellation is not allowed while the original receipt is unfinished.',
       });
     }
 
     const existingByCancelKey = original.payment.fiscal_receipts.find(
       (receipt) =>
         receipt.receipt_type === FiscalReceiptType.CANCELLATION &&
-        (receipt.request_body as { metadata?: { acp_idempotency_key?: string } })
-          ?.metadata?.acp_idempotency_key === dto.idempotencyKey,
+        (
+          receipt.request_body as {
+            metadata?: { acp_idempotency_key?: string };
+          }
+        )?.metadata?.acp_idempotency_key === dto.idempotencyKey,
     );
     if (existingByCancelKey) {
       if (
@@ -404,7 +422,7 @@ export class SettlementService {
           legal_entity_id: params.invoice.legal_entity_id!,
           recorded_by_user_id: params.recordedByUserId,
           status: PaymentStatus.SETTLED_EXTERNAL,
-          method: params.dto.method as PaymentMethod,
+          method: params.dto.method,
           amount: params.invoice.total_gross,
           currency: 'EUR',
           idempotency_key: params.dto.idempotencyKey,
@@ -443,7 +461,8 @@ export class SettlementService {
     if (params.dto.externalReceiptNumber || params.dto.externalReceiptDate) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,
-        message: 'External receipt fields are not allowed on the ACP RKSV path.',
+        message:
+          'External receipt fields are not allowed on the ACP RKSV path.',
       });
     }
 
@@ -468,7 +487,7 @@ export class SettlementService {
       invoiceNumber: params.invoice.invoice_number ?? '',
       paymentId,
       grossAmount: params.invoice.total_gross,
-      method: params.dto.method as PaymentMethod,
+      method: params.dto.method,
     });
 
     const allocated = await this.prisma.$transaction(async (tx) => {
@@ -487,7 +506,7 @@ export class SettlementService {
           legal_entity_id: params.invoice.legal_entity_id!,
           recorded_by_user_id: params.recordedByUserId,
           status: PaymentStatus.PENDING,
-          method: params.dto.method as PaymentMethod,
+          method: params.dto.method,
           amount: params.invoice.total_gross,
           currency: 'EUR',
           idempotency_key: params.dto.idempotencyKey,
@@ -548,7 +567,7 @@ export class SettlementService {
     });
 
     if (isProviderHttpSuccess(result)) {
-      assertProductiveReceiptEnv(params.registerEnv, result.body!);
+      assertProductiveReceiptEnv(params.registerEnv, result.body);
       await this.prisma.$transaction(async (tx) => {
         if (params.isCancellation) {
           await markCancellationSignedAndReverse(tx, {
@@ -556,7 +575,7 @@ export class SettlementService {
             invoiceId: params.invoiceId,
             paymentId: params.paymentId,
             fiscalReceiptId: params.fiscalReceiptId,
-            response: result.body!,
+            response: result.body,
             providerHttpStatus: result.status,
             providerRequestId: result.requestId,
           });
@@ -566,7 +585,7 @@ export class SettlementService {
             invoiceId: params.invoiceId,
             paymentId: params.paymentId,
             fiscalReceiptId: params.fiscalReceiptId,
-            response: result.body!,
+            response: result.body,
             providerHttpStatus: result.status,
             providerRequestId: result.requestId,
             providerErrorCode: providerErrorCode(result),
@@ -584,7 +603,8 @@ export class SettlementService {
           fiscalReceiptId: params.fiscalReceiptId,
           response: result.kind === 'http' ? result.body : null,
           providerHttpStatus: result.kind === 'http' ? result.status : 400,
-          providerRequestId: result.kind === 'http' ? result.requestId : undefined,
+          providerRequestId:
+            result.kind === 'http' ? result.requestId : undefined,
           providerErrorCode: providerErrorCode(result),
         });
       });
@@ -636,7 +656,7 @@ export class SettlementService {
     });
 
     if (isProviderHttpSuccess(retrieve)) {
-      assertProductiveReceiptEnv(register.env, retrieve.body!);
+      assertProductiveReceiptEnv(register.env, retrieve.body);
       await this.prisma.$transaction(async (tx) => {
         if (fiscalReceipt.receipt_type === FiscalReceiptType.CANCELLATION) {
           await markCancellationSignedAndReverse(tx, {
@@ -644,7 +664,7 @@ export class SettlementService {
             invoiceId,
             paymentId: payment.id,
             fiscalReceiptId: fiscalReceipt.id,
-            response: retrieve.body!,
+            response: retrieve.body,
             providerHttpStatus: retrieve.status,
             providerRequestId: retrieve.requestId,
           });
@@ -654,7 +674,7 @@ export class SettlementService {
             invoiceId,
             paymentId: payment.id,
             fiscalReceiptId: fiscalReceipt.id,
-            response: retrieve.body!,
+            response: retrieve.body,
             providerHttpStatus: retrieve.status,
             providerRequestId: retrieve.requestId,
           });
@@ -674,7 +694,7 @@ export class SettlementService {
         body: fiscalReceipt.request_body as Record<string, unknown>,
       });
       if (isProviderHttpSuccess(put)) {
-        assertProductiveReceiptEnv(register.env, put.body!);
+        assertProductiveReceiptEnv(register.env, put.body);
         const putRequestId = put.requestId;
         await this.prisma.$transaction(async (tx) => {
           if (fiscalReceipt.receipt_type === FiscalReceiptType.CANCELLATION) {
@@ -683,7 +703,7 @@ export class SettlementService {
               invoiceId,
               paymentId: payment.id,
               fiscalReceiptId: fiscalReceipt.id,
-              response: put.body!,
+              response: put.body,
               providerHttpStatus: put.status,
               providerRequestId: putRequestId,
             });
@@ -693,7 +713,7 @@ export class SettlementService {
               invoiceId,
               paymentId: payment.id,
               fiscalReceiptId: fiscalReceipt.id,
-              response: put.body!,
+              response: put.body,
               providerHttpStatus: put.status,
               providerRequestId: putRequestId,
             });
@@ -748,6 +768,7 @@ export class SettlementService {
     tenantId: string,
     siteId: string,
   ): Promise<void> {
+    // eslint-disable-next-line no-restricted-syntax -- Serialize RKSV signing with tenant-qualified fiscal_registers row lock.
     await tx.$queryRaw`
       SELECT id FROM fiscal_registers
       WHERE tenant_id = ${tenantId} AND site_id = ${siteId}

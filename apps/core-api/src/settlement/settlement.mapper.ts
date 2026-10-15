@@ -49,7 +49,10 @@ function readSignedField(
 export function mapFiscalReceiptSummary(
   receipt: FiscalReceipt,
 ): FiscalReceiptSummaryDto {
-  const body = (receipt.response_body ?? null) as Record<string, unknown> | null;
+  const body = (receipt.response_body ?? null) as Record<
+    string,
+    unknown
+  > | null;
   const hints = readSignedField(body, 'hints');
   return {
     id: receipt.id,

@@ -1,10 +1,7 @@
 import type { FiskalySignAtProviderResult } from './fiskaly-sign-at.types.js';
 
 export type FakePutBehavior =
-  | 'success'
-  | 'reject400'
-  | 'timeout'
-  | 'timeout_maybe_stored';
+  'success' | 'reject400' | 'timeout' | 'timeout_maybe_stored';
 
 type StoredReceipt = {
   body: Record<string, unknown>;
@@ -53,7 +50,11 @@ export class FakeFiskalySignAtContractServer {
     }
   }
 
-  seedReceipt(receiptId: string, body: Record<string, unknown>, response: Record<string, unknown>): void {
+  seedReceipt(
+    receiptId: string,
+    body: Record<string, unknown>,
+    response: Record<string, unknown>,
+  ): void {
     this.store.set(receiptId, {
       body,
       response,
@@ -65,6 +66,7 @@ export class FakeFiskalySignAtContractServer {
     receiptId: string,
     body: Record<string, unknown>,
   ): Promise<FiskalySignAtProviderResult> {
+    await Promise.resolve();
     this.calls.push({ method: 'PUT', receiptId });
 
     if (this.putBehavior === 'reject400') {
@@ -114,7 +116,10 @@ export class FakeFiskalySignAtContractServer {
     };
   }
 
-  async retrieveReceipt(receiptId: string): Promise<FiskalySignAtProviderResult> {
+  async retrieveReceipt(
+    receiptId: string,
+  ): Promise<FiskalySignAtProviderResult> {
+    await Promise.resolve();
     this.calls.push({ method: 'GET', receiptId });
     const stored = this.store.get(receiptId);
     if (!stored) {
@@ -125,7 +130,8 @@ export class FakeFiskalySignAtContractServer {
           status_code: 404,
           error: 'Not Found',
           code: 'E_RECEIPT_NOT_FOUND',
-          message: 'Synthetic illustration. No receipt was stored for this receipt id.',
+          message:
+            'Synthetic illustration. No receipt was stored for this receipt id.',
         },
       };
     }

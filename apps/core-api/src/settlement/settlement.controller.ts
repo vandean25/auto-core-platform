@@ -12,21 +12,27 @@ export class SettlementController {
   constructor(private readonly settlementService: SettlementService) {}
 
   @Get(':id/settlement')
-  @ApiOperation({ summary: 'Get settlement state for an invoice (OWNER/ADMIN)' })
+  @ApiOperation({
+    summary: 'Get settlement state for an invoice (OWNER/ADMIN)',
+  })
   @ApiOkResponse({ description: 'Settlement summary' })
   getSettlement(@Param('id') id: string) {
     return this.settlementService.getSettlement(id);
   }
 
   @Post(':id/settlement')
-  @ApiOperation({ summary: 'Record full settlement for an issued invoice (OWNER/ADMIN)' })
+  @ApiOperation({
+    summary: 'Record full settlement for an issued invoice (OWNER/ADMIN)',
+  })
   @ApiOkResponse({ description: 'Settlement result' })
   recordSettlement(@Param('id') id: string, @Body() dto: RecordSettlementDto) {
     return this.settlementService.recordSettlement(id, dto);
   }
 
   @Post(':id/settlement/reconcile')
-  @ApiOperation({ summary: 'Reconcile PENDING/UNKNOWN fiscal receipt (OWNER/ADMIN)' })
+  @ApiOperation({
+    summary: 'Reconcile PENDING/UNKNOWN fiscal receipt (OWNER/ADMIN)',
+  })
   @ApiOkResponse({ description: 'Settlement after reconcile' })
   reconcileSettlement(
     @Param('id') id: string,
