@@ -374,8 +374,8 @@
     "section": "nova",
     "requiredness": "review",
     "source": "tariff_selection_date",
-    "missing": "RECHTSLAGE_UNMATCHED",
-    "conflict": "Zero or two matching pinned options → value null and AMBIGUOUS_RECHTSLAGE or RECHTSLAGE_UNMATCHED."
+    "missing": "Zero matches: value null and RECHTSLAGE_UNMATCHED.",
+    "conflict": "Two matches: value null and AMBIGUOUS_RECHTSLAGE."
   },
   {
     "name": "form_artkraftfahrzeug",
@@ -411,7 +411,7 @@
     "requiredness": "review_when_scaled",
     "source": "confirmation_scaled_malus",
     "missing": "COMPONENT_MISMATCH",
-    "conflict": "roundMoneyEuro(malusGrossEuro * factor). Unset when the cent difference does not equal fixedAfterDevelopmentEuro."
+    "conflict": "roundMoneyEuro(malusGrossEuro * unreduced numerator / denominator). Unset when the cent difference does not equal fixedAfterDevelopmentEuro."
   },
   {
     "name": "form_co2bonus",
@@ -447,7 +447,7 @@
     "requiredness": "review_when_scaled",
     "source": "confirmation_scaled_deduction",
     "missing": "COMPONENT_MISMATCH",
-    "conflict": "roundMoneyEuro(deductionGrossEuro * factor), positive euros. Same mismatch rule as form_co2malus."
+    "conflict": "roundMoneyEuro(deductionGrossEuro * unreduced numerator / denominator), positive euros. Same mismatch rule as form_co2malus."
   },
   {
     "name": "form_abh",

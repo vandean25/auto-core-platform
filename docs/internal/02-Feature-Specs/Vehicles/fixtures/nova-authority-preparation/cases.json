@@ -59,21 +59,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 50,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 0,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 1
+              "numerator": 20000,
+              "denominator": 20000
             },
+            "fixedAfterDevelopmentEuro": 50,
             "valueBasis": "known_new_net"
           }
         }
@@ -233,21 +244,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 25,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 2,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 2
+              "numerator": 20000,
+              "denominator": 40000
             },
+            "fixedAfterDevelopmentEuro": 25,
             "valueBasis": "known_new_net"
           }
         }
@@ -320,21 +342,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 50,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 0,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 1
+              "numerator": 20000,
+              "denominator": 20000
             },
+            "fixedAfterDevelopmentEuro": 50,
             "valueBasis": "known_new_net"
           }
         }
@@ -429,21 +462,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 50,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 0,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 1
+              "numerator": 20000,
+              "denominator": 20000
             },
+            "fixedAfterDevelopmentEuro": 50,
             "valueBasis": "known_new_net"
           }
         }
@@ -529,21 +573,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 50,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 0,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 1
+              "numerator": 20000,
+              "denominator": 20000
             },
+            "fixedAfterDevelopmentEuro": 50,
             "valueBasis": "known_new_net"
           }
         }
@@ -631,21 +686,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 50,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 0,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 1
+              "numerator": 20000,
+              "denominator": 20000
             },
+            "fixedAfterDevelopmentEuro": 50,
             "valueBasis": "known_new_net"
           }
         }
@@ -733,21 +799,32 @@
           "tariffVersionId": "at-m1-2024",
           "tariffSelectionBasis": "first_eu_registration",
           "tariffSelectionDate": "2024-06-01",
-          "ratePercentApplied": 13,
-          "effectiveCo2GramsPerKm": 160,
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
           "warnings": [],
           "hasUnverifiedRules": false,
           "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
           "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
             "malusGrossEuro": 400,
             "deductionGrossEuro": 350,
             "fixedBeforeDevelopmentEuro": 50,
-            "fixedAfterDevelopmentEuro": 50,
-            "baseAmountEuro": 2600,
+            "fullYearsElapsed": 0,
             "valueDevelopmentFactor": {
-              "numerator": 1,
-              "denominator": 1
+              "numerator": 20000,
+              "denominator": 20000
             },
+            "fixedAfterDevelopmentEuro": 50,
             "valueBasis": "known_new_net"
           }
         }

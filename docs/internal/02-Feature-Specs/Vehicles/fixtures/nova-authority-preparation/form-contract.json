@@ -6,8 +6,6 @@
   "dokFid": 7888,
   "formName": "NoVA 2",
   "formTitle": "NoVA 2 - Erklärung über die Normverbrauchsabgabe/den Erwerb neuer Fahrzeuge (Fahrzeugeinzelbesteuerung)",
-  "scriptCacheToken": "90851060",
-  "scriptCacheTokenMeaning": "Query token on the form's script URLs at retrieval. Not a published form version.",
   "explanations": {
     "name": "NoVA 2a",
     "versionLabel": "Version vom 01.07.2026",
@@ -295,6 +293,7 @@
   "notes": [
     "Periods are the option list observed in the DOK form script on 2026-10-15. They are not a second NoVA calculator.",
     "Counter 15 is labeled 01.01.2016 - 31.12.2019 and counter 10 ends 28.12.2011. Those strings are copied as observed.",
-    "Runtime code must not fetch FormServlet or JsonServlet."
+    "Runtime code must not fetch FormServlet or JsonServlet.",
+    "A _no_cache query on the DOK script URLs changes between fetches and is not part of this contract."
   ]
 }
