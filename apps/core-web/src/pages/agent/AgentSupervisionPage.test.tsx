@@ -1311,6 +1311,30 @@ describe('AgentSupervisionPage', () => {
       ).toBeInTheDocument()
     })
 
+    it('shows inbox clear when triage lists a proposal that was decided before details load', () => {
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
+        data: { data: [] },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: triageItemsFromProposals([mockProposals[0]]),
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      expect(screen.queryByTestId('approvals-proposals-error-state')).not.toBeInTheDocument()
+      expect(screen.getByTestId('approvals-empty-state')).toBeInTheDocument()
+      expect(screen.getByText(/Supervision inbox is clear/i)).toBeInTheDocument()
+    })
+
     it('does not show inbox clear when only pending proposals fail to load', () => {
       vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: undefined,

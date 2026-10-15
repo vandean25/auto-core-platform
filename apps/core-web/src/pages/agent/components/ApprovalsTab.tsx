@@ -162,16 +162,11 @@ export function ApprovalsTab({
       })
     : proposals.map((proposal) => ({ type: 'proposal' as const, proposal }))
 
-  const pendingProposalBodiesMissing =
-    pendingOnly &&
-    pendingApprovalIds.some((id) => !proposalById.has(id))
-
   const showEmptyInboxState =
     !isLoading &&
     !isError &&
     displayRows.length === 0 &&
-    !(pendingOnly && proposalsError) &&
-    !pendingProposalBodiesMissing
+    !(pendingOnly && proposalsError)
 
   const resolveTriageReasonLabel = (reason: string) => {
     const copy = t.triageReason[reason as keyof typeof t.triageReason]
