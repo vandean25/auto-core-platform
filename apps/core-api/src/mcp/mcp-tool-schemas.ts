@@ -557,10 +557,7 @@ export const getNovaPreviewInputSchema = z.object({
 
 /** AUT-512 workshop slot availability for the active site (read-only snapshot). */
 export const listWorkshopSlotsInputSchema = z.object({
-  from: z
-    .string()
-    .min(1)
-    .describe('Range start as an ISO-8601 UTC instant'),
+  from: z.string().min(1).describe('Range start as an ISO-8601 UTC instant'),
   to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
   duration_minutes: z
     .number()
@@ -579,10 +576,7 @@ export const listWorkshopSlotsInputSchema = z.object({
 
 /** AUT-512 loaner fleet availability for the active site (read-only snapshot). */
 export const listAvailableLoanersInputSchema = z.object({
-  from: z
-    .string()
-    .min(1)
-    .describe('Range start as an ISO-8601 UTC instant'),
+  from: z.string().min(1).describe('Range start as an ISO-8601 UTC instant'),
   to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
   pageSize: reportPageSizeSchema,
   cursor: offsetCursorSchema

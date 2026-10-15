@@ -152,6 +152,14 @@ export class WorkshopPlannerService {
           bay_id: true,
           mechanic_id: true,
           mechanic: { select: { name: true } },
+          customer: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              company_name: true,
+            },
+          },
           scheduled_start_at: true,
           scheduled_end_at: true,
           vehicle: {

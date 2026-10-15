@@ -46,7 +46,10 @@ export function halfOpenOverlaps(a: TimeWindow, b: TimeWindow): boolean {
 
 function isBookable(
   order: PlannerBookableOrder,
-): order is PlannerBookableOrder & { bay_id: string; vehicle: NonNullable<PlannerBookableOrder['vehicle']> } {
+): order is PlannerBookableOrder & {
+  bay_id: string;
+  vehicle: NonNullable<PlannerBookableOrder['vehicle']>;
+} {
   return Boolean(order.bay_id && order.vehicle);
 }
 
@@ -151,11 +154,7 @@ export function findWorkshopSlots(
     input.holidays,
     input.openingHours,
   );
-  const todayWindow = syntheticWindow(
-    input.timeZone,
-    todayLocal,
-    todayHours,
-  );
+  const todayWindow = syntheticWindow(input.timeZone, todayLocal, todayHours);
 
   const occupanciesByBay = new Map<string, TimeWindow[]>();
   for (const order of input.orders) {
