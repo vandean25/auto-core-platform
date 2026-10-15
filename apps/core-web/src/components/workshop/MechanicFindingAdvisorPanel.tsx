@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { fetchWithAuth } from '@/api/client'
-import { createHttpError } from '@/lib/error-utils'
+import { createHttpError, getErrorMessage } from '@/lib/error-utils'
 
 export type WorkshopMechanicFinding = {
   proposal_id: string
@@ -20,7 +20,8 @@ async function fetchMechanicFindings(orderId: string): Promise<WorkshopMechanicF
     `/api/workshop/orders/${encodeURIComponent(orderId)}/mechanic-findings`,
   )
   if (!response.ok) {
-    throw await createHttpError(response, 'Failed to load mechanic findings')
+    const message = await getErrorMessage(response, 'Failed to load mechanic findings')
+    throw createHttpError(message, response.status)
   }
   const body = (await response.json()) as { data: WorkshopMechanicFinding[] }
   return body.data

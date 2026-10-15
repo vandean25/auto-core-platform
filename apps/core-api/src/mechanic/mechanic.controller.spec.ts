@@ -19,6 +19,7 @@ import { MechanicIdentityService } from './mechanic-identity.service.js';
 import { MechanicMediaService } from './mechanic-media.service.js';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
 import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
+import { MechanicFindingService } from './mechanic-finding.service.js';
 
 const MECHANIC_ID = '11111111-1111-1111-1111-111111111111';
 const TASK_ID = '22222222-2222-2222-2222-222222222222';
@@ -62,6 +63,9 @@ describe('MechanicController', () => {
     getTaskChecklist: jest.fn(),
     updateTaskChecklist: jest.fn(),
   };
+  const mockFindingService = {
+    submitFinding: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -72,6 +76,7 @@ describe('MechanicController', () => {
         { provide: MechanicMediaService, useValue: mockMechanicService },
         { provide: MechanicVoiceNoteService, useValue: mockMechanicService },
         { provide: WorkshopInspectionService, useValue: mockInspectionService },
+        { provide: MechanicFindingService, useValue: mockFindingService },
       ],
     }).compile();
 
