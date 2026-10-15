@@ -76,6 +76,18 @@ export class VehicleController {
             {
               type: 'object',
               properties: {
+                importMode: { type: 'string', enum: ['eu_used_m1'] },
+              },
+              required: ['importMode'],
+            },
+          ],
+        },
+        {
+          allOf: [
+            { $ref: getSchemaPath(NovaCalculateRequestDto) },
+            {
+              type: 'object',
+              properties: {
                 emissionCycle: { type: 'string', enum: ['WLTP', 'NEDC'] },
                 driveType: {
                   type: 'string',

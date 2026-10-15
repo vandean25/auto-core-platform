@@ -68,19 +68,22 @@ export class NovaCalculateRequestDto {
   @IsEnum(IMPORT_MODES)
   importMode?: NovaImportMode;
 
-  @ApiPropertyOptional({ enum: VALUE_BASIS_OPTIONS })
+  @ApiPropertyOptional({
+    description:
+      'Wertentwicklung basis; service accepts known_new_net or achtelung',
+  })
   @ValidateIf(
     (_request: NovaCalculateRequestDto, value: unknown) => value !== undefined,
   )
-  @IsEnum(VALUE_BASIS_OPTIONS)
-  valueBasis?: (typeof VALUE_BASIS_OPTIONS)[number];
+  @IsString()
+  valueBasis?: string;
 
   @ApiPropertyOptional({ minimum: 0 })
   @ValidateIf(
     (_request: NovaCalculateRequestDto, value: unknown) => value !== undefined,
   )
   @Transform(({ value }: { value: unknown }) => transformNumericInput(value))
-  @IsNumber({ allowNaN: false, allowInfinity: false })
+  @IsNumber({ allowNaN: true, allowInfinity: true })
   originalNewNetEuro?: number;
 
   @ApiPropertyOptional({ enum: EMISSION_CYCLES })
@@ -107,7 +110,8 @@ export class NovaCalculateRequestDto {
   @ValidateIf(
     (request: NovaCalculateRequestDto) =>
       requiresBodyCalculationFields(request) ||
-      (!!request.vehicleId && request.taxableEventDate !== undefined),
+      (!!request.vehicleId && request.taxableEventDate !== undefined) ||
+      (isEuUsedM1Request(request) && request.taxableEventDate !== undefined),
   )
   @IsString()
   taxableEventDate?: string;

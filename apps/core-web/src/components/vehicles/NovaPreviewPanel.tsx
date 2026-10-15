@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNovaCalculate } from '@/api/nova'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,20 +15,14 @@ type NovaPreviewPanelProps = {
   initialNetPriceEuro?: number | string | null
 }
 
+type PreviewMode = 'v1' | 'eu_used_m1_2024'
+
 function display(value: string | number | null): string | number {
   return value ?? '—'
 }
 
-function isEuM1Slice2024Candidate(firstRegistrationDate: string | null): boolean {
-  if (!firstRegistrationDate) return false
-  return firstRegistrationDate >= '2024-01-01' && firstRegistrationDate <= '2024-12-31'
-}
-
-function currentViennaIsoDate(): string {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Vienna' }).format(
-    new Date(),
-  )
-}
+const EU_SLICE_LEGAL_BASIS =
+  'Rechtsgrundlage: direkter EU/EWR-Gebrauchtimport M1 (Slice EU-M1-2024). Erstzulassung in der EU/EWR im Kalenderjahr 2024; Steuerereignis ab dieser Erstzulassung bis 31.12.2026. Tarif nach EU-Erstzulassung (at-m1-2024), Wertentwicklung nach Ihrer Angabe. Diese Vorschau ist keine NoVA-Anmeldung und kein FinanzOnline-Export.'
 
 export function NovaPreviewPanel({
   vehicleId,
@@ -39,9 +33,11 @@ export function NovaPreviewPanel({
   novaClass,
   initialNetPriceEuro,
 }: NovaPreviewPanelProps) {
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('v1')
   const [netPrice, setNetPrice] = useState(
     initialNetPriceEuro == null ? '' : String(initialNetPriceEuro),
   )
+  const [taxableEventDate, setTaxableEventDate] = useState('')
   const [valueBasis, setValueBasis] = useState<'achtelung' | 'known_new_net'>(
     'achtelung',
   )
@@ -49,18 +45,12 @@ export function NovaPreviewPanel({
   const [hasCurrentCalculation, setHasCurrentCalculation] = useState(false)
   const { mutate, reset, data, error, isPending } = useNovaCalculate()
 
-  const euSliceMode = useMemo(
-    () =>
-      isEuM1Slice2024Candidate(firstRegistrationDate) &&
-      co2Wltp !== null &&
-      Number.isInteger(co2Wltp),
-    [firstRegistrationDate, co2Wltp],
-  )
-
   useEffect(() => {
     setHasCurrentCalculation(false)
     reset()
+    setPreviewMode('v1')
     setNetPrice(initialNetPriceEuro == null ? '' : String(initialNetPriceEuro))
+    setTaxableEventDate('')
     setValueBasis('achtelung')
     setOriginalNewNet('')
   }, [
@@ -73,10 +63,20 @@ export function NovaPreviewPanel({
     initialNetPriceEuro,
     reset,
   ])
+
   const netPriceEuro = Number(netPrice)
   const originalNewNetEuro = Number(originalNewNet)
   const canCalculate =
     netPrice.trim() !== '' && Number.isFinite(netPriceEuro) && netPriceEuro >= 0
+  const euSliceReady =
+    previewMode !== 'eu_used_m1_2024' ||
+    (taxableEventDate.trim() !== '' &&
+      co2Wltp !== null &&
+      Number.isInteger(co2Wltp) &&
+      (valueBasis !== 'known_new_net' ||
+        (originalNewNet.trim() !== '' &&
+          Number.isFinite(originalNewNetEuro) &&
+          originalNewNetEuro > 0)))
   const knownNewNetReady =
     valueBasis !== 'known_new_net' ||
     (originalNewNet.trim() !== '' &&
@@ -97,13 +97,43 @@ export function NovaPreviewPanel({
           <div>Typenschein-Nr.: {display(typenscheinNo)}</div>
           <div>NoVA-Klasse: {display(novaClass)}</div>
         </div>
-        {euSliceMode ? (
-          <p className="mt-2 text-xs text-slate-600" role="note">
-            Rechtsgrundlage: EU-M1-Gebrauchtimport 2024 (Slice EU-M1-2024) – Tarif nach
-            EU-Erstzulassung, Wertentwicklung nach Angabe.
-          </p>
-        ) : null}
       </div>
+
+      <fieldset className="space-y-2 text-sm">
+        <legend className="text-slate-600">Vorschau-Modus</legend>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name="nova-preview-mode"
+            checked={previewMode === 'v1'}
+            onChange={() => {
+              setPreviewMode('v1')
+              setHasCurrentCalculation(false)
+              reset()
+            }}
+          />
+          <span>Standard-Vorschau (Steuerereignis = heute, Tarif nach Ereignisdatum)</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            name="nova-preview-mode"
+            checked={previewMode === 'eu_used_m1_2024'}
+            onChange={() => {
+              setPreviewMode('eu_used_m1_2024')
+              setHasCurrentCalculation(false)
+              reset()
+            }}
+          />
+          <span>EU-M1-Gebrauchtimport 2024 (explizit; kein automatischer Wechsel)</span>
+        </label>
+      </fieldset>
+
+      {previewMode === 'eu_used_m1_2024' ? (
+        <p className="text-xs text-slate-600" role="note">
+          {EU_SLICE_LEGAL_BASIS}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-48 space-y-1 text-sm">
@@ -121,8 +151,21 @@ export function NovaPreviewPanel({
             }}
           />
         </label>
-        {euSliceMode ? (
+        {previewMode === 'eu_used_m1_2024' ? (
           <>
+            <label className="min-w-48 space-y-1 text-sm">
+              <span className="text-slate-600">Steuerereignis (Datum)</span>
+              <Input
+                aria-label="Steuerereignis"
+                type="date"
+                value={taxableEventDate}
+                onChange={(event) => {
+                  setTaxableEventDate(event.target.value)
+                  setHasCurrentCalculation(false)
+                  reset()
+                }}
+              />
+            </label>
             <label className="min-w-48 space-y-1 text-sm">
               <span className="text-slate-600">Wertentwicklung</span>
               <select
@@ -162,12 +205,16 @@ export function NovaPreviewPanel({
           type="button"
           variant="outline"
           disabled={
-            !vehicleId || !canCalculate || !knownNewNetReady || isPending
+            !vehicleId ||
+            !canCalculate ||
+            !euSliceReady ||
+            !knownNewNetReady ||
+            isPending
           }
           onClick={() => {
             reset()
             setHasCurrentCalculation(true)
-            if (euSliceMode) {
+            if (previewMode === 'eu_used_m1_2024') {
               mutate({
                 vehicleId,
                 netPriceEuro,
@@ -176,7 +223,7 @@ export function NovaPreviewPanel({
                 driveType: 'ICE',
                 emissionCycle: 'WLTP',
                 co2GramsPerKm: co2Wltp!,
-                taxableEventDate: currentViennaIsoDate(),
+                taxableEventDate,
                 valueBasis,
                 ...(valueBasis === 'known_new_net'
                   ? { originalNewNetEuro }
@@ -243,6 +290,11 @@ export function NovaPreviewPanel({
           {data.hasUnverifiedRules ? (
             <p className="text-sm font-medium text-amber-800">
               Vorschau - Steuerberater-Bestätigung ausstehend
+            </p>
+          ) : null}
+          {previewMode === 'eu_used_m1_2024' ? (
+            <p className="text-xs text-slate-600" role="status">
+              {EU_SLICE_LEGAL_BASIS}
             </p>
           ) : null}
         </div>

@@ -1,10 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { UnprocessableEntityException } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { Test, TestingModule } from '@nestjs/testing';
+import { createGlobalValidationPipe } from '../common/validation.pipe.js';
 import { roundMoneyEuro } from './rounding.js';
-import { calculateEuUsedM1Slice2024 } from './calculate-eu-used-m1-2024.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -44,11 +45,10 @@ const MONEY_FIELDS = new Set([
   'fixedAfterDevelopmentEuro',
 ]);
 
+const validationPipe = createGlobalValidationPipe();
+
 function roundMoneyDeep(value: unknown): unknown {
   if (value === null || value === undefined) return value;
-  if (typeof value === 'number' && MONEY_FIELDS.has('')) {
-    return value;
-  }
   if (Array.isArray(value)) {
     return value.map((entry) => roundMoneyDeep(entry));
   }
@@ -139,6 +139,15 @@ function assertMustNot(
   }
 }
 
+async function validateHttpBody(
+  request: Record<string, unknown>,
+): Promise<NovaCalculateRequestDto> {
+  return validationPipe.transform(request, {
+    type: 'body',
+    metatype: NovaCalculateRequestDto,
+  }) as Promise<NovaCalculateRequestDto>;
+}
+
 describe('nova-eu-used-import cases.json', () => {
   let service: NovaCalculationService;
   const prisma = { vehicle: { findFirst: jest.fn() } };
@@ -176,27 +185,40 @@ describe('nova-eu-used-import cases.json', () => {
           });
         }
 
-        if (caseRow.expected.httpStatus === 400) {
-          const dto = plainToInstance(NovaCalculateRequestDto, caseRow.request);
-          const errors = validateSync(dto);
-          expect(errors.length).toBeGreaterThan(0);
-          return;
-        }
+        if (caseRow.harness === 'http-body') {
+          if (caseRow.expected.httpStatus === 400) {
+            await expect(validateHttpBody(caseRow.request)).rejects.toBeDefined();
+            if (caseRow.expected.mustNot) {
+              assertMustNot({}, caseRow.expected.mustNot);
+            }
+            return;
+          }
 
-        if (
-          caseRow.harness === 'http-body' &&
-          !caseRow.request.vehicleId &&
-          caseRow.expected.httpStatus === 200
-        ) {
-          const pure = calculateEuUsedM1Slice2024(
-            caseRow.request as Parameters<typeof calculateEuUsedM1Slice2024>[0],
-          );
+          const dto = await validateHttpBody(caseRow.request);
+          expect(validateSync(dto)).toEqual([]);
+
+          if (caseRow.expected.httpStatus === 422) {
+            try {
+              await service.calculate(dto);
+              throw new Error('expected 422');
+            } catch (error) {
+              expect(error).toBeInstanceOf(UnprocessableEntityException);
+              const response = (error as UnprocessableEntityException).getResponse() as Record<
+                string,
+                unknown
+              >;
+              expect(response).toMatchObject(caseRow.expected.error);
+              expect(response).not.toHaveProperty('novaAmountEuro');
+              if (caseRow.expected.mustNot) {
+                assertMustNot(response, caseRow.expected.mustNot);
+              }
+            }
+            return;
+          }
+
+          const result = await service.calculate(dto);
+          const actualBody = normalizeSuccessBody({ ...result });
           const expectedBody = normalizeSuccessBody(caseRow.expected.body);
-          const actualBody = normalizeSuccessBody({
-            ...pure,
-            hasUnverifiedRules: false,
-            hasScopeLimitations: false,
-          });
           expect(pickExpectedShape(actualBody, expectedBody)).toEqual(
             expectedBody,
           );
@@ -212,24 +234,76 @@ describe('nova-eu-used-import cases.json', () => {
           );
 
         if (caseRow.expected.httpStatus === 422) {
-          await expect(run()).rejects.toMatchObject({
-            response: caseRow.expected.error,
-          });
+          try {
+            await run();
+            throw new Error('expected 422');
+          } catch (error) {
+            expect(error).toBeInstanceOf(UnprocessableEntityException);
+            const response = (error as UnprocessableEntityException).getResponse() as Record<
+              string,
+              unknown
+            >;
+            expect(response).toMatchObject(caseRow.expected.error);
+            expect(response).not.toHaveProperty('novaAmountEuro');
+            if (caseRow.expected.mustNot) {
+              assertMustNot(response, caseRow.expected.mustNot);
+            }
+          }
           return;
         }
 
         const result = await run();
-        const actualBody = normalizeSuccessBody({
-          ...result,
-        });
+        const actualBody = normalizeSuccessBody({ ...result });
         const expectedBody = normalizeSuccessBody(caseRow.expected.body);
-        expect(pickExpectedShape(actualBody, expectedBody)).toEqual(
-          expectedBody,
-        );
+        expect(pickExpectedShape(actualBody, expectedBody)).toEqual(expectedBody);
         if (caseRow.expected.mustNot) {
           assertMustNot(actualBody, caseRow.expected.mustNot);
         }
       });
     },
   );
+});
+
+describe('eu_used_m1 originalNewNetEuro validation', () => {
+  let service: NovaCalculationService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        NovaCalculationService,
+        { provide: PrismaService, useValue: { vehicle: { findFirst: jest.fn() } } },
+        {
+          provide: TenantContextService,
+          useValue: { getTenantId: jest.fn().mockResolvedValue('tenant-1') },
+        },
+        {
+          provide: SiteContextService,
+          useValue: { tryGetSite: jest.fn().mockResolvedValue({ id: 'site-1' }) },
+        },
+      ],
+    }).compile();
+    service = module.get(NovaCalculationService);
+  });
+
+  it('maps non-finite originalNewNetEuro to MISSING_ORIGINAL_NEW_NET', async () => {
+    const dto = await validateHttpBody({
+      importMode: 'eu_used_m1',
+      vehicleClass: 'passenger_z3',
+      driveType: 'ICE',
+      emissionCycle: 'WLTP',
+      co2GramsPerKm: 160,
+      firstRegistrationDate: '2024-06-01',
+      taxableEventDate: '2026-06-01',
+      netPriceEuro: 20_000,
+      valueBasis: 'known_new_net',
+      originalNewNetEuro: Number.NaN,
+    });
+
+    await expect(service.calculate(dto)).rejects.toMatchObject({
+      response: {
+        code: 'MISSING_ORIGINAL_NEW_NET',
+        message: 'known_new_net requires originalNewNetEuro greater than zero',
+      },
+    });
+  });
 });

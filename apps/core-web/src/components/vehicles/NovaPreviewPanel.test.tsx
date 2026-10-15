@@ -187,6 +187,47 @@ describe('NovaPreviewPanel', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('sends eu_used_m1 only when the user explicitly selects the 2024 slice mode', () => {
+    render(
+      <NovaPreviewPanel
+        vehicleId="vehicle-1"
+        firstRegistrationDate="2024-06-01"
+        co2Wltp={160}
+        co2Nedc={null}
+        typenscheinNo="TS-1"
+        novaClass="STANDARD"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('NoVA-Netto-Preis'), {
+      target: { value: '20000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'NoVA berechnen' }))
+
+    expect(calculate).toHaveBeenCalledWith({
+      vehicleId: 'vehicle-1',
+      netPriceEuro: 20000,
+    })
+
+    fireEvent.click(screen.getByRole('radio', { name: /EU-M1-Gebrauchtimport 2024/ }))
+    fireEvent.change(screen.getByLabelText('Steuerereignis'), {
+      target: { value: '2026-06-01' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'NoVA berechnen' }))
+
+    expect(calculate).toHaveBeenLastCalledWith({
+      vehicleId: 'vehicle-1',
+      netPriceEuro: 20000,
+      importMode: 'eu_used_m1',
+      vehicleClass: 'passenger_z3',
+      driveType: 'ICE',
+      emissionCycle: 'WLTP',
+      co2GramsPerKm: 160,
+      taxableEventDate: '2026-06-01',
+      valueBasis: 'achtelung',
+    })
+  })
+
   it('shows a missing CO2 hint without raising a toast', () => {
     useNovaCalculate.mockReturnValue({
       mutate: calculate,

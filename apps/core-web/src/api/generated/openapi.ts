@@ -7562,8 +7562,8 @@ export interface components {
             co2GramsPerKm?: number;
             /** @enum {string} */
             importMode?: "eu_used_m1" | "third_country" | "previously_exempt";
-            /** @enum {string} */
-            valueBasis?: "known_new_net" | "achtelung";
+            /** @description Wertentwicklung basis; service accepts known_new_net or achtelung */
+            valueBasis?: string;
             originalNewNetEuro?: number;
             /** @enum {string} */
             emissionCycle?: "WLTP" | "NEDC";
@@ -14778,6 +14778,9 @@ export interface operations {
                 "application/json": (components["schemas"]["NovaCalculateRequestDto"] & {
                     /** Format: uuid */
                     vehicleId: string;
+                }) | (components["schemas"]["NovaCalculateRequestDto"] & {
+                    /** @enum {string} */
+                    importMode: "eu_used_m1";
                 }) | (components["schemas"]["NovaCalculateRequestDto"] & {
                     /** @enum {string} */
                     emissionCycle: "WLTP" | "NEDC";

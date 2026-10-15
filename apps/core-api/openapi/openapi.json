@@ -8575,6 +8575,27 @@
                       {
                         "type": "object",
                         "properties": {
+                          "importMode": {
+                            "type": "string",
+                            "enum": [
+                              "eu_used_m1"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "importMode"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/NovaCalculateRequestDto"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
                           "emissionCycle": {
                             "type": "string",
                             "enum": [
@@ -25379,10 +25400,7 @@
           },
           "valueBasis": {
             "type": "string",
-            "enum": [
-              "known_new_net",
-              "achtelung"
-            ]
+            "description": "Wertentwicklung basis; service accepts known_new_net or achtelung"
           },
           "originalNewNetEuro": {
             "type": "number",
