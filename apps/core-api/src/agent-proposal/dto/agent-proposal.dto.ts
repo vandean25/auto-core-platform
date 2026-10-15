@@ -46,11 +46,14 @@ export class QueryAgentProposalsDto {
       'When set, return only proposals with these IDs (still tenant-scoped)',
   })
   @IsOptional()
-  @Transform(({ value }) => {
+  @Transform(({ value }: { value: unknown }) => {
     if (value === undefined || value === null || value === '') {
       return undefined;
     }
-    return Array.isArray(value) ? value : [value];
+    if (Array.isArray(value)) {
+      return value as string[];
+    }
+    return [value] as string[];
   })
   @IsArray()
   @ArrayMaxSize(100)

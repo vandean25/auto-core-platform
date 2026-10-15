@@ -69,10 +69,7 @@ export class AgentSupervisionTriageService {
     const [overdue, customerWaiting, pendingApproval] = await Promise.all([
       this.loanerVehicles.listOverdueTriageCandidates(tenantId, siteIds),
       this.proposalReads.listCustomerWaitingTriageCandidates(tenantId, siteIds),
-      this.proposalReads.listPendingApprovalTriageCandidates(
-        tenantId,
-        siteIds,
-      ),
+      this.proposalReads.listPendingApprovalTriageCandidates(tenantId, siteIds),
     ]);
 
     return [...overdue, ...customerWaiting, ...pendingApproval];

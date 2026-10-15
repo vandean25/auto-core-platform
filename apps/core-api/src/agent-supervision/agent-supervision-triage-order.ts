@@ -147,7 +147,7 @@ export function paginateSupervisionTriageCandidates(
   const page = sorted.slice(offset, offset + limit);
   const next_cursor =
     offset + page.length < sorted.length
-      ? encodeSupervisionTriageCursor(page[page.length - 1]!)
+      ? encodeSupervisionTriageCursor(page[page.length - 1])
       : null;
   return { page, next_cursor };
 }

@@ -64,10 +64,9 @@ export class AgentProposalReadService {
       orderBy: {
         createdAt: 'desc',
       },
-      take:
-        query.ids?.length
-          ? Math.min(query.ids.length, query.limit ?? query.ids.length)
-          : (query.limit ?? 50),
+      take: query.ids?.length
+        ? Math.min(query.ids.length, query.limit ?? query.ids.length)
+        : (query.limit ?? 50),
     });
 
     const workshopOrderSummaries = await this.loadWorkshopOrderSummaries(
