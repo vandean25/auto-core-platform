@@ -6,7 +6,9 @@ import { useInvoiceCreditContext } from '@/api/useCreditNotes'
 import { useWorkshopOrder } from '@/api/workshop'
 import type { InvoiceItem, WorkshopTask } from '@/api/types'
 import { CreateCreditNoteDialog } from '@/components/finance/CreateCreditNoteDialog'
+import { InvoiceSettlementActions } from '@/components/finance/InvoiceSettlementActions'
 import { InvoiceSettlementPanel } from '@/components/finance/InvoiceSettlementPanel'
+import { useInvoiceSettlement } from '@/api/useInvoiceSettlement'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -142,6 +144,7 @@ export default function InvoiceDetailPage() {
   const sessionQuery = useAuthSession()
   const canManageCreditNote = canManageCreditNotes(sessionQuery.data?.activeRole)
   const { data: invoice, isLoading, isError, error } = useInvoice(id)
+  const { data: settlement } = useInvoiceSettlement(id || undefined)
   useDocumentTitle(invoice?.invoice_number)
   usePageBreadcrumbs({ listPath: APP_ROUTE_PATHS.salesInvoices, currentLabel: invoice?.invoice_number ?? 'Invoice' })
   const { data: creditContext } = useInvoiceCreditContext(
@@ -320,7 +323,15 @@ export default function InvoiceDetailPage() {
               Credit notes can only be issued by OWNER or ADMIN.
             </p>
           ) : null}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-start justify-end gap-2">
+          {invoice.workshop_order_id &&
+          (invoice.status === 'ISSUED' || invoice.status === 'PAID') ? (
+            <InvoiceSettlementActions
+              invoiceId={invoice.id}
+              invoiceStatus={invoice.status}
+              canManage={canManageCreditNote}
+            />
+          ) : null}
           {canCreateCreditNote ? (
             <Button variant="outline" onClick={() => setCreditDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
@@ -342,10 +353,9 @@ export default function InvoiceDetailPage() {
       {invoice.workshop_order_id &&
       (invoice.status === 'ISSUED' || invoice.status === 'PAID') ? (
         <InvoiceSettlementPanel
-          invoiceId={invoice.id}
-          invoiceStatus={invoice.status}
           totalGross={toNumber(invoice.total_gross)}
-          canManage={canManageCreditNote}
+          payment={settlement?.payment}
+          rksvMode={settlement?.rksvMode}
         />
       ) : null}
 

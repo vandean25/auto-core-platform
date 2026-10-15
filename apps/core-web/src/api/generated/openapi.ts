@@ -9102,6 +9102,37 @@ export interface components {
              */
             is_active?: boolean;
         };
+        FiscalReceiptSummaryDto: {
+            id: string;
+            providerReceiptId: string;
+            receiptType: string;
+            state: string;
+            receiptNumber?: string | null;
+            timeSignature?: number | null;
+            cashRegisterSerialNumber?: string | null;
+            qrCodeData?: string | null;
+            signed?: boolean | null;
+            hints?: string[] | null;
+            providerRequestId?: string | null;
+        };
+        SettlementPaymentSummaryDto: {
+            id: string;
+            idempotencyKey: string;
+            status: string;
+            method: string;
+            amount: string;
+            currency: string;
+            externalReceiptNumber?: string | null;
+            externalReceiptDate?: string | null;
+            fiscalReceipts: components["schemas"]["FiscalReceiptSummaryDto"][];
+        };
+        SettlementResponseDto: {
+            invoiceId: string;
+            invoiceStatus: string;
+            /** @enum {string} */
+            rksvMode?: "OFF" | "UNKNOWN" | "REQUIRED_EXTERNAL_KASSE" | "REQUIRED_ACP_RKSV";
+            payment?: components["schemas"]["SettlementPaymentSummaryDto"] | null;
+        };
         RecordSettlementDto: {
             /** Format: uuid */
             idempotencyKey: string;
@@ -17444,12 +17475,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Settlement summary */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SettlementResponseDto"];
+                };
             };
         };
     };
@@ -17468,12 +17500,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Settlement result */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SettlementResponseDto"];
+                };
             };
         };
     };
@@ -17492,12 +17525,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Settlement after reconcile */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SettlementResponseDto"];
+                };
             };
         };
     };
@@ -17516,12 +17550,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Settlement after cancellation */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SettlementResponseDto"];
+                };
             };
         };
     };
