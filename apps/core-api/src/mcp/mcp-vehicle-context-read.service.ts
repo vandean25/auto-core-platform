@@ -141,9 +141,6 @@ export class McpVehicleContextReadService {
     const shouldLoad = (section: McpVehicleContextSection) =>
       !continuation || continuation.section === section;
 
-    const loadPickerlForIdentity =
-      requested.includes('identity') && shouldLoad('identity');
-
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id: input.vehicle_id, tenant_id: tenantId },
       select: {
@@ -154,19 +151,6 @@ export class McpVehicleContextReadService {
         plate: true,
         vin: true,
         first_registration_date: true,
-        ...(loadPickerlForIdentity
-          ? {
-              inspection_records: {
-                orderBy: [{ inspected_on: 'desc' }],
-                take: 1,
-                select: {
-                  inspected_on: true,
-                  plaketten_valid_until_year: true,
-                  plaketten_valid_until_month: true,
-                },
-              },
-            }
-          : {}),
       },
     });
     if (!vehicle) {
@@ -181,36 +165,35 @@ export class McpVehicleContextReadService {
     > = {};
 
     if (requested.includes('identity') && shouldLoad('identity')) {
-      const { inspection_records = [], ...identity } = vehicle as {
-        inspection_records?: Array<{
-          inspected_on: Date;
-          plaketten_valid_until_year: number;
-          plaketten_valid_until_month: number;
-        }>;
-        id: string;
-        make: string;
-        model: string;
-        year: number;
-        plate: string | null;
-        vin: string | null;
-        first_registration_date: Date | null;
-      };
+      const latestInspection =
+        await this.prisma.vehicleInspectionRecord.findFirst({
+          where: { tenant_id: tenantId, vehicle_id: vehicle.id },
+          orderBy: [{ inspected_on: 'desc' }],
+          select: {
+            inspected_on: true,
+            plaketten_valid_until_year: true,
+            plaketten_valid_until_month: true,
+          },
+        });
       const { pickerl_due } = attachPickerlDue(
-        { ...identity, inspection_records },
+        {
+          ...vehicle,
+          inspection_records: latestInspection ? [latestInspection] : [],
+        },
         asOf,
       );
       sections.identity = {
         state: 'ok',
         data: {
           vehicle: {
-            id: identity.id,
-            make: identity.make,
-            model: identity.model,
-            year: identity.year,
-            plate: identity.plate,
-            vin: identity.vin,
-            first_registration_date: identity.first_registration_date
-              ? identity.first_registration_date.toISOString().slice(0, 10)
+            id: vehicle.id,
+            make: vehicle.make,
+            model: vehicle.model,
+            year: vehicle.year,
+            plate: vehicle.plate,
+            vin: vehicle.vin,
+            first_registration_date: vehicle.first_registration_date
+              ? vehicle.first_registration_date.toISOString().slice(0, 10)
               : null,
           },
           pickerl_due,

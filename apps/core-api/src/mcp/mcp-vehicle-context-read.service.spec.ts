@@ -8,6 +8,7 @@ import {
   encodeMcpVehicleContextCursor,
 } from './mcp-vehicle-context.mapper.js';
 import { MCP_TOOL_RESULT_MAX_BYTES } from './mcp.constants.js';
+import { capMcpToolPayload } from './mcp-output.util.js';
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { encodeMcpKeysetCursor } from './mcp-output.util.js';
 import { getVehicleContextInputSchema } from './mcp-tool-schemas.js';
@@ -49,7 +50,11 @@ describe('McpVehicleContextReadService', () => {
   let service: McpVehicleContextReadService;
   let vehicle: { findFirst: jest.Mock };
   let workshopOrder: { findMany: jest.Mock; count: jest.Mock };
-  let vehicleInspectionRecord: { findMany: jest.Mock; count: jest.Mock };
+  let vehicleInspectionRecord: {
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    count: jest.Mock;
+  };
   let warrantyClaim: { findMany: jest.Mock; count: jest.Mock };
   let vehicleSale: { findMany: jest.Mock; count: jest.Mock };
   let invoice: { count: jest.Mock };
@@ -76,6 +81,7 @@ describe('McpVehicleContextReadService', () => {
     };
     vehicleInspectionRecord = {
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn().mockResolvedValue(null),
       count: jest.fn().mockResolvedValue(0),
     };
     warrantyClaim = {
@@ -273,6 +279,22 @@ describe('McpVehicleContextReadService', () => {
     });
   });
 
+  it('treats a revoked site membership like missing active site for operational sections', async () => {
+    siteContext.findSiteId.mockResolvedValue(null);
+
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['warranty_claims'],
+    });
+
+    expect(result.sections.warranty_claims).toEqual({
+      state: 'unavailable',
+      reason: 'active_site_required',
+      message: 'An active site is required for this section.',
+    });
+    expect(warrantyClaim.count).not.toHaveBeenCalled();
+  });
+
   it('does not query warranty tables when the site membership is inactive', async () => {
     siteContext.findSiteId.mockResolvedValue(null);
 
@@ -283,6 +305,16 @@ describe('McpVehicleContextReadService', () => {
 
     expect(warrantyClaim.count).not.toHaveBeenCalled();
     expect(vehicleSale.count).not.toHaveBeenCalled();
+  });
+
+  it('loads Pickerl via one inspection row for identity without paging inspection history', async () => {
+    await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['identity'],
+    });
+
+    expect(vehicleInspectionRecord.findFirst).toHaveBeenCalled();
+    expect(vehicleInspectionRecord.findMany).not.toHaveBeenCalled();
   });
 
   it('does not load inspection history when only operational sections are requested', async () => {
@@ -420,6 +452,8 @@ describe('McpVehicleContextReadService', () => {
     expect(Buffer.byteLength(JSON.stringify(result), 'utf8')).toBeLessThanOrEqual(
       MCP_TOOL_RESULT_MAX_BYTES,
     );
+    const capped = capMcpToolPayload(result);
+    expect(capped).not.toHaveProperty('__truncated__');
     const hasCursor = Object.values(result.sections).some(
       (section) =>
         section &&

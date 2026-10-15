@@ -122,15 +122,21 @@ export function fitVehicleContextPayloadToCap(
 
   while (serializedBytes(result) > maxBytes) {
     let trimmed = false;
+    let largestSection: McpVehicleContextPaginatedSection | null = null;
+    let largestLength = 0;
     for (const sectionName of MCP_VEHICLE_CONTEXT_PAGINATED_SECTIONS) {
       const section = result.sections[sectionName];
-      if (!section || section.state !== 'ok') {
+      if (!section || section.state !== 'ok' || !Array.isArray(section.data)) {
         continue;
       }
-      if (trimSectionRow(section as OkSection, sectionName)) {
-        trimmed = true;
-        break;
+      if (section.data.length > largestLength) {
+        largestLength = section.data.length;
+        largestSection = sectionName;
       }
+    }
+    if (largestSection && largestLength > 0) {
+      const section = result.sections[largestSection] as OkSection;
+      trimmed = trimSectionRow(section, largestSection);
     }
     if (!trimmed) {
       break;
