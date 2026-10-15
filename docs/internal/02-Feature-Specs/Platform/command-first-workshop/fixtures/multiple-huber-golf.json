@@ -1,0 +1,81 @@
+{
+  "fixture_id": "multiple-huber-golf",
+  "world": "world.json",
+  "world_patch": {
+    "customers": [
+      {
+        "id": "51500000-0000-4000-8000-000000000021",
+        "type": "PRIVATE",
+        "first_name": "Alex",
+        "last_name": "Huber",
+        "company_name": null
+      },
+      {
+        "id": "51500000-0000-4000-8000-000000000022",
+        "type": "PRIVATE",
+        "first_name": "Bea",
+        "last_name": "Huber",
+        "company_name": null
+      }
+    ],
+    "vehicles": [
+      {
+        "id": "51500000-0000-4000-8000-000000000031",
+        "customer_id": "51500000-0000-4000-8000-000000000021",
+        "make": "Volkswagen",
+        "model": "Golf",
+        "year": 2019,
+        "plate": "W-SYN 515",
+        "vin": "WVWZZZ3CZWE000515"
+      },
+      {
+        "id": "51500000-0000-4000-8000-000000000032",
+        "customer_id": "51500000-0000-4000-8000-000000000022",
+        "make": "Volkswagen",
+        "model": "Golf",
+        "year": 2018,
+        "plate": "W-SYN 516",
+        "vin": "WVWZZZ3CZWE000516"
+      }
+    ]
+  },
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c2",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000c2",
+      "code": "CUSTOMER_AMBIGUOUS",
+      "prompt": "Mehrere Kunden passen. Bitte einen auswählen.",
+      "choices": [
+        {
+          "choice_id": "customer:51500000-0000-4000-8000-000000000021",
+          "slot": "customer_id",
+          "value": "51500000-0000-4000-8000-000000000021",
+          "label": "Alex Huber — Golf — W-SYN 515"
+        },
+        {
+          "choice_id": "customer:51500000-0000-4000-8000-000000000022",
+          "slot": "customer_id",
+          "value": "51500000-0000-4000-8000-000000000022",
+          "label": "Bea Huber — Golf — W-SYN 516"
+        }
+      ],
+      "recognized": {
+        "customer_token": "Huber",
+        "vehicle_token": "Golf"
+      },
+      "proposal": null
+    }
+  }
+}

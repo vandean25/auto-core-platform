@@ -1,0 +1,31 @@
+{
+  "fixture_id": "unsupported-service",
+  "world": "world.json",
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c9",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr Klimaservice"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000c9",
+      "code": "UNSUPPORTED_SERVICE",
+      "prompt": "Diese Leistung ist nicht in der lokalen Liste.",
+      "choices": [],
+      "recognized": {
+        "customer_token": "Huber",
+        "vehicle_token": "Golf",
+        "unsupported_clauses": ["Klimaservice"]
+      },
+      "proposal": null
+    }
+  }
+}

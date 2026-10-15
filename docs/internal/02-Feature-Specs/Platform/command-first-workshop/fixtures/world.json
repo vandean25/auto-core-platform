@@ -1,0 +1,151 @@
+{
+  "label": "pilot customer",
+  "caller": {
+    "role": "OWNER",
+    "tenant_member_active": true,
+    "site_membership_active": true,
+    "loaner_write_permitted": true,
+    "site_memberships": [
+      {
+        "site_id": "51500000-0000-4000-8000-000000000010",
+        "is_active": true
+      },
+      {
+        "site_id": "51500000-0000-4000-8000-000000000011",
+        "is_active": false
+      }
+    ]
+  },
+  "operative_site_id": "51500000-0000-4000-8000-000000000010",
+  "sites": [
+    {
+      "id": "51500000-0000-4000-8000-000000000010",
+      "code": "WIE",
+      "name": "Pilot Wien",
+      "timezone": "Europe/Vienna",
+      "is_active": true,
+      "opening_hours": {
+        "weekdays_1_to_7": { "open": "07:00", "close": "18:00" }
+      }
+    },
+    {
+      "id": "51500000-0000-4000-8000-000000000011",
+      "code": "NORD",
+      "name": "Pilot Nord",
+      "timezone": "Europe/Vienna",
+      "is_active": true
+    }
+  ],
+  "customers": [
+    {
+      "id": "51500000-0000-4000-8000-000000000021",
+      "type": "PRIVATE",
+      "first_name": "Alex",
+      "last_name": "Huber",
+      "company_name": null
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "51500000-0000-4000-8000-000000000031",
+      "customer_id": "51500000-0000-4000-8000-000000000021",
+      "make": "Volkswagen",
+      "model": "Golf",
+      "year": 2019,
+      "plate": "W-SYN 515",
+      "vin": "WVWZZZ3CZWE000515"
+    }
+  ],
+  "labor_operations": [
+    {
+      "id": "51500000-0000-4000-8000-000000000061",
+      "description": "Großes Service",
+      "hourly_rate_cents": 9000,
+      "active": true
+    },
+    {
+      "id": "51500000-0000-4000-8000-000000000062",
+      "description": "Pickerl §57a",
+      "hourly_rate_cents": 9000,
+      "active": true
+    },
+    {
+      "id": "51500000-0000-4000-8000-000000000063",
+      "description": "Bremsen vorne prüfen",
+      "hourly_rate_cents": 9000,
+      "active": true
+    },
+    {
+      "id": "51500000-0000-4000-8000-000000000064",
+      "description": "Kleines Service",
+      "hourly_rate_cents": 9000,
+      "active": true
+    }
+  ],
+  "presets": [
+    {
+      "preset_key": "service.major",
+      "kind": "LABOR",
+      "site_id": null,
+      "labor_operation_id": "51500000-0000-4000-8000-000000000061",
+      "catalog_item_id": null,
+      "duration_minutes": 90,
+      "active": true
+    },
+    {
+      "preset_key": "inspection.pickerl_57a",
+      "kind": "LABOR",
+      "site_id": null,
+      "labor_operation_id": "51500000-0000-4000-8000-000000000062",
+      "catalog_item_id": null,
+      "duration_minutes": 30,
+      "active": true
+    },
+    {
+      "preset_key": "inspection.brakes_front",
+      "kind": "LABOR",
+      "site_id": null,
+      "labor_operation_id": "51500000-0000-4000-8000-000000000063",
+      "catalog_item_id": null,
+      "duration_minutes": 30,
+      "active": true
+    },
+    {
+      "preset_key": "service.minor",
+      "kind": "LABOR",
+      "site_id": null,
+      "labor_operation_id": "51500000-0000-4000-8000-000000000064",
+      "catalog_item_id": null,
+      "duration_minutes": 60,
+      "active": true
+    },
+    {
+      "preset_key": "loaner.reserve",
+      "kind": "LOANER_FLAG",
+      "site_id": null,
+      "labor_operation_id": null,
+      "catalog_item_id": null,
+      "duration_minutes": null,
+      "active": true
+    }
+  ],
+  "bays": [
+    {
+      "id": "51500000-0000-4000-8000-000000000041",
+      "site_id": "51500000-0000-4000-8000-000000000010",
+      "name": "Bucht 1",
+      "is_active": true,
+      "occupying_orders": []
+    }
+  ],
+  "loaners": [
+    {
+      "id": "51500000-0000-4000-8000-000000000051",
+      "site_id": "51500000-0000-4000-8000-000000000010",
+      "display_name": "Leihwagen Gelb",
+      "status": "AVAILABLE",
+      "active": true,
+      "overlapping_bookings": []
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+{
+  "fixture_id": "canonical-huber-golf",
+  "world": "world.json",
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c1",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "ready",
+      "command_id": "51500000-0000-4000-8000-0000000000c1",
+      "site_id": "51500000-0000-4000-8000-000000000010",
+      "timezone": "Europe/Vienna",
+      "customer_id": "51500000-0000-4000-8000-000000000021",
+      "vehicle_id": "51500000-0000-4000-8000-000000000031",
+      "schedule": {
+        "local_date": "2026-10-16",
+        "local_start": "08:00",
+        "local_end": "10:30",
+        "start_at": "2026-10-16T06:00:00.000Z",
+        "end_at": "2026-10-16T08:30:00.000Z",
+        "duration_minutes": 150,
+        "duration_source": "preset_sum"
+      },
+      "bay_id": "51500000-0000-4000-8000-000000000041",
+      "mechanic_id": null,
+      "loaner": {
+        "requested": true,
+        "loaner_vehicle_id": "51500000-0000-4000-8000-000000000051",
+        "planned_from": "2026-10-16T06:00:00.000Z",
+        "planned_to": "2026-10-16T08:30:00.000Z"
+      },
+      "position_plan": {
+        "version": 1,
+        "lines": [
+          {
+            "preset_key": "service.major",
+            "kind": "LABOR",
+            "labor_operation_id": "51500000-0000-4000-8000-000000000061",
+            "catalog_item_id": null,
+            "description": "Großes Service",
+            "quantity": "1.500",
+            "unit": "h",
+            "unit_price_cents": 9000,
+            "net_cents": 13500,
+            "reservation": "not_applicable"
+          },
+          {
+            "preset_key": "inspection.pickerl_57a",
+            "kind": "LABOR",
+            "labor_operation_id": "51500000-0000-4000-8000-000000000062",
+            "catalog_item_id": null,
+            "description": "Pickerl §57a",
+            "quantity": "0.500",
+            "unit": "h",
+            "unit_price_cents": 9000,
+            "net_cents": 4500,
+            "reservation": "not_applicable"
+          },
+          {
+            "preset_key": "inspection.brakes_front",
+            "kind": "LABOR",
+            "labor_operation_id": "51500000-0000-4000-8000-000000000063",
+            "catalog_item_id": null,
+            "description": "Bremsen vorne prüfen",
+            "quantity": "0.500",
+            "unit": "h",
+            "unit_price_cents": 9000,
+            "net_cents": 4500,
+            "reservation": "not_applicable"
+          }
+        ]
+      },
+      "purpose": "CUSTOMER_REPAIR",
+      "order_status": "SCHEDULED",
+      "reported_issue": "Großes Service; Pickerl §57a; Bremsen vorne prüfen"
+    }
+  },
+  "propose_expect": {
+    "slice": 2,
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "domain_rows_before_apply": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "needs_approval",
+      "command_id": "51500000-0000-4000-8000-0000000000c1",
+      "action_type": "workshop.booking_package",
+      "tier": "PROPOSE",
+      "provisional": true,
+      "applied": false,
+      "would_change": [
+        {
+          "entity": "WorkshopOrder",
+          "op": "create",
+          "provisional": true,
+          "id": null,
+          "status": "SCHEDULED",
+          "site_id": "51500000-0000-4000-8000-000000000010"
+        },
+        {
+          "entity": "WorkshopTask",
+          "op": "create",
+          "provisional": true,
+          "id": null,
+          "status": "NOT_STARTED",
+          "count": 3
+        },
+        {
+          "entity": "WorkshopTaskLineItem",
+          "op": "create",
+          "provisional": true,
+          "id": null,
+          "count": 3
+        },
+        {
+          "entity": "LoanerBooking",
+          "op": "create",
+          "provisional": true,
+          "id": null,
+          "status": "RESERVED"
+        }
+      ]
+    }
+  },
+  "propose_persist_expect": {
+    "slice": 3,
+    "http_status": 201,
+    "retry_http_status": 200,
+    "retry_returns_same_ids": true,
+    "body": {
+      "pending_action_id": "$anyUuid",
+      "trace_id": "$anyUuid",
+      "status": "needs_approval",
+      "applied": false
+    }
+  }
+}

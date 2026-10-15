@@ -1,0 +1,119 @@
+{
+  "fixture_id": "no-provider-pii",
+  "world": "world.json",
+  "forbidden_substrings": [
+    "Huber",
+    "W-SYN 515",
+    "WSYN515",
+    "WVWZZZ3CZWE000515"
+  ],
+  "cases": [
+    {
+      "case_id": "name-stays-inside-the-api",
+      "now": "2026-10-15T14:30:00+02:00",
+      "input": {
+        "contract_version": "workshop-command/v1",
+        "command_id": "51500000-0000-4000-8000-0000000000cc",
+        "source": "keyboard",
+        "locale": "de-AT",
+        "text": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren"
+      },
+      "expect": {
+        "provider_invoked": false,
+        "outbound_bodies": [],
+        "body": {
+          "status": "ready",
+          "customer_id": "51500000-0000-4000-8000-000000000021",
+          "vehicle_id": "51500000-0000-4000-8000-000000000031"
+        }
+      }
+    },
+    {
+      "case_id": "plate-resolves-locally",
+      "now": "2026-10-15T14:30:00+02:00",
+      "input": {
+        "contract_version": "workshop-command/v1",
+        "command_id": "51500000-0000-4000-8000-0000000000cd",
+        "source": "keyboard",
+        "locale": "de-AT",
+        "text": "W-SYN 515 morgen 8 Uhr kleines Service"
+      },
+      "expect": {
+        "provider_invoked": false,
+        "outbound_bodies": [],
+        "body": {
+          "contract_version": "workshop-command/v1",
+          "status": "ready",
+          "command_id": "51500000-0000-4000-8000-0000000000cd",
+          "site_id": "51500000-0000-4000-8000-000000000010",
+          "timezone": "Europe/Vienna",
+          "customer_id": "51500000-0000-4000-8000-000000000021",
+          "vehicle_id": "51500000-0000-4000-8000-000000000031",
+          "schedule": {
+            "local_date": "2026-10-16",
+            "local_start": "08:00",
+            "local_end": "09:00",
+            "start_at": "2026-10-16T06:00:00.000Z",
+            "end_at": "2026-10-16T07:00:00.000Z",
+            "duration_minutes": 60,
+            "duration_source": "preset_sum"
+          },
+          "bay_id": "51500000-0000-4000-8000-000000000041",
+          "mechanic_id": null,
+          "loaner": {
+            "requested": false,
+            "loaner_vehicle_id": null,
+            "planned_from": null,
+            "planned_to": null
+          },
+          "position_plan": {
+            "version": 1,
+            "lines": [
+              {
+                "preset_key": "service.minor",
+                "kind": "LABOR",
+                "labor_operation_id": "51500000-0000-4000-8000-000000000064",
+                "catalog_item_id": null,
+                "description": "Kleines Service",
+                "quantity": "1.000",
+                "unit": "h",
+                "unit_price_cents": 9000,
+                "net_cents": 9000,
+                "reservation": "not_applicable"
+              }
+            ]
+          },
+          "purpose": "CUSTOMER_REPAIR",
+          "order_status": "SCHEDULED",
+          "reported_issue": "Kleines Service"
+        }
+      }
+    },
+    {
+      "case_id": "vin-resolves-locally",
+      "now": "2026-10-15T14:30:00+02:00",
+      "input": {
+        "contract_version": "workshop-command/v1",
+        "command_id": "51500000-0000-4000-8000-0000000000ce",
+        "source": "voice_transcript",
+        "locale": "de-AT",
+        "text": "WVWZZZ3CZWE000515 morgen 8 Uhr kleines Service"
+      },
+      "expect": {
+        "provider_invoked": false,
+        "outbound_bodies": [],
+        "body": {
+          "status": "ready",
+          "customer_id": "51500000-0000-4000-8000-000000000021",
+          "vehicle_id": "51500000-0000-4000-8000-000000000031",
+          "loaner": {
+            "requested": false,
+            "loaner_vehicle_id": null,
+            "planned_from": null,
+            "planned_to": null
+          }
+        }
+      }
+    }
+  ]
+}

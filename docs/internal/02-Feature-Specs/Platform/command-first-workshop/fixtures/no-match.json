@@ -1,0 +1,42 @@
+{
+  "fixture_id": "no-match",
+  "world": "world.json",
+  "world_patch": {
+    "customers": [
+      {
+        "id": "51500000-0000-4000-8000-000000000023",
+        "type": "PRIVATE",
+        "first_name": "Sam",
+        "last_name": "Gruber",
+        "company_name": null
+      }
+    ],
+    "vehicles": []
+  },
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c4",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000c4",
+      "code": "CUSTOMER_NOT_FOUND",
+      "prompt": "Kein Kunde mit diesem Namen im Mandanten.",
+      "choices": [],
+      "recognized": {
+        "customer_token": "Huber",
+        "vehicle_token": "Golf"
+      },
+      "proposal": null
+    }
+  }
+}

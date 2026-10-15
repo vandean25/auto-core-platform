@@ -1,0 +1,65 @@
+{
+  "fixture_id": "multiple-golfs-one-huber",
+  "world": "world.json",
+  "world_patch": {
+    "vehicles": [
+      {
+        "id": "51500000-0000-4000-8000-000000000031",
+        "customer_id": "51500000-0000-4000-8000-000000000021",
+        "make": "Volkswagen",
+        "model": "Golf",
+        "year": 2019,
+        "plate": "W-SYN 515",
+        "vin": "WVWZZZ3CZWE000515"
+      },
+      {
+        "id": "51500000-0000-4000-8000-000000000033",
+        "customer_id": "51500000-0000-4000-8000-000000000021",
+        "make": "Volkswagen",
+        "model": "Golf",
+        "year": 2021,
+        "plate": "W-SYN 517",
+        "vin": "WVWZZZ3CZWE000517"
+      }
+    ]
+  },
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c3",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000c3",
+      "code": "VEHICLE_AMBIGUOUS",
+      "prompt": "Mehrere Fahrzeuge passen. Bitte eines auswählen.",
+      "choices": [
+        {
+          "choice_id": "vehicle:51500000-0000-4000-8000-000000000031",
+          "slot": "vehicle_id",
+          "value": "51500000-0000-4000-8000-000000000031",
+          "label": "Golf — W-SYN 515 — 2019"
+        },
+        {
+          "choice_id": "vehicle:51500000-0000-4000-8000-000000000033",
+          "slot": "vehicle_id",
+          "value": "51500000-0000-4000-8000-000000000033",
+          "label": "Golf — W-SYN 517 — 2021"
+        }
+      ],
+      "recognized": {
+        "customer_id": "51500000-0000-4000-8000-000000000021",
+        "vehicle_token": "Golf"
+      },
+      "proposal": null
+    }
+  }
+}
