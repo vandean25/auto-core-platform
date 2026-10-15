@@ -1,0 +1,29 @@
+{
+  "contract_version": "command-first-workshop/PositionPlan/v1",
+  "fixture_id": "huber-golf-canonical-v1",
+  "description": "Task line intent mapped to catalog labor operations for preview simulation (not yet committed).",
+  "workshop_order_ref": "fixed-booking-proposal.huber-golf.v1.json",
+  "lines": [
+    {
+      "sequence": 1,
+      "type": "LABOR",
+      "item_no": "SVC-INSPECTION-L",
+      "description": "Großes Service inkl. Pickerl (§57a)",
+      "quantity": "1.500",
+      "unit": "h",
+      "labor_operation_code": "SVC-INSPECTION-L",
+      "source_preset_id": "d4000000-0000-4000-8000-000000000001"
+    },
+    {
+      "sequence": 2,
+      "type": "LABOR",
+      "item_no": "SVC-BRAKE-FRONT-CHECK",
+      "description": "Bremsen vorne prüfen",
+      "quantity": "0.500",
+      "unit": "h",
+      "labor_operation_code": "SVC-BRAKE-FRONT-CHECK",
+      "source_preset_id": "d4000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "notes": "Pickerl is not a duplicate line when bundled via preset includes_pickerl_task."
+}

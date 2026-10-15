@@ -1,0 +1,41 @@
+{
+  "contract_version": "command-first-workshop/WorkshopIntent/v1",
+  "resolution": "complete",
+  "site_id": "a1000000-0000-4000-8000-000000000010",
+  "site_timezone": "Europe/Vienna",
+  "customer_id": "b2000000-0000-4000-8000-000000000001",
+  "vehicle_id": "c3000000-0000-4000-8000-000000000001",
+  "appointment": {
+    "kind": "scheduled",
+    "local_date": "2026-10-16",
+    "local_start_time": "08:00",
+    "local_end_time": "10:30",
+    "scheduled_start_at": "2026-10-16T06:00:00.000Z",
+    "scheduled_end_at": "2026-10-16T08:30:00.000Z",
+    "relative_source": "morgen",
+    "anchor_interpreted_at": "2026-10-15T09:12:00+02:00"
+  },
+  "service_lines": [
+    {
+      "preset_id": "d4000000-0000-4000-8000-000000000001",
+      "matched_phrase": "großes Service",
+      "labor_operation_code": "SVC-INSPECTION-L",
+      "includes_pickerl": true
+    },
+    {
+      "preset_id": "d4000000-0000-4000-8000-000000000003",
+      "matched_phrase": "Bremsen vorne prüfen",
+      "labor_operation_code": "SVC-BRAKE-FRONT-CHECK",
+      "includes_pickerl": false
+    }
+  ],
+  "loaner": {
+    "requested": true,
+    "preference": "reserve"
+  },
+  "interpreter_trace": {
+    "engine": "local_rules",
+    "provider": null,
+    "redacted_utterance_sha256": "8f4e3c2b1a0d9e8f7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3928170"
+  }
+}

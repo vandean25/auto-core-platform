@@ -1,0 +1,49 @@
+{
+  "contract_version": "command-first-workshop/ProposalResult/v1",
+  "status": "needs_approval",
+  "trace_id": "123e4567-e89b-12d3-a456-426614174099",
+  "pending_action_id": "9f8e7d6c-5b4a-3928-1706-050493827160",
+  "policy": {
+    "action_type": "workshop_order.create",
+    "tier": "PROPOSE",
+    "enabled": true
+  },
+  "proposal": {
+    "provisional": true,
+    "booking_proposal_ref": "fixed-booking-proposal.huber-golf.v1.json",
+    "position_plan_ref": "fixed-position-plan.huber-golf.v1.json"
+  },
+  "preview": {
+    "would_change": [
+      {
+        "entity": "WorkshopOrder",
+        "op": "create",
+        "provisional": true
+      },
+      {
+        "entity": "LoanerBooking",
+        "op": "create",
+        "provisional": true
+      }
+    ]
+  },
+  "payload_json": {
+    "action_type": "workshop_order.create",
+    "mcp_tool_equivalent": "draft_workshop_order",
+    "input": {
+      "customer_id": "b2000000-0000-4000-8000-000000000001",
+      "vehicle_id": "c3000000-0000-4000-8000-000000000001",
+      "status": "SCHEDULED",
+      "bay_id": "e5000000-0000-4000-8000-000000000001",
+      "scheduled_start_at": "2026-10-16T06:00:00.000Z",
+      "scheduled_end_at": "2026-10-16T08:30:00.000Z",
+      "reported_issue": "Großes Service inkl. Pickerl; Bremsen vorne prüfen"
+    },
+    "follow_up_actions": [
+      {
+        "action_type": "workshop_order.propose_line",
+        "note": "Position plan lines submitted as separate proposals after order shell exists"
+      }
+    ]
+  }
+}

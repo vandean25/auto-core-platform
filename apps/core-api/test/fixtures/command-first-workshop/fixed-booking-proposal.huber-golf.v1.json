@@ -1,0 +1,20 @@
+{
+  "contract_version": "command-first-workshop/BookingProposal/v1",
+  "fixture_id": "huber-golf-canonical-v1",
+  "description": "Resolved booking for the canonical acceptance utterance when pilot customer Huber (Maria) and vehicle W-PI 101 are chosen.",
+  "utterance": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren",
+  "interpreted_at": "2026-10-15T09:12:00+02:00",
+  "active_site_id": "a1000000-0000-4000-8000-000000000010",
+  "customer_id": "b2000000-0000-4000-8000-000000000001",
+  "vehicle_id": "c3000000-0000-4000-8000-000000000001",
+  "bay_id": "e5000000-0000-4000-8000-000000000001",
+  "scheduled_start_at": "2026-10-16T06:00:00.000Z",
+  "scheduled_end_at": "2026-10-16T08:30:00.000Z",
+  "duration_rationale": "90m inspection preset + 30m brake check + 30m buffer; Pickerl bundled into inspection preset",
+  "loaner_booking": {
+    "requested": true,
+    "loaner_vehicle_id": "f6000000-0000-4000-8000-000000000001",
+    "window_start_at": "2026-10-16T06:00:00.000Z",
+    "window_end_at": "2026-10-16T08:30:00.000Z"
+  }
+}

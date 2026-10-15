@@ -1,0 +1,29 @@
+{
+  "contract_version": "command-first-workshop/Clarification/v1",
+  "resolution": "needs_choice",
+  "question_id": "clar-canonical-vehicle-001",
+  "prompt_de": "Mehrere Fahrzeuge passen zu „Golf“ für Huber, Maria. Welches Fahrzeug?",
+  "choices": [
+    {
+      "choice_id": "choice_vehicle_wpi101",
+      "label": "W-PI 101 — VW Golf",
+      "fills": { "vehicle_id": "c3000000-0000-4000-8000-000000000001" }
+    },
+    {
+      "choice_id": "choice_vehicle_wpi102",
+      "label": "W-PI 102 — VW Golf Variant",
+      "fills": { "vehicle_id": "c3000000-0000-4000-8000-000000000002" }
+    }
+  ],
+  "partial_intent": {
+    "customer_id": "b2000000-0000-4000-8000-000000000001",
+    "appointment": {
+      "relative_source": "morgen",
+      "local_date": "2026-10-16",
+      "local_start_time": "08:00"
+    },
+    "service_phrases_resolved": ["großes Service + Pickerl", "Bremsen vorne prüfen"],
+    "loaner": { "requested": true }
+  },
+  "error_code": "VEHICLE_AMBIGUOUS"
+}

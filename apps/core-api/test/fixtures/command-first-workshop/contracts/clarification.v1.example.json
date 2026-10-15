@@ -1,0 +1,32 @@
+{
+  "contract_version": "command-first-workshop/Clarification/v1",
+  "resolution": "needs_choice",
+  "question_id": "clar-2026-10-15-001",
+  "prompt_de": "Mehrere Kunden passen zu „Huber“. Welchen Eintrag meinen Sie?",
+  "choices": [
+    {
+      "choice_id": "choice_customer_1",
+      "label": "Huber, Maria — W-PI 101 (VW Golf)",
+      "fills": {
+        "customer_id": "b2000000-0000-4000-8000-000000000001",
+        "vehicle_id": "c3000000-0000-4000-8000-000000000001"
+      }
+    },
+    {
+      "choice_id": "choice_customer_2",
+      "label": "Huber, Thomas — W-PI 201 (VW Golf)",
+      "fills": {
+        "customer_id": "b2000000-0000-4000-8000-000000000002",
+        "vehicle_id": "c3000000-0000-4000-8000-000000000003"
+      }
+    }
+  ],
+  "partial_intent": {
+    "appointment": {
+      "relative_source": "morgen",
+      "local_start_time": "08:00"
+    },
+    "service_phrases_unresolved": ["großes Service + Pickerl"]
+  },
+  "error_code": "CUSTOMER_AMBIGUOUS"
+}

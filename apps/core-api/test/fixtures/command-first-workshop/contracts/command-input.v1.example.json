@@ -1,0 +1,9 @@
+{
+  "contract_version": "command-first-workshop/CommandInput/v1",
+  "utterance": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren",
+  "client_context": {
+    "submitted_at": "2026-10-15T09:12:00+02:00",
+    "ui_surface": "global_search",
+    "locale": "de-AT"
+  }
+}

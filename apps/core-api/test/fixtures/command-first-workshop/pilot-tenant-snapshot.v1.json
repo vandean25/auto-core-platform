@@ -1,0 +1,109 @@
+{
+  "contract_version": "command-first-workshop/pilot-tenant/v1",
+  "description": "Synthetic tenant graph for local interpreter acceptance tests. All names and plates are fictional.",
+  "tenant_id": "a1000000-0000-4000-8000-000000000001",
+  "sites": [
+    {
+      "site_id": "a1000000-0000-4000-8000-000000000010",
+      "code": "WST-NORD",
+      "timezone": "Europe/Vienna",
+      "default_slot_minutes": 30,
+      "default_scheduled_duration_minutes": 120
+    },
+    {
+      "site_id": "a1000000-0000-4000-8000-000000000011",
+      "code": "WST-SUED",
+      "timezone": "Europe/Vienna",
+      "default_slot_minutes": 30,
+      "default_scheduled_duration_minutes": 120
+    }
+  ],
+  "customers": [
+    {
+      "customer_id": "b2000000-0000-4000-8000-000000000001",
+      "display_name": "Huber, Maria",
+      "search_tokens": ["huber", "maria"],
+      "primary_site_id": "a1000000-0000-4000-8000-000000000010"
+    },
+    {
+      "customer_id": "b2000000-0000-4000-8000-000000000002",
+      "display_name": "Huber, Thomas",
+      "search_tokens": ["huber", "thomas"],
+      "primary_site_id": "a1000000-0000-4000-8000-000000000010"
+    },
+    {
+      "customer_id": "b2000000-0000-4000-8000-000000000003",
+      "display_name": "Muster, Anna",
+      "search_tokens": ["muster", "anna"],
+      "primary_site_id": "a1000000-0000-4000-8000-000000000011"
+    }
+  ],
+  "vehicles": [
+    {
+      "vehicle_id": "c3000000-0000-4000-8000-000000000001",
+      "customer_id": "b2000000-0000-4000-8000-000000000001",
+      "make_model": "VW Golf",
+      "plate": "W-PI 101",
+      "plate_normalized": "WPI101",
+      "search_tokens": ["golf", "vw", "wpi101"],
+      "site_id": "a1000000-0000-4000-8000-000000000010"
+    },
+    {
+      "vehicle_id": "c3000000-0000-4000-8000-000000000002",
+      "customer_id": "b2000000-0000-4000-8000-000000000001",
+      "make_model": "VW Golf Variant",
+      "plate": "W-PI 102",
+      "plate_normalized": "WPI102",
+      "search_tokens": ["golf", "variant", "wpi102"],
+      "site_id": "a1000000-0000-4000-8000-000000000010"
+    },
+    {
+      "vehicle_id": "c3000000-0000-4000-8000-000000000003",
+      "customer_id": "b2000000-0000-4000-8000-000000000002",
+      "make_model": "VW Golf",
+      "plate": "W-PI 201",
+      "plate_normalized": "WPI201",
+      "search_tokens": ["golf", "wpi201"],
+      "site_id": "a1000000-0000-4000-8000-000000000010"
+    }
+  ],
+  "service_presets": [
+    {
+      "preset_id": "d4000000-0000-4000-8000-000000000001",
+      "aliases": ["großes service", "grosses service", "inspektion groß"],
+      "labor_operation_code": "SVC-INSPECTION-L",
+      "default_duration_minutes": 90,
+      "includes_pickerl_task": true
+    },
+    {
+      "preset_id": "d4000000-0000-4000-8000-000000000002",
+      "aliases": ["pickerl", "§57a", "57a"],
+      "labor_operation_code": "SVC-PICKERL",
+      "default_duration_minutes": 45,
+      "includes_pickerl_task": true
+    },
+    {
+      "preset_id": "d4000000-0000-4000-8000-000000000003",
+      "aliases": ["bremsen vorne prüfen", "bremsen vorne pruefen", "bremsen vorne"],
+      "labor_operation_code": "SVC-BRAKE-FRONT-CHECK",
+      "default_duration_minutes": 30,
+      "includes_pickerl_task": false
+    }
+  ],
+  "bays": [
+    {
+      "bay_id": "e5000000-0000-4000-8000-000000000001",
+      "site_id": "a1000000-0000-4000-8000-000000000010",
+      "name": "Hebebühne 1",
+      "is_active": true
+    }
+  ],
+  "loaner_vehicles": [
+    {
+      "loaner_vehicle_id": "f6000000-0000-4000-8000-000000000001",
+      "site_id": "a1000000-0000-4000-8000-000000000010",
+      "label": "Ersatz Golf",
+      "status": "AVAILABLE"
+    }
+  ]
+}

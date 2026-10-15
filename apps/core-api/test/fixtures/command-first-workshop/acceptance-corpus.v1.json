@@ -1,0 +1,115 @@
+{
+  "contract_version": "command-first-workshop/AcceptanceCorpus/v1",
+  "pilot_tenant_ref": "pilot-tenant-snapshot.v1.json",
+  "cases": [
+    {
+      "case_id": "canonical-huber-golf-step1-vehicle",
+      "utterance": "Huber Golf morgen 8 Uhr großes Service + Pickerl, Bremsen vorne prüfen, Leihwagen reservieren",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T09:12:00+02:00",
+      "expected_outcome": "clarification",
+      "expected_error_code": "VEHICLE_AMBIGUOUS",
+      "expected_choice_count": 2,
+      "expected_choice_labels_contains": ["W-PI 101", "W-PI 102"],
+      "notes": "Pilot customer Maria Huber owns two Golf-family vehicles; model token Golf must not auto-pick."
+    },
+    {
+      "case_id": "canonical-huber-golf-step2-after-choice",
+      "prior_case_id": "canonical-huber-golf-step1-vehicle",
+      "resolution": {
+        "choice_id": "choice_vehicle_wpi101",
+        "fills": { "vehicle_id": "c3000000-0000-4000-8000-000000000001" }
+      },
+      "expected_outcome": "proposal",
+      "expected_refs": {
+        "workshop_intent": "contracts/workshop-intent.v1.example.json",
+        "booking_proposal": "fixed-booking-proposal.huber-golf.v1.json",
+        "position_plan": "fixed-position-plan.huber-golf.v1.json"
+      }
+    },
+    {
+      "case_id": "ambiguous-huber-only",
+      "utterance": "Huber morgen 9 Uhr Inspektion",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T14:00:00+02:00",
+      "expected_outcome": "clarification",
+      "expected_error_code": "CUSTOMER_AMBIGUOUS",
+      "expected_choice_count": 2,
+      "expected_clarification_shape": "contracts/clarification.v1.example.json"
+    },
+    {
+      "case_id": "ambiguous-two-golf-same-customer",
+      "utterance": "Huber Golf morgen 10 Uhr Service",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T14:00:00+02:00",
+      "expected_outcome": "clarification",
+      "expected_error_code": "VEHICLE_AMBIGUOUS",
+      "expected_choice_count": 2,
+      "expected_choice_labels_contains": ["W-PI 101", "W-PI 102"]
+    },
+    {
+      "case_id": "customer-not-found",
+      "utterance": "Schmidt Polo morgen 8 Uhr Service",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T09:00:00+02:00",
+      "expected_outcome": "error",
+      "expected_error_code": "CUSTOMER_NOT_FOUND"
+    },
+    {
+      "case_id": "dst-spring-forward",
+      "utterance": "Huber W-PI 101 30.3. 8 Uhr Service",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-03-29T10:00:00+01:00",
+      "expected_outcome": "proposal",
+      "expected_scheduled_start_at": "2026-03-30T06:00:00.000Z",
+      "notes": "Europe/Vienna DST starts 2026-03-29 02:00→03:00; 30.3. 08:00 local = 06:00Z."
+    },
+    {
+      "case_id": "relative-morgen-at-midnight",
+      "utterance": "Huber W-PI 101 morgen 8 Uhr Ölwechsel",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-16T00:00:00+02:00",
+      "expected_outcome": "proposal",
+      "expected_local_date": "2026-10-17",
+      "expected_error_code": null,
+      "notes": "At site-local midnight on 16.10., morgen must mean 17.10., not 16.10."
+    },
+    {
+      "case_id": "unsupported-service",
+      "utterance": "Huber W-PI 101 morgen 8 Uhr Getriebe tauschen",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T09:00:00+02:00",
+      "expected_outcome": "error",
+      "expected_error_code": "SERVICE_UNSUPPORTED"
+    },
+    {
+      "case_id": "wrong-site-vehicle",
+      "utterance": "Muster Golf morgen 8 Uhr Service",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T09:00:00+02:00",
+      "expected_outcome": "error",
+      "expected_error_code": "SITE_MISMATCH",
+      "notes": "Pilot customer Muster belongs to WST-SUED only."
+    },
+    {
+      "case_id": "contradictory-time",
+      "utterance": "Huber W-PI 101 morgen 8 Uhr und 14 Uhr Service",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T09:00:00+02:00",
+      "expected_outcome": "clarification",
+      "expected_error_code": "TIME_CONTRADICTORY",
+      "expected_choice_count": 2
+    },
+    {
+      "case_id": "loaner-unavailable",
+      "utterance": "Huber W-PI 101 morgen 8 Uhr Service Leihwagen",
+      "active_site_id": "a1000000-0000-4000-8000-000000000010",
+      "interpreted_at": "2026-10-15T09:00:00+02:00",
+      "pilot_override": { "loaner_status": "UNAVAILABLE" },
+      "expected_outcome": "clarification",
+      "expected_error_code": "LOANER_UNAVAILABLE",
+      "expected_choice_count": 2,
+      "expected_choices_include": ["Ohne Leihwagen fortfahren", "Anderen Termin wählen"]
+    }
+  ]
+}
