@@ -734,6 +734,21 @@ describe('MCP server (e2e)', () => {
       { name: 'list_bays', arguments: {} },
       { name: 'list_bins', arguments: {} },
       { name: 'list_workshop_tasks', arguments: {} },
+      {
+        name: 'list_workshop_slots',
+        arguments: {
+          from: '2026-10-01T08:00:00.000Z',
+          to: '2026-10-02T08:00:00.000Z',
+          duration_minutes: 60,
+        },
+      },
+      {
+        name: 'list_available_loaners',
+        arguments: {
+          from: '2026-10-01T08:00:00.000Z',
+          to: '2026-10-02T08:00:00.000Z',
+        },
+      },
       { name: 'whoami', arguments: {} },
       { name: 'get_capabilities', arguments: {} },
       {

@@ -50,6 +50,8 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `list_bays` | List active bays for the active site | Read | AUTO |
 | `list_bins` | List bin storage locations for the active site | Read | AUTO |
 | `list_workshop_tasks` | List tasks visible to the caller with line IDs for MCP actions | Read | AUTO |
+| `list_workshop_slots` | List free bay slots at the active site for a UTC window (max 8 days), required duration, and optional bay | Read | AUTO |
+| `list_available_loaners` | List loaner vehicles available at the active site for a UTC window (max 8 days) | Read | AUTO |
 | `whoami` | Caller identity, role, tenant, active site, and decision apply mode | Read | AUTO |
 | `get_capabilities` | Paged tools for the caller with policy tier, enabled state, and disabled reason | Read | AUTO |
 | `list_audit_events` | List tenant audit events, newest first, filtered by entity, actor, action, date range, or trace ID | Read | AUTO |
@@ -82,15 +84,17 @@ Policy-mode wording maps approximately as follows: `Allowed` to `AUTO`, `Ask fir
 
 ### Paging and response size
 
-List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. No other MCP tool accepts a cursor or a `limit` argument.
+List and search tools accept `page` and `page_size`; the server defaults to page 1 and 10 rows and caps `page_size` at 25. Some tools take `pageSize` and an opaque `cursor` from `meta.next_cursor` instead. `get_customer` and `get_vehicle_history` page their order list with `orders_page_size` and `orders_cursor`. Offset cursors are limited to `get_capabilities`, the three stock/Pickerl report reads, and nothing else; other cursor tools use keyset positions.
 
-- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 41 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
+- `get_capabilities` pages the tool catalog by offset. Its default and maximum page size is 25. The catalog holds 43 tools, so follow `meta.next_cursor` before deciding that a write tool is unavailable.
 - `list_sites` pages with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`, in site code order.
 - `list_audit_events`, `get_entity_history`, `get_agent_action`, and `list_agent_actions` page with a keyset cursor. The default page size is 10 and the maximum is 25. Audit lists are newest first. `get_agent_action` log rows are oldest first.
 - `list_invoices` pages with a keyset cursor over issue date and invoice ID, with the same default and maximum. It is newest first.
 - `list_documents` pages with `pageSize` and a keyset `cursor` over generation time and record ID, with the same default and maximum. It is newest first. The order lists of `get_customer` and `get_vehicle_history` page with `orders_page_size` and `orders_cursor`, newest first, with the same default and maximum.
 - `list_purchase_orders` and `list_vendors` page the same way: `pageSize` and a keyset `cursor`, newest first, with the same default and maximum.
 - `get_vehicle_stock_age_report`, `get_vehicle_stock_margin_report`, and `list_pickerl_due` take `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. Their cursor is an offset over the report's rows, so the next page starts after the last row returned.
+- `list_workshop_slots` pages with `pageSize` and a keyset `cursor` over `start_at` then `bay_id`, ascending. Rows are sorted that way before paging, so pages stay stable when the underlying slot list does not change between calls.
+- `list_available_loaners` pages with `pageSize` and a keyset `cursor` over `loaner_vehicle_id`, ascending. Treat availability as a snapshot: re-check before booking if you page across calls.
 
 The serialized-result cap is 32 KB (32,768). An audit or agent action page drops trailing rows that would exceed it, sets `truncated` to `true`, and returns `next_cursor` from the last row it kept. Other oversized results are truncated with a `__truncated__` marker. There is no MCP detail-mode argument. Narrow the query or request the next page instead of asking for an unbounded result.
 
@@ -166,6 +170,13 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `list_price_lists` lists applied supplier price lists, the import jobs for `SUPPLIER_PRICE_LIST`, newest applied first. `valid_from` is the moment the list was applied, and `items_count` is the number of rows in the file. Dry runs and jobs that were never applied are not listed.
 - `list_margin_rules` lists the tenant's active margin rules, the ones the price engine applies, in priority order, then ID. The ID order only makes paging stable: the price engine sorts by priority alone, so it does not define an order for rules that share a priority. Inactive rules are not listed. `scope` names the brand, the revenue group, and the EUR cost bracket (`cost_min`, `cost_max`). `markup.percent` is set for a markup rule, and `markup.use_supplier_rrp` is `true` for a rule that uses the supplier RRP.
 - The lists page with `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`. The paging is keyset over the sort key (SKU or labor code, priority, or applied time) and the row ID, so rows do not repeat or disappear between pages when data changes.
+### Workshop slot and loaner availability reads
+
+- `list_workshop_slots` and `list_available_loaners` are AUTO read-only snapshots for the **active site**. They take `from` and `to` as ISO-8601 UTC instants with at most eight days between them, plus `pageSize` (default 10, max 25) and an opaque `cursor` from `meta.next_cursor`.
+- `list_workshop_slots` also requires `duration_minutes`, the contiguous free time needed, and accepts optional `bay_id` for one bay at the active site. Each row is a `bay_id` with `start_at` and `end_at` in UTC. Booked occupancy never returns customer names.
+- `list_available_loaners` lists fleet vehicles that are available for the window using the same RESERVED, HANDED_OVER, overdue-return, MAINTENANCE, and RETIRED rules as the loaner UI. Each row has `loaner_vehicle_id`, `vehicle_id`, `display_name`, and fleet `status`. Customer names are never returned.
+- Both tools return `timezone` (the active site timezone), `availability_note` (availability is a snapshot — re-check before booking), and change nothing in the database.
+
 ### Report reads
 
 - The report reads are AUTO and read only. The tenant comes from the session. `get_workshop_kpi_report`, `get_vehicle_stock_age_report`, and `get_vehicle_stock_margin_report` take `site_id`, which defaults to the active site. A site the caller is not authorized for is not found.
@@ -231,6 +242,9 @@ These policy actions are intentionally not registered as MCP tools:
 | `credit_note.create`             |
 | `credit_note.issue`              |
 | `credit_note.finalize`           |
+| `payment.record`                 |
+| `fiscal_receipt.sign`            |
+| `fiscal_receipt.cancel`          |
 | `accounting_export.create`       |
 | `accounting_export.submit`       |
 | `customer.delete`                |

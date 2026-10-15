@@ -30,6 +30,7 @@ export type LegalEntityRecord = {
   payment_terms_days: number | null
   payment_terms_text: string | null
   seller_readiness: LegalEntitySellerReadiness
+  rksv_mode: 'OFF' | 'UNKNOWN' | 'REQUIRED_EXTERNAL_KASSE' | 'REQUIRED_ACP_RKSV'
 }
 
 export type UpdateLegalEntityPayload = {
@@ -52,6 +53,7 @@ export type UpdateLegalEntityPayload = {
   representatives?: string | null
   paymentTermsDays?: number | null
   paymentTermsText?: string | null
+  rksvMode?: LegalEntityRecord['rksv_mode']
 }
 
 export type AdminSiteRecord = {

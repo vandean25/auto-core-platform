@@ -13,6 +13,7 @@ import { PendingActionExecutorModule } from '../pending-action-executor/pending-
 import { VehicleModule } from '../vehicle/vehicle.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
+import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { McpAuditReadService } from './mcp-audit-read.service.js';
 import { McpCapabilitiesService } from './mcp-capabilities.service.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
@@ -22,6 +23,7 @@ import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpReadToolService } from './mcp-read-tool.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
 import { McpCatalogReadService } from './mcp-catalog-read.service.js';
+import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
@@ -47,6 +49,7 @@ import { SiteModule } from '../site/site.module.js';
     InventoryModule,
     PartsRequisitionModule,
     VehicleStockModule,
+    LoanerVehiclesModule,
     PendingActionExecutorModule,
     SiteModule,
   ],
@@ -65,6 +68,7 @@ import { SiteModule } from '../site/site.module.js';
     McpRecordReadService,
     McpCatalogReadService,
     McpReportReadService,
+    McpAvailabilityReadService,
     McpSettingsReadService,
     McpStockReadService,
     McpSessionService,

@@ -60,6 +60,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
       unused,
       unused,
       reportReads as unknown as McpReportReadService,
+      unused,
     );
     handler = new McpToolHandlerService(
       agentActionLog as unknown as AgentActionLogService,

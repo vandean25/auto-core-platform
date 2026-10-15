@@ -315,7 +315,7 @@ export class SiteService {
 
     validateSiteUpdateInput(dto, existing, parentLegalEntityActive);
 
-    return this.prisma.site.update({
+    const site = await this.prisma.site.update({
       where: { id: existing.id },
       data: {
         name: dto.name?.trim() ?? existing.name,
@@ -336,6 +336,40 @@ export class SiteService {
         is_active: dto.isActive ?? existing.is_active,
       },
     });
+
+    if (dto.fiscalRegister) {
+      const binding = dto.fiscalRegister;
+      if (
+        binding.providerCashRegisterId &&
+        binding.providerScuId &&
+        binding.env &&
+        binding.providerState
+      ) {
+        await this.prisma.fiscalRegister.upsert({
+          where: { tenant_id_site_id: { tenant_id: tenantId, site_id: id } },
+          create: {
+            tenant_id: tenantId,
+            legal_entity_id: existing.legal_entity_id,
+            site_id: id,
+            provider: 'FISKALY_SIGN_AT_1_2_6',
+            env: binding.env,
+            provider_cash_register_id: binding.providerCashRegisterId,
+            provider_scu_id: binding.providerScuId,
+            provider_state: binding.providerState,
+            credentials_secret_ref: binding.credentialsSecretRef ?? null,
+          },
+          update: {
+            env: binding.env,
+            provider_cash_register_id: binding.providerCashRegisterId,
+            provider_scu_id: binding.providerScuId,
+            provider_state: binding.providerState,
+            credentials_secret_ref: binding.credentialsSecretRef ?? null,
+          },
+        });
+      }
+    }
+
+    return site;
   }
 
   async deleteSite(id: string) {

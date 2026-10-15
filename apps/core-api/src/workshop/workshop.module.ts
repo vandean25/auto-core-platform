@@ -103,6 +103,7 @@ import { RegistrationIntakeModule } from '../registration-intake/registration-in
     WorkshopTaskService,
     WorkshopBoardService,
     WorkshopKpiReportsService,
+    WorkshopPlannerService,
   ],
 })
 export class WorkshopModule {}

@@ -47,6 +47,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
+| Payment | No | Status transitions only; no hard delete. Tenant purge may remove rows with the tenant. |
+| FiscalReceipt | No | Immutable `request_body` and stored `response_body`; no hard delete. |
+| FiscalRegister | No | No hard delete in this slice; decommission in fiskaly is a later change. |
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |
 | PurchaseInvoice | Draft-only | Allow only in `DRAFT`. Posted and paid bills are financial documents; use the status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
@@ -117,7 +120,7 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 
 | Entity | Planned delete support | Rule |
 |---|---|---|
-| LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport or a used accounting profile references it. |
+| LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport, Payment, FiscalReceipt, FiscalRegister, or a used accounting profile references it. |
 | Invoice (version 2) | No | No status-only cancellation as a financial reversal. Issue a separate numbered credit; retain original snapshot, number and fiscal status. |
 | CreditNote | No | DRAFT may transition to VOID without a number. FINALIZED and VOID are retained; no hard-delete endpoint. |
 | CreditNoteItem | Draft-parent edits only | Draft line replacement allowed; finalized/void lines retained. No independent deletion endpoint. |
