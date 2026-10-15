@@ -4902,6 +4902,20 @@ describe('MCP server (e2e)', () => {
     async function seedRequisitionDemandForPurchasePropose(
       options: { secondLineOnSamePart?: boolean } = {},
     ): Promise<PurchaseDemandSeed> {
+      const dedicatedTask = await prismaA.workshopTask.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: fixtures.workshopOrderId,
+          title: `MCP PO demand ${Date.now()}`,
+          status: 'NOT_STARTED',
+        },
+      });
+      const dedicatedLine = await createPartLine(prismaA, dedicatedTask.id, {
+        item_no: fixtures.sku,
+        description: fixtures.searchToken,
+        unit_price: 2,
+        catalog_item_id: fixtures.catalogItemId,
+      });
       const catalogBefore = await prismaA.catalogItem.findFirstOrThrow({
         where: { id: fixtures.catalogItemId, tenant_id: tenantA },
         select: { brand_id: true, cost_price: true, unit: true },
@@ -4916,6 +4930,7 @@ describe('MCP server (e2e)', () => {
         const makeName = vehicleBefore.make || `McpPoMake${Date.now()}`;
         const makeBrand = await prismaA.brand.create({
           data: {
+            tenant_id: tenantA,
             name: makeName,
             normalized_name: makeName.toLowerCase(),
             isVehicleMake: true,
@@ -4952,7 +4967,7 @@ describe('MCP server (e2e)', () => {
         quantity: number;
       }> = [
         {
-          workshopTaskLineItemId: fixtures.workshopTaskLineItemId,
+          workshopTaskLineItemId: dedicatedLine.id,
           quantity: 1,
         },
       ];
@@ -4961,7 +4976,7 @@ describe('MCP server (e2e)', () => {
           data: {
             tenant_id: tenantA,
             workshop_order_id: fixtures.workshopOrderId,
-            title: 'MCP PO second job',
+            title: `MCP PO second job ${Date.now()}`,
             status: 'NOT_STARTED',
           },
         });
@@ -4983,7 +4998,11 @@ describe('MCP server (e2e)', () => {
           vehicleMakeBrandId: vehicleMakeBrandId,
           items: requisitionItems,
         });
-      expect(sheet.status).toBe(201);
+      if (sheet.status !== 201) {
+        throw new Error(
+          `requisition seed failed: ${sheet.status} ${JSON.stringify(sheet.body)}`,
+        );
+      }
       if (vehicleMakeBrandId === null) {
         throw new Error('vehicle make brand id missing after seed');
       }
