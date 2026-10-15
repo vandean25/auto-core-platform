@@ -88,6 +88,8 @@ export const CLIENT_SAFE_HTTP_ERROR_CODES = new Set<string>([
   'FISCAL_RECEIPT_UNKNOWN',
   'FISCAL_REGISTER_LEGAL_ENTITY_MISMATCH',
   'FISCAL_RECEIPT_ENV_MISMATCH',
+  // AUT-548 demo magic-link grant on GET /api/auth/me for DEMO memberships.
+  'LANDING_DEMO_SIGN_IN_GRANT_INVALID',
 ]);
 
 /**

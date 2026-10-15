@@ -1,5 +1,9 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { UnauthorizedException } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
+import {
+  LANDING_DEMO_SIGN_IN_GRANT_INVALID_CODE,
+  LANDING_DEMO_SIGN_IN_GRANT_INVALID_MESSAGE,
+} from './landing-demo-sign-in-grant.errors.js';
 import { TenantMemberRole } from '@prisma/client';
 import { LandingDemoSignInGrantService } from './landing-demo-sign-in-grant.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
@@ -58,9 +62,17 @@ describe('LandingDemoSignInGrantService', () => {
     } as unknown as SystemPrismaService;
 
     const service = new LandingDemoSignInGrantService(systemPrisma);
-    await expect(
-      service.assertDemoSignInGrantForSession('user-1'),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    try {
+      await service.assertDemoSignInGrantForSession('user-1');
+      throw new Error('expected rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(401);
+      expect((error as HttpException).getResponse()).toEqual({
+        code: LANDING_DEMO_SIGN_IN_GRANT_INVALID_CODE,
+        message: LANDING_DEMO_SIGN_IN_GRANT_INVALID_MESSAGE,
+      });
+    }
   });
 
   it('detects non-demo active memberships', async () => {

@@ -1,6 +1,20 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { TenantMemberRole } from '@prisma/client';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
+import {
+  LANDING_DEMO_SIGN_IN_GRANT_INVALID_CODE,
+  LANDING_DEMO_SIGN_IN_GRANT_INVALID_MESSAGE,
+} from './landing-demo-sign-in-grant.errors.js';
+
+function rejectDemoSignInGrant(): never {
+  throw new HttpException(
+    {
+      code: LANDING_DEMO_SIGN_IN_GRANT_INVALID_CODE,
+      message: LANDING_DEMO_SIGN_IN_GRANT_INVALID_MESSAGE,
+    },
+    HttpStatus.UNAUTHORIZED,
+  );
+}
 
 @Injectable()
 export class LandingDemoSignInGrantService {
@@ -25,9 +39,7 @@ export class LandingDemoSignInGrantService {
       });
 
     if (!activeGrant) {
-      throw new UnauthorizedException(
-        'Demo sign-in link is missing, expired, or already used.',
-      );
+      rejectDemoSignInGrant();
     }
 
     if (activeGrant.consumed_at) {
@@ -35,9 +47,7 @@ export class LandingDemoSignInGrantService {
     }
 
     if (activeGrant.expires_at.getTime() <= now.getTime()) {
-      throw new UnauthorizedException(
-        'Demo sign-in link is missing, expired, or already used.',
-      );
+      rejectDemoSignInGrant();
     }
 
     const consumed = await this.systemPrisma.landingDemoSignInGrant.updateMany({
@@ -51,9 +61,7 @@ export class LandingDemoSignInGrantService {
     });
 
     if (consumed.count !== 1) {
-      throw new UnauthorizedException(
-        'Demo sign-in link is missing, expired, or already used.',
-      );
+      rejectDemoSignInGrant();
     }
   }
 

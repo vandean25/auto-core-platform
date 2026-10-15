@@ -4,6 +4,7 @@
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { isFirebaseEmailLinkSignInUrl } from '@/auth/landing-demo-email-link'
 import { APP_ROUTE_PATHS, LOGIN_PATH } from '@/lib/app-route-paths'
 import App from './App'
 
@@ -25,8 +26,17 @@ vi.mock('@/api/sites', () => ({
   useSetActiveSite: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }))
 
+vi.mock('@/auth/landing-demo-email-link', () => ({
+  isFirebaseEmailLinkSignInUrl: vi.fn(() => false),
+  isDemoGrantSessionErrorMessage: vi.fn(() => false),
+}))
+
 vi.mock('@/pages/LoginPage', () => ({
   default: () => <div>Sign in card</div>,
+}))
+
+vi.mock('@/pages/LandingDemoEmailLinkCompletionPage', () => ({
+  default: () => <div>Demo email link completion</div>,
 }))
 
 vi.mock('@/pages/NotFoundPage', () => ({
@@ -83,6 +93,15 @@ describe('App auth and 404 routing (AUT-201)', () => {
 
     expect(await screen.findByText('Sign in card')).toBeInTheDocument()
     expect(window.location.pathname).toBe(LOGIN_PATH)
+  })
+
+  it('renders the demo email-link completion flow on /login when the URL is a magic link', async () => {
+    vi.mocked(isFirebaseEmailLinkSignInUrl).mockReturnValue(true)
+
+    renderAtPath(LOGIN_PATH)
+
+    expect(await screen.findByText('Demo email link completion')).toBeInTheDocument()
+    expect(screen.queryByText('Sign in card')).not.toBeInTheDocument()
   })
 
   it('does not flash the sign-in card while auth is loading on /login', () => {
