@@ -63,7 +63,9 @@ export class PurchaseService {
     return this.proposeDraft.applyDraft(input, executionContext);
   }
 
-  buildProposedPurchaseOrderExecutionContext(): Promise<Record<string, unknown>> {
+  buildProposedPurchaseOrderExecutionContext(): Promise<
+    Record<string, unknown>
+  > {
     return this.proposeDraft.buildExecutionContext();
   }
 

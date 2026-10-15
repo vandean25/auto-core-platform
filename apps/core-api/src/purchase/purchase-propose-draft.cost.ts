@@ -32,7 +32,10 @@ export function resolvePurchaseLineCost(
   },
   vendorArticle: VendorArticleRow | undefined,
 ): ResolvedPurchaseLineCost {
-  if (vendorArticle?.last_cost !== null && vendorArticle?.last_cost !== undefined) {
+  if (
+    vendorArticle?.last_cost !== null &&
+    vendorArticle?.last_cost !== undefined
+  ) {
     return {
       unitCostNet: formatUnitCostNet(vendorArticle.last_cost),
       source: {

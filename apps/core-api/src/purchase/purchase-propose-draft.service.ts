@@ -91,13 +91,14 @@ export class PurchaseProposeDraftService {
       unitCost: Number(line.unit_cost_net),
     }));
 
-    const created = await this.partsRequisition.createPurchaseOrderForRequisition(
-      parsed.requisition_id,
-      {
-        vendorId: parsed.vendor_id,
-        items: dtoItems,
-      },
-    );
+    const created =
+      await this.partsRequisition.createPurchaseOrderForRequisition(
+        parsed.requisition_id,
+        {
+          vendorId: parsed.vendor_id,
+          items: dtoItems,
+        },
+      );
 
     return this.toResult(created.id, planned);
   }
@@ -110,7 +111,9 @@ export class PurchaseProposeDraftService {
     const reservationIds = parsed.lines.map((line) => line.reservation_id);
     const uniqueReservationIds = new Set(reservationIds);
     if (uniqueReservationIds.size !== reservationIds.length) {
-      throw new UnprocessableEntityException('Duplicate reservation_id in lines');
+      throw new UnprocessableEntityException(
+        'Duplicate reservation_id in lines',
+      );
     }
 
     const catalogItemIds = parsed.lines.map((line) => line.catalog_item_id);
@@ -142,7 +145,9 @@ export class PurchaseProposeDraftService {
             workshop_task_line_item: {
               select: {
                 catalog_item_id: true,
-                catalog_item: { select: { id: true, sku: true, name: true, unit: true } },
+                catalog_item: {
+                  select: { id: true, sku: true, name: true, unit: true },
+                },
                 workshop_task: {
                   select: {
                     workshop_order: { select: { site_id: true } },
@@ -218,10 +223,11 @@ export class PurchaseProposeDraftService {
     for (const line of parsed.lines) {
       const reservation = reservationById.get(line.reservation_id);
       if (!reservation) {
-        throw new UnprocessableEntityException('Reservation slice was not found.');
+        throw new UnprocessableEntityException(
+          'Reservation slice was not found.',
+        );
       }
-      const catalogItemId =
-        reservation.workshop_task_line_item.catalog_item_id;
+      const catalogItemId = reservation.workshop_task_line_item.catalog_item_id;
       if (!catalogItemId || catalogItemId !== line.catalog_item_id) {
         throw new UnprocessableEntityException(
           'catalog_item_id does not match the reservation slice demand.',
@@ -240,12 +246,9 @@ export class PurchaseProposeDraftService {
       ) {
         throw new UnprocessableEntityException(
           'Reservation slice is not available in the active site.',
-      );
+        );
       }
-      if (
-        reservation.status !== 'OPEN' &&
-        reservation.status !== 'ORDERED'
-      ) {
+      if (reservation.status !== 'OPEN' && reservation.status !== 'ORDERED') {
         throw new UnprocessableEntityException(
           'Only open or ordered slices can be added to a purchase order.',
         );
@@ -264,7 +267,9 @@ export class PurchaseProposeDraftService {
       }
       if (
         catalogItem.brand &&
-        !vendor.supportedBrands.some((brand) => brand.id === catalogItem.brand_id)
+        !vendor.supportedBrands.some(
+          (brand) => brand.id === catalogItem.brand_id,
+        )
       ) {
         throw new UnprocessableEntityException(
           `Vendor ${vendor.name} does not support brand ${catalogItem.brand.name}.`,

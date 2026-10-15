@@ -3,7 +3,10 @@ import { z } from 'zod';
 const uuidSchema = z.string().uuid();
 const unitCostNetSchema = z
   .string()
-  .regex(/^\d+\.\d{2}$/, 'unit_cost_net must be a EUR decimal string with two places');
+  .regex(
+    /^\d+\.\d{2}$/,
+    'unit_cost_net must be a EUR decimal string with two places',
+  );
 
 export const purchaseCostBasisInputSchema = z
   .object({

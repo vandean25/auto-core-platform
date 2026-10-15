@@ -4889,6 +4889,10 @@ describe('MCP server (e2e)', () => {
   });
 
   async function seedRequisitionDemandForPurchasePropose() {
+    const catalogBefore = await prismaA.catalogItem.findUniqueOrThrow({
+      where: { id: fixtures.catalogItemId },
+      select: { brand_id: true, cost_price: true },
+    });
     const makeName = `McpPoBrand${Date.now()}`;
     const brand = await prismaA.brand.create({
       data: {
@@ -4907,7 +4911,7 @@ describe('MCP server (e2e)', () => {
         supportedBrands: { connect: [{ id: brand.id }] },
       },
     });
-    await prismaA.vendorArticle.create({
+    const vendorArticle = await prismaA.vendorArticle.create({
       data: {
         tenant_id: tenantA,
         vendor_id: fixtures.vendorId,
@@ -4934,12 +4938,32 @@ describe('MCP server (e2e)', () => {
       requisitionId: sheet.body.id as string,
       reservationId,
       unitCostNet: '3.50',
+      async cleanup() {
+        await prismaA.vendorArticle.deleteMany({
+          where: { id: vendorArticle.id },
+        });
+        await prismaA.vendor.update({
+          where: { id: fixtures.vendorId },
+          data: {
+            supportedBrands: { disconnect: [{ id: brand.id }] },
+          },
+        });
+        await prismaA.catalogItem.update({
+          where: { id: fixtures.catalogItemId },
+          data: {
+            brand_id: catalogBefore.brand_id,
+            cost_price: catalogBefore.cost_price,
+          },
+        });
+        await prismaA.brand.delete({ where: { id: brand.id } });
+      },
     };
   }
 
   it('propose_purchase_order PROPOSE: preview is provisional and apply commits one DRAFT only', async () => {
     await setPolicyTier('purchase_order.propose_draft', 'PROPOSE');
     const demand = await seedRequisitionDemandForPurchasePropose();
+    try {
     const poCountBefore = await prismaA.purchaseOrder.count({
       where: { site_id: fixtures.siteId, status: 'DRAFT' },
     });
@@ -5002,11 +5026,15 @@ describe('MCP server (e2e)', () => {
       status: 'PROPOSED',
       tier: 'PROPOSE',
     });
+    } finally {
+      await demand.cleanup();
+    }
   });
 
   it('AUT-539: replays propose_purchase_order with the same command_id', async () => {
     await setPolicyTier('purchase_order.propose_draft', 'PROPOSE');
     const demand = await seedRequisitionDemandForPurchasePropose();
+    try {
     const commandId = '00000000-0000-4000-8000-000000000540';
     const args = {
       vendor_id: fixtures.vendorId,
@@ -5042,6 +5070,9 @@ describe('MCP server (e2e)', () => {
     }>(second);
     expect(secondPayload.pending_action_id).toBe(firstPayload.pending_action_id);
     expect(secondPayload.replayed).toBe(true);
+    } finally {
+      await demand.cleanup();
+    }
   });
 
   it('AUT-535: replays propose_workshop_booking with the same command_id', async () => {
