@@ -14,6 +14,7 @@ export type AgentPolicyTier = AgentProposal['tier']
 export interface AgentProposalFilters {
   status?: string
   limit?: number
+  ids?: string[]
 }
 
 export interface RejectAgentProposalParams {
@@ -34,13 +35,22 @@ async function getErrorMessage(response: Response, fallbackMessage: string): Pro
   return payload?.message || fallbackMessage
 }
 
-export function useAgentProposals(filters: AgentProposalFilters = {}) {
+export function useAgentProposals(
+  filters: AgentProposalFilters = {},
+  enabled = true,
+) {
   return useQuery<AgentProposalListResponse>({
     queryKey: agentProposalKeys.list(filters),
+    enabled,
     queryFn: async () => {
       const params = new URLSearchParams()
       if (filters.status) params.append('status', filters.status)
       if (filters.limit !== undefined) params.append('limit', String(filters.limit))
+      if (filters.ids?.length) {
+        for (const id of filters.ids) {
+          params.append('ids', id)
+        }
+      }
 
       const query = params.toString()
       const url = query ? `/api/agent-proposals?${query}` : '/api/agent-proposals'

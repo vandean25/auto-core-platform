@@ -160,6 +160,55 @@ describe('AgentProposalReadService', () => {
     });
   });
 
+  it('drops pending-approval triage when the workshop order is outside authorized sites even if preview has a site', async () => {
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([
+      createMockProposal({
+        id: 'preview-only',
+        action_type: 'workshop_order.add_line',
+        payload_json: { order_id: 'wo-other' },
+        preview_json: {
+          execution_context: { site_id: 'site-1' },
+        },
+        expires_at: new Date('2099-01-01T00:00:00.000Z'),
+      }),
+    ]);
+    h.mockPrisma.workshopOrder.findMany.mockResolvedValue([]);
+
+    const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, [
+      'site-1',
+    ]);
+
+    expect(rows).toEqual([]);
+  });
+
+  it('omits proposals that are no longer pending after a concurrent decision', async () => {
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([]);
+
+    const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, [
+      'site-1',
+    ]);
+
+    expect(rows).toEqual([]);
+    expect(h.mockPrisma.agentProposal.updateMany).toHaveBeenCalled();
+  });
+
+  it('filters list proposals by explicit ids', async () => {
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([
+      createMockProposal({ id: 'p-target' }),
+    ]);
+
+    await h.reads.listProposals({ ids: ['p-target', 'p-missing'] });
+
+    expect(h.mockPrisma.agentProposal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: { in: ['p-target', 'p-missing'] },
+        }),
+        take: 2,
+      }),
+    );
+  });
+
   it('loads customer-waiting triage rows in one query per source', async () => {
     h.mockPrisma.workshopTask = {
       findMany: jest.fn().mockResolvedValue([

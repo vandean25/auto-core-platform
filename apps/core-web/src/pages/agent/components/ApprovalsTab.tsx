@@ -81,27 +81,41 @@ export function ApprovalsTab({
   const common = SUPERVISION_COPY.common
 
   const {
-    data: proposalsData,
-    isLoading: proposalsLoading,
-    isError: proposalsError,
-    refetch: refetchProposals,
-  } = useAgentProposals({
-    status: pendingOnly ? 'PENDING' : undefined,
-    limit: 100,
-  })
-
-  const {
     data: triageData,
     isLoading: triageLoading,
     isError: triageError,
     refetch: refetchTriage,
   } = useAgentSupervisionTriage({ limit: 50 }, pendingOnly)
 
+  const triageItems = triageData?.data ?? []
+  const pendingApprovalIds = useMemo(
+    () =>
+      triageItems
+        .filter((item) => item.kind === 'PENDING_APPROVAL')
+        .map((item) => item.entity_id),
+    [triageItems],
+  )
+
+  const {
+    data: proposalsData,
+    isLoading: proposalsLoading,
+    isError: proposalsError,
+    refetch: refetchProposals,
+  } = useAgentProposals(
+    pendingOnly
+      ? {
+          status: 'PENDING',
+          ids: pendingApprovalIds,
+          limit: Math.min(100, pendingApprovalIds.length || 100),
+        }
+      : { limit: 100 },
+    pendingOnly ? pendingApprovalIds.length > 0 : true,
+  )
+
   const approveMutation = useApproveAgentProposal()
   const rejectMutation = useRejectAgentProposal()
 
   const proposals = proposalsData?.data ?? []
-  const triageItems = triageData?.data ?? []
   const proposalById = useMemo(
     () => new Map(proposals.map((proposal) => [proposal.id, proposal])),
     [proposals],
@@ -110,7 +124,9 @@ export function ApprovalsTab({
   const isLoading = pendingOnly
     ? triageLoading || proposalsLoading
     : proposalsLoading
-  const isError = pendingOnly ? triageError : proposalsError
+  const isError = pendingOnly
+    ? triageError || proposalsError
+    : proposalsError
 
   const refetch = () => {
     void refetchProposals()

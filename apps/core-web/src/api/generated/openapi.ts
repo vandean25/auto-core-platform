@@ -17384,6 +17384,8 @@ export interface operations {
     AgentProposalController_listProposals: {
         parameters: {
             query?: {
+                /** @description When set, return only proposals with these IDs (still tenant-scoped) */
+                ids?: string[];
                 /** @description Maximum number of items to return */
                 limit?: number;
                 /** @description Filter by proposal status */

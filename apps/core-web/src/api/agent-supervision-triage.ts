@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import type { components } from './generated/openapi'
 import { fetchWithAuth } from './client'
 
@@ -9,7 +10,6 @@ export type AgentSupervisionTriageListResponse =
 
 export interface AgentSupervisionTriageFilters {
   limit?: number
-  cursor?: string
 }
 
 export const agentSupervisionTriageKeys = {
@@ -33,16 +33,17 @@ export function useAgentSupervisionTriage(
   filters: AgentSupervisionTriageFilters = {},
   enabled = true,
 ) {
-  return useQuery<AgentSupervisionTriageListResponse>({
+  const infinite = useInfiniteQuery<AgentSupervisionTriageListResponse>({
     queryKey: agentSupervisionTriageKeys.list(filters),
     enabled,
-    queryFn: async () => {
+    initialPageParam: undefined as string | undefined,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams()
       if (filters.limit !== undefined) {
         params.append('limit', String(filters.limit))
       }
-      if (filters.cursor) {
-        params.append('cursor', filters.cursor)
+      if (pageParam) {
+        params.append('cursor', pageParam)
       }
       const query = params.toString()
       const url = query
@@ -56,5 +57,33 @@ export function useAgentSupervisionTriage(
       }
       return response.json()
     },
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
   })
+
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = infinite
+
+  useEffect(() => {
+    if (!enabled) {
+      return
+    }
+    if (hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage()
+    }
+  }, [enabled, hasNextPage, isFetchingNextPage, fetchNextPage])
+
+  const mergedItems =
+    infinite.data?.pages.flatMap((page) => page.data ?? []) ?? []
+
+  return {
+    ...infinite,
+    data: {
+      data: mergedItems,
+      next_cursor: infinite.data?.pages.at(-1)?.next_cursor ?? null,
+    },
+    isLoading:
+      infinite.isLoading ||
+      infinite.isFetchingNextPage ||
+      (infinite.isFetching && Boolean(hasNextPage)),
+    refetch: infinite.refetch,
+  }
 }

@@ -12727,6 +12727,19 @@
         "operationId": "AgentProposalController_listProposals",
         "parameters": [
           {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "When set, return only proposals with these IDs (still tenant-scoped)",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "limit",
             "required": false,
             "in": "query",

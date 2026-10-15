@@ -1253,5 +1253,59 @@ describe('AgentSupervisionPage', () => {
 
       await waitFor(() => expect(mockMutateApprove).toHaveBeenCalledWith('prop-1'))
     })
+
+    it('shows inbox error when proposals fail to load in pending-only mode', () => {
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: triageItemsFromProposals([mockProposals[0]]),
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      expect(screen.getByTestId('approvals-error-state')).toBeInTheDocument()
+    })
+
+    it('renders approve actions when triage lists a proposal not in the newest-100 list', async () => {
+      const beyondListProposal = {
+        ...mockProposals[0],
+        id: 'prop-beyond-100',
+      }
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: { data: [beyondListProposal] },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+      vi.mocked(useAgentSupervisionTriage).mockReturnValue({
+        data: {
+          data: triageItemsFromProposals([beyondListProposal]),
+          next_cursor: null,
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchTriage,
+      } as unknown as ReturnType<typeof useAgentSupervisionTriage>)
+
+      renderSupervisionPage()
+
+      expect(
+        screen.getByTestId('approve-btn-prop-beyond-100'),
+      ).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('approve-btn-prop-beyond-100'))
+      await waitFor(() =>
+        expect(mockMutateApprove).toHaveBeenCalledWith('prop-beyond-100'),
+      )
+    })
   })
 })

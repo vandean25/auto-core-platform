@@ -1,10 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { AgentProposalReadService } from '../agent-proposal/agent-proposal-read.service.js';
 import { assertSupervisorAccess } from '../agent-proposal/agent-proposal.authorization.js';
 import {
+  InvalidSupervisionTriageCursorError,
   paginateSupervisionTriageCandidates,
   sortSupervisionTriageCandidates,
   type SupervisionTriageCandidate,
@@ -17,8 +18,6 @@ import type {
 
 @Injectable()
 export class AgentSupervisionTriageService {
-  private readonly logger = new Logger(AgentSupervisionTriageService.name);
-
   constructor(
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
@@ -39,11 +38,23 @@ export class AgentSupervisionTriageService {
     const limit = query.limit ?? 20;
     const merged = await this.loadAuthorizedTriageCandidates(tenantId, siteIds);
     const sorted = sortSupervisionTriageCandidates(merged);
-    const { page, next_cursor } = paginateSupervisionTriageCandidates(
-      sorted,
-      limit,
-      query.cursor,
-    );
+
+    let page: SupervisionTriageCandidate[];
+    let next_cursor: string | null;
+    try {
+      const paginated = paginateSupervisionTriageCandidates(
+        sorted,
+        limit,
+        query.cursor,
+      );
+      page = paginated.page;
+      next_cursor = paginated.next_cursor;
+    } catch (error) {
+      if (error instanceof InvalidSupervisionTriageCursorError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
 
     return {
       data: page.map(toTriageItemDto),
@@ -56,39 +67,15 @@ export class AgentSupervisionTriageService {
     siteIds: string[],
   ): Promise<SupervisionTriageCandidate[]> {
     const [overdue, customerWaiting, pendingApproval] = await Promise.all([
-      this.safeSource('OVERDUE_LOANER', () =>
-        this.loanerVehicles.listOverdueTriageCandidates(tenantId, siteIds),
-      ),
-      this.safeSource('CUSTOMER_WAITING', () =>
-        this.proposalReads.listCustomerWaitingTriageCandidates(
-          tenantId,
-          siteIds,
-        ),
-      ),
-      this.safeSource('PENDING_APPROVAL', () =>
-        this.proposalReads.listPendingApprovalTriageCandidates(
-          tenantId,
-          siteIds,
-        ),
+      this.loanerVehicles.listOverdueTriageCandidates(tenantId, siteIds),
+      this.proposalReads.listCustomerWaitingTriageCandidates(tenantId, siteIds),
+      this.proposalReads.listPendingApprovalTriageCandidates(
+        tenantId,
+        siteIds,
       ),
     ]);
 
     return [...overdue, ...customerWaiting, ...pendingApproval];
-  }
-
-  private async safeSource(
-    label: string,
-    loader: () => Promise<SupervisionTriageCandidate[]>,
-  ): Promise<SupervisionTriageCandidate[]> {
-    try {
-      return await loader();
-    } catch (error) {
-      this.logger.warn(
-        `Supervision triage source ${label} failed; returning no items from this source.`,
-        error instanceof Error ? error.stack : String(error),
-      );
-      return [];
-    }
   }
 }
 

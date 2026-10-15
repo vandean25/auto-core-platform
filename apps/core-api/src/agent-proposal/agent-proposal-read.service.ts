@@ -59,11 +59,15 @@ export class AgentProposalReadService {
       where: {
         tenant_id: tenantId,
         ...(query.status ? { status: query.status } : {}),
+        ...(query.ids?.length ? { id: { in: [...query.ids] } } : {}),
       },
       orderBy: {
         createdAt: 'desc',
       },
-      take: query.limit ?? 50,
+      take:
+        query.ids?.length
+          ? Math.min(query.ids.length, query.limit ?? query.ids.length)
+          : (query.limit ?? 50),
     });
 
     const workshopOrderSummaries = await this.loadWorkshopOrderSummaries(
@@ -274,9 +278,9 @@ export class AgentProposalReadService {
     for (const proposal of proposals) {
       const payload = (proposal.payload_json ?? {}) as Record<string, unknown>;
       const orderId = resolveWorkshopOrderId(proposal.action_type, payload);
-      const siteId =
-        (orderId ? orderSiteById.get(orderId) : undefined) ??
-        readExecutionSiteId(proposal.preview_json);
+      const siteId = orderId
+        ? orderSiteById.get(orderId)
+        : readExecutionSiteId(proposal.preview_json);
       if (!siteId || !authorizedSites.has(siteId)) {
         continue;
       }

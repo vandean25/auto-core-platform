@@ -1,5 +1,8 @@
 import {
   compareSupervisionTriageCandidates,
+  decodeSupervisionTriageCursor,
+  encodeSupervisionTriageCursor,
+  InvalidSupervisionTriageCursorError,
   paginateSupervisionTriageCandidates,
   sortSupervisionTriageCandidates,
   type SupervisionTriageCandidate,
@@ -57,7 +60,7 @@ describe('supervision triage ordering', () => {
     ]);
   });
 
-  it('paginates over the full sorted set', () => {
+  it('paginates with a keyset cursor on the last row sort key', () => {
     const sorted = sortSupervisionTriageCandidates([
       item({ kind: 'OVERDUE_LOANER', entity_id: 'l-2' }),
       item({ kind: 'OVERDUE_LOANER', entity_id: 'l-1' }),
@@ -67,6 +70,10 @@ describe('supervision triage ordering', () => {
     const first = paginateSupervisionTriageCandidates(sorted, 2);
     expect(first.page.map((row) => row.entity_id)).toEqual(['l-1', 'l-2']);
     expect(first.next_cursor).not.toBeNull();
+    expect(decodeSupervisionTriageCursor(first.next_cursor!)).toMatchObject({
+      kind: 'OVERDUE_LOANER',
+      entity_id: 'l-2',
+    });
 
     const second = paginateSupervisionTriageCandidates(
       sorted,
@@ -75,5 +82,30 @@ describe('supervision triage ordering', () => {
     );
     expect(second.page.map((row) => row.entity_id)).toEqual(['c-1']);
     expect(second.next_cursor).toBeNull();
+  });
+
+  it('rejects invalid cursors', () => {
+    expect(() => decodeSupervisionTriageCursor('not-valid')).toThrow(
+      InvalidSupervisionTriageCursorError,
+    );
+    expect(() =>
+      paginateSupervisionTriageCandidates([], 10, 'not-valid'),
+    ).toThrow(InvalidSupervisionTriageCursorError);
+  });
+
+  it('round-trips keyset cursors through encode/decode', () => {
+    const row = item({
+      kind: 'PENDING_APPROVAL',
+      entity_id: 'p-99',
+      due_at: new Date('2026-03-01T00:00:00.000Z'),
+      created_at: new Date('2026-02-01T00:00:00.000Z'),
+    });
+    const raw = encodeSupervisionTriageCursor(row);
+    expect(decodeSupervisionTriageCursor(raw)).toEqual({
+      kind: 'PENDING_APPROVAL',
+      due_at: '2026-03-01T00:00:00.000Z',
+      created_at: '2026-02-01T00:00:00.000Z',
+      entity_id: 'p-99',
+    });
   });
 });
