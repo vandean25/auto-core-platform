@@ -5,6 +5,11 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { LocationType, VehicleInventoryRole } from '@prisma/client';
+import {
+  calculateEuUsedM1Slice2024,
+  type EuUsedM1SliceInput,
+  type EuUsedM1SliceResult,
+} from '../nova-calculator/calculate-eu-used-m1-2024.js';
 import { NovaCalculationError } from '../nova-calculator/types.js';
 import {
   calculateNova,
@@ -15,6 +20,7 @@ import type {
   CalculateNovaInput,
   CalculateNovaResult,
   NovaDriveType,
+  NovaImportMode,
   NovaVehicleClass,
 } from '../nova-calculator/types.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -24,12 +30,21 @@ import { SiteContextService } from '../site/site-context.service.js';
 export type NovaCalculateInput = Partial<CalculateNovaInput> & {
   netPriceEuro: number;
   vehicleId?: string;
+  importMode?: NovaImportMode;
+  valueBasis?: string;
+  originalNewNetEuro?: number;
 };
 
-export type NovaCalculateResult = CalculateNovaResult & {
-  hasUnverifiedRules: boolean;
-  hasScopeLimitations: boolean;
-};
+export type NovaCalculateResult = CalculateNovaResult &
+  Partial<
+    Pick<
+      EuUsedM1SliceResult,
+      'tariffSelectionBasis' | 'tariffSelectionDate' | 'intermediates'
+    >
+  > & {
+    hasUnverifiedRules: boolean;
+    hasScopeLimitations: boolean;
+  };
 
 type VehicleNovaInputs = {
   first_registration_date: Date | null;
@@ -124,6 +139,27 @@ function mapVehicleValues(
   };
 }
 
+function mapEuUsedM1VehicleValues(
+  vehicle: VehicleNovaInputs,
+  explicit: NovaCalculateInput,
+): EuUsedM1SliceInput {
+  return {
+    vehicleClass: explicit.vehicleClass,
+    driveType: explicit.driveType,
+    emissionCycle: explicit.emissionCycle,
+    co2GramsPerKm:
+      explicit.co2GramsPerKm ?? vehicle.co2_wltp_g_km ?? undefined,
+    firstRegistrationDate:
+      explicit.firstRegistrationDate ??
+      toIsoDate(vehicle.first_registration_date ?? undefined),
+    taxableEventDate: explicit.taxableEventDate,
+    netPriceEuro: explicit.netPriceEuro,
+    valueBasis: explicit.valueBasis,
+    originalNewNetEuro: explicit.originalNewNetEuro,
+    isCamperSA: explicit.isCamperSA,
+  };
+}
+
 function mapExplicitValues(input: NovaCalculateInput): CalculateNovaInput {
   return {
     taxableEventDate: input.taxableEventDate ?? currentViennaIsoDate(),
@@ -139,6 +175,60 @@ function mapExplicitValues(input: NovaCalculateInput): CalculateNovaInput {
   };
 }
 
+function mapExplicitEuUsedM1Values(
+  input: NovaCalculateInput,
+): EuUsedM1SliceInput {
+  return {
+    vehicleClass: input.vehicleClass,
+    driveType: input.driveType,
+    emissionCycle: input.emissionCycle,
+    co2GramsPerKm: input.co2GramsPerKm,
+    firstRegistrationDate: input.firstRegistrationDate,
+    taxableEventDate: input.taxableEventDate,
+    netPriceEuro: input.netPriceEuro,
+    valueBasis: input.valueBasis,
+    originalNewNetEuro: input.originalNewNetEuro,
+    isCamperSA: input.isCamperSA,
+  };
+}
+
+function assertImportModeGuards(input: NovaCalculateInput): void {
+  const hasSliceFields =
+    input.valueBasis !== undefined || input.originalNewNetEuro !== undefined;
+  if (hasSliceFields && !input.importMode) {
+    throw new NovaCalculationError(
+      'MISSING_IMPORT_MODE',
+      'valueBasis and originalNewNetEuro require importMode eu_used_m1',
+    );
+  }
+  if (input.importMode && input.importMode !== 'eu_used_m1') {
+    throw new NovaCalculationError(
+      'UNSUPPORTED_IMPORT_MODE',
+      'importMode is not supported',
+    );
+  }
+}
+
+function wrapEngineResult(result: CalculateNovaResult): NovaCalculateResult {
+  return {
+    ...result,
+    hasUnverifiedRules: result.warnings.some((warning) =>
+      UNVERIFIED_WARNINGS.has(warning),
+    ),
+    hasScopeLimitations: result.warnings.some((warning) =>
+      SCOPE_LIMITATION_WARNINGS.has(warning),
+    ),
+  };
+}
+
+function wrapEuUsedM1Result(result: EuUsedM1SliceResult): NovaCalculateResult {
+  return {
+    ...result,
+    hasUnverifiedRules: false,
+    hasScopeLimitations: false,
+  };
+}
+
 @Injectable()
 export class NovaCalculationService {
   constructor(
@@ -150,49 +240,15 @@ export class NovaCalculationService {
 
   async calculate(input: NovaCalculateInput): Promise<NovaCalculateResult> {
     try {
+      assertImportModeGuards(input);
+
+      if (input.importMode === 'eu_used_m1') {
+        return await this.calculateEuUsedM1(input);
+      }
+
       let engineInput: CalculateNovaInput;
       if (input.vehicleId) {
-        const tenantId = await this.tenantContext.getTenantId();
-        const activeSite = await this.siteContext.tryGetSite();
-        const vehicle = await this.prisma.vehicle.findFirst({
-          where: {
-            id: input.vehicleId,
-            tenant_id: tenantId,
-            OR: [
-              { inventory_role: VehicleInventoryRole.CUSTOMER },
-              ...(activeSite
-                ? [
-                    {
-                      inventory_role: {
-                        in: [
-                          VehicleInventoryRole.USED,
-                          VehicleInventoryRole.NEW,
-                          VehicleInventoryRole.DEMO,
-                        ],
-                      },
-                      location: {
-                        is: {
-                          site_id: activeSite.id,
-                          type: LocationType.vehicle_lot,
-                        },
-                      },
-                    },
-                  ]
-                : []),
-            ],
-          },
-          select: {
-            first_registration_date: true,
-            co2_wltp_g_km: true,
-            co2_nedc_g_km: true,
-            fuel_type: true,
-            power_kw: true,
-            nova_class: true,
-          },
-        });
-        if (!vehicle) {
-          throw new NotFoundException('Vehicle not found');
-        }
+        const vehicle = await this.loadVehicle(input.vehicleId);
         engineInput = mapVehicleValues(vehicle, input);
       } else {
         engineInput = mapExplicitValues(input);
@@ -210,16 +266,7 @@ export class NovaCalculationService {
         );
       }
 
-      const result = calculateNova(engineInput, tariff.id);
-      return {
-        ...result,
-        hasUnverifiedRules: result.warnings.some((warning) =>
-          UNVERIFIED_WARNINGS.has(warning),
-        ),
-        hasScopeLimitations: result.warnings.some((warning) =>
-          SCOPE_LIMITATION_WARNINGS.has(warning),
-        ),
-      };
+      return wrapEngineResult(calculateNova(engineInput, tariff.id));
     } catch (error) {
       if (error instanceof NovaCalculationError) {
         throw new UnprocessableEntityException({
@@ -229,5 +276,63 @@ export class NovaCalculationService {
       }
       throw error;
     }
+  }
+
+  private async calculateEuUsedM1(
+    input: NovaCalculateInput,
+  ): Promise<NovaCalculateResult> {
+    let sliceInput: EuUsedM1SliceInput;
+    if (input.vehicleId) {
+      const vehicle = await this.loadVehicle(input.vehicleId);
+      sliceInput = mapEuUsedM1VehicleValues(vehicle, input);
+    } else {
+      sliceInput = mapExplicitEuUsedM1Values(input);
+    }
+    return wrapEuUsedM1Result(calculateEuUsedM1Slice2024(sliceInput));
+  }
+
+  private async loadVehicle(vehicleId: string): Promise<VehicleNovaInputs> {
+    const tenantId = await this.tenantContext.getTenantId();
+    const activeSite = await this.siteContext.tryGetSite();
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        id: vehicleId,
+        tenant_id: tenantId,
+        OR: [
+          { inventory_role: VehicleInventoryRole.CUSTOMER },
+          ...(activeSite
+            ? [
+                {
+                  inventory_role: {
+                    in: [
+                      VehicleInventoryRole.USED,
+                      VehicleInventoryRole.NEW,
+                      VehicleInventoryRole.DEMO,
+                    ],
+                  },
+                  location: {
+                    is: {
+                      site_id: activeSite.id,
+                      type: LocationType.vehicle_lot,
+                    },
+                  },
+                },
+              ]
+            : []),
+        ],
+      },
+      select: {
+        first_registration_date: true,
+        co2_wltp_g_km: true,
+        co2_nedc_g_km: true,
+        fuel_type: true,
+        power_kw: true,
+        nova_class: true,
+      },
+    });
+    if (!vehicle) {
+      throw new NotFoundException('Vehicle not found');
+    }
+    return vehicle;
   }
 }

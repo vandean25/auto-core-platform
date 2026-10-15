@@ -25369,6 +25369,25 @@
             "type": "number",
             "minimum": 0
           },
+          "importMode": {
+            "type": "string",
+            "enum": [
+              "eu_used_m1",
+              "third_country",
+              "previously_exempt"
+            ]
+          },
+          "valueBasis": {
+            "type": "string",
+            "enum": [
+              "known_new_net",
+              "achtelung"
+            ]
+          },
+          "originalNewNetEuro": {
+            "type": "number",
+            "minimum": 0
+          },
           "emissionCycle": {
             "type": "string",
             "enum": [
@@ -25419,6 +25438,68 @@
           "netPriceEuro"
         ]
       },
+      "NovaValueDevelopmentFactorDto": {
+        "type": "object",
+        "properties": {
+          "numerator": {
+            "type": "number"
+          },
+          "denominator": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "numerator",
+          "denominator"
+        ]
+      },
+      "NovaCalculationIntermediatesDto": {
+        "type": "object",
+        "properties": {
+          "rateRaw": {
+            "type": "string"
+          },
+          "baseAmountEuro": {
+            "type": "number"
+          },
+          "malusGrossEuro": {
+            "type": "number"
+          },
+          "deductionGrossEuro": {
+            "type": "number"
+          },
+          "fixedBeforeDevelopmentEuro": {
+            "type": "number"
+          },
+          "fullYearsElapsed": {
+            "type": "number"
+          },
+          "valueDevelopmentFactor": {
+            "$ref": "#/components/schemas/NovaValueDevelopmentFactorDto"
+          },
+          "fixedAfterDevelopmentEuro": {
+            "type": "number"
+          },
+          "valueBasis": {
+            "type": "string",
+            "enum": [
+              "known_new_net",
+              "achtelung"
+            ]
+          }
+        },
+        "required": [
+          "rateRaw",
+          "baseAmountEuro",
+          "malusGrossEuro",
+          "deductionGrossEuro",
+          "fixedBeforeDevelopmentEuro",
+          "fullYearsElapsed",
+          "valueDevelopmentFactor",
+          "fixedAfterDevelopmentEuro",
+          "valueBasis"
+        ]
+      },
       "NovaCalculateResponseDto": {
         "type": "object",
         "properties": {
@@ -25451,6 +25532,19 @@
           },
           "effectiveCo2GramsPerKm": {
             "type": "number"
+          },
+          "tariffSelectionBasis": {
+            "type": "string",
+            "enum": [
+              "first_eu_registration"
+            ]
+          },
+          "tariffSelectionDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "intermediates": {
+            "$ref": "#/components/schemas/NovaCalculationIntermediatesDto"
           }
         },
         "required": [
@@ -25476,7 +25570,23 @@
               "INVALID_NEDC_CYCLE",
               "TARIFF_CLASS_MISMATCH",
               "UNKNOWN_TARIFF_VERSION",
-              "INVALID_NET_PRICE"
+              "INVALID_NET_PRICE",
+              "MISSING_IMPORT_MODE",
+              "MISSING_FIRST_REGISTRATION",
+              "MISSING_TAXABLE_EVENT_DATE",
+              "INVALID_IMPORT_DATES",
+              "MISSING_VEHICLE_CLASS",
+              "UNSUPPORTED_IMPORT_MODE",
+              "UNSUPPORTED_IMPORT_CLASS",
+              "UNSUPPORTED_HISTORICAL_TARIFF",
+              "OUTSIDE_SUPPORTED_SLICE",
+              "UNSUPPORTED_DRIVE_TYPE",
+              "UNSUPPORTED_EMISSION_CYCLE",
+              "UNSUPPORTED_CAMPER_SA",
+              "UNSUPPORTED_FRACTIONAL_CO2",
+              "MISSING_VALUE_DEVELOPMENT",
+              "INVALID_VALUE_BASIS",
+              "MISSING_ORIGINAL_NEW_NET"
             ]
           },
           "message": {

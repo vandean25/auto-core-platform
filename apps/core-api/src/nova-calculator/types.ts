@@ -48,6 +48,10 @@ export interface CalculateNovaResult {
   effectiveCo2GramsPerKm: number;
 }
 
+export type NovaImportMode = 'eu_used_m1' | 'third_country' | 'previously_exempt';
+
+export type NovaValueBasis = 'known_new_net' | 'achtelung';
+
 export type NovaCalculationErrorCode =
   | 'MISSING_CO2'
   | 'INVALID_CO2'
@@ -55,7 +59,23 @@ export type NovaCalculationErrorCode =
   | 'INVALID_NEDC_CYCLE'
   | 'TARIFF_CLASS_MISMATCH'
   | 'UNKNOWN_TARIFF_VERSION'
-  | 'INVALID_NET_PRICE';
+  | 'INVALID_NET_PRICE'
+  | 'MISSING_IMPORT_MODE'
+  | 'MISSING_FIRST_REGISTRATION'
+  | 'MISSING_TAXABLE_EVENT_DATE'
+  | 'INVALID_IMPORT_DATES'
+  | 'MISSING_VEHICLE_CLASS'
+  | 'UNSUPPORTED_IMPORT_MODE'
+  | 'UNSUPPORTED_IMPORT_CLASS'
+  | 'UNSUPPORTED_HISTORICAL_TARIFF'
+  | 'OUTSIDE_SUPPORTED_SLICE'
+  | 'UNSUPPORTED_DRIVE_TYPE'
+  | 'UNSUPPORTED_EMISSION_CYCLE'
+  | 'UNSUPPORTED_CAMPER_SA'
+  | 'UNSUPPORTED_FRACTIONAL_CO2'
+  | 'MISSING_VALUE_DEVELOPMENT'
+  | 'INVALID_VALUE_BASIS'
+  | 'MISSING_ORIGINAL_NEW_NET';
 
 export class NovaCalculationError extends Error {
   readonly code: NovaCalculationErrorCode;

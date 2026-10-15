@@ -77,6 +77,19 @@ describe('NovaCalculateRequestDto', () => {
     expect(validateSync(dto).map((error) => error.property)).toContain(property);
   });
 
+  it('does not require emissionCycle, driveType, or taxableEventDate for eu_used_m1 without vehicleId', () => {
+    const dto = plainToInstance(NovaCalculateRequestDto, {
+      importMode: 'eu_used_m1',
+      vehicleClass: 'passenger_z3',
+      co2GramsPerKm: 160,
+      firstRegistrationDate: '2024-06-01',
+      netPriceEuro: 20_000,
+      valueBasis: 'achtelung',
+    });
+
+    expect(validateSync(dto)).toEqual([]);
+  });
+
   it('does not advertise a CO2 maximum the calculator does not enforce', () => {
     const co2Metadata = Reflect.getMetadata(
       'swagger/apiModelProperties',

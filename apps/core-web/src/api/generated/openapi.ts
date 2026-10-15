@@ -7561,6 +7561,11 @@ export interface components {
             netPriceEuro: number;
             co2GramsPerKm?: number;
             /** @enum {string} */
+            importMode?: "eu_used_m1" | "third_country" | "previously_exempt";
+            /** @enum {string} */
+            valueBasis?: "known_new_net" | "achtelung";
+            originalNewNetEuro?: number;
+            /** @enum {string} */
             emissionCycle?: "WLTP" | "NEDC";
             /** @enum {string} */
             driveType?: "BEV" | "FCEV" | "PHEV" | "ICE" | "OTHER";
@@ -7574,6 +7579,22 @@ export interface components {
             displacementCc?: number;
             isCamperSA?: boolean;
         };
+        NovaValueDevelopmentFactorDto: {
+            numerator: number;
+            denominator: number;
+        };
+        NovaCalculationIntermediatesDto: {
+            rateRaw: string;
+            baseAmountEuro: number;
+            malusGrossEuro: number;
+            deductionGrossEuro: number;
+            fixedBeforeDevelopmentEuro: number;
+            fullYearsElapsed: number;
+            valueDevelopmentFactor: components["schemas"]["NovaValueDevelopmentFactorDto"];
+            fixedAfterDevelopmentEuro: number;
+            /** @enum {string} */
+            valueBasis: "known_new_net" | "achtelung";
+        };
         NovaCalculateResponseDto: {
             novaAmountEuro: number;
             appliedRuleIds: string[];
@@ -7583,10 +7604,15 @@ export interface components {
             hasScopeLimitations: boolean;
             ratePercentApplied: number;
             effectiveCo2GramsPerKm: number;
+            /** @enum {string} */
+            tariffSelectionBasis?: "first_eu_registration";
+            /** Format: date */
+            tariffSelectionDate?: string;
+            intermediates?: components["schemas"]["NovaCalculationIntermediatesDto"];
         };
         NovaCalculationErrorResponseDto: {
             /** @enum {string} */
-            code: "MISSING_CO2" | "INVALID_CO2" | "INVALID_ISO_DATE" | "INVALID_NEDC_CYCLE" | "TARIFF_CLASS_MISMATCH" | "UNKNOWN_TARIFF_VERSION" | "INVALID_NET_PRICE";
+            code: "MISSING_CO2" | "INVALID_CO2" | "INVALID_ISO_DATE" | "INVALID_NEDC_CYCLE" | "TARIFF_CLASS_MISMATCH" | "UNKNOWN_TARIFF_VERSION" | "INVALID_NET_PRICE" | "MISSING_IMPORT_MODE" | "MISSING_FIRST_REGISTRATION" | "MISSING_TAXABLE_EVENT_DATE" | "INVALID_IMPORT_DATES" | "MISSING_VEHICLE_CLASS" | "UNSUPPORTED_IMPORT_MODE" | "UNSUPPORTED_IMPORT_CLASS" | "UNSUPPORTED_HISTORICAL_TARIFF" | "OUTSIDE_SUPPORTED_SLICE" | "UNSUPPORTED_DRIVE_TYPE" | "UNSUPPORTED_EMISSION_CYCLE" | "UNSUPPORTED_CAMPER_SA" | "UNSUPPORTED_FRACTIONAL_CO2" | "MISSING_VALUE_DEVELOPMENT" | "INVALID_VALUE_BASIS" | "MISSING_ORIGINAL_NEW_NET";
             message: string;
         };
         PickerlDuePaginatedResponseDto: {
