@@ -192,6 +192,8 @@ describe('MCP agent-facing instructions', () => {
         'list_bays',
         'list_bins',
         'list_workshop_tasks',
+        'list_workshop_slots',
+        'list_available_loaners',
       ]),
     );
   });
