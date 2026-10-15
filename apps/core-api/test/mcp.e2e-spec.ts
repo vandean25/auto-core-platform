@@ -947,79 +947,6 @@ describe('MCP server (e2e)', () => {
     }
   });
 
-  it('search_parts and get_stock_level expose catalog and bin ids for reserve_part (AUT-428)', async () => {
-    await setPolicyTier('inventory.part_reserve', 'AUTO');
-    await setPolicyTier('inventory.part_release', 'AUTO', { amount_max: 1 });
-
-    const searchResult = await callMcpTool(
-      caller(adminHeaderA, 'e2e-stock-ids-search'),
-      'search_parts',
-      { query: fixtures.searchToken },
-      '00000000-0000-4000-8000-000000000428',
-    );
-    expect(searchResult.isError).not.toBe(true);
-    const search = parsePayload<{
-      data: Array<{
-        catalog_item_id: string;
-        bin_id: string | null;
-      }>;
-    }>(searchResult);
-    const hit = search.data.find(
-      (row) => row.catalog_item_id === fixtures.catalogItemId,
-    );
-    expect(hit?.bin_id).toBe(fixtures.locationId);
-
-    const levelResult = await callMcpTool(
-      caller(adminHeaderA, 'e2e-stock-ids-level'),
-      'get_stock_level',
-      { sku: fixtures.sku },
-      '00000000-0000-4000-8000-000000000429',
-    );
-    expect(levelResult.isError).not.toBe(true);
-    const level = parsePayload<{
-      catalog_item_id: string;
-      bin_id: string | null;
-      bins: Array<{ location_id: string }>;
-    }>(levelResult);
-    expect(level.catalog_item_id).toBe(fixtures.catalogItemId);
-    expect(level.bin_id).toBe(fixtures.locationId);
-    expect(
-      level.bins.some((bin) => bin.location_id === fixtures.locationId),
-    ).toBe(true);
-
-    const reserveResult = await callMcpTool(
-      caller(adminHeaderA, 'e2e-stock-ids-reserve'),
-      'reserve_part',
-      {
-        workshop_task_line_item_id: fixtures.workshopTaskLineItemId,
-        quantity: 1,
-        location_id: level.bin_id,
-      },
-      '00000000-0000-4000-8000-00000000042a',
-    );
-    expect(reserveResult.isError).not.toBe(true);
-
-    const reserveLog = await findActionLog(
-      '00000000-0000-4000-8000-00000000042a',
-      'mcp.reserve_part',
-    );
-    const reservationId = (
-      reserveLog?.result_summary_json as { reservation_id: string }
-    )?.reservation_id;
-    expect(reservationId).toBeDefined();
-
-    const releaseResult = await callMcpTool(
-      caller(adminHeaderA, 'e2e-stock-ids-release'),
-      'release_reservation',
-      {
-        reservation_id: reservationId,
-        return_location_id: level.bin_id,
-      },
-      '00000000-0000-4000-8000-00000000042b',
-    );
-    expect(releaseResult.isError).not.toBe(true);
-  });
-
   it.each(['list_bays', 'list_bins', 'list_workshop_tasks'])(
     'returns empty data for %s on tenant B',
     async (toolName) => {
@@ -1673,6 +1600,58 @@ describe('MCP server (e2e)', () => {
       'mcp.release_reservation',
     );
     expect(approvedReleaseLog?.status).toBe('EXECUTED');
+  });
+
+  it('search_parts and get_stock_level expose catalog and bin ids for reserve_part (AUT-428)', async () => {
+    const searchResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-search'),
+      'search_parts',
+      { query: fixtures.searchToken },
+      '00000000-0000-4000-8000-000000000428',
+    );
+    expect(searchResult.isError).not.toBe(true);
+    const search = parsePayload<{
+      data: Array<{
+        catalog_item_id: string;
+        bin_id: string | null;
+      }>;
+    }>(searchResult);
+    const hit = search.data.find(
+      (row) => row.catalog_item_id === fixtures.catalogItemId,
+    );
+    expect(hit?.bin_id).toBe(fixtures.locationId);
+
+    const levelResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-level'),
+      'get_stock_level',
+      { sku: fixtures.sku },
+      '00000000-0000-4000-8000-000000000429',
+    );
+    expect(levelResult.isError).not.toBe(true);
+    const level = parsePayload<{
+      catalog_item_id: string;
+      bin_id: string | null;
+      bins: Array<{ location_id: string }>;
+    }>(levelResult);
+    expect(level.catalog_item_id).toBe(fixtures.catalogItemId);
+    expect(level.bin_id).toBe(fixtures.locationId);
+    expect(
+      level.bins.some((bin) => bin.location_id === fixtures.locationId),
+    ).toBe(true);
+
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const line = await createReservableLine();
+    const reserveResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-reserve'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: line.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-00000000042a',
+    );
+    expect(reserveResult.isError).not.toBe(true);
   });
 
   /**
