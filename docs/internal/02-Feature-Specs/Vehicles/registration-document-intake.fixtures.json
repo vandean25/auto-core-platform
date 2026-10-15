@@ -1,0 +1,566 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "notice": "Fictional Austrian Zulassungsbescheinigung field layouts for contract tests. No scan, no real holder, no real plate, no real Nationalcode, no provider payload. The holder string is the placeholder pilot customer.",
+  "promptVersion": "registration-document-v1",
+  "limits": {
+    "maxFiles": 2,
+    "maxBytesPerFile": 10485760,
+    "mimeTypes": ["image/jpeg", "image/png", "application/pdf"],
+    "maxPdfPagesRead": 2,
+    "pdfExtraPages": "EXTRA_PAGES_IGNORED"
+  },
+  "identities": {
+    "holderRaw": "pilot customer",
+    "holder": { "firstName": "pilot", "lastName": "customer" },
+    "email": "pilot.customer@example.com",
+    "vin": "WVWZZZSYNTH000001",
+    "otherVin": "WVWZZZSYNTH000002",
+    "plate": "W SYNTH 1",
+    "nationalcode": "NC1001",
+    "firstRegistration": "2019-03-12",
+    "co2WltpGKm": 119,
+    "make": "Synthetic",
+    "model": "Demo",
+    "year": 2019
+  },
+  "documents": [
+    {
+      "id": "front-clear",
+      "description": "Synthetic Vorderseite. EU field codes only. Nationalcode is its own box, not field E and not a Typenschein number.",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "C.1.3": "Synthgasse 1, 1010 Wien",
+            "D.1": "Synthetic",
+            "D.2": "DEMO",
+            "D.3": "Demo",
+            "E": "WVWZZZSYNTH000001",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "back-clear",
+      "description": "Synthetic Rückseite. V.7 is WLTP CO2. No second VIN and no Nationalcode on this side.",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "BACK",
+      "pages": [
+        {
+          "page": 2,
+          "heading": "Zulassungsschein Rückseite (synthetisch)",
+          "fields": {
+            "J": "M1",
+            "P.1": "1395",
+            "P.2": "110",
+            "P.3": "Benzin",
+            "V.7": "119",
+            "V.7.unit": "g/km WLTP"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wrong-document-zb-i",
+      "description": "German Zulassungsbescheinigung Teil I. Not an Austrian Zulassungsschein. Must not be parsed as Nationalcode or Typenschein.",
+      "documentKind": "DE_ZB_I",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsbescheinigung Teil I",
+          "fields": {
+            "A": "B-SY 1001",
+            "E": "WVWZZZSYNTH000001",
+            "2.1": "0600",
+            "2.2": "AAA",
+            "K": "EG-Typgenehmigung"
+          }
+        }
+      ]
+    },
+    {
+      "id": "illegible",
+      "description": "Bytes are a supported JPEG but no field can be read.",
+      "documentKind": "UNKNOWN",
+      "side": "FRONT",
+      "pages": [{ "page": 1, "heading": "", "fields": {} }]
+    },
+    {
+      "id": "conflicting-vin",
+      "description": "Selected vehicle VIN differs from field E on the synthetic Vorderseite.",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "selectedVehicleVin": "WVWZZZSYNTH000001",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "E": "WVWZZZSYNTH000002",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "missing-nationalcode",
+      "description": "Clear Vorderseite with no Nationalcode box and no value that could be mistaken for one.",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.2": "DEMO",
+            "E": "WVWZZZSYNTH000001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "multiple-duplicates",
+      "description": "Plate and holder each match more than one tenant row. No row is chosen.",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "tenantRows": {
+        "customers": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000c1",
+            "first_name": "pilot",
+            "last_name": "customer",
+            "email": "pilot.customer@example.com"
+          },
+          {
+            "id": "00000000-0000-4000-8000-0000000000c2",
+            "first_name": "pilot",
+            "last_name": "customer",
+            "email": "pilot.customer.desk@example.com"
+          }
+        ],
+        "vehicles": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000v1",
+            "vin": null,
+            "plate": "W SYNTH 1",
+            "customer_id": "00000000-0000-4000-8000-0000000000c1"
+          },
+          {
+            "id": "00000000-0000-4000-8000-0000000000v2",
+            "vin": "WVWZZZSYNTH000009",
+            "plate": "w synth 1",
+            "customer_id": "00000000-0000-4000-8000-0000000000c2"
+          }
+        ]
+      },
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "E": "",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    }
+  ],
+  "extractions": {
+    "front-clear": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": ["BACK_NOT_SUPPLIED"],
+      "fields": {
+        "vin": {
+          "raw": "WVWZZZSYNTH000001",
+          "normalized": "WVWZZZSYNTH000001",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } },
+          "uncertainty": 0.05
+        },
+        "plate": {
+          "raw": "W SYNTH 1",
+          "normalized": "W SYNTH 1",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } },
+          "uncertainty": 0.05
+        },
+        "holder": {
+          "raw": "pilot customer",
+          "normalized": { "firstName": "pilot", "lastName": "customer" },
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } },
+          "uncertainty": 0.08
+        },
+        "nationalcode": {
+          "raw": "NC1001",
+          "normalized": "NC1001",
+          "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } },
+          "uncertainty": 0.06
+        },
+        "firstRegistration": {
+          "raw": "12.03.2019",
+          "normalized": "2019-03-12",
+          "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } },
+          "uncertainty": 0.07
+        },
+        "co2": {
+          "raw": null,
+          "normalized": null,
+          "source": null,
+          "uncertainty": null,
+          "cycle": null
+        }
+      }
+    },
+    "back-clear": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "co2": {
+          "raw": "119",
+          "normalized": 119,
+          "cycle": "WLTP",
+          "source": { "page": 2, "region": { "x": 0.15, "y": 0.55, "width": 0.2, "height": 0.05 } },
+          "uncertainty": 0.04
+        }
+      }
+    },
+    "wrong-document-zb-i": {
+      "documentKind": "DE_ZB_I",
+      "warnings": ["WRONG_DOCUMENT"],
+      "fields": {}
+    },
+    "illegible": {
+      "documentKind": "UNKNOWN",
+      "warnings": ["ILLEGIBLE"],
+      "fields": {
+        "vin": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "plate": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "holder": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "nationalcode": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "firstRegistration": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "co2": { "raw": null, "normalized": null, "source": null, "uncertainty": 1, "cycle": null }
+      }
+    },
+    "conflicting-vin": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": ["CONFLICTING_VIN"],
+      "fields": {
+        "vin": {
+          "raw": "WVWZZZSYNTH000002",
+          "normalized": "WVWZZZSYNTH000002",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } },
+          "uncertainty": 0.05
+        },
+        "plate": {
+          "raw": "W SYNTH 1",
+          "normalized": "W SYNTH 1",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } },
+          "uncertainty": 0.05
+        },
+        "holder": {
+          "raw": "pilot customer",
+          "normalized": { "firstName": "pilot", "lastName": "customer" },
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } },
+          "uncertainty": 0.08
+        },
+        "nationalcode": {
+          "raw": "NC1001",
+          "normalized": "NC1001",
+          "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } },
+          "uncertainty": 0.06
+        }
+      }
+    },
+    "missing-nationalcode": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": ["MISSING_NATIONALCODE"],
+      "fields": {
+        "vin": {
+          "raw": "WVWZZZSYNTH000001",
+          "normalized": "WVWZZZSYNTH000001",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } },
+          "uncertainty": 0.05
+        },
+        "plate": {
+          "raw": "W SYNTH 1",
+          "normalized": "W SYNTH 1",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } },
+          "uncertainty": 0.04
+        },
+        "holder": {
+          "raw": "pilot customer",
+          "normalized": { "firstName": "pilot", "lastName": "customer" },
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } },
+          "uncertainty": 0.05
+        },
+        "nationalcode": {
+          "raw": null,
+          "normalized": null,
+          "source": null,
+          "uncertainty": 0,
+          "absence": "CONFIDENT"
+        },
+        "firstRegistration": {
+          "raw": "12.03.2019",
+          "normalized": "2019-03-12",
+          "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } },
+          "uncertainty": 0.05
+        }
+      }
+    },
+    "multiple-duplicates": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": ["DUPLICATE_CUSTOMERS", "DUPLICATE_VEHICLES"],
+      "fields": {
+        "vin": { "raw": null, "normalized": null, "source": null, "uncertainty": 0, "absence": "CONFIDENT" },
+        "plate": {
+          "raw": "W SYNTH 1",
+          "normalized": "W SYNTH 1",
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } },
+          "uncertainty": 0.05
+        },
+        "holder": {
+          "raw": "pilot customer",
+          "normalized": { "firstName": "pilot", "lastName": "customer" },
+          "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } },
+          "uncertainty": 0.05
+        },
+        "nationalcode": {
+          "raw": "NC1001",
+          "normalized": "NC1001",
+          "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } },
+          "uncertainty": 0.05
+        }
+      },
+      "candidates": {
+        "customers": [
+          "00000000-0000-4000-8000-0000000000c1",
+          "00000000-0000-4000-8000-0000000000c2"
+        ],
+        "vehicles": [
+          "00000000-0000-4000-8000-0000000000v1",
+          "00000000-0000-4000-8000-0000000000v2"
+        ]
+      }
+    }
+  },
+  "responses": {
+    "restShape": "GlobalExceptionFilter JSON. code is present only after the code is added to CLIENT_SAFE_HTTP_ERROR_CODES. MCP tool failures are isError with text equal to HttpException.message and have no statusCode.",
+    "applyHappy": {
+      "http": 200,
+      "body": {
+        "state": "APPLIED",
+        "createdCustomer": false,
+        "createdVehicle": false,
+        "customerId": "00000000-0000-4000-8000-0000000000c1",
+        "vehicleId": "00000000-0000-4000-8000-0000000000v1",
+        "workshopOrderId": null,
+        "capturedSiteId": "00000000-0000-4000-8000-0000000000s1"
+      }
+    },
+    "lowConfidence": {
+      "rest": {
+        "statusCode": 422,
+        "message": "REGISTRATION_INTAKE_LOW_CONFIDENCE: A low-confidence identity field cannot be saved.",
+        "error": "Unprocessable Entity",
+        "code": "REGISTRATION_INTAKE_LOW_CONFIDENCE"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_LOW_CONFIDENCE: A low-confidence identity field cannot be saved."
+      }
+    },
+    "confirmationMismatch": {
+      "rest": {
+        "statusCode": 409,
+        "message": "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH: Confirmed identity fields do not match the stored evidence.",
+        "error": "Conflict",
+        "code": "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH: Confirmed identity fields do not match the stored evidence."
+      }
+    },
+    "wrongDocument": {
+      "rest": {
+        "statusCode": 422,
+        "message": "REGISTRATION_INTAKE_WRONG_DOCUMENT: The file is not an Austrian Zulassungsschein.",
+        "error": "Unprocessable Entity",
+        "code": "REGISTRATION_INTAKE_WRONG_DOCUMENT"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_WRONG_DOCUMENT: The file is not an Austrian Zulassungsschein."
+      }
+    },
+    "illegible": {
+      "rest": {
+        "statusCode": 422,
+        "message": "REGISTRATION_INTAKE_ILLEGIBLE: No identity field could be read.",
+        "error": "Unprocessable Entity",
+        "code": "REGISTRATION_INTAKE_ILLEGIBLE"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_ILLEGIBLE: No identity field could be read."
+      }
+    },
+    "conflictingVin": {
+      "rest": {
+        "statusCode": 409,
+        "message": "REGISTRATION_INTAKE_CONFLICTING_VIN: The document VIN does not match the selected vehicle.",
+        "error": "Conflict",
+        "code": "REGISTRATION_INTAKE_CONFLICTING_VIN"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_CONFLICTING_VIN: The document VIN does not match the selected vehicle."
+      }
+    },
+    "duplicates": {
+      "rest": {
+        "statusCode": 409,
+        "message": "REGISTRATION_INTAKE_AMBIGUOUS_MATCH: More than one customer or vehicle matches.",
+        "error": "Conflict",
+        "code": "REGISTRATION_INTAKE_AMBIGUOUS_MATCH"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_AMBIGUOUS_MATCH: More than one customer or vehicle matches."
+      }
+    },
+    "ownershipWithoutCorrection": {
+      "rest": {
+        "statusCode": 409,
+        "message": "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT: The vehicle is linked to a different customer.",
+        "error": "Conflict",
+        "code": "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT: The vehicle is linked to a different customer."
+      }
+    },
+    "ownershipStale": {
+      "rest": {
+        "statusCode": 409,
+        "message": "Vehicle holder changed while confirming intake; please retry",
+        "error": "Conflict"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "Vehicle holder changed while confirming intake; please retry"
+      }
+    },
+    "parallelVinRace": {
+      "rest": {
+        "statusCode": 409,
+        "message": "Vehicle was created by another intake; please retry",
+        "error": "Conflict"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "Vehicle was created by another intake; please retry"
+      }
+    },
+    "idempotencyConflict": {
+      "rest": {
+        "statusCode": 409,
+        "message": "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT: The idempotency key was already used for another request.",
+        "error": "Conflict",
+        "code": "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT: The idempotency key was already used for another request."
+      }
+    },
+    "providerUnavailable": {
+      "rest": {
+        "statusCode": 503,
+        "message": "REGISTRATION_EXTRACTION_UNAVAILABLE: Registration document extraction is not currently available.",
+        "error": "SERVICE_UNAVAILABLE",
+        "code": "REGISTRATION_EXTRACTION_UNAVAILABLE"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "REGISTRATION_EXTRACTION_UNAVAILABLE: Registration document extraction is not currently available."
+      }
+    },
+    "activeSiteMissing": {
+      "rest": {
+        "statusCode": 422,
+        "message": "No active site is set for this session. Use GET /api/me/sites then PATCH /api/me/active-site to select a site.",
+        "error": "Unprocessable Entity"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "No active site is set for this session. Use GET /api/me/sites then PATCH /api/me/active-site to select a site."
+      },
+      "note": "SiteContextService in apps/core-api/src/site throws code ACTIVE_SITE_REQUIRED. GlobalExceptionFilter drops that code because it is not in CLIENT_SAFE_HTTP_ERROR_CODES. Do not expect a code property."
+    },
+    "siteSwitched": {
+      "rest": {
+        "statusCode": 422,
+        "message": "Select the site where this action was simulated before applying it",
+        "error": "Unprocessable Entity"
+      },
+      "mcp": {
+        "isError": true,
+        "text": "Select the site where this action was simulated before applying it"
+      }
+    },
+    "humanOnly": {
+      "mcp": {
+        "isError": true,
+        "text": "not_permitted: Action registration_intake.apply requires human approval and was refused."
+      },
+      "agentActionLog": { "tier": "HUMAN_ONLY", "status": "REFUSED" },
+      "agentProposalRow": false
+    },
+    "propose": {
+      "mcp": {
+        "isError": false,
+        "status": "needs_approval",
+        "pending_action_id": "00000000-0000-4000-8000-0000000000p1"
+      }
+    },
+    "appliedDelete": {
+      "rest": {
+        "statusCode": 409,
+        "message": "REGISTRATION_INTAKE_APPLIED: An applied intake cannot be deleted.",
+        "error": "Conflict",
+        "code": "REGISTRATION_INTAKE_APPLIED"
+      }
+    },
+    "abort": {
+      "http": 200,
+      "body": { "state": "ABORTED", "bytesDeleted": true }
+    },
+    "replay": {
+      "http": 201,
+      "sameIntakeId": true,
+      "providerCalls": 1
+    }
+  }
+}
