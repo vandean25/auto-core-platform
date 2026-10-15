@@ -5036,7 +5036,6 @@ describe('MCP server (e2e)', () => {
               where: { id: fixtures.vehicleId },
               data: { make_brand_id: vehicleBefore.make_brand_id },
             });
-            await prismaA.brand.delete({ where: { id: createdMakeBrandId } });
           }
         },
       };
