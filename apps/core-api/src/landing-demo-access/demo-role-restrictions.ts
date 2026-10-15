@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isSingleLineText } from '../notifications/email/header-text.js';
 
 export const DEMO_ACCESS_DURATION_DAYS = 14;
 export const DEMO_MAGIC_LINK_TTL_MS = 24 * 60 * 60 * 1000;
@@ -75,8 +76,6 @@ const DEMO_MUTATION_BLOCKED_SUBSTRINGS = [
   '/approve',
 ] as const;
 
-const SINGLE_LINE_PATTERN = /^[^\r\n]*$/;
-
 export function hashClientIp(ip: string | null | undefined): string | null {
   const normalized = ip?.trim();
   if (!normalized) {
@@ -100,14 +99,23 @@ export function isLandingDemoHoneypotTriggered(
 }
 
 export function isLandingDemoSingleLineText(value: string): boolean {
-  return SINGLE_LINE_PATTERN.test(value);
+  return isSingleLineText(value);
+}
+
+function decodeRequestPathSegment(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
 }
 
 function normalizeDemoRequestPath(path: string): string {
-  const withoutQuery = path.split('?')[0]?.toLowerCase() ?? '';
-  return withoutQuery.startsWith('/api/')
-    ? withoutQuery
-    : `/api${withoutQuery.startsWith('/') ? '' : '/'}${withoutQuery}`;
+  const withoutQuery = path.split('?')[0] ?? '';
+  const decoded = decodeRequestPathSegment(withoutQuery).toLowerCase();
+  return decoded.startsWith('/api/')
+    ? decoded
+    : `/api${decoded.startsWith('/') ? '' : '/'}${decoded}`;
 }
 
 function isDemoMutationPathAllowed(normalizedPath: string): boolean {

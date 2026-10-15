@@ -4,6 +4,7 @@ import {
   hashDemoEmail,
   isDemoMutationAllowed,
   isLandingDemoHoneypotTriggered,
+  isLandingDemoSingleLineText,
   normalizeDemoEmail,
 } from './demo-role-restrictions.js';
 
@@ -53,6 +54,21 @@ describe('demo-role-restrictions', () => {
     expect(isDemoMutationAllowed('POST', '/api/import/jobs')).toBe(false);
   });
 
+  it('blocks percent-encoded path bypasses for denied actions', () => {
+    expect(
+      isDemoMutationAllowed(
+        'POST',
+        '/api/workshop/orders/abc/create%2Dinvoice',
+      ),
+    ).toBe(false);
+    expect(
+      isDemoMutationAllowed(
+        'POST',
+        '/api/parts-requisitions/abc/create%2Dpurchase%2Dorder',
+      ),
+    ).toBe(false);
+  });
+
   it('blocks procurement, settings, and draft-invoice sandbox escapes', () => {
     expect(isDemoMutationAllowed('PUT', '/api/tyre-sets/settings')).toBe(
       false,
@@ -74,6 +90,12 @@ describe('demo-role-restrictions', () => {
         '/api/workshop/orders/abc/create-invoice',
       ),
     ).toBe(false);
+  });
+
+  it('uses the same single-line rule as email outbox subjects', () => {
+    expect(isLandingDemoSingleLineText('Werkstatt Nord')).toBe(true);
+    expect(isLandingDemoSingleLineText('Werkstatt\tNord')).toBe(false);
+    expect(isLandingDemoSingleLineText('Betrieb\u0085Bcc')).toBe(false);
   });
 
   it('detects honeypot submissions', () => {

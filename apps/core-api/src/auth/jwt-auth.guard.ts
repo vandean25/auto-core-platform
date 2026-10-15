@@ -69,7 +69,11 @@ export class JwtAuthGuard implements CanActivate {
     // back-office endpoints must reject the request even if the underlying
     // tenant member still maps to TenantMemberRole.TECH.
     if ('role' in request.user && request.user.role === 'DEMO') {
-      const path = request.originalUrl ?? request.url ?? '';
+      const path =
+        request.path ??
+        request.url?.split('?')[0] ??
+        request.originalUrl?.split('?')[0] ??
+        '';
       if (!isDemoMutationAllowed(request.method, path)) {
         throw new ForbiddenException(
           'Demo accounts cannot perform this action.',
