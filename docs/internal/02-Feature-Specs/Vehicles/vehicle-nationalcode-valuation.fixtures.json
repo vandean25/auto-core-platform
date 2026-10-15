@@ -1,7 +1,7 @@
 {
   "contractVersion": "acp-valuation-contract-1",
   "holderLabel": "pilot customer",
-  "note": "Synthetic ACP contract fixtures. http.body is CreateVehicleValuation and has no nationalCode. providerInput is ValuationQuoteInput and copies the stored national code. These are not Eurotax or Schwacke payloads.",
+  "note": "Synthetic ACP contract fixtures. http.body is CreateVehicleValuation and has no nationalCode. mileageKm and condition are optional there: missing-mileage omits mileageKm so the service returns 422 MISSING_DATA. JSON null is the same service result, not a pipe 400. providerInput is ValuationQuoteInput and copies the stored national code. These are not Eurotax or Schwacke payloads.",
   "cases": {
     "quoted-market-value": {
       "http": {
