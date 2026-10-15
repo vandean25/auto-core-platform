@@ -156,7 +156,7 @@ The introduction states that the same sign request body can be sent again and th
 
 Cryptographic chaining is done by the cash register resource (“managing the DEP7 and recording of receipts … cryptographic chaining”). ACP does not send a previous signature. ACP takes a row lock on the site’s fiscal-register row for the whole allocate-and-send or reconcile step so two settlements on that register are not in flight together. Whether fiskaly itself serializes concurrent sign calls is not stated in the retrieved OpenAPI. The row lock is ACP’s rule so one payment still has one receipt id.
 
-The allocate transaction commits the payment and the fiscal receipt as `PENDING`, with the receipt id and the frozen body, before the provider call. A crash in that window leaves `PENDING`. It does not leave the invoice unsigned forever, and it does not allow a second settlement. `POST /api/invoices/:id/settlement/reconcile` is the way out for both `PENDING` and `UNKNOWN`. Reconcile always `GET`s the stored receipt id first.
+The allocate transaction commits the payment and the fiscal receipt as `PENDING`, with the receipt id and the frozen body, before the provider call. When that same command's PUT returns `200`, the following write stores the body, sets the payment `SETTLED`, the fiscal receipt `SIGNED`, and the invoice `PAID`. That write does not GET and does not PUT again. A crash before any provider result is stored leaves `PENDING`. It does not leave the invoice unsigned forever, and it does not allow a second settlement. `POST /api/invoices/:id/settlement/reconcile` is the way out for a `PENDING` row with no stored body and for `UNKNOWN`. Reconcile always `GET`s the stored receipt id first.
 
 Timeout and any `5xx`, `408`, or lost connection after the PUT has been sent: payment and fiscal receipt become `UNKNOWN`, invoice stays `ISSUED`. The same GET table applies. A GET failure leaves the row in the state it already had (`PENDING` stays `PENDING`, `UNKNOWN` stays `UNKNOWN`).
 
@@ -194,7 +194,8 @@ This slice sends `vat_rate` `STANDARD` only when every snapshot line has tax rat
 | From | To | When |
 |---|---|---|
 | — | `PENDING` | `REQUIRED_ACP_RKSV` command accepted, receipt id allocated, body frozen |
-| `PENDING` | `SETTLED` | Reconcile GET `200`, or GET `404` `E_RECEIPT_NOT_FOUND` followed by the same-body PUT `200` |
+| `PENDING` | `SETTLED` | The settlement command's own PUT returns `200`. Store that body and set the invoice `PAID` in the same write. Do not GET. Do not PUT again. This is `success-normal`. |
+| `PENDING` | `SETTLED` | Reconcile only, when the first PUT did not return a body: GET `200`, or GET `404` `E_RECEIPT_NOT_FOUND` followed by the same-body PUT `200` |
 | `PENDING` | `UNKNOWN` | The PUT was sent and then timed out, returned `408` or `5xx`, or the connection was lost |
 | `UNKNOWN` | `SETTLED` | Reconcile GET `200`, or GET `404` `E_RECEIPT_NOT_FOUND` followed by the same-body PUT `200` |
 | `PENDING` or `UNKNOWN` | `REJECTED` | Definite `400` |
@@ -370,6 +371,7 @@ AUT-532 uses the fixture file as the adapter’s response table. Tests must not 
 ### Backend
 
 - [ ] Adapter maps `success-normal`, `rejection-schema`, `timeout-after-possible-acceptance`, `replay-same-body`, and `cancellation` from `at-settlement-rksv.fixtures.json`.
+- [ ] `success-normal` sets `SETTLED` and `PAID` from the first PUT `200` alone. It does not GET and it does not PUT a second time.
 - [ ] Timeout then GET `200` stores one fiscal receipt, including `schema.raw` and `fon_validations`, and sets `PAID` once. A second command with the same idempotency key does not PUT a new receipt id.
 - [ ] A `PENDING` row with no stored provider result reconciles by GET. GET `200` marks it signed and does not PUT. GET `404` `E_RECEIPT_NOT_FOUND` PUTs the frozen body to that same receipt id. The invoice cannot stay `PENDING` with no reconcile path.
 - [ ] Cancellation uses payment `…e1` only. A second idempotency key while that cancellation is `PENDING`, `UNKNOWN`, or `SIGNED` does not PUT another `CANCELLATION`. A timed-out cancellation reconciles on its one receipt id.

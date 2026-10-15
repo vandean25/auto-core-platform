@@ -157,12 +157,17 @@
   "cases": [
     {
       "id": "success-normal",
+      "note": "The settlement command's own PUT returned 200. Store that body and set the payment SETTLED and the invoice PAID in that write. Do not GET. Do not PUT again.",
       "acp": {
         "command": "recordSettlement",
         "rksvMode": "REQUIRED_ACP_RKSV",
         "paymentMethod": "CASH",
         "idempotencyKey": "00000000-0000-4000-8000-0000000000c2",
         "providerReceiptId": "11111111-2222-4333-8444-555555555555",
+        "paymentStateBefore": "PENDING",
+        "settledBy": "first-put-200",
+        "thenGet": false,
+        "thenPut": false,
         "paymentStateAfter": "SETTLED",
         "invoiceStatusAfter": "PAID",
         "fiscalReceiptStateAfter": "SIGNED",
@@ -570,13 +575,18 @@
     },
     {
       "id": "replay-same-body",
-      "note": "Documented idempotency: the same receipt_id and the same body are signed once. ACP returns the stored row and does not send a second sign when the fiscal receipt is already SIGNED. If it is still UNKNOWN, the client repeats this same PUT or the GET, still with this receipt_id.",
+      "note": "Documented idempotency: the same receipt_id and the same body are signed once. When the fiscal receipt is already SIGNED, ACP returns the stored row and does not call the provider. While the attempt is UNKNOWN, reconcile GETs that receipt id first. The same-body PUT runs only after GET 404 E_RECEIPT_NOT_FOUND. Neither step allocates a new receipt id.",
       "acp": {
         "command": "recordSettlement",
         "idempotencyKey": "00000000-0000-4000-8000-0000000000c2",
         "providerReceiptId": "11111111-2222-4333-8444-555555555555",
         "newProviderReceiptId": null,
-        "secondSign": false
+        "secondSign": false,
+        "whenSigned": "return the stored row and do not call the provider",
+        "whenUnknown": {
+          "firstCall": "GET",
+          "putOnlyAfter": "404 E_RECEIPT_NOT_FOUND"
+        }
       },
       "providerRequest": {
         "method": "PUT",
