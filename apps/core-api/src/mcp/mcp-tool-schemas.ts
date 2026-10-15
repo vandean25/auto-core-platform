@@ -601,6 +601,14 @@ export const mcpToolInputSchemas: Record<
 const workshopOrderPurposeSchema = z.enum(['CUSTOMER_REPAIR', 'STOCK_PREP']);
 const workshopOrderDraftStatusSchema = z.literal('SCHEDULED');
 
+const optionalMcpCommandIdSchema = {
+  command_id: uuidSchema
+    .optional()
+    .describe(
+      'Client idempotency key for AUTO/PROPOSE writes. Replays return the same committed result or pending action.',
+    ),
+};
+
 export const draftWorkshopOrderInputSchema = z
   .object({
     customer_id: uuidSchema.optional(),
@@ -615,6 +623,7 @@ export const draftWorkshopOrderInputSchema = z
     fuel_level: z.number().int().min(0).max(100).optional(),
     reported_issue: z.string().optional(),
     notes: z.string().optional(),
+    ...optionalMcpCommandIdSchema,
   })
   .strict();
 
@@ -627,6 +636,7 @@ export const reservePartInputSchema = z
     location_id: uuidSchema.describe(
       'ID of a bin storage location at the active site',
     ),
+    ...optionalMcpCommandIdSchema,
   })
   .strict()
   .describe(
@@ -637,6 +647,7 @@ export const releaseReservationInputSchema = z
   .object({
     reservation_id: uuidSchema,
     return_location_id: uuidSchema.optional(),
+    ...optionalMcpCommandIdSchema,
   })
   .strict();
 
@@ -655,6 +666,7 @@ export const proposeLineItemInputSchema = z
         labor_operation_id: uuidSchema.optional(),
       })
       .strict(),
+    ...optionalMcpCommandIdSchema,
   })
   .strict();
 

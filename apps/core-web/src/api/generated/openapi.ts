@@ -9169,6 +9169,11 @@ export interface components {
             payload_json: {
                 [key: string]: unknown;
             };
+            /**
+             * Format: uuid
+             * @description Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).
+             */
+            command_id?: string;
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */

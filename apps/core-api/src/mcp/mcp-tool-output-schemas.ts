@@ -460,6 +460,7 @@ function writeResultOf(tool: McpWriteToolName) {
       proposal: writeProposal,
       pending_action_id: idString,
       trace_id: idString,
+      replayed: z.literal(true).optional(),
     }),
     ...optionalShape(truncatedMarkerShape),
   };

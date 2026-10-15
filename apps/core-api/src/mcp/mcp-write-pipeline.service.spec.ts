@@ -7,6 +7,9 @@ import type { AgentPolicyEvaluationResult } from '../agent-policy/agent-policy.t
 import { DryRunService } from '../dry-run/dry-run.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
@@ -19,6 +22,9 @@ describe('McpWritePipelineService', () => {
   let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
   let mockAgentProposals: jest.Mocked<AgentProposalService>;
   let mockPrisma: { $transaction: jest.Mock };
+  let mockCommandIdempotency: jest.Mocked<McpWriteCommandIdempotencyService>;
+  let mockRequestContext: jest.Mocked<RequestContextService>;
+  let mockTenantContext: jest.Mocked<TenantContextService>;
 
   const mockContext: McpWriteToolContext = {
     agentId: 'test-agent',
@@ -57,16 +63,46 @@ describe('McpWritePipelineService', () => {
     mockDryRun = { executeInRollbackTransaction: jest.fn() } as jest.Mocked<DryRunService>;
     mockAgentActionLog = {
       record: jest.fn(),
-      recordInTransaction: jest.fn(),
+      recordInTransaction: jest.fn(
+        async (
+          _input: unknown,
+          _tx: unknown,
+          work?: () => Promise<unknown>,
+        ) => ({
+          traceId: 'trace-123',
+          id: 'log-1',
+          workResult: work ? await work() : undefined,
+        }),
+      ),
     } as jest.Mocked<AgentActionLogService>;
     mockAgentProposals = {
       persistPendingAction: jest.fn().mockResolvedValue({ id: 'proposal-1' }),
     } as jest.Mocked<AgentProposalService>;
+    const tx = {
+      tag: 'tx' as const,
+      agentProposal: {
+        create: jest.fn().mockResolvedValue({ id: 'proposal-1' }),
+      },
+    };
     mockPrisma = {
-      $transaction: jest.fn(async (callback: (tx: { tag: 'tx' }) => unknown) =>
-        callback({ tag: 'tx' }),
+      $transaction: jest.fn(async (callback: (innerTx: typeof tx) => unknown) =>
+        callback(tx),
       ),
     };
+    mockCommandIdempotency = {
+      beginOrReplay: jest.fn().mockResolvedValue({
+        kind: 'execute',
+        claim: { receiptId: 'receipt-1', originalTraceId: 'trace-claim' },
+      }),
+      completeInTransaction: jest.fn().mockResolvedValue(undefined),
+      abandon: jest.fn().mockResolvedValue(undefined),
+    } as jest.Mocked<McpWriteCommandIdempotencyService>;
+    mockRequestContext = {
+      getTraceId: jest.fn().mockReturnValue('trace-claim'),
+    } as jest.Mocked<RequestContextService>;
+    mockTenantContext = {
+      getTenantId: jest.fn().mockResolvedValue('tenant-1'),
+    } as jest.Mocked<TenantContextService>;
   };
 
   beforeEach(async () => {
@@ -80,6 +116,12 @@ describe('McpWritePipelineService', () => {
         { provide: DryRunService, useValue: mockDryRun },
         { provide: AgentActionLogService, useValue: mockAgentActionLog },
         { provide: AgentProposalService, useValue: mockAgentProposals },
+        {
+          provide: McpWriteCommandIdempotencyService,
+          useValue: mockCommandIdempotency,
+        },
+        { provide: RequestContextService, useValue: mockRequestContext },
+        { provide: TenantContextService, useValue: mockTenantContext },
       ],
     }).compile();
 
@@ -104,16 +146,9 @@ describe('McpWritePipelineService', () => {
       expect(result.tier).toBe(AgentPolicyTier.PROPOSE);
       expect(result.status).toBe('needs_approval');
       expect(result.pending_action_id).toBe('proposal-1');
-      expect(mockAgentProposals.persistPendingAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action_type: 'workshop_order.propose_line',
-          payload_json: input,
-          created_by_agent: mockContext.agentId,
-          trace_id: expect.any(String),
-        }),
-      );
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(result.proposal).toBeDefined();
-      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           actorType: 'AGENT',
           agentId: 'test-agent',
@@ -122,6 +157,7 @@ describe('McpWritePipelineService', () => {
           tier: AgentPolicyTier.PROPOSE,
           status: 'PROPOSED',
         }),
+        expect.objectContaining({ tag: 'tx' }),
       );
       expect(execution.execute).toHaveBeenCalledTimes(1);
     });
@@ -253,7 +289,7 @@ describe('McpWritePipelineService', () => {
           tier: AgentPolicyTier.AUTO,
           status: 'EXECUTED',
         }),
-        { tag: 'tx' },
+        expect.objectContaining({ tag: 'tx' }),
         expect.any(Function),
         undefined,
       );
@@ -348,7 +384,10 @@ describe('McpWritePipelineService', () => {
         result: await fn(),
         wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
       }));
-      mockAgentActionLog.record.mockResolvedValue({ traceId } as any);
+      mockAgentActionLog.recordInTransaction.mockResolvedValue({
+        traceId,
+        id: 'log-propose',
+      } as any);
 
       const result = await service.run(execution, input, mockContext);
 
@@ -361,16 +400,8 @@ describe('McpWritePipelineService', () => {
         provisional: true,
       });
       expect(result.trace_id).toBe(traceId);
-      expect(mockAgentProposals.persistPendingAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          preview_json: expect.objectContaining({
-            execution_context: { site_id: 'site-preview' },
-            provisional: true,
-          }),
-          trace_id: traceId,
-        }),
-      );
-      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+      expect(mockPrisma.$transaction).toHaveBeenCalled();
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           actionType: 'mcp.draft_workshop_order',
           tier: AgentPolicyTier.PROPOSE,
@@ -381,9 +412,7 @@ describe('McpWritePipelineService', () => {
             preview: expect.any(Object),
           }),
         }),
-      );
-      expect(mockAgentActionLog.record.mock.calls[0][0]).not.toHaveProperty(
-        'traceId',
+        expect.objectContaining({ tag: 'tx' }),
       );
       expect(execution.execute).toHaveBeenCalledTimes(1);
     });

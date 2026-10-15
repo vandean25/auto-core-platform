@@ -29,6 +29,8 @@ import { McpController } from './mcp.controller.js';
 import { McpSessionService } from './mcp-session.service.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
+import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
+import { SiteModule } from '../site/site.module.js';
 
 @Module({
   imports: [
@@ -46,11 +48,13 @@ import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
     PartsRequisitionModule,
     VehicleStockModule,
     PendingActionExecutorModule,
+    SiteModule,
   ],
   controllers: [McpController],
   providers: [
     McpToolHandlerService,
     McpWritePipelineService,
+    McpWriteCommandIdempotencyService,
     McpCapabilitiesService,
     McpAuditReadService,
     McpDocumentReadService,

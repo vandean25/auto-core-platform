@@ -138,6 +138,15 @@ export class SubmitPendingAgentActionDto {
   @ApiProperty({ type: 'object', additionalProperties: true })
   @IsObject()
   payload_json!: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).',
+  })
+  @IsOptional()
+  @IsUUID()
+  command_id?: string;
 }
 
 export class AgentProposalEffectiveSummaryDto {

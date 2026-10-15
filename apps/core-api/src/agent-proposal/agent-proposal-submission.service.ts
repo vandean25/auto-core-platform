@@ -15,6 +15,7 @@ import type {
   CreateAgentProposalDto,
   SubmitPendingAgentActionDto,
 } from './dto/agent-proposal.dto.js';
+import { fingerprintMcpWriteArgs } from '../mcp/mcp-write-command-idempotency.util.js';
 
 /** Creates pending proposals: direct creation, persisted pending actions, and simulated submissions. */
 @Injectable()
@@ -122,6 +123,18 @@ export class AgentProposalSubmissionService {
       inputSummary: { payload: dto.payload_json },
       resultSummary: { would_change: simulation.wouldChange },
     });
+    const mcpIdempotency = dto.command_id
+      ? {
+          mcp_command_idempotency: {
+            command_id: dto.command_id,
+            args_fingerprint: fingerprintMcpWriteArgs(
+              actionType,
+              dto.payload_json,
+            ),
+          },
+        }
+      : {};
+
     return this.persistPendingAction({
       action_type: actionType,
       payload_json: dto.payload_json,
@@ -133,6 +146,7 @@ export class AgentProposalSubmissionService {
         ...(intendedSiteId
           ? { execution_context: { site_id: intendedSiteId } }
           : {}),
+        ...mcpIdempotency,
       },
       tier: AgentPolicyTier.PROPOSE,
       trace_id: traceId,

@@ -3,7 +3,7 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { AgentPolicyTier } from '@prisma/client';
+import { AgentPolicyTier, AgentProposalStatus, Prisma } from '@prisma/client';
 import { AgentActionLogService } from '../agent-action-log/agent-action-log.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
@@ -21,6 +21,17 @@ import {
   type McpWriteToolName,
 } from './mcp.constants.js';
 import { effectiveMcpWriteTier } from './mcp-write-tier.util.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
+import { TenantContextService } from '../common/services/tenant-context.service.js';
+import {
+  McpWriteCommandIdempotencyService,
+  type McpWriteCommandClaim,
+} from './mcp-write-command-idempotency.service.js';
+import {
+  fingerprintMcpWriteArgs,
+  parseMcpWriteCommandInput,
+} from './mcp-write-command-idempotency.util.js';
+import { randomUUID } from 'node:crypto';
 
 export type McpWriteToolContext = {
   agentId: string;
@@ -53,6 +64,8 @@ export type McpWriteToolResult = {
   proposal?: unknown;
   pending_action_id?: string;
   trace_id?: string;
+  /** True when this response was returned from a durable command_id receipt. */
+  replayed?: boolean;
 };
 
 /** One write call as it moves through the pipeline. Tier and reasons are filled in by the policy step. */
@@ -81,6 +94,9 @@ export class McpWritePipelineService {
   private readonly dryRun: DryRunService;
   private readonly agentActionLog: AgentActionLogService;
   private readonly agentProposals: AgentProposalService;
+  private readonly commandIdempotency: McpWriteCommandIdempotencyService;
+  private readonly requestContext: RequestContextService;
+  private readonly tenantContext: TenantContextService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -90,12 +106,18 @@ export class McpWritePipelineService {
     dryRun: DryRunService,
     agentActionLog: AgentActionLogService,
     agentProposals: AgentProposalService,
+    commandIdempotency: McpWriteCommandIdempotencyService,
+    requestContext: RequestContextService,
+    tenantContext: TenantContextService,
   ) {
     this.prisma = prisma;
     this.agentPolicy = agentPolicy;
     this.dryRun = dryRun;
     this.agentActionLog = agentActionLog;
     this.agentProposals = agentProposals;
+    this.commandIdempotency = commandIdempotency;
+    this.requestContext = requestContext;
+    this.tenantContext = tenantContext;
   }
 
   /**
@@ -107,12 +129,66 @@ export class McpWritePipelineService {
     input: unknown,
     context: McpWriteToolContext,
   ): Promise<McpWriteToolResult> {
+    const { commandId, businessInput } = parseMcpWriteCommandInput(input);
+    const workInput = commandId ? businessInput : input;
+
+    let claim: McpWriteCommandClaim | undefined;
+    let idempotencyMeta:
+      { command_id: string; args_fingerprint: string } | undefined;
+    if (commandId) {
+      const originalTraceId = this.requestContext.getTraceId() ?? randomUUID();
+      const argsFingerprint = fingerprintMcpWriteArgs(
+        execution.toolName,
+        workInput,
+      );
+      idempotencyMeta = {
+        command_id: commandId,
+        args_fingerprint: argsFingerprint,
+      };
+      const gate = await this.commandIdempotency.beginOrReplay({
+        commandId,
+        toolName: execution.toolName,
+        argsFingerprint,
+        context,
+        originalTraceId,
+      });
+      if (gate.kind === 'replay') {
+        return gate.result;
+      }
+      claim = gate.claim;
+    }
+
+    try {
+      return await this.runOnce(
+        execution,
+        workInput,
+        context,
+        input,
+        idempotencyMeta,
+        claim,
+      );
+    } catch (error) {
+      if (claim) {
+        await this.commandIdempotency.abandon(claim);
+      }
+      throw error;
+    }
+  }
+
+  private async runOnce(
+    execution: McpWriteExecution,
+    input: unknown,
+    context: McpWriteToolContext,
+    loggedInput: unknown,
+    idempotencyMeta?: { command_id: string; args_fingerprint: string },
+    claim?: McpWriteCommandClaim,
+  ): Promise<McpWriteToolResult> {
     const call: WriteCall = {
       execution,
       input,
       context,
       actionType: logActionType(execution.toolName),
-      inputSummary: { tool: execution.toolName, args: input },
+      inputSummary: { tool: execution.toolName, args: loggedInput },
       tier: AgentPolicyTier.PROPOSE,
       reasons: [],
     };
@@ -132,7 +208,7 @@ export class McpWritePipelineService {
           'Agent decision',
           'agent.decision',
           { 'agent.policy.outcome': agentPolicyOutcome(call.tier) },
-          () => this.decideAndRun(call),
+          () => this.decideAndRun(call, idempotencyMeta, claim),
         );
         if (result.trace_id) {
           span.setAttribute('agent.trace_id', result.trace_id);
@@ -143,16 +219,20 @@ export class McpWritePipelineService {
   }
 
   /** Refuses, proposes, or executes a call whose tier is settled. Only AUTO and PROPOSE reach the preview. */
-  private async decideAndRun(call: WriteCall): Promise<McpWriteToolResult> {
+  private async decideAndRun(
+    call: WriteCall,
+    idempotencyMeta?: { command_id: string; args_fingerprint: string },
+    claim?: McpWriteCommandClaim,
+  ): Promise<McpWriteToolResult> {
     if (call.tier === AgentPolicyTier.HUMAN_ONLY) {
       return this.refuse(call);
     }
 
     const simulation = await this.simulate(call);
     if (call.tier === AgentPolicyTier.PROPOSE) {
-      return this.propose(call, simulation);
+      return this.propose(call, simulation, idempotencyMeta, claim);
     }
-    return this.execute(call, simulation.wouldChange);
+    return this.execute(call, simulation.wouldChange, claim);
   }
 
   private async evaluatePolicy(call: WriteCall): Promise<void> {
@@ -229,6 +309,8 @@ export class McpWritePipelineService {
   private async propose(
     call: WriteCall,
     simulation: WriteSimulation,
+    idempotencyMeta?: { command_id: string; args_fingerprint: string },
+    claim?: McpWriteCommandClaim,
   ): Promise<McpWriteToolResult> {
     // Nothing is committed until the pending action is applied, so the whole preview is provisional.
     const proposal = {
@@ -237,47 +319,76 @@ export class McpWritePipelineService {
       preview: simulation.preview,
       provisional: true,
     };
-    const record = await this.agentActionLog.record({
-      actorType: 'AGENT',
-      agentId: call.context.agentId,
-      onBehalfOfUserId: call.context.onBehalfOfUserId,
-      actionType: call.actionType,
-      tier: call.tier,
-      status: 'PROPOSED',
-      inputSummary: call.inputSummary,
-      resultSummary: proposal,
-    });
-    const pendingAction = await this.agentProposals.persistPendingAction({
-      action_type: call.execution.policyActionType,
-      payload_json: call.input,
-      preview_json: {
-        ...proposal,
-        ...(simulation.executionContext
-          ? { execution_context: simulation.executionContext }
-          : {}),
-      },
-      tier: call.tier,
-      trace_id: record.traceId,
-      created_by_agent: call.context.agentId,
-    });
-    return {
-      tool: call.execution.toolName,
-      tier: call.tier,
-      status: MCP_AGENT_FACING_CODES.needsApprovalStatus,
-      would_change: simulation.wouldChange,
-      proposal,
-      pending_action_id: pendingAction.id,
-      trace_id: record.traceId,
-    };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const record = await this.agentActionLog.recordInTransaction(
+          {
+            actorType: 'AGENT',
+            agentId: call.context.agentId,
+            onBehalfOfUserId: call.context.onBehalfOfUserId,
+            actionType: call.actionType,
+            tier: call.tier,
+            status: 'PROPOSED',
+            inputSummary: call.inputSummary,
+            resultSummary: proposal,
+          },
+          tx,
+        );
+        const tenantId = await this.tenantContext.getTenantId();
+        const pendingAction = await tx.agentProposal.create({
+          data: {
+            tenant_id: tenantId,
+            trace_id: record.traceId,
+            action_type: call.execution.policyActionType,
+            payload_json: call.input as Prisma.InputJsonValue,
+            preview_json: JSON.parse(
+              JSON.stringify({
+                ...proposal,
+                ...(simulation.executionContext
+                  ? { execution_context: simulation.executionContext }
+                  : {}),
+                ...(idempotencyMeta
+                  ? { mcp_command_idempotency: idempotencyMeta }
+                  : {}),
+              }),
+            ) as Prisma.InputJsonValue,
+            tier: call.tier,
+            status: AgentProposalStatus.PENDING,
+            created_by_agent: call.context.agentId,
+          },
+        });
+        const result: McpWriteToolResult = {
+          tool: call.execution.toolName,
+          tier: call.tier,
+          status: MCP_AGENT_FACING_CODES.needsApprovalStatus,
+          would_change: simulation.wouldChange,
+          proposal,
+          pending_action_id: pendingAction.id,
+          trace_id: record.traceId,
+        };
+        if (claim) {
+          await this.commandIdempotency.completeInTransaction(
+            tx,
+            claim,
+            result,
+          );
+        }
+        return result;
+      });
+    } catch (error) {
+      await this.recordFailure(call, error);
+      throw error;
+    }
   }
 
   private async execute(
     call: WriteCall,
     wouldChange: WouldChangeItem[],
+    claim?: McpWriteCommandClaim,
   ): Promise<McpWriteToolResult> {
     try {
-      const record = await this.prisma.$transaction(async (tx) =>
-        this.agentActionLog.recordInTransaction(
+      return await this.prisma.$transaction(async (tx) => {
+        const record = await this.agentActionLog.recordInTransaction(
           {
             actorType: 'AGENT',
             agentId: call.context.agentId,
@@ -295,17 +406,24 @@ export class McpWritePipelineService {
               call.execution.execute(call.input),
             ),
           call.execution.buildLogMetadata,
-        ),
-      );
-
-      return {
-        tool: call.execution.toolName,
-        tier: call.tier,
-        status: MCP_AGENT_FACING_CODES.executedStatus,
-        would_change: wouldChange,
-        result: record.workResult,
-        trace_id: record.traceId,
-      };
+        );
+        const result: McpWriteToolResult = {
+          tool: call.execution.toolName,
+          tier: call.tier,
+          status: MCP_AGENT_FACING_CODES.executedStatus,
+          would_change: wouldChange,
+          result: record.workResult,
+          trace_id: record.traceId,
+        };
+        if (claim) {
+          await this.commandIdempotency.completeInTransaction(
+            tx,
+            claim,
+            result,
+          );
+        }
+        return result;
+      });
     } catch (error) {
       await this.recordFailure(call, error);
       throw error;
