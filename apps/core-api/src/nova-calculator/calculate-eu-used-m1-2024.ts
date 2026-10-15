@@ -149,7 +149,10 @@ function validateEuUsedM1Gates(input: EuUsedM1SliceInput): {
     );
   }
 
-  const reg = validateNovaIsoDate(firstRegistrationDate, 'firstRegistrationDate');
+  const reg = validateNovaIsoDate(
+    firstRegistrationDate,
+    'firstRegistrationDate',
+  );
   const event = validateNovaIsoDate(taxableEventDate, 'taxableEventDate');
 
   if (isoCompare(event, reg) < 0) {
@@ -206,16 +209,10 @@ function validateEuUsedM1Gates(input: EuUsedM1SliceInput): {
 
   const co2 = input.co2GramsPerKm;
   if (co2 === undefined) {
-    reject(
-      'MISSING_CO2',
-      'eu_used_m1 slice EU-M1-2024 requires co2GramsPerKm',
-    );
+    reject('MISSING_CO2', 'eu_used_m1 slice EU-M1-2024 requires co2GramsPerKm');
   }
   if (!Number.isFinite(co2) || co2 < 0) {
-    reject(
-      'INVALID_CO2',
-      'co2GramsPerKm must be a non-negative finite number',
-    );
+    reject('INVALID_CO2', 'co2GramsPerKm must be a non-negative finite number');
   }
   if (!Number.isInteger(co2)) {
     reject(
@@ -243,11 +240,7 @@ function validateEuUsedM1Gates(input: EuUsedM1SliceInput): {
   let originalNewNetEuro: number | undefined;
   if (valueBasis === 'known_new_net') {
     const original = input.originalNewNetEuro;
-    if (
-      original === undefined ||
-      !Number.isFinite(original) ||
-      original <= 0
-    ) {
+    if (original === undefined || !Number.isFinite(original) || original <= 0) {
       reject(
         'MISSING_ORIGINAL_NEW_NET',
         'known_new_net requires originalNewNetEuro greater than zero',
@@ -268,8 +261,12 @@ export function calculateEuUsedM1Slice2024(
   input: EuUsedM1SliceInput,
 ): EuUsedM1SliceResult {
   const validated = validateEuUsedM1Gates(input);
-  const { firstRegistrationDate, taxableEventDate, valueBasis, originalNewNetEuro } =
-    validated;
+  const {
+    firstRegistrationDate,
+    taxableEventDate,
+    valueBasis,
+    originalNewNetEuro,
+  } = validated;
 
   const tariff = getTariffVersionById(SLICE_TARIFF_ID);
   if (!tariff || tariff.vehicle_class !== 'passenger_z3') {

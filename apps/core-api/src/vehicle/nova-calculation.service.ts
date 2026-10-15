@@ -147,8 +147,7 @@ function mapEuUsedM1VehicleValues(
     vehicleClass: explicit.vehicleClass,
     driveType: explicit.driveType,
     emissionCycle: explicit.emissionCycle,
-    co2GramsPerKm:
-      explicit.co2GramsPerKm ?? vehicle.co2_wltp_g_km ?? undefined,
+    co2GramsPerKm: explicit.co2GramsPerKm ?? vehicle.co2_wltp_g_km ?? undefined,
     firstRegistrationDate:
       explicit.firstRegistrationDate ??
       toIsoDate(vehicle.first_registration_date ?? undefined),

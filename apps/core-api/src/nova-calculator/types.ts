@@ -48,7 +48,8 @@ export interface CalculateNovaResult {
   effectiveCo2GramsPerKm: number;
 }
 
-export type NovaImportMode = 'eu_used_m1' | 'third_country' | 'previously_exempt';
+export type NovaImportMode =
+  'eu_used_m1' | 'third_country' | 'previously_exempt';
 
 export type NovaValueBasis = 'known_new_net' | 'achtelung';
 

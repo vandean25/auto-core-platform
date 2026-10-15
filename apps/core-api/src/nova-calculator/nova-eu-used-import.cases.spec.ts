@@ -80,7 +80,7 @@ function pickExpectedShape(
       typeof actual.intermediates === 'object'
     ) {
       const nested: Record<string, unknown> = {};
-      for (const innerKey of Object.keys(value as Record<string, unknown>)) {
+      for (const innerKey of Object.keys(value)) {
         nested[innerKey] = (actual.intermediates as Record<string, unknown>)[
           innerKey
         ];
@@ -105,7 +105,7 @@ function normalizeSuccessBody(body: Record<string, unknown>): Record<string, unk
       'fixedAfterDevelopmentEuro',
     ]) {
       if (typeof intermediates[key] === 'number') {
-        intermediates[key] = roundMoneyEuro(intermediates[key] as number);
+        intermediates[key] = roundMoneyEuro(intermediates[key]);
       }
     }
   }
@@ -191,7 +191,7 @@ describe('nova-eu-used-import cases.json', () => {
           const pure = calculateEuUsedM1Slice2024(
             caseRow.request as Parameters<typeof calculateEuUsedM1Slice2024>[0],
           );
-          const expectedBody = normalizeSuccessBody(caseRow.expected.body!);
+          const expectedBody = normalizeSuccessBody(caseRow.expected.body);
           const actualBody = normalizeSuccessBody({
             ...pure,
             hasUnverifiedRules: false,
@@ -222,7 +222,7 @@ describe('nova-eu-used-import cases.json', () => {
         const actualBody = normalizeSuccessBody({
           ...result,
         });
-        const expectedBody = normalizeSuccessBody(caseRow.expected.body!);
+        const expectedBody = normalizeSuccessBody(caseRow.expected.body);
         expect(pickExpectedShape(actualBody, expectedBody)).toEqual(
           expectedBody,
         );
