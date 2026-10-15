@@ -421,7 +421,8 @@
     "extra-pdf-pages": [],
     "invalid-vin": ["INVALID_VIN", "LOW_CONFIDENCE"],
     "wrong-document-zb-i": [],
-    "illegible": []
+    "illegible": [],
+    "existing-vehicle-field-conflict": ["EXISTING_VEHICLE", "NATIONALCODE_CONFLICT", "FIRST_REGISTRATION_CONFLICT", "CO2_CONFLICT"]
   },
   "normalizedAfterServer": {
     "nationalcode-looks-like-vin": {
@@ -463,7 +464,14 @@
       "rowCreated": false,
       "bytesKept": false,
       "providerCalls": 0,
-      "note": "isAvailable() is false, so create returns before any insert. This is not a stored FAILED row."
+      "note": "No finished row for this key. isAvailable() is checked only then, so create returns before any insert. This is not a stored FAILED row. captureSentryIfInternal records this 503, and that capture is accepted."
+    },
+    "replayWhileProviderDisabled": {
+      "http": 201,
+      "sameIntakeId": true,
+      "providerCalls": 0,
+      "rowCreated": false,
+      "note": "The idempotency lookup runs before isAvailable(). A finished AWAITING_REVIEW or FAILED row is returned even when the provider is later disabled."
     },
     "extractFailed": {
       "http": 201,
@@ -559,7 +567,7 @@
     },
     "fileTooLarge": {
       "rest": { "statusCode": 413, "message": "REGISTRATION_INTAKE_FILE_TOO_LARGE: Each file must be at most 10 MiB.", "error": "PAYLOAD_TOO_LARGE", "code": "REGISTRATION_INTAKE_FILE_TOO_LARGE" },
-      "note": "RegistrationIntakeUploadExceptionFilter maps multer LIMIT_FILE_SIZE. 413 is not in GlobalExceptionFilter.getHttpStatusName, so error is HttpStatus[413], which is PAYLOAD_TOO_LARGE."
+      "note": "RegistrationIntakeUploadInterceptor rethrows HttpException. GlobalExceptionFilter writes this body. 413 is not in getHttpStatusName, so error is HttpStatus[413], PAYLOAD_TOO_LARGE. Status is below 500, so there is no requestId."
     },
     "intakeIdInBody": {
       "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_ID_MISMATCH: The intake id is taken from the path.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_ID_MISMATCH" }
@@ -592,6 +600,8 @@
     "existingVehicleFieldConflict": {
       "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_FIELD_CONFLICT: Stored Nationalcode, first registration, or CO2 differs from the document.", "error": "Conflict", "code": "REGISTRATION_INTAKE_FIELD_CONFLICT" },
       "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_FIELD_CONFLICT: Stored Nationalcode, first registration, or CO2 differs from the document." },
+      "serverCasesKey": "existing-vehicle-field-conflict",
+      "override": false,
       "cases": ["NATIONALCODE_CONFLICT", "FIRST_REGISTRATION_CONFLICT", "CO2_CONFLICT"],
       "columnsUnchanged": ["national_code", "first_registration_date", "co2_wltp_g_km", "co2_nedc_g_km", "make", "model", "year"]
     },
@@ -641,6 +651,12 @@
     "propose": {
       "mcp": { "isError": false, "status": "needs_approval", "pending_action_id": "00000000-0000-4000-8000-0000000000d1" },
       "bytesDeleted": false
+    },
+    "approveExecutionFailed": {
+      "rest": { "statusCode": 409, "message": "Vehicle was created by another intake; please retry", "error": "Conflict" },
+      "proposalStatus": "FAILED",
+      "executeRunsOnSecondApprove": false,
+      "note": "markExecutionFailed is final. The retry sentence is for the REST apply route. Recovery on the approve route is a new propose_registration_intake."
     },
     "appliedDelete": {
       "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_APPLIED: An applied intake cannot be deleted.", "error": "Conflict", "code": "REGISTRATION_INTAKE_APPLIED" }

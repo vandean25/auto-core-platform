@@ -71,7 +71,7 @@ No separate ADR. Tenancy, the stock ledger, and fiscal documents stay as they ar
 5. Agents use the existing `AgentProposal` queue. The action is `registration_intake.apply`. It does not end in `.delete`, so the hard floor does not force `HUMAN_ONLY`. The platform seed is `PROPOSE` and disabled. `HUMAN_ONLY` is refused and is not queued. A person confirms on the workshop route, or an `OWNER` or `ADMIN` applies a `PROPOSE` row.
 6. The upload stores `site_id` from `SiteContextService.getSiteId()` at that moment. Nothing copies a later active site onto the intake. Customer and vehicle writes are tenant-wide and still require the caller's active site to be the captured site, otherwise the intake is not found. The workshop order is a second request after that commit. If the active site then differs from the captured site, that second request returns the existing `422` from `resolveCreateSiteId` and does not create the order on the new site.
 7. `buildExecutionContext` takes no arguments today (`McpWriteExecution` and `PendingActionExecutor`). S7 changes both signatures to `(input: unknown)` and threads the tool or proposal payload through `mcp-write-pipeline.service.ts`, `mcp-tool-handler.service.ts`, `agent-proposal-submission.service.ts`, and `agent-proposal-decision.service.ts`. The stored intake site is read from `intake_id` inside that payload. The site check does not live only inside `execute`, because `assertActiveSiteUnchanged` calls `buildExecutionContext` before `execute`.
-8. Page bytes are never deleted inside `claimAndExecute`. That method runs `executor.execute` in its claim transaction with `DryRunStorage.run({ isDryRun: false, tx })` and has no post-commit hook. Apply inserts an outbox row in that same transaction. S2's cleanup job deletes the bytes after the transaction commits.
+8. Page bytes are never deleted inside `claimAndExecute`. That method runs `executor.execute` in its claim transaction with `DryRunStorage.run({ isDryRun: false, tx })` and has no post-commit hook. Apply inserts one `RegistrationIntakeBytePurge` row in that same transaction. S1 defines that table. S2's minute cron deletes the bytes after the transaction commits and sets `processed_at`.
 
 ---
 
@@ -97,9 +97,9 @@ Out of scope:
 
 | Rule | Value |
 |---|---|
-| Count | 1 or 2 files per intake. S2's `RegistrationIntakeUploadExceptionFilter` maps multer's file-count error to `400` `REGISTRATION_INTAKE_TOO_MANY_FILES`. The generic multer text is not returned |
+| Count | 1 or 2 files per intake. `RegistrationIntakeUploadInterceptor` turns multer's file-count error into `HttpException` `400` `REGISTRATION_INTAKE_TOO_MANY_FILES`. The generic multer text is not returned |
 | Types | `image/jpeg`, `image/png`, `application/pdf`, detected from bytes. Anything else is `400` `REGISTRATION_INTAKE_UNSUPPORTED_FILE` |
-| Size | 10 MiB (10 × 1024 × 1024) per file. The same filter maps multer `LIMIT_FILE_SIZE` to `413` `REGISTRATION_INTAKE_FILE_TOO_LARGE`. `HttpStatus[413]` is `PAYLOAD_TOO_LARGE`, and that is the REST `error` value |
+| Size | 10 MiB (10 × 1024 × 1024) per file. The same interceptor turns multer `LIMIT_FILE_SIZE` into `HttpException` `413` `REGISTRATION_INTAKE_FILE_TOO_LARGE`. `GlobalExceptionFilter` writes the body. `HttpStatus[413]` is `PAYLOAD_TOO_LARGE`, and that is the REST `error` value |
 | PDF | Pages 1 and 2 are read. Page 1 is the front, page 2 is the back. Further pages set provider warning `EXTRA_PAGES_IGNORED` and are not read |
 | Image | One side per file. The client labels `FRONT` or `BACK` |
 | Reject | Empty file, encrypted PDF, or a PDF with no readable page: provider warning `ILLEGIBLE` after the row exists, or `400` `REGISTRATION_INTAKE_UNSUPPORTED_FILE` when the bytes are not a JPEG, PNG, or PDF |
@@ -151,7 +151,12 @@ Provider warnings describe the file. Server cases describe the tenant. The fixtu
 | `INVALID_VIN` | The VIN fails the 17-character check |
 | `FIELD_SIDE_CONFLICT` | Front and back normalized values differ |
 | `CO2_CYCLE_UNKNOWN` | V.7 has no WLTP or NEDC unit |
+| `NATIONALCODE_CONFLICT` | The matched vehicle's `national_code` is not null and differs from the confirmed code |
+| `FIRST_REGISTRATION_CONFLICT` | The matched vehicle's `first_registration_date` is not null and differs from the confirmed date |
+| `CO2_CONFLICT` | The confirmed cycle's CO₂ column is not null and differs from the confirmed value |
 | `BACK_NOT_SUPPLIED` | Also a provider warning. CO₂ was not on an uploaded side. It does not block apply |
+
+`REGISTRATION_INTAKE_FIELD_CONFLICT` is a hard stop. There is no override and no confirmation that overwrites a stored Nationalcode, first registration, or CO₂ value. The person edits the vehicle outside this intake, then applies again. The review screen lists the case names, shows the `409` message, and does not render an apply button. The fixture key is `existing-vehicle-field-conflict`.
 
 Provider warnings are only `WRONG_DOCUMENT`, `ILLEGIBLE`, `EXTRA_PAGES_IGNORED`, and `BACK_NOT_SUPPLIED`.
 
@@ -202,7 +207,7 @@ export interface RegistrationFieldEvidence {
 }
 ```
 
-The disabled provider's `isAvailable()` is false. `extract` rejects with `ServiceUnavailableException` whose message is `REGISTRATION_EXTRACTION_UNAVAILABLE: Registration document extraction is not currently available.` and whose body code is `REGISTRATION_EXTRACTION_UNAVAILABLE`. It performs no I/O. Create does not call `extract` in that case. It returns `503` before any insert, so a disabled provider never stores a row or page bytes. An available provider whose `extract` then fails is the `201` `FAILED` path below.
+The disabled provider's `isAvailable()` is false. `extract` rejects with `ServiceUnavailableException` whose message is `REGISTRATION_EXTRACTION_UNAVAILABLE: Registration document extraction is not currently available.` and whose body code is `REGISTRATION_EXTRACTION_UNAVAILABLE`. It performs no I/O. Create calls `isAvailable()` only when the idempotency key has no finished row. A new request then returns `503` before any insert, so a disabled provider never stores a new row or page bytes. A finished key still replays its stored `201`. An available provider whose `extract` then fails is the `201` `FAILED` path below.
 
 The fake provider returns the `extractions` object for a fixture id. Unknown bytes return the `illegible` extraction. The prompt file is new and contains only the field dictionary above.
 
@@ -273,11 +278,12 @@ Roles on these routes are `OWNER`, `ADMIN`, and `SALES`. `TECH` is `403` `Regist
 Create is synchronous. It still uses states `UPLOADED`, `QUEUED`, and `RUNNING` inside the request so a concurrent caller can observe them.
 
 1. Validate the key, role, active site, file count, size, and magic bytes. Failures return the fixture responses and write no row and no bytes.
-2. If `provider.isAvailable()` is false, return `503` `REGISTRATION_EXTRACTION_UNAVAILABLE` and write no row and no bytes. The same key does not replay a stored failure, because nothing was stored. A later create after the provider is enabled is a new request.
-3. Insert the row and store the bytes.
-4. Set `RUNNING` and call `extract` once.
-5. On success, set `AWAITING_REVIEW` and return `201`.
-6. Any other provider failure sets `FAILED`, keeps that row, and returns `201` with `failureCode` `REGISTRATION_INTAKE_EXTRACT_FAILED`. Replay of that key returns the same `201` and does not call the provider again. A new attempt needs a new `Idempotency-Key`.
+2. Look up `(tenant_id, captured_by_user_id, site_id, idempotency_key)` before `isAvailable()`. A finished row with the same hash returns that `201` (`AWAITING_REVIEW` or `FAILED`) and does not call the provider. That replay still returns the stored row when the provider was disabled after the first success.
+3. If no row exists and `provider.isAvailable()` is false, return `503` `REGISTRATION_EXTRACTION_UNAVAILABLE` and write no row and no bytes. The same key can be used after the provider is enabled, because nothing was stored. `GlobalExceptionFilter.captureSentryIfInternal` records every status of 500 or above, so this expected `503` is sent to Sentry, the same way `BRAND_EXTRACTION_UNAVAILABLE` is. That capture is accepted. The code stays client-safe, so the body is not replaced with `Something went wrong`.
+4. Insert the row and store the bytes.
+5. Set `RUNNING` and call `extract` once.
+6. On success, set `AWAITING_REVIEW` and return `201`.
+7. Any other provider failure sets `FAILED`, keeps that row, and returns `201` with `failureCode` `REGISTRATION_INTAKE_EXTRACT_FAILED`. Replay of that key returns the same `201` and does not call the provider again. A new attempt needs a new `Idempotency-Key`.
 
 Same key and same hash once the first request finished: `201` and the same id. Provider call count stays 1.
 
@@ -305,13 +311,15 @@ Abort is allowed from `UPLOADED`, `QUEUED`, `RUNNING`, `AWAITING_REVIEW`, `FAILE
 
 Abort and delete use the same order. Delete the page objects first. Only then commit the row change: abort sets `ABORTED`, delete removes the row and returns `204`. If the object delete fails, the row is unchanged and the response is `503` `REGISTRATION_INTAKE_BYTES_REMAIN: The file could not be deleted.` A retry sees the original state and tries the object delete again. If the object delete succeeds and the row commit then fails, a retry sees no objects, completes the row change, and returns the success body. That code is client-safe so production does not replace the `503` with `Something went wrong (ref: ...)`.
 
-Apply and proposal approval do not delete objects inside their database transaction. They insert one `RegistrationIntakeBytePurge` row in that transaction. `DryRunStorage.isDryRun()` skips the insert, and a rolled-back preview therefore leaves no outbox row and does not touch object storage. The `propose` result has `bytesDeleted: false` for that reason. S2's cleanup job reads the outbox after commit, deletes the objects, and removes the outbox row. `POST /api/workshop/registration-intakes/:id/purge-bytes` runs the same job step once. A failed purge leaves the intake `APPLIED` and returns `503` `REGISTRATION_INTAKE_BYTES_REMAIN`.
+Apply and proposal approval do not delete objects inside their database transaction. They insert one `RegistrationIntakeBytePurge` row in that transaction, or leave the existing row when `intake_id` already has one. `DryRunStorage.isDryRun()` skips the insert, and a rolled-back preview therefore leaves no outbox row and does not touch object storage. The `propose` result has `bytesDeleted: false` for that reason. The cron job below deletes the objects after commit, then sets `processed_at`. It does not delete the outbox row. `POST /api/workshop/registration-intakes/:id/purge-bytes` runs that step once for one intake. A failed purge leaves `processed_at` null and returns `503` `REGISTRATION_INTAKE_BYTES_REMAIN`.
 
-`claimAndExecute` runs `execute` inside the claim transaction. If `execute` throws, that transaction rolls back, so the intake state is unchanged and no outbox row remains. The catch then calls `markExecutionFailed`, which sets the proposal to `FAILED` while it is still `PENDING`. The HTTP response is the error from `execute`. Bytes stay until abort or expiry.
+`claimAndExecute` runs `execute` inside the claim transaction. If `execute` throws, that transaction rolls back, so the intake state is unchanged and no outbox row remains. The catch then calls `markExecutionFailed`, which sets the proposal to `FAILED` while it is still `PENDING`. That `FAILED` status is final. Approving the same proposal does not run `execute` again. The HTTP response is still the error from `execute`. The messages `Vehicle was created by another intake; please retry`, `Vehicle VIN or plate changed while registering intake; please retry`, `Vehicle holder changed while confirming intake; please retry`, and `REGISTRATION_INTAKE_STATE_CHANGED: The intake changed; please reload.` stay unchanged. On the REST apply route they mean the person retries that route. On the approve route they are the proposal's terminal reason, and recovery is a new `propose_registration_intake` or the REST route. Bytes stay until abort, the purge job, or expiry.
 
 ### REST and MCP
 
-REST JSON is what `GlobalExceptionFilter` writes: `statusCode`, `message`, `error`, and `code` only when the code is listed in `CLIENT_SAFE_HTTP_ERROR_CODES`. S2 adds every registration code in the fixture file to that set, including the codes S5 throws. S5 does not edit the allowlist. `503` is not in the filter's status-name switch, so `error` is `SERVICE_UNAVAILABLE` (`HttpStatus[503]`).
+REST JSON is what `GlobalExceptionFilter` writes: `statusCode`, `message`, `error`, and `code` only when the code is listed in `CLIENT_SAFE_HTTP_ERROR_CODES`. A status of 500 or above also includes `requestId` when the request has one. S2 adds every registration code in the fixture file to that set, including the codes S5 throws. S5 does not edit the allowlist. `503` is not in the filter's status-name switch, so `error` is `SERVICE_UNAVAILABLE` (`HttpStatus[503]`).
+
+Multer raises file-count and `LIMIT_FILE_SIZE` before the controller. A scoped exception filter cannot delegate that exception to `GlobalExceptionFilter`, so S2 does not add one. `RegistrationIntakeUploadInterceptor` catches those two multer errors and throws `HttpException` with `{ message, code }`. The global filter then writes `statusCode`, `message`, `error`, and `code`. Both statuses are below 500, so those two bodies have no `requestId`. Any later 5xx on the route still goes through the global filter and includes `requestId`.
 
 MCP does not return `statusCode`. A thrown `HttpException` becomes a tool result with `isError: true` and text equal to `exception.message`. That is why each new message starts with its code. Policy refusal stays the existing message that starts with `not_permitted`. `ZodError` stays a schema failure with tier `NOT_EVALUATED` and log status `FAILED`.
 
@@ -388,15 +396,32 @@ S7 `buildExecutionContext(input)` reads `intake_id` from `input`, loads that int
 | `lease_token` | varchar(64) | yes | Cleared when the job ends |
 | `provider_id` | varchar(64) | yes | `disabled` or `fake` until a live provider exists |
 | `prompt_version` | varchar(64) | yes | `registration-document-v1` |
-| `applied_customer_id` | UUID | yes | FK `Customer`, `onDelete: SetNull` |
-| `applied_vehicle_id` | UUID | yes | FK `Vehicle`, `onDelete: SetNull` |
-| `applied_workshop_order_id` | UUID | yes | FK `WorkshopOrder`, `onDelete: SetNull` |
+| `applied_customer_id` | UUID | yes | Single-column FK to `Customer.id`, `onDelete: SetNull` |
+| `applied_vehicle_id` | UUID | yes | Single-column FK to `Vehicle.id`, `onDelete: SetNull` |
+| `applied_workshop_order_id` | UUID | yes | Single-column FK to `WorkshopOrder.id`, `onDelete: SetNull` |
 | `expires_at` | timestamptz | yes | 30 days after create while unapplied |
 | `createdAt` / `updatedAt` | timestamptz | no | |
 
 Unique `(tenant_id, id)` and `(tenant_id, captured_by_user_id, site_id, idempotency_key)`. Index `(tenant_id, site_id, createdAt)` and `(expires_at)`.
 
-Page bytes live in object storage at `registration-intakes/{tenantId}/{intakeId}/page-{n}`. They are not a `DocumentBrandAsset`.
+The three `applied_*` foreign keys reference `id` alone, the same shape as `Vehicle.customer_id`. They are not composite `(tenant_id, id)` keys. `site_id` stays the composite `(tenant_id, site_id)` reference and uses `Restrict`, not `SetNull`. A composite `ON DELETE SET NULL` would also null `tenant_id`, which is not nullable, and the customer or vehicle delete would fail. Prisma `onDelete: SetNull` emits `ON DELETE SET NULL` for every column in the key, so S1 does not use a column-list `SET NULL (col)` here.
+
+`RegistrationIntakeBytePurge` (`registration_intake_byte_purges`) is the apply outbox. S1 creates it in the same migration as `registration_document_intakes`, after that table.
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | UUID | no | |
+| `tenant_id` | UUID | no | FK tenant, `onDelete: Restrict` |
+| `intake_id` | UUID | no | Single-column FK to `registration_document_intakes.id`, `onDelete: Restrict` |
+| `object_prefix` | varchar(256) | no | `registration-intakes/{tenantId}/{intakeId}/` |
+| `attempts` | int | no | Starts at 0. Each failed object delete adds 1 |
+| `last_error` | varchar(512) | yes | Last object-delete failure. Null after success |
+| `created_at` | timestamptz | no | |
+| `processed_at` | timestamptz | yes | Set after the objects are deleted. The row stays |
+
+Unique `(tenant_id, id)` and unique `intake_id`, so a replayed apply does not insert a second row. Partial index `registration_intake_byte_purges_pending_idx` on `created_at` where `processed_at` is null. The job reads that index.
+
+Page bytes live in object storage at `registration-intakes/{tenantId}/{intakeId}/page-{n}`. They are not a `DocumentBrandAsset`. Until the job runs, an applied intake's pages are still stored. S2 schedules `RegistrationIntakeBytePurgeService` with `@Cron(CronExpression.EVERY_MINUTE)`, name `registration-intake-byte-purge`, in the same shape as `DocumentBrandingUploadRecoveryService.recoverAndClean`. The wait is at most one minute plus that pass. The manual purge route does not wait for the cron.
 
 ### Modified Tables
 
@@ -414,18 +439,19 @@ Add these rules to `docs/deletion-policy.md` in the schema slice:
 |---|---|---|
 | `RegistrationDocumentIntake` | Before `APPLIED` | Hard delete the row and the page objects from `UPLOADED`, `QUEUED`, `RUNNING`, `FAILED`, `ABORTED`, and `AWAITING_REVIEW` |
 | `RegistrationDocumentIntake` | `APPLIED` | Refuse. The row is audit. Page objects are deleted by the outbox job |
-| `Customer` | Existing rule | An applied intake does not block `CustomerService.remove`. `onDelete: SetNull` clears `applied_customer_id`. S5 clears `evidence.holder` and `match_snapshot` on those rows in the same transaction, before `deleteMany`, so a Prisma `P2003` does not become the generic `422` from the filter |
+| `RegistrationIntakeBytePurge` | With the intake | Keep the row after `processed_at` is set. Tenant purge deletes pending prefixes, then these rows, then the intakes. `onDelete: Restrict` stops an intake delete that still has an outbox row |
+| `Customer` | Existing rule | An applied intake does not block `CustomerService.remove`. `onDelete: SetNull` clears `applied_customer_id`. `CustomerService.remove` does not open a transaction today. S5 wraps the evidence update and `deleteMany` in one `$transaction`. That update clears `evidence.holder` and `match_snapshot` so the holder line is erased. It is not a foreign-key guard |
 | `Vehicle` | Existing rule | `vehicle.service.ts` has no delete method today. `onDelete: SetNull` clears `applied_vehicle_id`. S5 exports `clearRegistrationEvidenceForVehicle` and tests it. The first vehicle delete endpoint calls it in its transaction |
 | `WorkshopOrder` | Existing rule | There is no order-delete route today. `onDelete: SetNull` clears `applied_workshop_order_id` |
 | `Vehicle.national_code` | n/a | Follows the vehicle delete rule |
 
 `match_snapshot` is set to null in the apply transaction, after the chosen ids are stored. It does not keep other customers' names on an applied row. The raw holder line is removed from `evidence` in that same transaction. Normalized names stay until the customer delete above clears them.
 
-S2 owns the cleanup job. It deletes unapplied rows whose `expires_at` is past, and their page objects, through the same byte helper as abort. Applied rows are removed only by tenant purge. `SetNull` does not require this table to be purged before customers, vehicles, or workshop orders. S1 still checks the generated purge SQL.
+S2 owns the cleanup job. It deletes unapplied rows whose `expires_at` is past, and their page objects, through the same byte helper as abort. Applied intake rows are removed only by tenant purge. `SetNull` does not require `registration_document_intakes` to be purged before customers, vehicles, or workshop orders. The outbox is the opposite: S1's purge notes delete each pending `object_prefix`, delete `registration_intake_byte_purges`, and only then delete `registration_document_intakes`. S1 still checks the generated purge SQL. The generator does not delete object storage.
 
 ### Tenant restore
 
-The schema slice runs `tools/tenant-restore/generate-tenant-restore-sql.mjs` and `node tools/tenant-restore/verify-table-list.mjs`. The new table has `tenant_id`, so the generator includes it. Page objects are not in the SQL dump. A restored unapplied intake whose bytes are missing is read as `ABORTED`.
+The schema slice runs `tools/tenant-restore/generate-tenant-restore-sql.mjs` and `node tools/tenant-restore/verify-table-list.mjs`. Both new tables have `tenant_id`, so the generator includes them. `registration_intake_byte_purges.intake_id` is `Restrict`, so the generated purge deletes the outbox before the intake. Page objects are not in the SQL dump. A restored unapplied intake whose bytes are missing is read as `ABORTED`. A restored outbox row with `processed_at` null is picked up by the next cron pass.
 
 ### Real-Time Sync
 
@@ -473,7 +499,7 @@ The change is a step inside `WorkshopOrderIntakeDialog`, not a new list page.
 - [x] Review state uses `StatusBadge`.
 - [x] Confirmation is an explicit submit. It is not a 750 ms auto-save, because submit creates a customer and maybe a vehicle.
 
-The dialog shows raw and normalized values, the page and region, and the uncertainty. Make, model, and year are visible. Low-confidence critical fields have no save action. Human-typed make, model, and year are available only when the evidence for that field is missing or low confidence, and only for a new vehicle. Wrong document, illegible, duplicate, conflicting VIN, invalid VIN, VIN-shaped Nationalcode, and ownership conflict each have their own copy. Ownership changes only through a second control that posts `ownershipCorrection`. Nationalcode is labeled `Nationalcode`, with the existing Typenschein hint left on the Typenschein field. The order step is a separate submit after apply returns.
+The dialog shows raw and normalized values, the page and region, and the uncertainty. Make, model, and year are visible. Low-confidence critical fields have no save action. Human-typed make, model, and year are available only when the evidence for that field is missing or low confidence, and only for a new vehicle. Wrong document, illegible, duplicate, conflicting VIN, invalid VIN, VIN-shaped Nationalcode, ownership conflict, and `REGISTRATION_INTAKE_FIELD_CONFLICT` each have their own copy. Field conflict has no overwrite control. Ownership changes only through a second control that posts `ownershipCorrection`. Nationalcode is labeled `Nationalcode`, with the existing Typenschein hint left on the Typenschein field. The order step is a separate submit after apply returns.
 
 ### Real-Time Sync
 
@@ -497,7 +523,7 @@ Business rules stay in the API. The client displays the server cases and the ser
 
 | Binding | Behavior |
 |---|---|
-| Production | Disabled provider. Create checks `isAvailable()` before any insert and returns `503` with no row and no bytes. No network |
+| Production | Disabled provider. A new create checks `isAvailable()` before any insert and returns `503` with no row and no bytes. A finished idempotency key still returns its stored `201`. No network |
 | Test | Fake provider. Reads the fixture JSON. No network |
 | Live | Not part of any slice. Requires a named processor, a data-processing agreement, and a data-residency decision. AUT-395 does not provide those. No registration image, PDF, or raw holder line is sent to Jev or to an unapproved processor |
 
@@ -513,8 +539,8 @@ Each backend area has one owner. Later slices call the earlier slice. They do no
 
 | Slice | Owns | Does not own |
 |---|---|---|
-| S1 Schema | Prisma models, `national_code`, `Restrict` on tenant and user, `SetNull` on the applied customer, vehicle, and order foreign keys, migration, `docs/deletion-policy.md`, tenant-restore SQL and the purge order | HTTP, provider, policy seed |
-| S2 Upload | Create, get, abort, delete, purge-bytes, `RegistrationIntakeBytePurge` and its job, `RegistrationIntakeUploadExceptionFilter`, byte helper used only by abort, delete, and that job, disabled and fake providers, MIME and size checks, idempotency, and every registration code in `CLIENT_SAFE_HTTP_ERROR_CODES` | Match queries, apply writes, MCP |
+| S1 Schema | Prisma models, including `RegistrationIntakeBytePurge` in the same migration after `registration_document_intakes`, `national_code`, `Restrict` on tenant and user, single-column `SetNull` on the three applied foreign keys, `docs/deletion-policy.md`, tenant-restore SQL and the purge order | HTTP, the cron job, provider, policy seed |
+| S2 Upload | Create, get, abort, delete, purge-bytes, the `@Cron` job on the S1 outbox, `RegistrationIntakeUploadInterceptor`, byte helper used only by abort, delete, and that job, disabled and fake providers, MIME and size checks, idempotency, and every registration code in `CLIENT_SAFE_HTTP_ERROR_CODES` | Match queries, apply writes, the outbox migration, MCP |
 | S3 Evidence | Prompt `registration-document-v1`, normalizer, side-merge rule, lease token | Customer and vehicle writes |
 | S4 Match | The two `findMany` queries, case-insensitive plate and name match, server cases | Apply |
 | S5 Apply | Exact confirmation, fill-blank rules for Nationalcode, first registration, and CO₂, plate-change `VEHICLE_IDENTITY_RESET`, ownership `updateMany`, stripping `holder.raw` and `match_snapshot`, the outbox insert, `CustomerService.remove` clearing holder evidence before delete, `clearRegistrationEvidenceForVehicle`, the order route that calls `executeCreateWorkshopOrder` after commit, OpenAPI and web types | Editing `executeCreateWorkshopOrder` to take an outer transaction, the error-code allowlist, MCP, object-store deletes |
@@ -536,7 +562,8 @@ Implementation tests load [registration-document-intake.fixtures.json](./registr
 - [ ] Create from `front-clear` plus `back-clear` stores both pages, merges CO₂, and keeps make, model, and year.
 - [ ] `wrong-document-zb-i`, `illegible`, `conflicting-vin`, `missing-nationalcode`, `multiple-duplicates`, `low-confidence`, `ownership-conflict`, `nationalcode-looks-like-vin`, `extra-pdf-pages`, and `invalid-vin` produce the fixture extractions and the fixture responses.
 - [ ] Parallel create and replay: one row, one provider call; a different hash returns the idempotency conflict; a different user does not see the row; a concurrent `RUNNING` row returns in-progress.
-- [ ] Disabled provider create returns `503` and writes no row and no bytes.
+- [ ] A new create while the provider is disabled returns `503` and writes no row and no bytes. Replay of a finished key still returns the stored `201`.
+- [ ] Approving a proposal whose `execute` throws `409` marks that proposal `FAILED` once. A second approve does not run `execute`. REST apply of the same `409` can be retried.
 - [ ] An existing vehicle with a different Nationalcode, first registration, or CO₂ returns the conflict case and does not overwrite those columns. A null column is filled.
 - [ ] The order route returns `409` `VEHICLE_HAS_ACTIVE_ORDER` with `orderId` and `orderNumber` and leaves `applied_workshop_order_id` null.
 - [ ] A file over 10 MiB returns `413` with `code` `REGISTRATION_INTAKE_FILE_TOO_LARGE`.
