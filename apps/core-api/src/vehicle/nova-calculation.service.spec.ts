@@ -52,6 +52,7 @@ describe('NovaCalculationService', () => {
     await expect(service.calculate(input)).resolves.toEqual({
       ...calculateNova(input, tariff.id),
       hasUnverifiedRules: false,
+      hasScopeLimitations: false,
     });
     expect(prisma.vehicle.findFirst).not.toHaveBeenCalled();
   });
@@ -101,6 +102,7 @@ describe('NovaCalculationService', () => {
     expect(result).toEqual({
       ...calculateNova(input, tariff.id),
       hasUnverifiedRules: false,
+      hasScopeLimitations: true,
     });
     expect(prisma.vehicle.findFirst).toHaveBeenCalledWith({
       where: {
@@ -205,5 +207,33 @@ describe('NovaCalculationService', () => {
     expect(result.warnings).toContain('nedc_fractional_co2_unverified');
     expect(result.warnings).toContain('phev_weighted_wltp');
     expect(result.hasUnverifiedRules).toBe(true);
+    expect(result.hasScopeLimitations).toBe(false);
+  });
+
+  it('marks scope limitations when Wertentwicklung is not applied', async () => {
+    const input = {
+      co2GramsPerKm: 120,
+      emissionCycle: 'WLTP' as const,
+      netPriceEuro: 30_000,
+      driveType: 'ICE' as const,
+      taxableEventDate: '2026-05-01',
+      firstRegistrationDate: '2020-01-01',
+      vehicleClass: 'passenger_z3' as const,
+    };
+    const tariff = resolveTariffVersion(input.vehicleClass, input.taxableEventDate)!;
+
+    const result = await service.calculate(input);
+
+    expect(result).toEqual({
+      ...calculateNova(input, tariff.id),
+      hasUnverifiedRules: false,
+      hasScopeLimitations: true,
+    });
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        'wertentwicklung_not_applied',
+        'eu_import_tariff_hint',
+      ]),
+    );
   });
 });

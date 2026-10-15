@@ -77,6 +77,7 @@ describe('McpReportReadService', () => {
         ratePercentApplied: 16,
         effectiveCo2GramsPerKm: 0,
         hasUnverifiedRules: false,
+        hasScopeLimitations: false,
       }),
     };
     service = new McpReportReadService(
@@ -242,6 +243,7 @@ describe('McpReportReadService', () => {
         ratePercentApplied: 16,
         effectiveCo2GramsPerKm: 0,
         hasUnverifiedRules: true,
+        hasScopeLimitations: false,
       });
 
       const preview = await service.getNovaPreview({

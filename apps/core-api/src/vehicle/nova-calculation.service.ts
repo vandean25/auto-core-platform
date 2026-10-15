@@ -28,6 +28,7 @@ export type NovaCalculateInput = Partial<CalculateNovaInput> & {
 
 export type NovaCalculateResult = CalculateNovaResult & {
   hasUnverifiedRules: boolean;
+  hasScopeLimitations: boolean;
 };
 
 type VehicleNovaInputs = {
@@ -42,6 +43,11 @@ type VehicleNovaInputs = {
 const UNVERIFIED_WARNINGS = new Set([
   'nedc_fractional_co2_unverified',
   'fractional_co2_unverified',
+]);
+
+const SCOPE_LIMITATION_WARNINGS = new Set([
+  'wertentwicklung_not_applied',
+  'eu_import_tariff_hint',
 ]);
 
 const VIENNA_DATE_FORMATTER = new Intl.DateTimeFormat('sv-SE', {
@@ -209,6 +215,9 @@ export class NovaCalculationService {
         ...result,
         hasUnverifiedRules: result.warnings.some((warning) =>
           UNVERIFIED_WARNINGS.has(warning),
+        ),
+        hasScopeLimitations: result.warnings.some((warning) =>
+          SCOPE_LIMITATION_WARNINGS.has(warning),
         ),
       };
     } catch (error) {

@@ -7426,6 +7426,7 @@ export interface components {
             tariffVersionId: string;
             warnings: string[];
             hasUnverifiedRules: boolean;
+            hasScopeLimitations: boolean;
             ratePercentApplied: number;
             effectiveCo2GramsPerKm: number;
         };
