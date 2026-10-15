@@ -94,6 +94,7 @@ The report reads (AUT-461), `get_workshop_kpi_report`, `list_pickerl_due`, and `
 | `reserve_part` | Off by default; AUTO up to the policy amount limit, otherwise PROPOSE | Reversible via `release_reservation` | `release_reservation` |
 | `release_reservation` | Off by default; AUTO when enabled | Reversible via `reserve_part` (subject to stock availability) | `reserve_part` |
 | `propose_line_item` | Off by default; PROPOSE when enabled | Preview only; the proposed line item is rolled back and not persisted | Not applicable |
+| `propose_registration_intake` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Applies a reviewed registration intake to customer/vehicle records | Not applicable |
 
 `reserve_part` requires a catalog-backed part line and a bin `location_id` at the active site. Its existing EUR 250 `amount_max` policy allows `AUTO` at or below the configured amount and returns `PROPOSE` above it. Scheduled `draft_workshop_order` inputs require `bay_id`, `scheduled_start_at`, and `scheduled_end_at`.
 

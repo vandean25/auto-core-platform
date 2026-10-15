@@ -53,6 +53,15 @@ export class RegistrationIntakeMatchService {
       typeof fields.plate?.normalized === 'string' ? fields.plate.normalized : null;
 
     let vehicles: RegistrationMatchSnapshot['vehicles'] = [];
+    let matchedVehicleRow:
+      | {
+          national_code: string | null;
+          first_registration_date: Date | null;
+          co2_wltp_g_km: number | null;
+          co2_nedc_g_km: number | null;
+          customer_id: string | null;
+        }
+      | undefined;
     if (vin) {
       const rows = await prisma.vehicle.findMany({
         where: { tenant_id: tenantId, vin },
@@ -62,6 +71,10 @@ export class RegistrationIntakeMatchService {
           vin: true,
           plate: true,
           customer_id: true,
+          national_code: true,
+          first_registration_date: true,
+          co2_wltp_g_km: true,
+          co2_nedc_g_km: true,
         },
       });
       vehicles = rows.map((row) => ({
@@ -70,6 +83,9 @@ export class RegistrationIntakeMatchService {
         plate: row.plate,
         customerId: row.customer_id,
       }));
+      if (rows.length === 1) {
+        matchedVehicleRow = rows[0];
+      }
     } else if (plate) {
       const rows = await prisma.vehicle.findMany({
         where: {
@@ -82,6 +98,10 @@ export class RegistrationIntakeMatchService {
           vin: true,
           plate: true,
           customer_id: true,
+          national_code: true,
+          first_registration_date: true,
+          co2_wltp_g_km: true,
+          co2_nedc_g_km: true,
         },
       });
       vehicles = rows.map((row) => ({
@@ -90,20 +110,14 @@ export class RegistrationIntakeMatchService {
         plate: row.plate,
         customerId: row.customer_id,
       }));
+      if (rows.length === 1) {
+        matchedVehicleRow = rows[0];
+      }
     }
 
     if (vehicles.length === 1) {
       cases.push('EXISTING_VEHICLE');
-      const vehicle = await prisma.vehicle.findFirst({
-        where: { id: vehicles[0].id, tenant_id: tenantId },
-        select: {
-          national_code: true,
-          first_registration_date: true,
-          co2_wltp_g_km: true,
-          co2_nedc_g_km: true,
-          customer_id: true,
-        },
-      });
+      const vehicle = matchedVehicleRow;
       if (vehicle) {
         const code =
           typeof fields.nationalcode?.normalized === 'string'

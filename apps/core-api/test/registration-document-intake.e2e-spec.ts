@@ -273,4 +273,256 @@ describe('Registration document intake (e2e)', () => {
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
     expect(await tenantPrisma.vehicle.count()).toBe(0);
   });
+
+  it('applies missing nationalcode without copying VIN into nationalcode', async () => {
+    const bytes = encodeRegistrationIntakeFixtureBytes('missing-nationalcode');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'missing-nc-1')
+      .field('sides', 'FRONT')
+      .attach('files', bytes, 'front.jpg')
+      .expect(201);
+    expect(create.body.matchSnapshot.cases).toContain('MISSING_NATIONALCODE');
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: null,
+      firstRegistration: '2019-03-12',
+      make: 'Synthetic',
+      model: 'Demo',
+      year: 2019,
+    };
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(applyBody)
+      .expect(200);
+    const vehicle = await createTenantAwarePrisma(prisma, tenantId).vehicle.findFirst({
+      where: { vin: 'WVWZZZSYNTH000001' },
+    });
+    expect(vehicle?.national_code).toBeNull();
+  });
+
+  it('cleans up row and bytes when page store fails', async () => {
+    storage.failOnStorePage = 2;
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const back = encodeRegistrationIntakeFixtureBytes('back-clear');
+    await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'store-fail-1')
+      .field('sides', 'FRONT')
+      .field('sides', 'BACK')
+      .attach('files', front, 'front.jpg')
+      .attach('files', back, 'back.jpg')
+      .expect(400);
+    storage.failOnStorePage = null;
+    expect(storage.objects.size).toBe(0);
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    expect(
+      await tenantPrisma.registrationDocumentIntake.count({
+        where: { idempotency_key: 'store-fail-1' },
+      }),
+    ).toBe(0);
+  });
+
+  it('returns field conflict on apply without writes when stored regulatory fields differ', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const customer = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenantId,
+        first_name: 'pilot',
+        last_name: 'customer',
+        type: 'PRIVATE',
+      },
+    });
+    const vehicle = await tenantPrisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: customer.id,
+        vin: 'WVWZZZSYNTH000001',
+        plate: 'W SYNTH 1',
+        make: 'Synthetic',
+        model: 'Demo',
+        year: 2019,
+        national_code: null,
+      },
+    });
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'field-conflict-1')
+      .field('sides', 'FRONT')
+      .attach('files', front, 'front.jpg')
+      .expect(201);
+    await tenantPrisma.vehicle.update({
+      where: { id: vehicle.id },
+      data: { national_code: 'OTHER-CODE' },
+    });
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      co2: { value: 119, cycle: 'WLTP' as const },
+      customerId: customer.id,
+      vehicleId: vehicle.id,
+    };
+    const res = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(applyBody)
+      .expect(409);
+    expect(res.body.code).toBe('REGISTRATION_INTAKE_FIELD_CONFLICT');
+    expect(await tenantPrisma.vehicle.count()).toBe(1);
+    const vehicle = await tenantPrisma.vehicle.findFirst({
+      where: { vin: 'WVWZZZSYNTH000001' },
+    });
+    expect(vehicle?.national_code).toBe('OTHER-CODE');
+  });
+
+  it('returns 409 when two intakes confirm the same new VIN in parallel', async () => {
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const back = encodeRegistrationIntakeFixtureBytes('back-clear');
+    const createA = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'parallel-vin-a')
+      .field('sides', 'FRONT')
+      .field('sides', 'BACK')
+      .attach('files', front, 'front.jpg')
+      .attach('files', back, 'back.jpg')
+      .expect(201);
+    const createB = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'parallel-vin-b')
+      .field('sides', 'FRONT')
+      .field('sides', 'BACK')
+      .attach('files', front, 'front.jpg')
+      .attach('files', back, 'back.jpg')
+      .expect(201);
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      co2: { value: 119, cycle: 'WLTP' as const },
+      make: 'Synthetic',
+      model: 'Demo',
+      year: 2019,
+    };
+    const [resA, resB] = await Promise.all([
+      request(app.getHttpServer())
+        .post(`/api/workshop/registration-intakes/${createA.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(applyBody),
+      request(app.getHttpServer())
+        .post(`/api/workshop/registration-intakes/${createB.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(applyBody),
+    ]);
+    const statuses = [resA.status, resB.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    expect(await createTenantAwarePrisma(prisma, tenantId).vehicle.count()).toBe(1);
+  });
+
+  it('returns state changed when two applies race on one intake', async () => {
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'parallel-one-intake')
+      .field('sides', 'FRONT')
+      .attach('files', front, 'front.jpg')
+      .expect(201);
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      co2: { value: 119, cycle: 'WLTP' as const },
+      make: 'Synthetic',
+      model: 'Demo',
+      year: 2019,
+    };
+    const [a, b] = await Promise.all([
+      request(app.getHttpServer())
+        .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(applyBody),
+      request(app.getHttpServer())
+        .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send(applyBody),
+    ]);
+    const codes = [a.status, b.status].sort();
+    expect(codes).toEqual([200, 409]);
+  });
+
+  it('marks extract failure when provider rejects on abort signal', async () => {
+    const previousTimeout = process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS;
+    process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS = '50';
+    let extractCalls = 0;
+    const slowModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
+      .useValue({
+        isAvailable: () => true,
+        getMetadata: () => ({ providerId: 'test-timeout', modelId: 'none' }),
+        extract: async ({ signal }: { signal: AbortSignal }) => {
+          extractCalls += 1;
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => resolve(), 500);
+            signal.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer);
+                reject(signal.reason ?? new Error('aborted'));
+              },
+              { once: true },
+            );
+          });
+          return {
+            documentKind: 'AT_ZULASSUNGSSCHEIN',
+            warnings: [],
+            fields: {},
+          };
+        },
+      })
+      .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
+      .useValue(storage)
+      .compile();
+    const slowApp = slowModule.createNestApplication();
+    slowApp.setGlobalPrefix('api');
+    slowApp.useGlobalPipes(createGlobalValidationPipe());
+    await slowApp.init();
+    const token = createTestAuthToken(
+      slowApp.get(AuthService),
+      await createTestTenant(slowApp.get(PrismaService), 'reg-timeout'),
+    );
+    const bytes = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const res = await request(slowApp.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${token}`)
+      .set('Idempotency-Key', 'timeout-key')
+      .field('sides', 'FRONT')
+      .attach('files', bytes, 'front.jpg')
+      .expect(201);
+    expect(res.body.state).toBe('FAILED');
+    expect(extractCalls).toBe(1);
+    await slowApp.close();
+    if (previousTimeout === undefined) {
+      delete process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS;
+    } else {
+      process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS = previousTimeout;
+    }
+  });
 });

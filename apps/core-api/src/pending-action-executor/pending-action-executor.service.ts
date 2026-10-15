@@ -623,12 +623,10 @@ export class PendingActionExecutorService {
   ): Promise<Record<string, unknown>> {
     const record = proposeRegistrationIntakeInputSchema.parse(input);
     const tenantId = await this.tenantContext.getTenantId();
-    const activeSiteId = await this.siteContext.getSiteId();
     const intake = await this.prisma.registrationDocumentIntake.findFirst({
       where: {
         id: record.intake_id,
         tenant_id: tenantId,
-        site_id: activeSiteId,
       },
       select: { site_id: true },
     });

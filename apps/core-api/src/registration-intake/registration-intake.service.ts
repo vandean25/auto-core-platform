@@ -153,18 +153,26 @@ export class RegistrationIntakeService {
     });
 
     let pageNo = 1;
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const mime = detectRegistrationIntakeMime(file.buffer)!;
-      const side = sides[i] ?? 'FRONT';
-      const page = side === 'BACK' ? 2 : pageNo++;
-      await this.byteStorage.storePage({
-        tenantId,
-        intakeId,
-        page,
-        bytes: file.buffer,
-        contentType: mime,
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const mime = detectRegistrationIntakeMime(file.buffer)!;
+        const side = sides[i] ?? 'FRONT';
+        const page = side === 'BACK' ? 2 : pageNo++;
+        await this.byteStorage.storePage({
+          tenantId,
+          intakeId,
+          page,
+          bytes: file.buffer,
+          contentType: mime,
+        });
+      }
+    } catch {
+      await this.byteStorage.deleteIntakePrefix({ tenantId, intakeId });
+      await this.prisma.registrationDocumentIntake.deleteMany({
+        where: { id: intakeId, tenant_id: tenantId },
       });
+      throw registrationUnsupportedFile();
     }
 
     await this.prisma.registrationDocumentIntake.updateMany({
@@ -180,7 +188,9 @@ export class RegistrationIntakeService {
       const extracted = await this.provider.extract({
         pages,
         promptVersion: REGISTRATION_DOCUMENT_PROMPT_VERSION,
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(
+          Number(process.env.REGISTRATION_INTAKE_EXTRACT_TIMEOUT_MS ?? 60_000),
+        ),
       });
       const mergedFields = mergeRegistrationFieldMaps([extracted.fields]);
       const vin =
@@ -204,8 +214,13 @@ export class RegistrationIntakeService {
         fields,
         [...normCases, ...providerCases],
       );
-      const intake = await this.prisma.registrationDocumentIntake.update({
-        where: { id: intakeId },
+      const reviewed = await this.prisma.registrationDocumentIntake.updateMany({
+        where: {
+          id: intakeId,
+          tenant_id: tenantId,
+          state: 'RUNNING',
+          lease_token: leaseToken,
+        },
         data: {
           state: 'AWAITING_REVIEW',
           document_kind: extracted.documentKind,
@@ -220,17 +235,34 @@ export class RegistrationIntakeService {
           lease_token: null,
         },
       });
-      return this.toCreateResponse(intake);
+      if (reviewed.count !== 1) {
+        const current = await this.prisma.registrationDocumentIntake.findFirst({
+          where: { id: intakeId, tenant_id: tenantId },
+        });
+        return this.toCreateResponse(current!);
+      }
+      const intake = await this.prisma.registrationDocumentIntake.findFirst({
+        where: { id: intakeId, tenant_id: tenantId },
+      });
+      return this.toCreateResponse(intake!);
     } catch {
-      const failed = await this.prisma.registrationDocumentIntake.update({
-        where: { id: intakeId },
+      await this.prisma.registrationDocumentIntake.updateMany({
+        where: {
+          id: intakeId,
+          tenant_id: tenantId,
+          state: 'RUNNING',
+          lease_token: leaseToken,
+        },
         data: {
           state: 'FAILED',
           failure_code: 'REGISTRATION_INTAKE_EXTRACT_FAILED',
           lease_token: null,
         },
       });
-      return this.toCreateResponse(failed);
+      const failed = await this.prisma.registrationDocumentIntake.findFirst({
+        where: { id: intakeId, tenant_id: tenantId },
+      });
+      return this.toCreateResponse(failed!);
     }
   }
 
@@ -262,7 +294,7 @@ export class RegistrationIntakeService {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const intake = await this.prisma.registrationDocumentIntake.findFirst({
-      where: { id, tenant_id: tenantId, site_id: siteId },
+      where: { id, tenant_id: tenantId },
     });
     if (!intake) {
       throw registrationIntakeNotFound(id);
@@ -301,6 +333,7 @@ export class RegistrationIntakeService {
   }
 
   async delete(id: string) {
+    assertRegistrationIntakeRole(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     const intake = await this.loadScoped(id, tenantId, siteId);
@@ -317,6 +350,7 @@ export class RegistrationIntakeService {
   }
 
   async purgeBytes(id: string) {
+    assertRegistrationIntakeRole(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     await this.loadScoped(id, tenantId, siteId);

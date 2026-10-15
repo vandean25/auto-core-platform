@@ -3,6 +3,8 @@ import type { RegistrationIntakeByteStorage } from '../../src/registration-intak
 export class InMemoryRegistrationIntakeByteStorage implements RegistrationIntakeByteStorage {
   readonly objects = new Map<string, Buffer>();
   deleteShouldFail = false;
+  /** When set, `storePage` throws on this page number (1-based). */
+  failOnStorePage: number | null = null;
 
   intakeObjectPrefix(tenantId: string, intakeId: string): string {
     return `registration-intakes/${tenantId}/${intakeId}/`;
@@ -19,6 +21,9 @@ export class InMemoryRegistrationIntakeByteStorage implements RegistrationIntake
     bytes: Buffer;
     contentType: string;
   }): Promise<void> {
+    if (this.failOnStorePage === params.page) {
+      throw new Error('simulated store failure');
+    }
     this.objects.set(
       this.key(params.tenantId, params.intakeId, params.page),
       Buffer.from(params.bytes),

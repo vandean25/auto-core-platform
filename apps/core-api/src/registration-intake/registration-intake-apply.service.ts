@@ -2,6 +2,7 @@ import {
   ConflictException,
   Injectable,
   Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
@@ -17,7 +18,15 @@ import {
   normalizeVehicleIdentityValueOrNull,
 } from '../vehicle/vehicle-identity.util.js';
 import { createNewIntakeVehicle } from '../workshop/workshop-intake-vehicle.helpers.js';
-import type { RegistrationFieldEvidence } from './registration-document-extraction.types.js';
+import type {
+  RegistrationFieldEvidence,
+  RegistrationMatchSnapshot,
+} from './registration-document-extraction.types.js';
+import { resolveApplyTargets } from './registration-intake-apply-targets.js';
+import {
+  assertStoredRegulatoryFieldsMatchConfirmation,
+  buildFillBlankRegulatoryUpdate,
+} from './registration-intake-vehicle-field-guards.js';
 import {
   isLowConfidence,
   VIN_PATTERN,
@@ -93,9 +102,7 @@ export class RegistrationIntakeApplyService {
       warnings: string[];
       fields: Record<string, RegistrationFieldEvidence>;
     } | null;
-    const snapshot = intake.match_snapshot as {
-      cases: string[];
-    } | null;
+    const snapshot = intake.match_snapshot as RegistrationMatchSnapshot | null;
     const cases = snapshot?.cases ?? [];
     const fields = evidence?.fields ?? {};
 
@@ -114,8 +121,23 @@ export class RegistrationIntakeApplyService {
     if (cases.includes('NATIONALCODE_LOOKS_LIKE_VIN')) {
       throw registrationNationalcodeLooksLikeVin();
     }
-    if (cases.includes('DUPLICATE_CUSTOMERS') || cases.includes('DUPLICATE_VEHICLES')) {
-      throw registrationAmbiguousMatch();
+    if (cases.includes('DUPLICATE_CUSTOMERS')) {
+      const chosen = dto.customerId;
+      if (
+        !chosen ||
+        !snapshot?.customers.some((customer) => customer.id === chosen)
+      ) {
+        throw registrationAmbiguousMatch();
+      }
+    }
+    if (cases.includes('DUPLICATE_VEHICLES')) {
+      const chosen = dto.vehicleId;
+      if (
+        !chosen ||
+        !snapshot?.vehicles.some((vehicle) => vehicle.id === chosen)
+      ) {
+        throw registrationAmbiguousMatch();
+      }
     }
     if (cases.includes('OWNERSHIP_CONFLICT') && !dto.ownershipCorrection) {
       throw registrationOwnershipConflict();
@@ -134,6 +156,21 @@ export class RegistrationIntakeApplyService {
       throw registrationConflictingVin();
     }
 
+    const targets = resolveApplyTargets(snapshot, dto, cases);
+    if (targets.customerId) {
+      await this.assertTenantCustomer(this.prisma, tenantId, targets.customerId);
+    }
+    if (dto.ownershipCorrection?.nextCustomerId) {
+      await this.assertTenantCustomer(
+        this.prisma,
+        tenantId,
+        dto.ownershipCorrection.nextCustomerId,
+      );
+    }
+    if (targets.vehicleId) {
+      await this.assertTenantVehicle(this.prisma, tenantId, targets.vehicleId);
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
       const locked = await tx.registrationDocumentIntake.updateMany({
         where: {
@@ -148,8 +185,8 @@ export class RegistrationIntakeApplyService {
         throw registrationStateChanged();
       }
 
-      let customerId = dto.customerId;
-      if (!customerId) {
+      let customerId = targets.customerId;
+      if (targets.createCustomer) {
         const holder = fields.holder?.normalized as {
           firstName: string;
           lastName: string;
@@ -163,13 +200,15 @@ export class RegistrationIntakeApplyService {
           },
         });
         customerId = created.id;
+      } else {
+        await this.assertTenantCustomer(tx, tenantId, customerId!);
       }
 
-      let vehicleId = dto.vehicleId;
+      let vehicleId = targets.vehicleId;
       let createdVehicle = false;
-      let createdCustomer = !dto.customerId;
+      const createdCustomer = targets.createCustomer;
 
-      if (!vehicleId) {
+      if (targets.createVehicle) {
         const vin = normalizeVehicleIdentityValueOrNull(dto.vin);
         const make = dto.make!;
         const model = dto.model!;
@@ -177,7 +216,7 @@ export class RegistrationIntakeApplyService {
         const vehicle = await createNewIntakeVehicle({
           tx,
           tenantId,
-          customerId,
+          customerId: customerId!,
           vin,
           dto: {
             plate: dto.plate,
@@ -189,10 +228,15 @@ export class RegistrationIntakeApplyService {
         });
         vehicleId = vehicle.id;
         createdVehicle = true;
-        await this.fillBlankVehicleFields(tx, tenantId, vehicleId, dto, fields);
+        await this.applyRegulatoryFieldUpdates(tx, tenantId, vehicleId, dto);
       } else {
-        await this.updateExistingVehicle(tx, tenantId, vehicleId, customerId, dto, fields, cases);
-        createdCustomer = false;
+        await this.updateExistingVehicle(
+          tx,
+          tenantId,
+          vehicleId!,
+          customerId!,
+          dto,
+        );
       }
 
       const strippedEvidence = this.stripHolderRaw(evidence);
@@ -314,7 +358,29 @@ export class RegistrationIntakeApplyService {
       throw registrationConfirmationMismatch();
     }
 
-    if (!dto.vehicleId) {
+    const firstRegNorm =
+      typeof fields.firstRegistration?.normalized === 'string'
+        ? fields.firstRegistration.normalized
+        : null;
+    if (dto.firstRegistration !== firstRegNorm) {
+      throw registrationConfirmationMismatch();
+    }
+
+    const co2Field = fields.co2 as
+      | (RegistrationFieldEvidence & { cycle?: 'WLTP' | 'NEDC' })
+      | undefined;
+    const co2Norm =
+      typeof co2Field?.normalized === 'number' ? co2Field.normalized : null;
+    const co2Cycle = co2Field?.cycle ?? 'WLTP';
+    if (dto.co2) {
+      if (co2Norm === null || dto.co2.value !== co2Norm || dto.co2.cycle !== co2Cycle) {
+        throw registrationConfirmationMismatch();
+      }
+    } else if (co2Norm !== null) {
+      throw registrationConfirmationMismatch();
+    }
+
+    if (!cases.includes('EXISTING_VEHICLE')) {
       if (!dto.make || !dto.model || !dto.year) {
         throw registrationVehicleIdentityIncomplete();
       }
@@ -329,14 +395,40 @@ export class RegistrationIntakeApplyService {
     }
   }
 
+  private async assertTenantCustomer(
+    prisma: PrismaService | Prisma.TransactionClient,
+    tenantId: string,
+    customerId: string,
+  ): Promise<void> {
+    const row = await prisma.customer.findFirst({
+      where: { id: customerId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!row) {
+      throw new NotFoundException(`Customer ${customerId} not found`);
+    }
+  }
+
+  private async assertTenantVehicle(
+    prisma: PrismaService | Prisma.TransactionClient,
+    tenantId: string,
+    vehicleId: string,
+  ): Promise<void> {
+    const row = await prisma.vehicle.findFirst({
+      where: { id: vehicleId, tenant_id: tenantId },
+      select: { id: true },
+    });
+    if (!row) {
+      throw new NotFoundException(`Vehicle ${vehicleId} not found`);
+    }
+  }
+
   private async updateExistingVehicle(
     tx: Prisma.TransactionClient,
     tenantId: string,
     vehicleId: string,
     customerId: string,
     dto: ApplyRegistrationIntakeDto,
-    fields: Record<string, RegistrationFieldEvidence>,
-    cases: string[],
   ) {
     const vehicle = await tx.vehicle.findFirst({
       where: { id: vehicleId, tenant_id: tenantId },
@@ -344,6 +436,8 @@ export class RegistrationIntakeApplyService {
     if (!vehicle) {
       throw registrationIntakeNotFound(vehicleId);
     }
+
+    assertStoredRegulatoryFieldsMatchConfirmation(vehicle, dto);
 
     if (
       vehicle.customer_id &&
@@ -359,6 +453,11 @@ export class RegistrationIntakeApplyService {
           'Vehicle holder changed while confirming intake; please retry',
         );
       }
+      await this.assertTenantCustomer(
+        tx,
+        tenantId,
+        dto.ownershipCorrection.nextCustomerId,
+      );
       customerId = dto.ownershipCorrection.nextCustomerId;
     }
 
@@ -397,35 +496,21 @@ export class RegistrationIntakeApplyService {
       );
     }
 
-    await this.fillBlankVehicleFields(tx, tenantId, vehicleId, dto, fields);
+    await this.applyRegulatoryFieldUpdates(tx, tenantId, vehicleId, dto);
   }
 
-  private async fillBlankVehicleFields(
+  private async applyRegulatoryFieldUpdates(
     tx: Prisma.TransactionClient,
     tenantId: string,
     vehicleId: string,
     dto: ApplyRegistrationIntakeDto,
-    fields: Record<string, RegistrationFieldEvidence>,
   ) {
     const vehicle = await tx.vehicle.findFirst({
       where: { id: vehicleId, tenant_id: tenantId },
     });
     if (!vehicle) return;
-    const data: Prisma.VehicleUpdateInput = {};
-    if (!vehicle.national_code && dto.nationalcode) {
-      data.national_code = dto.nationalcode;
-    }
-    if (!vehicle.first_registration_date && dto.firstRegistration) {
-      data.first_registration_date = new Date(dto.firstRegistration);
-    }
-    if (dto.co2) {
-      if (dto.co2.cycle === 'WLTP' && vehicle.co2_wltp_g_km === null) {
-        data.co2_wltp_g_km = dto.co2.value;
-      }
-      if (dto.co2.cycle === 'NEDC' && vehicle.co2_nedc_g_km === null) {
-        data.co2_nedc_g_km = dto.co2.value;
-      }
-    }
+    assertStoredRegulatoryFieldsMatchConfirmation(vehicle, dto);
+    const data = buildFillBlankRegulatoryUpdate(vehicle, dto);
     if (Object.keys(data).length > 0) {
       await tx.vehicle.updateMany({
         where: { id: vehicleId, tenant_id: tenantId },

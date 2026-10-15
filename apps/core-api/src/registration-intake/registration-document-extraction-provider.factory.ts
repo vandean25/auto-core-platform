@@ -11,6 +11,9 @@ export function readRegistrationDocumentExtractionProviderId(
 ): RegistrationDocumentExtractionProviderId {
   const raw = env.REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER?.trim().toLowerCase();
   if (raw === 'fake') {
+    if (env.NODE_ENV === 'production') {
+      return 'disabled';
+    }
     return 'fake';
   }
   return 'disabled';
