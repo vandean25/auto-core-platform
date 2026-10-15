@@ -77,11 +77,6 @@ export function NovaPreviewPanel({
         (originalNewNet.trim() !== '' &&
           Number.isFinite(originalNewNetEuro) &&
           originalNewNetEuro > 0)))
-  const knownNewNetReady =
-    valueBasis !== 'known_new_net' ||
-    (originalNewNet.trim() !== '' &&
-      Number.isFinite(originalNewNetEuro) &&
-      originalNewNetEuro > 0)
   const calculationError = error as (Error & { code?: string }) | null
 
   return (
@@ -108,6 +103,8 @@ export function NovaPreviewPanel({
             checked={previewMode === 'v1'}
             onChange={() => {
               setPreviewMode('v1')
+              setValueBasis('achtelung')
+              setOriginalNewNet('')
               setHasCurrentCalculation(false)
               reset()
             }}
@@ -205,11 +202,7 @@ export function NovaPreviewPanel({
           type="button"
           variant="outline"
           disabled={
-            !vehicleId ||
-            !canCalculate ||
-            !euSliceReady ||
-            !knownNewNetReady ||
-            isPending
+            !vehicleId || !canCalculate || !euSliceReady || isPending
           }
           onClick={() => {
             reset()

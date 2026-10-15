@@ -228,6 +228,41 @@ describe('NovaPreviewPanel', () => {
     })
   })
 
+  it('keeps the standard preview enabled after leaving EU slice with incomplete known new net', () => {
+    render(
+      <NovaPreviewPanel
+        vehicleId="vehicle-1"
+        firstRegistrationDate="2024-06-01"
+        co2Wltp={160}
+        co2Nedc={null}
+        typenscheinNo="TS-1"
+        novaClass="STANDARD"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('NoVA-Netto-Preis'), {
+      target: { value: '20000' },
+    })
+    fireEvent.click(screen.getByRole('radio', { name: /EU-M1-Gebrauchtimport 2024/ }))
+    fireEvent.change(screen.getByLabelText('Wertentwicklung'), {
+      target: { value: 'known_new_net' },
+    })
+
+    const calculateButton = screen.getByRole('button', { name: 'NoVA berechnen' })
+    expect(calculateButton).toBeDisabled()
+
+    fireEvent.click(
+      screen.getByRole('radio', { name: /Standard-Vorschau/ }),
+    )
+    expect(calculateButton).not.toBeDisabled()
+
+    fireEvent.click(calculateButton)
+    expect(calculate).toHaveBeenCalledWith({
+      vehicleId: 'vehicle-1',
+      netPriceEuro: 20000,
+    })
+  })
+
   it('shows a missing CO2 hint without raising a toast', () => {
     useNovaCalculate.mockReturnValue({
       mutate: calculate,
