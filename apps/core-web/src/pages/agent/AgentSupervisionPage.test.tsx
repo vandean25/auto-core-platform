@@ -569,6 +569,21 @@ describe('AgentSupervisionPage', () => {
     )
   })
 
+  it('passes Activity tab agent search text to useAgentActions as agentId', () => {
+    render(<AgentSupervisionPage />)
+
+    fireEvent.click(screen.getByTestId('tab-activity'))
+
+    const agentInput = screen.getByTestId('filter-agent-input')
+    fireEvent.change(agentInput, { target: { value: 'qa-fresh' } })
+
+    expect(vi.mocked(useAgentActions)).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        agentId: 'qa-fresh',
+      }),
+    )
+  })
+
   it('switches to the Decision shadow tab and filters its read-only log by use case', () => {
     render(<AgentSupervisionPage />)
 

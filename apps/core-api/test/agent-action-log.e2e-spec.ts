@@ -181,6 +181,72 @@ describe('Agent action log (e2e)', () => {
       .expect(400);
   });
 
+  it('filters activity logs by agent id substring within the tenant', async () => {
+    const traceMatch = '00000000-0000-4000-8000-00000000f001';
+    const traceOther = '00000000-0000-4000-8000-00000000f002';
+    const traceTenantB = '00000000-0000-4000-8000-00000000f003';
+
+    await prismaA.agentActionLog.createMany({
+      data: [
+        {
+          tenant_id: tenantA,
+          trace_id: traceMatch,
+          actor_type: 'AGENT',
+          agent_id: 'mcp:qa-fresh-agent',
+          action_type: 'noop',
+          tier: 'AUTO',
+          status: 'DRY_RUN',
+        },
+        {
+          tenant_id: tenantA,
+          trace_id: traceOther,
+          actor_type: 'AGENT',
+          agent_id: 'mcp:other-agent',
+          action_type: 'noop',
+          tier: 'AUTO',
+          status: 'DRY_RUN',
+        },
+      ],
+    });
+
+    await prisma.agentActionLog.create({
+      data: {
+        tenant_id: tenantB,
+        trace_id: traceTenantB,
+        actor_type: 'AGENT',
+        agent_id: 'mcp:qa-fresh-agent',
+        action_type: 'noop',
+        tier: 'AUTO',
+        status: 'DRY_RUN',
+      },
+    });
+
+    const list = await request(app.getHttpServer())
+      .get('/agent-actions')
+      .query({ agentId: 'qa-fresh', limit: 50 })
+      .set('Authorization', adminHeaderA)
+      .expect(200);
+
+    const traceIds = list.body.data.map(
+      (row: { traceId: string }) => row.traceId,
+    );
+    expect(traceIds).toContain(traceMatch);
+    expect(traceIds).not.toContain(traceOther);
+    expect(traceIds).not.toContain(traceTenantB);
+
+    const caseInsensitive = await request(app.getHttpServer())
+      .get('/agent-actions')
+      .query({ agentId: 'QA-FRESH', limit: 50 })
+      .set('Authorization', adminHeaderA)
+      .expect(200);
+
+    expect(
+      caseInsensitive.body.data.some(
+        (row: { traceId: string }) => row.traceId === traceMatch,
+      ),
+    ).toBe(true);
+  });
+
   it('isolates traces across tenants', async () => {
     const traceId = '00000000-0000-4000-8000-00000000e001';
     await prismaA.agentActionLog.create({
