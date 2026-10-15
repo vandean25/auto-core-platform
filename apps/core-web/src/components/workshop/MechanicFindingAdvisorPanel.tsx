@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { fetchWithAuth } from '@/api/client'
+import { workshopKeys } from '@/api/workshop'
 import { createHttpError, getErrorMessage } from '@/lib/error-utils'
 
 export type WorkshopMechanicFinding = {
@@ -33,7 +34,7 @@ type MechanicFindingAdvisorPanelProps = {
 
 export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorPanelProps) {
   const query = useQuery({
-    queryKey: ['workshop', 'order', orderId, 'mechanic-findings'],
+    queryKey: [...workshopKeys.detail(orderId), 'mechanic-findings'],
     queryFn: () => fetchMechanicFindings(orderId),
     enabled: Boolean(orderId),
   })
