@@ -80,7 +80,7 @@ describe('McpAvailabilityReadService', () => {
         cursor: result.meta.next_cursor!,
       });
       expect(page2.data).toHaveLength(1);
-      expect(page2.data[0]!.start_at).toBe('2026-10-01T09:00:00.000Z');
+      expect(page2.data[0].start_at).toBe('2026-10-01T09:00:00.000Z');
     });
 
     it('rejects windows wider than eight days', async () => {
@@ -246,8 +246,8 @@ describe('McpAvailabilityReadService', () => {
         pageSize: 1,
         cursor: page1.meta.next_cursor!,
       });
-      expect(page1.data[0]!.loaner_vehicle_id).not.toBe(
-        page2.data[0]!.loaner_vehicle_id,
+      expect(page1.data[0].loaner_vehicle_id).not.toBe(
+        page2.data[0].loaner_vehicle_id,
       );
     });
 

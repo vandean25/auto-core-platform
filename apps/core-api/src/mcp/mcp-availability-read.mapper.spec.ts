@@ -28,7 +28,7 @@ describe('mcp-availability-read.mapper pagination', () => {
   it('pages workshop slots by start_at then bay_id without gaps', () => {
     const page1 = paginateWorkshopSlotRows(slotRows, 2);
     expect(page1.data).toHaveLength(2);
-    expect(page1.data[0]!.bay_id).toBe(
+    expect(page1.data[0].bay_id).toBe(
       '00000000-0000-4000-8000-0000000000b1',
     );
     expect(page1.meta.next_cursor).not.toBeNull();
@@ -71,11 +71,11 @@ describe('mcp-availability-read.mapper pagination', () => {
       },
     ];
     const page1 = paginateLoanerRows(rows, 1);
-    expect(page1.data[0]!.loaner_vehicle_id).toBe(
+    expect(page1.data[0].loaner_vehicle_id).toBe(
       '00000000-0000-4000-8000-0000000000c1',
     );
     const page2 = paginateLoanerRows(rows, 1, page1.meta.next_cursor!);
-    expect(page2.data[0]!.loaner_vehicle_id).toBe(
+    expect(page2.data[0].loaner_vehicle_id).toBe(
       '00000000-0000-4000-8000-0000000000c2',
     );
   });

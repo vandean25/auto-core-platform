@@ -25,7 +25,9 @@ export type McpWorkshopSlotRow = {
   end_at: string;
 };
 
-export function toMcpWorkshopSlotRow(slot: WorkshopSlotCandidate): McpWorkshopSlotRow {
+export function toMcpWorkshopSlotRow(
+  slot: WorkshopSlotCandidate,
+): McpWorkshopSlotRow {
   return {
     bay_id: slot.bayId,
     start_at: slot.startAt.toISOString(),
@@ -67,11 +69,13 @@ function isWorkshopSlotAfter(
   row: McpWorkshopSlotRow,
   position: z.infer<typeof workshopSlotCursorPositionSchema>,
 ): boolean {
-  return compareWorkshopSlotRows(row, {
-    bay_id: position.bay_id,
-    start_at: position.start_at,
-    end_at: '',
-  }) > 0;
+  return (
+    compareWorkshopSlotRows(row, {
+      bay_id: position.bay_id,
+      start_at: position.start_at,
+      end_at: '',
+    }) > 0
+  );
 }
 
 function isLoanerRowAfter(
@@ -81,10 +85,7 @@ function isLoanerRowAfter(
   return row.loaner_vehicle_id.localeCompare(position.loaner_vehicle_id) > 0;
 }
 
-function decodePositionCursor<P>(
-  cursor: string,
-  schema: z.ZodType<P>,
-): P {
+function decodePositionCursor<P>(cursor: string, schema: z.ZodType<P>): P {
   const parsed = schema.safeParse(decodeMcpPositionCursor(cursor));
   if (!parsed.success) {
     throw new BadRequestException('cursor is invalid');
@@ -111,8 +112,8 @@ export function paginateWorkshopSlotRows(
   const next_cursor =
     start + pageSize < sorted.length && data.length > 0
       ? encodeMcpPositionCursor({
-          start_at: data[data.length - 1]!.start_at,
-          bay_id: data[data.length - 1]!.bay_id,
+          start_at: data[data.length - 1].start_at,
+          bay_id: data[data.length - 1].bay_id,
         })
       : null;
   return {
@@ -142,7 +143,7 @@ export function paginateLoanerRows(
   const next_cursor =
     start + pageSize < sorted.length && data.length > 0
       ? encodeMcpPositionCursor({
-          loaner_vehicle_id: data[data.length - 1]!.loaner_vehicle_id,
+          loaner_vehicle_id: data[data.length - 1].loaner_vehicle_id,
         })
       : null;
   return {
