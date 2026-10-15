@@ -8,7 +8,9 @@ import { REGISTRATION_INTAKE_LOW_CONFIDENCE_THRESHOLD } from './registration-int
 const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/;
 const NATIONALCODE_PATTERN = /^[A-Z0-9]{2,16}$/;
 
-function isLowConfidence(field: RegistrationFieldEvidence | undefined): boolean {
+function isLowConfidence(
+  field: RegistrationFieldEvidence | undefined,
+): boolean {
   if (!field) {
     return true;
   }
@@ -113,7 +115,11 @@ export function normalizeRegistrationEvidenceFields(
     if (code) {
       code = code.normalize('NFC').trim().replace(/\s+/g, '').toUpperCase();
       if (!NATIONALCODE_PATTERN.test(code)) {
-        next.nationalcode = { ...next.nationalcode, normalized: null, uncertainty: 1 };
+        next.nationalcode = {
+          ...next.nationalcode,
+          normalized: null,
+          uncertainty: 1,
+        };
       } else if (code.length === 17 || code === vin) {
         next.nationalcode = {
           ...next.nationalcode,
@@ -165,14 +171,17 @@ export function normalizeRegistrationEvidenceFields(
   return { fields: next, cases };
 }
 
-export function fieldSideConflict(fields: Record<string, RegistrationFieldEvidence>): boolean {
+export function fieldSideConflict(
+  fields: Record<string, RegistrationFieldEvidence>,
+): boolean {
   return Object.values(fields).some(
     (field) =>
       field.uncertainty === 1 &&
       field.alternate &&
       field.normalized !== null &&
       field.alternate.normalized !== null &&
-      JSON.stringify(field.normalized) !== JSON.stringify(field.alternate.normalized),
+      JSON.stringify(field.normalized) !==
+        JSON.stringify(field.alternate.normalized),
   );
 }
 

@@ -46,7 +46,9 @@ export class FakeRegistrationDocumentExtractionProvider implements RegistrationD
     signal: AbortSignal;
   }) {
     if (input.promptVersion !== REGISTRATION_DOCUMENT_PROMPT_VERSION) {
-      throw new Error(`Unsupported prompt version ${input.promptVersion}`);
+      throw new Error(
+        `Unsupported prompt version ${String(input.promptVersion)}`,
+      );
     }
     input.signal.throwIfAborted();
     const fixtures = loadFixtures();
@@ -60,22 +62,22 @@ export class FakeRegistrationDocumentExtractionProvider implements RegistrationD
     );
     const documentKind = rows[rows.length - 1]?.documentKind ?? 'UNKNOWN';
     const warnings = [...new Set(rows.flatMap((row) => row.warnings))] as Array<
-      'WRONG_DOCUMENT' | 'ILLEGIBLE' | 'EXTRA_PAGES_IGNORED' | 'BACK_NOT_SUPPLIED'
+      | 'WRONG_DOCUMENT'
+      | 'ILLEGIBLE'
+      | 'EXTRA_PAGES_IGNORED'
+      | 'BACK_NOT_SUPPLIED'
     >;
     const fields = rows.reduce<Record<string, unknown>>((acc, row) => {
       return { ...acc, ...row.fields };
     }, {});
-    return {
+    return await Promise.resolve({
       documentKind: documentKind as
-        | 'AT_ZULASSUNGSSCHEIN'
-        | 'DE_ZB_I'
-        | 'OTHER'
-        | 'UNKNOWN',
+        'AT_ZULASSUNGSSCHEIN' | 'DE_ZB_I' | 'OTHER' | 'UNKNOWN',
       warnings,
       fields: fields as Record<
         string,
         import('./registration-document-extraction.types.js').RegistrationFieldEvidence
       >,
-    };
+    });
   }
 }

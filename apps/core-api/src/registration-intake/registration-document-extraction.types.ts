@@ -1,16 +1,10 @@
 export const REGISTRATION_DOCUMENT_PROMPT_VERSION = 'registration-document-v1';
 
 export type RegistrationDocumentKind =
-  | 'AT_ZULASSUNGSSCHEIN'
-  | 'DE_ZB_I'
-  | 'OTHER'
-  | 'UNKNOWN';
+  'AT_ZULASSUNGSSCHEIN' | 'DE_ZB_I' | 'OTHER' | 'UNKNOWN';
 
 export type RegistrationProviderWarning =
-  | 'WRONG_DOCUMENT'
-  | 'ILLEGIBLE'
-  | 'EXTRA_PAGES_IGNORED'
-  | 'BACK_NOT_SUPPLIED';
+  'WRONG_DOCUMENT' | 'ILLEGIBLE' | 'EXTRA_PAGES_IGNORED' | 'BACK_NOT_SUPPLIED';
 
 export interface RegistrationFieldEvidence {
   raw: string | null;

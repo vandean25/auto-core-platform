@@ -9,7 +9,8 @@ export type RegistrationDocumentExtractionProviderId = 'disabled' | 'fake';
 export function readRegistrationDocumentExtractionProviderId(
   env: NodeJS.ProcessEnv = process.env,
 ): RegistrationDocumentExtractionProviderId {
-  const raw = env.REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER?.trim().toLowerCase();
+  const raw =
+    env.REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER?.trim().toLowerCase();
   if (raw === 'fake') {
     if (env.NODE_ENV === 'production') {
       return 'disabled';

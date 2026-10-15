@@ -11,10 +11,18 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiHeader, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiHeader,
+  ApiTags,
+} from '@nestjs/swagger';
 import { RegistrationIntakeService } from './registration-intake.service.js';
 import { RegistrationIntakeUploadInterceptor } from './registration-intake-upload.interceptor.js';
-import { REGISTRATION_INTAKE_MAX_BYTES_PER_FILE, REGISTRATION_INTAKE_MAX_FILES } from './registration-intake-limits.js';
+import {
+  REGISTRATION_INTAKE_MAX_BYTES_PER_FILE,
+  REGISTRATION_INTAKE_MAX_FILES,
+} from './registration-intake-limits.js';
 import { ApplyRegistrationIntakeDto } from './dto/apply-registration-intake.dto.js';
 import { CreateRegistrationIntakeOrderDto } from './dto/create-registration-intake-order.dto.js';
 import { registrationIdMismatch } from './registration-intake.errors.js';

@@ -20,7 +20,7 @@ export class RegistrationIntakeUploadInterceptor implements NestInterceptor {
         if (!(error instanceof HttpException)) {
           return throwError(() => error);
         }
-        const status = error.getStatus();
+        const status: HttpStatus = error.getStatus();
         const response = error.getResponse();
         const message =
           typeof response === 'string'

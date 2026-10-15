@@ -69,16 +69,22 @@ export function RegistrationDocumentIntakeStep({
       {!intakeId ? (
         <div className="space-y-3 border rounded-lg p-3">
           <div className="grid gap-2">
-            <label className="text-sm font-medium">Front (required)</label>
+            <label className="text-sm font-medium" htmlFor="registration-intake-front">
+              Front (required)
+            </label>
             <Input
+              id="registration-intake-front"
               type="file"
               accept="image/jpeg,image/png,application/pdf"
               onChange={(e) => setFrontFile(e.target.files?.[0] ?? null)}
             />
           </div>
           <div className="grid gap-2">
-            <label className="text-sm font-medium">Back (optional)</label>
+            <label className="text-sm font-medium" htmlFor="registration-intake-back">
+              Back (optional)
+            </label>
             <Input
+              id="registration-intake-back"
               type="file"
               accept="image/jpeg,image/png,application/pdf"
               onChange={(e) => setBackFile(e.target.files?.[0] ?? null)}

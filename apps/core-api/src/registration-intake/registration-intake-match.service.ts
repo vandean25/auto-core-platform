@@ -50,7 +50,9 @@ export class RegistrationIntakeMatchService {
     const vin =
       typeof fields.vin?.normalized === 'string' ? fields.vin.normalized : null;
     const plate =
-      typeof fields.plate?.normalized === 'string' ? fields.plate.normalized : null;
+      typeof fields.plate?.normalized === 'string'
+        ? fields.plate.normalized
+        : null;
 
     let vehicles: RegistrationMatchSnapshot['vehicles'] = [];
     let matchedVehicleRow:
@@ -123,11 +125,7 @@ export class RegistrationIntakeMatchService {
           typeof fields.nationalcode?.normalized === 'string'
             ? fields.nationalcode.normalized
             : null;
-        if (
-          code &&
-          vehicle.national_code &&
-          vehicle.national_code !== code
-        ) {
+        if (code && vehicle.national_code && vehicle.national_code !== code) {
           cases.push('NATIONALCODE_CONFLICT');
         }
         const firstReg =
@@ -137,7 +135,8 @@ export class RegistrationIntakeMatchService {
         if (
           firstReg &&
           vehicle.first_registration_date &&
-          vehicle.first_registration_date.toISOString().slice(0, 10) !== firstReg
+          vehicle.first_registration_date.toISOString().slice(0, 10) !==
+            firstReg
         ) {
           cases.push('FIRST_REGISTRATION_CONFLICT');
         }

@@ -68,7 +68,9 @@ function isMulterFile(value: unknown): value is Express.Multer.File {
     return false;
   }
   const candidate = value as Express.Multer.File;
-  return Buffer.isBuffer(candidate.buffer) && typeof candidate.size === 'number';
+  return (
+    Buffer.isBuffer(candidate.buffer) && typeof candidate.size === 'number'
+  );
 }
 
 /** Validates multer file entries before service logic touches buffers. */

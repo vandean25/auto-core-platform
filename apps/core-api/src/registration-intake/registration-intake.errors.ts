@@ -62,8 +62,7 @@ export function registrationAppliedDelete(): ConflictException {
 export function registrationBytesRemain(): ServiceUnavailableException {
   return new ServiceUnavailableException({
     code: 'REGISTRATION_INTAKE_BYTES_REMAIN',
-    message:
-      'REGISTRATION_INTAKE_BYTES_REMAIN: The file could not be deleted.',
+    message: 'REGISTRATION_INTAKE_BYTES_REMAIN: The file could not be deleted.',
   });
 }
 
@@ -78,7 +77,8 @@ export function registrationUnsupportedFile(): BadRequestException {
 export function registrationTooManyFiles(): BadRequestException {
   return new BadRequestException({
     code: 'REGISTRATION_INTAKE_TOO_MANY_FILES',
-    message: 'REGISTRATION_INTAKE_TOO_MANY_FILES: At most 2 files are accepted.',
+    message:
+      'REGISTRATION_INTAKE_TOO_MANY_FILES: At most 2 files are accepted.',
   });
 }
 
@@ -136,8 +136,7 @@ export function registrationWrongDocument(): UnprocessableEntityException {
 export function registrationIllegible(): UnprocessableEntityException {
   return new UnprocessableEntityException({
     code: 'REGISTRATION_INTAKE_ILLEGIBLE',
-    message:
-      'REGISTRATION_INTAKE_ILLEGIBLE: No identity field could be read.',
+    message: 'REGISTRATION_INTAKE_ILLEGIBLE: No identity field could be read.',
   });
 }
 

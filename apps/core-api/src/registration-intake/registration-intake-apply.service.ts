@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
-import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -27,13 +26,9 @@ import {
   assertStoredRegulatoryFieldsMatchConfirmation,
   buildFillBlankRegulatoryUpdate,
 } from './registration-intake-vehicle-field-guards.js';
-import {
-  isLowConfidence,
-  VIN_PATTERN,
-} from './registration-intake-evidence.normalizer.js';
+import { isLowConfidence } from './registration-intake-evidence.normalizer.js';
 import {
   registrationAmbiguousMatch,
-  registrationAppliedDelete,
   registrationConfirmationMismatch,
   registrationConflictingVin,
   registrationFieldConflict,
@@ -78,11 +73,7 @@ export class RegistrationIntakeApplyService {
     assertRegistrationIntakeRole(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
-    const user = await requireActiveCurrentUser(
-      this.prisma,
-      this.tenantContext,
-      tenantId,
-    );
+    await requireActiveCurrentUser(this.prisma, this.tenantContext, tenantId);
 
     const intake = await this.prisma.registrationDocumentIntake.findFirst({
       where: { id: intakeId, tenant_id: tenantId, site_id: siteId },
@@ -158,7 +149,11 @@ export class RegistrationIntakeApplyService {
 
     const targets = resolveApplyTargets(snapshot, dto, cases);
     if (targets.customerId) {
-      await this.assertTenantCustomer(this.prisma, tenantId, targets.customerId);
+      await this.assertTenantCustomer(
+        this.prisma,
+        tenantId,
+        targets.customerId,
+      );
     }
     if (dto.ownershipCorrection?.nextCustomerId) {
       await this.assertTenantCustomer(
@@ -341,8 +336,7 @@ export class RegistrationIntakeApplyService {
       throw registrationConfirmationMismatch();
     }
     const holder = fields.holder?.normalized as
-      | { firstName: string; lastName: string }
-      | undefined;
+      { firstName: string; lastName: string } | undefined;
     if (!holder || !holdersEqual(holder, dto.holder)) {
       throw registrationConfirmationMismatch();
     }
@@ -367,13 +361,16 @@ export class RegistrationIntakeApplyService {
     }
 
     const co2Field = fields.co2 as
-      | (RegistrationFieldEvidence & { cycle?: 'WLTP' | 'NEDC' })
-      | undefined;
+      (RegistrationFieldEvidence & { cycle?: 'WLTP' | 'NEDC' }) | undefined;
     const co2Norm =
       typeof co2Field?.normalized === 'number' ? co2Field.normalized : null;
     const co2Cycle = co2Field?.cycle ?? 'WLTP';
     if (dto.co2) {
-      if (co2Norm === null || dto.co2.value !== co2Norm || dto.co2.cycle !== co2Cycle) {
+      if (
+        co2Norm === null ||
+        dto.co2.value !== co2Norm ||
+        dto.co2.cycle !== co2Cycle
+      ) {
         throw registrationConfirmationMismatch();
       }
     } else if (co2Norm !== null) {
@@ -458,10 +455,8 @@ export class RegistrationIntakeApplyService {
         tenantId,
         dto.ownershipCorrection.nextCustomerId,
       );
-      customerId = dto.ownershipCorrection.nextCustomerId;
     }
 
-    const vin = normalizeVehicleIdentityValueOrNull(dto.vin);
     const plateChanged =
       normalizeVehicleIdentityValue(vehicle.plate) !==
       normalizeVehicleIdentityValue(dto.plate);

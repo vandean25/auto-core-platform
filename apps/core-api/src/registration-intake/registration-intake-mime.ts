@@ -1,11 +1,13 @@
 export type DetectedMime =
-  | 'image/jpeg'
-  | 'image/png'
-  | 'application/pdf'
-  | null;
+  'image/jpeg' | 'image/png' | 'application/pdf' | null;
 
 export function detectRegistrationIntakeMime(bytes: Buffer): DetectedMime {
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
     return 'image/jpeg';
   }
   const pngSignature = Buffer.from([
@@ -14,10 +16,7 @@ export function detectRegistrationIntakeMime(bytes: Buffer): DetectedMime {
   if (bytes.length >= 8 && bytes.subarray(0, 8).equals(pngSignature)) {
     return 'image/png';
   }
-  if (
-    bytes.length >= 5 &&
-    bytes.subarray(0, 5).toString('ascii') === '%PDF-'
-  ) {
+  if (bytes.length >= 5 && bytes.subarray(0, 5).toString('ascii') === '%PDF-') {
     return 'application/pdf';
   }
   return null;

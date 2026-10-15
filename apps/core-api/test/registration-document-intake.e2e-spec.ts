@@ -485,7 +485,11 @@ describe('Registration document intake (e2e)', () => {
               'abort',
               () => {
                 clearTimeout(timer);
-                reject(signal.reason ?? new Error('aborted'));
+                reject(
+                  signal.reason instanceof Error
+                    ? signal.reason
+                    : new Error('aborted'),
+                );
               },
               { once: true },
             );

@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Prisma, RegistrationDocumentIntakeState } from '@prisma/client';
+import { RegistrationDocumentIntakeState } from '@prisma/client';
 import type { Prisma as PrismaTypes } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -289,10 +289,13 @@ export class RegistrationIntakeService {
       CreateWorkshopOrderDto,
       'odometer' | 'fuelLevel' | 'reportedIssue' | 'notes'
     >,
-  ): Promise<{ state: string; workshopOrderId: string; capturedSiteId: string }> {
+  ): Promise<{
+    state: string;
+    workshopOrderId: string;
+    capturedSiteId: string;
+  }> {
     assertRegistrationIntakeRole(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
     const intake = await this.prisma.registrationDocumentIntake.findFirst({
       where: { id, tenant_id: tenantId },
     });
@@ -372,7 +375,10 @@ export class RegistrationIntakeService {
         where: { id: purge.id, processed_at: null },
         data: {
           attempts: purge.attempts + 1,
-          last_error: error instanceof Error ? error.message.slice(0, 512) : 'delete failed',
+          last_error:
+            error instanceof Error
+              ? error.message.slice(0, 512)
+              : 'delete failed',
         },
       });
       throw registrationBytesRemain();

@@ -54,9 +54,11 @@ export function resolveApplyTargets(
   }
 
   const createCustomer =
-    !cases.includes('EXISTING_CUSTOMER') && !cases.includes('DUPLICATE_CUSTOMERS');
+    !cases.includes('EXISTING_CUSTOMER') &&
+    !cases.includes('DUPLICATE_CUSTOMERS');
   const createVehicle =
-    !cases.includes('EXISTING_VEHICLE') && !cases.includes('DUPLICATE_VEHICLES');
+    !cases.includes('EXISTING_VEHICLE') &&
+    !cases.includes('DUPLICATE_VEHICLES');
 
   if (!createCustomer && !customerId) {
     throw registrationConfirmationMismatch();
