@@ -38,11 +38,11 @@ export function assertProductiveReceiptEnv(
   response: Record<string, unknown>,
 ): void {
   const responseEnv = response._env;
-  if (registerEnv === FiscalRegisterEnv.LIVE && responseEnv === 'TEST') {
+  const expected = registerEnv === FiscalRegisterEnv.LIVE ? 'LIVE' : 'TEST';
+  if (responseEnv !== expected) {
     throw new UnprocessableEntityException({
       code: 'FISCAL_RECEIPT_ENV_MISMATCH',
-      message:
-        'TEST provider receipts cannot be stored as productive LIVE signatures.',
+      message: `Provider receipt _env ${String(responseEnv)} does not match register env ${expected}.`,
     });
   }
 }

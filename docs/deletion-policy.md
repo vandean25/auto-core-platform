@@ -117,7 +117,7 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 
 | Entity | Planned delete support | Rule |
 |---|---|---|
-| LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport or a used accounting profile references it. |
+| LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport, Payment, FiscalReceipt, FiscalRegister, or a used accounting profile references it. |
 | Invoice (version 2) | No | No status-only cancellation as a financial reversal. Issue a separate numbered credit; retain original snapshot, number and fiscal status. |
 | CreditNote | No | DRAFT may transition to VOID without a number. FINALIZED and VOID are retained; no hard-delete endpoint. |
 | CreditNoteItem | Draft-parent edits only | Draft line replacement allowed; finalized/void lines retained. No independent deletion endpoint. |

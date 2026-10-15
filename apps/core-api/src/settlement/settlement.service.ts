@@ -69,20 +69,41 @@ export class SettlementService {
     const { tenantId, siteId } = await this.resolveScope();
     const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
     await this.assertSettlementAccess(tenantId, siteId);
+    const legalEntity = await this.prisma.legalEntity.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: invoice.legal_entity_id ?? '',
+      },
+      select: { rksv_mode: true },
+    });
     const payment = await this.prisma.payment.findFirst({
       where: { tenant_id: tenantId, invoice_id: invoiceId },
       orderBy: { createdAt: 'desc' },
       include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
     });
-    return mapSettlementResponse(invoice, payment);
+    return mapSettlementResponse(invoice, payment, {
+      rksvMode: legalEntity?.rksv_mode,
+    });
   }
 
   async recordSettlement(invoiceId: string, dto: RecordSettlementDto) {
     const { tenantId, siteId } = await this.resolveScope();
     await this.assertSettlementAccess(tenantId, siteId);
+    const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
+
+    const legalEntity = await this.prisma.legalEntity.findFirstOrThrow({
+      where: {
+        tenant_id: tenantId,
+        id: invoice.legal_entity_id ?? '',
+      },
+    });
+
     const requestHash = hashSettlementRecordRequest({
       invoiceId,
       method: dto.method,
+      amount: invoice.total_gross.toFixed(2),
+      currency: invoice.currency ?? 'EUR',
+      mode: legalEntity.rksv_mode,
       externalReceiptNumber: dto.externalReceiptNumber,
       externalReceiptDate: dto.externalReceiptDate,
     });
@@ -118,33 +139,22 @@ export class SettlementService {
         if (openReceipt) {
           await this.syncOpenFiscalReceipt(
             tenantId,
-            invoiceId,
+            invoice,
             existingByKey,
             openReceipt,
           );
         }
       }
-      const invoice = await this.loadInvoiceForSite(
-        tenantId,
-        siteId,
-        invoiceId,
-      );
       const refreshed = await this.prisma.payment.findFirstOrThrow({
         where: { id: existingByKey.id, tenant_id: tenantId },
         include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
       });
-      return mapSettlementResponse(invoice, refreshed);
+      return mapSettlementResponse(invoice, refreshed, {
+        rksvMode: legalEntity.rksv_mode,
+      });
     }
 
-    const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
     assertSettlementInvoiceSlice(invoice);
-
-    const legalEntity = await this.prisma.legalEntity.findFirstOrThrow({
-      where: {
-        tenant_id: tenantId,
-        id: invoice.legal_entity_id ?? '',
-      },
-    });
 
     if (
       legalEntity.rksv_mode === RksvMode.OFF ||
@@ -191,6 +201,7 @@ export class SettlementService {
         dto,
         requestHash,
         recordedByUserId: recordedBy.id,
+        rksvMode: legalEntity.rksv_mode,
       });
     }
 
@@ -200,12 +211,21 @@ export class SettlementService {
       dto,
       requestHash,
       recordedByUserId: recordedBy.id,
+      rksvMode: legalEntity.rksv_mode,
     });
   }
 
   async reconcileSettlement(invoiceId: string, dto: ReconcileSettlementDto) {
     const { tenantId, siteId } = await this.resolveScope();
     await this.assertSettlementAccess(tenantId, siteId);
+    const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
+    const legalEntity = await this.prisma.legalEntity.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: invoice.legal_entity_id ?? '',
+      },
+      select: { rksv_mode: true },
+    });
     const payment = await this.prisma.payment.findFirst({
       where: {
         tenant_id: tenantId,
@@ -228,13 +248,14 @@ export class SettlementService {
         message: 'No PENDING or UNKNOWN fiscal receipt to reconcile.',
       });
     }
-    await this.syncOpenFiscalReceipt(tenantId, invoiceId, payment, openReceipt);
-    const invoice = await this.loadInvoiceForSite(tenantId, siteId, invoiceId);
+    await this.syncOpenFiscalReceipt(tenantId, invoice, payment, openReceipt);
     const refreshed = await this.prisma.payment.findFirstOrThrow({
       where: { id: payment.id, tenant_id: tenantId },
       include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
     });
-    return mapSettlementResponse(invoice, refreshed);
+    return mapSettlementResponse(invoice, refreshed, {
+      rksvMode: legalEntity?.rksv_mode,
+    });
   }
 
   async cancelFiscalReceipt(
@@ -257,6 +278,18 @@ export class SettlementService {
     if (original.payment.invoice.site_id !== siteId) {
       throw new NotFoundException('Fiscal receipt not found');
     }
+    const invoice = await this.loadInvoiceForSite(
+      tenantId,
+      siteId,
+      original.payment.invoice_id,
+    );
+    const legalEntity = await this.prisma.legalEntity.findFirst({
+      where: {
+        tenant_id: tenantId,
+        id: invoice.legal_entity_id ?? '',
+      },
+      select: { rksv_mode: true },
+    });
     if (original.receipt_type !== FiscalReceiptType.NORMAL) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,
@@ -271,15 +304,26 @@ export class SettlementService {
       });
     }
 
-    const existingByCancelKey = original.payment.fiscal_receipts.find(
-      (receipt) =>
-        receipt.receipt_type === FiscalReceiptType.CANCELLATION &&
-        (
-          receipt.request_body as {
-            metadata?: { acp_idempotency_key?: string };
-          }
-        )?.metadata?.acp_idempotency_key === dto.idempotencyKey,
-    );
+    const register = original.fiscal_register;
+    if (!register || register.provider_state !== 'INITIALIZED') {
+      throw new UnprocessableEntityException({
+        code: SETTLEMENT_ERROR_CODES.FISCAL_REGISTER_MISSING,
+        message: 'Fiscal register is not initialized.',
+      });
+    }
+    this.assertRegisterLegalEntity(register, invoice);
+
+    const existingByCancelKey = await this.prisma.fiscalReceipt.findFirst({
+      where: {
+        tenant_id: tenantId,
+        sign_idempotency_key: dto.idempotencyKey,
+      },
+      include: {
+        payment: {
+          include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
+        },
+      },
+    });
     if (existingByCancelKey) {
       if (
         existingByCancelKey.state === FiscalReceiptState.PENDING ||
@@ -287,42 +331,17 @@ export class SettlementService {
       ) {
         await this.syncOpenFiscalReceipt(
           tenantId,
-          original.payment.invoice_id,
-          original.payment,
+          invoice,
+          existingByCancelKey.payment,
           existingByCancelKey,
         );
       }
-      const invoice = await this.loadInvoiceForSite(
-        tenantId,
-        siteId,
-        original.payment.invoice_id,
-      );
       const payment = await this.prisma.payment.findFirstOrThrow({
-        where: { id: original.payment_id, tenant_id: tenantId },
+        where: { id: existingByCancelKey.payment_id, tenant_id: tenantId },
         include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
       });
-      return mapSettlementResponse(invoice, payment);
-    }
-
-    const openCancellation = original.payment.fiscal_receipts.find(
-      (receipt) =>
-        receipt.receipt_type === FiscalReceiptType.CANCELLATION &&
-        (receipt.state === FiscalReceiptState.PENDING ||
-          receipt.state === FiscalReceiptState.UNKNOWN ||
-          receipt.state === FiscalReceiptState.SIGNED),
-    );
-    if (openCancellation) {
-      throw new ConflictException({
-        code: SETTLEMENT_ERROR_CODES.CANCELLATION_ALREADY_OPEN,
-        message: 'A cancellation is already open for this payment.',
-      });
-    }
-
-    const register = original.fiscal_register;
-    if (!register || register.provider_state !== 'INITIALIZED') {
-      throw new UnprocessableEntityException({
-        code: SETTLEMENT_ERROR_CODES.FISCAL_REGISTER_MISSING,
-        message: 'Fiscal register is not initialized.',
+      return mapSettlementResponse(invoice, payment, {
+        rksvMode: legalEntity?.rksv_mode,
       });
     }
 
@@ -335,8 +354,6 @@ export class SettlementService {
       method: original.payment.method,
       originalReceiptId: original.provider_receipt_id,
     });
-    (requestBody.metadata as Record<string, string>).acp_idempotency_key =
-      dto.idempotencyKey;
 
     const allocated = await this.prisma.$transaction(async (tx) => {
       await lockFinanceSettingsAndAssertOpen(
@@ -345,7 +362,29 @@ export class SettlementService {
         original.payment.invoice.date,
       );
       await this.lockFiscalRegister(tx, tenantId, register.site_id);
-      const receipt = await tx.fiscalReceipt.create({
+
+      const openCancellation = await tx.fiscalReceipt.findFirst({
+        where: {
+          tenant_id: tenantId,
+          payment_id: original.payment_id,
+          receipt_type: FiscalReceiptType.CANCELLATION,
+          state: {
+            in: [
+              FiscalReceiptState.PENDING,
+              FiscalReceiptState.UNKNOWN,
+              FiscalReceiptState.SIGNED,
+            ],
+          },
+        },
+      });
+      if (openCancellation) {
+        throw new ConflictException({
+          code: SETTLEMENT_ERROR_CODES.CANCELLATION_ALREADY_OPEN,
+          message: 'A cancellation is already open for this payment.',
+        });
+      }
+
+      return tx.fiscalReceipt.create({
         data: {
           tenant_id: tenantId,
           payment_id: original.payment_id,
@@ -354,10 +393,10 @@ export class SettlementService {
           receipt_type: FiscalReceiptType.CANCELLATION,
           state: FiscalReceiptState.PENDING,
           request_body: requestBody as Prisma.InputJsonValue,
+          sign_idempotency_key: dto.idempotencyKey,
           original_fiscal_receipt_id: original.id,
         },
       });
-      return receipt;
     });
 
     await this.invokeProviderSign({
@@ -372,16 +411,13 @@ export class SettlementService {
       registerEnv: register.env,
     });
 
-    const invoice = await this.loadInvoiceForSite(
-      tenantId,
-      siteId,
-      original.payment.invoice_id,
-    );
     const payment = await this.prisma.payment.findFirstOrThrow({
       where: { id: original.payment_id, tenant_id: tenantId },
       include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
     });
-    return mapSettlementResponse(invoice, payment);
+    return mapSettlementResponse(invoice, payment, {
+      rksvMode: legalEntity?.rksv_mode,
+    });
   }
 
   private async recordExternalSettlement(params: {
@@ -390,6 +426,7 @@ export class SettlementService {
     dto: RecordSettlementDto;
     requestHash: string;
     recordedByUserId: string;
+    rksvMode: RksvMode;
   }) {
     if (!params.dto.externalReceiptNumber || !params.dto.externalReceiptDate) {
       throw new UnprocessableEntityException({
@@ -448,7 +485,9 @@ export class SettlementService {
       where: { id: result.id, tenant_id: params.tenantId },
       include: { fiscal_receipts: true },
     });
-    return mapSettlementResponse(invoice, payment);
+    return mapSettlementResponse(invoice, payment, {
+      rksvMode: params.rksvMode,
+    });
   }
 
   private async recordRksvSettlement(params: {
@@ -457,6 +496,7 @@ export class SettlementService {
     dto: RecordSettlementDto;
     requestHash: string;
     recordedByUserId: string;
+    rksvMode: RksvMode;
   }) {
     if (params.dto.externalReceiptNumber || params.dto.externalReceiptDate) {
       throw new UnprocessableEntityException({
@@ -479,6 +519,7 @@ export class SettlementService {
         message: 'An initialized fiscal register is required for this site.',
       });
     }
+    this.assertRegisterLegalEntity(register, params.invoice);
 
     const paymentId = randomUUID();
     const providerReceiptId = randomUUID();
@@ -497,6 +538,27 @@ export class SettlementService {
         params.invoice.date,
       );
       await this.lockFiscalRegister(tx, params.tenantId, register.site_id);
+      const blocking = await tx.payment.findFirst({
+        where: {
+          tenant_id: params.tenantId,
+          invoice_id: params.invoice.id,
+          status: {
+            in: [
+              PaymentStatus.PENDING,
+              PaymentStatus.UNKNOWN,
+              PaymentStatus.SETTLED,
+              PaymentStatus.SETTLED_EXTERNAL,
+            ],
+          },
+        },
+      });
+      if (blocking) {
+        throw new UnprocessableEntityException({
+          code: SETTLEMENT_ERROR_CODES.SETTLEMENT_NOT_IN_SLICE,
+          message:
+            'An open or completed settlement already exists for this invoice.',
+        });
+      }
       const payment = await tx.payment.create({
         data: {
           id: paymentId,
@@ -546,7 +608,9 @@ export class SettlementService {
       where: { id: allocated.payment.id, tenant_id: params.tenantId },
       include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
     });
-    return mapSettlementResponse(invoice, payment);
+    return mapSettlementResponse(invoice, payment, {
+      rksvMode: params.rksvMode,
+    });
   }
 
   private async invokeProviderSign(params: {
@@ -628,27 +692,26 @@ export class SettlementService {
 
   private async syncOpenFiscalReceipt(
     tenantId: string,
-    invoiceId: string,
+    invoice: { id: string; legal_entity_id: string | null },
     payment: { id: string },
     fiscalReceipt: {
       id: string;
       provider_receipt_id: string;
       request_body: Prisma.JsonValue;
-      fiscal_register_id: string | null;
+      fiscal_register_id: string;
       receipt_type: FiscalReceiptType;
     },
   ) {
-    const register = fiscalReceipt.fiscal_register_id
-      ? await this.prisma.fiscalRegister.findFirst({
-          where: { id: fiscalReceipt.fiscal_register_id, tenant_id: tenantId },
-        })
-      : null;
+    const register = await this.prisma.fiscalRegister.findFirst({
+      where: { id: fiscalReceipt.fiscal_register_id, tenant_id: tenantId },
+    });
     if (!register) {
       throw new UnprocessableEntityException({
         code: SETTLEMENT_ERROR_CODES.FISCAL_REGISTER_MISSING,
         message: 'Fiscal register binding is missing.',
       });
     }
+    this.assertRegisterLegalEntity(register, invoice);
 
     const retrieve = await this.fiskalyProvider.retrieveReceipt({
       cashRegisterId: register.provider_cash_register_id,
@@ -661,7 +724,7 @@ export class SettlementService {
         if (fiscalReceipt.receipt_type === FiscalReceiptType.CANCELLATION) {
           await markCancellationSignedAndReverse(tx, {
             tenantId,
-            invoiceId,
+            invoiceId: invoice.id,
             paymentId: payment.id,
             fiscalReceiptId: fiscalReceipt.id,
             response: retrieve.body,
@@ -671,7 +734,7 @@ export class SettlementService {
         } else {
           await markFiscalReceiptSignedAndPaid(tx, {
             tenantId,
-            invoiceId,
+            invoiceId: invoice.id,
             paymentId: payment.id,
             fiscalReceiptId: fiscalReceipt.id,
             response: retrieve.body,
@@ -700,7 +763,7 @@ export class SettlementService {
           if (fiscalReceipt.receipt_type === FiscalReceiptType.CANCELLATION) {
             await markCancellationSignedAndReverse(tx, {
               tenantId,
-              invoiceId,
+              invoiceId: invoice.id,
               paymentId: payment.id,
               fiscalReceiptId: fiscalReceipt.id,
               response: put.body,
@@ -710,7 +773,7 @@ export class SettlementService {
           } else {
             await markFiscalReceiptSignedAndPaid(tx, {
               tenantId,
-              invoiceId,
+              invoiceId: invoice.id,
               paymentId: payment.id,
               fiscalReceiptId: fiscalReceipt.id,
               response: put.body,
@@ -793,6 +856,22 @@ export class SettlementService {
       tenantId,
       siteId,
     );
+  }
+
+  private assertRegisterLegalEntity(
+    register: { legal_entity_id: string },
+    invoice: { legal_entity_id: string | null },
+  ): void {
+    if (
+      !invoice.legal_entity_id ||
+      register.legal_entity_id !== invoice.legal_entity_id
+    ) {
+      throw new UnprocessableEntityException({
+        code: SETTLEMENT_ERROR_CODES.FISCAL_REGISTER_LEGAL_ENTITY_MISMATCH,
+        message:
+          'Fiscal register legal entity does not match the invoice seller.',
+      });
+    }
   }
 
   private async loadInvoiceForSite(

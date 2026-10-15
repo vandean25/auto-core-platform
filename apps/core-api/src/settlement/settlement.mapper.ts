@@ -35,6 +35,7 @@ export type SettlementPaymentSummaryDto = {
 export type SettlementResponseDto = {
   invoiceId: string;
   invoiceStatus: string;
+  rksvMode?: string;
   payment: SettlementPaymentSummaryDto | null;
 };
 
@@ -89,10 +90,12 @@ export function mapFiscalReceiptSummary(
 export function mapSettlementResponse(
   invoice: Invoice,
   payment: (Payment & { fiscal_receipts: FiscalReceipt[] }) | null,
+  options?: { rksvMode?: string },
 ): SettlementResponseDto {
   return {
     invoiceId: invoice.id,
     invoiceStatus: invoice.status,
+    rksvMode: options?.rksvMode,
     payment: payment
       ? {
           id: payment.id,

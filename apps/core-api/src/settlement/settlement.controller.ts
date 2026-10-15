@@ -6,6 +6,7 @@ import {
   RecordSettlementDto,
   ReconcileSettlementDto,
 } from './dto/record-settlement.dto.js';
+import { SettlementResponseDto } from './dto/settlement-response.dto.js';
 
 @Controller('invoices')
 export class SettlementController {
@@ -15,7 +16,7 @@ export class SettlementController {
   @ApiOperation({
     summary: 'Get settlement state for an invoice (OWNER/ADMIN)',
   })
-  @ApiOkResponse({ description: 'Settlement summary' })
+  @ApiOkResponse({ type: SettlementResponseDto })
   getSettlement(@Param('id') id: string) {
     return this.settlementService.getSettlement(id);
   }
@@ -24,7 +25,7 @@ export class SettlementController {
   @ApiOperation({
     summary: 'Record full settlement for an issued invoice (OWNER/ADMIN)',
   })
-  @ApiOkResponse({ description: 'Settlement result' })
+  @ApiOkResponse({ type: SettlementResponseDto })
   recordSettlement(@Param('id') id: string, @Body() dto: RecordSettlementDto) {
     return this.settlementService.recordSettlement(id, dto);
   }
@@ -33,7 +34,7 @@ export class SettlementController {
   @ApiOperation({
     summary: 'Reconcile PENDING/UNKNOWN fiscal receipt (OWNER/ADMIN)',
   })
-  @ApiOkResponse({ description: 'Settlement after reconcile' })
+  @ApiOkResponse({ type: SettlementResponseDto })
   reconcileSettlement(
     @Param('id') id: string,
     @Body() dto: ReconcileSettlementDto,
@@ -48,7 +49,7 @@ export class FiscalReceiptsController {
 
   @Post(':id/cancellation')
   @ApiOperation({ summary: 'Sign fiscal cancellation receipt (OWNER/ADMIN)' })
-  @ApiOkResponse({ description: 'Settlement after cancellation' })
+  @ApiOkResponse({ type: SettlementResponseDto })
   cancelFiscalReceipt(
     @Param('id') id: string,
     @Body() dto: CancelFiscalReceiptDto,

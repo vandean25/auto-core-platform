@@ -67,16 +67,6 @@ export class FakeFiskalySignAtContractServer {
     body: Record<string, unknown>,
   ): Promise<FiskalySignAtProviderResult> {
     await Promise.resolve();
-    this.calls.push({ method: 'PUT', receiptId });
-
-    if (this.putBehavior === 'reject400') {
-      return {
-        kind: 'http',
-        status: 400,
-        body: this.rejectBody,
-        requestId: 'synthetic-request-reject',
-      };
-    }
 
     const existing = this.store.get(receiptId);
     if (existing && JSON.stringify(existing.body) === JSON.stringify(body)) {
@@ -85,6 +75,17 @@ export class FakeFiskalySignAtContractServer {
         status: 200,
         body: existing.response,
         requestId: existing.requestId,
+      };
+    }
+
+    this.calls.push({ method: 'PUT', receiptId });
+
+    if (this.putBehavior === 'reject400') {
+      return {
+        kind: 'http',
+        status: 400,
+        body: this.rejectBody,
+        requestId: 'synthetic-request-reject',
       };
     }
 

@@ -91,6 +91,6 @@ describe('FiskalySignAtFixtureProvider', () => {
       receiptId,
       body,
     });
-    expect(server.calls.filter((c) => c.method === 'PUT')).toHaveLength(2);
+    expect(server.calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
   });
 });

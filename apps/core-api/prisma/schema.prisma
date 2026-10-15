@@ -448,8 +448,9 @@ model FiscalReceipt {
   tenant                    Tenant             @relation(fields: [tenant_id], references: [id])
   payment_id                String
   payment                   Payment            @relation(fields: [tenant_id, payment_id], references: [tenant_id, id], onDelete: Restrict)
-  fiscal_register_id        String?
-  fiscal_register           FiscalRegister?    @relation(fields: [tenant_id, fiscal_register_id], references: [tenant_id, id], onDelete: Restrict)
+  fiscal_register_id        String
+  fiscal_register           FiscalRegister     @relation(fields: [tenant_id, fiscal_register_id], references: [tenant_id, id], onDelete: Restrict)
+  sign_idempotency_key      String?
   provider_receipt_id       String             @db.Uuid
   receipt_type              FiscalReceiptType
   state                     FiscalReceiptState
@@ -465,6 +466,7 @@ model FiscalReceipt {
   updatedAt                 DateTime           @updatedAt
 
   @@unique([tenant_id, provider_receipt_id])
+  @@unique([tenant_id, sign_idempotency_key])
   @@index([tenant_id, fiscal_register_id, createdAt])
   @@unique([tenant_id, id])
   @@map("fiscal_receipts")

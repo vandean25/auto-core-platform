@@ -12662,7 +12662,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Settlement summary"
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Get settlement state for an invoice (OWNER/ADMIN)",
@@ -12694,7 +12701,14 @@
         },
         "responses": {
           "200": {
-            "description": "Settlement result"
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Record full settlement for an issued invoice (OWNER/ADMIN)",
@@ -12728,7 +12742,14 @@
         },
         "responses": {
           "200": {
-            "description": "Settlement after reconcile"
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Reconcile PENDING/UNKNOWN fiscal receipt (OWNER/ADMIN)",
@@ -12762,7 +12783,14 @@
         },
         "responses": {
           "200": {
-            "description": "Settlement after cancellation"
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettlementResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Sign fiscal cancellation receipt (OWNER/ADMIN)",
@@ -30128,6 +30156,139 @@
             "example": true
           }
         }
+      },
+      "FiscalReceiptSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "providerReceiptId": {
+            "type": "string"
+          },
+          "receiptType": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "receiptNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeSignature": {
+            "type": "number",
+            "nullable": true
+          },
+          "cashRegisterSerialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "qrCodeData": {
+            "type": "string",
+            "nullable": true
+          },
+          "signed": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "hints": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "providerRequestId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "providerReceiptId",
+          "receiptType",
+          "state"
+        ]
+      },
+      "SettlementPaymentSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "externalReceiptNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "externalReceiptDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "fiscalReceipts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FiscalReceiptSummaryDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "idempotencyKey",
+          "status",
+          "method",
+          "amount",
+          "currency",
+          "fiscalReceipts"
+        ]
+      },
+      "SettlementResponseDto": {
+        "type": "object",
+        "properties": {
+          "invoiceId": {
+            "type": "string"
+          },
+          "invoiceStatus": {
+            "type": "string"
+          },
+          "rksvMode": {
+            "type": "string",
+            "enum": [
+              "OFF",
+              "UNKNOWN",
+              "REQUIRED_EXTERNAL_KASSE",
+              "REQUIRED_ACP_RKSV"
+            ]
+          },
+          "payment": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SettlementPaymentSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "invoiceId",
+          "invoiceStatus"
+        ]
       },
       "RecordSettlementDto": {
         "type": "object",

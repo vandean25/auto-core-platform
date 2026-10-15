@@ -74,11 +74,42 @@ export function emitRealtimeForOperation(
     return;
   }
 
-  dashboardRealtime.emitEntityUpdated(tenantId, {
+  const entityId = extractEntityId(result);
+  const enriched = enrichRealtimePayload(type, result, {
     type,
     action,
-    entityId: extractEntityId(result),
+    entityId,
   });
+  dashboardRealtime.emitEntityUpdated(tenantId, enriched);
+}
+
+function enrichRealtimePayload(
+  type: DashboardEntityType,
+  result: unknown,
+  base: {
+    type: DashboardEntityType;
+    action: DashboardEntityAction;
+    entityId?: string;
+  },
+) {
+  if (!result || typeof result !== 'object') {
+    return base;
+  }
+  const row = result as Record<string, unknown>;
+  if (type === 'PAYMENT') {
+    return {
+      ...base,
+      siteId: typeof row.site_id === 'string' ? row.site_id : undefined,
+      status: typeof row.status === 'string' ? row.status : undefined,
+    };
+  }
+  if (type === 'FISCAL_RECEIPT') {
+    return {
+      ...base,
+      status: typeof row.state === 'string' ? row.state : undefined,
+    };
+  }
+  return base;
 }
 
 type QueryParams<R> = {
