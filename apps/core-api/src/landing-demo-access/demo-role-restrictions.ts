@@ -82,9 +82,7 @@ export function hashClientIp(ip: string | null | undefined): string | null {
 }
 
 export function hashDemoEmail(email: string): string {
-  return createHash('sha256')
-    .update(normalizeDemoEmail(email))
-    .digest('hex');
+  return createHash('sha256').update(normalizeDemoEmail(email)).digest('hex');
 }
 
 export function normalizeDemoEmail(email: string): string {

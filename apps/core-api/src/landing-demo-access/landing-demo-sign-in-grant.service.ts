@@ -10,8 +10,8 @@ export class LandingDemoSignInGrantService {
     userId: string,
     now = new Date(),
   ): Promise<void> {
-    const activeGrant = await this.systemPrisma.landingDemoSignInGrant.findFirst(
-      {
+    const activeGrant =
+      await this.systemPrisma.landingDemoSignInGrant.findFirst({
         where: {
           user_id: userId,
           invalidated_at: null,
@@ -22,8 +22,7 @@ export class LandingDemoSignInGrantService {
           consumed_at: true,
           expires_at: true,
         },
-      },
-    );
+      });
 
     if (!activeGrant) {
       throw new UnauthorizedException(

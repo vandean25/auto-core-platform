@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import cors from 'cors';
+import type { NextFunction, Request, Response } from 'express';
 import { isLandingDemoAccessRequest } from '../../landing-demo-access/landing-demo-access.constants.js';
 
 export function resolveLandingPageOrigins(
@@ -38,7 +39,7 @@ export function configureHttpCors(
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   });
 
-  app.use((req, res, next) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     if (landingCors && isLandingDemoAccessRequest(req)) {
       return landingCors(req, res, next);
     }

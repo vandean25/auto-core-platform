@@ -26,10 +26,7 @@ export function configureHttpSecurity(
   }
 
   configureHttpCors(app, {
-    dashboardOrigins: resolveCorsOrigins(
-      options.frontendUrl,
-      options.nodeEnv,
-    ),
+    dashboardOrigins: resolveCorsOrigins(options.frontendUrl, options.nodeEnv),
     landingPageOrigins: resolveLandingPageOrigins(),
   });
 }
