@@ -1,3 +1,5 @@
+import { getErrorCode, getErrorMessage } from '@/lib/error-utils'
+
 /** Basisfrist status from the API: expired, expiring soon (due within 30 days), or active. */
 export type GewaehrleistungStatus = 'ACTIVE' | 'EXPIRING_SOON' | 'EXPIRED'
 
@@ -76,4 +78,17 @@ export function parseGarantieMonths(raw: string): { value: number | null; valid:
   const valid =
     Number.isInteger(parsed) && parsed >= GARANTIE_MONTHS_MIN && parsed <= GARANTIE_MONTHS_MAX
   return { value: valid ? parsed : null, valid }
+}
+
+const SHORTENING_REJECTION_CODES = new Set([
+  'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+  'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW',
+  'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
+])
+
+/** The backend's German reason when a sale save refuses the negotiated shortening, otherwise null. */
+export function shorteningSaveErrorMessage(error: unknown): string | null {
+  const code = getErrorCode(error)
+  if (!code || !SHORTENING_REJECTION_CODES.has(code)) return null
+  return getErrorMessage(error, '') || null
 }

@@ -28,6 +28,7 @@ import {
   gewaehrleistungStatusBadge,
   negotiatedShorteningBlockReason,
   parseGarantieMonths,
+  shorteningSaveErrorMessage,
 } from '@/lib/vehicle-sale-warranty'
 import { usePdfDownload } from '@/hooks/usePdfDownload'
 import { NovaPreviewPanel } from '@/components/vehicles/NovaPreviewPanel'
@@ -104,6 +105,7 @@ export default function VehicleSalePage() {
   const garantie = parseGarantieMonths(garantieMonthsInput)
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [shorteningSaveError, setShorteningSaveError] = useState<string | null>(null)
   const lastSavedSerialized = useRef<string | null>(null)
   const hydratedSaleId = useRef<string | null>(null)
   const finalizing = useRef(false)
@@ -165,8 +167,10 @@ export default function VehicleSalePage() {
         }
         lastSavedSerialized.current = serialized
         setSaveStatus('saved')
+        setShorteningSaveError(null)
       } catch (error) {
         setSaveStatus('error')
+        setShorteningSaveError(shorteningSaveErrorMessage(error))
         throw error
       }
     })
@@ -180,25 +184,32 @@ export default function VehicleSalePage() {
     saleIdRef.current = existing.id
     setSaleId(existing.id)
     setSalePrice(String(existing.sale_price))
-    setContractDate(existing.contract_concluded_at?.slice(0, 10) ?? '')
-    setHandoverDate(existing.handed_over_at?.slice(0, 10) ?? '')
-    setBuyerIsConsumer(existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE')
-    setShorteningNegotiated(existing.gewaehrleistung_shortened_negotiated ?? false)
-    setWarrantyNote(existing.gewaehrleistung_note ?? '')
+    const storedContractDate = existing.contract_concluded_at?.slice(0, 10) ?? ''
+    const storedHandoverDate = existing.handed_over_at?.slice(0, 10) ?? ''
+    const storedBuyerIsConsumer = existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE'
+    const storedShortening = existing.gewaehrleistung_shortened_negotiated ?? false
+    const storedWarrantyNote = existing.gewaehrleistung_note ?? ''
+    const storedGarantieTerms = existing.garantie_terms ?? ''
+    setContractDate(storedContractDate)
+    setHandoverDate(storedHandoverDate)
+    setBuyerIsConsumer(storedBuyerIsConsumer)
+    setShorteningNegotiated(storedShortening)
+    setWarrantyNote(storedWarrantyNote)
     setGarantieMonthsInput(existing.garantie_months != null ? String(existing.garantie_months) : '')
-    setGarantieTerms(existing.garantie_terms ?? '')
-    lastSavedSerialized.current = JSON.stringify({
-      vehicle_id: existing.vehicle_id,
-      customer_id: existing.customer_id,
-      sale_price: Number(existing.sale_price),
-      contract_concluded_at: existing.contract_concluded_at ?? null,
-      handed_over_at: existing.handed_over_at ?? null,
-      buyer_is_consumer: existing.buyer_is_consumer ?? existing.customer?.type === 'PRIVATE',
-      gewaehrleistung_shortened_negotiated: existing.gewaehrleistung_shortened_negotiated ?? false,
-      gewaehrleistung_note: existing.gewaehrleistung_note ?? null,
-      garantie_months: existing.garantie_months ?? null,
-      garantie_terms: existing.garantie_terms || null,
-    })
+    setGarantieTerms(storedGarantieTerms)
+    // Built by the same function as the autosave, so reopening an unchanged sale does not look like an edit.
+    lastSavedSerialized.current = JSON.stringify(buildVehicleSaleDraftFacts({
+      vehicleId: existing.vehicle_id,
+      customerId: existing.customer_id,
+      salePrice: Number(existing.sale_price),
+      contractDate: storedContractDate,
+      handoverDate: storedHandoverDate,
+      buyerIsConsumer: storedBuyerIsConsumer,
+      shorteningNegotiated: storedShortening,
+      warrantyNote: storedWarrantyNote,
+      garantieMonths: existing.garantie_months ?? null,
+      garantieTerms: storedGarantieTerms,
+    }))
     if (existing.customer) {
       setCustomer({
         id: existing.customer.id,
@@ -228,6 +239,7 @@ export default function VehicleSalePage() {
     firstRegistrationDate: vehicle?.first_registration_date ?? null,
     handoverDate,
   })
+  const shorteningMessage = shorteningSaveError ?? shorteningBlockReason
 
   useEffect(() => {
     if (isFinalizing || !isDraft || !vehicleId || !customerId || !priceNumber || !garantie.valid) return
@@ -298,6 +310,7 @@ export default function VehicleSalePage() {
         navigate('/vehicle-stock')
       }
     } catch (error) {
+      setShorteningSaveError(shorteningSaveErrorMessage(error))
       toast.error(getErrorMessage(error, 'Failed to finalize sale'))
     } finally {
       finalizing.current = false
@@ -484,14 +497,23 @@ export default function VehicleSalePage() {
                   isFinalizing ||
                   (shorteningBlockReason !== null && !shorteningNegotiated)
                 }
-                aria-invalid={shorteningNegotiated && shorteningBlockReason !== null}
-                aria-describedby={shorteningBlockReason ? 'shortening-block-reason' : undefined}
-                onChange={(event) => setShorteningNegotiated(event.target.checked)}
+                aria-invalid={shorteningSaveError !== null || (shorteningNegotiated && shorteningBlockReason !== null)}
+                aria-describedby={shorteningMessage ? 'shortening-block-reason' : undefined}
+                onChange={(event) => {
+                  setShorteningSaveError(null)
+                  setShorteningNegotiated(event.target.checked)
+                }}
               />
               Verkürzung wurde ausdrücklich vereinbart
             </label>
-            {shorteningBlockReason ? (
-              <p id="shortening-block-reason" className="text-xs text-rose-600">{shorteningBlockReason}</p>
+            {shorteningMessage ? (
+              <p
+                id="shortening-block-reason"
+                role={shorteningSaveError ? 'alert' : undefined}
+                className="text-xs text-rose-600"
+              >
+                {shorteningMessage}
+              </p>
             ) : null}
             <label className="block space-y-1 text-sm">
               <span className="text-slate-500">Notiz zur Gewährleistung</span>

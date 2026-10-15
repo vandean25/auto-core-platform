@@ -860,3 +860,149 @@ describe('VehicleSalePage Gewährleistung after invoicing', () => {
     expect(screen.queryByRole('link', { name: /Rechnung/ })).not.toBeInTheDocument()
   })
 })
+
+describe('VehicleSalePage Gewährleistung save feedback', () => {
+  const shorteningMessage = 'Für die Verkürzung ist das Datum der Erstzulassung erforderlich.'
+  const shorteningCheckboxName = 'Verkürzung wurde ausdrücklich vereinbart'
+
+  function saveError(status: number, code: string, message: string) {
+    return Object.assign(new Error(message), { status, data: { statusCode: status, message, code } })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    asMock(vehicleStockApi.useVehicleStockDetail).mockReturnValue({ data: stockVehicle })
+    asMock(vehicleStockApi.useCreateVehicleSale).mockReturnValue({ mutateAsync: createSale })
+    asMock(vehicleStockApi.useUpdateVehicleSale).mockReturnValue({ mutateAsync: updateSale })
+    asMock(vehicleStockApi.useFinalizeVehicleSale).mockReturnValue({ mutateAsync: finalizeSale })
+    asMock(vehicleStockApi.useUpsertVehicleSaleTradeIn).mockReturnValue({ mutateAsync: upsertTradeIn })
+    asMock(vehicleStockApi.useRemoveVehicleSaleTradeIn).mockReturnValue({ mutateAsync: removeTradeIn })
+    updateSale.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+  })
+
+  function renderSalePage() {
+    return render(
+      <MemoryRouter initialEntries={['/vehicle-stock/sales/sale-1']}>
+        <Routes>
+          <Route path="/vehicle-stock/sales/:id" element={<VehicleSalePage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('does not resend an unchanged sale whose stored dates come back as timestamps', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: {
+        ...existingSale,
+        buyer_is_consumer: true,
+        contract_concluded_at: '2026-10-01T00:00:00.000Z',
+        handed_over_at: '2026-10-08T00:00:00.000Z',
+      },
+    })
+    renderSalePage()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(updateSale).not.toHaveBeenCalled()
+    expect(screen.queryByText('Saving...')).not.toBeInTheDocument()
+  })
+
+  it('shows the refused shortening on the Verkürzung checkbox with the backend message', async () => {
+    updateSale.mockRejectedValueOnce(
+      saveError(422, 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED', shorteningMessage),
+    )
+    renderSalePage()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    const checkbox = screen.getByRole('checkbox', { name: shorteningCheckboxName })
+    expectFieldErrorLinked(checkbox, shorteningMessage)
+    expect(screen.getByRole('alert')).toHaveTextContent(shorteningMessage)
+    expect(screen.getByText('Save failed')).toBeInTheDocument()
+    expect(screen.queryByText('Saving...')).not.toBeInTheDocument()
+  })
+
+  it('clears the inline shortening error once the user changes the checkbox', async () => {
+    updateSale.mockRejectedValueOnce(
+      saveError(422, 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED', shorteningMessage),
+    )
+    renderSalePage()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(screen.getByText(shorteningMessage)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
+
+    expect(screen.queryByText(shorteningMessage)).not.toBeInTheDocument()
+    expectFieldValid(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
+  })
+
+  it('clears the inline shortening error after a later save succeeds', async () => {
+    updateSale.mockRejectedValueOnce(
+      saveError(422, 'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW', 'Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.'),
+    )
+    renderSalePage()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+    expect(screen.getByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Notiz zur Gewährleistung'), { target: { value: 'Gebrauchtwagen' } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(screen.queryByText('Die Erstzulassung muss mehr als ein Jahr vor der Übergabe liegen.')).not.toBeInTheDocument()
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+  })
+
+  it('shows a shortening refusal from finalizing on the checkbox too', async () => {
+    asMock(vehicleStockApi.useVehicleSale).mockReturnValue({
+      data: { ...existingSale, buyer_is_consumer: true, gewaehrleistung_shortened_negotiated: true },
+    })
+    finalizeSale.mockRejectedValueOnce(
+      saveError(422, 'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED', shorteningMessage),
+    )
+    renderSalePage()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Finalize invoice' }))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expectFieldErrorLinked(screen.getByRole('checkbox', { name: shorteningCheckboxName }), shorteningMessage)
+    expect(toast.error).toHaveBeenCalledWith(shorteningMessage)
+  })
+
+  it('keeps other sale save failures out of the Verkürzung field', async () => {
+    updateSale.mockRejectedValueOnce(
+      saveError(422, 'GEWAEHRLEISTUNG_RULE_NOT_AVAILABLE', 'Für Verträge vor dem 01.01.2022 ist keine Regel hinterlegt.'),
+    )
+    renderSalePage()
+
+    fireEvent.change(screen.getByLabelText('Sale price (gross)'), { target: { value: '14500' } })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(750)
+    })
+
+    expect(toast.error).toHaveBeenCalledWith('Für Verträge vor dem 01.01.2022 ist keine Regel hinterlegt.')
+    expectFieldValid(screen.getByRole('checkbox', { name: shorteningCheckboxName }))
+    expect(screen.getByText('Save failed')).toBeInTheDocument()
+  })
+})

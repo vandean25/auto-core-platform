@@ -65,11 +65,15 @@ export type VehicleStockMarginReportResponse = components['schemas']['VehicleSto
 
 type ApiErrorBody = {
   message?: string
+  code?: string
 }
 
 async function parseError(response: Response, fallback: string) {
   const payload = (await response.json().catch(() => ({}))) as ApiErrorBody
-  throw new Error(payload.message || fallback)
+  throw Object.assign(new Error(payload.message || fallback), {
+    status: response.status,
+    data: payload,
+  })
 }
 
 function reportQuery(filters: Record<string, string | number | undefined>): string {
