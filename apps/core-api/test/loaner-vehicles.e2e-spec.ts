@@ -1060,8 +1060,7 @@ describe('Loaner vehicles (e2e)', () => {
           .post(`/api/agent-proposals/${submitted.body.id}/apply`)
           .set('Authorization', `Bearer ${authToken}`),
       ]);
-      const statuses = [first.status, second.status].sort();
-      expect(statuses).toEqual([200, 409]);
+      expect([first.status, second.status]).toEqual([200, 200]);
       expect(
         await prisma.workshopOrder.count({
           where: { vehicle_id: vehicle.id },

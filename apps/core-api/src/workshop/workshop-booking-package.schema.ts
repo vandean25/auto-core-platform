@@ -127,7 +127,8 @@ function resolveLoaner(
         ? loanerRecord.planned_to
         : undefined;
     const anyBlockField = loanerVehicleId || plannedFrom || plannedTo;
-    if (anyBlockField) {
+    const requested = loanerRecord.requested === true;
+    if (requested || anyBlockField) {
       if (!loanerVehicleId || !plannedFrom || !plannedTo) {
         throw new BadRequestException(LOANER_BOOKING_FIELDS_INCOMPLETE);
       }

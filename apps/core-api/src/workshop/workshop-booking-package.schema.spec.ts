@@ -28,6 +28,15 @@ describe('normalizeWorkshopBookingPackage loaner fields', () => {
     ).toThrow(BadRequestException);
   });
 
+  it('rejects loaner.requested without the three booking fields', () => {
+    expect(() =>
+      normalizeWorkshopBookingPackage({
+        ...baseIntent,
+        loaner: { requested: true },
+      }),
+    ).toThrow(BadRequestException);
+  });
+
   it('accepts a complete loaner block on a WorkshopIntent payload', () => {
     const normalized = normalizeWorkshopBookingPackage({
       ...baseIntent,

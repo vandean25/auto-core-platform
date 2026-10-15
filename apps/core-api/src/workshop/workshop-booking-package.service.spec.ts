@@ -3,7 +3,6 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { LOANER_BOOKING_FIELDS_INCOMPLETE } from './workshop-booking-package.schema.js';
 import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
 
 describe('WorkshopBookingPackageService', () => {
