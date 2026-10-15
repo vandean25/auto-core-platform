@@ -46,6 +46,7 @@ import type { CreateWorkshopOrderDto } from '../workshop/dto/create-workshop-ord
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
 import { RegistrationIntakeApplyService } from './registration-intake-apply.service.js';
 import type { ApplyRegistrationIntakeDto } from './dto/apply-registration-intake.dto.js';
+import { coerceRegistrationIntakeUploadFiles } from './registration-intake-upload.validation.js';
 
 const FINISHED_STATES: RegistrationDocumentIntakeState[] = [
   'AWAITING_REVIEW',
@@ -77,10 +78,11 @@ export class RegistrationIntakeService {
   ) {}
 
   async create(
-    files: Express.Multer.File[],
-    sides: string[],
+    filesInput: Express.Multer.File[],
+    sides: Array<'FRONT' | 'BACK'>,
     idempotencyKey: string,
   ) {
+    const files = coerceRegistrationIntakeUploadFiles(filesInput);
     assertRegistrationIntakeRole(this.tenantContext);
     this.validateIdempotencyKey(idempotencyKey);
     const tenantId = await this.tenantContext.getTenantId();
@@ -121,7 +123,7 @@ export class RegistrationIntakeService {
       });
     }
 
-    if (!files?.length || files.length > REGISTRATION_INTAKE_MAX_FILES) {
+    if (files.length > REGISTRATION_INTAKE_MAX_FILES) {
       throw registrationUnsupportedFile();
     }
     for (const file of files) {
@@ -154,7 +156,7 @@ export class RegistrationIntakeService {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const mime = detectRegistrationIntakeMime(file.buffer)!;
-      const side = (sides[i] ?? 'FRONT').toUpperCase();
+      const side = sides[i] ?? 'FRONT';
       const page = side === 'BACK' ? 2 : pageNo++;
       await this.byteStorage.storePage({
         tenantId,
@@ -172,7 +174,7 @@ export class RegistrationIntakeService {
 
     try {
       const pages = files.map((file, index) => ({
-        page: (sides[index] ?? 'FRONT').toUpperCase() === 'BACK' ? 2 : index + 1,
+        page: (sides[index] ?? 'FRONT') === 'BACK' ? 2 : index + 1,
         png: file.buffer,
       }));
       const extracted = await this.provider.extract({

@@ -18,6 +18,10 @@ import { REGISTRATION_INTAKE_MAX_BYTES_PER_FILE, REGISTRATION_INTAKE_MAX_FILES }
 import { ApplyRegistrationIntakeDto } from './dto/apply-registration-intake.dto.js';
 import { CreateRegistrationIntakeOrderDto } from './dto/create-registration-intake-order.dto.js';
 import { registrationIdMismatch } from './registration-intake.errors.js';
+import {
+  coerceRegistrationIntakeSides,
+  coerceRegistrationIntakeUploadFiles,
+} from './registration-intake-upload.validation.js';
 
 @ApiTags('workshop')
 @ApiBearerAuth()
@@ -35,12 +39,17 @@ export class RegistrationIntakeController {
     }),
   )
   create(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Body('sides') sidesRaw: string | string[],
+    @UploadedFiles() filesRaw: unknown,
+    @Body('sides') sidesRaw: unknown,
     @Headers('idempotency-key') idempotencyKey: string,
   ) {
-    const sides = normalizeSides(sidesRaw, files?.length ?? 0);
-    return this.registrationIntake.create(files ?? [], sides, idempotencyKey ?? '');
+    const files = coerceRegistrationIntakeUploadFiles(filesRaw);
+    const sides = coerceRegistrationIntakeSides(sidesRaw, files.length);
+    return this.registrationIntake.create(
+      files,
+      sides,
+      typeof idempotencyKey === 'string' ? idempotencyKey : '',
+    );
   }
 
   @Get(':id')
@@ -79,25 +88,4 @@ export class RegistrationIntakeController {
   async delete(@Param('id') id: string): Promise<void> {
     await this.registrationIntake.delete(id);
   }
-}
-
-function normalizeSides(
-  sidesRaw: string | string[] | undefined,
-  fileCount: number,
-): string[] {
-  if (!sidesRaw) {
-    return Array.from({ length: fileCount }, (_, i) =>
-      i === 0 ? 'FRONT' : 'BACK',
-    );
-  }
-  if (Array.isArray(sidesRaw)) {
-    return sidesRaw;
-  }
-  try {
-    const parsed = JSON.parse(sidesRaw) as string[];
-    if (Array.isArray(parsed)) return parsed;
-  } catch {
-    // fall through
-  }
-  return sidesRaw.split(',').map((side) => side.trim());
 }
