@@ -1236,7 +1236,8 @@
             "fixedAfterDevelopmentEuro": 50
           }
         }
-      }
+      },
+      "harness": "http-body"
     },
     {
       "id": "synthetic-eu-m1-2024-window-end",
@@ -1297,7 +1298,8 @@
             "fixedAfterDevelopmentEuro": 37.5
           }
         }
-      }
+      },
+      "harness": "http-body"
     },
     {
       "id": "synthetic-eu-m1-2024-known-new-net-above-par",
@@ -1364,7 +1366,8 @@
             2780
           ]
         }
-      }
+      },
+      "harness": "http-body"
     },
     {
       "id": "synthetic-eu-m1-2024-achtelung-ignores-original-net",
@@ -1432,7 +1435,8 @@
             2625
           ]
         }
-      }
+      },
+      "harness": "http-body"
     },
     {
       "id": "synthetic-missing-first-registration",
@@ -1923,13 +1927,6 @@
         "note": "The stored NEDC grams and the String nova_class are not substitutes. co2_wltp_g_km is null, so the slice returns MISSING_CO2 and must not multiply 160 by 1.27."
       },
       "harness": "service-with-synthetic-vehicle",
-      "vehicle": {
-        "partyLabel": "pilot customer",
-        "first_registration_date": "2024-06-01",
-        "co2_wltp_g_km": null,
-        "co2_nedc_g_km": 160,
-        "nova_class": "STANDARD"
-      },
       "request": {
         "importMode": "eu_used_m1",
         "vehicleId": "00000000-0000-4000-8000-000000000519",
@@ -1955,6 +1952,13 @@
             "nedc_fractional_co2_unverified"
           ]
         }
+      },
+      "syntheticVehicle": {
+        "partyLabel": "pilot customer",
+        "first_registration_date": "2024-06-01",
+        "co2_wltp_g_km": null,
+        "co2_nedc_g_km": 160,
+        "nova_class": "STANDARD"
       }
     },
     {

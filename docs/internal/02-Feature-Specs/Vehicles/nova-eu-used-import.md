@@ -395,7 +395,7 @@ AUT-530 edits the existing Nest service and the pure calculator only:
 
 ### Backend
 
-AUT-530 loads `docs/internal/02-Feature-Specs/Vehicles/fixtures/nova-eu-used-import/cases.json`. Compare money with `roundMoneyEuro` on both sides. `harness: "http-body"` is a request body. `harness: "service-with-synthetic-vehicle"` needs one synthetic vehicle row for the pilot customer; the stored NEDC value must not be used. A 422 fixture asserts `code` and `message` and fails if `novaAmountEuro` is present. A 400 fixture asserts HTTP 400 and the same absence, and does not assert the validation-pipe message. Existing v1 tests stay green, including the 2020-01-01 warning test, because that request has no `importMode`.
+AUT-530 loads `docs/internal/02-Feature-Specs/Vehicles/fixtures/nova-eu-used-import/cases.json`. Compare money with `roundMoneyEuro` on both sides. Every case has `harness`. `http-body` is a request body. `service-with-synthetic-vehicle` seeds the case's `syntheticVehicle` object for the pilot customer, including `co2_wltp_g_km: null` and a set `co2_nedc_g_km`. That stored NEDC value must not be used. A 422 fixture asserts `code` and `message` and fails if `novaAmountEuro` is present. A 400 fixture asserts HTTP 400 and the same absence, and does not assert the validation-pipe message. Existing v1 tests stay green, including the 2020-01-01 warning test, because that request has no `importMode`.
 
 ### Frontend
 
