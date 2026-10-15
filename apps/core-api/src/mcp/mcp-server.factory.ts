@@ -5,7 +5,9 @@ import {
   type McpToolName,
 } from './mcp.constants.js';
 import { McpToolHandlerService } from './mcp-tool-handler.service.js';
+import { toMcpJsonObject } from './mcp-output.util.js';
 import { MCP_TOOL_DESCRIPTIONS } from './mcp-tool-descriptions.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
 import type { z } from 'zod';
 import * as schemas from './mcp-tool-schemas.js';
 
@@ -76,6 +78,7 @@ export function createMcpServer(
       {
         description: MCP_TOOL_DESCRIPTIONS[toolName],
         inputSchema: TOOL_INPUT_SCHEMAS[toolName],
+        outputSchema: mcpToolOutputSchemas[toolName],
       },
       async (args) => {
         const result = await toolHandler.executeTool(toolName, args, {
@@ -89,7 +92,7 @@ export function createMcpServer(
               text: JSON.stringify(result),
             },
           ],
-          structuredContent: result as Record<string, unknown>,
+          structuredContent: toMcpJsonObject(result),
         };
       },
     );

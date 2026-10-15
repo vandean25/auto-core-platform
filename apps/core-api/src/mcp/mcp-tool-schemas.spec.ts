@@ -1,5 +1,18 @@
+import { Prisma, CustomerType, InvoiceStatus, InvoiceTaxMode, PurchaseOrderStatus } from '@prisma/client';
+import type { z } from 'zod';
 import { MCP_TOOL_NAMES, MCP_WRITE_TOOL_NAMES } from './mcp.constants.js';
-import { encodeMcpCursor, encodeMcpKeysetCursor } from './mcp-output.util.js';
+import {
+  encodeMcpCursor,
+  encodeMcpKeysetCursor,
+  toMcpJsonObject,
+} from './mcp-output.util.js';
+import { mcpToolOutputSchemas } from './mcp-tool-output-schemas.js';
+import { toMcpInvoiceDetail } from './mcp-invoice-read.mapper.js';
+import {
+  toMcpPurchaseOrderDetail,
+  toMcpPurchaseOrderListRow,
+} from './mcp-purchasing-read.mapper.js';
+import { toMcpDocumentPdf, toMcpDocumentRow } from './mcp-document-read.mapper.js';
 import {
   draftWorkshopOrderInputSchema,
   getAgentActionInputSchema,
@@ -267,5 +280,159 @@ describe('MCP tool input schemas', () => {
   it('accepts only cursors issued by encodeMcpCursor for get_capabilities', () => {
     const cursor = encodeMcpCursor(10);
     expect(getCapabilitiesInputSchema.parse({ cursor })).toEqual({ cursor });
+  });
+});
+
+describe('MCP tool output schemas (AUT-427)', () => {
+  const truncatedResult = {
+    __truncated__: true,
+    originalBytes: 40_000,
+    preview: '{"data":[{"id":"',
+  };
+  const emptyKeysetPage = {
+    data: [],
+    meta: { page_size: 10, next_cursor: null },
+    truncated: false,
+  };
+
+  /** Asserts the value passes the schema, and reports the issues when it does not. */
+  function expectValid(schema: z.ZodType, value: unknown) {
+    const result = schema.safeParse(value);
+    expect(result.success ? [] : result.error.issues).toEqual([]);
+  }
+
+  function expectInvalid(schema: z.ZodType, value: unknown) {
+    expect(schema.safeParse(value).success).toBe(false);
+  }
+
+  it('accepts a keyset page with its cursor and truncated flag', () => {
+    expectValid(mcpToolOutputSchemas.list_invoices, emptyKeysetPage);
+  });
+
+  it('accepts the truncation marker from every tool, read and write', () => {
+    for (const toolName of MCP_TOOL_NAMES) {
+      expectValid(mcpToolOutputSchemas[toolName], truncatedResult);
+    }
+  });
+
+  it('rejects a success body that lacks a required key', () => {
+    expectInvalid(mcpToolOutputSchemas.list_invoices, { data: [] });
+    expectInvalid(mcpToolOutputSchemas.get_stock_level, { sku: 'SKU-DEMO-1' });
+  });
+
+  it('rejects an amount written as a JSON number, because amounts are decimal strings', () => {
+    expectInvalid(mcpToolOutputSchemas.list_invoices, {
+      ...emptyKeysetPage,
+      data: [
+        {
+          id: '7f0c6a4e-2a7b-4a53-9d0c-6a1e9a2b1c01',
+          number: 'RE-2026-0001',
+          status: 'ISSUED',
+          customer: { id: 'c-1', name: 'Ada Lovelace' },
+          issued_at: '2026-10-14T10:00:00.000Z',
+          total_gross: 119,
+          currency: 'EUR',
+        },
+      ],
+    });
+  });
+
+  it('validates the invoice detail the mapper returns for a draft', () => {
+    const detail = toMcpInvoiceDetail(
+      {
+        id: '7f0c6a4e-2a7b-4a53-9d0c-6a1e9a2b1c01',
+        invoice_number: null,
+        status: InvoiceStatus.DRAFT,
+        tax_mode: InvoiceTaxMode.STANDARD,
+        currency: 'EUR',
+        date: new Date('2026-10-14T10:00:00.000Z'),
+        due_date: new Date('2026-11-13T10:00:00.000Z'),
+        total_net: new Prisma.Decimal('100'),
+        total_tax: new Prisma.Decimal('19'),
+        total_gross: new Prisma.Decimal('119'),
+        global_discount_type: null,
+        snapshot: null,
+        workshop_order_id: null,
+        sales_order_id: null,
+        customer: {
+          id: 'c-1',
+          type: CustomerType.PRIVATE,
+          company_name: null,
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+        },
+        items: [
+          {
+            description: 'Oil service',
+            quantity: new Prisma.Decimal('1'),
+            unit_price: new Prisma.Decimal('100'),
+            tax_rate: new Prisma.Decimal('19'),
+            line_discount_type: null,
+            line_discount_value: null,
+          },
+        ],
+        credit_notes: [],
+      },
+      new Map(),
+    );
+    expectValid(mcpToolOutputSchemas.get_invoice, toMcpJsonObject(detail));
+  });
+
+  it('validates the purchase order detail and list row the mappers return', () => {
+    const order = {
+      id: '2b9d8f0a-6c1e-4f57-8a3e-0d5c7b9e1a02',
+      order_number: 'PO-2026-0001',
+      status: PurchaseOrderStatus.SENT,
+      createdAt: new Date('2026-10-12T08:00:00.000Z'),
+      vendor: { id: 'v-1', name: 'Demo Vendor' },
+      items: [
+        {
+          id: 'i-1',
+          quantity: new Prisma.Decimal('2'),
+          quantity_received: new Prisma.Decimal('0'),
+          unit_cost: new Prisma.Decimal('12.5'),
+          catalog_item: { id: 'p-1', sku: 'FILTER-DEMO-01', name: 'Oil filter (demo)' },
+        },
+      ],
+    };
+    const detail = toMcpPurchaseOrderDetail(order, {
+      movement_count: 0,
+      last_received_at: null,
+    });
+    expectValid(mcpToolOutputSchemas.get_purchase_order, toMcpJsonObject(detail));
+    expectValid(
+      mcpToolOutputSchemas.list_purchase_orders,
+      toMcpJsonObject({
+        data: [toMcpPurchaseOrderListRow(order)],
+        meta: { page_size: 10, next_cursor: null },
+        truncated: false,
+      }),
+    );
+  });
+
+  it('validates a document row and a document PDF link from the document mappers', () => {
+    const candidate = {
+      type: 'invoice' as const,
+      recordId: '7f0c6a4e-2a7b-4a53-9d0c-6a1e9a2b1c01',
+      createdAt: new Date('2026-10-14T10:00:00.000Z'),
+      name: 'invoice-RE-2026-0001.pdf',
+    };
+    expectValid(
+      mcpToolOutputSchemas.list_documents,
+      toMcpJsonObject({
+        data: [toMcpDocumentRow(candidate)],
+        meta: { page_size: 10, next_cursor: null },
+        truncated: false,
+      }),
+    );
+    expectValid(
+      mcpToolOutputSchemas.get_document_pdf,
+      toMcpJsonObject(
+        toMcpDocumentPdf(candidate, {
+          url: 'https://storage.example.invalid/signed',
+          expiresAt: new Date('2026-10-14T10:15:00.000Z'),
+        }),
+      ),
+    );
   });
 });

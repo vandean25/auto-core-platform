@@ -916,6 +916,10 @@ describe('MCP server (e2e)', () => {
     for (const neverExposed of MCP_NEVER_EXPOSED_ACTIONS) {
       expect(toolNames).not.toContain(neverExposed);
     }
+    // Every tool publishes an object output schema, which the SDK checks against each successful result.
+    for (const tool of tools.tools) {
+      expect(tool.outputSchema).toMatchObject({ type: 'object' });
+    }
     await endMcpSession(transport);
   });
 
