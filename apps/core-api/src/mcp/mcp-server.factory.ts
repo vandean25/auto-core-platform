@@ -40,6 +40,7 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   get_agent_action: schemas.getAgentActionInputSchema.shape,
   list_agent_actions: schemas.listAgentActionsBaseSchema.shape,
   get_vehicle_history: schemas.getVehicleHistoryInputSchema.shape,
+  get_vehicle_context: schemas.getVehicleContextInputSchema.shape,
   list_documents: schemas.listDocumentsBaseSchema.shape,
   get_document_pdf: schemas.getDocumentPdfInputSchema.shape,
   get_tenant_settings: schemas.getTenantSettingsInputSchema.shape,

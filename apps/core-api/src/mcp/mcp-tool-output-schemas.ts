@@ -200,6 +200,56 @@ const pickerlDueSchema = z.object({
   last_inspected_on: z.string().nullable(),
 });
 
+const vehicleContextInspectionRow = z.object({
+  id: idString,
+  inspection_type: z.string(),
+  inspected_on: isoDateOnly,
+  plaketten_valid_until: yearMonth,
+  station_name: nullableString,
+  value_source: z.object({
+    table: z.literal('vehicle_inspection_record'),
+    resolved_pickerl_rule_id: z.string(),
+  }),
+  limits: z.object({
+    includes_notes: z.literal(false),
+    sticker_validity_is_month_granularity: z.literal(true),
+    interval_years: z.array(z.number().int().min(1)),
+    tolerance_months_before: z.number().int().min(0),
+    tolerance_months_after: z.number().int().min(0),
+  }),
+});
+
+const vehicleContextGewaehrleistungLimits = z
+  .object({
+    base_period_years: z.number().int(),
+    shortened_period_years: z.number().int(),
+    presumption_period_years: z.number().int(),
+    minimum_vehicle_age_years: z.number().int(),
+    scope_note: z.string(),
+  })
+  .nullable();
+
+const vehicleContextWarrantyPeriodRow = z.object({
+  vehicle_sale_id: idString,
+  sale_number: nonEmptyString,
+  contract_concluded_on: isoDateOnly.nullable(),
+  handed_over_on: isoDateOnly.nullable(),
+  gewaehrleistung_status: z.string().nullable(),
+  gewaehrleistung_ends_on: isoDateOnly.nullable(),
+  presumption_ends_on: isoDateOnly.nullable(),
+  gewaehrleistung_ends_on_expired: z.boolean(),
+  presumption_ends_on_expired: z.boolean(),
+  shortened_negotiated: z.boolean(),
+  buyer_is_consumer: z.boolean().nullable(),
+  value_source: z.object({
+    persisted_rule_version: nullableString,
+    resolved_rule_set_id: nullableString,
+  }),
+  limits: vehicleContextGewaehrleistungLimits,
+  document_ref: nonEmptyString,
+  created_at: isoDateTime,
+});
+
 /** A vehicle as a link inside another record: identity, model, and plate. */
 const vehicleLinkRow = z.looseObject({
   id: idString,
@@ -931,6 +981,123 @@ export const mcpToolOutputSchemas = {
       meta: z.object({ total: count }),
     }),
     documents: z.object(keysetPageShape(z.object(documentRowShape))),
+  }),
+  get_vehicle_context: resultOf({
+    vehicle_id: idString,
+    as_of: isoDateTime,
+    disclaimer: nonEmptyString,
+    site_id: nullableIdString,
+    sections: z.object({
+      identity: z
+        .object({
+          state: z.literal('ok'),
+          data: z.object({
+            vehicle: z.object({
+              id: idString,
+              make: z.string(),
+              model: z.string(),
+              year: z.number().int(),
+              plate: nullableString,
+              vin: nullableString,
+              first_registration_date: isoDateOnly.nullable(),
+            }),
+            pickerl_due: pickerlDueSchema,
+          }),
+        })
+        .optional(),
+      open_workshop: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(
+              z.object({
+                id: idString,
+                number: nonEmptyString,
+                status: z.string(),
+                opened_at: isoDateTime,
+                workshop_order_ref: idString,
+              }),
+            ),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+      inspections: z
+        .object({
+          state: z.literal('ok'),
+          data: z.array(vehicleContextInspectionRow),
+          meta: totalCursorMeta,
+          truncated: z.boolean().optional(),
+          incomplete: z.boolean().optional(),
+        })
+        .optional(),
+      documents: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(z.object(documentRowShape)),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+      warranty_claims: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(
+              z.object({
+                id: idString,
+                workshop_order_id: idString,
+                type: z.string(),
+                status: z.string(),
+                claimed_amount_net: nullableDecimalString,
+                external_reference: nullableString,
+                created_at: isoDateTime,
+                workshop_order_ref: idString,
+              }),
+            ),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+      warranty_periods: z
+        .union([
+          z.object({
+            state: z.literal('ok'),
+            data: z.array(vehicleContextWarrantyPeriodRow),
+            meta: totalCursorMeta,
+            truncated: z.boolean().optional(),
+            incomplete: z.boolean().optional(),
+          }),
+          z.object({
+            state: z.literal('unavailable'),
+            reason: z.literal('active_site_required'),
+            message: nonEmptyString,
+          }),
+        ])
+        .optional(),
+    }),
   }),
   list_documents: resultOf(keysetPageShape(z.object(documentRowShape))),
   get_document_pdf: resultOf({

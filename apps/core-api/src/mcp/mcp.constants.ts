@@ -54,6 +54,7 @@ export const MCP_READ_TOOL_NAMES = [
   'get_agent_action',
   'list_agent_actions',
   'get_vehicle_history',
+  'get_vehicle_context',
   'list_documents',
   'get_document_pdf',
   'get_tenant_settings',

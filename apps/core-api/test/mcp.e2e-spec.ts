@@ -103,6 +103,7 @@ const DETAIL_TOOLS_HIDDEN_FROM_OTHER_TENANT = [
   'get_invoice',
   'get_agent_action',
   'get_vehicle_history',
+  'get_vehicle_context',
   'get_document_pdf',
   'get_legal_entity',
   'get_purchase_order',
@@ -767,6 +768,10 @@ describe('MCP server (e2e)', () => {
       {
         name: 'get_vehicle_history',
         arguments: { vehicle_id: fixtures.vehicleId },
+      },
+      {
+        name: 'get_vehicle_context',
+        arguments: { vehicle_id: fixtures.vehicleId, sections: ['identity'] },
       },
       {
         name: 'list_documents',
@@ -3251,6 +3256,8 @@ describe('MCP server (e2e)', () => {
     let historyInvoiceArchiveKey: string;
     let historyOtherSiteId: string;
     let historyOtherSiteOrderId: string;
+    let historyMainSiteClaimId: string;
+    let historyOtherSiteClaimId: string;
     let otherTenantCustomerId: string;
     let otherTenantVehicleId: string;
     let otherTenantDocumentId: string;
@@ -3302,8 +3309,16 @@ describe('MCP server (e2e)', () => {
         });
       }
       if (historyOtherSiteOrderId) {
+        await prismaA.warrantyClaim.deleteMany({
+          where: { workshop_order_id: historyOtherSiteOrderId },
+        });
         await prismaA.workshopOrder.deleteMany({
           where: { id: historyOtherSiteOrderId },
+        });
+      }
+      if (historyWorkshopOrderId) {
+        await prismaA.warrantyClaim.deleteMany({
+          where: { workshop_order_id: historyWorkshopOrderId },
         });
       }
       if (historyOtherSiteId) {
@@ -3462,6 +3477,25 @@ describe('MCP server (e2e)', () => {
         select: { id: true },
       });
       historyOtherSiteOrderId = otherSiteOrder.id;
+
+      const mainSiteClaim = await prismaA.warrantyClaim.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: workshopOrder.id,
+          type: 'GEWAEHRLEISTUNG',
+        },
+        select: { id: true },
+      });
+      const otherSiteClaim = await prismaA.warrantyClaim.create({
+        data: {
+          tenant_id: tenantA,
+          workshop_order_id: otherSiteOrder.id,
+          type: 'GEWAEHRLEISTUNG',
+        },
+        select: { id: true },
+      });
+      historyMainSiteClaimId = mainSiteClaim.id;
+      historyOtherSiteClaimId = otherSiteClaim.id;
 
       historyCustomerId = customer.id;
       historyVehicleId = vehicle.id;
@@ -3694,6 +3728,71 @@ describe('MCP server (e2e)', () => {
       expect(detail.orders.data.map((row) => row.id)).not.toContain(
         historyOtherSiteOrderId,
       );
+
+      const vehicleContext = parsePayload<{
+        sections: {
+          open_workshop?: {
+            state: string;
+            data?: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+          documents?: {
+            state: string;
+            data?: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+          warranty_claims?: {
+            state: string;
+            data?: Array<{ id: string }>;
+            meta?: { total: number };
+          };
+          warranty_periods?: {
+            state: string;
+            data?: unknown[];
+            meta?: { total: number };
+          };
+        };
+      }>(
+        await historyCall('get_vehicle_context', {
+          vehicle_id: historyVehicleId,
+          sections: [
+            'open_workshop',
+            'documents',
+            'warranty_claims',
+            'warranty_periods',
+          ],
+        }),
+      );
+      const openIds =
+        vehicleContext.sections.open_workshop?.state === 'ok'
+          ? (vehicleContext.sections.open_workshop.data ?? []).map((row) => row.id)
+          : [];
+      expect(openIds).not.toContain(historyOtherSiteOrderId);
+      expect(vehicleContext.sections.open_workshop?.meta?.total ?? 0).toBe(
+        openIds.length,
+      );
+      const documentIds =
+        vehicleContext.sections.documents?.state === 'ok'
+          ? (vehicleContext.sections.documents.data ?? []).map((row) => row.id)
+          : [];
+      expect(documentIds).not.toContain(documentId);
+
+      const claims = vehicleContext.sections.warranty_claims;
+      expect(claims?.state).toBe('ok');
+      if (claims?.state === 'ok') {
+        expect(claims.meta?.total).toBe(1);
+        expect(claims.data?.map((row) => row.id)).toEqual([
+          historyMainSiteClaimId,
+        ]);
+        expect(claims.data?.map((row) => row.id)).not.toContain(
+          historyOtherSiteClaimId,
+        );
+      }
+      expect(vehicleContext.sections.warranty_periods?.meta?.total ?? 0).toBe(
+        vehicleContext.sections.warranty_periods?.state === 'ok'
+          ? (vehicleContext.sections.warranty_periods.data?.length ?? 0)
+          : 0,
+      );
     });
 
     it('does not reveal another tenant document, customer, or vehicle', async () => {
@@ -3704,6 +3803,11 @@ describe('MCP server (e2e)', () => {
       ).toContain(`Document with ID ${otherTenantDocumentId} not found`);
       expect(
         await historyCallErrorText('get_vehicle_history', {
+          vehicle_id: otherTenantVehicleId,
+        }),
+      ).toContain(`Vehicle with ID ${otherTenantVehicleId} not found`);
+      expect(
+        await historyCallErrorText('get_vehicle_context', {
           vehicle_id: otherTenantVehicleId,
         }),
       ).toContain(`Vehicle with ID ${otherTenantVehicleId} not found`);

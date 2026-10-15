@@ -59,6 +59,7 @@ describe('McpToolHandlerService AUT-461 report reads', () => {
       unused,
       unused,
       unused,
+      unused,
       reportReads as unknown as McpReportReadService,
       unused,
     );

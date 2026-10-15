@@ -6,6 +6,7 @@ import { McpCatalogReadService } from './mcp-catalog-read.service.js';
 import { McpDocumentReadService } from './mcp-document-read.service.js';
 import { McpInvoiceReadService } from './mcp-invoice-read.service.js';
 import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js';
+import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
@@ -26,6 +27,7 @@ import {
   getWorkshopKpiReportInputSchema,
   getPurchaseOrderInputSchema,
   getStockLevelInputSchema,
+  getVehicleContextInputSchema,
   getVehicleHistoryInputSchema,
   getVehicleInputSchema,
   getVehicleStockAgeReportInputSchema,
@@ -66,6 +68,7 @@ export class McpReadToolService {
   private readonly recordReads: McpRecordReadService;
   private readonly stockReads: McpStockReadService;
   private readonly orderHistoryReads: McpOrderHistoryReadService;
+  private readonly vehicleContextReads: McpVehicleContextReadService;
   private readonly documentReads: McpDocumentReadService;
   private readonly settingsReads: McpSettingsReadService;
   private readonly purchasingReads: McpPurchasingReadService;
@@ -82,6 +85,7 @@ export class McpReadToolService {
     recordReads: McpRecordReadService,
     stockReads: McpStockReadService,
     orderHistoryReads: McpOrderHistoryReadService,
+    vehicleContextReads: McpVehicleContextReadService,
     documentReads: McpDocumentReadService,
     settingsReads: McpSettingsReadService,
     purchasingReads: McpPurchasingReadService,
@@ -95,6 +99,7 @@ export class McpReadToolService {
     this.recordReads = recordReads;
     this.stockReads = stockReads;
     this.orderHistoryReads = orderHistoryReads;
+    this.vehicleContextReads = vehicleContextReads;
     this.documentReads = documentReads;
     this.settingsReads = settingsReads;
     this.purchasingReads = purchasingReads;
@@ -126,6 +131,10 @@ export class McpReadToolService {
       case 'get_vehicle_history':
         return this.orderHistoryReads.getVehicleHistory(
           getVehicleHistoryInputSchema.parse(parsed),
+        );
+      case 'get_vehicle_context':
+        return this.vehicleContextReads.getVehicleContext(
+          getVehicleContextInputSchema.parse(parsed),
         );
       case 'list_documents':
         return this.documentReads.listDocuments(

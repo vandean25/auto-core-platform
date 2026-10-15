@@ -45,6 +45,7 @@ describe('McpToolHandlerService purchasing reads', () => {
       unused,
       unused,
       unused,
+      unused,
       purchasingReads as unknown as McpPurchasingReadService,
       unused,
       unused,
