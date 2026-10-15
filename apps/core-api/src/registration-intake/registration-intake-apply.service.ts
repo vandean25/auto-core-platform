@@ -364,12 +364,20 @@ export class RegistrationIntakeApplyService {
       (RegistrationFieldEvidence & { cycle?: 'WLTP' | 'NEDC' }) | undefined;
     const co2Norm =
       typeof co2Field?.normalized === 'number' ? co2Field.normalized : null;
-    const co2Cycle = co2Field?.cycle ?? 'WLTP';
-    if (dto.co2) {
+    const co2CycleKnown =
+      co2Field?.cycle === 'WLTP' || co2Field?.cycle === 'NEDC';
+    const co2CycleUnknown =
+      cases.includes('CO2_CYCLE_UNKNOWN') ||
+      (co2Norm !== null && !co2CycleKnown);
+    if (co2CycleUnknown) {
+      if (dto.co2 !== null && dto.co2 !== undefined) {
+        throw registrationConfirmationMismatch();
+      }
+    } else if (dto.co2) {
       if (
         co2Norm === null ||
         dto.co2.value !== co2Norm ||
-        dto.co2.cycle !== co2Cycle
+        dto.co2.cycle !== co2Field?.cycle
       ) {
         throw registrationConfirmationMismatch();
       }
@@ -455,6 +463,9 @@ export class RegistrationIntakeApplyService {
         tenantId,
         dto.ownershipCorrection.nextCustomerId,
       );
+      if (dto.ownershipCorrection.nextCustomerId !== customerId) {
+        throw registrationOwnershipConflict();
+      }
     }
 
     const plateChanged =

@@ -34,6 +34,7 @@ import {
   registrationInProgress,
   registrationIntakeNotFound,
   registrationStateChanged,
+  registrationStoreFailed,
   registrationUnsupportedFile,
 } from './registration-intake.errors.js';
 import {
@@ -172,7 +173,7 @@ export class RegistrationIntakeService {
       await this.prisma.registrationDocumentIntake.deleteMany({
         where: { id: intakeId, tenant_id: tenantId },
       });
-      throw registrationUnsupportedFile();
+      throw registrationStoreFailed();
     }
 
     await this.prisma.registrationDocumentIntake.updateMany({
@@ -296,10 +297,14 @@ export class RegistrationIntakeService {
   }> {
     assertRegistrationIntakeRole(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
     const intake = await this.prisma.registrationDocumentIntake.findFirst({
       where: { id, tenant_id: tenantId },
     });
     if (!intake) {
+      throw registrationIntakeNotFound(id);
+    }
+    if (intake.site_id !== siteId) {
       throw registrationIntakeNotFound(id);
     }
     if (intake.state !== 'APPLIED') {

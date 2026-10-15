@@ -309,7 +309,7 @@ describe('Registration document intake (e2e)', () => {
     storage.failOnStorePage = 2;
     const front = encodeRegistrationIntakeFixtureBytes('front-clear');
     const back = encodeRegistrationIntakeFixtureBytes('back-clear');
-    await request(app.getHttpServer())
+    const storeFail = await request(app.getHttpServer())
       .post('/api/workshop/registration-intakes')
       .set('Authorization', `Bearer ${authToken}`)
       .set('Idempotency-Key', 'store-fail-1')
@@ -318,6 +318,7 @@ describe('Registration document intake (e2e)', () => {
       .attach('files', front, 'front.jpg')
       .attach('files', back, 'back.jpg')
       .expect(400);
+    expect(storeFail.body.code).toBe('REGISTRATION_INTAKE_STORE_FAILED');
     storage.failOnStorePage = null;
     expect(storage.objects.size).toBe(0);
     const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
@@ -461,8 +462,120 @@ describe('Registration document intake (e2e)', () => {
         .send(applyBody),
     ]);
     const statuses = [a.status, b.status];
-    expect(statuses).toContain(200);
-    expect(statuses).toContain(409);
+    expect(statuses.filter((status) => status === 200).length).toBeGreaterThanOrEqual(1);
+    expect(statuses.every((status) => status === 200 || status === 409)).toBe(true);
+  });
+
+  it('applies without CO2 when the document cycle is unknown', async () => {
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const back = encodeRegistrationIntakeFixtureBytes('back-co2-no-cycle');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'co2-cycle-unknown-1')
+      .field('sides', 'FRONT')
+      .field('sides', 'BACK')
+      .attach('files', front, 'front.jpg')
+      .attach('files', back, 'back.jpg')
+      .expect(201);
+    expect(create.body.matchSnapshot.cases).toContain('CO2_CYCLE_UNKNOWN');
+
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      co2: null,
+      make: 'Synthetic',
+      model: 'Demo',
+      year: 2019,
+    };
+    const mismatch = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ ...applyBody, co2: { value: 119, cycle: 'WLTP' } })
+      .expect(409);
+    expect(mismatch.body.code).toBe('REGISTRATION_INTAKE_CONFIRMATION_MISMATCH');
+
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(applyBody)
+      .expect(200);
+    const vehicle = await createTenantAwarePrisma(prisma, tenantId).vehicle.findFirst({
+      where: { vin: 'WVWZZZSYNTH000001' },
+    });
+    expect(vehicle?.co2_wltp_g_km).toBeNull();
+    expect(vehicle?.co2_nedc_g_km).toBeNull();
+  });
+
+  it('rejects ownership correction when nextCustomerId is not the confirmed holder', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const previousOwner = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenantId,
+        first_name: 'other',
+        last_name: 'owner',
+        type: 'PRIVATE',
+      },
+    });
+    const holder = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenantId,
+        first_name: 'pilot',
+        last_name: 'customer',
+        type: 'PRIVATE',
+      },
+    });
+    const decoy = await tenantPrisma.customer.create({
+      data: {
+        tenant_id: tenantId,
+        first_name: 'decoy',
+        last_name: 'customer',
+        type: 'PRIVATE',
+      },
+    });
+    await tenantPrisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        customer_id: previousOwner.id,
+        vin: 'WVWZZZSYNTH000001',
+        plate: 'W SYNTH 1',
+        make: 'Synthetic',
+        model: 'Demo',
+        year: 2019,
+      },
+    });
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'ownership-next-id-1')
+      .field('sides', 'FRONT')
+      .attach('files', front, 'front.jpg')
+      .expect(201);
+    expect(create.body.matchSnapshot.cases).toContain('OWNERSHIP_CONFLICT');
+
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      customerId: holder.id,
+      vehicleId: create.body.matchSnapshot.vehicles[0].id,
+      ownershipCorrection: {
+        expectedCustomerId: previousOwner.id,
+        nextCustomerId: decoy.id,
+      },
+    };
+    const res = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(applyBody)
+      .expect(409);
+    expect(res.body.code).toBe('REGISTRATION_INTAKE_OWNERSHIP_CONFLICT');
   });
 
   it('marks extract failure when provider rejects on abort signal', async () => {

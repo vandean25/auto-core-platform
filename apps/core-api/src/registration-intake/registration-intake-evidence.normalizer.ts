@@ -145,13 +145,7 @@ export function normalizeRegistrationEvidenceFields(
     cases.push('LOW_CONFIDENCE');
   }
 
-  if (
-    next.vin &&
-    next.vin.alternate &&
-    next.vin.uncertainty === 1 &&
-    JSON.stringify(next.vin.normalized) !==
-      JSON.stringify(next.vin.alternate.normalized)
-  ) {
+  if (fieldSideConflict(next)) {
     cases.push('FIELD_SIDE_CONFLICT');
   }
 

@@ -74,6 +74,14 @@ export function registrationUnsupportedFile(): BadRequestException {
   });
 }
 
+export function registrationStoreFailed(): BadRequestException {
+  return new BadRequestException({
+    code: 'REGISTRATION_INTAKE_STORE_FAILED',
+    message:
+      'REGISTRATION_INTAKE_STORE_FAILED: The uploaded file could not be stored.',
+  });
+}
+
 export function registrationTooManyFiles(): BadRequestException {
   return new BadRequestException({
     code: 'REGISTRATION_INTAKE_TOO_MANY_FILES',

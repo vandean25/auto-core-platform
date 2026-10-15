@@ -101,10 +101,10 @@ export function RegistrationDocumentReview({
   ])
 
   function buildApplyBody(): Record<string, unknown> {
-    const co2Cycle =
+    const co2CycleKnown =
       fields.co2?.cycle === 'NEDC' || fields.co2?.cycle === 'WLTP'
-        ? fields.co2.cycle
-        : 'WLTP'
+    const co2ValueKnown =
+      fields.co2?.normalized != null && co2CycleKnown
     const body: Record<string, unknown> = {
       vin: fields.vin?.normalized ?? null,
       plate: String(fields.plate?.normalized ?? ''),
@@ -113,13 +113,12 @@ export function RegistrationDocumentReview({
         ? null
         : (fields.nationalcode?.normalized as string | null),
       firstRegistration: fields.firstRegistration?.normalized ?? null,
-      co2:
-        fields.co2?.normalized != null
-          ? {
-              value: Number(fields.co2.normalized),
-              cycle: co2Cycle,
-            }
-          : null,
+      co2: co2ValueKnown
+        ? {
+            value: Number(fields.co2!.normalized),
+            cycle: fields.co2!.cycle as 'WLTP' | 'NEDC',
+          }
+        : null,
     }
     if (!cases.includes('EXISTING_VEHICLE')) {
       body.make = fields.make?.normalized as string | undefined

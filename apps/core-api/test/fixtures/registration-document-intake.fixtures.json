@@ -348,6 +348,13 @@
         "co2": { "raw": "119", "normalized": 119, "cycle": "WLTP", "source": { "page": 2, "region": { "x": 0.15, "y": 0.55, "width": 0.2, "height": 0.05 } }, "uncertainty": 0.04 }
       }
     },
+    "back-co2-no-cycle": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "co2": { "raw": "119", "normalized": 119, "source": { "page": 2, "region": { "x": 0.15, "y": 0.55, "width": 0.2, "height": 0.05 } }, "uncertainty": 0.04 }
+      }
+    },
     "wrong-document-zb-i": {
       "documentKind": "DE_ZB_I",
       "warnings": ["WRONG_DOCUMENT"],

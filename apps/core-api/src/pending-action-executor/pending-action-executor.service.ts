@@ -635,6 +635,12 @@ export class PendingActionExecutorService {
         `Registration intake ${record.intake_id} not found`,
       );
     }
+    const siteId = await this.siteContext.getSiteId();
+    if (intake.site_id !== siteId) {
+      throw new NotFoundException(
+        `Registration intake ${record.intake_id} not found`,
+      );
+    }
     return { site_id: intake.site_id };
   }
 
