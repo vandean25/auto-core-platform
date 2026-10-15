@@ -38,8 +38,7 @@ export function compareSupervisionTriageCandidates(
     return dueDelta;
   }
 
-  const createdDelta =
-    left.created_at.getTime() - right.created_at.getTime();
+  const createdDelta = left.created_at.getTime() - right.created_at.getTime();
   if (createdDelta !== 0) {
     return createdDelta;
   }

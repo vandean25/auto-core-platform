@@ -160,8 +160,7 @@ export function buildWorkshopOrderCommunications({
 }
 
 export type CustomerWaitingTriageSource =
-  | 'WORKSHOP_TASK_WAITING_CUSTOMER'
-  | 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE';
+  'WORKSHOP_TASK_WAITING_CUSTOMER' | 'ESTIMATE_AWAITING_CUSTOMER_RESPONSE';
 
 export interface CustomerWaitingTriageRecord {
   entity_id: string;

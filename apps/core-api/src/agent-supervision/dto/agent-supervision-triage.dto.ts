@@ -3,9 +3,7 @@ import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export type SupervisionTriageKind =
-  | 'PENDING_APPROVAL'
-  | 'CUSTOMER_WAITING'
-  | 'OVERDUE_LOANER';
+  'PENDING_APPROVAL' | 'CUSTOMER_WAITING' | 'OVERDUE_LOANER';
 
 export type SupervisionTriageAllowedAction = 'APPROVE_REJECT' | 'OPEN_RECORD';
 

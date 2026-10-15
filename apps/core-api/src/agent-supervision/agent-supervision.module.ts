@@ -7,7 +7,12 @@ import { AgentSupervisionController } from './agent-supervision.controller.js';
 import { AgentSupervisionTriageService } from './agent-supervision-triage.service.js';
 
 @Module({
-  imports: [PrismaModule, CommonModule, AgentProposalModule, LoanerVehiclesModule],
+  imports: [
+    PrismaModule,
+    CommonModule,
+    AgentProposalModule,
+    LoanerVehiclesModule,
+  ],
   controllers: [AgentSupervisionController],
   providers: [AgentSupervisionTriageService],
 })

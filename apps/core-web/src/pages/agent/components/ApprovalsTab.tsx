@@ -124,12 +124,12 @@ export function ApprovalsTab({
     | { type: 'triage'; item: AgentSupervisionTriageItem }
 
   const displayRows: DisplayRow[] = pendingOnly
-    ? triageItems.flatMap((item) => {
+    ? triageItems.flatMap((item): DisplayRow[] => {
         if (item.kind === 'PENDING_APPROVAL') {
           const proposal = proposalById.get(item.entity_id)
-          return proposal ? [{ type: 'proposal' as const, proposal }] : []
+          return proposal ? [{ type: 'proposal', proposal }] : []
         }
-        return [{ type: 'triage' as const, item }]
+        return [{ type: 'triage', item }]
       })
     : proposals.map((proposal) => ({ type: 'proposal' as const, proposal }))
 
