@@ -33,6 +33,7 @@ import {
   toMcpWarrantyClaimContextRow,
   toMcpWarrantyPeriodRow,
 } from './mcp-vehicle-context.mapper.js';
+import { fitVehicleContextPayloadToCap } from './mcp-vehicle-context-fit.util.js';
 import type { getVehicleContextInputSchema } from './mcp-tool-schemas.js';
 
 type GetVehicleContextInput = z.infer<typeof getVehicleContextInputSchema>;
@@ -137,6 +138,12 @@ export class McpVehicleContextReadService {
       );
     }
 
+    const shouldLoad = (section: McpVehicleContextSection) =>
+      !continuation || continuation.section === section;
+
+    const loadPickerlForIdentity =
+      requested.includes('identity') && shouldLoad('identity');
+
     const vehicle = await this.prisma.vehicle.findFirst({
       where: { id: input.vehicle_id, tenant_id: tenantId },
       select: {
@@ -147,17 +154,19 @@ export class McpVehicleContextReadService {
         plate: true,
         vin: true,
         first_registration_date: true,
-        inspection_records: {
-          orderBy: [{ inspected_on: 'desc' }, { id: 'desc' }],
-          select: {
-            id: true,
-            inspection_type: true,
-            inspected_on: true,
-            plaketten_valid_until_year: true,
-            plaketten_valid_until_month: true,
-            station_name: true,
-          },
-        },
+        ...(loadPickerlForIdentity
+          ? {
+              inspection_records: {
+                orderBy: [{ inspected_on: 'desc' }],
+                take: 1,
+                select: {
+                  inspected_on: true,
+                  plaketten_valid_until_year: true,
+                  plaketten_valid_until_month: true,
+                },
+              },
+            }
+          : {}),
       },
     });
     if (!vehicle) {
@@ -171,11 +180,21 @@ export class McpVehicleContextReadService {
       Record<McpVehicleContextSection, SectionResult<unknown>>
     > = {};
 
-    const shouldLoad = (section: McpVehicleContextSection) =>
-      !continuation || continuation.section === section;
-
     if (requested.includes('identity') && shouldLoad('identity')) {
-      const { inspection_records, ...identity } = vehicle;
+      const { inspection_records = [], ...identity } = vehicle as {
+        inspection_records?: Array<{
+          inspected_on: Date;
+          plaketten_valid_until_year: number;
+          plaketten_valid_until_month: number;
+        }>;
+        id: string;
+        make: string;
+        model: string;
+        year: number;
+        plate: string | null;
+        vin: string | null;
+        first_registration_date: Date | null;
+      };
       const { pickerl_due } = attachPickerlDue(
         { ...identity, inspection_records },
         asOf,
@@ -204,6 +223,7 @@ export class McpVehicleContextReadService {
         vehicle.id,
         tenantId,
         pageSize,
+        asOf,
         continuation?.section === 'inspections'
           ? continuation.keyset ?? null
           : null,
@@ -232,6 +252,8 @@ export class McpVehicleContextReadService {
           break;
         case 'documents':
           sections.documents = await this.loadDocumentsSection(
+            tenantId,
+            siteId,
             vehicle.id,
             pageSize,
             continuation?.section === 'documents'
@@ -267,13 +289,13 @@ export class McpVehicleContextReadService {
       }
     }
 
-    return {
+    return fitVehicleContextPayloadToCap({
       vehicle_id: vehicle.id,
       as_of: asOf.toISOString(),
       disclaimer: MCP_VEHICLE_CONTEXT_DISCLAIMER,
       site_id: siteId,
       sections,
-    };
+    });
   }
 
   private resolveSections(
@@ -290,6 +312,7 @@ export class McpVehicleContextReadService {
     vehicleId: string,
     tenantId: string,
     pageSize: number,
+    asOf: Date,
     cursor: McpKeysetCursor | null,
   ): Promise<SectionResult<unknown>> {
     const cursorWhere = cursor ? { AND: [inspectionsOlderThan(cursor)] } : {};
@@ -321,7 +344,7 @@ export class McpVehicleContextReadService {
       pageSize,
       cursorOf: (record) =>
         keysetCursorOf(record.inspected_on, record.id),
-      mapRow: toMcpVehicleContextInspectionRow,
+      mapRow: (record) => toMcpVehicleContextInspectionRow(record, asOf),
     });
 
     return {
@@ -390,6 +413,8 @@ export class McpVehicleContextReadService {
   }
 
   private async loadDocumentsSection(
+    tenantId: string,
+    siteId: string,
     vehicleId: string,
     pageSize: number,
     cursor: McpKeysetCursor | null,
@@ -401,7 +426,7 @@ export class McpVehicleContextReadService {
         pageSize,
         cursor: cursor ? encodeMcpKeysetCursor(cursor) : undefined,
       }),
-      this.countVehicleDocuments(vehicleId),
+      this.countVehicleDocuments(tenantId, siteId, vehicleId),
     ]);
 
     return {
@@ -420,9 +445,11 @@ export class McpVehicleContextReadService {
     };
   }
 
-  private async countVehicleDocuments(vehicleId: string): Promise<number> {
-    const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
+  private async countVehicleDocuments(
+    tenantId: string,
+    siteId: string,
+    vehicleId: string,
+  ): Promise<number> {
     const scoped = { tenant_id: tenantId, site_id: siteId };
     const pdfReady = [
       {

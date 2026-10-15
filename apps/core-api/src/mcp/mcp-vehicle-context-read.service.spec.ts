@@ -3,7 +3,11 @@ import type { SiteContextService } from '../common/services/site-context.service
 import type { TenantContextService } from '../common/services/tenant-context.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { McpDocumentReadService } from './mcp-document-read.service.js';
-import { encodeMcpVehicleContextCursor } from './mcp-vehicle-context.mapper.js';
+import {
+  decodeMcpVehicleContextCursor,
+  encodeMcpVehicleContextCursor,
+} from './mcp-vehicle-context.mapper.js';
+import { MCP_TOOL_RESULT_MAX_BYTES } from './mcp.constants.js';
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { encodeMcpKeysetCursor } from './mcp-output.util.js';
 import { getVehicleContextInputSchema } from './mcp-tool-schemas.js';
@@ -19,6 +23,23 @@ describe('getVehicleContextInputSchema', () => {
       getVehicleContextInputSchema.parse({
         vehicle_id: VEHICLE_ID,
         sections: ['identity', 'free_form'],
+      }),
+    ).toThrow();
+  });
+
+  it('rejects a cursor whose inner keyset is not a valid UUID and timestamp', () => {
+    const raw = Buffer.from(
+      JSON.stringify({
+        section: 'open_workshop',
+        keyset: { at: 'nope', id: 'x' },
+      }),
+      'utf8',
+    ).toString('base64url');
+    expect(decodeMcpVehicleContextCursor(raw)).toBeNull();
+    expect(() =>
+      getVehicleContextInputSchema.parse({
+        vehicle_id: VEHICLE_ID,
+        cursor: raw,
       }),
     ).toThrow();
   });
@@ -202,6 +223,211 @@ describe('McpVehicleContextReadService', () => {
         }),
       );
     }
+  });
+
+  it('returns empty operational sections with total zero', async () => {
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['open_workshop', 'warranty_claims', 'warranty_periods'],
+    });
+
+    expect(result.sections.open_workshop).toMatchObject({
+      state: 'ok',
+      data: [],
+      meta: { total: 0, page_size: 10, next_cursor: null },
+    });
+    expect(result.sections.warranty_claims).toMatchObject({
+      state: 'ok',
+      data: [],
+      meta: { total: 0 },
+    });
+    expect(result.sections.warranty_periods).toMatchObject({
+      state: 'ok',
+      data: [],
+      meta: { total: 0 },
+    });
+  });
+
+  it('scopes warranty claim and period counts to the active site', async () => {
+    await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['warranty_claims', 'warranty_periods'],
+    });
+
+    expect(warrantyClaim.count).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        workshop_order: {
+          tenant_id: TENANT_ID,
+          site_id: SITE_ID,
+          vehicle_id: VEHICLE_ID,
+        },
+      },
+    });
+    expect(vehicleSale.count).toHaveBeenCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        site_id: SITE_ID,
+        vehicle_id: VEHICLE_ID,
+      },
+    });
+  });
+
+  it('does not query warranty tables when the site membership is inactive', async () => {
+    siteContext.findSiteId.mockResolvedValue(null);
+
+    await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['warranty_claims', 'warranty_periods'],
+    });
+
+    expect(warrantyClaim.count).not.toHaveBeenCalled();
+    expect(vehicleSale.count).not.toHaveBeenCalled();
+  });
+
+  it('does not load inspection history when only operational sections are requested', async () => {
+    vehicle.findFirst.mockResolvedValue({
+      id: VEHICLE_ID,
+      make: 'Testmarke',
+      model: 'Modell T',
+      year: 2020,
+      plate: 'W-CTX 1',
+      vin: 'VIN-CTX-1',
+      first_registration_date: new Date('2020-01-15T00:00:00.000Z'),
+    });
+
+    await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['warranty_claims'],
+    });
+
+    expect(vehicle.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.not.objectContaining({
+          inspection_records: expect.anything(),
+        }),
+      }),
+    );
+    expect(vehicleInspectionRecord.findMany).not.toHaveBeenCalled();
+  });
+
+  it('includes Pickerl rule bounds on inspection rows', async () => {
+    vehicleInspectionRecord.findMany.mockResolvedValue([
+      {
+        id: '00000000-0000-4000-8000-0000000000a1',
+        inspection_type: 'PICKERL_57A',
+        inspected_on: new Date('2026-03-01T00:00:00.000Z'),
+        plaketten_valid_until_year: 2028,
+        plaketten_valid_until_month: 3,
+        station_name: 'Pruefstelle Test',
+      },
+    ]);
+    vehicleInspectionRecord.count.mockResolvedValue(1);
+
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      sections: ['inspections'],
+    });
+
+    const inspections = result.sections.inspections;
+    expect(inspections?.state).toBe('ok');
+    if (inspections?.state === 'ok') {
+      expect(inspections.data[0]).toMatchObject({
+        value_source: {
+          table: 'vehicle_inspection_record',
+          resolved_pickerl_rule_id: expect.any(String),
+        },
+        limits: {
+          includes_notes: false,
+          interval_years: expect.arrayContaining([3]),
+          tolerance_months_before: 1,
+          tolerance_months_after: 4,
+        },
+      });
+    }
+  });
+
+  it('fits a large multi-section page within the MCP byte cap', async () => {
+    const rows = (prefix: string) =>
+      Array.from({ length: 25 }, (_, index) => ({
+        id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        order_number: `${prefix}-${index}`,
+        status: 'INTAKE',
+        createdAt: new Date(`2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`),
+      }));
+
+    workshopOrder.findMany.mockResolvedValue(rows('WO'));
+    workshopOrder.count.mockResolvedValue(25);
+    vehicleInspectionRecord.findMany.mockResolvedValue(
+      rows('INSP').map((row, index) => ({
+        id: row.id,
+        inspection_type: 'PICKERL_57A',
+        inspected_on: row.createdAt,
+        plaketten_valid_until_year: 2028,
+        plaketten_valid_until_month: 3,
+        station_name: `Station ${index}`,
+      })),
+    );
+    vehicleInspectionRecord.count.mockResolvedValue(25);
+    warrantyClaim.findMany.mockResolvedValue(
+      rows('WC').map((row) => ({
+        id: row.id,
+        workshop_order_id: row.id,
+        type: 'GEWAEHRLEISTUNG',
+        status: 'DRAFT',
+        claimed_amount_net: null,
+        external_reference: null,
+        createdAt: row.createdAt,
+      })),
+    );
+    warrantyClaim.count.mockResolvedValue(25);
+    vehicleSale.findMany.mockResolvedValue(
+      rows('VS').map((row) => ({
+        id: row.id,
+        sale_number: `S-${row.order_number}`,
+        contract_concluded_at: row.createdAt,
+        handed_over_at: row.createdAt,
+        gewaehrleistung_ends_on: row.createdAt,
+        presumption_ends_on: row.createdAt,
+        gewaehrleistung_rule_version: 'at-used-vehicle-vgg-2026-10-v2',
+        gewaehrleistung_shortened_negotiated: false,
+        buyer_is_consumer: true,
+        createdAt: row.createdAt,
+      })),
+    );
+    vehicleSale.count.mockResolvedValue(25);
+    documentReads.listDocuments.mockResolvedValue({
+      data: Array.from({ length: 25 }, (_, index) => ({
+        id: `invoice:00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        type: 'invoice',
+        name: `invoice-${index}.pdf`,
+        created_at: '2026-10-01T00:00:00.000Z',
+        entity: { type: 'invoice', id: VEHICLE_ID },
+      })),
+      meta: { page_size: 25, next_cursor: encodeMcpKeysetCursor({
+        at: '2026-10-01T00:00:00.000Z',
+        id: VEHICLE_ID,
+      }) },
+      truncated: false,
+    });
+    invoice.count.mockResolvedValue(25);
+
+    const result = await service.getVehicleContext({
+      vehicle_id: VEHICLE_ID,
+      pageSize: 25,
+    });
+
+    expect(Buffer.byteLength(JSON.stringify(result), 'utf8')).toBeLessThanOrEqual(
+      MCP_TOOL_RESULT_MAX_BYTES,
+    );
+    const hasCursor = Object.values(result.sections).some(
+      (section) =>
+        section &&
+        section.state === 'ok' &&
+        'meta' in section &&
+        section.meta?.next_cursor,
+    );
+    expect(hasCursor).toBe(true);
   });
 
   it('does not return warranty claim text fields', async () => {

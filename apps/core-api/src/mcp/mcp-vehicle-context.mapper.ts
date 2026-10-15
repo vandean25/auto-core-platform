@@ -1,7 +1,13 @@
 import type { GewaehrleistungRuleSet } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-rule-sets.js';
 import { resolveGewaehrleistungRuleSet } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-rule-sets.js';
 import { toMcpInspectionRow } from './mcp-order-history.mapper.js';
-import { encodeMcpPositionCursor, type McpKeysetCursor } from './mcp-output.util.js';
+import { resolvePickerlRuleSet } from '../vehicle/pickerl/pickerl-rule-sets.js';
+import {
+  decodeMcpKeysetCursor,
+  encodeMcpKeysetCursor,
+  encodeMcpPositionCursor,
+  type McpKeysetCursor,
+} from './mcp-output.util.js';
 
 /** Finite section allowlist for get_vehicle_context. */
 export const MCP_VEHICLE_CONTEXT_SECTIONS = [
@@ -82,9 +88,15 @@ export function decodeMcpVehicleContextCursor(
   if (typeof at !== 'string' || typeof id !== 'string') {
     return null;
   }
+  const decodedKeyset = decodeMcpKeysetCursor(
+    encodeMcpKeysetCursor({ at, id }),
+  );
+  if (!decodedKeyset) {
+    return null;
+  }
   return {
     section: section as McpVehicleContextPaginatedSection,
-    keyset: { at, id },
+    keyset: decodedKeyset,
   };
 }
 
@@ -133,13 +145,23 @@ type InspectionRecord = {
   station_name: string | null;
 };
 
-export function toMcpVehicleContextInspectionRow(record: InspectionRecord) {
+export function toMcpVehicleContextInspectionRow(
+  record: InspectionRecord,
+  onDate: Date,
+) {
+  const ruleSet = resolvePickerlRuleSet(onDate);
   return {
     ...toMcpInspectionRow(record),
-    value_source: 'vehicle_inspection_record',
+    value_source: {
+      table: 'vehicle_inspection_record',
+      resolved_pickerl_rule_id: ruleSet.id,
+    },
     limits: {
       includes_notes: false,
       sticker_validity_is_month_granularity: true,
+      interval_years: [...ruleSet.intervalYears],
+      tolerance_months_before: ruleSet.tolerance.monthsBefore,
+      tolerance_months_after: ruleSet.tolerance.monthsAfter,
     },
   };
 }
@@ -170,6 +192,7 @@ export function toMcpWarrantyPeriodRow(
     gewaehrleistung_rule_version: string | null;
     gewaehrleistung_shortened_negotiated: boolean | null;
     buyer_is_consumer: boolean | null;
+    createdAt: Date;
   },
   readFields: {
     gewaehrleistung_status: string;
@@ -207,6 +230,7 @@ export function toMcpWarrantyPeriodRow(
     },
     limits: gewaehrleistungRuleLimits(ruleSet),
     document_ref: `vehicle_sale_contract:${sale.id}`,
+    created_at: sale.createdAt.toISOString(),
   };
 }
 

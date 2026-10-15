@@ -199,6 +199,56 @@ const pickerlDueSchema = z.object({
   last_inspected_on: z.string().nullable(),
 });
 
+const vehicleContextInspectionRow = z.object({
+  id: idString,
+  inspection_type: z.string(),
+  inspected_on: isoDateOnly,
+  plaketten_valid_until: yearMonth,
+  station_name: nullableString,
+  value_source: z.object({
+    table: z.literal('vehicle_inspection_record'),
+    resolved_pickerl_rule_id: z.string(),
+  }),
+  limits: z.object({
+    includes_notes: z.literal(false),
+    sticker_validity_is_month_granularity: z.literal(true),
+    interval_years: z.array(z.number().int().min(1)),
+    tolerance_months_before: z.number().int().min(0),
+    tolerance_months_after: z.number().int().min(0),
+  }),
+});
+
+const vehicleContextGewaehrleistungLimits = z
+  .object({
+    base_period_years: z.number().int(),
+    shortened_period_years: z.number().int(),
+    presumption_period_years: z.number().int(),
+    minimum_vehicle_age_years: z.number().int(),
+    scope_note: z.string(),
+  })
+  .nullable();
+
+const vehicleContextWarrantyPeriodRow = z.object({
+  vehicle_sale_id: idString,
+  sale_number: nonEmptyString,
+  contract_concluded_on: isoDateOnly.nullable(),
+  handed_over_on: isoDateOnly.nullable(),
+  gewaehrleistung_status: z.string(),
+  gewaehrleistung_ends_on: isoDateOnly.nullable(),
+  presumption_ends_on: isoDateOnly.nullable(),
+  gewaehrleistung_ends_on_expired: z.boolean(),
+  presumption_ends_on_expired: z.boolean(),
+  shortened_negotiated: z.boolean(),
+  buyer_is_consumer: z.boolean().nullable(),
+  value_source: z.object({
+    persisted_rule_version: nullableString,
+    resolved_rule_set_id: nullableString,
+  }),
+  limits: vehicleContextGewaehrleistungLimits,
+  document_ref: nonEmptyString,
+  created_at: isoDateTime,
+});
+
 /** A vehicle as a link inside another record: identity, model, and plate. */
 const vehicleLinkRow = z.looseObject({
   id: idString,
@@ -947,7 +997,7 @@ export const mcpToolOutputSchemas = {
       inspections: z
         .object({
           state: z.literal('ok'),
-          data: z.array(z.record(z.string(), z.unknown())),
+          data: z.array(vehicleContextInspectionRow),
           meta: totalCursorMeta,
           truncated: z.boolean().optional(),
           incomplete: z.boolean().optional(),
@@ -1000,7 +1050,7 @@ export const mcpToolOutputSchemas = {
         .union([
           z.object({
             state: z.literal('ok'),
-            data: z.array(z.record(z.string(), z.unknown())),
+            data: z.array(vehicleContextWarrantyPeriodRow),
             meta: totalCursorMeta,
             truncated: z.boolean().optional(),
             incomplete: z.boolean().optional(),
