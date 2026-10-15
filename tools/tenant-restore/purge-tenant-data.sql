@@ -39,6 +39,7 @@ VALUES
   ('invoice_sequences'),
   ('labor_categories'),
   ('legal_entities'),
+  ('mcp_write_command_receipts'),
   ('revenue_groups'),
   ('tenant_api_keys'),
   ('tenant_members'),
@@ -276,6 +277,7 @@ VALUES
   ('margin_rules', 'brands', 'brand_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'revenue_groups', 'revenue_group_id', 'id', 'SET NULL', 'CASCADE'),
   ('margin_rules', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('mcp_write_command_receipts', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('notification_outbox', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('notification_outbox', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('part_fitments', 'master_parts', 'master_part_id', 'id', 'CASCADE', 'CASCADE'),
@@ -788,6 +790,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tenant_api_keys"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."revenue_groups"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."mcp_write_command_receipts"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."legal_entities"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

@@ -1355,6 +1355,153 @@ describe('MCP server (e2e)', () => {
     expect(log?.reversible).toBe(true);
   });
 
+  it('AUT-529: replays an AUTO draft_workshop_order with the same command_id', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-idempotent-auto');
+    const commandId = '51500000-0000-4000-8000-000000000529';
+    const traceId = '00000000-0000-4000-8000-000000000529';
+    const notes = `MCP AUT-529 auto replay ${Date.now()}`;
+
+    const first = await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-auto'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle),
+        notes,
+        command_id: commandId,
+      },
+      traceId,
+    );
+    expect(first.isError).not.toBe(true);
+    const firstPayload = parsePayload<{
+      status: string;
+      result: { id: string };
+      replayed?: boolean;
+    }>(first);
+    expect(firstPayload.status).toBe('executed');
+    expect(firstPayload.replayed).toBeUndefined();
+
+    const second = await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-auto-replay'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle),
+        notes,
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-00000000052a',
+    );
+    expect(second.isError).not.toBe(true);
+    const secondPayload = parsePayload<{
+      status: string;
+      result: { id: string };
+      replayed?: boolean;
+      trace_id: string;
+    }>(second);
+    expect(secondPayload.replayed).toBe(true);
+    expect(secondPayload.result.id).toBe(firstPayload.result.id);
+    expect(secondPayload.trace_id).toBe(traceId);
+
+    const orders = await prismaA.workshopOrder.count({
+      where: {
+        customer_id: draftVehicle.customerId,
+        vehicle_id: draftVehicle.vehicleId,
+        notes,
+      },
+    });
+    expect(orders).toBe(1);
+  });
+
+  it('AUT-529: replays propose_line_item with the same command_id', async () => {
+    await setPolicyTier('workshop_order.propose_line', 'PROPOSE');
+    const task = await createOpenTask('AUT-529 propose replay');
+    const commandId = '51500000-0000-4000-8000-00000000052b';
+    const traceId = '00000000-0000-4000-8000-00000000052b';
+
+    const args = {
+      workshop_order_id: fixtures.workshopOrderId,
+      workshop_task_id: task.id,
+      expected_line_items_version: task.line_items_version,
+      command_id: commandId,
+      line_item: {
+        type: 'PART',
+        item_no: 'AUT529',
+        description: 'Idempotent propose line',
+        quantity: 1,
+        unit_price_cents: 100,
+      },
+    };
+
+    const first = await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-propose'),
+      'propose_line_item',
+      args,
+      traceId,
+    );
+    const firstPayload = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      replayed?: boolean;
+    }>(first);
+    expect(firstPayload.status).toBe('needs_approval');
+
+    const second = await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-propose-replay'),
+      'propose_line_item',
+      args,
+      '00000000-0000-4000-8000-00000000052c',
+    );
+    const secondPayload = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      replayed?: boolean;
+      trace_id: string;
+    }>(second);
+    expect(secondPayload.replayed).toBe(true);
+    expect(secondPayload.pending_action_id).toBe(
+      firstPayload.pending_action_id,
+    );
+    expect(secondPayload.trace_id).toBe(traceId);
+
+    expect(
+      await prismaA.workshopTaskLineItem.count({
+        where: { workshop_task_id: task.id },
+      }),
+    ).toBe(0);
+  });
+
+  it('AUT-529: rejects the same command_id with different arguments', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-idempotent-conflict');
+    const commandId = '51500000-0000-4000-8000-00000000052d';
+
+    await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-conflict-a'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle),
+        notes: 'first body',
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-00000000052d',
+    );
+
+    const conflict = await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-conflict-b'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle),
+        notes: 'different body',
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-00000000052e',
+    );
+    expect(conflict.isError).toBe(true);
+    expect(toolPayloadText(conflict)).toContain(
+      'MCP_COMMAND_IDEMPOTENCY_CONFLICT',
+    );
+  });
+
   it('AUT-511: rolls back an AUTO draft when the EXECUTED agent action log insert fails', async () => {
     await setPolicyTier('workshop_order.create', 'AUTO');
     const draftVehicle = await createDraftVehicle('draft-atomic-rollback');

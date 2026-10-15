@@ -140,6 +140,7 @@ model Tenant {
   importMappingProfiles         ImportMappingProfile[]
   agentPolicyRules              AgentPolicyRule[]
   agentProposals                AgentProposal[]
+  mcpWriteCommandReceipts       McpWriteCommandReceipt[]
   vendorArticles                VendorArticle[]
   marginRules                   MarginRule[]
   catalogPriceHistories         CatalogPriceHistory[]
@@ -204,6 +205,34 @@ model AgentProposal {
   @@index([tenant_id, status, createdAt])
   @@index([tenant_id, trace_id])
   @@map("agent_proposals")
+}
+
+enum McpWriteCommandReceiptStatus {
+  IN_FLIGHT
+  COMPLETED
+}
+
+/// Durable idempotency receipt for MCP AUTO/PROPOSE writes keyed by `command_id`.
+model McpWriteCommandReceipt {
+  id                   String                       @id @default(uuid())
+  tenant_id            String
+  tenant               Tenant                       @relation(fields: [tenant_id], references: [id])
+  command_id           String                       @db.Uuid
+  on_behalf_of_user_id String
+  agent_id             String
+  site_id              String?
+  tool_name            String
+  args_fingerprint     String
+  status               McpWriteCommandReceiptStatus @default(IN_FLIGHT)
+  original_trace_id    String                       @db.Uuid
+  response_json        Json?
+  created_at           DateTime                     @default(now())
+  updated_at           DateTime                     @updatedAt
+
+  @@unique([tenant_id, command_id])
+  @@index([tenant_id, on_behalf_of_user_id])
+  @@index([tenant_id, original_trace_id])
+  @@map("mcp_write_command_receipts")
 }
 
 model User {

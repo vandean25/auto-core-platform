@@ -31,6 +31,7 @@ Unknown action keys fail closed. Policy context is built by the executor from th
 - The existing proposal list exposes pending MCP actions in Approvals.
 - MCP `PROPOSE` results return `status: "needs_approval"`, `pending_action_id`, `would_change`, and the simulation summary. The `proposal` object sets `provisional: true`, and each `would_change` item carries `provisional`. Agents should continue planning and must not claim the write is complete.
 - `AUTO` MCP calls retain the existing execute path. Disabled and `HUMAN_ONLY` actions are refused.
+- MCP write tools accept an optional `command_id` (UUID). When set, the server stores a durable `McpWriteCommandReceipt` keyed by `(tenant_id, command_id)` with the on-behalf identity, active site, tool name, argument fingerprint (excluding `command_id`), committed tool result or pending-action id, and original trace id. A retry with the same key and arguments replays the stored outcome (`replayed: true`) after current authorization checks; the same key with a different tool or arguments returns `MCP_COMMAND_IDEMPOTENCY_CONFLICT`. Calls without `command_id` keep their previous semantics.
 
 ## Authorization and apply safety
 

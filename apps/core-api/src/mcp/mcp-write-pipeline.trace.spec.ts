@@ -86,12 +86,23 @@ function buildService(tier: AgentPolicyTier) {
   const agentProposals = {
     persistPendingAction: jest.fn(async () => ({ id: 'pending-1' })),
   };
+  const commandIdempotency = {
+    beginOrReplay: jest.fn(async () => ({
+      kind: 'execute',
+      claim: { receiptId: 'receipt-1', originalTraceId: 'trace-claim' },
+    })),
+    complete: jest.fn(async () => undefined),
+    abandon: jest.fn(async () => undefined),
+  };
+  const requestContext = { getTraceId: () => 'trace-claim' };
   return new McpWritePipelineService(
     prisma as never,
     agentPolicy as never,
     dryRun as never,
     agentActionLog as never,
     agentProposals as never,
+    commandIdempotency as never,
+    requestContext as never,
   );
 }
 

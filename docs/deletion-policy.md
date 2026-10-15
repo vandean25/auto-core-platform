@@ -40,6 +40,7 @@ This document defines when deletion is allowed in Auto Core Platform.
 | AgentActionLog | No | Append-only agent action trace ledger; no update/delete API. |
 | DecisionShadowLog | No | Append-only shadow decision log; no update/delete API. |
 | AgentProposal | No | Retained for audit; soft status change via rejection/approval lifecycle. Never hard-deleted through ordinary APIs; tenant-scoped purge only on tenant deletion. |
+| McpWriteCommandReceipt | No | Durable MCP write idempotency receipt for AUTO/PROPOSE tools. Unique `(tenant_id, command_id)`. Required `created_at`. Never deleted through ordinary APIs; tenant purge only. Unbounded retention until a later spec defines expiry. |
 | Vendor | Conditional | Allow only when no `PurchaseOrder`, no `PurchaseInvoice`, and no `VehiclePurchase` references exist. |
 | Customer | Conditional | Allow only when no `SalesOrder`, `Invoice`, `WorkshopOrder`, linked `Vehicle`, `VehiclePurchase` (as seller), or `VehicleSale` (as buyer). |
 | Vehicle | Conditional | Blocked if linked to any `WorkshopOrder`, `SalesOrder`, `Invoice`, `VehiclePurchase`, `VehicleSale`, `VehicleLedgerEntry`, or `LoanerVehicle` fleet entry. |

@@ -9143,6 +9143,11 @@ export interface components {
             payload_json: {
                 [key: string]: unknown;
             };
+            /**
+             * Format: uuid
+             * @description Optional idempotency key when this submission is orchestrated with MCP command_id semantics.
+             */
+            command_id?: string;
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */

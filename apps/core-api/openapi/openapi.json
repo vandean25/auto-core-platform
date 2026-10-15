@@ -30294,6 +30294,11 @@
           "payload_json": {
             "type": "object",
             "additionalProperties": true
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional idempotency key when this submission is orchestrated with MCP command_id semantics."
           }
         },
         "required": [

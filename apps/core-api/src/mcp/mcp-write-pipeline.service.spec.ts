@@ -7,6 +7,8 @@ import type { AgentPolicyEvaluationResult } from '../agent-policy/agent-policy.t
 import { DryRunService } from '../dry-run/dry-run.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RequestContextService } from '../common/services/request-context.service.js';
+import { McpWriteCommandIdempotencyService } from './mcp-write-command-idempotency.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
@@ -19,6 +21,8 @@ describe('McpWritePipelineService', () => {
   let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
   let mockAgentProposals: jest.Mocked<AgentProposalService>;
   let mockPrisma: { $transaction: jest.Mock };
+  let mockCommandIdempotency: jest.Mocked<McpWriteCommandIdempotencyService>;
+  let mockRequestContext: jest.Mocked<RequestContextService>;
 
   const mockContext: McpWriteToolContext = {
     agentId: 'test-agent',
@@ -67,6 +71,17 @@ describe('McpWritePipelineService', () => {
         callback({ tag: 'tx' }),
       ),
     };
+    mockCommandIdempotency = {
+      beginOrReplay: jest.fn().mockResolvedValue({
+        kind: 'execute',
+        claim: { receiptId: 'receipt-1', originalTraceId: 'trace-claim' },
+      }),
+      complete: jest.fn().mockResolvedValue(undefined),
+      abandon: jest.fn().mockResolvedValue(undefined),
+    } as jest.Mocked<McpWriteCommandIdempotencyService>;
+    mockRequestContext = {
+      getTraceId: jest.fn().mockReturnValue('trace-claim'),
+    } as jest.Mocked<RequestContextService>;
   };
 
   beforeEach(async () => {
@@ -80,6 +95,11 @@ describe('McpWritePipelineService', () => {
         { provide: DryRunService, useValue: mockDryRun },
         { provide: AgentActionLogService, useValue: mockAgentActionLog },
         { provide: AgentProposalService, useValue: mockAgentProposals },
+        {
+          provide: McpWriteCommandIdempotencyService,
+          useValue: mockCommandIdempotency,
+        },
+        { provide: RequestContextService, useValue: mockRequestContext },
       ],
     }).compile();
 

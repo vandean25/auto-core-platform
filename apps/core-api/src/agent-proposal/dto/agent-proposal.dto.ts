@@ -138,6 +138,15 @@ export class SubmitPendingAgentActionDto {
   @ApiProperty({ type: 'object', additionalProperties: true })
   @IsObject()
   payload_json!: Record<string, unknown>;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description:
+      'Optional idempotency key when this submission is orchestrated with MCP command_id semantics.',
+  })
+  @IsOptional()
+  @IsUUID()
+  command_id?: string;
 }
 
 export class AgentProposalEffectiveSummaryDto {
