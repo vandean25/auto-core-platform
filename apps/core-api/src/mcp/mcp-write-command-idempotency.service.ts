@@ -4,7 +4,6 @@ import {
   Injectable,
 } from '@nestjs/common';
 import {
-  AgentPolicyTier,
   AgentProposalStatus,
   McpWriteCommandReceiptStatus,
   Prisma,
@@ -20,6 +19,9 @@ import type {
 
 export const MCP_COMMAND_IDEMPOTENCY_CONFLICT =
   'MCP_COMMAND_IDEMPOTENCY_CONFLICT';
+
+/** Stale IN_FLIGHT rows may be reclaimed after this age. */
+export const MCP_COMMAND_IN_FLIGHT_LEASE_MS = 30_000;
 
 export type McpWriteCommandClaim = {
   receiptId: string;
@@ -38,6 +40,7 @@ type ReceiptRow = {
   status: McpWriteCommandReceiptStatus;
   original_trace_id: string;
   response_json: Prisma.JsonValue | null;
+  updated_at: Date;
 };
 
 @Injectable()
@@ -49,8 +52,7 @@ export class McpWriteCommandIdempotencyService {
   ) {}
 
   /**
-   * Claims a command id or returns a replayable completed result after today's auth checks.
-   * Throws on fingerprint/tool/site/on-behalf mismatch for the same key.
+   * Claims a command id, reclaims a stale IN_FLIGHT row, or returns a replayable result.
    */
   async beginOrReplay(input: {
     commandId: string;
@@ -70,15 +72,12 @@ export class McpWriteCommandIdempotencyService {
     });
 
     if (existing) {
-      return {
-        kind: 'replay',
-        result: await this.replayFromReceipt(existing, {
-          toolName: input.toolName,
-          argsFingerprint: input.argsFingerprint,
-          context: input.context,
-          siteId,
-        }),
-      };
+      return this.handleExistingReceipt(existing, {
+        toolName: input.toolName,
+        argsFingerprint: input.argsFingerprint,
+        context: input.context,
+        siteId,
+      });
     }
 
     try {
@@ -112,24 +111,22 @@ export class McpWriteCommandIdempotencyService {
       if (!raced) {
         throw error;
       }
-      return {
-        kind: 'replay',
-        result: await this.replayFromReceipt(raced, {
-          toolName: input.toolName,
-          argsFingerprint: input.argsFingerprint,
-          context: input.context,
-          siteId,
-        }),
-      };
+      return this.handleExistingReceipt(raced, {
+        toolName: input.toolName,
+        argsFingerprint: input.argsFingerprint,
+        context: input.context,
+        siteId,
+      });
     }
   }
 
-  async complete(
+  async completeInTransaction(
+    transaction: Prisma.TransactionClient,
     claim: McpWriteCommandClaim,
     result: McpWriteToolResult,
   ): Promise<void> {
     const tenantId = await this.tenantContext.getTenantId();
-    await this.prisma.mcpWriteCommandReceipt.updateMany({
+    const updated = await transaction.mcpWriteCommandReceipt.updateMany({
       where: {
         id: claim.receiptId,
         tenant_id: tenantId,
@@ -138,11 +135,14 @@ export class McpWriteCommandIdempotencyService {
       data: {
         status: McpWriteCommandReceiptStatus.COMPLETED,
         original_trace_id: result.trace_id ?? claim.originalTraceId,
-        response_json: JSON.parse(
-          JSON.stringify(result),
-        ) as Prisma.InputJsonValue,
+        response_json: serializeResult(result),
       },
     });
+    if (updated.count !== 1) {
+      throw new ConflictException(
+        'MCP command receipt was not in flight when completing the write',
+      );
+    }
   }
 
   async abandon(claim: McpWriteCommandClaim): Promise<void> {
@@ -156,7 +156,7 @@ export class McpWriteCommandIdempotencyService {
     });
   }
 
-  private async replayFromReceipt(
+  private async handleExistingReceipt(
     receipt: ReceiptRow,
     input: {
       toolName: McpWriteToolName;
@@ -164,29 +164,47 @@ export class McpWriteCommandIdempotencyService {
       context: McpWriteToolContext;
       siteId: string | null;
     },
-  ): Promise<McpWriteToolResult> {
-    this.assertReceiptOwnership(receipt, input);
+  ): Promise<
+    | { kind: 'execute'; claim: McpWriteCommandClaim }
+    | { kind: 'replay'; result: McpWriteToolResult }
+  > {
+    await this.assertReceiptReplayAllowed(receipt, input);
     this.assertReceiptFingerprint(receipt, input);
 
     if (receipt.status === McpWriteCommandReceiptStatus.COMPLETED) {
-      return this.markReplayed(
-        receipt.response_json as unknown as McpWriteToolResult,
-        receipt.original_trace_id,
-      );
+      return {
+        kind: 'replay',
+        result: this.markReplayed(
+          receipt.response_json as unknown as McpWriteToolResult,
+          receipt.original_trace_id,
+        ),
+      };
     }
 
-    const reconciled = await this.reconcileInFlight(receipt);
-    if (reconciled) {
+    const fromProposal = await this.resultFromPendingProposal(receipt);
+    if (fromProposal) {
       await this.prisma.mcpWriteCommandReceipt.update({
         where: { id: receipt.id },
         data: {
           status: McpWriteCommandReceiptStatus.COMPLETED,
-          response_json: JSON.parse(
-            JSON.stringify(reconciled),
-          ) as Prisma.InputJsonValue,
+          response_json: serializeResult(fromProposal),
         },
       });
-      return this.markReplayed(reconciled, receipt.original_trace_id);
+      return {
+        kind: 'replay',
+        result: this.markReplayed(fromProposal, receipt.original_trace_id),
+      };
+    }
+
+    const tenantId = receipt.tenant_id;
+    if (await this.tryReclaimStaleInFlight(receipt.id, tenantId)) {
+      return {
+        kind: 'execute',
+        claim: {
+          receiptId: receipt.id,
+          originalTraceId: receipt.original_trace_id,
+        },
+      };
     }
 
     throw new ConflictException({
@@ -196,22 +214,36 @@ export class McpWriteCommandIdempotencyService {
     });
   }
 
-  private assertReceiptOwnership(
+  private async assertReceiptReplayAllowed(
     receipt: ReceiptRow,
     input: {
       context: McpWriteToolContext;
       siteId: string | null;
     },
-  ): void {
+  ): Promise<void> {
     if (receipt.on_behalf_of_user_id !== input.context.onBehalfOfUserId) {
       throw new ForbiddenException(
         'This command_id belongs to another on-behalf identity.',
       );
     }
-    if (receipt.site_id !== null && receipt.site_id !== input.siteId) {
+
+    if (receipt.site_id === null) {
+      return;
+    }
+
+    const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
+    if (!authorizedSiteIds.includes(receipt.site_id)) {
       throw new ForbiddenException(
-        'This command_id was recorded for a different active site.',
+        'You are no longer authorized for the site this command was recorded against.',
       );
+    }
+
+    if (input.siteId !== null && input.siteId !== receipt.site_id) {
+      throw new ConflictException({
+        code: MCP_COMMAND_IDEMPOTENCY_CONFLICT,
+        message:
+          'The command_id was already used for a different active site context.',
+      });
     }
   }
 
@@ -234,7 +266,7 @@ export class McpWriteCommandIdempotencyService {
     }
   }
 
-  private async reconcileInFlight(
+  private async resultFromPendingProposal(
     receipt: ReceiptRow,
   ): Promise<McpWriteToolResult | null> {
     const proposal = await this.prisma.agentProposal.findFirst({
@@ -244,50 +276,44 @@ export class McpWriteCommandIdempotencyService {
         status: AgentProposalStatus.PENDING,
       },
     });
-    if (proposal) {
-      const preview = (proposal.preview_json ?? {}) as Record<string, unknown>;
-      return {
-        tool: receipt.tool_name as McpWriteToolName,
-        tier: proposal.tier,
-        status: 'needs_approval',
-        would_change: (preview.would_change ??
-          []) as McpWriteToolResult['would_change'],
-        proposal: {
-          payload: proposal.payload_json,
-          would_change: (preview.would_change ??
-            []) as McpWriteToolResult['would_change'],
-          preview: preview.preview,
-          provisional: true,
-        },
-        pending_action_id: proposal.id,
-        trace_id: receipt.original_trace_id,
-      };
+    if (!proposal) {
+      return null;
     }
+    const preview = (proposal.preview_json ?? {}) as Record<string, unknown>;
+    const wouldChange = (preview.would_change ??
+      []) as McpWriteToolResult['would_change'];
+    const proposalBody = {
+      payload: proposal.payload_json,
+      would_change: wouldChange,
+      preview: preview.preview ?? preview.result,
+      provisional: true as const,
+    };
+    return {
+      tool: receipt.tool_name as McpWriteToolName,
+      tier: proposal.tier,
+      status: 'needs_approval',
+      would_change: wouldChange,
+      proposal: proposalBody,
+      pending_action_id: proposal.id,
+      trace_id: receipt.original_trace_id,
+    };
+  }
 
-    const executedLog = await this.prisma.agentActionLog.findFirst({
+  async tryReclaimStaleInFlight(
+    receiptId: string,
+    tenantId: string,
+  ): Promise<boolean> {
+    const cutoff = new Date(Date.now() - MCP_COMMAND_IN_FLIGHT_LEASE_MS);
+    const reclaimed = await this.prisma.mcpWriteCommandReceipt.updateMany({
       where: {
-        tenant_id: receipt.tenant_id,
-        trace_id: receipt.original_trace_id,
-        status: 'EXECUTED',
-        action_type: `mcp.${receipt.tool_name}`,
+        id: receiptId,
+        tenant_id: tenantId,
+        status: McpWriteCommandReceiptStatus.IN_FLIGHT,
+        updated_at: { lt: cutoff },
       },
+      data: { updated_at: new Date() },
     });
-    if (executedLog?.result_summary_json) {
-      const summary = executedLog.result_summary_json as Record<
-        string,
-        unknown
-      >;
-      return {
-        tool: receipt.tool_name as McpWriteToolName,
-        tier: executedLog.tier as AgentPolicyTier,
-        status: 'executed',
-        would_change: [],
-        result: summary,
-        trace_id: receipt.original_trace_id,
-      };
-    }
-
-    return null;
+    return reclaimed.count === 1;
   }
 
   private markReplayed(
@@ -300,6 +326,10 @@ export class McpWriteCommandIdempotencyService {
       replayed: true,
     };
   }
+}
+
+function serializeResult(result: McpWriteToolResult): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue;
 }
 
 function isUniqueConstraintError(error: unknown): boolean {

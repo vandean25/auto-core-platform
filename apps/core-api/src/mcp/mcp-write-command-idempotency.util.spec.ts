@@ -15,7 +15,7 @@ describe('mcp-write-command-idempotency.util', () => {
     });
   });
 
-  it('fingerprints tool args in a stable order', () => {
+  it('fingerprints tool args in a stable order for object keys', () => {
     const a = fingerprintMcpWriteArgs('draft_workshop_order', {
       notes: 'a',
       vehicle_id: 'v1',
@@ -30,5 +30,11 @@ describe('mcp-write-command-idempotency.util', () => {
     });
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+  });
+
+  it('treats array element order as significant', () => {
+    const forward = fingerprintMcpWriteArgs('test', { ids: ['a', 'b'] });
+    const reversed = fingerprintMcpWriteArgs('test', { ids: ['b', 'a'] });
+    expect(forward).not.toBe(reversed);
   });
 });

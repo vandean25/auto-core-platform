@@ -1470,6 +1470,70 @@ describe('MCP server (e2e)', () => {
     ).toBe(0);
   });
 
+  it('AUT-529: returns MCP_COMMAND_IDEMPOTENCY_CONFLICT when the active site differs', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-idempotent-site');
+    const commandId = '51500000-0000-4000-8000-00000000052f';
+
+    await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-site-a'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle, 14),
+        notes: 'site-bound command',
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-00000000052f',
+    );
+
+    const mainSite = await prismaA.site.findFirstOrThrow({
+      where: { id: fixtures.siteId },
+      select: { legal_entity_id: true },
+    });
+    const otherSite = await prismaA.site.create({
+      data: {
+        legal_entity_id: mainSite.legal_entity_id,
+        code: `MCP-IDEM-SITE-${Date.now()}`,
+        name: 'MCP idempotency other site',
+        timezone: 'Europe/Vienna',
+        slot_minutes: 30,
+        holiday_country_iso: 'AT',
+      },
+    });
+    await prismaA.siteMembership.create({
+      data: {
+        tenant_id: tenantA,
+        user_id: tenantAUserId,
+        site_id: otherSite.id,
+        is_active: true,
+      },
+    });
+    await prismaA.user.update({
+      where: { id: tenantAUserId },
+      data: { active_site_id: otherSite.id },
+    });
+
+    const conflict = await callMcpTool(
+      caller(adminHeaderA, 'e2e-aut529-site-b'),
+      'draft_workshop_order',
+      {
+        ...draftOrderArgs(draftVehicle, 14),
+        notes: 'site-bound command',
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-000000000530',
+    );
+    expect(conflict.isError).toBe(true);
+    expect(toolPayloadText(conflict)).toContain(
+      'MCP_COMMAND_IDEMPOTENCY_CONFLICT',
+    );
+
+    await prismaA.user.update({
+      where: { id: tenantAUserId },
+      data: { active_site_id: fixtures.siteId },
+    });
+  });
+
   it('AUT-529: rejects the same command_id with different arguments', async () => {
     await setPolicyTier('workshop_order.create', 'AUTO');
     const draftVehicle = await createDraftVehicle('draft-idempotent-conflict');

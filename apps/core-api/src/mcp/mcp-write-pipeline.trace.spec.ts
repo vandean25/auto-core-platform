@@ -91,10 +91,11 @@ function buildService(tier: AgentPolicyTier) {
       kind: 'execute',
       claim: { receiptId: 'receipt-1', originalTraceId: 'trace-claim' },
     })),
-    complete: jest.fn(async () => undefined),
+    completeInTransaction: jest.fn(async () => undefined),
     abandon: jest.fn(async () => undefined),
   };
   const requestContext = { getTraceId: () => 'trace-claim' };
+  const tenantContext = { getTenantId: async () => 'tenant-1' };
   return new McpWritePipelineService(
     prisma as never,
     agentPolicy as never,
@@ -103,6 +104,7 @@ function buildService(tier: AgentPolicyTier) {
     agentProposals as never,
     commandIdempotency as never,
     requestContext as never,
+    tenantContext as never,
   );
 }
 

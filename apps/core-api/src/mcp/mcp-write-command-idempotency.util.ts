@@ -31,7 +31,7 @@ export function fingerprintMcpWriteArgs(
 
 function canonicalize(value: unknown): string {
   if (Array.isArray(value)) {
-    const elements = value.map(canonicalize).sort();
+    const elements = value.map(canonicalize);
     return `[${elements.join(',')}]`;
   }
   if (value && typeof value === 'object') {

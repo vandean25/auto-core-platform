@@ -9145,7 +9145,7 @@ export interface components {
             };
             /**
              * Format: uuid
-             * @description Optional idempotency key when this submission is orchestrated with MCP command_id semantics.
+             * @description Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).
              */
             command_id?: string;
         };
