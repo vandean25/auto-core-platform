@@ -7,6 +7,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { AppModule } from '../src/app.module.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { AgentActionLogService } from '../src/agent-action-log/agent-action-log.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import {
   MCP_READ_TOOL_NAMES,
@@ -1360,23 +1361,27 @@ describe('MCP server (e2e)', () => {
     const notes = `MCP AUT-511 rollback ${Date.now()}`;
     const traceId = '00000000-0000-4000-8000-000000000511';
 
-    const realCreate = prisma.agentActionLog.create.bind(prisma.agentActionLog);
-    const createSpy = jest
-      .spyOn(prisma.agentActionLog, 'create')
-      .mockImplementation(async (args) => {
-        const data = args.data as {
-          action_type?: string;
-          status?: string;
-          trace_id?: string;
+    const agentActionLog = app.get(AgentActionLogService);
+    const realRecordInTransaction =
+      agentActionLog.recordInTransaction.bind(agentActionLog);
+    const recordSpy = jest
+      .spyOn(agentActionLog, 'recordInTransaction')
+      .mockImplementation(async (input, tx, work, metadata) => {
+        const inputSummary = input.inputSummary as {
+          tool?: string;
+          args?: { notes?: string };
         };
         if (
-          data.status === 'EXECUTED' &&
-          data.action_type === 'mcp.draft_workshop_order' &&
-          data.trace_id === traceId
+          input.status === 'EXECUTED' &&
+          inputSummary.tool === 'draft_workshop_order' &&
+          inputSummary.args?.notes === notes
         ) {
+          if (work) {
+            await work();
+          }
           throw new Error('simulated EXECUTED log insert failure');
         }
-        return realCreate(args);
+        return realRecordInTransaction(input, tx, work, metadata);
       });
 
     try {
@@ -1410,7 +1415,7 @@ describe('MCP server (e2e)', () => {
       });
       expect(executedLogs).toBe(0);
     } finally {
-      createSpy.mockRestore();
+      recordSpy.mockRestore();
     }
   });
 
