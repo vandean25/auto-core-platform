@@ -44,6 +44,16 @@ describe('client-safe HTTP error codes', () => {
     }
   });
 
+  it('lists the Gewährleistung shortening codes so the sale form can point at the Verkürzung field', () => {
+    for (const code of [
+      'GEWAEHRLEISTUNG_FIRST_REGISTRATION_REQUIRED',
+      'GEWAEHRLEISTUNG_SHORTENING_VEHICLE_TOO_NEW',
+      'GEWAEHRLEISTUNG_SHORTENING_REQUIRES_CONSUMER',
+    ]) {
+      expect(CLIENT_SAFE_HTTP_ERROR_CODES.has(code)).toBe(true);
+    }
+  });
+
   it('forwards no detail fields for codes outside the allowlist', () => {
     expect(
       pickClientSafeHttpErrorDetails({ code: 'SOMETHING_ELSE', orderId: 'wo-live' }),
