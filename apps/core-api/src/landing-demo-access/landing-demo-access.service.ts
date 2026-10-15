@@ -33,6 +33,7 @@ import {
   hashClientIp,
   hashDemoEmail,
   isLandingDemoHoneypotTriggered,
+  isLandingDemoSingleLineText,
   normalizeDemoEmail,
 } from './demo-role-restrictions.js';
 import {
@@ -122,14 +123,18 @@ export class LandingDemoAccessService {
         message: 'Name und Betrieb sind erforderlich.',
       });
     }
+    if (
+      !isLandingDemoSingleLineText(name) ||
+      !isLandingDemoSingleLineText(betrieb)
+    ) {
+      throw new UnprocessableEntityException({
+        code: 'LANDING_DEMO_INVALID_REQUEST',
+        message: 'Name und Betrieb dürfen keine Zeilenumbrüche enthalten.',
+      });
+    }
 
-    const existingUser = await this.systemPrisma.user.findFirst({
-      where: { email: normalizedEmail },
-      select: { id: true },
-    });
     const skipProvisioning =
-      existingUser !== null &&
-      (await this.demoGrants.userHasNonDemoActiveMembership(existingUser.id));
+      await this.shouldSkipProvisioningForExistingAccount(normalizedEmail);
 
     const accessRequest =
       await this.systemPrisma.landingDemoAccessRequest.create({
@@ -318,6 +323,52 @@ export class LandingDemoAccessService {
     });
   }
 
+  private async shouldSkipProvisioningForExistingAccount(
+    normalizedEmail: string,
+  ): Promise<boolean> {
+    const firebaseAuth = getFirebaseAdminAuth();
+    const firebaseUser = await firebaseAuth
+      .getUserByEmail(normalizedEmail)
+      .catch(() => null);
+
+    if (
+      firebaseUser?.email &&
+      normalizeDemoEmail(firebaseUser.email) !== normalizedEmail
+    ) {
+      return true;
+    }
+
+    if (firebaseUser) {
+      const linkedByUid = await this.systemPrisma.user.findFirst({
+        where: { firebaseUid: firebaseUser.uid },
+        select: { id: true, email: true },
+      });
+      if (linkedByUid) {
+        if (normalizeDemoEmail(linkedByUid.email) !== normalizedEmail) {
+          return true;
+        }
+        if (
+          await this.demoGrants.userHasNonDemoActiveMembership(linkedByUid.id)
+        ) {
+          return true;
+        }
+      }
+    }
+
+    const existingUser = await this.systemPrisma.user.findFirst({
+      where: { email: normalizedEmail },
+      select: { id: true },
+    });
+    if (
+      existingUser !== null &&
+      (await this.demoGrants.userHasNonDemoActiveMembership(existingUser.id))
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   private async assertRateLimits(
     email: string,
     ip: string | null,
@@ -372,6 +423,23 @@ export class LandingDemoAccessService {
       .getUserByEmail(input.email)
       .catch(() => null);
 
+    const linkedBeforeCreate = firebaseUser
+      ? await this.systemPrisma.user.findFirst({
+          where: { firebaseUid: firebaseUser.uid },
+          select: { id: true, email: true },
+        })
+      : null;
+
+    if (
+      linkedBeforeCreate &&
+      normalizeDemoEmail(linkedBeforeCreate.email) !== input.email
+    ) {
+      throw new UnprocessableEntityException({
+        code: 'LANDING_DEMO_ACCOUNT_CONFLICT',
+        message: 'Demo access cannot be provisioned for this email.',
+      });
+    }
+
     if (!firebaseUser) {
       firebaseUser = await firebaseAuth.createUser({
         email: input.email,
@@ -390,6 +458,17 @@ export class LandingDemoAccessService {
         OR: [{ firebaseUid: firebaseUser.uid }, { email: input.email }],
       },
     });
+
+    if (
+      user &&
+      normalizeDemoEmail(user.email) !== input.email &&
+      (await this.demoGrants.userHasNonDemoActiveMembership(user.id))
+    ) {
+      throw new UnprocessableEntityException({
+        code: 'LANDING_DEMO_ACCOUNT_CONFLICT',
+        message: 'Demo access cannot be provisioned for this email.',
+      });
+    }
 
     const isNewUser = !user;
     if (!user) {

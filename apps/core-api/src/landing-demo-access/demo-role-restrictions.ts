@@ -20,11 +20,7 @@ const DEMO_MUTATION_ALLOWED_PREFIXES = [
   '/api/workshop/loaner-bookings',
   '/api/catalog',
   '/api/inventory',
-  '/api/labor',
-  '/api/brands',
   '/api/bays',
-  '/api/tyre-sets',
-  '/api/stock-transfers',
   '/api/mechanic',
   '/api/parts-reservations',
   '/api/parts-requisitions',
@@ -71,7 +67,15 @@ const DEMO_MUTATION_BLOCKED_SUBSTRINGS = [
   '/pay',
   '/issue',
   '/invite',
+  '/create-invoice',
+  '/create-purchase-order',
+  '/tyre-sets/settings',
+  '/labor/operations',
+  '/stock-transfers/',
+  '/approve',
 ] as const;
+
+const SINGLE_LINE_PATTERN = /^[^\r\n]*$/;
 
 export function hashClientIp(ip: string | null | undefined): string | null {
   const normalized = ip?.trim();
@@ -93,6 +97,10 @@ export function isLandingDemoHoneypotTriggered(
   website?: string | null,
 ): boolean {
   return Boolean(website && website.trim() !== '');
+}
+
+export function isLandingDemoSingleLineText(value: string): boolean {
+  return SINGLE_LINE_PATTERN.test(value);
 }
 
 function normalizeDemoRequestPath(path: string): string {

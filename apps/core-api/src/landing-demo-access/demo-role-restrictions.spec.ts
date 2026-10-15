@@ -53,6 +53,29 @@ describe('demo-role-restrictions', () => {
     expect(isDemoMutationAllowed('POST', '/api/import/jobs')).toBe(false);
   });
 
+  it('blocks procurement, settings, and draft-invoice sandbox escapes', () => {
+    expect(isDemoMutationAllowed('PUT', '/api/tyre-sets/settings')).toBe(
+      false,
+    );
+    expect(isDemoMutationAllowed('POST', '/api/labor/operations')).toBe(false);
+    expect(isDemoMutationAllowed('POST', '/api/brands')).toBe(false);
+    expect(
+      isDemoMutationAllowed(
+        'POST',
+        '/api/parts-requisitions/abc/create-purchase-order',
+      ),
+    ).toBe(false);
+    expect(
+      isDemoMutationAllowed('POST', '/api/stock-transfers/abc/approve'),
+    ).toBe(false);
+    expect(
+      isDemoMutationAllowed(
+        'POST',
+        '/api/workshop/orders/abc/create-invoice',
+      ),
+    ).toBe(false);
+  });
+
   it('detects honeypot submissions', () => {
     expect(isLandingDemoHoneypotTriggered('')).toBe(false);
     expect(isLandingDemoHoneypotTriggered(undefined)).toBe(false);

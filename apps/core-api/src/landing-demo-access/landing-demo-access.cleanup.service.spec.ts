@@ -1,10 +1,26 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, jest, beforeEach } from '@jest/globals';
 import { TenantMemberRole } from '@prisma/client';
-import { LandingDemoAccessCleanupService } from './landing-demo-access.cleanup.service.js';
 import type { SystemPrismaService } from '../prisma/system-prisma.service.js';
 
+const updateUser = jest.fn<() => Promise<void>>();
+const getFirebaseAdminAuth = jest.fn(() => ({ updateUser }));
+
+jest.unstable_mockModule('../auth/firebase-admin.js', () => ({
+  getFirebaseAdminAuth: () => getFirebaseAdminAuth(),
+}));
+
+const { LandingDemoAccessCleanupService } = await import(
+  './landing-demo-access.cleanup.service.js'
+);
+
 describe('LandingDemoAccessCleanupService', () => {
-  it('checks remaining active memberships before disabling Firebase', async () => {
+  beforeEach(() => {
+    updateUser.mockReset();
+    updateUser.mockResolvedValue(undefined);
+    getFirebaseAdminAuth.mockClear();
+  });
+
+  it('disables Firebase only when no other active memberships remain', async () => {
     const tenantMemberUpdate = jest.fn().mockResolvedValue({});
     const tenantMemberCount = jest
       .fn()
@@ -40,17 +56,7 @@ describe('LandingDemoAccessCleanupService', () => {
       }),
     );
     expect(tenantMemberUpdate).toHaveBeenCalledTimes(2);
-    expect(tenantMemberCount).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: { user_id: 'u-1', is_active: true },
-      }),
-    );
-    expect(tenantMemberCount).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        where: { user_id: 'u-2', is_active: true },
-      }),
-    );
+    expect(updateUser).toHaveBeenCalledTimes(1);
+    expect(updateUser).toHaveBeenCalledWith('fb-2', { disabled: true });
   });
 });

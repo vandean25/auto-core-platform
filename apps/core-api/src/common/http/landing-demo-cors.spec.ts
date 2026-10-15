@@ -79,4 +79,29 @@ describe('configureHttpCors', () => {
     );
     expect(res.headers['access-control-allow-credentials']).toBeUndefined();
   });
+
+  it('does not apply landing CORS to other API routes', async () => {
+    const app = createMockApp();
+    configureHttpCors(app as never, {
+      dashboardOrigins: ['https://app.example.com'],
+      landingPageOrigins: ['https://landing-demo.web.app'],
+    });
+
+    const req = {
+      method: 'POST',
+      originalUrl: '/api/customers',
+      url: '/api/customers',
+      headers: { origin: 'https://landing-demo.web.app' },
+    } as Request;
+
+    const res = createMockResponse();
+
+    await new Promise<void>((resolve) => {
+      app.handlers[0](req, res, resolve);
+    });
+
+    expect(res.headers['access-control-allow-origin']).not.toBe(
+      'https://landing-demo.web.app',
+    );
+  });
 });
