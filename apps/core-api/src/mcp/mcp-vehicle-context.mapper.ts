@@ -210,16 +210,3 @@ export function toMcpWarrantyPeriodRow(
   };
 }
 
-export function keysetCursorFromRow(
-  createdAt: Date,
-  id: string,
-): McpKeysetCursor {
-  return { at: createdAt.toISOString(), id };
-}
-
-export function encodeSectionNextCursor(
-  section: McpVehicleContextPaginatedSection,
-  keyset: McpKeysetCursor,
-): string {
-  return encodeMcpVehicleContextCursor({ section, keyset });
-}
