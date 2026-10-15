@@ -3,6 +3,7 @@ import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.m
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { SiteModule } from '../site/site.module.js';
 import { WorkshopModule } from '../workshop/workshop.module.js';
+import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { PendingActionExecutorService } from './pending-action-executor.service.js';
 
@@ -11,6 +12,7 @@ import { PendingActionExecutorService } from './pending-action-executor.service.
     PrismaModule,
     SiteModule,
     WorkshopModule,
+    LoanerVehiclesModule,
     PartsRequisitionModule,
     RegistrationIntakeModule,
   ],

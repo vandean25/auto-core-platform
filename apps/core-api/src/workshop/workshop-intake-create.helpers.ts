@@ -134,7 +134,7 @@ async function findPickerlDuplicateAfterConflict(
   return findPickerlDuplicate(prisma, tenantId, siteId, dto);
 }
 
-async function authorizeAndResolveCreateSite(
+export async function authorizeAndResolveCreateSite(
   services: {
     tenantContext: TenantContextService;
     siteContext: SiteContextService;

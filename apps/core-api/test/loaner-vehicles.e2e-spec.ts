@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -775,6 +776,376 @@ describe('Loaner vehicles (e2e)', () => {
     expect(response.body.code ?? response.body.message).toEqual(
       expect.stringMatching(new RegExp(LOANER_FLEET_DELETE_BLOCKED)),
     );
+  });
+
+  describe('AUT-535 workshop.booking_package acceptance', () => {
+    beforeEach(async () => {
+      await request(app.getHttpServer())
+        .put('/api/agent-policy/rules/workshop.booking_package')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ tier: 'PROPOSE', enabled: true })
+        .expect(200);
+    });
+
+    async function createPackageBay(name: string) {
+      return prisma.bay.create({
+        data: { site_id: siteId, name, is_active: true },
+      });
+    }
+
+    async function createPackageVehicle(plate: string) {
+      return prisma.vehicle.create({
+        data: {
+          customer_id: customerId,
+          make: 'Seat',
+          model: 'Leon',
+          year: 2019,
+          plate,
+        },
+      });
+    }
+
+    function bookingWindow(dayOffset: number) {
+      const from = new Date('2026-12-01T08:00:00.000Z');
+      from.setUTCDate(from.getUTCDate() + dayOffset);
+      const to = new Date(from.getTime() + 2 * 60 * 60 * 1000);
+      return { from: from.toISOString(), to: to.toISOString() };
+    }
+
+    function packagePayload(input: {
+      vehicleId: string;
+      bayId: string;
+      from: string;
+      to: string;
+      withLoaner?: boolean;
+      extra?: Record<string, unknown>;
+    }) {
+      const base: Record<string, unknown> = {
+        customer_id: customerId,
+        vehicle_id: input.vehicleId,
+        bay_id: input.bayId,
+        scheduled_start_at: input.from,
+        scheduled_end_at: input.to,
+        ...input.extra,
+      };
+      if (input.withLoaner) {
+        base.loaner_vehicle_id = loanerVehicleId;
+        base.planned_from = input.from;
+        base.planned_to = input.to;
+      }
+      return base;
+    }
+
+    function submitPackage(payload: Record<string, unknown>) {
+      return request(app.getHttpServer())
+        .post('/api/agent-proposals/submit')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          action_type: 'workshop.booking_package',
+          payload_json: payload,
+        });
+    }
+
+    async function countSiteOrders() {
+      return prisma.workshopOrder.count({
+        where: { tenant_id: tenant.tenantId, site_id: siteId },
+      });
+    }
+
+    async function countSiteBookings() {
+      return prisma.loanerBooking.count({
+        where: {
+          tenant_id: tenant.tenantId,
+          loaner_vehicle: { site_id: siteId },
+        },
+      });
+    }
+
+    it('apply creates SCHEDULED order and RESERVED loaner linked together', async () => {
+      const bay = await createPackageBay('Package Bay');
+      const vehicle = await createPackageVehicle('W-PKG-535');
+      const { from, to } = bookingWindow(0);
+      const submitted = await submitPackage(
+        packagePayload({
+          vehicleId: vehicle.id,
+          bayId: bay.id,
+          from,
+          to,
+          withLoaner: true,
+        }),
+      ).expect(201);
+
+      expect(
+        await prisma.workshopOrder.findFirst({
+          where: { vehicle_id: vehicle.id },
+        }),
+      ).toBeNull();
+
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      const order = await prisma.workshopOrder.findFirst({
+        where: { vehicle_id: vehicle.id },
+      });
+      expect(order?.status).toBe('SCHEDULED');
+      const booking = await prisma.loanerBooking.findFirst({
+        where: { workshop_order_id: order!.id },
+      });
+      expect(booking?.status).toBe('RESERVED');
+      expect(booking?.loaner_vehicle_id).toBe(loanerVehicleId);
+    });
+
+    it('rejects a partial loaner payload without creating order or booking rows', async () => {
+      const bay = await createPackageBay('Partial loaner bay');
+      const vehicle = await createPackageVehicle('W-PARTIAL');
+      const { from, to } = bookingWindow(1);
+      const ordersBefore = await countSiteOrders();
+      const bookingsBefore = await countSiteBookings();
+
+      await submitPackage({
+        customer_id: customerId,
+        vehicle_id: vehicle.id,
+        bay_id: bay.id,
+        schedule: { start_at: from, end_at: to },
+        loaner: {
+          loaner_vehicle_id: loanerVehicleId,
+          planned_from: from,
+        },
+      }).expect(400);
+
+      expect(await countSiteOrders()).toBe(ordersBefore);
+      expect(await countSiteBookings()).toBe(bookingsBefore);
+    });
+
+    it('returns not found for foreign customer, vehicle, bay, and loaner ids', async () => {
+      const bay = await createPackageBay('Foreign id bay');
+      const vehicle = await createPackageVehicle('W-FOREIGN-PKG');
+      const { from, to } = bookingWindow(2);
+      const foreignId = randomUUID();
+
+      await submitPackage(
+        packagePayload({
+          vehicleId: vehicle.id,
+          bayId: bay.id,
+          from,
+          to,
+          extra: { customer_id: foreignId },
+        }),
+      ).expect(404);
+
+      await submitPackage(
+        packagePayload({
+          vehicleId: foreignId,
+          bayId: bay.id,
+          from,
+          to,
+        }),
+      ).expect(404);
+
+      await submitPackage(
+        packagePayload({
+          vehicleId: vehicle.id,
+          bayId: foreignId,
+          from,
+          to,
+        }),
+      ).expect(404);
+
+      await submitPackage(
+        packagePayload({
+          vehicleId: vehicle.id,
+          bayId: bay.id,
+          from,
+          to,
+          extra: {
+            loaner_vehicle_id: foreignId,
+            planned_from: from,
+            planned_to: to,
+          },
+        }),
+      ).expect(404);
+    });
+
+    it('refuses apply when the active site changed after simulation', async () => {
+      const bay = await createPackageBay('Site switch bay');
+      const vehicle = await createPackageVehicle('W-SITE-SW');
+      const { from, to } = bookingWindow(3);
+      const submitted = await submitPackage(
+        packagePayload({ vehicleId: vehicle.id, bayId: bay.id, from, to }),
+      ).expect(201);
+
+      await runWithTenantContext(tenant.tenantId, async () => {
+        await basePrisma.user.update({
+          where: { id: adminUserId },
+          data: { active_site_id: otherSiteId },
+        });
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(422);
+
+      await runWithTenantContext(tenant.tenantId, async () => {
+        await basePrisma.user.update({
+          where: { id: adminUserId },
+          data: { active_site_id: siteId },
+        });
+      });
+      expect(
+        await prisma.workshopOrder.findFirst({
+          where: { vehicle_id: vehicle.id },
+        }),
+      ).toBeNull();
+    });
+
+    it('refuses apply when the simulation site was deactivated', async () => {
+      const bay = await createPackageBay('Deactivated site bay');
+      const vehicle = await createPackageVehicle('W-SITE-OFF');
+      const { from, to } = bookingWindow(4);
+      const submitted = await submitPackage(
+        packagePayload({ vehicleId: vehicle.id, bayId: bay.id, from, to }),
+      ).expect(201);
+
+      await prisma.site.updateMany({
+        where: { id: siteId, tenant_id: tenant.tenantId },
+        data: { is_active: false },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(422);
+
+      await prisma.site.updateMany({
+        where: { id: siteId, tenant_id: tenant.tenantId },
+        data: { is_active: true },
+      });
+    });
+
+    it('refuses apply on an expired proposal', async () => {
+      const bay = await createPackageBay('Expired proposal bay');
+      const vehicle = await createPackageVehicle('W-EXPIRED');
+      const { from, to } = bookingWindow(5);
+      const submitted = await submitPackage(
+        packagePayload({ vehicleId: vehicle.id, bayId: bay.id, from, to }),
+      ).expect(201);
+
+      await prisma.agentProposal.updateMany({
+        where: { id: submitted.body.id, tenant_id: tenant.tenantId },
+        data: { expires_at: new Date(Date.now() - 60_000) },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(422);
+    });
+
+    it('allows only one successful apply under concurrent approval', async () => {
+      const bay = await createPackageBay('Double apply bay');
+      const vehicle = await createPackageVehicle('W-DBL-APPLY');
+      const { from, to } = bookingWindow(6);
+      const submitted = await submitPackage(
+        packagePayload({ vehicleId: vehicle.id, bayId: bay.id, from, to }),
+      ).expect(201);
+
+      const [first, second] = await Promise.all([
+        request(app.getHttpServer())
+          .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+          .set('Authorization', `Bearer ${authToken}`),
+        request(app.getHttpServer())
+          .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+          .set('Authorization', `Bearer ${authToken}`),
+      ]);
+      const statuses = [first.status, second.status];
+      expect(statuses.some((status) => status === 200)).toBe(true);
+      expect(statuses).not.toContain(409);
+      expect(statuses.every((status) => status === 200)).toBe(true);
+      expect(
+        await prisma.workshopOrder.count({
+          where: { vehicle_id: vehicle.id },
+        }),
+      ).toBe(1);
+    });
+
+    it('returns 409 on bay conflict after preview without new rows', async () => {
+      const bay = await createPackageBay('Bay conflict');
+      const vehicle = await createPackageVehicle('W-BAY-CONF');
+      const blocker = await createPackageVehicle('W-BAY-BLOCK');
+      const { from, to } = bookingWindow(7);
+      const submitted = await submitPackage(
+        packagePayload({ vehicleId: vehicle.id, bayId: bay.id, from, to }),
+      ).expect(201);
+
+      const ordersBefore = await countSiteOrders();
+      await prisma.workshopOrder.create({
+        data: {
+          site_id: siteId,
+          customer_id: customerId,
+          vehicle_id: blocker.id,
+          order_number: `WO-BLOCK-${Date.now()}`,
+          status: 'SCHEDULED',
+          bay_id: bay.id,
+          scheduled_start_at: new Date(from),
+          scheduled_end_at: new Date(to),
+          odometer: 1000,
+          fuel_level: 50,
+        },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(409);
+
+      expect(await countSiteOrders()).toBe(ordersBefore + 1);
+      expect(
+        await prisma.workshopOrder.findFirst({
+          where: { vehicle_id: vehicle.id },
+        }),
+      ).toBeNull();
+    });
+
+    it('returns 409 on loaner overlap after preview without new rows', async () => {
+      const bay = await createPackageBay('Loaner conflict');
+      const vehicle = await createPackageVehicle('W-LOAN-CONF');
+      const { from, to } = bookingWindow(8);
+      const submitted = await submitPackage(
+        packagePayload({
+          vehicleId: vehicle.id,
+          bayId: bay.id,
+          from,
+          to,
+          withLoaner: true,
+        }),
+      ).expect(201);
+
+      const bookingsBefore = await countSiteBookings();
+      await createReservedBooking({ plannedFrom: from, plannedTo: to });
+
+      await request(app.getHttpServer())
+        .post(`/api/agent-proposals/${submitted.body.id}/apply`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(409);
+
+      expect(await countSiteBookings()).toBe(bookingsBefore + 1);
+      expect(
+        await prisma.workshopOrder.findFirst({
+          where: { vehicle_id: vehicle.id },
+        }),
+      ).toBeNull();
+      expect(
+        await prisma.loanerBooking.findFirst({
+          where: {
+            loaner_vehicle_id: loanerVehicleId,
+            workshop_order: { vehicle_id: vehicle.id },
+          },
+        }),
+      ).toBeNull();
+    });
   });
 
   it('marks a reserved booking as no-show', async () => {

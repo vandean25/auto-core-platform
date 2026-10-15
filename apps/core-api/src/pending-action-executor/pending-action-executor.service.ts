@@ -30,9 +30,11 @@ import {
 import { DOCUMENT_SORT_TYPES } from '../decision/decision.constants.js';
 import { RegistrationIntakeApplyService } from '../registration-intake/registration-intake-apply.service.js';
 import { proposeRegistrationIntakeInputSchema } from '../mcp/mcp-tool-schemas.js';
+import { WorkshopBookingPackageService } from '../workshop/workshop-booking-package.service.js';
 
 export type PendingActionType =
   | 'workshop_order.create'
+  | 'workshop.booking_package'
   | 'workshop_task.reserve_part'
   | 'inventory.part_reserve'
   | 'workshop_task.release_reservation'
@@ -69,6 +71,7 @@ export class PendingActionExecutorService {
     private readonly workshopIntake: WorkshopIntakeService,
     private readonly partsRequisition: PartsRequisitionService,
     private readonly registrationIntakeApply: RegistrationIntakeApplyService,
+    private readonly workshopBookingPackage: WorkshopBookingPackageService,
   ) {}
 
   resolve(actionType: string): PendingActionExecutor {
@@ -203,6 +206,27 @@ export class PendingActionExecutorService {
           buildLogMetadata: (result) => ({
             entityType: 'Vehicle',
             entityId: (result as { vehicleId: string }).vehicleId,
+            reversible: true,
+          }),
+        };
+      case 'workshop.booking_package':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          buildExecutionContext: () =>
+            this.workshopBookingPackage.buildExecutionContext(),
+          execute: (input, context) =>
+            this.workshopBookingPackage.applyPackage(input, context),
+          buildResultSummary: (result) => ({
+            workshop_order_id: (result as { workshop_order_id: string })
+              .workshop_order_id,
+            loaner_booking_id: (result as { loaner_booking_id?: string })
+              .loaner_booking_id,
+          }),
+          buildLogMetadata: (result) => ({
+            entityType: 'WorkshopOrder',
+            entityId: (result as { workshop_order_id: string })
+              .workshop_order_id,
             reversible: true,
           }),
         };

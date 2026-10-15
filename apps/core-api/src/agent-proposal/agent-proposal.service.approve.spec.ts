@@ -10,9 +10,18 @@ describe('AgentProposalService approve', () => {
   let mockAgentActionLog: any;
   let mockSiteContext: any;
   let mockWorkshopIntake: any;
+  let mockWorkshopBookingPackage: any;
 
   beforeEach(() => {
-    ({ service, mockPrisma, mockAgentPolicyService, mockAgentActionLog, mockSiteContext, mockWorkshopIntake } = createAgentProposalSpecHarness());
+    ({
+      service,
+      mockPrisma,
+      mockAgentPolicyService,
+      mockAgentActionLog,
+      mockSiteContext,
+      mockWorkshopIntake,
+      mockWorkshopBookingPackage,
+    } = createAgentProposalSpecHarness());
   });
 
   describe('approveProposal: policy gates and claim', () => {
@@ -32,6 +41,23 @@ describe('AgentProposalService approve', () => {
       );
       expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
       expect(mockWorkshopIntake.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses workshop booking package apply when the active site differs from the simulation site', async () => {
+      mockSiteContext.getSiteId.mockResolvedValue('site-2');
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(
+        createMockProposal({
+          action_type: 'workshop.booking_package',
+          preview_json: {
+            execution_context: { site_id: 'site-1' },
+          },
+        }),
+      );
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Select the site where this action was simulated before applying it',
+      );
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalled();
     });
 
     it('re-evaluates policy, atomically locks, executes payload, logs action, and marks EXECUTED', async () => {
@@ -156,6 +182,35 @@ describe('AgentProposalService approve', () => {
         }),
       );
     });
+
+    it('rolls back workshop.booking_package execution when the action log cannot be persisted', async () => {
+      const proposal = createMockProposal({
+        action_type: 'workshop.booking_package',
+        preview_json: { execution_context: { site_id: 'site-1' } },
+      });
+      mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);
+      mockPrisma.agentProposal.updateMany.mockResolvedValue({ count: 1 });
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_input, _transaction, work) => {
+          if (work) await work();
+          throw new Error('Audit storage unavailable');
+        },
+      );
+
+      await expect(service.approveProposal(proposalId)).rejects.toThrow(
+        'Audit storage unavailable',
+      );
+
+      expect(mockWorkshopBookingPackage.applyPackage).toHaveBeenCalled();
+      expect(mockPrisma.agentProposal.updateMany).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: AgentProposalStatus.EXECUTED,
+          }),
+        }),
+      );
+    });
+
     it('refuses approval when policy re-evaluation returns HUMAN_ONLY with clear message', async () => {
       const proposal = createMockProposal();
       mockPrisma.agentProposal.findFirst.mockResolvedValue(proposal);

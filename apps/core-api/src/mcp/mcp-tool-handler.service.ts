@@ -160,6 +160,7 @@ export class McpToolHandlerService {
       release_reservation: 'inventory.part_release',
       propose_line_item: 'workshop_order.propose_line',
       propose_registration_intake: 'registration_intake.apply',
+      propose_workshop_booking: 'workshop.booking_package',
     };
     const executor = this.pendingActionExecutors.resolve(
       actionTypeByTool[toolName],
@@ -187,6 +188,7 @@ const MCP_WRITE_TOOL_NAME_SET = new Set<string>([
   'release_reservation',
   'propose_line_item',
   'propose_registration_intake',
+  'propose_workshop_booking',
 ]);
 
 function isWriteTool(toolName: McpToolName): toolName is McpWriteToolName {

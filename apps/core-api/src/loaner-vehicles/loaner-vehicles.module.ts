@@ -9,6 +9,6 @@ import { LoanerVehiclesService } from './loaner-vehicles.service.js';
   imports: [PrismaModule],
   controllers: [LoanerVehiclesController, LoanerBookingsController],
   providers: [LoanerVehiclesService, LoanerVehiclesAuthorization],
-  exports: [LoanerVehiclesService],
+  exports: [LoanerVehiclesService, LoanerVehiclesAuthorization],
 })
 export class LoanerVehiclesModule {}
