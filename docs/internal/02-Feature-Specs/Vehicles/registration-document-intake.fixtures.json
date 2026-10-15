@@ -284,6 +284,13 @@
       "documentKind": "AT_ZULASSUNGSSCHEIN",
       "side": "FRONT",
       "tenantRows": {
+        "customers": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000c1",
+            "first_name": "pilot",
+            "last_name": "customer"
+          }
+        ],
         "vehicles": [
           {
             "id": "00000000-0000-4000-8000-0000000000a1",
@@ -616,11 +623,12 @@
       "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_UNSUPPORTED_FILE: The file must be JPEG, PNG, or PDF.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_UNSUPPORTED_FILE" }
     },
     "tooManyFiles": {
-      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_TOO_MANY_FILES: At most 2 files are accepted.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_TOO_MANY_FILES" }
+      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_TOO_MANY_FILES: At most 2 files are accepted.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_TOO_MANY_FILES" },
+      "note": "FilesInterceptor throws BadRequestException whose message is Too many files or Unexpected file field. The upload interceptor maps those messages. It does not read LIMIT_FILE_COUNT or LIMIT_UNEXPECTED_FILE from the HttpException."
     },
     "fileTooLarge": {
       "rest": { "statusCode": 413, "message": "REGISTRATION_INTAKE_FILE_TOO_LARGE: Each file must be at most 10 MiB.", "error": "PAYLOAD_TOO_LARGE", "code": "REGISTRATION_INTAKE_FILE_TOO_LARGE" },
-      "note": "FilesInterceptor already throws PayloadTooLargeException for LIMIT_FILE_SIZE. RegistrationIntakeUploadInterceptor is registered before it and maps status 413 plus that multer code. GlobalExceptionFilter writes this body. 413 is not in getHttpStatusName, so error is HttpStatus[413], PAYLOAD_TOO_LARGE. Status is below 500, so there is no requestId."
+      "note": "FilesInterceptor throws PayloadTooLargeException whose message is File too large. transformException does not copy the multer code onto that HttpException. RegistrationIntakeUploadInterceptor is registered before it and maps status 413. GlobalExceptionFilter writes this body. 413 is not in getHttpStatusName, so error is HttpStatus[413], PAYLOAD_TOO_LARGE. Status is below 500, so there is no requestId."
     },
     "intakeIdInBody": {
       "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_ID_MISMATCH: The intake id is taken from the path.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_ID_MISMATCH" }
