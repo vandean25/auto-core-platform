@@ -94,7 +94,7 @@ Every row is evidenced. A blank "equals national code" cell means the key is not
 | VIN | One vehicle's chassis number. Autovista sells a separate VIN API. The licence lets the vendor process a VIN only to identify a vehicle and to record that lookup for billing, audit, and manufacturer reporting. | No. A 17-character value, or a value equal to the normalized VIN, is `UNCERTAIN_IDENTITY`. AUT-516 already refuses to save that shape as `national_code`. | [Autovista VIN API](https://autovista.com/product/vin-api/); Schwacke licence clause 11.4 on [schwacke.de AGB](https://schwacke.de/allgemeine-geschaeftsbedingungen/) |
 | Swiss / Eurotax Natcode | A 9-digit number for a vehicle model, and one identification method in a list that also contains VIN and Typengenehmigung. | No. Nine digits are not the Austrian 6-digit code and are not sent to the AT valuation slice. | [Eurotax CH quickstart, Identifikation](https://eurotax.ch/wp-content/uploads/sites/7/2026/02/JDP-QS-Eurotax-SSM-CH-Identifikation.pdf) |
 | Typenschein / Typengenehmigung | The type-approval certificate number. Eurotax CH lists Typengenehmigung separately from Natcode and from VIN. ACP stores it on `typenschein_no`. | No. If the normalized national code equals the normalized Typenschein, the result is `UNCERTAIN_IDENTITY` and the columns stay as they are. | Same Eurotax CH quickstart; `schema.prisma` |
-| HSN and TSN | German manufacturer and type key numbers already stored on `Vehicle`. | No. This slice does not concatenate them and does not read them. | `schema.prisma`; ADR-0021 indexed columns |
+| HSN and TSN | German manufacturer and type key numbers. Eurotax Austria lists them as one identification method beside the national code and the VIN. | No. This slice does not concatenate them and does not read them. | [Eurotax Austria, Identifikation](https://eurotax.at/fahrzeugidentifikation-spezifikation/wie-kann-ich-einen-fahrzeugsuchbaum-in-meine-systeme-integrieren/) |
 | NativeID | Not defined by any public page reviewed on 2026-10-15. | No. The field stays null with `NATIVE_ID_UNKNOWN`. It is not filled from the national code, the VIN, or the Typenschein. | Absence in the sources listed under References. This is a known unknown, not a mapping. |
 | `identity_keys.vin` | The sandbox copies the normalized VIN and nothing else. | No. Valuation does not write `identity_keys`. | `SandboxVehicleIdentityProvider` |
 
@@ -108,15 +108,17 @@ Eurotax Austria also says more than 97 percent of vehicles can be identified fro
 |---|---|
 | Market | `AT` only. Any other market is `422` `VALUATION_MARKET_UNSUPPORTED` and does not call a provider. |
 | Valuation type | `MARKET_VALUE` only. `RESIDUAL_FORECAST` is `422` `VALUATION_TYPE_UNSUPPORTED`. |
-| National code | Stored `Vehicle.national_code`, echoed in the body. The body must equal the stored normalized code. The caller cannot supply a different code to fish the catalog. |
-| As-of | `requestedAsOf` is `YYYY-MM-DD`, not after today in `Europe/Vienna`, and not before `first_registration_date`. Omitted means today in `Europe/Vienna`. |
+| National code | The server reads `Vehicle.national_code`. It is not a field of `CreateVehicleValuation`. A body that contains `nationalCode` is rejected by the global `ValidationPipe` (`whitelist` and `forbidNonWhitelisted` in `validation.pipe.ts`) with HTTP 400, and the service does not run. The stored code is copied onto `ValuationQuoteInput` and into `inputSha256` only after that pipe accepts the body. |
+| As-of | `requestedAsOf` is `YYYY-MM-DD` and not after today in `Europe/Vienna`. When `first_registration_date` is present, the date is not before that registration. Omitted means today in `Europe/Vienna`. |
 | Currency | Requested `EUR`. A provider amount in another currency is `CURRENCY_CONFLICT`, amount null, and nothing is stored. |
-| Mileage | Integer kilometres from 0 through 999999, supplied on this request. `Vehicle.mileage` is not a silent default. Eurotax states that vehicles missing mileage are left out of the calculation. |
-| Condition | `ROADWORTHY_AVERAGE` is the only condition this slice sends. Eurotax states that poor or not-roadworthy vehicles are removed from the comparison set, so `POOR` and `NOT_ROADWORTHY` return `NOT_IN_COMPARISON_SET` with amount null and no provider call. |
-| First registration | Required on the vehicle, because Eurotax uses age and excludes vehicles with no age. `Vehicle.year` is not a substitute. |
+| Mileage | Integer kilometres from 0 through 999999, supplied on this request. `Vehicle.mileage` is not a silent default. This is an input of this slice. It is not a claim that Eurotax refuses the subject vehicle. |
+| Condition | `ROADWORTHY_AVERAGE`, `POOR`, and `NOT_ROADWORTHY` are all sent. They describe the vehicle being quoted. |
+| First registration | Not required. A null `first_registration_date` does not block the quote and is not `MISSING_DATA`. `Vehicle.year` is not sent as an age. |
 | Source | On a real quote, `EUROTAX_AT_AUTOVALUATION`. Otherwise `source` is null and `sourceState` is `UNKNOWN`. |
 | Reference version | The provider's dataset version string. Our contract version is the constant `acp-valuation-contract-1`. |
 | NativeID | Not sent and not received. `nativeId: null`, `nativeIdState: NATIVE_ID_UNKNOWN`. |
+
+The Eurotax Austria FAQ describes how the market average is built. Listings with no mileage or no age, and listings in poor or not-roadworthy condition, are left out of that comparison set. Those sentences are about the observed listings, not a refusal of the vehicle being quoted. This slice therefore has no `NOT_IN_COMPARISON_SET` result. A poor or not-roadworthy subject, and a subject with no first registration, can still be quoted.
 
 The public valuation relaunch note says kilometre corrections are included in the Eurotax value, the fixed target mileage is no longer delivered, and the old correction fields stay empty. This contract therefore has no separate mileage-adjustment amount. The quoted amount is the whole market value.
 
@@ -129,9 +131,7 @@ The public valuation relaunch note says kilometre corrections are included in th
 | `QUOTED` | One amount, currency `EUR`, known source, known `providerAsOf`, known `referenceVersion` | Yes | 201 |
 | `UNCERTAIN_IDENTITY` | National code missing, not six digits, equal to the VIN, 17 characters, or equal to `typenschein_no` | No | 422 |
 | `AMBIGUOUS_VARIANT` | The fake or future provider returns more than one type for that code. Labels are synthetic in tests. No candidate is selected. | No | 409 |
-| `MISSING_DATA` | Mileage, condition, or `first_registration_date` absent | No | 422 |
-| `NOT_IN_COMPARISON_SET` | Condition is `POOR` or `NOT_ROADWORTHY` | No | 422 |
-| `STALE_VALUATION` | A stored quote whose `providerAsOf` is before today in `Europe/Vienna`. Computed on read. The row is not refreshed and no price changes. | Already stored | 200 on GET |
+| `MISSING_DATA` | Mileage or condition absent on an otherwise valid body | No | 422 |
 | `CONFLICT_REPLAY` | The same `Idempotency-Key` is reused with a different `inputSha256` | No new row and no provider call | 409 |
 | `REFERENCE_VERSION_UNKNOWN` | A provider body has an amount but no version string | No | 422 |
 | `AS_OF_UNKNOWN` | A provider body has an amount but no observation date | No | 422 |
@@ -140,7 +140,7 @@ The public valuation relaunch note says kilometre corrections are included in th
 
 Same key and the same `inputSha256` return the stored response and do not call the provider again. That is replay, not a conflict.
 
-`STALE_VALUATION` does not delete the row and does not call the provider. A newer quote is a new POST with a new idempotency key. Nothing in that POST writes `purchase_price`, `sale_price`, or `kaufvertrag_snapshot`.
+GET keeps `result: "QUOTED"` and adds `stale`. `stale` is true when `providerAsOf` is before today in `Europe/Vienna`. The row is not rewritten, the provider is not called, and no price changes. A newer quote is a new POST with a new idempotency key. Nothing in that POST writes `purchase_price`, `sale_price`, or `kaufvertrag_snapshot`.
 
 ---
 
@@ -171,7 +171,7 @@ export interface ValuationQuoteInput {
   valuationType: 'MARKET_VALUE';
   nationalCode: string;
   mileageKm: number;
-  condition: 'ROADWORTHY_AVERAGE';
+  condition: 'ROADWORTHY_AVERAGE' | 'POOR' | 'NOT_ROADWORTHY';
   requestedAsOf: string;
   currency: 'EUR';
   contractVersion: 'acp-valuation-contract-1';
@@ -214,7 +214,7 @@ export interface CreateVehicleValuation {
 
 Header `Idempotency-Key` is required, 8 to 80 characters from `A-Za-z0-9-_`. A missing header is `422` `VALUATION_IDEMPOTENCY_KEY_INVALID`.
 
-`inputSha256` is SHA-256 of the canonical JSON object `{ vehicleId, nationalCode, valuationType, mileageKm, condition, requestedAsOf, currency, contractVersion }` with those keys in that order and no extra whitespace.
+`inputSha256` is SHA-256 of the canonical JSON object `{ vehicleId, nationalCode, valuationType, mileageKm, condition, requestedAsOf, currency, contractVersion }` with those keys in that order and no extra whitespace. `nationalCode` in that object is the stored column. It is not read from the HTTP body.
 
 ---
 
@@ -233,7 +233,7 @@ Implemented by AUT-551, not by this spec PR.
 | `vehicle_valuation_snapshots` | `national_code` | varchar(6) | no | The six digits that were quoted |
 | `vehicle_valuation_snapshots` | `valuation_type` | text | no | `MARKET_VALUE` |
 | `vehicle_valuation_snapshots` | `mileage_km` | int | no | Request input |
-| `vehicle_valuation_snapshots` | `condition` | text | no | `ROADWORTHY_AVERAGE` |
+| `vehicle_valuation_snapshots` | `condition` | text | no | `ROADWORTHY_AVERAGE`, `POOR`, or `NOT_ROADWORTHY` |
 | `vehicle_valuation_snapshots` | `requested_as_of` | date | no | Caller date |
 | `vehicle_valuation_snapshots` | `provider_as_of` | date | no | Provider observation date |
 | `vehicle_valuation_snapshots` | `currency` | char(3) | no | `EUR` |
@@ -264,7 +264,7 @@ Index `(tenant_id, vehicle_id, created_at)`. Unique `(tenant_id, idempotency_key
 
 ### State
 
-A snapshot has no status machine. `STALE_VALUATION` is derived by comparing `provider_as_of` with today in `Europe/Vienna`. Conflict and replay do not update a row. ADR-0011 guards are not added because there is no transition.
+A snapshot has no status machine. GET sets `stale` by comparing `provider_as_of` with today in `Europe/Vienna`. The stored `result` stays `QUOTED`. Conflict and replay do not update a row. ADR-0011 guards are not added because there is no transition.
 
 ### Real-time, inventory, finance
 
@@ -279,11 +279,11 @@ Do not add the snapshot to `SUPPORTED_ENTITY_TYPES`. It does not move stock and 
 | Method | Route | Request Body | Response | Auth |
 |--------|-------|-------------|----------|------|
 | `POST` | `/api/vehicles/:id/valuations` | `CreateVehicleValuation` plus `Idempotency-Key` | Quote, or one result code above | Tenant JWT. `TECH` receives the existing back-office refusal. Not on the public API key surface |
-| `GET` | `/api/vehicles/:id/valuations` | none | Newest first, each row plus computed `stale` | Same |
+| `GET` | `/api/vehicles/:id/valuations` | none | Newest first. Each row keeps `result: "QUOTED"` and adds computed `stale` | Same |
 
 Stock roles `USED`, `NEW`, and `DEMO` require `vehicle.site_id` to equal the active site from `SiteContextService` in `apps/core-api/src/site/site-context.service.ts`. A mismatch is `404`. A stock vehicle with a null site is `422` `VALUATION_SITE_REQUIRED`. `CUSTOMER` vehicles are tenant-scoped. The snapshot copies the active site only for a stock vehicle, at POST time. A later site switch does not rewrite it.
 
-An unknown vehicle is `404`. The national code in the body is not accepted; the server reads `Vehicle.national_code`.
+An unknown vehicle is `404`. `CreateVehicleValuation` has no `nationalCode` property. The global pipe rejects a body that includes one with HTTP 400, and the handler does not read `Vehicle.national_code` for that request. A valid body is quoted from the stored column only.
 
 ### Modified Endpoints
 
@@ -303,7 +303,7 @@ AUT-551 runs both commands when the DTOs exist. This spec PR changes no DTO.
 
 ## UX Compliance
 
-The vehicle detail page gains a Valuation section. It shows the latest snapshot: amount, currency, source, reference version, both dates, mileage, condition, national code, and `NATIVE_ID_UNKNOWN` when a quote exists. Empty state copy is "No valuation stored." Stale quotes use `StatusBadge` with `STALE_VALUATION`. They stay on screen.
+The vehicle detail page gains a Valuation section. It shows the latest snapshot: amount, currency, source, reference version, both dates, mileage, condition, national code, and `NATIVE_ID_UNKNOWN` when a quote exists. Empty state copy is "No valuation stored." When `stale` is true the `StatusBadge` text is `Stale`. The JSON `result` stays `QUOTED`. The row stays on screen.
 
 ### Layout & Actions
 
@@ -369,11 +369,13 @@ All of the following are absent. This spec does not record a conversation, a pur
 
 AUT-551 loads [vehicle-nationalcode-valuation.fixtures.json](./vehicle-nationalcode-valuation.fixtures.json).
 
-- [ ] `quoted-market-value` inserts one snapshot and leaves `purchase_price`, `sale_price`, and `kaufvertrag_snapshot` unchanged.
-- [ ] `uncertain-identity-vin-shaped` and `uncertain-identity-equals-typenschein` return 422 and write nothing.
+- [ ] `quoted-market-value` inserts one snapshot and leaves `purchase_price`, `sale_price`, and `kaufvertrag_snapshot` unchanged. The HTTP body has no `nationalCode`.
+- [ ] `national-code-in-body` returns 400 and does not quote either the body code or the stored code.
+- [ ] `uncertain-identity-vin-shaped` and `uncertain-identity-equals-typenschein` return 422 and write nothing. The rejected code is the stored column.
 - [ ] `ambiguous-variant` returns 409, stores nothing, and does not pick a candidate.
 - [ ] `missing-mileage` returns 422.
-- [ ] `stale-valuation` is stale on a read dated 2026-10-15 and does not start a new provider call.
+- [ ] `quoted-poor-without-first-registration` stores a `POOR` quote when `first_registration_date` is null.
+- [ ] `stale-valuation` returns `result: "QUOTED"` and `stale: true` on a read dated 2026-10-15, and does not start a new provider call.
 - [ ] `conflict-replay` returns 409 and does not insert a second row.
 - [ ] `reference-version-unknown` and `as-of-unknown` store no amount.
 - [ ] `provider-unavailable` is the production binding: 503 and no socket.
@@ -403,6 +405,7 @@ None. The unpublished vendor wire format is a live prerequisite, not a design ch
 - [Eurotax Austria data solutions](https://eurotax.at/produkt/datenloesungen/)
 - [Eurotax Austria valuation webservice relaunch](https://eurotax.at/valuation-webservice-relaunch/)
 - [Eurotax Austria FAQ](https://eurotax.at/hilfe-unterstuetzung/)
+- [Eurotax Austria identification methods, including HSN/TSN, national code, and VIN](https://eurotax.at/fahrzeugidentifikation-spezifikation/wie-kann-ich-einen-fahrzeugsuchbaum-in-meine-systeme-integrieren/)
 - [Schwacke data solutions](https://schwacke.de/produkt/datenloesungen/)
 - [Schwacke and Eurotax DMS transition](https://schwacke.de/dms-integration-portal-de-at/)
 - [Schwacke licence terms](https://schwacke.de/allgemeine-geschaeftsbedingungen/)
