@@ -368,7 +368,6 @@ describe('Registration document intake (e2e)', () => {
       holder: { firstName: 'pilot', lastName: 'customer' },
       nationalcode: 'NC1001',
       firstRegistration: '2019-03-12',
-      co2: { value: 119, cycle: 'WLTP' as const },
       customerId: customer.id,
       vehicleId: vehicle.id,
     };
@@ -447,7 +446,6 @@ describe('Registration document intake (e2e)', () => {
       holder: { firstName: 'pilot', lastName: 'customer' },
       nationalcode: 'NC1001',
       firstRegistration: '2019-03-12',
-      co2: { value: 119, cycle: 'WLTP' as const },
       make: 'Synthetic',
       model: 'Demo',
       year: 2019,
@@ -462,8 +460,9 @@ describe('Registration document intake (e2e)', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send(applyBody),
     ]);
-    const codes = [a.status, b.status].sort();
-    expect(codes).toEqual([200, 409]);
+    const statuses = [a.status, b.status];
+    expect(statuses).toContain(200);
+    expect(statuses).toContain(409);
   });
 
   it('marks extract failure when provider rejects on abort signal', async () => {

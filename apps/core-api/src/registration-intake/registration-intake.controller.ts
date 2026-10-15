@@ -84,6 +84,7 @@ export class RegistrationIntakeController {
   }
 
   @Post(':id/abort')
+  @HttpCode(200)
   abort(@Param('id') id: string) {
     return this.registrationIntake.abort(id);
   }
