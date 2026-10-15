@@ -33,5 +33,6 @@ One-page index of ADRs in this folder. Filename is the stable link; the number i
 | ADR-0025 | Customer Communication, Estimates and Transactional Notifications      | Proposed | 2026-10-02                      | [2026-10-02-customer-communication-and-approvals.md](2026-10-02-customer-communication-and-approvals.md)           |
 | ADR-0026 | Tenant API Keys and the Read-Only Public API                           | Accepted | 2026-10-09                      | [2026-10-09-public-api-keys.md](2026-10-09-public-api-keys.md)                                                     |
 | ADR-0027 | Sentry Spans and App Trace ID Linkage Without a Schema Change          | Accepted | 2026-10-11                      | [2026-10-11-sentry-app-trace-linkage.md](2026-10-11-sentry-app-trace-linkage.md)                                   |
+| ADR-0028 | Vehicle valuation is a separate port from identity                     | Proposed | 2026-10-15                      | [2026-10-15-valuation-separate-from-identity.md](2026-10-15-valuation-separate-from-identity.md)                   |
 
-Next free number: **ADR-0028**.
+Next free number: **ADR-0029**.
