@@ -6,9 +6,26 @@ import {
 
 /**
  * ACP draft BMD NTCS booking layout (see bmd-ntcs-import.serializer.ts and the
- * BMD spec). The field order is ACP's reading of a third-party description, not
- * a copy of a BMD document. It must be validated before any enablement.
+ * BMD spec source matrix). Public MTF field order is evidenced by source S3 in
+ * docs/internal/02-Feature-Specs/Finance/bmd-accounting-export.md; see
+ * fixtures/bmd-mtf-public-header.reference.txt.
  */
+export const BMD_MTF_PUBLIC_FIELD_NAMES = [
+  'Buchungsdatum',
+  'Belegdatum',
+  'Belegnummer',
+  'Konto',
+  'Gegenkonto',
+  'Betrag',
+  'Sollhabenkennzeichen',
+  'Steuercode',
+  'Text',
+  'Kostenstelle',
+  'OP-Nummer',
+] as const;
+
+export type BmdMtfPublicFieldName = (typeof BMD_MTF_PUBLIC_FIELD_NAMES)[number];
+
 export const BMD_ENCODING = 'win1252';
 export const BMD_FIELD_SEPARATOR = ';';
 export const BMD_LINE_BREAK = '\r\n';

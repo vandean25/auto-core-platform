@@ -1,0 +1,9 @@
+[
+  {
+    "code": "UNSUPPORTED_EXPORT_TAX_MODE",
+    "message": "Zero-rate VAT has no approved BMD Steuercode in this profile version. Exempt, reverse-charge and intra-community treatments are deferred.",
+    "documentId": "inv-1",
+    "documentKind": "INVOICE",
+    "documentNumber": "RE-2026-0001"
+  }
+]

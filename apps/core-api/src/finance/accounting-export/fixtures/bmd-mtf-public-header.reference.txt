@@ -1,0 +1,1 @@
+Buchungsdatum;Belegdatum;Belegnummer;Konto;Gegenkonto;Betrag;Sollhabenkennzeichen;Steuercode;Text;Kostenstelle;OP-Nummer

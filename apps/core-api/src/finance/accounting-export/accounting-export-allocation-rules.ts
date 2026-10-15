@@ -165,7 +165,10 @@ export function buildRzlAllocationRules(
   return buildAtStandardVatRules('RZL', steuercodes);
 }
 
-/** BMD: the RZL rules with BMD tax keys. Text must be printable ASCII (spec A4). */
+/**
+ * BMD: the RZL rules with BMD tax keys. Text must be printable ASCII (spec A4).
+ * Margin scheme and zero-rate stay blocked per ADR-0023; see bmd-accounting-export.md.
+ */
 export function buildBmdAllocationRules(
   steuercodes: BmdSteuercodes,
 ): AccountingExportAllocationRules {

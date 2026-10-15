@@ -2,8 +2,9 @@
 export const DEFAULT_BMD_AT_PROFILE_CODE = 'ACP-BMD-AT-EUR-1';
 /**
  * ACP identifier of the BMD NTCS booking layout implemented in
- * `bmd-ntcs-import.serializer.ts`. It is not a version published by BMD: no BMD
- * documentation could be retrieved while it was written. See
+ * `bmd-ntcs-import.serializer.ts`. It is not a version published by BMD. Field
+ * order and separators are checked against public sources in the spec's source
+ * matrix (AUT-520); vendor acceptance is still open. See
  * docs/internal/02-Feature-Specs/Finance/bmd-accounting-export.md.
  */
 export const DEFAULT_BMD_FORMAT_VERSION = 'BMD-NTCS-ASCII-IMPORT-ACP-DRAFT-1';

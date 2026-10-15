@@ -4,6 +4,7 @@ date: "2026-10-13"
 module: "Finance"
 status: implementation-draft
 linear-issue: "https://linear.app/auto-core-platform/issue/AUT-351"
+linear-hardening: "https://linear.app/auto-core-platform/issue/AUT-520"
 linear-project: "https://linear.app/auto-core-platform/project/legal-invoicing-and-accounting-export-e2ee5c7e7695"
 tags: [feature-spec, finance, accounting, export, austria]
 ---
@@ -16,7 +17,7 @@ AT legal entities can export a closed period of STANDARD-VAT invoices and credit
 
 Decision (Product Owner, 2026-10-12): build best-effort from public knowledge. Do not wait for an external BMD sample or an accountant approval. The earlier "spec-gated, not startable without a sample" note is superseded (AUT-364 canceled).
 
-**Status: implementation draft, profile disabled.** The layout is ACP's own pinned reading of a BMD booking import. It is **not** verified against BMD, and no BMD documentation could be retrieved while this was written (see "Sources consulted"). The release flag stays off, and no tenant enables the profile, until a BMD validation step passes (see "Open items").
+**Status: implementation draft, profile disabled.** The layout follows the public BMD NTCS Massentransferformat (MTF) field order where sources agree (see "Source matrix"). It is **not** verified by BMD or any accountant, and golden tests do **not** claim vendor acceptance. The release flag stays off, and no tenant enables the profile, until a BMD validation step passes (see "Open items").
 
 ## Scope
 
@@ -26,21 +27,61 @@ Out of scope: validation against BMD NTCS (a human step, see "Open items"); enab
 
 ## Sources consulted
 
-Consulted on 2026-10-13 from the build environment.
+Retrieval pass **2026-10-15** (AUT-520). Earlier notes from 2026-10-13 are updated where a source could be read.
 
-| # | Source | Result |
-|---|---|---|
-| S1 | Web search: "BMD NTCS Buchungsimport ASCII CSV Schnittstelle Satzaufbau Beschreibung" | No official BMD booking-import specification in the results. Other hits describe DATEV, Lexware or other products. |
-| S2 | Web search: "BMD NTCS import Buchungsstapel Format Semikolon Dezimalkomma Steuerschlüssel" | No official BMD specification in the results. Hits included a dvo.at handbook "Handbuch BuErf Import Fibu (BMD BuErf-Modul)" (file name dated 2021-10-05) and a dvo.at "Import_BMD-BuErf_Neu.pdf". |
-| S3 | https://invoicedataextraction.com/blog/vorbereitende-buchhaltung-bmd-rzl-datev-osterreich | Search excerpt only. Fetch refused (HTTP 403 on CONNECT from the egress proxy). Used only as an unverified lead for the field list in A1. |
-| S4 | https://dvo.at/PDF/ReleaseNotes/Handbuch_BuErf_Import_Fibu_(BMD_BuErf-Modul)_05102021.pdf | Not read. Fetch refused (HTTP 403). BuErf is a different import path from the booking batch described here, so its layout is not assumed. Candidate for the validation step. |
-| S5 | https://www.dvo.at/wp-content/uploads/2017/11/Import_BMD-BuErf_Neu.pdf | Not read. Fetch refused (HTTP 403). |
-| S6 | https://www.datev.de/content/dam/markenassets/themen-und-produktgruppen/zielgruppen/steuerberater/rechnungswesen/exportanleitungen/bmd-rechnungswesen-exportanleitung.pdf | Not read. It describes exporting from BMD toward DATEV, the reverse direction. Not used for this layout. |
-| S7 | help.getmoss.com ("customise bmd export format"), freefinance.at (export Einzelbelege), integrations.pleo.io (BMD) | Not read. Hosts unreachable from the build environment. |
+| # | Source | Version / date on document | Retrieved | Result |
+|---|---|---|---|---|
+| S1 | Web search: "BMD NTCS Buchungsimport ASCII CSV Schnittstelle Satzaufbau Beschreibung" | n/a | 2026-10-13 | No official BMD booking-import specification in the results. |
+| S2 | Web search: "BMD NTCS import Buchungsstapel Format Semikolon Dezimalkomma Steuerschlüssel" | n/a | 2026-10-13 | No official BMD specification in the results. |
+| S3 | https://invoicedataextraction.com/blog/vorbereitende-buchhaltung-bmd-rzl-datev-osterreich | Published 2026-05-25 (page metadata) | 2026-10-15 | **Read.** Describes BMD NTCS Massentransferformat (MTF) column order, semicolon-separated ASCII, `DD.MM.YYYY`, decimal-comma amounts, `S`/`H` Sollhabenkennzeichen, client-specific Steuercodes, optional `OP-Nummer`. Third-party practice article, not BMD. Committed header: `fixtures/bmd-mtf-public-header.reference.txt`. |
+| S4 | https://dvo.at/PDF/ReleaseNotes/Handbuch_BuErf_Import_Fibu_(BMD_BuErf-Modul)_05102021.pdf | File name dated 2021-10-05 | 2026-10-13 | Not read (HTTP 403). BuErf is a different import path; not used for this MTF layout. |
+| S5 | https://www.dvo.at/wp-content/uploads/2017/11/Import_BMD-BuErf_Neu.pdf | Marketing PDF (undated) | 2026-10-15 | **Read (summary only).** Describes BMD BuErf as a separate standard format for third-party imports into dvo Fibu. Not used for this MTF layout. |
+| S6 | https://www.datev.de/.../bmd-rechnungswesen-exportanleitung.pdf | n/a | 2026-10-13 | Not read. BMD → DATEV export direction; not used. |
+| S7 | help.getmoss.com, freefinance.at, integrations.pleo.io | n/a | 2026-10-13 | Unreachable from the build environment. |
+| S8 | https://docs.cosmoconsult.com/de-de/business-central/bmd-ntcs-interface/doc.pdf | COSMO BMD NTCS Interface (undated) | 2026-10-15 | **Read.** Documents a **different** NTCS CSV shape (`Satzart`, `BuchSymbol`, `BuchCode` 1/2, signed amounts). Used only to record that ACP's flat eleven-field MTF is **not** that export. |
+| S9 | https://www.simplesoft.at/BMD_Hilfe_Wiki/BUCHHALTUNG/NTCS_BUCHEN.pdf | BMD NTCS Fibu help (undated) | 2026-10-15 | **Read (partial).** Steuercode is client-specific; Vorsteuercode in NTCS is mandatory `2` (vs BMD 5.5). Does not define the MTF column list. |
 
-DATEV EXTF rules (semicolon separator, decimal comma) and Lexware help pages describe other products. They are not evidence for BMD and are not carried over.
+DATEV EXTF, Lexware and RZL FIBU CSV rules describe other products. They are not evidence for BMD MTF and are not carried over.
 
-Pinned official BMD version or revision: **UNVERIFIED (none retrieved).** The format identifier below is an ACP label, not a BMD version.
+Pinned official BMD NTCS MTF version or revision: **UNVERIFIED (no BMD-published MTF spec retrieved).** The `format_version` below remains an ACP label.
+
+## Source matrix (ACP layout vs public evidence)
+
+Maps each field in the pinned eleven-column MTF layout to sources. **E** = evidenced in a retrieved public document for this shape; **A** = ACP assumption only (listed in "Assumptions [UNVERIFIED]" with an ID).
+
+| # | Field | Quoted in file | Evidence | Sources | Notes |
+|---|---|---|---|---|---|
+| 1 | Buchungsdatum | no | E | S3 | `DD.MM.YYYY`; ACP sets it equal to document date (closed period) — **A12**. |
+| 2 | Belegdatum | no | E | S3 | `DD.MM.YYYY`. |
+| 3 | Belegnummer | yes | E | S3 | Document number column in MTF list. |
+| 4 | Konto | yes | E | S3 | Debtor (collective) in ACP; S8 Cosmo uses Personenkonto semantics for sales — different file shape. |
+| 5 | Gegenkonto | yes | E | S3 | Revenue account of the line. |
+| 6 | Betrag | no | E | S3 | Decimal comma, unsigned; credits stay positive with `H` — **A7** detail. |
+| 7 | Sollhabenkennzeichen | no | A | S3, **A16** | S3 documents `S`/`H` on incoming MTF; sales-side debtor assignment is **A16** (not incoming Storno rules). |
+| 8 | Steuercode | no | E | S3, S9 | Client-specific digits; ACP maps 20 / 13 / 10 % only from frozen profile — **A10**. |
+| 9 | Text | yes | E | S3 | Booking text; ACP caps at 60 characters — product rule, not MTF evidence. |
+| 10 | Kostenstelle | no | E | S3 | Column present; ACP always leaves it empty (not modeled). |
+| 11 | OP-Nummer | yes | E | S3 | Open-item reference; S3 notes it may be optional in practice — ACP always emits it for invoices and credits — **A11**. |
+
+**File-level properties**
+
+| Property | Evidence | Sources | ACP pinned value |
+|---|---|---|---|
+| Field separator `;` | E | S3 | `;` |
+| Encoding ASCII / Windows-1252 | E (ASCII) | S3 | Windows-1252, ASCII-only payload |
+| Header row | A | — | None (**A2**) |
+| Line endings CRLF | A | — | CRLF (**A5**) |
+| Text double-quoting | A | — | Selected text fields quoted (**A9**) |
+| File extension `.csv` | A | — | **A14** |
+| Per-client import definition required | E | S3 | **A15** (validation still open) |
+
+**Fixtures (synthetic vs format-evidenced)**
+
+| Artifact | Role |
+|---|---|
+| `fixtures/bmd-sample-export.csv` | Hand-authored **synthetic** sample (AUT-351), predates the serializer. |
+| `fixtures/bmd-mtf-evidenced-export.csv` | **Format-evidenced** pilot-customer bytes (mixed 20/13/10 % and partial credit), aligned to S3 MTF order; not vendor-validated. |
+| `fixtures/bmd-mtf-public-header.reference.txt` | Verbatim MTF header line from S3. |
 
 ## Pinned specification (ACP draft)
 
@@ -69,7 +110,7 @@ One record per frozen line allocation with a non-zero gross. Eleven fields, in t
 | 4 | Konto | Frozen collective debtor account (`default_debtor_account`) | yes |
 | 5 | Gegenkonto | Frozen revenue account of the line's allocation | yes |
 | 6 | Betrag | Frozen gross of the line, decimal comma, positive | no |
-| 7 | Sollhabenkennzeichen | `S` for an invoice line, `H` for a credit line. Refers to the side of Konto (the debtor). | no |
+| 7 | Sollhabenkennzeichen | `S` for an invoice line, `H` for a credit line on the debtor (**A16**). | no |
 | 8 | Steuercode | BMD tax key for the line's frozen VAT rate, read from the run's frozen profile snapshot | no |
 | 9 | Text | Deterministic booking text: `RE <number>`, or `CN <number> / RE <original number>` for a credit. The candidate step cuts it to 60 characters for every profile, so a long number shortens this field. OP-Nummer keeps the full number. | yes |
 | 10 | Kostenstelle | Always empty. Cost centers are not modeled. | no |
@@ -160,7 +201,7 @@ A BMD profile needs `formatVersion` set to `BMD-NTCS-ASCII-IMPORT-ACP-DRAFT-1`, 
 | Spec from public BMD sources, with pinned sources, encoding, separators, date and amount formats, tax-code and account mapping, and an Assumptions [UNVERIFIED] section | This document: "Sources consulted", "Pinned specification", "Record layout", "Assumptions [UNVERIFIED]". |
 | Synthetic sample committed before serializer code | `fixtures/bmd-sample-export.csv`, committed in the first commit of this change, before `bmd-ntcs-import.serializer.ts`. |
 | Serializer on the AUT-350 registry, behind the same release-gate pattern, disabled by default | `accounting-export-serializer.registry.ts`, `accounting-export-serializers.ts`, `bmd-accounting-export.serializer.ts`, `accounting-profile/bmd-profile.codes.ts`, `accounting-profile/accounting-export-release.ts`. Gate tests: `bmd-profile.gate.spec.ts`. |
-| Golden files for a standard invoice, a margin-scheme invoice and a credit note | `bmd-ntcs-import.golden.spec.ts`. |
+| Golden files for a standard invoice, a margin-scheme invoice and a credit note | `bmd-ntcs-import.golden.spec.ts` (synthetic sample); AUT-520 adds format-evidenced MTF bytes and blocker regressions. |
 | Manifest, immutability and SHA-256 shared with the other profiles, not duplicated | The generic run path and `accounting-export-hash.ts` are unchanged. The BMD serializer computes its SHA-256 with the same one-line hash as DATEV and RZL and adds no hash helper. |
 | Expand-only migration, if strictly needed | Not needed. No schema change. |
 | RZL and DATEV behaviour unchanged | The existing AUT-350 and DATEV suites pass without edits to their assertions. |
@@ -168,25 +209,26 @@ A BMD profile needs `formatVersion` set to `BMD-NTCS-ASCII-IMPORT-ACP-DRAFT-1`, 
 
 ## Assumptions [UNVERIFIED]
 
-Every item below is ACP's assumption about BMD NTCS. None is confirmed by a BMD document.
+Items below are **not** confirmed by BMD. Where AUT-520 found public third-party evidence (source matrix), the assumption is narrowed or retired; the ID is kept for traceability.
 
-| ID | Assumption | Basis |
-|---|---|---|
-| A1 | Booking records have these eleven fields, in this order: Buchungsdatum, Belegdatum, Belegnummer, Konto, Gegenkonto, Betrag, Sollhabenkennzeichen, Steuercode, Text, Kostenstelle, OP-Nummer. | Search excerpt of a third-party description of a BMD mass-transfer format (S3). Not fetched. |
-| A2 | No header or trailer record. | S3 does not mention one. BMD import definitions are client-specific, so a header may be required. |
-| A3 | The field separator is `;`. | S3 describes a semicolon-delimited file. The DATEV convention is not evidence for BMD. |
-| A4 | The bytes are Windows-1252. ACP writes ASCII only, so ASCII and Windows-1252 are equivalent for this file. | S3 describes an ASCII file. |
-| A5 | Line endings are CRLF. | Windows software default. Unverified. |
-| A6 | Dates are `DD.MM.YYYY`. | Austrian convention. Unverified. |
-| A7 | Amounts use a decimal comma, two places, unsigned. | Austrian convention. Unverified. |
-| A8 | `S` and `H` describe the side of Konto (the debtor). `S` is an invoice and `H` a credit. | S3 names a debit/credit indicator but not its values. |
-| A9 | Double quotes are accepted around text fields. Numeric, date and flag fields are unquoted. | Unverified. |
-| A10 | The BMD tax key (Steuercode) is 1 to 4 digits, defined per client. BMD derives the VAT split from the gross amount and the key. | S3: each client defines its own tax codes. The derivation is unverified. |
-| A11 | `OP-Nummer` links the open items of an invoice and its credit. | S3 lists an open-item number field. Semantics unverified. |
-| A12 | The booking date equals the document date. | Closed periods. Unverified. |
-| A13 | Account numbers are plain numeric strings from the frozen allocation. The fixture uses 4-digit UGB-style numbers, which are fixture values and not production defaults. | Fixture. |
-| A14 | `.csv` is accepted as the import file extension. | Unverified. |
-| A15 | A client-specific BMD import definition is required, and it must match this layout. | S3: mandatory columns can be customized per client. |
+| ID | Assumption | Status after AUT-520 | Basis |
+|---|---|---|---|
+| A1 | Eleven MTF fields in the order Buchungsdatum … OP-Nummer. | **Evidenced (third-party)** — implemented as pinned layout | S3 MTF list; `BMD_MTF_PUBLIC_FIELD_NAMES` / `fixtures/bmd-mtf-public-header.reference.txt`. |
+| A2 | No header or trailer record. | **Still unverified** | S3 shows data columns only; per-client profiles may require a header row. |
+| A3 | Field separator `;`. | **Evidenced (third-party)** | S3. |
+| A4 | ASCII payload (Windows-1252 compatible). | **Evidenced (third-party)** for ASCII | S3; ACP rejects non-ASCII. |
+| A5 | Line endings CRLF. | **Still unverified** | ACP pins CRLF; not stated in S3. |
+| A6 | Dates `DD.MM.YYYY`. | **Evidenced (third-party)** | S3. |
+| A7 | Amounts: decimal comma, two places, unsigned; credits use `H`. | **Evidenced (third-party)** for comma format; unsigned + `H` is ACP sales convention | S3; Cosmo S8 uses signed amounts in a different CSV shape — not mixed into this layout. |
+| A8 | MTF uses `S` and `H` as Sollhabenkennzeichen values. | **Evidenced (third-party)** for the values only | S3. |
+| A16 | For Ausgangsrechnung / Gutschrift export, `S`/`H` refer to the collective debtor line (`S` invoice, `H` credit). | **Still unverified** (ACP sales convention) | S3 describes incoming MTF and allows negative amounts or S/H swap per profile; not sales export proof. |
+| A9 | Double quotes around text fields; numeric/date/flag unquoted. | **Still unverified** | ACP pins quoting; S3 does not describe quoting. |
+| A10 | Steuercode digits are client-specific; 20/13/10 % map from profile only. | **Evidenced (client-specific)**; gross-derived VAT split **unverified** | S3, S9. |
+| A11 | `OP-Nummer` links invoice and credit open items. | **Partially evidenced** — column exists; ACP always fills it | S3 (optional in practice). |
+| A12 | Booking date equals document date. | **Still unverified** (ACP closed-period rule) | Product rule. |
+| A13 | Plain numeric account strings from frozen allocation. | Fixture / UGB convention | Pilot fixtures only. |
+| A14 | `.csv` extension accepted. | **Still unverified** | ACP file naming only. |
+| A15 | Client-specific import definition must match layout. | **Evidenced (process)**; match not tested | S3. |
 
 ## Open items: BMD validation before any enablement
 
