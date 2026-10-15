@@ -66,6 +66,7 @@ export class RegistrationIntakeController {
   }
 
   @Post(':id/apply')
+  @HttpCode(200)
   apply(@Param('id') id: string, @Body() dto: ApplyRegistrationIntakeDto) {
     if (dto.intakeId && dto.intakeId !== id) {
       throw registrationIdMismatch();
@@ -74,6 +75,7 @@ export class RegistrationIntakeController {
   }
 
   @Post(':id/order')
+  @HttpCode(200)
   order(
     @Param('id') id: string,
     @Body() dto: CreateRegistrationIntakeOrderDto,

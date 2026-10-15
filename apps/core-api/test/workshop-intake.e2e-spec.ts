@@ -369,6 +369,7 @@ describe('Workshop intake — registration document (AUT-537)', () => {
       holder: { firstName: 'pilot', lastName: 'customer' },
       nationalcode: 'NC1001',
       firstRegistration: '2019-03-12',
+      co2: { value: 119, cycle: 'WLTP' as const },
       make: 'Synthetic',
       model: 'Demo',
       year: 2019,
