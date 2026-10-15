@@ -41,7 +41,8 @@ Verified against `apps/core-api/src/nova-calculator/types.ts`, `tariff-table.ts`
 | Registration outside that row | `calculateNova` | Also appends `tariff_outside_registration_date`. The amount is unchanged. |
 | Scope flag | `NovaCalculationService` | Those two warnings set `hasScopeLimitations`. They are not in `UNVERIFIED_WARNINGS`. |
 | Table coverage | `NOVA_TARIFF_TABLE` | `passenger_z3` rows run from `at-m1-2021-h2` (`2021-07-01` .. `2021-12-31`) through `at-m1-2029` (`2029-12-31`). There is no row for 2014–2019 or for 2020-01-01 .. 2021-06-30. `source_retrieved` on every row is `2026-10-02`. |
-| Vehicle class from stock | `mapVehicleValues` | `Vehicle.nova_class` is `NOT_SET`, `STANDARD`, `ELECTRIC_EXEMPT`, or `OTHER`. It is not an engine class. Unless the request sends `vehicleClass`, the service uses `passenger_z3`. |
+| Vehicle class from stock | `mapVehicleValues` | `Vehicle.nova_class` is a nullable `String` column (`schema.prisma`). Allowed values are enforced in `vehicle-regulatory.validation.ts`: `NOT_SET`, `STANDARD`, `ELECTRIC_EXEMPT`, `OTHER`. None of those strings is an engine class. Unless the request sends `vehicleClass`, the service uses `passenger_z3`. |
+| Request validation | `NovaCalculateRequestDto` and `createGlobalValidationPipe` | The global pipe is `transform`, `whitelist`, and `forbidNonWhitelisted`. It returns HTTP 400 before the service. Without `vehicleId`, `@ValidateIf` requires `emissionCycle`, `driveType`, and `taxableEventDate`. `netPriceEuro` is `@IsNumber` on every path. Negative `netPriceEuro` and `co2GramsPerKm`, and a non-ISO date string, pass the DTO; the existing DTO spec says the engine maps those to 422. |
 
 The service spec `marks scope limitations when Wertentwicklung is not applied` sends `firstRegistrationDate: 2020-01-01` and `taxableEventDate: 2026-05-01` and expects a calculated amount plus those warnings. That test documents today's preview. It is not evidence that EU used import is implemented.
 
@@ -87,7 +88,7 @@ The 2024 M1 parameters below were re-read from the BMF 2021–2025 page on 2026-
 | Invoice snapshot, valuation-list lookup, automatic tax return | The caller passes the current net base. The engine does not call Eurotax or FinanzOnline |
 | Changing the v1 preview | A request with no `importMode`, no `valueBasis`, and no `originalNewNetEuro` keeps today's event-date calculation and warnings |
 
-No Steuerberater or manufacturer approval gate is added. The decisions in this document are the engineering contract for the slice.
+No approval wait is added to the API. Two arithmetic choices are open assumptions that this slice still implements, so AUT-530 has one expected value: the uncapped `known_new_net` ratio, and the 29 February anniversary clamp. See [Open Questions](#open-questions).
 
 ---
 
@@ -103,27 +104,27 @@ Retrieved **2026-10-15**. "Source version" is the page's own *Letzte Aktualisier
 
 The lowercase URL `.../rechtslage_von_1_juli_2021_bis_30_juni_2025.html` returned HTTP 404 on 2026-10-15. The engine constant uses `30_Juni_2025`, which resolved. AUT-530 must keep that URL.
 
-The 2014–2019 page is NEFZ-native: `(CO₂ − 90) / 5`, cap 32 percent, malus €20 per g above 250 g. The Abzug is not one number for the whole period (2014 depends on fuel, 2015 is €400, from 2016 it is €300). The published example uses €300, which matches a March 2019 registration. That is why this slice does not add a single pre-2021 row.
+The 2014–2019 page, section *Personenkraftwagen*, retrieved 2026-10-15, is NEFZ-native: `(CO₂ − 90) / 5`, cap 32 percent, malus €20 per g above 250 g. The same section states the Abzug in words: "2014 für dieselbetriebene Personenkraftwagen 350 Euro für andere Personenkraftwagen 450 Euro"; "2015 für alle Personenkraftwagen 400 Euro"; "ab 2016 für alle Personenkraftwagen 300 Euro". The published example itself states Abzugsposten €300 for a March 2019 registration, which sits in the "ab 2016" band of that sentence. This slice does not add a pre-2021 row.
 
 ---
 
 ## Rule matrix
 
-Rows are evaluated in the order in [Rejection order](#rejection-order). The first matching refusal wins. A successful row is reached only when every earlier gate passes.
+The [rejection order](#rejection-order) is the precedence. A row below applies only after every earlier gate has passed. HTTP 400 from the validation pipe is not a row in this matrix; it never reaches the service. See [HTTP 400 and HTTP 422](#http-400-and-http-422).
 
-| First EU registration | Tax event (Steuertatbestand) | Value basis (Wertbasis) | Vehicle class | Response |
-|-----------------------|------------------------------|-------------------------|---------------|----------|
-| `2024-01-01` .. `2024-12-31` | On or after that registration and on or before `2026-12-31` | `known_new_net` and `originalNewNetEuro` > 0 | `passenger_z3` | HTTP 200. Tariff `at-m1-2024`. Factor = current net / original new net. Malus and Abzug are scaled. The CO₂ percent is not scaled. |
-| Same registration window | Same event window | `achtelung` | `passenger_z3` | HTTP 200. Tariff `at-m1-2024`. Factor = `(8 − min(completedYears, 7)) / 8`. |
-| Same registration window | Same event window | Field absent | `passenger_z3` | HTTP 422 `MISSING_VALUE_DEVELOPMENT`. No amount. |
-| Same registration window | Same event window | `known_new_net` without a positive original new net | `passenger_z3` | HTTP 422 `MISSING_ORIGINAL_NEW_NET`. No amount. |
-| Same registration window | Same event window | Any other string | `passenger_z3` | HTTP 422 `INVALID_VALUE_BASIS`. No amount. |
-| Before `2021-07-01` | Any later valid ISO date | Any, including absent | `passenger_z3` | HTTP 422 `UNSUPPORTED_HISTORICAL_TARIFF`. No amount. Covers the published 2019 example and any synthetic date before the table. |
-| Inside the table but not in 2024 (`2021-07-01` .. `2023-12-31` or `2025-01-01` .. `2029-12-31`) | Any | Any | `passenger_z3` | HTTP 422 `OUTSIDE_SUPPORTED_SLICE`. Do not select that year's row and do not fall through to the event-year row. |
-| In 2024 | Before the registration | Any | `passenger_z3` | HTTP 422 `INVALID_IMPORT_DATES`. |
-| In 2024 | After `2026-12-31` | Any | `passenger_z3` | HTTP 422 `OUTSIDE_SUPPORTED_SLICE`. |
-| Any | Any | Any | Missing | HTTP 422 `MISSING_VEHICLE_CLASS`. |
-| Any | Any | Any | `n1_legacy_z6` or `motorcycle_z1_z2` | HTTP 422 `UNSUPPORTED_IMPORT_CLASS`, even when the registration is also before the table. |
+| After these gates | First EU registration | Tax event | Value basis | Vehicle class | Response |
+|-------------------|-----------------------|-----------|-------------|---------------|----------|
+| 1–13 | `2024-01-01` .. `2024-12-31` | On or after that registration and on or before `2026-12-31` | `known_new_net` and `originalNewNetEuro` > 0 | `passenger_z3` | HTTP 200. Tariff `at-m1-2024`. Factor = current net / original new net, including a factor above 1 ([open assumption](#open-questions)). Malus and Abzug are scaled. The CO₂ percent is not scaled. |
+| 1–13 | Same window | Same window | `achtelung`. A supplied `originalNewNetEuro` is ignored. | `passenger_z3` | HTTP 200. Tariff `at-m1-2024`. Factor = `(8 − min(completedYears, 7)) / 8`. |
+| 1–12 | Same window | Same window | Field absent | `passenger_z3` | HTTP 422 `MISSING_VALUE_DEVELOPMENT`. No amount. |
+| 1–12 | Same window | Same window | `known_new_net` without a positive original new net | `passenger_z3` | HTTP 422 `MISSING_ORIGINAL_NEW_NET`. No amount. |
+| 1–12 | Same window | Same window | Any other string | `passenger_z3` | HTTP 422 `INVALID_VALUE_BASIS`. No amount. |
+| 1–5, class is `passenger_z3` | Before `2021-07-01` | A later valid ISO date | Not yet considered, including absent | `passenger_z3` | HTTP 422 `UNSUPPORTED_HISTORICAL_TARIFF`. No amount. |
+| 1–6 | Inside the table but not in 2024 | Not yet considered | Not yet considered | `passenger_z3` | HTTP 422 `OUTSIDE_SUPPORTED_SLICE`. Do not select that year's row. |
+| 1–3 | In 2024 | Before the registration | Not yet considered | Not yet considered | HTTP 422 `INVALID_IMPORT_DATES`. A missing class does not override this. |
+| 1–6 | In 2024 | After `2026-12-31` | Not yet considered | `passenger_z3` | HTTP 422 `OUTSIDE_SUPPORTED_SLICE`. |
+| 1–4 | Not yet considered | Not yet considered | Not yet considered | Absent | HTTP 422 `MISSING_VEHICLE_CLASS`. |
+| 1–4 | Not yet considered, including a date before `2021-07-01` | Not yet considered | Not yet considered | `n1_legacy_z6` or `motorcycle_z1_z2` | HTTP 422 `UNSUPPORTED_IMPORT_CLASS`. Class is checked before the historical-tariff gate. |
 
 Differing registration and event years are a success when both dates sit in the windows above. The tariff id remains `at-m1-2024`. Completed years for Achtelung follow registration anniversaries, not `eventYear − registrationYear`. `known_new_net` does not use the year count as a second discount; the response still reports `fullYearsElapsed`.
 
@@ -138,10 +139,10 @@ Used only after the rejection order reaches a success.
 3. `baseAmountEuro = roundMoneyEuro(netPriceEuro × ratePercent / 100)` using the existing `roundMoneyEuro`.
 4. `malusGrossEuro = max(0, effectiveCo2 − 155) × 80`. `deductionGrossEuro = 350`. `fixedBeforeDevelopmentEuro = malusGrossEuro − deductionGrossEuro`.
 5. Value development scales only `fixedBeforeDevelopmentEuro`.
-   - `known_new_net`: factor = `netPriceEuro / originalNewNetEuro`. The ratio is not capped at 1. A current net above the original new net increases the malus/Abzug block.
-   - `achtelung`: completed years are the largest integer `n ≥ 0` such that the registration date plus `n` calendar years is on or before the tax event. If the day does not exist (29 February), clamp to the last day of that month. `n` for the factor stops at 7: retained eighths = `8 − min(n, 7)`. Inside this slice `n` is 0, 1, or 2, so the seven-year floor is specified and is not hit by a 200 response. The published 2019 example is the independent check of that floor, and this slice refuses to execute it.
+   - `known_new_net`: factor = `netPriceEuro / originalNewNetEuro`. This slice does not cap the factor at 1. That choice is an [open assumption](#open-questions): the BMF page describes the aliquot share for a loss of value and does not discuss a current net above the new net. `synthetic-eu-m1-2024-known-new-net-above-par` locks the uncapped behavior (factor `21000/20000`, NoVA 2782.5). Capping at 1 would return 2780 for that input.
+   - `achtelung`: completed years are the largest integer `n ≥ 0` such that the registration date plus `n` calendar years is on or before the tax event. When the day does not exist, this slice clamps to the last day of that month (29 February becomes 28 February). That clamp is an [open assumption](#open-questions); the BMF page does not define it. `n` for the factor stops at 7: retained eighths = `8 − min(n, 7)`. Inside this slice `n` is 0, 1, or 2, so the seven-year floor is specified and is not hit by a 200 response. The published 2019 example is the independent check of that floor, and this slice refuses to execute it. An `originalNewNetEuro` sent with `achtelung` is ignored.
 6. `fixedAfterDevelopmentEuro = roundMoneyEuro(fixedBeforeDevelopmentEuro × factor)`.
-7. `novaAmountEuro = max(0, baseAmountEuro + fixedAfterDevelopmentEuro)`. Both inputs are already cent-rounded, so the sum is in cents. A negative sum becomes `0.00` and adds rule `tariff.no_tax_credit_floor`.
+7. `novaAmountEuro = max(0, baseAmountEuro + fixedAfterDevelopmentEuro)`. Both inputs are already cent-rounded. A negative sum becomes `0` and adds rule `tariff.no_tax_credit_floor`. On the wire, `novaAmountEuro` and every money field are JSON numbers, the same type as today's `NovaCalculateResponseDto.novaAmountEuro`.
 
 `netPriceEuro` is the current net Bemessungsgrundlage the caller already decided (Gemeiner Wert without VAT, or the dealer's net acquisition price). The engine does not classify which of those two the caller used.
 
@@ -160,11 +161,11 @@ Used only after the rejection order reaches a success.
 | Completed years | 2 (reported, not applied as a second factor) |
 | Factor | `20000/40000` |
 | Fixed after development | €25.00 |
-| NoVA | **€2,625.00** |
+| NoVA | **2625** |
 
-The same inputs on today's v1 path would select `at-m1-2026` because the event is in 2026: `(160 − 91) / 5` rounds to 14%, base €2,800.00, unscaled fixed part €50.00, amount **€2,850.00**, plus `wertentwicklung_not_applied`. Leaving the 2024 malus and Abzug unscaled would yield **€2,650.00**. Both figures are forbidden for this request.
+The same inputs on today's v1 path would select `at-m1-2026` because the event is in 2026: `(160 − 91) / 5` rounds to 14%, base 2800, unscaled fixed part 50, amount **2850**, plus `wertentwicklung_not_applied`. Leaving the 2024 malus and Abzug unscaled would yield **2650**. Both figures are forbidden for this request.
 
-The Achtelung twin (`synthetic-eu-m1-2024-achtelung-two-years`) uses factor `6/8` and yields **€2,637.50**. Registration `2024-06-01` and event `2025-05-31` are different calendar years with **zero** completed anniversaries, factor `8/8`, amount **€2,650.00**.
+The Achtelung twin (`synthetic-eu-m1-2024-achtelung-two-years`) uses factor `6/8` and yields **2637.5**. Registration `2024-06-01` and event `2025-05-31` are different calendar years with **zero** completed anniversaries, factor `8/8`, amount **2650**. Window edges are `synthetic-eu-m1-2024-window-start` (`2024-01-01` / `2024-01-01`, 2650) and `synthetic-eu-m1-2024-window-end` (`2024-12-31` / `2026-12-31`, 2637.5).
 
 ---
 
@@ -192,13 +193,37 @@ Slice response for both published requests: HTTP 422 `UNSUPPORTED_HISTORICAL_TAR
 
 ### Synthetic rows
 
-Every other case in `cases.json` has `numberOrigin: "synthetic"` and `independentValidation: false`. They fix the slice contract. They do not validate the 2024 tariff against an external worked example. Party label, where a party is named, is **pilot customer**.
+Every other case in `cases.json` has `numberOrigin: "synthetic"` and `independentValidation: false`. They fix the slice contract. They do not validate the 2024 tariff against an external worked example. Party label, where a party is named, is **pilot customer**. Money in the file is a JSON number. AUT-530 compares it with `roundMoneyEuro` on both sides, which is how 2588.07 and 28.07 stay exact at cent precision. `valueDevelopmentFactor.numerator` and `denominator` are numbers for both bases.
 
 ---
 
+## HTTP 400 and HTTP 422
+
+Owner of the split: AUT-530, in `apps/core-api/src/vehicle/dto/nova-calculate.dto.ts` and `NovaCalculationService`. The global pipe in `createGlobalValidationPipe` stays the 400 gate. The service stays the 422 gate.
+
+Today, without `importMode` and without `vehicleId`, a missing `emissionCycle`, `driveType`, or `taxableEventDate` is HTTP 400 because `@ValidateIf` makes those properties required. A missing `netPriceEuro` is HTTP 400 on every path because `@IsNumber` is unconditional. With `vehicleId`, those three date and enum fields may be omitted and the service fills them. That v1 behavior stays.
+
+AUT-530 adds `importMode`, `valueBasis`, and `originalNewNetEuro` to the DTO. Undeclared properties are HTTP 400 (`forbidNonWhitelisted`). When `importMode` is `eu_used_m1`, the `@ValidateIf` guards on `emissionCycle`, `driveType`, and `taxableEventDate` must not require those properties, with or without `vehicleId`. Omission then reaches the service:
+
+| Input | HTTP | Code |
+|-------|------|------|
+| `importMode` present, `netPriceEuro` absent, not a number, NaN, or Infinity | 400 | ValidationPipe. Not `INVALID_NET_PRICE`. |
+| `netPriceEuro` present and negative | 422 | `INVALID_NET_PRICE` |
+| `emissionCycle`, `driveType`, or `vehicleClass` present and outside the existing enum | 400 | ValidationPipe. `M1` is 400. `motorcycle_z1_z2` is 422 `UNSUPPORTED_IMPORT_CLASS`. |
+| `emissionCycle` or `driveType` omitted under `eu_used_m1` | 422 | `UNSUPPORTED_EMISSION_CYCLE` or `UNSUPPORTED_DRIVE_TYPE` |
+| `taxableEventDate` omitted under `eu_used_m1` | 422 | `MISSING_TAXABLE_EVENT_DATE`. The service must not substitute today's Vienna date. |
+| `taxableEventDate` or `firstRegistrationDate` present and not a string | 400 | ValidationPipe |
+| Date string that is not a real `YYYY-MM-DD` | 422 | `INVALID_ISO_DATE` |
+| `co2GramsPerKm` present and not a finite number | 400 | ValidationPipe |
+| `co2GramsPerKm` omitted | 422 | `MISSING_CO2` |
+| `isCamperSA` present and not a boolean | 400 | ValidationPipe |
+| `valueBasis` present and not a string | 400 | ValidationPipe |
+
+AUT-530 does not pin the class-validator message text. A 400 fixture asserts status 400 and the absence of `novaAmountEuro`. A 422 fixture asserts `code` and `message`.
+
 ## Rejection order
 
-When `importMode` is present, apply the first match. Do not call `calculateNova` on a refusal. Do not default a missing date to today. Do not read `Vehicle.nova_class` as the engine class.
+When `importMode` is `eu_used_m1` and the validation pipe has accepted the body, apply the first match. Do not call `calculateNova` on a refusal. Do not default a missing date to today. Do not read `Vehicle.nova_class` as the engine class.
 
 1. `importMode` other than `eu_used_m1` → `UNSUPPORTED_IMPORT_MODE`.
 2. `valueBasis` or `originalNewNetEuro` present while `importMode` is absent → `MISSING_IMPORT_MODE`. This is the only change visible to a v1 client, and only if they send the new fields.
@@ -211,7 +236,7 @@ When `importMode` is present, apply the first match. Do not call `calculateNova`
 9. `emissionCycle` other than `WLTP`, including absent → `UNSUPPORTED_EMISSION_CYCLE`.
 10. `isCamperSA === true` → `UNSUPPORTED_CAMPER_SA`.
 11. `co2GramsPerKm` absent → `MISSING_CO2`. Non-finite or negative → `INVALID_CO2`. Not an integer → `UNSUPPORTED_FRACTIONAL_CO2`. `ratedPowerKw` and `displacementCc` are ignored and never become a substitute.
-12. `netPriceEuro` fails the existing non-negative finite check → `INVALID_NET_PRICE`.
+12. `netPriceEuro` is present and negative → `INVALID_NET_PRICE`. Absence never reaches this step.
 13. `valueBasis` absent → `MISSING_VALUE_DEVELOPMENT`. Present and not one of the two literals → `INVALID_VALUE_BASIS`. `known_new_net` without `originalNewNetEuro` finite and `> 0` → `MISSING_ORIGINAL_NEW_NET`.
 14. Compute the success body.
 
@@ -255,7 +280,7 @@ Existing fields stay. Additions:
 | `warnings` | `[]` |
 | `hasUnverifiedRules` | `false` |
 | `hasScopeLimitations` | `false` |
-| `intermediates` | `rateRaw` as an unreduced fraction string, cent strings for money, `fullYearsElapsed`, `valueDevelopmentFactor` as `{ numerator, denominator }`, `valueBasis` |
+| `intermediates` | `rateRaw` as an unreduced fraction string. Money fields are JSON numbers. `fullYearsElapsed` is a number. `valueDevelopmentFactor` is `{ numerator: number, denominator: number }` for both bases (euro amounts for `known_new_net`, eighths for `achtelung`). `valueBasis` is the request literal. |
 
 `appliedRuleIds`, in this order, including a rule only when it applies:
 
@@ -274,7 +299,7 @@ Do not emit `wertentwicklung_not_applied`, `eu_import_tariff_hint`, or `tariff_o
 
 ### vehicleId
 
-Tenant and active-site checks stay as they are in `NovaCalculationService.calculate`. For `importMode: eu_used_m1` the request must still send `vehicleClass`, `driveType`, `emissionCycle`, `taxableEventDate`, `netPriceEuro`, and `valueBasis`. `firstRegistrationDate` and `co2GramsPerKm` may be filled from `Vehicle.first_registration_date` and `Vehicle.co2_wltp_g_km` only when the request omits them. A stored NEDC value is not a substitute: missing WLTP grams is `MISSING_CO2`. The response does not gain a persistence id.
+Tenant and active-site checks stay as they are in `NovaCalculationService.calculate`. For a successful `eu_used_m1` call the request still sends `vehicleClass`, `driveType: ICE`, `emissionCycle: WLTP`, `taxableEventDate`, `netPriceEuro`, and `valueBasis`. Omitting `driveType`, `emissionCycle`, or `taxableEventDate` is a 422 from the service, not a vehicle-field default and not today's Vienna date. `firstRegistrationDate` and `co2GramsPerKm` may be filled from `Vehicle.first_registration_date` and `Vehicle.co2_wltp_g_km` only when the request omits them. `co2_wltp_g_km` is an `Int` column. A stored NEDC value is not a substitute: `synthetic-vehicle-nedc-not-prefilled` expects `MISSING_CO2`. `Vehicle.nova_class` is not read. The response does not gain a persistence id.
 
 ---
 
@@ -316,7 +341,7 @@ Implemented in AUT-530, not in this spec PR.
 
 | Method | Route | Change Description |
 |--------|-------|--------------------|
-| POST | `/api/vehicles/nova/calculate` | Optional `importMode`, `valueBasis`, `originalNewNetEuro`. When `importMode` is `eu_used_m1`, the success body gains `tariffSelectionBasis`, `tariffSelectionDate`, and `intermediates`. Refusal codes above join `NovaCalculationErrorCode` and the Swagger enum. V1 responses omit the new fields. |
+| POST | `/api/vehicles/nova/calculate` | Add `importMode`, `valueBasis`, and `originalNewNetEuro`. When `importMode` is `eu_used_m1`, relax `@ValidateIf` so omitted `emissionCycle`, `driveType`, and `taxableEventDate` reach the service on both the body-only path and the `vehicleId` path. `netPriceEuro` stays required at the DTO. Success adds `tariffSelectionBasis`, `tariffSelectionDate`, and `intermediates` as JSON numbers. Slice refusals join `NovaCalculationErrorCode` and the Swagger enum. V1 responses omit the new fields. |
 
 Minimal JSON request for a calculation without `vehicleId`:
 
@@ -362,7 +387,7 @@ AUT-530 edits the existing Nest service and the pure calculator only:
 |--------|--------|
 | `apps/core-api/src/nova-calculator/` | Slice function. Does not extend v1 `calculateNova` to scale Wertentwicklung as a silent extra. |
 | `apps/core-api/src/vehicle/nova-calculation.service.ts` | Branch on `importMode` before `resolveTariffVersion(eventDate)`. |
-| `apps/core-api/src/vehicle/dto/nova-calculate.dto.ts` | New optional fields and error enum. |
+| `apps/core-api/src/vehicle/dto/nova-calculate.dto.ts` | New optional fields, the error enum, and the `@ValidateIf` change in [HTTP 400 and HTTP 422](#http-400-and-http-422). AUT-530 owns that 400/422 split. |
 
 ---
 
@@ -370,7 +395,7 @@ AUT-530 edits the existing Nest service and the pure calculator only:
 
 ### Backend
 
-AUT-530 loads `docs/internal/02-Feature-Specs/Vehicles/fixtures/nova-eu-used-import/cases.json` and asserts HTTP status, error code, message, success body, and each `mustNot` list. A refusal fixture fails if the body contains `novaAmountEuro`. Existing v1 tests stay green, including the 2020-01-01 warning test, because that request has no `importMode`.
+AUT-530 loads `docs/internal/02-Feature-Specs/Vehicles/fixtures/nova-eu-used-import/cases.json`. Compare money with `roundMoneyEuro` on both sides. `harness: "http-body"` is a request body. `harness: "service-with-synthetic-vehicle"` needs one synthetic vehicle row for the pilot customer; the stored NEDC value must not be used. A 422 fixture asserts `code` and `message` and fails if `novaAmountEuro` is present. A 400 fixture asserts HTTP 400 and the same absence, and does not assert the validation-pipe message. Existing v1 tests stay green, including the 2020-01-01 warning test, because that request has no `importMode`.
 
 ### Frontend
 
@@ -392,7 +417,12 @@ No ADR. The slice does not add a table, a status machine, or a new integration. 
 
 ## Open Questions
 
-None. Date window, class, value basis, anniversary rule, uncapped known-net ratio, cent rounding, and refusal codes are closed above. A wider year range is a new slice with its own tariff source check, not a change to these fixtures.
+The slice still calculates these two cases. They are not closed, and they are not a reason to withhold the HTTP response.
+
+1. **Uncapped `known_new_net`.** The BMF overview, retrieved 2026-10-15, scales malus and Abzug by the aliquot share of the value loss ("aliquoter Anteil"). It does not say what happens when the current net is above the original new net. This slice uses the raw ratio, so `synthetic-eu-m1-2024-known-new-net-above-par` expects 2782.5 rather than a cap of 1 (which would be 2780). A later confirmation can replace that fixture.
+2. **29 February clamp.** The BMF page defines completed years and does not mention a missing anniversary day. This slice clamps 29 February to the last day of February in a non-leap year. The two `leap-day` fixtures are marked `assumption: leap_day_clamp`.
+
+Date window, class, required value basis, cent rounding, and the 400/422 split are specified above. A wider year range is a new slice with its own tariff source check.
 
 ---
 
