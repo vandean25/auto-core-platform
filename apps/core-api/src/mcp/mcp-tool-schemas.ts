@@ -11,6 +11,10 @@ import {
   MCP_WRITE_TOOL_NAMES,
 } from './mcp.constants.js';
 import {
+  loanerAvailabilityCursorPositionSchema,
+  workshopSlotCursorPositionSchema,
+} from './mcp-availability-read.mapper.js';
+import {
   MCP_CATALOG_ITEM_TYPES,
   mcpCatalogItemPositionSchema,
   mcpMarginRulePositionSchema,
@@ -585,6 +589,35 @@ export const getNovaPreviewInputSchema = z.object({
     ),
 });
 
+/** AUT-512 workshop slot availability for the active site (read-only snapshot). */
+export const listWorkshopSlotsInputSchema = z.object({
+  from: z.string().min(1).describe('Range start as an ISO-8601 UTC instant'),
+  to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
+  duration_minutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .describe('Required contiguous free time in minutes'),
+  bay_id: uuidSchema
+    .optional()
+    .describe('Optional bay at the active site; omit for all bays'),
+  pageSize: reportPageSizeSchema,
+  cursor: positionCursorSchema(workshopSlotCursorPositionSchema)
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+/** AUT-512 loaner fleet availability for the active site (read-only snapshot). */
+export const listAvailableLoanersInputSchema = z.object({
+  from: z.string().min(1).describe('Range start as an ISO-8601 UTC instant'),
+  to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
+  pageSize: reportPageSizeSchema,
+  cursor: positionCursorSchema(loanerAvailabilityCursorPositionSchema)
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -604,6 +637,8 @@ export const mcpToolInputSchemas: Record<
   list_bays: listBaysInputSchema,
   list_bins: listBinsInputSchema,
   list_workshop_tasks: listWorkshopTasksInputSchema,
+  list_workshop_slots: listWorkshopSlotsInputSchema,
+  list_available_loaners: listAvailableLoanersInputSchema,
   whoami: whoamiInputSchema,
   get_capabilities: getCapabilitiesInputSchema,
   list_audit_events: listAuditEventsInputSchema,
@@ -682,6 +717,42 @@ export const releaseReservationInputSchema = z
   })
   .strict();
 
+export const proposeRegistrationIntakeInputSchema = z
+  .object({
+    intake_id: uuidSchema,
+    vin: z.string().nullable(),
+    plate: z.string(),
+    holder: z
+      .object({
+        first_name: z.string(),
+        last_name: z.string(),
+      })
+      .strict(),
+    nationalcode: z.string().nullable(),
+    first_registration: z.string().nullable(),
+    co2: z
+      .object({
+        value: z.number().int().min(0).max(600),
+        cycle: z.enum(['WLTP', 'NEDC']),
+      })
+      .nullable()
+      .optional(),
+    make: z.string().optional(),
+    model: z.string().optional(),
+    year: z.number().int().min(1900).optional(),
+    customer_id: uuidSchema.optional(),
+    vehicle_id: uuidSchema.optional(),
+    ownership_correction: z
+      .object({
+        expected_customer_id: uuidSchema.nullable(),
+        next_customer_id: uuidSchema,
+      })
+      .strict()
+      .optional(),
+    ...optionalMcpCommandIdSchema,
+  })
+  .strict();
+
 export const proposeLineItemInputSchema = z
   .object({
     workshop_order_id: uuidSchema,
@@ -709,4 +780,5 @@ export const mcpWriteToolInputSchemas: Record<
   reserve_part: reservePartInputSchema,
   release_reservation: releaseReservationInputSchema,
   propose_line_item: proposeLineItemInputSchema,
+  propose_registration_intake: proposeRegistrationIntakeInputSchema,
 };

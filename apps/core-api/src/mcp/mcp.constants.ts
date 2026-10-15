@@ -45,6 +45,8 @@ export const MCP_READ_TOOL_NAMES = [
   'list_bays',
   'list_bins',
   'list_workshop_tasks',
+  'list_workshop_slots',
+  'list_available_loaners',
   'whoami',
   'get_capabilities',
   'list_audit_events',
@@ -85,6 +87,7 @@ export const MCP_WRITE_TOOL_NAMES = [
   'reserve_part',
   'release_reservation',
   'propose_line_item',
+  'propose_registration_intake',
 ] as const;
 
 export type McpWriteToolName = (typeof MCP_WRITE_TOOL_NAMES)[number];
@@ -135,4 +138,7 @@ export const MCP_NEVER_EXPOSED_ACTIONS = [
   'legal_entity.update',
   'tax_rate.update',
   'number_range.update',
+  'payment.record',
+  'fiscal_receipt.sign',
+  'fiscal_receipt.cancel',
 ] as const;

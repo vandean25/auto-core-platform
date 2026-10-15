@@ -339,7 +339,12 @@ export class AgentProposalDecisionService {
   private async assertSiteMatchesSimulation(
     proposal: AgentProposal,
   ): Promise<void> {
-    if (proposal.action_type !== 'workshop_order.create') return;
+    if (
+      proposal.action_type !== 'workshop_order.create' &&
+      proposal.action_type !== 'registration_intake.apply'
+    ) {
+      return;
+    }
     const intendedSiteId = readExecutionSiteId(proposal.preview_json);
     if (
       !intendedSiteId ||
@@ -408,7 +413,8 @@ export class AgentProposalDecisionService {
             DryRunStorage.run({ isDryRun: false, tx }, () =>
               executor.execute(
                 proposal.payload_json,
-                proposal.action_type === 'workshop_order.create'
+                proposal.action_type === 'workshop_order.create' ||
+                  proposal.action_type === 'registration_intake.apply'
                   ? { site_id: readExecutionSiteId(proposal.preview_json) }
                   : undefined,
               ),

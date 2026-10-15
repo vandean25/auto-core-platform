@@ -120,6 +120,33 @@ describe('createDashboardRealtimeExtension handlers', () => {
     });
   });
 
+  describe('FISCAL_RECEIPT enrichment', () => {
+    it('includes siteId from an included payment relation on update', async () => {
+      const { handlers, emitEntityUpdated } = buildAllModelsHandlers();
+      const query = jest.fn().mockResolvedValue({
+        id: 'fr-1',
+        state: 'SIGNED',
+        payment: { site_id: 'site-9' },
+      });
+
+      await runWithTenant(() =>
+        handlers.update.call(undefined, {
+          model: 'FiscalReceipt',
+          args: { where: { id: 'fr-1' }, data: { state: 'SIGNED' } },
+          query,
+        }),
+      );
+
+      expect(emitEntityUpdated).toHaveBeenCalledWith(TENANT_ID, {
+        type: 'FISCAL_RECEIPT',
+        action: 'UPDATED',
+        entityId: 'fr-1',
+        siteId: 'site-9',
+        status: 'SIGNED',
+      });
+    });
+  });
+
   describe('createMany', () => {
     it('never emits realtime events, even outside dry run', async () => {
       const { handlers, emitEntityUpdated } = buildAllModelsHandlers();

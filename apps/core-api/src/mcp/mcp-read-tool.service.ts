@@ -9,6 +9,7 @@ import { McpOrderHistoryReadService } from './mcp-order-history-read.service.js'
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
 import { McpSettingsReadService } from './mcp-settings-read.service.js';
 import { McpStockReadService } from './mcp-stock-read.service.js';
@@ -47,6 +48,8 @@ import {
   listVendorsInputSchema,
   listWorkshopOrdersInputSchema,
   listWorkshopTasksInputSchema,
+  listWorkshopSlotsInputSchema,
+  listAvailableLoanersInputSchema,
   searchCustomersInputSchema,
   searchPartsInputSchema,
   searchVehiclesInputSchema,
@@ -71,6 +74,7 @@ export class McpReadToolService {
   private readonly purchasingReads: McpPurchasingReadService;
   private readonly catalogReads: McpCatalogReadService;
   private readonly reportReads: McpReportReadService;
+  private readonly availabilityReads: McpAvailabilityReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties, for the same
   // cohesion reason as the tool handler.
@@ -87,6 +91,7 @@ export class McpReadToolService {
     purchasingReads: McpPurchasingReadService,
     catalogReads: McpCatalogReadService,
     reportReads: McpReportReadService,
+    availabilityReads: McpAvailabilityReadService,
   ) {
     this.capabilities = capabilities;
     this.auditReads = auditReads;
@@ -100,6 +105,7 @@ export class McpReadToolService {
     this.purchasingReads = purchasingReads;
     this.catalogReads = catalogReads;
     this.reportReads = reportReads;
+    this.availabilityReads = availabilityReads;
   }
 
   async run(
@@ -201,6 +207,14 @@ export class McpReadToolService {
       case 'list_workshop_tasks':
         return this.recordReads.listWorkshopTasks(
           listWorkshopTasksInputSchema.parse(parsed),
+        );
+      case 'list_workshop_slots':
+        return this.availabilityReads.listWorkshopSlots(
+          listWorkshopSlotsInputSchema.parse(parsed),
+        );
+      case 'list_available_loaners':
+        return this.availabilityReads.listAvailableLoaners(
+          listAvailableLoanersInputSchema.parse(parsed),
         );
       case 'whoami':
         return this.capabilities.whoami(context);

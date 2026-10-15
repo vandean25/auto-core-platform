@@ -144,6 +144,11 @@ model Tenant {
   agentPolicyRules              AgentPolicyRule[]
   agentProposals                AgentProposal[]
   mcpWriteCommandReceipts       McpWriteCommandReceipt[]
+  registrationDocumentIntakes   RegistrationDocumentIntake[]
+  registrationIntakeBytePurges  RegistrationIntakeBytePurge[]
+  payments                      Payment[]
+  fiscalRegisters               FiscalRegister[]
+  fiscalReceipts                FiscalReceipt[]
   vendorArticles                VendorArticle[]
   marginRules                   MarginRule[]
   catalogPriceHistories         CatalogPriceHistory[]
@@ -257,10 +262,12 @@ model User {
   transfersReceived                 StockTransfer[]           @relation("StockTransferReceivedBy")
   confirmedDocumentBrandProfiles    DocumentBrandProfile[]    @relation("DocumentBrandConfirmedBy")
   requestedDocumentBrandExtractions DocumentBrandExtraction[] @relation("DocumentBrandExtractionRequestedBy")
+  capturedRegistrationIntakes       RegistrationDocumentIntake[] @relation("RegistrationIntakeCapturedBy")
   createdTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyCreatedBy")
   revokedTenantApiKeys              TenantApiKey[]            @relation("TenantApiKeyRevokedBy")
   workshopEstimateApprovalsRecorded WorkshopEstimateApproval[] @relation("WorkshopEstimateApprovalRecordedBy")
   workshopEstimateOverrunsNotified  WorkshopEstimateOverrun[]  @relation("WorkshopEstimateOverrunNotifiedBy")
+  paymentsRecorded                  Payment[]                 @relation("PaymentRecordedBy")
   landingDemoSignInGrants           LandingDemoSignInGrant[]
   createdAt                         DateTime                  @default(now())
   updatedAt                         DateTime                  @updatedAt
@@ -353,6 +360,44 @@ model PlatformAdmin {
 // Multi-Location: LegalEntity + Site + SiteMembership (ADR-0022)
 // ============================================================================
 
+enum RksvMode {
+  OFF
+  UNKNOWN
+  REQUIRED_EXTERNAL_KASSE
+  REQUIRED_ACP_RKSV
+}
+
+enum FiscalRegisterEnv {
+  TEST
+  LIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  UNKNOWN
+  SETTLED
+  SETTLED_EXTERNAL
+  REJECTED
+  REVERSED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+}
+
+enum FiscalReceiptState {
+  PENDING
+  UNKNOWN
+  SIGNED
+  REJECTED
+}
+
+enum FiscalReceiptType {
+  NORMAL
+  CANCELLATION
+}
+
 model LegalEntity {
   id                          String                        @id @default(uuid())
   tenant_id                   String
@@ -376,7 +421,10 @@ model LegalEntity {
   representatives             String?
   payment_terms_days          Int?
   payment_terms_text          String?
+  rksv_mode                   RksvMode                      @default(OFF)
   sites                       Site[]
+  fiscal_registers            FiscalRegister[]
+  payments                    Payment[]
   accountingProfile           LegalEntityAccountingProfile?
   accountingExports           AccountingExport[]
   documentBrandProfile        DocumentBrandProfile?
@@ -394,6 +442,90 @@ model LegalEntity {
   @@unique([tenant_id, name])
   @@index([tenant_id])
   @@map("legal_entities")
+}
+
+model FiscalRegister {
+  id                         String            @id @default(uuid())
+  tenant_id                  String
+  tenant                     Tenant            @relation(fields: [tenant_id], references: [id])
+  legal_entity_id            String
+  legal_entity               LegalEntity       @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                    String
+  site                       Site              @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  provider                   String
+  env                        FiscalRegisterEnv
+  provider_cash_register_id  String            @db.Uuid
+  provider_scu_id            String            @db.Uuid
+  provider_state             String
+  credentials_secret_ref     String?
+  fiscal_receipts            FiscalReceipt[]
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+
+  @@unique([tenant_id, site_id])
+  @@unique([tenant_id, id])
+  @@index([tenant_id])
+  @@map("fiscal_registers")
+}
+
+model Payment {
+  id                       String         @id @default(uuid())
+  tenant_id                String
+  tenant                   Tenant         @relation(fields: [tenant_id], references: [id])
+  invoice_id               String
+  invoice                  Invoice        @relation(fields: [tenant_id, invoice_id], references: [tenant_id, id], onDelete: Restrict)
+  site_id                  String
+  site                     Site           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  legal_entity_id          String
+  legal_entity             LegalEntity    @relation(fields: [tenant_id, legal_entity_id], references: [tenant_id, id], onDelete: Restrict)
+  recorded_by_user_id      String?
+  recorded_by_user         User?          @relation("PaymentRecordedBy", fields: [recorded_by_user_id], references: [id], onDelete: SetNull)
+  status                   PaymentStatus
+  method                   PaymentMethod
+  amount                   Decimal        @db.Decimal(10, 2)
+  currency                 String
+  idempotency_key          String
+  request_hash             String
+  external_receipt_number  String?
+  external_receipt_date    DateTime?      @db.Date
+  fiscal_receipts          FiscalReceipt[]
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  @@unique([tenant_id, idempotency_key])
+  @@index([tenant_id, invoice_id, status])
+  @@unique([tenant_id, id])
+  @@map("payments")
+}
+
+model FiscalReceipt {
+  id                        String             @id @default(uuid())
+  tenant_id                 String
+  tenant                    Tenant             @relation(fields: [tenant_id], references: [id])
+  payment_id                String
+  payment                   Payment            @relation(fields: [tenant_id, payment_id], references: [tenant_id, id], onDelete: Restrict)
+  fiscal_register_id        String
+  fiscal_register           FiscalRegister     @relation(fields: [tenant_id, fiscal_register_id], references: [tenant_id, id], onDelete: Restrict)
+  sign_idempotency_key      String?
+  provider_receipt_id       String             @db.Uuid
+  receipt_type              FiscalReceiptType
+  state                     FiscalReceiptState
+  request_body              Json
+  response_body             Json?
+  provider_http_status      Int?
+  provider_error_code       String?
+  provider_request_id       String?
+  original_fiscal_receipt_id String?
+  original_fiscal_receipt   FiscalReceipt?     @relation("FiscalReceiptCancellation", fields: [tenant_id, original_fiscal_receipt_id], references: [tenant_id, id], onDelete: Restrict)
+  cancellation_receipts     FiscalReceipt[]    @relation("FiscalReceiptCancellation")
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+
+  @@unique([tenant_id, provider_receipt_id])
+  @@unique([tenant_id, sign_idempotency_key])
+  @@index([tenant_id, fiscal_register_id, createdAt])
+  @@unique([tenant_id, id])
+  @@map("fiscal_receipts")
 }
 
 enum DocumentBrandAssetPurpose {
@@ -654,6 +786,7 @@ model Site {
   bays                     Bay[]
   storageLocations         StorageLocation[]
   workshopOrders           WorkshopOrder[]
+  registrationDocumentIntakes RegistrationDocumentIntake[]
   outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
   inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
   salesOrders              SalesOrder[]
@@ -665,6 +798,8 @@ model Site {
   creditNotes              CreditNote[]
   workshopEstimates        WorkshopEstimate[]
   loanerVehicles           LoanerVehicle[]
+  fiscal_register          FiscalRegister?
+  payments                 Payment[]
   createdAt                DateTime              @default(now())
   updatedAt                DateTime              @updatedAt
 
@@ -1371,6 +1506,7 @@ model Customer {
   vehicle_sales           VehicleSale[]
   loaner_bookings         LoanerBooking[]
   tyre_sets               TyreSet[]
+  appliedRegistrationIntakes RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedCustomer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1417,6 +1553,7 @@ model Vehicle {
   co2_wltp_g_km                  Int?                 @map("co2_wltp_g_km")
   co2_nedc_g_km                  Int?                 @map("co2_nedc_g_km")
   typenschein_no                 String?              @map("typenschein_no")
+  national_code                  String?              @map("national_code") @db.VarChar(16)
   nova_class                     String?              @map("nova_class")
   emission_class                 String?              @map("emission_class")
   site_id                        String?
@@ -1433,12 +1570,14 @@ model Vehicle {
   loaner_fleet_entry             LoanerVehicle?
   inspection_records             VehicleInspectionRecord[]
   tyre_sets                      TyreSet[]
+  appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([tenant_id, id])
   @@index([tenant_id])
+  @@index([tenant_id, national_code])
   @@index([tenant_id, inventory_role, stock_status])
   @@index([tenant_id, site_id, stock_received_at])
   @@index([tenant_id, hsn, tsn])
@@ -1784,6 +1923,7 @@ model Invoice {
 
   items                 InvoiceItem[]
   credit_notes          CreditNote[]
+  payments              Payment[]
   brand_asset_reference InvoiceBrandAssetReference?
 
   createdAt DateTime @default(now())
@@ -1986,6 +2126,70 @@ model PurchaseInvoiceLine {
 // ============================================================================
 // Workshop Intake
 // ============================================================================
+
+enum RegistrationDocumentIntakeState {
+  UPLOADED
+  QUEUED
+  RUNNING
+  AWAITING_REVIEW
+  FAILED
+  ABORTED
+  APPLIED
+}
+
+model RegistrationDocumentIntake {
+  id                      String                          @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant                          @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                 String
+  site                    Site                            @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  captured_by_user_id     String
+  capturedByUser          User                            @relation("RegistrationIntakeCapturedBy", fields: [captured_by_user_id], references: [id], onDelete: Restrict)
+  idempotency_key         String                          @db.VarChar(128)
+  request_hash            String                          @db.Char(64)
+  state                   RegistrationDocumentIntakeState
+  document_kind           String?                         @db.VarChar(32)
+  failure_code            String?                         @db.VarChar(64)
+  evidence                Json?
+  match_snapshot          Json?
+  lease_token             String?                         @db.VarChar(64)
+  provider_id             String?                         @db.VarChar(64)
+  prompt_version          String?                         @db.VarChar(64)
+  applied_customer_id     String?
+  appliedCustomer         Customer?                       @relation("RegistrationIntakeAppliedCustomer", fields: [applied_customer_id], references: [id], onDelete: SetNull)
+  applied_vehicle_id      String?
+  appliedVehicle          Vehicle?                        @relation("RegistrationIntakeAppliedVehicle", fields: [applied_vehicle_id], references: [id], onDelete: SetNull)
+  applied_workshop_order_id String?
+  appliedWorkshopOrder    WorkshopOrder?                  @relation("RegistrationIntakeAppliedOrder", fields: [applied_workshop_order_id], references: [id], onDelete: SetNull)
+  expires_at              DateTime?
+  bytePurge               RegistrationIntakeBytePurge?
+  createdAt               DateTime                        @default(now())
+  updatedAt               DateTime                        @updatedAt
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, captured_by_user_id, site_id, idempotency_key])
+  @@index([tenant_id, site_id, createdAt])
+  @@index([expires_at])
+  @@map("registration_document_intakes")
+}
+
+model RegistrationIntakeBytePurge {
+  id            String                   @id @default(uuid())
+  tenant_id     String
+  tenant        Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  intake_id     String
+  intake        RegistrationDocumentIntake @relation(fields: [tenant_id, intake_id], references: [tenant_id, id], onDelete: Restrict)
+  object_prefix String                   @db.VarChar(256)
+  attempts      Int                      @default(0)
+  last_error    String?                  @db.VarChar(512)
+  created_at    DateTime                 @default(now())
+  processed_at  DateTime?
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, intake_id])
+  @@index([created_at], map: "registration_intake_byte_purges_pending_idx")
+  @@map("registration_intake_byte_purges")
+}
 
 enum WorkshopOrderStatus {
   SCHEDULED
@@ -2255,6 +2459,7 @@ model WorkshopOrder {
   loaner_bookings        LoanerBooking[]
   tyre_set_events        TyreSetEvent[]
   warranty_claims        WarrantyClaim[]
+  appliedRegistrationIntakes RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedOrder")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

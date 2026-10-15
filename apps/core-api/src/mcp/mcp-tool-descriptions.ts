@@ -23,6 +23,10 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
   list_bins: 'List bin storage locations for the active site (paged)',
   list_workshop_tasks:
     'List workshop tasks the caller may see, including line IDs (paged)',
+  list_workshop_slots:
+    'List free workshop bay slots at the active site for a UTC window (max 8 days), duration, and optional bay (pageSize max 25, opaque cursor). Read-only snapshot; re-check before booking',
+  list_available_loaners:
+    'List loaner vehicles available at the active site for a UTC window (max 8 days) using fleet booking rules (pageSize max 25, opaque cursor). Read-only snapshot; re-check before booking',
   whoami:
     'Caller identity, role, tenant, active site, and decision apply mode (no input)',
   get_capabilities:
@@ -77,4 +81,6 @@ export const MCP_TOOL_DESCRIPTIONS: Record<McpToolName, string> = {
     'Release a parts reservation (counter-tool of reserve_part)',
   propose_line_item:
     'Propose a workshop task line item (never executes; records a pending proposal)',
+  propose_registration_intake:
+    'Propose applying a reviewed registration document intake (never executes; records a pending proposal)',
 };

@@ -47,6 +47,9 @@ This document defines when deletion is allowed in Auto Core Platform.
 | SalesOrder | Draft-only | Allow only in `DRAFT` and only when no linked `Invoice` exists. |
 | SalesOrderItem | No direct delete | Managed by parent `SalesOrder` lifecycle. |
 | Invoice | No | Financial/legal document; use status cancellation flow. |
+| Payment | No | Status transitions only; no hard delete. Tenant purge may remove rows with the tenant. |
+| FiscalReceipt | No | Immutable `request_body` and stored `response_body`; no hard delete. |
+| FiscalRegister | No | No hard delete in this slice; decommission in fiskaly is a later change. |
 | InvoiceItem | No direct delete | Managed by parent `Invoice` lifecycle. |
 | PurchaseInvoice | Draft-only | Allow only in `DRAFT`. Posted and paid bills are financial documents; use the status lifecycle (`DRAFT`, `POSTED`, `PAID`). |
 | PurchaseInvoiceLine | No direct delete | Managed by parent `PurchaseInvoice` lifecycle. |
@@ -117,7 +120,7 @@ The following are the **accepted policy baseline** from [ADR-0023](internal/01-A
 
 | Entity | Planned delete support | Rule |
 |---|---|---|
-| LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport or a used accounting profile references it. |
+| LegalEntity | Conditional | Preserve existing site guards; additionally block hard deletion while Invoice, CreditNote, AccountingExport, Payment, FiscalReceipt, FiscalRegister, or a used accounting profile references it. |
 | Invoice (version 2) | No | No status-only cancellation as a financial reversal. Issue a separate numbered credit; retain original snapshot, number and fiscal status. |
 | CreditNote | No | DRAFT may transition to VOID without a number. FINALIZED and VOID are retained; no hard-delete endpoint. |
 | CreditNoteItem | Draft-parent edits only | Draft line replacement allowed; finalized/void lines retained. No independent deletion endpoint. |
@@ -157,6 +160,17 @@ ADR-0024 is accepted; the following detailed lifecycle rules are the **approved 
 | LegalEntity | Existing guards plus branding retention | Preserve current site/finance guards. Retained branding history blocks hard deletion; only unused, unprotected branding setup can be removed with an otherwise deletable entity. |
 
 Active-reference changes, invoice commitment and cleanup serialize on the legal entity before child rows. Cleanup must not race a first profile or invoice reference. A relational FK is not a cleanup guard by itself: cleanup rechecks committed references under the entity lock before marking an asset `DELETING` and again on retries before deleting the exact GCS generation. Do not apply short GCS lifecycle rules to retained logo generations or invoice archives. These rules grant no tenant-purge or fiscal-retention exception.
+
+## AUT-537 — Registration document intake
+
+| Entity | Delete | Rule |
+|---|---|---|
+| `RegistrationDocumentIntake` | Before `APPLIED` | Hard delete the row and page objects from `UPLOADED`, `QUEUED`, `RUNNING`, `FAILED`, `ABORTED`, and `AWAITING_REVIEW` |
+| `RegistrationDocumentIntake` | `APPLIED` | Refuse. Row is audit. Page bytes removed by the byte-purge outbox job |
+| `RegistrationIntakeBytePurge` | With intake | Keep row after `processed_at`. Tenant purge deletes object prefix `registration-intakes/{tenantId}/` first, then outbox rows, then intakes |
+| `Customer` | Existing | Applied intake does not block delete. `CustomerService.remove` clears holder evidence on linked applied intakes in the same transaction |
+| `Vehicle` | Existing | `clearRegistrationEvidenceForVehicle` clears holder evidence when a vehicle delete endpoint runs |
+| `Vehicle.national_code` | n/a | Follows vehicle delete rules |
 
 ## UI Contract
 

@@ -1,10 +1,23 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useDataTableQuery } from './useDataTableQuery'
+
+const URL_DEBOUNCE_MS = 500
+
+async function flushUrlDebounce() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(URL_DEBOUNCE_MS)
+  })
+}
+
+beforeEach(() => {
+  vi.useFakeTimers()
+})
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
 })
 
 function HookHarness() {
@@ -12,7 +25,7 @@ function HookHarness() {
   const location = useLocation()
   const { queryParams, setGlobalFilter, setPagination } = useDataTableQuery({
     defaultPageSize: 10,
-    debounceMs: 0,
+    debounceMs: URL_DEBOUNCE_MS,
   })
 
   return (
@@ -46,9 +59,6 @@ function HookHarness() {
   )
 }
 
-/** The hook writes the URL after a 500 ms debounce, so each wait must outlast it on a loaded machine. */
-const DEBOUNCED_WAIT = { timeout: 3000 }
-
 describe('useDataTableQuery', () => {
   it('reads table state from URL query params on first render', () => {
     render(
@@ -81,10 +91,10 @@ describe('useDataTableQuery', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Apply Favorite URL' }))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('search')).toHaveTextContent('Mustermann')
-      expect(screen.getByTestId('filters')).toHaveTextContent('status:IN_PROGRESS')
-    }, DEBOUNCED_WAIT)
+    await flushUrlDebounce()
+
+    expect(screen.getByTestId('search')).toHaveTextContent('Mustermann')
+    expect(screen.getByTestId('filters')).toHaveTextContent('status:IN_PROGRESS')
   })
 
   it('keeps user-entered search and writes it to URL query', async () => {
@@ -96,10 +106,10 @@ describe('useDataTableQuery', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Type Search' }))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('search')).toHaveTextContent('Gruber')
-      expect(screen.getByTestId('url-search')).toHaveTextContent('search=Gruber')
-    }, DEBOUNCED_WAIT)
+    await flushUrlDebounce()
+
+    expect(screen.getByTestId('search')).toHaveTextContent('Gruber')
+    expect(screen.getByTestId('url-search')).toHaveTextContent('search=Gruber')
   })
 
   it('writes a chosen page size to the URL, resets the page, and drops the size again at the default', async () => {
@@ -111,16 +121,17 @@ describe('useDataTableQuery', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose 50 Rows' }))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('page-size')).toHaveTextContent('50')
-      expect(screen.getByTestId('url-search')).toHaveTextContent('pageSize=50')
-      expect(screen.getByTestId('url-search')).not.toHaveTextContent('page=3')
-    }, DEBOUNCED_WAIT)
+    await flushUrlDebounce()
+
+    expect(screen.getByTestId('page-size')).toHaveTextContent('50')
+    expect(screen.getByTestId('url-search')).toHaveTextContent('pageSize=50')
+    expect(screen.getByTestId('url-search')).not.toHaveTextContent('page=3')
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose 10 Rows' }))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('url-search')).not.toHaveTextContent('pageSize')
-    }, DEBOUNCED_WAIT)
+    await flushUrlDebounce()
+
+    expect(screen.getByTestId('page-size')).toHaveTextContent('10')
+    expect(screen.getByTestId('url-search')).not.toHaveTextContent('pageSize')
   })
 })

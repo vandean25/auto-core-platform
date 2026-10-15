@@ -462,11 +462,30 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
+      # Transient npm/registry ECONNRESET during browser download has failed shard 1/3 without running tests.
       - name: Install Playwright Browsers
-        run: npm exec --workspace=core-web -- playwright install --with-deps chromium
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if npm exec --workspace=core-web -- playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "Playwright browser install failed (attempt ${attempt}); retrying..."
+            sleep $((attempt * 10))
+          done
+          exit 1
 
       - name: Run Playwright UI smoke tests
-        run: npm run test:e2e --workspace=core-web -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            if npm run test:e2e --workspace=core-web -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}; then
+              exit 0
+            fi
+            echo "UI smoke shard failed (attempt ${attempt}); retrying..."
+            sleep 20
+          done
+          exit 1
 
       - name: Upload Playwright report
         if: always()

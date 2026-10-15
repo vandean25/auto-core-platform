@@ -31,6 +31,7 @@ import type {
   NewVehicleForm,
 } from '@/features/workshop/intake-form'
 import { getErrorMessage } from '@/lib/error-utils'
+import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
 type ExistingCustomer = Customer & { vehicles: Vehicle[] }
@@ -211,6 +212,7 @@ export function WorkshopOrderIntakeDialog({
               <TabsList>
                 <TabsTrigger value="existing">Search Existing</TabsTrigger>
                 <TabsTrigger value="new-vehicle">Create Vehicle</TabsTrigger>
+                <TabsTrigger value="registration-document">Zulassungsschein</TabsTrigger>
               </TabsList>
             ) : null}
 
@@ -384,6 +386,22 @@ export function WorkshopOrderIntakeDialog({
                 )}
               </div>
             </TabsContent>
+
+            <TabsContent value="registration-document" className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Upload an Austrian Zulassungsschein (front and optional back). Review extracted
+                fields, confirm identity, then create the workshop order on the captured site.
+              </p>
+              <RegistrationDocumentIntakeStep
+                odometer={odometer}
+                fuelLevel={fuelLevel}
+                notes={notes}
+                onOrderCreated={(orderId) => {
+                  handleDialogOpenChange(false)
+                  navigate(`/workshop/${orderId}`)
+                }}
+              />
+            </TabsContent>
           </Tabs>
 
           <div className="border rounded-lg p-3 space-y-3">
@@ -433,7 +451,12 @@ export function WorkshopOrderIntakeDialog({
             <Button
               type="button"
               onClick={handleCreateOrder}
-              disabled={createOrder.isPending || registerIntake.isPending || !canSubmit}
+              disabled={
+                createOrder.isPending ||
+                registerIntake.isPending ||
+                !canSubmit ||
+                activeTab === 'registration-document'
+              }
             >
               {createOrder.isPending || registerIntake.isPending
                 ? 'Creating...'

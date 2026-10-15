@@ -12,6 +12,7 @@ import { capMcpToolPayload } from './mcp-output.util.js';
 import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service.js';
 import { encodeMcpKeysetCursor } from './mcp-output.util.js';
 import { getVehicleContextInputSchema } from './mcp-tool-schemas.js';
+import { resolvePickerlRuleSet } from '../vehicle/pickerl/pickerl-rule-sets.js';
 
 const TENANT_ID = 'tenant-a';
 const SITE_ID = 'site-a';
@@ -344,6 +345,10 @@ describe('McpVehicleContextReadService', () => {
   });
 
   it('includes Pickerl rule bounds on inspection rows', async () => {
+    const asOf = new Date('2026-06-15T12:00:00.000Z');
+    jest.useFakeTimers({ now: asOf });
+    const ruleSet = resolvePickerlRuleSet(asOf);
+
     vehicleInspectionRecord.findMany.mockResolvedValue([
       {
         id: '00000000-0000-4000-8000-0000000000a1',
@@ -361,19 +366,21 @@ describe('McpVehicleContextReadService', () => {
       sections: ['inspections'],
     });
 
+    jest.useRealTimers();
+
     const inspections = result.sections.inspections;
     expect(inspections?.state).toBe('ok');
     if (inspections?.state === 'ok') {
       expect(inspections.data[0]).toMatchObject({
         value_source: {
           table: 'vehicle_inspection_record',
-          resolved_pickerl_rule_id: expect.any(String),
+          resolved_pickerl_rule_id: ruleSet.id,
         },
         limits: {
           includes_notes: false,
-          interval_years: expect.arrayContaining([3]),
-          tolerance_months_before: 1,
-          tolerance_months_after: 4,
+          interval_years: [...ruleSet.intervalYears],
+          tolerance_months_before: ruleSet.tolerance.monthsBefore,
+          tolerance_months_after: ruleSet.tolerance.monthsAfter,
         },
       });
     }

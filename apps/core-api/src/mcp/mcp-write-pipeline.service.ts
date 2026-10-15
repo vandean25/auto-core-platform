@@ -44,7 +44,7 @@ export type McpWriteExecution = {
   buildPolicyContext: (
     input: unknown,
   ) => AgentPolicyEvaluateContext | Promise<AgentPolicyEvaluateContext>;
-  buildExecutionContext?: () => Promise<Record<string, unknown>>;
+  buildExecutionContext?: (input: unknown) => Promise<Record<string, unknown>>;
   execute: (
     input: unknown,
     executionContext?: Record<string, unknown>,
@@ -275,7 +275,7 @@ export class McpWritePipelineService {
     try {
       const executionContext =
         call.tier === AgentPolicyTier.PROPOSE
-          ? await call.execution.buildExecutionContext?.()
+          ? await call.execution.buildExecutionContext?.(call.input)
           : undefined;
       const previewResult = await this.dryRun.executeInRollbackTransaction(() =>
         call.execution.execute(call.input, executionContext),
@@ -298,7 +298,9 @@ export class McpWritePipelineService {
     call: WriteCall,
     executionContext: Record<string, unknown>,
   ): Promise<void> {
-    const appliedContext = await call.execution.buildExecutionContext?.();
+    const appliedContext = await call.execution.buildExecutionContext?.(
+      call.input,
+    );
     if (appliedContext?.site_id !== executionContext.site_id) {
       throw new ConflictException(
         'The active site changed while the pending action was simulated',

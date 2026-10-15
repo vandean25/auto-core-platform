@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CommonModule } from '../common/index.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
@@ -43,6 +43,7 @@ import { WorkshopCapacityService } from './workshop-capacity.service.js';
 import { WorkshopInspectionService } from './workshop-inspection.service.js';
 import { WorkshopKpiReportsController } from './workshop-kpi-reports.controller.js';
 import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
+import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     VehicleStockModule,
     PartsRequisitionModule,
     AuditModule,
+    forwardRef(() => RegistrationIntakeModule),
   ],
   controllers: [
     PublicEstimateApprovalController,
@@ -101,6 +103,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopTaskService,
     WorkshopBoardService,
     WorkshopKpiReportsService,
+    WorkshopPlannerService,
   ],
 })
 export class WorkshopModule {}

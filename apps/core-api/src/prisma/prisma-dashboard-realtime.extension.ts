@@ -37,6 +37,8 @@ const SUPPORTED_ENTITY_TYPES: Record<DashboardEntityType, true> = {
   PARTS_RESERVATION: true,
   PARTS_REQUISITION: true,
   CREDIT_NOTE: true,
+  PAYMENT: true,
+  FISCAL_RECEIPT: true,
 };
 
 function modelNameToEntityType(modelName: string): DashboardEntityType | null {
@@ -72,11 +74,50 @@ export function emitRealtimeForOperation(
     return;
   }
 
-  dashboardRealtime.emitEntityUpdated(tenantId, {
+  const entityId = extractEntityId(result);
+  const enriched = enrichRealtimePayload(type, result, {
     type,
     action,
-    entityId: extractEntityId(result),
+    entityId,
   });
+  dashboardRealtime.emitEntityUpdated(tenantId, enriched);
+}
+
+function enrichRealtimePayload(
+  type: DashboardEntityType,
+  result: unknown,
+  base: {
+    type: DashboardEntityType;
+    action: DashboardEntityAction;
+    entityId?: string;
+  },
+) {
+  if (!result || typeof result !== 'object') {
+    return base;
+  }
+  const row = result as Record<string, unknown>;
+  if (type === 'PAYMENT') {
+    return {
+      ...base,
+      siteId: typeof row.site_id === 'string' ? row.site_id : undefined,
+      status: typeof row.status === 'string' ? row.status : undefined,
+    };
+  }
+  if (type === 'FISCAL_RECEIPT') {
+    const payment = row.payment;
+    const siteId =
+      payment &&
+      typeof payment === 'object' &&
+      typeof (payment as { site_id?: unknown }).site_id === 'string'
+        ? (payment as { site_id: string }).site_id
+        : undefined;
+    return {
+      ...base,
+      siteId,
+      status: typeof row.state === 'string' ? row.state : undefined,
+    };
+  }
+  return base;
 }
 
 type QueryParams<R> = {

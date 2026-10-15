@@ -28,7 +28,9 @@ describe('PendingActionExecutorService', () => {
     importJobRow: { updateMany: jest.fn(), groupBy: jest.fn() },
     customer: { findFirst: jest.fn() },
     documentBrandAsset: { updateMany: jest.fn() },
+    registrationDocumentIntake: { findFirst: jest.fn() },
   };
+  const mockRegistrationIntakeApply = { apply: jest.fn() };
   const mockTenant = { getTenantId: jest.fn().mockResolvedValue('tenant-1') };
   const mockSite = { getSiteId: jest.fn().mockResolvedValue('site-1') };
   const mockWorkshop = {
@@ -52,7 +54,45 @@ describe('PendingActionExecutorService', () => {
       mockSite as never,
       mockWorkshop as never,
       mockParts as never,
+      mockRegistrationIntakeApply as never,
     );
+  });
+
+  describe('registration_intake.apply', () => {
+    const intakeId = '00000000-0000-4000-8000-0000000000a1';
+
+    it('builds execution context from the intake site when the session site matches', async () => {
+      mockPrisma.registrationDocumentIntake.findFirst.mockResolvedValue({
+        site_id: 'site-1',
+      });
+      const executor = service.resolve('registration_intake.apply');
+      const context = await executor.buildExecutionContext?.({
+        intake_id: intakeId,
+        vin: null,
+        plate: 'W SYNTH 1',
+        holder: { first_name: 'pilot', last_name: 'customer' },
+        nationalcode: null,
+        first_registration: null,
+      });
+      expect(context).toEqual({ site_id: 'site-1' });
+    });
+
+    it('returns not found when the intake belongs to another site', async () => {
+      mockPrisma.registrationDocumentIntake.findFirst.mockResolvedValue({
+        site_id: 'site-2',
+      });
+      const executor = service.resolve('registration_intake.apply');
+      await expect(
+        executor.buildExecutionContext?.({
+          intake_id: intakeId,
+          vin: null,
+          plate: 'W SYNTH 1',
+          holder: { first_name: 'pilot', last_name: 'customer' },
+          nationalcode: null,
+          first_registration: null,
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 
   it('resolves workshop order creation to the current workshop operation', async () => {

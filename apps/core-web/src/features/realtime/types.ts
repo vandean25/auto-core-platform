@@ -25,7 +25,9 @@ export type RealtimeEntityType =
   | "EMPLOYEE_WORK_SCHEDULE"
   | "PARTS_RESERVATION"
   | "PARTS_REQUISITION"
-  | "CREDIT_NOTE";
+  | "CREDIT_NOTE"
+  | "PAYMENT"
+  | "FISCAL_RECEIPT";
 
 export type RealtimeEntityAction = "CREATED" | "UPDATED" | "DELETED";
 

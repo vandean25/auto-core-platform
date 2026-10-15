@@ -168,7 +168,7 @@ export class McpVehicleContextReadService {
       const latestInspection =
         await this.prisma.vehicleInspectionRecord.findFirst({
           where: { tenant_id: tenantId, vehicle_id: vehicle.id },
-          orderBy: [{ inspected_on: 'desc' }],
+          orderBy: [{ inspected_on: 'desc' }, { id: 'desc' }],
           select: {
             inspected_on: true,
             plaketten_valid_until_year: true,

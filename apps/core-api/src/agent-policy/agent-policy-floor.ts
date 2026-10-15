@@ -3,6 +3,9 @@
  * regardless of platform or tenant policy table content.
  */
 const HUMAN_ONLY_FLOOR_ACTION_TYPES = new Set([
+  'payment.record',
+  'fiscal_receipt.sign',
+  'fiscal_receipt.cancel',
   'invoice.finalize',
   'credit_note.issue',
   'credit_note.finalize',
@@ -23,6 +26,8 @@ const HUMAN_ONLY_FLOOR_ACTION_TYPES = new Set([
 ]);
 
 const HUMAN_ONLY_FLOOR_PREFIXES = [
+  'payment.',
+  'fiscal_receipt.',
   'credit_note.',
   'accounting_export.',
   'consent.',

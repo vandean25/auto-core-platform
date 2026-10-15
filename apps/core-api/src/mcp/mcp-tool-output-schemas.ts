@@ -9,6 +9,7 @@ import {
   VehicleStockStatus,
   WorkshopLineItemType,
   WorkshopOrderPurpose,
+  LoanerVehicleStatus,
   WorkshopOrderStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
@@ -314,6 +315,29 @@ const workshopOrderShape = {
     .optional(),
   vehicle: vehicleLinkRow,
   tasks: z.array(z.looseObject({ id: idString })),
+};
+
+const workshopSlotRow = z.object({
+  bay_id: idString,
+  start_at: isoDateTime,
+  end_at: isoDateTime,
+});
+
+const availableLoanerRow = z.object({
+  loaner_vehicle_id: idString,
+  vehicle_id: idString,
+  display_name: nonEmptyString,
+  status: z.enum(LoanerVehicleStatus),
+});
+
+const availabilityEnvelope = {
+  site_id: idString,
+  timezone: nonEmptyString,
+  from: isoDateTime,
+  to: isoDateTime,
+  availability_note: nonEmptyString,
+  data: z.array(z.unknown()),
+  meta: totalCursorMeta,
 };
 
 const workshopTaskRow = z.object({
@@ -898,6 +922,17 @@ export const mcpToolOutputSchemas = {
   list_bays: resultOf(offsetPageShape(bayRow)),
   list_bins: resultOf(offsetPageShape(binRow)),
   list_workshop_tasks: resultOf(offsetPageShape(workshopTaskRow)),
+  list_workshop_slots: resultOf({
+    ...availabilityEnvelope,
+    duration_minutes: z.number().int().min(1),
+    slot_minutes: z.number().int().min(1),
+    data: z.array(workshopSlotRow),
+  }),
+  list_available_loaners: resultOf({
+    ...availabilityEnvelope,
+    as_of: isoDateTime,
+    data: z.array(availableLoanerRow),
+  }),
   whoami: resultOf({
     caller: z.object({
       id: nonEmptyString,
@@ -1250,6 +1285,7 @@ export const mcpToolOutputSchemas = {
   reserve_part: writeResultOf('reserve_part'),
   release_reservation: writeResultOf('release_reservation'),
   propose_line_item: writeResultOf('propose_line_item'),
+  propose_registration_intake: writeResultOf('propose_registration_intake'),
 } satisfies Record<McpToolName, z.ZodType>;
 
 export type McpToolOutputSchemas = typeof mcpToolOutputSchemas;

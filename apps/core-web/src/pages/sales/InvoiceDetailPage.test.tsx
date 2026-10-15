@@ -42,6 +42,13 @@ vi.mock('@/api/workshop', () => ({
 vi.mock('@/api/invoices', () => ({
   fetchInvoicePdfGenerationError: vi.fn().mockResolvedValue(null),
 }))
+vi.mock('@/api/useInvoiceSettlement', () => ({
+  useInvoiceSettlement: () => ({ data: undefined, isLoading: false }),
+  useRecordSettlement: () => ({ mutate: vi.fn(), isPending: false }),
+  useReconcileSettlement: () => ({ mutate: vi.fn(), isPending: false }),
+  useCancelFiscalReceipt: () => ({ mutate: vi.fn(), isPending: false }),
+  settlementSuccessToastMessage: () => null,
+}))
 
 const asMock = <T extends (...args: never[]) => unknown>(fn: T) =>
   fn as unknown as ReturnType<typeof vi.fn>

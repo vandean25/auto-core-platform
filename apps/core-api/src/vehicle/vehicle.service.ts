@@ -18,6 +18,9 @@ import {
   toVehicleListResponse,
 } from './vehicle-response.mapper.js';
 import { VehicleWriteService } from './vehicle-write.service.js';
+import { clearRegistrationEvidenceForVehicle } from '../registration-intake/registration-intake-evidence-cleanup.js';
+
+export { clearRegistrationEvidenceForVehicle };
 
 /**
  * Facade over the vehicle collaborators: tenant/site context is resolved here,
