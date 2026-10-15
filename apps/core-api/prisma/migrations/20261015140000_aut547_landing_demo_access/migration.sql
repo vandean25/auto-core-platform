@@ -27,9 +27,9 @@ CREATE INDEX "landing_demo_access_requests_email_created_at_idx"
     ON "landing_demo_access_requests"("email", "created_at" DESC);
 
 CREATE TABLE "landing_demo_sign_in_grants" (
-    "id" UUID NOT NULL,
-    "access_request_id" UUID NOT NULL,
-    "user_id" UUID NOT NULL,
+    "id" TEXT NOT NULL,
+    "access_request_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "expires_at" TIMESTAMPTZ NOT NULL,
     "consumed_at" TIMESTAMPTZ,
     "invalidated_at" TIMESTAMPTZ,
