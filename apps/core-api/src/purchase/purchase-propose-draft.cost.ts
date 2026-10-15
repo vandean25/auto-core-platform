@@ -16,10 +16,32 @@ export type ResolvedPurchaseLineCost = {
 };
 
 type VendorArticleRow = {
+  id: string;
+  catalog_item_id: string;
   vendor_article_no: string;
   last_cost: Prisma.Decimal | null;
   updatedAt: Date;
 };
+
+/** One supplier article per catalog item: newest `updatedAt`, then lowest `id`. */
+export function indexVendorArticlesByCatalogItem(
+  articles: VendorArticleRow[],
+): Map<string, VendorArticleRow> {
+  const sorted = [...articles].sort((left, right) => {
+    const byUpdated = right.updatedAt.getTime() - left.updatedAt.getTime();
+    if (byUpdated !== 0) {
+      return byUpdated;
+    }
+    return left.id.localeCompare(right.id);
+  });
+  const byCatalogId = new Map<string, VendorArticleRow>();
+  for (const article of sorted) {
+    if (!byCatalogId.has(article.catalog_item_id)) {
+      byCatalogId.set(article.catalog_item_id, article);
+    }
+  }
+  return byCatalogId;
+}
 
 export function formatUnitCostNet(value: Prisma.Decimal): string {
   return value.toFixed(2);

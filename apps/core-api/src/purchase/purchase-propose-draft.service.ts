@@ -13,6 +13,7 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { requireActiveCurrentUser } from '../site/site.authorization.js';
 import {
   assertCostBasisMatches,
+  indexVendorArticlesByCatalogItem,
   resolvePurchaseLineCost,
 } from './purchase-propose-draft.cost.js';
 import {
@@ -116,12 +117,9 @@ export class PurchaseProposeDraftService {
       );
     }
 
-    const catalogItemIds = parsed.lines.map((line) => line.catalog_item_id);
-    if (new Set(catalogItemIds).size !== catalogItemIds.length) {
-      throw new UnprocessableEntityException(
-        'Duplicate catalog_item_id in lines',
-      );
-    }
+    const catalogItemIds = [
+      ...new Set(parsed.lines.map((line) => line.catalog_item_id)),
+    ];
 
     const [vendor, requisition, reservations, catalogItems, vendorArticles] =
       await Promise.all([
@@ -177,11 +175,13 @@ export class PurchaseProposeDraftService {
             catalog_item_id: { in: catalogItemIds },
           },
           select: {
+            id: true,
             catalog_item_id: true,
             vendor_article_no: true,
             last_cost: true,
             updatedAt: true,
           },
+          orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         }),
       ]);
 
@@ -192,11 +192,11 @@ export class PurchaseProposeDraftService {
       throw new NotFoundException('Parts requisition not found');
     }
 
-    const callerSite = await this.prisma.site.updateMany({
+    const callerSite = await this.prisma.site.findFirst({
       where: { id: siteId, tenant_id: tenantId, is_active: true },
-      data: { is_active: true },
+      select: { id: true },
     });
-    if (callerSite.count !== 1) {
+    if (!callerSite) {
       throw new UnprocessableEntityException(
         'The active site is no longer available',
       );
@@ -214,9 +214,8 @@ export class PurchaseProposeDraftService {
     const catalogById = new Map(
       catalogItems.map((catalogItem) => [catalogItem.id, catalogItem]),
     );
-    const vendorArticleByCatalogId = new Map(
-      vendorArticles.map((article) => [article.catalog_item_id, article]),
-    );
+    const vendorArticleByCatalogId =
+      indexVendorArticlesByCatalogItem(vendorArticles);
 
     const previewLines: PurchaseProposeDraftResult['lines'] = [];
 
@@ -256,6 +255,11 @@ export class PurchaseProposeDraftService {
       if (reservation.purchase_order_item_id) {
         throw new ConflictException(
           'Reservation slice is already linked to a purchase order item.',
+        );
+      }
+      if (reservation.quantity.lte(0)) {
+        throw new UnprocessableEntityException(
+          'Reservation quantity must be positive.',
         );
       }
 

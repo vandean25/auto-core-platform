@@ -2,6 +2,7 @@ import { UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
   assertCostBasisMatches,
+  indexVendorArticlesByCatalogItem,
   resolvePurchaseLineCost,
 } from './purchase-propose-draft.cost.js';
 
@@ -36,6 +37,35 @@ describe('purchase-propose-draft.cost', () => {
     expect(() =>
       resolvePurchaseLineCost({ id: 'part-1', cost_price: null }, undefined),
     ).toThrow(UnprocessableEntityException);
+  });
+
+  it('picks the newest vendor article per catalog item, then lowest id', () => {
+    const older = new Date('2026-01-01T00:00:00.000Z');
+    const newer = new Date('2026-06-01T00:00:00.000Z');
+    const indexed = indexVendorArticlesByCatalogItem([
+      {
+        id: 'b',
+        catalog_item_id: 'part-1',
+        vendor_article_no: 'OLD',
+        last_cost: new Prisma.Decimal('1.00'),
+        updatedAt: older,
+      },
+      {
+        id: 'a',
+        catalog_item_id: 'part-1',
+        vendor_article_no: 'NEW-A',
+        last_cost: new Prisma.Decimal('2.00'),
+        updatedAt: newer,
+      },
+      {
+        id: 'c',
+        catalog_item_id: 'part-1',
+        vendor_article_no: 'NEW-C',
+        last_cost: new Prisma.Decimal('3.00'),
+        updatedAt: newer,
+      },
+    ]);
+    expect(indexed.get('part-1')?.vendor_article_no).toBe('NEW-A');
   });
 
   it('detects stale cost basis', () => {

@@ -101,6 +101,8 @@ The report reads (AUT-461), `get_workshop_kpi_report`, `list_pickerl_due`, and `
 | `propose_workshop_booking` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Proposes a scheduled workshop order with an optional reserved loaner booking in one package | Not applicable |
 | `propose_purchase_order` | Off by default; PROPOSE when enabled (hard-clamped from AUTO) | Proposes a DRAFT purchase order from verified local parts requisition demand; apply uses requisition PO rules and never sends externally | Not applicable |
 
+`propose_purchase_order` accepts multiple lines with the same `catalog_item_id` when each line references a different requisition reservation slice. Vendor master data has no active/inactive flag: another tenant's vendor id is rejected as not found, and there is no separate inactive-vendor check. Net unit cost for a vendor uses the supplier article row with the newest `updatedAt` (then lowest id) per catalog item, matching catalog read default-supplier semantics.
+
 `reserve_part` requires a catalog-backed part line and a bin `location_id` at the active site. Its existing EUR 250 `amount_max` policy allows `AUTO` at or below the configured amount and returns `PROPOSE` above it. Scheduled `draft_workshop_order` inputs require `bay_id`, `scheduled_start_at`, and `scheduled_end_at`.
 
 Write tools follow a shared pipeline: policy evaluation → immediate refusal for disabled / HUMAN_ONLY actions → DryRunService rollback preview (`would_change`) for enabled actions → outcome by evaluated tier:
