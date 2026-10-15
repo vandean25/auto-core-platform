@@ -1,0 +1,695 @@
+[
+  {
+    "name": "rec_ob_id_1_1",
+    "title": "Ordnungsbegriff",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Do not call JsonServlet. The control is disabled on the official form."
+  },
+  {
+    "name": "rec_ob_val_1_1",
+    "title": "Ordnungsbegriff 1 (Angabe)",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No Finanzamt master data."
+  },
+  {
+    "name": "rec_ob_name_1_1",
+    "title": "Ordnungsbegriff 1 name",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No Finanzamt master data."
+  },
+  {
+    "name": "rec_ob_id_2_1",
+    "title": "Ordnungsbegriff 2",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Disabled dynlist. Do not call JsonServlet."
+  },
+  {
+    "name": "rec_ob_val_2_1",
+    "title": "Ordnungsbegriff 2 (Angabe)",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No Finanzamt master data."
+  },
+  {
+    "name": "rec_ob_name_2_1",
+    "title": "Ordnungsbegriff 2 name",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No Finanzamt master data."
+  },
+  {
+    "name": "rec_addrlist_1",
+    "title": "Address list",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Official address book is not queried."
+  },
+  {
+    "name": "rec_name_1",
+    "title": "Finanzamt name",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Missing recipient stays reviewable. Export says the recipient was not filled."
+  },
+  {
+    "name": "rec_street_1",
+    "title": "Finanzamt street",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Same as rec_name_1."
+  },
+  {
+    "name": "rec_plz_1",
+    "title": "Finanzamt PLZ",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Same as rec_name_1."
+  },
+  {
+    "name": "rec_place_1",
+    "title": "Finanzamt place",
+    "section": "recipient",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Same as rec_name_1."
+  },
+  {
+    "name": "form_steuernummer",
+    "title": "Steuernummer",
+    "section": "taxpayer",
+    "requiredness": "identity",
+    "source": "human_entry",
+    "missing": "identity_rule",
+    "conflict": "LegalEntity.tax_number and vat_id are never copied. Invalid pattern is IDENTITY_FORMAT."
+  },
+  {
+    "name": "form_versicherungsnummer",
+    "title": "Versicherungsnummer",
+    "section": "taxpayer",
+    "requiredness": "identity",
+    "source": "human_entry",
+    "missing": "identity_rule",
+    "conflict": "A non-empty value without a birth date does not satisfy the group."
+  },
+  {
+    "name": "form_geburtsdatum",
+    "title": "Geburtsdatum",
+    "section": "taxpayer",
+    "requiredness": "identity",
+    "source": "human_entry",
+    "missing": "identity_rule",
+    "conflict": "Stored as ISO date. Not taken from Customer."
+  },
+  {
+    "name": "form_abgabepflichtiger_name",
+    "title": "Name",
+    "section": "taxpayer",
+    "requiredness": "review",
+    "source": "human_entry",
+    "missing": "TAXPAYER_NAME_MISSING",
+    "conflict": "Not taken from LegalEntity.name."
+  },
+  {
+    "name": "form_abgabepflichtiger_zustell_name",
+    "title": "Name z.H.",
+    "section": "taxpayer",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "None."
+  },
+  {
+    "name": "form_abgabepflichtiger_adresse",
+    "title": "Straße",
+    "section": "taxpayer",
+    "requiredness": "review",
+    "source": "human_entry",
+    "missing": "TAXPAYER_ADDRESS_MISSING",
+    "conflict": "Not taken from LegalEntity.address_street."
+  },
+  {
+    "name": "form_abgabepflichtiger_plz",
+    "title": "PLZ",
+    "section": "taxpayer",
+    "requiredness": "review",
+    "source": "human_entry",
+    "missing": "TAXPAYER_POSTCODE_MISSING",
+    "conflict": "Not taken from LegalEntity.address_zip."
+  },
+  {
+    "name": "form_abgabepflichtiger_ort",
+    "title": "Ort",
+    "section": "taxpayer",
+    "requiredness": "review",
+    "source": "human_entry",
+    "missing": "TAXPAYER_CITY_MISSING",
+    "conflict": "Not taken from LegalEntity.address_city."
+  },
+  {
+    "name": "form_abgabepflichtiger_telefon",
+    "title": "Telefonnummer",
+    "section": "taxpayer",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "LegalEntity.phone is not copied here."
+  },
+  {
+    "name": "form_vertretung",
+    "title": "Steuerliche Vertretung",
+    "section": "taxpayer",
+    "requiredness": "optional",
+    "source": "legal_entity_suggestion",
+    "missing": "leave_blank",
+    "conflict": "Suggestion only. Clearing it stays reviewable. It is not a tax-advisor mandate."
+  },
+  {
+    "name": "form_antrieb",
+    "title": "Antrieb",
+    "section": "vehicle",
+    "requiredness": "review",
+    "source": "vehicle_fuel_type",
+    "missing": "ANTRIEB_MISSING",
+    "conflict": "Ambiguous or hybrid fuel is ANTRIEB_AMBIGUOUS and the value stays null. ICE confirmation plus electric fuel is DRIVE_CONFLICT."
+  },
+  {
+    "name": "form_fahrzeug_typ",
+    "title": "Fahrzeughersteller/Fahrzeugart/Fahrzeugtyp",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "vehicle_make_model",
+    "missing": "leave_blank",
+    "conflict": "Joined make and model only. No brand catalog lookup."
+  },
+  {
+    "name": "form_fahrzeug_nummer",
+    "title": "Fahrgestellnummer",
+    "section": "vehicle",
+    "requiredness": "review",
+    "source": "vehicle_vin",
+    "missing": "VIN_MISSING",
+    "conflict": "Confirmation has no VIN. A blank VIN is not replaced with a sample."
+  },
+  {
+    "name": "form_fahrzeug_erwerb",
+    "title": "Tag des Erwerbs",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Vehicle has no acquisition-date column. Do not use stock_received_at."
+  },
+  {
+    "name": "form_fahrzeug_eu_zulassung",
+    "title": "Nachgewiesene EU-Erstzulassung",
+    "section": "vehicle",
+    "requiredness": "review",
+    "source": "confirmation_first_registration",
+    "missing": "FIRST_REGISTRATION_MISSING",
+    "conflict": "ISO date in the contract. This is the first EU registration, not an Austrian registration."
+  },
+  {
+    "name": "form_fahrzeug_baujahr",
+    "title": "Baujahr",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "vehicle_year",
+    "missing": "leave_blank",
+    "conflict": "Copied only when Vehicle.year is an integer."
+  },
+  {
+    "name": "form_fahrzeug_kmstand_erwerb",
+    "title": "Km-Stand im Zeitpunkt des Erwerbs",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Vehicle.mileage is not this field. Warning mileage_not_acquisition_km when mileage is set."
+  },
+  {
+    "name": "form_ccm",
+    "title": "Hubraum in ccm",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No hubraum column. Not derived from the calculator."
+  },
+  {
+    "name": "form_co2_WMTC",
+    "title": "CO2-Emission in g/km (WMTC)",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Motorcycle cycle. Not filled for passenger_z3."
+  },
+  {
+    "name": "form_co2_WLTP",
+    "title": "CO2-Emission in g/km (WLTP)",
+    "section": "vehicle",
+    "requiredness": "review",
+    "source": "confirmation_effective_co2",
+    "missing": "CO2_MISSING",
+    "conflict": "Unset when vehicle.co2_wltp_g_km is non-null and differs. Code CO2_SNAPSHOT_MISMATCH."
+  },
+  {
+    "name": "form_co2_NEFZ",
+    "title": "CO2-Emission in g/km (NEFZ)",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Vehicle.co2_nedc_g_km is not copied. Warning nedc_present_not_copied."
+  },
+  {
+    "name": "form_fahrzeug_leistung",
+    "title": "Leistung in kW",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "vehicle_power_kw",
+    "missing": "leave_blank",
+    "conflict": "Copied when power_kw is a non-negative integer."
+  },
+  {
+    "name": "form_fahrzeug_noX_emission",
+    "title": "NOx-Emissionen in mg/km",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No NOx column."
+  },
+  {
+    "name": "form_fahrzeug_diesel_gkm",
+    "title": "Dieselpartikel g/km",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "No particle column. Disabled by the official form for Benzin."
+  },
+  {
+    "name": "form_cons_liter",
+    "title": "Verbrauch in l",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Not a calculator input."
+  },
+  {
+    "name": "from_verwendungszweck",
+    "title": "Verwendungszweck des Kraftfahrzeuges",
+    "section": "vehicle",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Official name is from_verwendungszweck."
+  },
+  {
+    "name": "form_option_nova",
+    "title": "Erklärung über die Normverbrauchsabgabe",
+    "section": "declaration",
+    "requiredness": "constant_true",
+    "source": "constant",
+    "missing": "not_applicable",
+    "conflict": "This contract always checks this box."
+  },
+  {
+    "name": "form_option_vergf",
+    "title": "Vergütung der Normverbrauchsabgabe",
+    "section": "declaration",
+    "requiredness": "inactive",
+    "source": "constant_false",
+    "missing": "not_applicable",
+    "conflict": "Human may set true. The refund section then becomes required and an empty section is INCOMPLETE."
+  },
+  {
+    "name": "form_option_fahrzeugeinzelbesteuerung",
+    "title": "Erklärung über die Erwerbsteuer",
+    "section": "declaration",
+    "requiredness": "inactive",
+    "source": "constant_false",
+    "missing": "not_applicable",
+    "conflict": "Human may set true. Erwerbsteuer is then required. This contract does not calculate it."
+  },
+  {
+    "name": "form_datum",
+    "title": "Datum",
+    "section": "declaration",
+    "requiredness": "review",
+    "source": "draft_created_vienna_date",
+    "missing": "not_applicable",
+    "conflict": "Pinned at creation. Not refreshed on read."
+  },
+  {
+    "name": "form_rechtslage",
+    "title": "Rechtslage",
+    "section": "nova",
+    "requiredness": "review",
+    "source": "tariff_selection_date",
+    "missing": "Zero matches: value null and RECHTSLAGE_UNMATCHED.",
+    "conflict": "Two matches: value null and AMBIGUOUS_RECHTSLAGE."
+  },
+  {
+    "name": "form_artkraftfahrzeug",
+    "title": "Art des Kraftfahrzeuges",
+    "section": "nova",
+    "requiredness": "review",
+    "source": "confirmation_vehicle_class",
+    "missing": "ART_UNSUPPORTED",
+    "conflict": "passenger_z3 maps to value PKW. Any other class is ART_UNSUPPORTED and null."
+  },
+  {
+    "name": "form_bemessungsgrundlage",
+    "title": "Bemessungsgrundlage [Euro]",
+    "section": "nova",
+    "requiredness": "review",
+    "source": "confirmation_net_price",
+    "missing": "BASIS_MISSING",
+    "conflict": "Below 0.01 is BASIS_BELOW_FORM_MINIMUM and null."
+  },
+  {
+    "name": "form_steuersatz",
+    "title": "Steuersatz [%]",
+    "section": "nova",
+    "requiredness": "review",
+    "source": "confirmation_rate_percent",
+    "missing": "RATE_MISSING",
+    "conflict": "Integer from ratePercentApplied. A non-integer is RATE_NOT_INTEGER and null."
+  },
+  {
+    "name": "form_co2malus",
+    "title": "CO2-Malus",
+    "section": "nova",
+    "requiredness": "review_when_scaled",
+    "source": "confirmation_scaled_malus",
+    "missing": "COMPONENT_MISMATCH",
+    "conflict": "roundMoneyEuro(malusGrossEuro * unreduced numerator / denominator). Unset when the cent difference does not equal fixedAfterDevelopmentEuro."
+  },
+  {
+    "name": "form_co2bonus",
+    "title": "Bonus/Malus gemäß § 6a NoVAG 1991",
+    "section": "nova",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Not used for the 2024 PKW row. Left null."
+  },
+  {
+    "name": "form_co2bonus_special",
+    "title": "Bonus gemäß § 6a NoVAG 1991",
+    "section": "nova",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Left null."
+  },
+  {
+    "name": "form_co2malus_special",
+    "title": "Malus gemäß § 6a NoVAG 1991",
+    "section": "nova",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Left null."
+  },
+  {
+    "name": "form_abzugsposten",
+    "title": "Abzugsposten [Euro]",
+    "section": "nova",
+    "requiredness": "review_when_scaled",
+    "source": "confirmation_scaled_deduction",
+    "missing": "COMPONENT_MISMATCH",
+    "conflict": "roundMoneyEuro(deductionGrossEuro * unreduced numerator / denominator), positive euros. Same mismatch rule as form_co2malus."
+  },
+  {
+    "name": "form_abh",
+    "title": "Erhöhungsbetrag (20%) gemäß § 6 Abs. 6 NoVAG 1991",
+    "section": "nova",
+    "requiredness": "optional",
+    "source": "none",
+    "missing": "leave_blank",
+    "conflict": "Not produced by EU-M1-2024."
+  },
+  {
+    "name": "form_wahlrecht",
+    "title": "Wahlrecht gemäß § 6 Abs. 6 Z 4 NoVAG 1991",
+    "section": "nova",
+    "requiredness": "constant_false",
+    "source": "constant",
+    "missing": "not_applicable",
+    "conflict": "Wohnmobil only. passenger_z3 keeps it false."
+  },
+  {
+    "name": "form_ant1",
+    "title": "Anteilige Besteuerung § 12b",
+    "section": "nova",
+    "requiredness": "inactive",
+    "source": "constant_false",
+    "missing": "not_applicable",
+    "conflict": "Human may set true. Temporary-use fields then become required."
+  },
+  {
+    "name": "ant1_datum",
+    "title": "Überlassungszeitraum - von",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_INCOMPLETE",
+    "conflict": "Required only when form_ant1 is true."
+  },
+  {
+    "name": "ant2_datum",
+    "title": "Überlassungszeitraum - bis",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_INCOMPLETE",
+    "conflict": "Required only when form_ant1 is true."
+  },
+  {
+    "name": "form_ant_cb1_1",
+    "title": "Erstanmeldung (Abs. 1)",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_KIND_REQUIRED",
+    "conflict": "Exactly one of the three kind boxes when form_ant1 is true."
+  },
+  {
+    "name": "form_ant_cb1_2",
+    "title": "Verlängerung / Verlust (Abs. 3)",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_KIND_REQUIRED",
+    "conflict": "Same exclusive group."
+  },
+  {
+    "name": "form_ant_cb1_3",
+    "title": "Anmeldung Korrektur bei Verbringung (Abs. 4)",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_KIND_REQUIRED",
+    "conflict": "Same exclusive group."
+  },
+  {
+    "name": "form_check_verminderung",
+    "title": "Sperre beantragen (Verminderung)",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_INCOMPLETE",
+    "conflict": "A filing request. Required only when form_ant1 and Erstanmeldung are true. Never set from a CHECKED observation."
+  },
+  {
+    "name": "form_check_inland",
+    "title": "Vorübergehende Verwendung bestätigen",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_INCOMPLETE",
+    "conflict": "Same visibility as form_check_verminderung."
+  },
+  {
+    "name": "form_ant_betrag1",
+    "title": "zu entrichtende NoVA [Euro]",
+    "section": "temporary_use",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "TEMPORARY_USE_INCOMPLETE",
+    "conflict": "Required only when form_ant1 is true. Not the confirmed novaAmountEuro."
+  },
+  {
+    "name": "form_verguetung_optiona",
+    "title": "Vergütung § 12 Abs. 1 und 2",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_OPTION_REQUIRED",
+    "conflict": "Exclusive with the other three refund options."
+  },
+  {
+    "name": "form_verguetung_optionb",
+    "title": "Vergütung § 12a",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_OPTION_REQUIRED",
+    "conflict": "Exclusive."
+  },
+  {
+    "name": "form_verguetung_optionc",
+    "title": "Vergütung § 12b",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_OPTION_REQUIRED",
+    "conflict": "Exclusive. When true, ver1_datum, ver2_datum and form_hoeheverguetung are required."
+  },
+  {
+    "name": "form_verguetung_optiond",
+    "title": "Vergütung § 6 Abs. 9",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_OPTION_REQUIRED",
+    "conflict": "Exclusive."
+  },
+  {
+    "name": "ver1_datum",
+    "title": "Zu verzinsender Überlassungszeitraum – von",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_12B_INCOMPLETE",
+    "conflict": "Required only for option c."
+  },
+  {
+    "name": "ver2_datum",
+    "title": "Überlassungszeitraum – bis",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_12B_INCOMPLETE",
+    "conflict": "Required only for option c."
+  },
+  {
+    "name": "form_verguetung_o123",
+    "title": "Sperre beantragen (Vergütung)",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_BLOCK_REQUEST_MISSING",
+    "conflict": "Shown for options a–c. A request checkbox, not a database status."
+  },
+  {
+    "name": "form_verguetung_grund",
+    "title": "Grund für die Vergütung",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_REASON_MISSING",
+    "conflict": "Required when the refund section is active."
+  },
+  {
+    "name": "form_hoeheverguetung",
+    "title": "Höhe der Vergütung [Euro]",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_12B_INCOMPLETE",
+    "conflict": "Required when option c is selected. The official script sets required only then."
+  },
+  {
+    "name": "form_verguetung_optionX1",
+    "title": "Umbuchung/Überrechnung",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_PAYOUT_REQUIRED",
+    "conflict": "Exactly one of X1 or X2 when the refund section is active."
+  },
+  {
+    "name": "form_verguetung_optionX2",
+    "title": "Rückzahlung",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_PAYOUT_REQUIRED",
+    "conflict": "Same exclusive pair."
+  },
+  {
+    "name": "form_verguetung_konto",
+    "title": "auf Konto/an (Name und Anschrift)",
+    "section": "refund",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "REFUND_ACCOUNT_MISSING",
+    "conflict": "Required when X2 is selected."
+  },
+  {
+    "name": "form_einzel_bemessungsgrundlage",
+    "title": "Erwerbsteuer Bemessungsgrundlage [Euro]",
+    "section": "acquisition_vat",
+    "requiredness": "inactive",
+    "source": "human_entry",
+    "missing": "ACQUISITION_VAT_BASIS_MISSING",
+    "conflict": "Required only when the Erwerbsteuer box is checked. Not invoice total_net."
+  },
+  {
+    "name": "form_option_JungholzOrMittelberg",
+    "title": "Erwerb in Jungholz oder Mittelberg",
+    "section": "acquisition_vat",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Default false. Not inferred from an address."
+  },
+  {
+    "name": "form_fahrzeuglieferant",
+    "title": "Fahrzeuglieferant (Name und Anschrift)",
+    "section": "acquisition_vat",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Not taken from Vendor."
+  },
+  {
+    "name": "form_mitgliedstaat",
+    "title": "EU-Mitgliedstaat",
+    "section": "acquisition_vat",
+    "requiredness": "optional",
+    "source": "human_entry",
+    "missing": "leave_blank",
+    "conflict": "Not inferred. The official sample value GERMANY is not a default."
+  }
+]

@@ -1,0 +1,299 @@
+{
+  "contractId": "nova2-dok-fid-7888-observed-2026-10-15",
+  "retrievedAt": "2026-10-15",
+  "catalogUrl": "https://service.bmf.gv.at/service/anwend/formulare/show_det.asp?MIdVal=1126&STyp=KAT&Typ=SD&s=Normverbrauchsabgabe",
+  "dokFormUrl": "https://afs-formulare.bmf.gv.at/IDOC/FormServlet?fid=7888",
+  "dokFid": 7888,
+  "formName": "NoVA 2",
+  "formTitle": "NoVA 2 - Erklärung über die Normverbrauchsabgabe/den Erwerb neuer Fahrzeuge (Fahrzeugeinzelbesteuerung)",
+  "explanations": {
+    "name": "NoVA 2a",
+    "versionLabel": "Version vom 01.07.2026",
+    "pdfCreationDate": "2026-06-26T12:50:28+02:00",
+    "url": "https://formulare.bmf.gv.at/service/formulare/inter-Steuern/pdfd/9999/NOVA2a.pdf",
+    "catalogUrl": "https://service.bmf.gv.at/service/anwend/formulare/show_det.asp?MIdVal=25451&STyp=KAT&Typ=SD&s=Normverbrauchsabgabe"
+  },
+  "fieldNameSha256": "21e8e6303bb3694e2ae57dd7d2c3343b0ff9a93aca232ad90a39c865187d839d",
+  "fieldNames": [
+    "rec_ob_id_1_1",
+    "rec_ob_val_1_1",
+    "rec_ob_name_1_1",
+    "rec_ob_id_2_1",
+    "rec_ob_val_2_1",
+    "rec_ob_name_2_1",
+    "rec_addrlist_1",
+    "rec_name_1",
+    "rec_street_1",
+    "rec_plz_1",
+    "rec_place_1",
+    "form_steuernummer",
+    "form_versicherungsnummer",
+    "form_geburtsdatum",
+    "form_abgabepflichtiger_name",
+    "form_abgabepflichtiger_zustell_name",
+    "form_abgabepflichtiger_adresse",
+    "form_abgabepflichtiger_plz",
+    "form_abgabepflichtiger_ort",
+    "form_abgabepflichtiger_telefon",
+    "form_vertretung",
+    "form_antrieb",
+    "form_fahrzeug_typ",
+    "form_fahrzeug_nummer",
+    "form_fahrzeug_erwerb",
+    "form_fahrzeug_eu_zulassung",
+    "form_fahrzeug_baujahr",
+    "form_fahrzeug_kmstand_erwerb",
+    "form_ccm",
+    "form_co2_WMTC",
+    "form_co2_WLTP",
+    "form_co2_NEFZ",
+    "form_fahrzeug_leistung",
+    "form_fahrzeug_noX_emission",
+    "form_fahrzeug_diesel_gkm",
+    "form_cons_liter",
+    "from_verwendungszweck",
+    "form_option_nova",
+    "form_option_vergf",
+    "form_option_fahrzeugeinzelbesteuerung",
+    "form_datum",
+    "form_rechtslage",
+    "form_artkraftfahrzeug",
+    "form_bemessungsgrundlage",
+    "form_steuersatz",
+    "form_co2malus",
+    "form_co2bonus",
+    "form_co2bonus_special",
+    "form_co2malus_special",
+    "form_abzugsposten",
+    "form_abh",
+    "form_wahlrecht",
+    "form_ant1",
+    "ant1_datum",
+    "ant2_datum",
+    "form_ant_cb1_1",
+    "form_ant_cb1_2",
+    "form_ant_cb1_3",
+    "form_check_verminderung",
+    "form_check_inland",
+    "form_ant_betrag1",
+    "form_verguetung_optiona",
+    "form_verguetung_optionb",
+    "form_verguetung_optionc",
+    "form_verguetung_optiond",
+    "ver1_datum",
+    "ver2_datum",
+    "form_verguetung_o123",
+    "form_verguetung_grund",
+    "form_hoeheverguetung",
+    "form_verguetung_optionX1",
+    "form_verguetung_optionX2",
+    "form_verguetung_konto",
+    "form_einzel_bemessungsgrundlage",
+    "form_option_JungholzOrMittelberg",
+    "form_fahrzeuglieferant",
+    "form_mitgliedstaat"
+  ],
+  "antriebOptions": [
+    "Benzin",
+    "Diesel",
+    "Hybrid (Benzin)",
+    "Hybrid (Diesel)",
+    "rein elektrischer Antrieb",
+    "Erd-/Flüssiggas",
+    "Wasserstoffverbrennungsmotor"
+  ],
+  "artOptions": {
+    "KR": {
+      "value": "Kraftrad",
+      "text": "Kraftrad"
+    },
+    "PKW": {
+      "value": "PKW",
+      "text": "Personen - und Kombinationskraftwagen"
+    },
+    "WM": {
+      "value": "Wohnmobil",
+      "text": "Wohnmobil - Aufbauart 'SA'"
+    },
+    "LLKW": {
+      "value": "Leichte Lastkraftwagen",
+      "text": "Leichte Lastkraftwagen"
+    },
+    "AKFZ": {
+      "value": "AKFZ",
+      "text": "Anderes Kraftfahrzeug zur Personenbeförderung"
+    }
+  },
+  "classToArtValue": {
+    "passenger_z3": "PKW"
+  },
+  "rechtslageOptions": [
+    {
+      "counter": 25,
+      "von": "2027-01-01",
+      "bis": "2027-12-31",
+      "label": "01.01.2027 - 31.12.2027"
+    },
+    {
+      "counter": 24,
+      "von": "2026-01-01",
+      "bis": "2026-12-31",
+      "label": "01.01.2026 - 31.12.2026"
+    },
+    {
+      "counter": 23,
+      "von": "2025-07-01",
+      "bis": "2025-12-31",
+      "label": "01.07.2025 - 31.12.2025"
+    },
+    {
+      "counter": 22,
+      "von": "2025-01-01",
+      "bis": "2025-06-30",
+      "label": "01.01.2025 - 30.06.2025"
+    },
+    {
+      "counter": 21,
+      "von": "2024-01-01",
+      "bis": "2024-12-31",
+      "label": "01.01.2024 - 31.12.2024"
+    },
+    {
+      "counter": 20,
+      "von": "2023-01-01",
+      "bis": "2023-12-31",
+      "label": "01.01.2023 - 31.12.2023"
+    },
+    {
+      "counter": 19,
+      "von": "2022-01-01",
+      "bis": "2022-12-31",
+      "label": "01.01.2022 - 31.12.2022"
+    },
+    {
+      "counter": 18,
+      "von": "2021-07-01",
+      "bis": "2021-12-31",
+      "label": "01.07.2021 - 31.12.2021"
+    },
+    {
+      "counter": 17,
+      "von": "2021-01-01",
+      "bis": "2021-06-30",
+      "label": "01.01.2021 - 30.06.2021"
+    },
+    {
+      "counter": 16,
+      "von": "2020-01-01",
+      "bis": "2020-12-31",
+      "label": "01.01.2020 - 31.12.2020"
+    },
+    {
+      "counter": 15,
+      "von": "2016-01-01",
+      "bis": "2019-12-31",
+      "label": "01.01.2016 - 31.12.2019"
+    },
+    {
+      "counter": 14,
+      "von": "2015-01-01",
+      "bis": "2015-12-31",
+      "label": "01.01.2015 - 31.12.2015"
+    },
+    {
+      "counter": 13,
+      "von": "2014-03-01",
+      "bis": "2014-12-31",
+      "label": "01.03.2014 - 31.12.2014"
+    },
+    {
+      "counter": 12,
+      "von": "2013-01-01",
+      "bis": "2014-02-28",
+      "label": "01.01.2013 - 28.02.2014"
+    },
+    {
+      "counter": 11,
+      "von": "2011-03-01",
+      "bis": "2012-12-31",
+      "label": "01.03.2011 - 31.12.2012"
+    },
+    {
+      "counter": 10,
+      "von": "2010-01-01",
+      "bis": "2011-12-28",
+      "label": "01.01.2010 - 28.12.2011"
+    },
+    {
+      "counter": 9,
+      "von": "2009-06-18",
+      "bis": "2009-12-31",
+      "label": "18.06.2009 - 31.12.2009"
+    },
+    {
+      "counter": 8,
+      "von": "2008-07-01",
+      "bis": "2009-06-17",
+      "label": "01.07.2008 - 17.06.2009"
+    },
+    {
+      "counter": 7,
+      "von": "2006-07-01",
+      "bis": "2008-06-30",
+      "label": "01.07.2006 - 30.06.2008"
+    },
+    {
+      "counter": 6,
+      "von": "2006-01-01",
+      "bis": "2006-06-30",
+      "label": "01.01.2006 - 30.06.2006"
+    },
+    {
+      "counter": 5,
+      "von": "2005-07-01",
+      "bis": "2005-12-31",
+      "label": "01.07.2005 - 31.12.2005"
+    },
+    {
+      "counter": 4,
+      "von": "1998-01-10",
+      "bis": "2005-06-30",
+      "label": "10.01.1998 - 30.06.2005"
+    },
+    {
+      "counter": 3,
+      "von": "1996-06-01",
+      "bis": "1998-01-09",
+      "label": "01.06.1996 - 09.01.1998"
+    },
+    {
+      "counter": 2,
+      "von": "1994-01-01",
+      "bis": "1996-05-31",
+      "label": "01.01.1994 - 31.05.1996"
+    },
+    {
+      "counter": 1,
+      "von": "1992-01-01",
+      "bis": "1993-12-31",
+      "label": "01.01.1992 - 31.12.1993"
+    }
+  ],
+  "rechtslageLabelRule": "DD.MM.YYYY - DD.MM.YYYY as produced by the form script formatZeitraum, including the spaces around the hyphen.",
+  "identityPatterns": {
+    "form_steuernummer": "^\\d{2} \\d{3}/\\d{4}$",
+    "form_versicherungsnummer": "^\\d{4}-\\d{6}$"
+  },
+  "fuelToAntrieb": {
+    "BENZIN": "Benzin",
+    "PETROL": "Benzin",
+    "GASOLINE": "Benzin",
+    "DIESEL": "Diesel"
+  },
+  "notes": [
+    "Periods are the option list observed in the DOK form script on 2026-10-15. They are not a second NoVA calculator.",
+    "Counter 15 is labeled 01.01.2016 - 31.12.2019 and counter 10 ends 28.12.2011. Those strings are copied as observed.",
+    "Runtime code must not fetch FormServlet or JsonServlet.",
+    "A _no_cache query on the DOK script URLs changes between fetches and is not part of this contract."
+  ]
+}
