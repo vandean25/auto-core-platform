@@ -22,8 +22,8 @@ Checked against `main` at `d1bb14539b71d4ad3d03ff0b06c595d8a3700c8c`. The pilot 
 
 ## User Stories
 
-- As a **service advisor**, I want to turn one supported sentence into a preview of an existing customer, their vehicle, a site-local appointment, local presets, and an optional loaner, so that I can accept one proposal.
-- As a **service advisor**, I want an exact choice when several customers, vehicles, times, or resources match, so that the system does not pick for me.
+- As an **OWNER, ADMIN, or ADVISOR**, I want to turn one supported sentence into a preview of an existing customer, their vehicle, a site-local appointment, local presets, and an optional loaner, so that I can accept one proposal.
+- As an **OWNER, ADMIN, ADVISOR, or SALES** member, I want an exact choice when several customers, vehicles, times, or resources match, so that the system does not pick for me.
 - As an **owner**, I want names, plates, and VINs to stay inside the tenant API, so that the flow ships without a provider decision and without [AUT-395](https://linear.app/auto-core-platform/issue/AUT-395).
 
 ---
@@ -56,7 +56,7 @@ Out of scope:
 
 The client does not send `tenant_id`, `site_id`, a customer id, or a clock. The tenant comes from the authenticated session (`TenantContextService`). The operative site comes from `SiteContextService.getSite()` (ADR-0022 ruling 7): active tenant membership, active site, active `SiteMembership`. A failure is the existing HTTP 422 `ACTIVE_SITE_REQUIRED`. A later active-site switch does not retarget a stored proposal. Apply requires the caller's operative site to still equal the site stored when the proposal was simulated.
 
-The interpreter clock is the API server clock, frozen in tests by the fixture field `now`. That instant is not a client field. The site IANA timezone is `Site.timezone`, read with the site row. Workshop wall-clock conversion uses the same zone as `workshop-schedule.service.ts`.
+The interpreter clock is the API server clock, frozen in tests by the fixture field `now`. That instant is not a client field. The zone is the `timezone` column on `Site`. `WorkshopScheduleService` reads that same column through `WorkshopSettingsService.getSettingsForSite`, which returns the site row. The interpreter uses that value and does not read the browser zone or a client field. Propose and apply also run the opening-hour and holiday checks already inside booking. A window outside those hours returns HTTP 409 `BAY_UNAVAILABLE` and writes nothing.
 
 ### CommandInput
 
@@ -289,7 +289,7 @@ Clocks: `H Uhr`, `HH Uhr`, `H:mm`, `HH:mm`, each optionally prefixed by `um` and
 | `bremsen hinten prüfen`, `bremsen hinten pruefen` | `inspection.brakes_rear` | Labor line |
 | `ölwechsel`, `oelwechsel` | `service.oil` | Labor line |
 | `leihwagen reservieren`, `leihwagen` | `loaner.reserve` | Loaner flag, not a line |
-| `standort` plus a site code or full site name | site constraint | Compared with the operative site |
+| `standort` plus the site `code` or the full site `name` | site constraint | Case-insensitive exact match on `code`, or case-insensitive exact match on the full `name`. `Nord` does not match `Pilot Nord` |
 
 A plate token matches `^[A-ZÄÖÜ]{1,2}-?[A-Z]{1,4}[ -]?[0-9]{1,5}[A-Z]?$` after uppercasing. A VIN token is 17 characters from `A–Z` and `0–9` excluding `I`, `O`, and `Q`. Both resolve only against the tenant database.
 
@@ -344,16 +344,18 @@ Eligible bays: active bays on the operative site whose window does not overlap a
 
 | Eligible count | Result |
 | --- | --- |
-| 0 bays | `RESOURCE_MISSING`. The only choice is `stop` |
+| 0 bays | `RESOURCE_MISSING` with `choices: []` |
 | 1 bay | Bind it and show it in the preview |
-| 2 or more bays | `RESOURCE_AMBIGUOUS` |
-| 0 loaners and loaner requested | `RESOURCE_MISSING`. Choices are `continue_without_loaner` and `stop` |
+| 2 or more bays | `RESOURCE_AMBIGUOUS`. Choices are those bays |
+| 0 loaners and loaner requested | `RESOURCE_MISSING`. The only choice is `continue_without_loaner` |
 | 1 loaner | Bind it |
-| 2 or more loaners | `RESOURCE_AMBIGUOUS`, plus `continue_without_loaner` |
+| 2 or more loaners | `RESOURCE_AMBIGUOUS`. Choices are those loaners plus `continue_without_loaner` |
 
-A free bay or loaner on another site is not a choice. The code is `RESOURCE_MISSING` for the operative site, not a silent cross-site booking.
+An empty `choices` array means the advisor continues only by sending a new sentence. Closing the dialog writes nothing, so the contract has no `stop` choice.
 
-Loaner writes stay on the existing rule: tenant `OWNER` or `ADMIN`, or a linked employee with role `SERVICE_ADVISOR`. When the caller cannot write a loaner, the code is `LOANER_NOT_PERMITTED` with `continue_without_loaner` and `stop`.
+A free bay or loaner on another site is not a choice. The code is `RESOURCE_MISSING` for the operative site. A named site is not booked when the caller lacks an active `SiteMembership` there. `wrong-site.json` sets that membership inactive and asserts the named site is not queried.
+
+Loaner writes use `LoanerVehiclesAuthorization.assertWriteAccess`: tenant role `OWNER` or `ADMIN`, or an active `Employee` with role `SERVICE_ADVISOR` linked to the caller. Interpret returns `LOANER_NOT_PERMITTED` with the single choice `continue_without_loaner` when that check fails. Propose and apply run the same check again. A failure then is HTTP 403 `LOANER_FORBIDDEN_WRITE`, the existing loaner exception, and the transaction writes nothing.
 
 ### Queries
 
@@ -399,17 +401,17 @@ v1 calls no `DecisionProvider`. `DECISION_USE_CASES` stays `import_row_matching`
 | `customer_id`, `vehicle_id`, `schedule`, `bay_id`, `loaner` | AUT-535 | `WorkshopOrder` `SCHEDULED` via `WorkshopIntakeService.createAtSite`, and optionally `LoanerBooking` `RESERVED` linked to that order |
 | `position_plan` | AUT-540 | One `WorkshopTask` per labor or part line, status `NOT_STARTED`, lines priced from the recomputed plan. Catalog part reservations go through `PartsRequisitionService` |
 
-Action key: `workshop.booking_package`. Platform policy row: tier `PROPOSE`, `enabled: false`. A tenant cannot set `AUTO`; the server clamps to `PROPOSE`, the same clamp as `workshop_order.propose_line`. While the row is missing or disabled, propose returns HTTP 403 `not_permitted` and stores nothing. The action is not an MCP free-text tool. A later typed MCP registration must use this payload and the existing write pipeline.
+Action key: `workshop.booking_package`. Platform policy row: tier `PROPOSE`, `enabled: false`. `AUTO` ranks looser than `PROPOSE` (`TIER_RANK` in `agent-policy-tier.util.ts`). A tenant upsert that sets `AUTO` is rejected with HTTP 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM`. The evaluator does not clamp the tier. A stricter tenant tier such as `HUMAN_ONLY` is stored. A missing rule evaluates to `HUMAN_ONLY` with reason `unknown_action_fail_closed`. A disabled rule evaluates to `HUMAN_ONLY` with reason `rule_disabled_fail_closed` (`agent-policy.evaluator.ts`). REST propose then follows `submitPendingAction`: when the tier is not `PROPOSE`, it throws HTTP 422 `UnprocessableEntityException` with the message `Only actions currently evaluated as PROPOSE can be submitted for approval`, and it stores nothing. That response has no `not_permitted` code. HTTP 403 `not_permitted` exists on the MCP write path only. v1 registers no MCP tool for this action. A later typed MCP tool, if added, uses this payload and that MCP path.
 
-`HUMAN_ONLY` floor actions in `agent-policy-floor.ts` are never emitted. The never-exposed MCP actions, including `estimate.send_customer_message`, `invoice.finalize`, `invoice.send`, and `invoice.cancel`, are never emitted. Disabled and `HUMAN_ONLY` evaluations do not preview and do not execute.
+`HUMAN_ONLY` floor actions in `agent-policy-floor.ts` are never emitted. The never-exposed MCP actions, including `estimate.send_customer_message`, `invoice.finalize`, `invoice.send`, and `invoice.cancel`, are never emitted. A `HUMAN_ONLY` evaluation does not preview and does not execute.
 
 If `position_plan.lines` is non-empty before the AUT-540 executor is deployed, apply returns HTTP 409 `POSITION_PLAN_EXECUTOR_REQUIRED` and creates no order and no loaner. Lines are not dropped.
 
-Apply stores the operative `site_id` in the executor context at simulation time, as `workshop_order.create` already does. Apply re-checks policy, membership, bay occupancy, loaner overlap, and prices. Bay conflict and loaner overlap stay HTTP 409 from the domain services. Both writes roll back together.
+Today `submitPendingAction`, `assertSiteMatchesSimulation`, and the apply execution context capture `site_id` only when `action_type` is `workshop_order.create`. AUT-535 extends those three branches to `workshop.booking_package` as well. Simulation stores `preview_json.execution_context.site_id` from `SiteContextService.getSiteId()` at submit. Apply requires the caller's operative site to still equal that stored id. A mismatch is the existing HTTP 422 `Select the site where this action was simulated before applying it`. A site change during simulation is the existing HTTP 422 `The active site changed while the pending action was simulated`. Apply also re-checks policy, membership, bay occupancy, loaner write access, loaner overlap, and prices. Bay conflict and loaner overlap stay HTTP 409 from the domain services. Both writes roll back together.
 
-Existing estimate send, public approval, and the communication timeline remain the advisor's next manual steps after `EXECUTED`. Start Service consumes the stored plan and must not duplicate tasks, lines, or reservations (AUT-540).
+Existing estimate send, public approval, and the communication timeline remain the next manual steps after `EXECUTED`. Start Service consumes the stored plan and must not duplicate tasks, lines, or reservations (AUT-540).
 
-Idempotency: the same `command_id` and the same intent hash return the same pending proposal. A different body with the same `command_id` is HTTP 409 `COMMAND_ID_REUSED`.
+Idempotency uses the session row in [Replay storage](#replay-storage). The same `command_id`, the same normalized input, and a `PENDING` proposal return that proposal. Any other normalized input for that `command_id` is HTTP 409 `COMMAND_ID_REUSED`.
 
 ---
 
@@ -422,10 +424,13 @@ Idempotency: the same `command_id` and the same intent hash return the same pend
 | `CONTRACT_UNKNOWN_FIELD` | 400 | Closed object rejected a field |
 | `LOCALE_UNSUPPORTED` | 400 | `locale` is not `de-AT` |
 | `TEXT_TOO_LONG` | 400 | Text longer than 500 characters |
-| `not_permitted` | 403 | Policy off, `HUMAN_ONLY`, or caller is not OWNER, ADMIN, or ADVISOR |
-| `LOANER_NOT_PERMITTED` | 200 as clarification | Loaner requested and the caller fails the loaner write rule |
-| `INTENT_INCOMPLETE` | 409 | Propose called while the body is still a clarification |
-| `COMMAND_ID_REUSED` | 409 | Same id, different intent hash |
+| `AGENT_POLICY_LOOSER_THAN_PLATFORM` | 422 | Tenant policy upsert sets a tier looser than the platform row |
+| Propose tier is not `PROPOSE` | 422 | Message `Only actions currently evaluated as PROPOSE can be submitted for approval`. No application code |
+| Supervisor role missing | 403 | `ForbiddenException` text `Supervision access is restricted to OWNER, ADMIN, and ADVISOR roles only.` No `not_permitted` code |
+| `LOANER_FORBIDDEN_WRITE` | 403 | Propose or apply fails `assertWriteAccess` after interpret already offered `continue_without_loaner` |
+| `LOANER_NOT_PERMITTED` | 200 as clarification | Interpret, loaner requested, caller fails the loaner write rule |
+| `INTENT_INCOMPLETE` | 409 | Propose while the recomputed result is still a clarification |
+| `COMMAND_ID_REUSED` | 409 | Same id with a different normalized input, or the linked proposal is no longer `PENDING` |
 | `PLAN_STALE` | 409 | Price, preset, site, or occupancy changed after preview |
 | `POSITION_PLAN_EXECUTOR_REQUIRED` | 409 | Lines present and the position executor is absent |
 | `BAY_UNAVAILABLE` | 409 | Domain booking conflict, including outside opening hours |
@@ -452,8 +457,20 @@ Clarification prompts are fixed:
 | `DURATION_REQUIRED` | Ohne Endzeit oder hinterlegte Dauer kann der Termin nicht berechnet werden. |
 | `RESOURCE_MISSING` | Keine freie Ressource am aktiven Standort. |
 | `RESOURCE_AMBIGUOUS` | Mehrere Ressourcen passen. Bitte eine wählen. |
+| `LOANER_NOT_PERMITTED` | Leihwagen können mit diesem Konto nicht reserviert werden. |
 
-`SITE_MISMATCH` choices are `continue_at_operative_site` and `stop`. `TIME_CONTRADICTORY` choices are the conflicting clocks. `TIME_AMBIGUOUS` choices are the two UTC instants. `CUSTOMER_NOT_FOUND` and `UNSUPPORTED_SERVICE` have empty `choices`.
+| Code | `choices` |
+| --- | --- |
+| `HUMAN_ONLY_EXCLUDED`, `UNSUPPORTED_GRAMMAR`, `UNSUPPORTED_SERVICE`, `CUSTOMER_NOT_FOUND`, `VEHICLE_NOT_FOUND`, `IDENTITY_CONTRADICTION`, `TIME_DOES_NOT_EXIST`, `TIME_IN_PAST`, `PRESET_NOT_CONFIGURED`, `DURATION_REQUIRED` | `[]`. The advisor sends a new sentence |
+| `CUSTOMER_AMBIGUOUS` | One choice per matching customer, `slot` `customer_id` |
+| `VEHICLE_AMBIGUOUS` | One choice per matching vehicle, `slot` `vehicle_id` |
+| `TIME_CONTRADICTORY` | One choice per conflicting clock, `slot` `local_start` |
+| `TIME_AMBIGUOUS` | The two UTC instants, `slot` `start_at` |
+| `SITE_MISMATCH` | One choice, `value` `continue_at_operative_site`. The named site is not a choice, including when the caller has no active membership there |
+| `RESOURCE_MISSING` for a bay | `[]` |
+| `RESOURCE_MISSING` for a loaner | One choice, `value` `continue_without_loaner` |
+| `RESOURCE_AMBIGUOUS` | The eligible rows. A loaner ambiguity also offers `continue_without_loaner` |
+| `LOANER_NOT_PERMITTED` | One choice, `value` `continue_without_loaner` |
 
 ---
 
@@ -476,8 +493,40 @@ Added by the implementation slices, not by this spec PR.
 | `workshop_command_presets` | `quantity_milli` | int | yes | Part quantity times 1000 |
 | `workshop_command_presets` | `active` | boolean | no | Default true |
 | `agent_proposals` | `command_id` | uuid | yes | Unique `(tenant_id, command_id)`. AUT-535 |
+| `workshop_command_sessions` | `id` | uuid | no | Replay row for one `command_id`. Interpreter slice |
+| `workshop_command_sessions` | `tenant_id` | uuid | no | From auth context |
+| `workshop_command_sessions` | `command_id` | uuid | no | Unique with `tenant_id` |
+| `workshop_command_sessions` | `site_id` | uuid | no | Operative site at interpret |
+| `workshop_command_sessions` | `source` | text | no | `keyboard` or `voice_transcript` |
+| `workshop_command_sessions` | `normalized_json` | jsonb | no | Structured parse. No raw `text` field |
+| `workshop_command_sessions` | `expires_at` | timestamptz | no | `created_at` plus 7 days |
 
 Preset lookup prefers the operative site row and otherwise the tenant-wide row. Prices stay on `LaborOperation` and `CatalogItem`. The preset does not store a price.
+
+### Replay storage
+
+The raw sentence and the voice transcript are not stored. Interpret writes `workshop_command_sessions.normalized_json` with this shape:
+
+```json
+{
+  "identity": { "kind": "surname_model", "surname": "Huber", "model": "Golf" },
+  "day": { "kind": "relative", "word": "morgen" },
+  "start_clock": "08:00",
+  "end_clock": null,
+  "preset_keys": ["service.major", "inspection.pickerl_57a", "inspection.brakes_front"],
+  "loaner_requested": true,
+  "named_site": null,
+  "selections": []
+}
+```
+
+`identity.kind` is `surname_model`, `plate`, or `vin`. The matching token fields are `surname` and `model`, or `plate`, or `vin`. Those tokens are identifying. They live only in this table, for at most 7 days. `named_site` is the matched site code when the clause was present, otherwise `null`.
+
+Propose sends only `contract_version`, `command_id`, and `selections`. The server loads the session for the authenticated tenant, applies `selections` that the last clarification offered, and recomputes the intent from `normalized_json` and the live tenant rows. A client field other than those three is HTTP 400 `CONTRACT_UNKNOWN_FIELD`. Prices, customer ids, and site ids in a propose body are not accepted.
+
+`AgentProposal.payload_json` is the recomputed `WorkshopIntent` (ids, instants, preset keys, prices). `agent_action_log.inputSummary.payload` is that same object. It has no `text`, surname, plate, or VIN. `resultSummary` keeps `would_change` and ids.
+
+A session is hard-deleted when its proposal leaves `PENDING`, and when `expires_at` is past. Tenant deletion deletes the rows with the tenant. The interpreter-slice migration adds the table to the tenant-restore manifest by running `node tools/tenant-restore/generate-tenant-restore-sql.mjs` and committing the generated SQL. AUT-535 does the same for `agent_proposals.command_id`. AUT-540 does the same for `workshop_command_presets`, and in that same PR adds the `docs/deletion-policy.md` rows below.
 
 ### Modified Tables
 
@@ -494,8 +543,9 @@ This spec PR does not add a table, so `docs/deletion-policy.md` stays unchanged 
 
 | Entity | Rule |
 | --- | --- |
-| `WorkshopCommandPreset` | Soft-disable with `active = false`. Hard delete is refused while the row is referenced by a pending `workshop.booking_package` payload. |
-| `AgentProposal` | Unchanged. Retained. `command_id` does not add a delete path. |
+| `WorkshopCommandPreset` | Soft-disable with `active = false`. Hard delete is refused while the row is referenced by a pending `workshop.booking_package` payload. AUT-540 updates `docs/deletion-policy.md`. |
+| `WorkshopCommandSession` | Hard delete when the linked proposal leaves `PENDING`, when `expires_at` is past, and on tenant deletion. Ordinary APIs expose no delete route. The interpreter slice updates `docs/deletion-policy.md`. |
+| `AgentProposal` | Unchanged. Retained, including `preview_json` and `command_id`. |
 
 `WorkshopOrder`, `WorkshopTask`, `WorkshopTaskLineItem`, and `LoanerBooking` keep their current deletion rules. The package does not add a cascade that deletes a customer or a vehicle.
 
@@ -508,13 +558,15 @@ No new status values.
 | `WorkshopOrder` | `SCHEDULED` |
 | `WorkshopTask` | `NOT_STARTED` |
 | `LoanerBooking` | `RESERVED` |
-| `AgentProposal` | `PENDING` until Apply, then `EXECUTED` or `FAILED` |
+| `AgentProposal` | `PENDING` on propose. Apply of a live row ends `EXECUTED` or `FAILED` |
+
+`AgentProposal.expires_at` stays the database default of seven days. Apply of a row past `expires_at` marks it `EXPIRED` and does not execute, which is the current decision-service behavior. Reject marks it `REJECTED` and does not execute. `preview_json` remains on the retained proposal row. A `command_id` whose proposal is `EXPIRED`, `REJECTED`, `EXECUTED`, or `FAILED` cannot be proposed again. The next sentence uses a new `command_id`. The session row for the old id is hard-deleted.
 
 Apply does not move the order to `INTAKE`. Existing `updateMany` status guards stay in the domain services.
 
 ### Real-time sync
 
-Interpret is stateless and is not an entity type. `WorkshopCommandPreset` is master data and is not added to `SUPPORTED_ENTITY_TYPES`. `WorkshopOrder` and `AgentProposal` keep their current sync behavior.
+`WorkshopCommandSession` and `WorkshopCommandPreset` are not added to `SUPPORTED_ENTITY_TYPES`. `WorkshopOrder` and `AgentProposal` keep their current sync behavior.
 
 ---
 
@@ -524,10 +576,12 @@ Interpret is stateless and is not an entity type. `WorkshopCommandPreset` is mas
 
 | Method | Route | Request Body | Response | Auth |
 | --- | --- | --- | --- | --- |
-| `POST` | `/api/workshop/commands/interpret` | `CommandInput` plus optional `selections` | `WorkshopIntent` or `Clarification` | Authenticated active membership. No writes |
-| `POST` | `/api/workshop/commands/propose` | The `WorkshopIntent` the server just returned, including `command_id` | `ProposalResult` | OWNER, ADMIN, or ADVISOR. Simulates and stores one proposal |
+| `POST` | `/api/workshop/commands/interpret` | `CommandInput` plus optional `selections` | `WorkshopIntent` or `Clarification` | Active site membership and tenant role `OWNER`, `ADMIN`, `ADVISOR`, or `SALES`. No domain writes. Writes one session row |
+| `POST` | `/api/workshop/commands/propose` | `{ contract_version, command_id, selections }` | `ProposalResult` | `assertSupervisor`: session role `OWNER`, `ADMIN`, or `ADVISOR` |
 
-The server recomputes the intent from `command_id` replay input stored with the selection set. It does not trust client-supplied prices, ids that were not in the clarification choices, or a client-supplied site.
+`TenantMemberRole` in the schema is `OWNER`, `ADMIN`, `TECH`, `SALES`. `assertSupervisor` also allows the session role `ADVISOR`. `SALES` is the desk role used by tyre storage and may interpret. `SALES` and `TECH` receive HTTP 403 from propose and apply, with the supervisor message and no `not_permitted` code. `TECH` receives HTTP 403 from interpret as well.
+
+The source of truth for propose is the session row. The server recomputes the intent from `normalized_json` and the current tenant data. Selections must be values the stored clarification offered.
 
 ### Modified Endpoints
 
@@ -566,7 +620,7 @@ No new list page. The existing Approvals list shows the pending proposal. Search
 
 ### Form Handling
 
-The sentence field submits on an explicit Interpret action. It is not an auto-saved entity. Clarification choices submit as `selections`. The preview is read-only until Apply.
+The sentence field submits on an explicit Interpret action. It is not an auto-saved entity. AUT-542 shows an editable preview: the advisor changes a supported slot by sending `selections` or a new `CommandInput`, and the server recomputes. Prices, preset rates, and the operative site are not editable fields. Voice uses the existing advisor speech route, checks that route's permission, and submits the transcript as `source: voice_transcript`. The transcript is not sent to Jev. Apply is the only domain write.
 
 ### Real-Time Sync
 
@@ -580,14 +634,12 @@ The sentence field submits on an explicit Interpret action. It is not an auto-sa
 | Component | Location | Purpose |
 | --- | --- | --- |
 | `GlobalSearch` | `apps/core-web/src/components/GlobalSearch.tsx` | Unchanged navigator. AUT-542 adds the command mode beside it |
-| `WorkshopCommandPreview` | `apps/core-web/src/features/workshop-command/` | AUT-542. Renders one clarification or one `ProposalResult` |
+| `WorkshopCommandPreview` | `apps/core-web/src/features/workshop-command/` | AUT-542 only. Calls the command endpoints and renders one clarification or one `ProposalResult` |
 
-Server module, also AUT-542's dependency, owned by the slices below:
-
-| Module | Location | Purpose |
+| Module | Location | Owner |
 | --- | --- | --- |
-| Local interpreter | `apps/core-api/src/workshop-command/` | Pure parse and resolve against a loaded snapshot |
-| Executor branch | `pending-action-executor.service.ts` | `workshop.booking_package` only |
+| Local interpreter and both command endpoints | `apps/core-api/src/workshop-command/` | Interpreter slice below. AUT-542 consumes the HTTP API |
+| Executor branch | `pending-action-executor.service.ts` | AUT-535 |
 
 ---
 
@@ -605,14 +657,14 @@ The corpus is the acceptance test. A future test loads every file in [`fixtures`
 | `dst-gap.json` | 2027-03-28 02:30 Europe/Vienna, missing instant |
 | `morgen-midnight.json` | `morgen` at 00:00 and at 23:59 |
 | `unsupported-service.json` | `Klimaservice` |
-| `wrong-site.json` | `Standort Nord` while the operative site is `WIE` |
+| `wrong-site.json` | `Standort NORD` while the operative site is `WIE`, and the caller has no active membership on `NORD` |
 | `contradictory-time.json` | `8 Uhr` and `10 Uhr` |
 | `no-provider-pii.json` | Raw sentence, plate, and VIN stay inside the process |
 
 ### Backend E2E
 
 - [ ] Happy-path test in `apps/core-api/test/` loads `canonical-huber-golf.json` and asserts no domain row exists before Apply.
-- [ ] Error and edge fixtures above, plus 403 `not_permitted`, 409 `PLAN_STALE`, 409 `COMMAND_ID_REUSED`, and a loaner conflict that rolls back the order.
+- [ ] Error and edge fixtures above, plus REST 422 when the policy row is missing or disabled, 422 `AGENT_POLICY_LOOSER_THAN_PLATFORM` on an `AUTO` upsert, 403 supervisor and `LOANER_FORBIDDEN_WRITE` failures, 409 `PLAN_STALE`, 409 `COMMAND_ID_REUSED`, and a loaner conflict that rolls back the order.
 
 Existing tests `GlobalSearch.navigation.test.tsx` and `agent-proposal-submission.service.spec.ts` stay the regression baseline. They do not prove this feature.
 
@@ -627,11 +679,12 @@ Existing tests `GlobalSearch.navigation.test.tsx` and `agent-proposal-submission
 | Slice | Issue | Delivers |
 | --- | --- | --- |
 | 1 | AUT-515 | This spec and the fixtures |
-| 2 | AUT-535 | Policy seed, `command_id`, executor for booking and loaner, fail closed when lines are present |
-| 3 | AUT-540 | Preset table, position lines, deletion-policy row, reservation through the parts service |
-| 4 | AUT-542 | Interpreter module, the two endpoints, corpus tests, Cmd+K preview, voice transcript into the same input |
+| 2 | New backend issue, command interpreter. Blocks AUT-542. AUT-535 end-to-end propose tests depend on it | `apps/core-api/src/workshop-command/`, `workshop_command_sessions`, `POST /interpret` and `POST /propose`, corpus tests, deletion-policy row, tenant-restore SQL for the session table |
+| 3 | AUT-535 | Policy seed, `command_id`, executor for booking and loaner, fail closed when lines are present, site capture and apply-site check for `workshop.booking_package` in `submitPendingAction`, `assertSiteMatchesSimulation`, and the apply execution context. Tenant-restore SQL for the new column |
+| 4 | AUT-540 | Preset table, position lines, deletion-policy row, tenant-restore SQL, reservation through the parts service |
+| 5 | AUT-542 | Cmd+K preview and the existing advisor voice route only. It calls the slice-2 endpoints and does not own the interpreter |
 
-Slice 4 can interpret before slice 3. Propose of a non-empty plan before slice 3 stores nothing executable: apply returns `POSITION_PLAN_EXECUTOR_REQUIRED`.
+Until slice 3 registers the action, slice 2 propose hits the REST 422 PROPOSE check and stores no proposal. After slice 3, apply of a non-empty plan before slice 4 returns `POSITION_PLAN_EXECUTOR_REQUIRED`.
 
 ---
 
@@ -669,4 +722,4 @@ No product question is left open for v1. These decisions are closed:
 | --- | --- |
 | Project | [Agent-era foundation](https://linear.app/auto-core-platform/issue/AUT-515) |
 | Milestone | Command-first workflows and decision inbox |
-| Issues | AUT-515. Follow-ups AUT-535, AUT-540, AUT-542. AUT-395 is not a blocker |
+| Issues | AUT-515. Follow-ups: a new interpreter issue, AUT-535, AUT-540, AUT-542. AUT-395 is not a blocker |

@@ -4,7 +4,17 @@
     "role": "OWNER",
     "tenant_member_active": true,
     "site_membership_active": true,
-    "loaner_write_permitted": true
+    "loaner_write_permitted": true,
+    "site_memberships": [
+      {
+        "site_id": "51500000-0000-4000-8000-000000000010",
+        "is_active": true
+      },
+      {
+        "site_id": "51500000-0000-4000-8000-000000000011",
+        "is_active": false
+      }
+    ]
   },
   "operative_site_id": "51500000-0000-4000-8000-000000000010",
   "sites": [
