@@ -1667,6 +1667,79 @@ describe('MCP server (e2e)', () => {
     expect(approvedReleaseLog?.status).toBe('EXECUTED');
   });
 
+  it('search_parts and get_stock_level expose catalog and bin ids for reserve_part (AUT-428)', async () => {
+    const searchResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-search'),
+      'search_parts',
+      { query: fixtures.searchToken },
+      '00000000-0000-4000-8000-000000000428',
+    );
+    expect(searchResult.isError).not.toBe(true);
+    const search = parsePayload<{
+      data: Array<{
+        catalog_item_id: string;
+        bin_id: string | null;
+      }>;
+    }>(searchResult);
+    const hit = search.data.find(
+      (row) => row.catalog_item_id === fixtures.catalogItemId,
+    );
+    expect(hit?.bin_id).toBe(fixtures.locationId);
+
+    const catalogSearchResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-catalog-search'),
+      'search_parts',
+      {
+        query: fixtures.searchToken,
+        workshop_order_id: fixtures.workshopOrderId,
+      },
+      '00000000-0000-4000-8000-00000000042c',
+    );
+    expect(catalogSearchResult.isError).not.toBe(true);
+    const catalogSearch = parsePayload<{
+      parts: Array<{
+        catalog_item_id: string | null;
+        bin_id: string | null;
+      }>;
+    }>(catalogSearchResult);
+    const catalogHit = catalogSearch.parts.find(
+      (part) => part.catalog_item_id === fixtures.catalogItemId,
+    );
+    expect(catalogHit?.bin_id).toBe(fixtures.locationId);
+
+    const levelResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-level'),
+      'get_stock_level',
+      { sku: fixtures.sku },
+      '00000000-0000-4000-8000-000000000429',
+    );
+    expect(levelResult.isError).not.toBe(true);
+    const level = parsePayload<{
+      catalog_item_id: string;
+      bin_id: string | null;
+      bins: Array<{ location_id: string }>;
+    }>(levelResult);
+    expect(level.catalog_item_id).toBe(fixtures.catalogItemId);
+    expect(level.bin_id).toBe(fixtures.locationId);
+    expect(
+      level.bins.some((bin) => bin.location_id === fixtures.locationId),
+    ).toBe(true);
+
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+    const line = await createReservableLine();
+    const reserveResult = await callMcpTool(
+      caller(adminHeaderA, 'e2e-stock-ids-reserve'),
+      'reserve_part',
+      {
+        workshop_task_line_item_id: line.id,
+        quantity: 1,
+        location_id: fixtures.locationId,
+      },
+      '00000000-0000-4000-8000-00000000042a',
+    );
+    expect(reserveResult.isError).not.toBe(true);
+  });
+
   /**
    * AUT-426: a write preview runs in a rollback, so the id of a row it creates is not the id the
    * committed write returns. Each test checks that the preview id is provisional, that it is not a

@@ -522,6 +522,7 @@ function buildTables() {
     loc: Row,
     quantity: string,
     siteId: string,
+    quantityReserved = '0',
   ): Row => ({
     id,
     tenant_id: TENANT_A,
@@ -530,6 +531,7 @@ function buildTables() {
     location_id: loc.id,
     location: loc,
     quantity_on_hand: dec(quantity),
+    quantity_reserved: dec(quantityReserved),
   });
   const inventoryStocks: Row[] = [
     stockRow(
@@ -1205,11 +1207,12 @@ describe('McpCatalogReadService', () => {
 
       await service.getCatalogItem({ id: ids.brake1 });
 
-      expect(prisma.inventoryStock.findFirst).toHaveBeenCalledWith(
+      expect(prisma.inventoryStock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             tenant_id: TENANT_A,
             site_id: SITE_A,
+            catalog_item_id: { in: [ids.brake1] },
           }),
         }),
       );
