@@ -37,6 +37,28 @@ export const REQUIRED_PDF_WORKER_BOOT_ENV_KEYS = [
   'CATALOG_HIT_HMAC_SECRET',
 ] as const;
 
+/** HTTP startup probe for core-api; keep in sync with infra/main.tf startup_probe. */
+export const CORE_API_STARTUP_PROBE = {
+  httpGetPath: '/api/health',
+  httpGetPort: 8080,
+  initialDelaySeconds: 10,
+  timeoutSeconds: 5,
+  periodSeconds: 10,
+  failureThreshold: 12,
+} as const;
+
+export function formatCoreApiStartupProbeGcloud(): string {
+  const probe = CORE_API_STARTUP_PROBE;
+  return [
+    `httpGet.path=${probe.httpGetPath}`,
+    `httpGet.port=${probe.httpGetPort}`,
+    `initialDelaySeconds=${probe.initialDelaySeconds}`,
+    `timeoutSeconds=${probe.timeoutSeconds}`,
+    `periodSeconds=${probe.periodSeconds}`,
+    `failureThreshold=${probe.failureThreshold}`,
+  ].join(',');
+}
+
 export type CloudRunDeployEnvironment = Map<string, string>;
 
 export interface CloudBuildDeployContracts {
