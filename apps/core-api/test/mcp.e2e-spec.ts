@@ -947,6 +947,47 @@ describe('MCP server (e2e)', () => {
     }
   });
 
+  it('search_parts and get_stock_level expose catalog and bin ids for reserve_part (AUT-428)', async () => {
+    await setPolicyTier('inventory.part_reserve', 'AUTO');
+
+    await withMcpSession(adminHeaderA, 'e2e-stock-ids', async (session) => {
+      const searchResult = await session.call('search_parts', {
+        query: fixtures.searchToken,
+      });
+      const search = parsePayload<{
+        data: Array<{
+          catalog_item_id: string;
+          bin_id: string | null;
+        }>;
+      }>(searchResult);
+      const hit = search.data.find(
+        (row) => row.catalog_item_id === fixtures.catalogItemId,
+      );
+      expect(hit?.bin_id).toBe(fixtures.locationId);
+
+      const levelResult = await session.call('get_stock_level', {
+        sku: fixtures.sku,
+      });
+      const level = parsePayload<{
+        catalog_item_id: string;
+        bin_id: string | null;
+        bins: Array<{ location_id: string }>;
+      }>(levelResult);
+      expect(level.catalog_item_id).toBe(fixtures.catalogItemId);
+      expect(level.bin_id).toBe(fixtures.locationId);
+      expect(
+        level.bins.some((bin) => bin.location_id === fixtures.locationId),
+      ).toBe(true);
+
+      const reserveResult = await session.call('reserve_part', {
+        workshop_task_line_item_id: fixtures.workshopTaskLineItemId,
+        quantity: 1,
+        location_id: level.bin_id as string,
+      });
+      expect(reserveResult.isError).not.toBe(true);
+    });
+  });
+
   it.each(['list_bays', 'list_bins', 'list_workshop_tasks'])(
     'returns empty data for %s on tenant B',
     async (toolName) => {

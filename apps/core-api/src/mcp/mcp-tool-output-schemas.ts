@@ -502,8 +502,23 @@ function writeResultOf(tool: McpWriteToolName) {
 
 // --- Per-tool output schemas ---------------------------------------------------
 
+const stockBinSummaryFields = {
+  bin_id: nullableIdString,
+  bin_label: nullableString,
+};
+
+const stockBinLevelRow = z.object({
+  location_id: idString,
+  name: z.string(),
+  code: z.string(),
+  quantity_on_hand: z.number(),
+  quantity_reserved: z.number(),
+  quantity_available: z.number(),
+});
+
 const searchPartsInventoryRow = z.object({
   id: idString,
+  catalog_item_id: idString,
   sku: nonEmptyString,
   name: z.string(),
   brand: z.string(),
@@ -512,6 +527,7 @@ const searchPartsInventoryRow = z.object({
   status: z.enum(['IN_STOCK', 'OUT_OF_STOCK', 'SUPERSEDED']),
   quantity_available: z.number().int(),
   warehouse_location: z.string(),
+  ...stockBinSummaryFields,
 });
 
 const searchPartsCatalogLabor = z.object({
@@ -525,6 +541,7 @@ const searchPartsCatalogLabor = z.object({
 
 const searchPartsCatalogPart = z.object({
   id: idString,
+  catalog_item_id: nullableIdString,
   supplierPartNumber: z.string(),
   oemNumber: nullableString,
   description: z.string(),
@@ -533,6 +550,7 @@ const searchPartsCatalogPart = z.object({
   binLocation: nullableString,
   costPrice: z.number().nullable(),
   retailPrice: z.number().nullable(),
+  ...stockBinSummaryFields,
 });
 
 const catalogSearchMeta = z.object({
@@ -785,7 +803,7 @@ export const mcpToolOutputSchemas = {
   get_workshop_order: resultOf(workshopOrderShape, { loose: true }),
   search_parts: searchPartsResult,
   get_stock_level: resultOf({
-    catalog_item_id: idString.optional(),
+    catalog_item_id: idString,
     sku: nonEmptyString,
     name: z.string(),
     brand: z.string(),
@@ -795,6 +813,8 @@ export const mcpToolOutputSchemas = {
     quantity_reserved: z.number(),
     quantity_available: z.number(),
     is_superseded: z.boolean(),
+    bins: z.array(stockBinLevelRow),
+    ...stockBinSummaryFields,
   }),
   get_vehicle_stock_age_report: resultOf({
     site_id: idString,

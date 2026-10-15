@@ -12,6 +12,12 @@ import {
   toMcpStockAgeReport,
   toMcpStockMarginReport,
 } from './mcp-report-read.mapper.js';
+import {
+  binFieldsFromLevels,
+  mapInventoryStocksToBinLevels,
+  mcpStockBinStockSelect,
+  mcpStockBinWhere,
+} from './mcp-stock-read.mapper.js';
 import type {
   getVehicleStockAgeReportInputSchema,
   getVehicleStockMarginReportInputSchema,
@@ -61,7 +67,7 @@ export class McpStockReadService {
         input.query,
         input.workshop_order_id,
       );
-      return catalogResult;
+      return await this.enrichCatalogSearchResult(catalogResult);
     }
 
     const page = clampMcpPage(input.page);
@@ -71,15 +77,26 @@ export class McpStockReadService {
       page,
       pageSize,
     });
-    return inventoryResult;
+    return await this.enrichInventorySearchResult(inventoryResult);
   }
 
   async getStockLevel(input: { catalog_item_id?: string; sku?: string }) {
+    const tenantId = await this.tenantContext.getTenantId();
+
     if (input.sku) {
-      return this.inventoryService.checkAvailability(input.sku);
+      const availability = await this.inventoryService.checkAvailability(
+        input.sku,
+      );
+      const stockContext = await this.loadStockLevelContext(
+        tenantId,
+        availability.sku,
+      );
+      return {
+        ...availability,
+        ...stockContext,
+      };
     }
 
-    const tenantId = await this.tenantContext.getTenantId();
     const item = await this.prisma.catalogItem.findFirst({
       where: { id: input.catalog_item_id, tenant_id: tenantId },
       select: { id: true, sku: true },
@@ -93,9 +110,102 @@ export class McpStockReadService {
     const availability = await this.inventoryService.checkAvailability(
       item.sku,
     );
+    const stockContext = await this.loadStockLevelContext(tenantId, item.sku);
+    return {
+      ...availability,
+      ...stockContext,
+    };
+  }
+
+  private async enrichInventorySearchResult<
+    T extends {
+      data: Array<{ id: string }>;
+      meta: unknown;
+    },
+  >(result: T) {
+    const catalogItemIds = result.data.map((row) => row.id);
+    const binsByItem = await this.loadPrimaryBinsByCatalogItem(catalogItemIds);
+    return {
+      ...result,
+      data: result.data.map((row) => {
+        const bins = binsByItem.get(row.id) ?? [];
+        return {
+          ...row,
+          catalog_item_id: row.id,
+          ...binFieldsFromLevels(bins),
+        };
+      }),
+    };
+  }
+
+  private async enrichCatalogSearchResult<
+    T extends {
+      parts: Array<{ id: string }>;
+      labor: unknown;
+      meta: unknown;
+    },
+  >(result: T) {
+    const catalogItemIds = result.parts.map((part) => part.id);
+    const binsByItem = await this.loadPrimaryBinsByCatalogItem(catalogItemIds);
+    const catalogIds = new Set(
+      (
+        await this.prisma.catalogItem.findMany({
+          where: {
+            tenant_id: await this.tenantContext.getTenantId(),
+            id: { in: catalogItemIds },
+          },
+          select: { id: true },
+        })
+      ).map((row) => row.id),
+    );
+
+    return {
+      ...result,
+      parts: result.parts.map((part) => {
+        const isCatalogItem = catalogIds.has(part.id);
+        const bins = isCatalogItem ? binsByItem.get(part.id) ?? [] : [];
+        return {
+          ...part,
+          catalog_item_id: isCatalogItem ? part.id : null,
+          ...binFieldsFromLevels(bins),
+        };
+      }),
+    };
+  }
+
+  private async loadPrimaryBinsByCatalogItem(catalogItemIds: string[]) {
+    if (catalogItemIds.length === 0) {
+      return new Map();
+    }
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    const stocks = await this.prisma.inventoryStock.findMany({
+      where: mcpStockBinWhere(tenantId, siteId, catalogItemIds),
+      select: mcpStockBinStockSelect,
+      orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
+    });
+    return mapInventoryStocksToBinLevels(stocks);
+  }
+
+  private async loadStockLevelContext(tenantId: string, sku: string) {
+    const item = await this.prisma.catalogItem.findFirst({
+      where: { tenant_id: tenantId, sku },
+      select: { id: true },
+    });
+    if (!item) {
+      throw new NotFoundException(`Catalog item with SKU ${sku} not found`);
+    }
+    const siteId = await this.siteContext.getSiteId();
+    const stocks = await this.prisma.inventoryStock.findMany({
+      where: mcpStockBinWhere(tenantId, siteId, [item.id]),
+      select: mcpStockBinStockSelect,
+      orderBy: [{ quantity_on_hand: 'desc' }, { location_id: 'asc' }],
+    });
+    const bins = mapInventoryStocksToBinLevels(stocks).get(item.id) ?? [];
     return {
       catalog_item_id: item.id,
-      ...availability,
+      bins,
+      ...binFieldsFromLevels(bins),
     };
   }
 
