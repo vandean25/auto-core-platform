@@ -14,6 +14,7 @@ import {
 } from '../src/registration-intake/registration-intake-byte-storage.js';
 import { InMemoryRegistrationIntakeByteStorage } from './support/in-memory-registration-intake-storage.js';
 import { encodeRegistrationIntakeFixtureBytes } from '../src/registration-intake/registration-intake-fixture-bytes.js';
+import { REGISTRATION_INTAKE_MAX_BYTES_PER_FILE } from '../src/registration-intake/registration-intake-limits.js';
 import {
   cleanupTestTenantGraph,
   createTenantAwarePrisma,
@@ -150,5 +151,126 @@ describe('Registration document intake (e2e)', () => {
     expect(apply.body.code).toBe('REGISTRATION_INTAKE_LOW_CONFIDENCE');
     const vehicles = await createTenantAwarePrisma(prisma, tenantId).vehicle.count();
     expect(vehicles).toBe(0);
+  });
+
+  it('confirms pilot customer and vehicle then creates workshop order', async () => {
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const back = encodeRegistrationIntakeFixtureBytes('back-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'happy-path-1')
+      .field('sides', 'FRONT')
+      .field('sides', 'BACK')
+      .attach('files', front, 'front.jpg')
+      .attach('files', back, 'back.jpg')
+      .expect(201);
+
+    const applyBody = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      co2: { value: 119, cycle: 'WLTP' as const },
+      make: 'Synthetic',
+      model: 'Demo',
+      year: 2019,
+    };
+    const apply = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(applyBody)
+      .expect(200);
+    expect(apply.body.state).toBe('APPLIED');
+    expect(apply.body.createdCustomer).toBe(true);
+    expect(apply.body.createdVehicle).toBe(true);
+
+    const repeatApply = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(applyBody)
+      .expect(200);
+    expect(repeatApply.body.vehicleId).toBe(apply.body.vehicleId);
+
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    expect(await tenantPrisma.vehicle.count()).toBe(1);
+    expect(await tenantPrisma.customer.count()).toBe(1);
+
+    const order = await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/order`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ odometer: 12000, fuelLevel: 40, notes: 'Snap intake' })
+      .expect(200);
+    expect(order.body.workshopOrderId).toBeTruthy();
+  });
+
+  it('rejects unsupported file type before storing bytes', async () => {
+    const bad = Buffer.from('not-a-real-image');
+    const res = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'bad-mime-1')
+      .field('sides', 'FRONT')
+      .attach('files', bad, 'notes.txt')
+      .expect(400);
+    expect(res.body.code).toBe('REGISTRATION_INTAKE_UNSUPPORTED_FILE');
+    expect(storage.objects.size).toBe(0);
+  });
+
+  it('rejects files over 10 MiB', async () => {
+    const huge = Buffer.alloc(REGISTRATION_INTAKE_MAX_BYTES_PER_FILE + 1, 0xff);
+    huge[0] = 0xff;
+    huge[1] = 0xd8;
+    huge[2] = 0xff;
+    const res = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'too-large-1')
+      .field('sides', 'FRONT')
+      .attach('files', huge, 'huge.jpg')
+      .expect(413);
+    expect(res.body.code).toBe('REGISTRATION_INTAKE_FILE_TOO_LARGE');
+  });
+
+  it('aborts awaiting review and removes stored bytes', async () => {
+    const front = encodeRegistrationIntakeFixtureBytes('front-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'abort-1')
+      .field('sides', 'FRONT')
+      .attach('files', front, 'front.jpg')
+      .expect(201);
+    expect(storage.objects.size).toBeGreaterThan(0);
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/abort`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
+    expect(storage.objects.size).toBe(0);
+  });
+
+  it('treats illegible PDF as reviewable failure without apply writes', async () => {
+    const illegible = encodeRegistrationIntakeFixtureBytes('illegible', 'application/pdf');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'illegible-pdf-1')
+      .field('sides', 'FRONT')
+      .attach('files', illegible, 'scan.pdf')
+      .expect(201);
+    expect(create.body.state).toBe('AWAITING_REVIEW');
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        vin: null,
+        plate: 'W SYNTH 1',
+        holder: { firstName: 'pilot', lastName: 'customer' },
+        nationalcode: null,
+      })
+      .expect(422);
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    expect(await tenantPrisma.vehicle.count()).toBe(0);
   });
 });

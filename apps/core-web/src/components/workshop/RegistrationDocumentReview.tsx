@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/ui/status-badge'
+import { StatusBadge } from '@/components/status/StatusBadge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { getErrorMessage } from '@/lib/error-utils'
 
@@ -61,7 +61,7 @@ export function RegistrationDocumentReview({
     try {
       await action()
     } catch (err) {
-      setError(getErrorMessage(err))
+      setError(getErrorMessage(err, 'Action failed'))
     } finally {
       setBusy(false)
     }

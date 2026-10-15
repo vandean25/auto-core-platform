@@ -31,6 +31,7 @@ import type {
   NewVehicleForm,
 } from '@/features/workshop/intake-form'
 import { getErrorMessage } from '@/lib/error-utils'
+import { RegistrationDocumentIntakeStep } from './RegistrationDocumentIntakeStep'
 
 type ExistingVehicle = Vehicle & { customer: Customer | null }
 type ExistingCustomer = Customer & { vehicles: Vehicle[] }
@@ -391,6 +392,15 @@ export function WorkshopOrderIntakeDialog({
                 Upload an Austrian Zulassungsschein (front and optional back). Review extracted
                 fields, confirm identity, then create the workshop order on the captured site.
               </p>
+              <RegistrationDocumentIntakeStep
+                odometer={odometer}
+                fuelLevel={fuelLevel}
+                notes={notes}
+                onOrderCreated={(orderId) => {
+                  handleDialogOpenChange(false)
+                  navigate(`/workshop/${orderId}`)
+                }}
+              />
             </TabsContent>
           </Tabs>
 
@@ -441,7 +451,12 @@ export function WorkshopOrderIntakeDialog({
             <Button
               type="button"
               onClick={handleCreateOrder}
-              disabled={createOrder.isPending || registerIntake.isPending || !canSubmit}
+              disabled={
+                createOrder.isPending ||
+                registerIntake.isPending ||
+                !canSubmit ||
+                activeTab === 'registration-document'
+              }
             >
               {createOrder.isPending || registerIntake.isPending
                 ? 'Creating...'
