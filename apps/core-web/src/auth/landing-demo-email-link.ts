@@ -7,8 +7,8 @@ export const LANDING_DEMO_EMAIL_FOR_SIGN_IN_STORAGE_KEY = 'emailForSignIn'
 const DEMO_GRANT_SESSION_ERROR_EN =
   'Demo sign-in link is missing, expired, or already used.'
 
-function isE2eSimulatedEmailLinkUrl(href: string): boolean {
-  if (import.meta.env.MODE !== 'e2e') {
+function isDevOrE2eMagicLinkQuery(href: string): boolean {
+  if (!import.meta.env.DEV && import.meta.env.MODE !== 'e2e') {
     return false
   }
 
@@ -21,7 +21,7 @@ function isE2eSimulatedEmailLinkUrl(href: string): boolean {
 }
 
 export function isFirebaseEmailLinkSignInUrl(href: string): boolean {
-  if (isE2eSimulatedEmailLinkUrl(href)) {
+  if (isDevOrE2eMagicLinkQuery(href)) {
     return true
   }
 

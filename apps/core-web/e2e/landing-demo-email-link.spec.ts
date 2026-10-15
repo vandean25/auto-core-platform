@@ -20,16 +20,6 @@ test.describe('Landing demo email-link completion (smoke)', () => {
       await route.fulfill({ response, body: text })
     })
 
-    await page.route('**/src/auth/landing-demo-email-link.ts*', async (route) => {
-      const response = await route.fetch()
-      let text = await response.text()
-      text = text.replace(
-        'return isSignInWithEmailLink(firebaseAuth, href)',
-        'return href.includes("oobCode=")',
-      )
-      await route.fulfill({ response, body: text })
-    })
-
     await page.route('**/identitytoolkit.googleapis.com/**', async (route) => route.abort())
 
     await page.goto('/login?apiKey=test&oobCode=demo-oob-code&mode=signIn')

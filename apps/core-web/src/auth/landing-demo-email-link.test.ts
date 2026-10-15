@@ -35,8 +35,8 @@ describe('landing-demo email-link storage', () => {
 })
 
 describe('isFirebaseEmailLinkSignInUrl', () => {
-  it('accepts oobCode sign-in URLs in e2e mode without Firebase', () => {
-    vi.stubEnv('MODE', 'e2e')
+  it('accepts oobCode sign-in URLs in dev/e2e without calling Firebase', () => {
+    vi.stubEnv('DEV', true)
     expect(
       isFirebaseEmailLinkSignInUrl('http://localhost:5175/login?oobCode=abc&mode=signIn'),
     ).toBe(true)
