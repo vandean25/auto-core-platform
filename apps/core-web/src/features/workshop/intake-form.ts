@@ -6,7 +6,7 @@ import {
   VEHICLE_HAS_ACTIVE_ORDER_CODE,
 } from '@/lib/error-utils'
 
-export type IntakeTab = 'existing' | 'new-vehicle'
+export type IntakeTab = 'existing' | 'new-vehicle' | 'registration-document'
 export type IntakeCustomerMode = 'existing' | 'new'
 
 export interface NewVehicleForm {

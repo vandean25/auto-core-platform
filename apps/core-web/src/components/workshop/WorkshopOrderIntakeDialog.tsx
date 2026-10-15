@@ -211,6 +211,7 @@ export function WorkshopOrderIntakeDialog({
               <TabsList>
                 <TabsTrigger value="existing">Search Existing</TabsTrigger>
                 <TabsTrigger value="new-vehicle">Create Vehicle</TabsTrigger>
+                <TabsTrigger value="registration-document">Zulassungsschein</TabsTrigger>
               </TabsList>
             ) : null}
 
@@ -383,6 +384,13 @@ export function WorkshopOrderIntakeDialog({
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="registration-document" className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Upload an Austrian Zulassungsschein (front and optional back). Review extracted
+                fields, confirm identity, then create the workshop order on the captured site.
+              </p>
             </TabsContent>
           </Tabs>
 
