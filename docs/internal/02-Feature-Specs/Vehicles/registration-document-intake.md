@@ -568,7 +568,9 @@ Implementation tests load [registration-document-intake.fixtures.json](./registr
 - [ ] Parallel create and replay: one row, one provider call; a different hash returns the idempotency conflict; a different user does not see the row; a concurrent `RUNNING` row returns in-progress.
 - [ ] A new create while the provider is disabled returns `503` and writes no row and no bytes. Replay of a finished key still returns the stored `201`.
 - [ ] Approving a proposal whose `execute` throws `409` marks that proposal `FAILED` once. A second approve does not run `execute`. REST apply of the same `409` can be retried.
-- [ ] An existing vehicle with a different Nationalcode, first registration, or CO₂ returns the conflict case and does not overwrite those columns. A null column is filled.
+- [ ] An existing vehicle with a different Nationalcode, first registration, or CO₂ returns the conflict case and does not overwrite those columns. The fixture document `existing-vehicle-field-conflict` supplies the stored vehicle. A null column is filled.
+- [ ] Two cron instances claim one outbox row with the conditional `updateMany`. Only the instance that gets `count === 1` increments `attempts`.
+- [ ] Tenant purge deletes `registration-intakes/{tenantId}/` before the SQL purge, including bytes for unapplied intakes. A failed prefix delete skips the SQL purge.
 - [ ] The order route returns `409` `VEHICLE_HAS_ACTIVE_ORDER` with `orderId` and `orderNumber` and leaves `applied_workshop_order_id` null.
 - [ ] A file over 10 MiB returns `413` with `code` `REGISTRATION_INTAKE_FILE_TOO_LARGE`.
 - [ ] Abort and delete remove objects first and commit the row only after that. A repeated abort returns `200`. Delete after apply returns the applied-delete body. A failed object delete leaves the row unchanged and returns `503` with `code` `REGISTRATION_INTAKE_BYTES_REMAIN`.
