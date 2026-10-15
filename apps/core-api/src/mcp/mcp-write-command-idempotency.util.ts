@@ -6,9 +6,7 @@ export type ParsedMcpWriteInput = {
   businessInput: Record<string, unknown>;
 };
 
-export function parseMcpWriteCommandInput(
-  input: unknown,
-): ParsedMcpWriteInput {
+export function parseMcpWriteCommandInput(input: unknown): ParsedMcpWriteInput {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return { businessInput: {} };
   }

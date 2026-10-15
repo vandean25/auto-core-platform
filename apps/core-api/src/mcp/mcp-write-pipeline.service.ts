@@ -125,15 +125,11 @@ export class McpWritePipelineService {
     const { commandId, businessInput } = parseMcpWriteCommandInput(input);
     const workInput = commandId ? businessInput : input;
 
-    let claim:
-      | { receiptId: string; originalTraceId: string }
-      | undefined;
+    let claim: { receiptId: string; originalTraceId: string } | undefined;
     let idempotencyMeta:
-      | { command_id: string; args_fingerprint: string }
-      | undefined;
+      { command_id: string; args_fingerprint: string } | undefined;
     if (commandId) {
-      const originalTraceId =
-        this.requestContext.getTraceId() ?? randomUUID();
+      const originalTraceId = this.requestContext.getTraceId() ?? randomUUID();
       const argsFingerprint = fingerprintMcpWriteArgs(
         execution.toolName,
         workInput,

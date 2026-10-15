@@ -1366,7 +1366,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-auto'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle),
+        ...draftOrderArgs(draftVehicle, 12),
         notes,
         command_id: commandId,
       },
@@ -1385,7 +1385,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-auto-replay'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle),
+        ...draftOrderArgs(draftVehicle, 12),
         notes,
         command_id: commandId,
       },
@@ -1479,7 +1479,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-conflict-a'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle),
+        ...draftOrderArgs(draftVehicle, 13),
         notes: 'first body',
         command_id: commandId,
       },
@@ -1490,7 +1490,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-conflict-b'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle),
+        ...draftOrderArgs(draftVehicle, 13),
         notes: 'different body',
         command_id: commandId,
       },

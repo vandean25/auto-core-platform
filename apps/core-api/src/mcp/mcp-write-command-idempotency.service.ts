@@ -13,7 +13,10 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import type { McpWriteToolName } from './mcp.constants.js';
-import type { McpWriteToolContext, McpWriteToolResult } from './mcp-write-pipeline.service.js';
+import type {
+  McpWriteToolContext,
+  McpWriteToolResult,
+} from './mcp-write-pipeline.service.js';
 
 export const MCP_COMMAND_IDEMPOTENCY_CONFLICT =
   'MCP_COMMAND_IDEMPOTENCY_CONFLICT';
@@ -135,7 +138,9 @@ export class McpWriteCommandIdempotencyService {
       data: {
         status: McpWriteCommandReceiptStatus.COMPLETED,
         original_trace_id: result.trace_id ?? claim.originalTraceId,
-        response_json: JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue,
+        response_json: JSON.parse(
+          JSON.stringify(result),
+        ) as Prisma.InputJsonValue,
       },
     });
   }
@@ -198,12 +203,9 @@ export class McpWriteCommandIdempotencyService {
       siteId: string | null;
     },
   ): void {
-    if (
-      receipt.on_behalf_of_user_id !== input.context.onBehalfOfUserId ||
-      receipt.agent_id !== input.context.agentId
-    ) {
+    if (receipt.on_behalf_of_user_id !== input.context.onBehalfOfUserId) {
       throw new ForbiddenException(
-        'This command_id belongs to another caller identity.',
+        'This command_id belongs to another on-behalf identity.',
       );
     }
     if (receipt.site_id !== null && receipt.site_id !== input.siteId) {
@@ -248,10 +250,12 @@ export class McpWriteCommandIdempotencyService {
         tool: receipt.tool_name as McpWriteToolName,
         tier: proposal.tier,
         status: 'needs_approval',
-        would_change: (preview.would_change ?? []) as McpWriteToolResult['would_change'],
+        would_change: (preview.would_change ??
+          []) as McpWriteToolResult['would_change'],
         proposal: {
           payload: proposal.payload_json,
-          would_change: (preview.would_change ?? []) as McpWriteToolResult['would_change'],
+          would_change: (preview.would_change ??
+            []) as McpWriteToolResult['would_change'],
           preview: preview.preview,
           provisional: true,
         },
@@ -269,7 +273,10 @@ export class McpWriteCommandIdempotencyService {
       },
     });
     if (executedLog?.result_summary_json) {
-      const summary = executedLog.result_summary_json as Record<string, unknown>;
+      const summary = executedLog.result_summary_json as Record<
+        string,
+        unknown
+      >;
       return {
         tool: receipt.tool_name as McpWriteToolName,
         tier: executedLog.tier as AgentPolicyTier,
