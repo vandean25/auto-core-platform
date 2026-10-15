@@ -102,6 +102,24 @@ describe('WorkshopCommunicationTimeline', () => {
     expect(within(items[1]).getByText('Der Kostenvoranschlag (Version 1) wurde per E-Mail gesendet')).toBeInTheDocument()
     expect(items[1]).toHaveTextContent('10.10.2026, 10:05')
   })
+
+  it('marks an overrun detection and a customer notice with the warning icon', () => {
+    useCommunications.mockReturnValue(
+      queryState({
+        data: [
+          entry({ id: 'overrun-1', kind: 'OVERRUN_NOTIFICATION', channel: 'PHONE', status: null }),
+          entry({ id: 'overrun-1', kind: 'OVERRUN_DETECTED', channel: null, status: null }),
+        ],
+      }),
+    )
+
+    const { container } = render(<WorkshopCommunicationTimeline orderId="order-1" />)
+
+    const items = screen.getAllByRole('listitem')
+    expect(within(items[0]).getByText('Der Kunde wurde über den Mehrbedarf gegenüber dem Kostenvoranschlag (Version 1) informiert (Telefon)')).toBeInTheDocument()
+    expect(within(items[1]).getByText('Mehrbedarf gegenüber dem Kostenvoranschlag (Version 1) festgestellt')).toBeInTheDocument()
+    expect(container.querySelectorAll('.text-amber-600')).toHaveLength(2)
+  })
 })
 
 describe('describeCommunication', () => {
@@ -120,6 +138,10 @@ describe('describeCommunication', () => {
       'Der Kunde hat den Kostenvoranschlag (Version 1) über den Link abgelehnt',
     ],
     [
+      entry({ kind: 'ESTIMATE_APPROVAL', channel: null, decision: 'DECLINED', status: null }),
+      'Der Kunde hat den Kostenvoranschlag (Version 1) über den Link abgelehnt',
+    ],
+    [
       entry({ kind: 'ESTIMATE_APPROVAL', channel: 'ADVISOR_RECORDED', decision: 'APPROVED', status: null }),
       'Die Freigabe des Kostenvoranschlags (Version 1) wurde vom Berater erfasst',
     ],
@@ -129,5 +151,55 @@ describe('describeCommunication', () => {
     ],
   ])('describes %j in German', (row, expected) => {
     expect(describeCommunication(row)).toBe(expected)
+  })
+})
+
+describe('describeCommunication for AUT-355 entries', () => {
+  it('describes an advisor-recorded phone decision with its channel', () => {
+    expect(
+      describeCommunication(
+        entry({
+          id: 'a1',
+          kind: 'ESTIMATE_APPROVAL',
+          channel: 'PHONE',
+          version: 2,
+          occurred_at: '2026-10-12T08:00:00.000Z',
+          status: null,
+          decision: 'APPROVED',
+        }),
+      ),
+    ).toBe('Die Freigabe des Kostenvoranschlags (Version 2) wurde vom Berater erfasst (Telefon)')
+  })
+
+  it('describes an advisor-recorded refusal by email with its channel', () => {
+    expect(
+      describeCommunication(
+        entry({ kind: 'ESTIMATE_APPROVAL', channel: 'EMAIL', decision: 'DECLINED', status: null }),
+      ),
+    ).toBe('Die Ablehnung des Kostenvoranschlags (Version 1) wurde vom Berater erfasst (E-Mail)')
+  })
+
+  it('describes an overrun notice with its channel', () => {
+    expect(
+      describeCommunication(
+        entry({
+          id: 'n1',
+          kind: 'OVERRUN_NOTIFICATION',
+          channel: 'PHONE',
+          version: 1,
+          occurred_at: '2026-10-13T08:00:00.000Z',
+          status: null,
+          decision: null,
+        }),
+      ),
+    ).toBe('Der Kunde wurde über den Mehrbedarf gegenüber dem Kostenvoranschlag (Version 1) informiert (Telefon)')
+  })
+
+  it('describes an overrun detection without a channel, naming the version it is about', () => {
+    expect(
+      describeCommunication(
+        entry({ id: 'd1', kind: 'OVERRUN_DETECTED', channel: null, version: 2, status: null, decision: null }),
+      ),
+    ).toBe('Mehrbedarf gegenüber dem Kostenvoranschlag (Version 2) festgestellt')
   })
 })

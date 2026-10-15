@@ -180,6 +180,32 @@ Update `docs/deletion-policy.md` in implementation: estimate versions, approvals
 
 ## State machines
 
+### Advisor-recorded decision and overrun (AUT-355, implemented)
+
+- A sent version takes one decision, `APPROVED` or `DECLINED`, by a guarded update from `SENT`. A decision on `DRAFT`,
+  `SUPERSEDED`, `EXPIRED`, `APPROVED` or `DECLINED` is refused with 409 and a code of its own. A `SENT` version past
+  `valid_until` is marked `EXPIRED` first.
+- The amount must equal the version's gross total (422 `ESTIMATE_AMOUNT_MISMATCH`). A decision time must lie between
+  sending and now (422 `ESTIMATE_DECISION_TIME_INVALID`).
+- The decision writes the evidence row, the audit row (`CREATE`) and the domain event (`CUSTOMER_ESTIMATE_DECIDED`, internal
+  in-app, accepted at write time). Nothing is sent. The order gets no new status. The order's estimate badge is derived.
+- Overrun: the first detection is recorded when a write changes the estimate lines of the order (task line items, catalog
+  lines, part requests, and the agent's proposed lines). Consume, release and pick only lower a quantity or change a
+  status, so they never trigger a detection. Its audit row is written as the system. Every read
+  still detects the overrun as a backstop, so the detection time is whichever comes first. A new approved version starts a
+  new baseline.
+- The customer notice must equal the order's current gross total (422 `OVERRUN_AMOUNT_MISMATCH`). The same total cannot be
+  noticed twice (409 `OVERRUN_ALREADY_NOTIFIED`). When the total has moved since the last notice, a new notice replaces the
+  tracked notice fields. The audit trail keeps every change, and the timeline shows the latest notice.
+- The customer reaction is optional. When one is given it must fit the decision: an approval takes `AGREED` or `QUESTIONED`,
+  a refusal takes `DECLINED`, `QUESTIONED` or `CALLBACK_REQUESTED` (422 `ESTIMATE_REACTION_MISMATCH`).
+- The overrun banner offers "Überarbeiteten Kostenvoranschlag senden" while customer sending is on. It creates the next
+  draft and opens the send dialog on it. The send itself stays a separate, confirmed step.
+- "Resume waiting tasks" moves `WAITING_CUSTOMER` to `PAUSED` under a guarded update, for an open order, and only for the
+  advisor roles. The mechanic continues from `PAUSED` through the existing start transition.
+- The invoice warning is advisory: the invoice can still be issued. It shows only while an invoice draft can be issued,
+  and only to OWNER, ADMIN and SALES, the roles that read estimates.
+
 ### Workshop order (unchanged v1)
 
 `SCHEDULED` → `INTAKE` → `IN_PROGRESS` → `COMPLETED` → `INVOICED` (see [[workshop-order-lifecycle]]).
@@ -207,7 +233,8 @@ Implementation tickets must follow OpenAPI contract-first (ADR-0010). Expected s
 | POST     | `/api/workshop/estimates/:versionId/send`            | Snapshot, PDF enqueue, token, outbox |
 | POST     | `/api/workshop/estimates/:versionId/approve-advisor` | Advisor-recorded decision            |
 | GET/POST | `/api/public/estimate-approvals/:token`              | Public view / decide                 |
-| POST     | `/api/workshop/orders/:id/overrun/notify`            | Record customer informed             |
+| POST     | `/api/workshop/orders/:id/overrun/notify`            | Record customer informed (AUT-355, implemented) |
+| POST     | `/api/workshop/orders/:id/tasks/resume-waiting`      | Resume waiting tasks (AUT-355, implemented) |
 | POST     | `/api/notifications/outbox/replay`                   | Admin replay (guarded): owner or admin only. Built in AUT-356 phase 6; a failed estimate email is refused (`LINK_REDACTED`) and re-sent as a new version |
 | GET      | `/api/workshop/orders/:id/communications`            | Customer communication timeline of an order. Built in AUT-356 phase 6 |
 

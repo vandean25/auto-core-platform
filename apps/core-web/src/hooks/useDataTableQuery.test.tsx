@@ -46,6 +46,9 @@ function HookHarness() {
   )
 }
 
+/** The hook writes the URL after a 500 ms debounce, so each wait must outlast it on a loaded machine. */
+const DEBOUNCED_WAIT = { timeout: 3000 }
+
 describe('useDataTableQuery', () => {
   it('reads table state from URL query params on first render', () => {
     render(
@@ -81,7 +84,7 @@ describe('useDataTableQuery', () => {
     await waitFor(() => {
       expect(screen.getByTestId('search')).toHaveTextContent('Mustermann')
       expect(screen.getByTestId('filters')).toHaveTextContent('status:IN_PROGRESS')
-    })
+    }, DEBOUNCED_WAIT)
   })
 
   it('keeps user-entered search and writes it to URL query', async () => {
@@ -96,7 +99,7 @@ describe('useDataTableQuery', () => {
     await waitFor(() => {
       expect(screen.getByTestId('search')).toHaveTextContent('Gruber')
       expect(screen.getByTestId('url-search')).toHaveTextContent('search=Gruber')
-    })
+    }, DEBOUNCED_WAIT)
   })
 
   it('writes a chosen page size to the URL, resets the page, and drops the size again at the default', async () => {
@@ -112,12 +115,12 @@ describe('useDataTableQuery', () => {
       expect(screen.getByTestId('page-size')).toHaveTextContent('50')
       expect(screen.getByTestId('url-search')).toHaveTextContent('pageSize=50')
       expect(screen.getByTestId('url-search')).not.toHaveTextContent('page=3')
-    })
+    }, DEBOUNCED_WAIT)
 
     fireEvent.click(screen.getByRole('button', { name: 'Choose 10 Rows' }))
 
     await waitFor(() => {
       expect(screen.getByTestId('url-search')).not.toHaveTextContent('pageSize')
-    })
+    }, DEBOUNCED_WAIT)
   })
 })

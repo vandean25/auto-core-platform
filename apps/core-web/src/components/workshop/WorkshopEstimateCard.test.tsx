@@ -38,9 +38,32 @@ let queryClient = new QueryClient()
 const SENT_AT = '2026-10-10T08:05:00.000Z'
 const VALID_UNTIL = '2026-10-24T08:05:00.000Z'
 
+/** The tracking fields of an overrun warning: detected, not yet told to the customer. */
+const OVERRUN_TRACKING = {
+  detected_at: '2026-10-12T08:00:00.000Z',
+  notified_at: null,
+  notified_channel: null,
+  notified_amount_gross: null,
+  customer_reaction: null,
+  note: null,
+  requires_customer_notice: true,
+}
+
+/** An overrun over the threshold, with no new lines, that the customer has not been told about. */
+const OVERRUN_OVER_THRESHOLD = {
+  ...OVERRUN_TRACKING,
+  total_over_threshold: true,
+  new_work_lines: false,
+  approved_total_gross: '216.00',
+  current_total_gross: '270.00',
+  threshold_pct: '15.00',
+  new_line_count: 0,
+}
+
 function summary(overrides: Partial<WorkshopEstimateVersionSummary>): WorkshopEstimateVersionSummary {
   return {
     id: 'v1',
+    approval: null,
     version: 1,
     status: 'DRAFT',
     sent_at: null,
@@ -242,6 +265,7 @@ describe('WorkshopEstimateCard', () => {
     asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
       data: estimate(store.versions, {
         overrun_warning: {
+          ...OVERRUN_TRACKING,
           total_over_threshold: true,
           new_work_lines: true,
           approved_total_gross: '216.00',
@@ -261,6 +285,39 @@ describe('WorkshopEstimateCard', () => {
     expect(within(banner).getByText(/€\s270,00/)).toBeTruthy()
     expect(within(banner).getByText(/Grenzwert: 15 %/)).toBeTruthy()
     expect(within(banner).getByText('2 neue Position(en) gegenüber dem freigegebenen Kostenvoranschlag.')).toBeTruthy()
+  })
+
+  it('answers an overrun in one step: the revised version is created and its send dialog opens', async () => {
+    store.versions = [sentVersion('v1', 1)]
+    asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
+      data: estimate(store.versions, { overrun_warning: OVERRUN_OVER_THRESHOLD, send_enabled: true }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    render(withClient(card()))
+
+    const banner = screen.getByTestId('estimate-overrun-banner')
+    fireEvent.click(within(banner).getByRole('button', { name: 'Überarbeiteten Kostenvoranschlag senden' }))
+
+    await waitFor(() => expect(reviseMutateAsync).toHaveBeenCalledWith(ORDER_ID))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Version 2 an Kunden senden?')).toBeTruthy()
+  })
+
+  it('offers no one-step revision while customer sending is off', () => {
+    store.versions = [sentVersion('v1', 1)]
+    asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
+      data: estimate(store.versions, { overrun_warning: OVERRUN_OVER_THRESHOLD, send_enabled: false }),
+      isLoading: false,
+      isError: false,
+      error: null,
+    })
+    render(withClient(card()))
+
+    const banner = screen.getByTestId('estimate-overrun-banner')
+    expect(within(banner).queryByRole('button', { name: 'Überarbeiteten Kostenvoranschlag senden' })).toBeNull()
+    expect(reviseMutateAsync).not.toHaveBeenCalled()
   })
 
   it('creates, sends, revises and sends again, and downloads each sent version as it was', async () => {

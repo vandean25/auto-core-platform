@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -20,7 +19,6 @@ import { NotificationOutboxService } from '../notifications/notification-outbox.
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
-import { assertSiteReadAccess } from '../site/site.authorization.js';
 import { computeSellerReadiness } from '../site/legal-entity-readiness.js';
 import {
   collectCustomerMissingFields,
@@ -57,6 +55,12 @@ import {
   type WorkshopEstimateOverrunWarning,
 } from './workshop-estimate-overrun.helpers.js';
 import { retainUntilAtSend } from './workshop-estimate-retention.helpers.js';
+import { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
+import {
+  assertEstimateRole,
+  resolveEstimateScope,
+  type EstimateScope,
+} from './workshop-estimate-scope.js';
 import { parseApprovalBaseUrl } from './workshop-estimate-approval-token.helpers.js';
 import {
   invalidateSupersededApprovalTokens,
@@ -80,15 +84,7 @@ import {
   type WorkshopEstimatePdfStream,
 } from './workshop-estimate-pdf.service.js';
 
-/** Estimate actions are for back-office roles. TECH sessions are refused (ADR-0014 §8.2 and AUT-354). */
-const ESTIMATE_ROLES: ReadonlySet<string> = new Set([
-  'OWNER',
-  'ADMIN',
-  'SALES',
-]);
 const DEFAULT_OVERRUN_THRESHOLD_PCT = '15';
-
-type EstimateScope = { tenantId: string; siteId: string };
 
 /** Whether the send also emails the approval link to the customer (ADR-0025 §5 to §8). */
 export interface EstimateSendOptions {
@@ -176,6 +172,8 @@ export class WorkshopEstimateService {
     private readonly outbox: NotificationOutboxService,
     @Inject(NotificationCloudTasksService)
     private readonly wakeUps: NotificationCloudTasksService,
+    @Inject(WorkshopEstimateOverrunService)
+    private readonly overruns: WorkshopEstimateOverrunService,
   ) {}
 
   /** Create the estimate (KV number, version 1 as DRAFT) for an open workshop order. */
@@ -263,7 +261,7 @@ export class WorkshopEstimateService {
       select: { id: true, version: true },
     });
     const versionIds = versions.map((version) => version.id);
-    const [emails, approvals] = await Promise.all([
+    const [emails, approvals, overrunRecords] = await Promise.all([
       this.prisma.notificationOutbox.findMany({
         where: {
           tenant_id: scope.tenantId,
@@ -299,6 +297,21 @@ export class WorkshopEstimateService {
               decided_at: true,
             },
           }),
+      this.prisma.workshopEstimateOverrun.findMany({
+        where: {
+          tenant_id: scope.tenantId,
+          workshop_estimate_version_id: { in: versionIds },
+        },
+        orderBy: [{ detected_at: 'desc' }, { id: 'desc' }],
+        take: WORKSHOP_COMMUNICATIONS_LIMIT,
+        select: {
+          id: true,
+          workshop_estimate_version_id: true,
+          detected_at: true,
+          notified_at: true,
+          notified_channel: true,
+        },
+      }),
     ]);
     const versionNumbers = new Map(
       versions.map((version): [string, number] => [
@@ -310,6 +323,7 @@ export class WorkshopEstimateService {
       data: buildWorkshopOrderCommunications({
         emails,
         approvals,
+        overrunRecords,
         versionNumbers,
       }),
     };
@@ -389,7 +403,7 @@ export class WorkshopEstimateService {
     versionId: string,
     options: EstimateSendOptions = { notifyCustomerByEmail: false },
   ): Promise<WorkshopEstimateVersionDetailDto> {
-    this.assertEstimateRole();
+    assertEstimateRole(this.tenantContext);
     if (!isCustomerEstimateSendEnabled()) {
       throw new ServiceUnavailableException({
         code: 'ESTIMATE_SEND_DISABLED',
@@ -637,28 +651,12 @@ export class WorkshopEstimateService {
     }
   }
 
-  private assertEstimateRole(): void {
-    const user = this.tenantContext.getAuthenticatedUser();
-    if (!user?.role || !ESTIMATE_ROLES.has(user.role)) {
-      throw new ForbiddenException({
-        code: 'ESTIMATE_ROLE_FORBIDDEN',
-        message:
-          'Kostenvoranschlag actions require the owner, admin or sales role.',
-      });
-    }
-  }
-
   private async resolveScope(): Promise<EstimateScope> {
-    this.assertEstimateRole();
-    const tenantId = await this.tenantContext.getTenantId();
-    const siteId = await this.siteContext.getSiteId();
-    await assertSiteReadAccess(
-      this.prisma,
-      this.tenantContext,
-      tenantId,
-      siteId,
-    );
-    return { tenantId, siteId };
+    return resolveEstimateScope({
+      prisma: this.prisma,
+      tenantContext: this.tenantContext,
+      siteContext: this.siteContext,
+    });
   }
 
   private async findOrderInScope(
@@ -767,7 +765,7 @@ export class WorkshopEstimateService {
           status: WorkshopEstimateStatus.APPROVED,
         },
         orderBy: { version: 'desc' },
-        select: { snapshot: true },
+        select: { id: true, snapshot: true },
       }),
       this.prisma.financeSettings.findFirst({
         where: { tenant_id: scope.tenantId },
@@ -780,7 +778,7 @@ export class WorkshopEstimateService {
       DEFAULT_OVERRUN_THRESHOLD_PCT;
     const approvedSnapshot = approved?.snapshot as unknown as
       WorkshopEstimateSnapshot | null | undefined;
-    const overrun: WorkshopEstimateOverrunWarning | null = approvedSnapshot
+    const warning: WorkshopEstimateOverrunWarning | null = approvedSnapshot
       ? computeWorkshopEstimateOverrun({
           approved: {
             total_gross: approvedSnapshot.totals.total_gross,
@@ -792,6 +790,11 @@ export class WorkshopEstimateService {
           thresholdPct,
         })
       : null;
+    // The first sighting of an overrun against the approved baseline is recorded here (AUT-355).
+    const overrun =
+      approved && warning
+        ? await this.overruns.observe(scope.tenantId, approved.id, warning)
+        : null;
 
     return toWorkshopEstimateDto({
       estimate,

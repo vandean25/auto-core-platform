@@ -25,12 +25,19 @@ import {
   WorkshopEstimateVersionDetailDto,
 } from './dto/workshop-estimate-response.dto.js';
 import { WorkshopOrderCommunicationsResponseDto } from './dto/workshop-order-communications.dto.js';
+import { RecordWorkshopEstimateDecisionDto } from './dto/record-workshop-estimate-decision.dto.js';
+import {
+  RecordWorkshopOverrunNoticeDto,
+  WorkshopOverrunNoticeDto,
+} from './dto/record-workshop-overrun-notice.dto.js';
 import {
   SendWorkshopEstimateVersionDto,
   WorkshopPdfGenerationResponseDto,
 } from './dto/index.js';
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
+import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
+import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
 
 async function servePdfDownload(
   estimates: WorkshopEstimateService,
@@ -56,6 +63,8 @@ export class WorkshopEstimateController {
   constructor(
     private readonly estimates: WorkshopEstimateService,
     private readonly pdfService: WorkshopEstimatePdfService,
+    private readonly approvals: WorkshopEstimateApprovalService,
+    private readonly overrunNotices: WorkshopOverrunNoticeService,
   ) {}
 
   @Post('orders/:id/estimates')
@@ -99,6 +108,26 @@ export class WorkshopEstimateController {
     return this.estimates.sendVersion(versionId, {
       notifyCustomerByEmail: body?.notifyCustomerByEmail === true,
     });
+  }
+
+  /** Advisor-recorded decision on a sent version (AUT-355). TECH and other roles are refused. */
+  @Post('estimates/:versionId/approve-advisor')
+  @ApiCreatedResponse({ type: WorkshopEstimateVersionDetailDto })
+  recordAdvisorDecision(
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+    @Body() body: RecordWorkshopEstimateDecisionDto,
+  ) {
+    return this.approvals.recordAdvisorDecision(versionId, body);
+  }
+
+  /** The advisor informed the customer about the overrun of the approved baseline (AUT-355, ADR-0025 §1). */
+  @Post('orders/:id/overrun/notify')
+  @ApiCreatedResponse({ type: WorkshopOverrunNoticeDto })
+  recordOverrunNotice(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: RecordWorkshopOverrunNoticeDto,
+  ) {
+    return this.overrunNotices.recordNotice(id, body);
   }
 
   @Post('estimates/:versionId/pdf')

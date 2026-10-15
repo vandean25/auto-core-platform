@@ -11,6 +11,8 @@ export type RecordTenantAuditParams = {
   entityId: string;
   action: AuditLogAction;
   actorUserId?: string | null;
+  /** USER unless the write is made by the system, such as a public estimate decision. */
+  actorType?: AuditActorType;
   source?: string | null;
   before?: unknown;
   after?: unknown;
@@ -52,9 +54,6 @@ export class AuditService {
   ): Promise<void> {
     const tenantId = await this.tenantContext.getTenantId();
     const authUser = this.tenantContext.getAuthenticatedUser();
-    // Same correlation rule as the Prisma audit extension: the agent trace when
-    // inside an agent action, otherwise the request ID.
-    const requestMeta = TenantContextStorage.getRequestMeta();
 
     await client.auditLog.create({
       data: {
@@ -65,20 +64,30 @@ export class AuditService {
         actor_user_id: params.actorUserId ?? null,
         actor_email: authUser?.email ?? null,
         actor_role: authUser?.role ?? null,
-        actor_type: AuditActorType.USER,
-        request_id:
-          requestMeta?.auditCorrelationId ?? requestMeta?.requestId ?? null,
+        actor_type: params.actorType ?? AuditActorType.USER,
+        request_id: correlationId(TenantContextStorage.getRequestMeta()),
         source: params.source ?? null,
-        before: params.before
-          ? (params.before as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
-        after: params.after
-          ? (params.after as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
-        diff: params.diff
-          ? (params.diff as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
+        before: jsonOrNull(params.before),
+        after: jsonOrNull(params.after),
+        diff: jsonOrNull(params.diff),
       },
     });
   }
+}
+
+/** A JSON column value, or Prisma's JsonNull when the value is absent. */
+function jsonOrNull(
+  value: unknown,
+): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  return value ? value : Prisma.JsonNull;
+}
+
+/**
+ * Same correlation rule as the Prisma audit extension: the agent trace when inside an agent action, otherwise the
+ * request ID.
+ */
+function correlationId(
+  requestMeta: ReturnType<typeof TenantContextStorage.getRequestMeta>,
+): string | null {
+  return requestMeta?.auditCorrelationId ?? requestMeta?.requestId ?? null;
 }

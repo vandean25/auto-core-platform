@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type {
+  WorkshopEstimateApprovalDto,
   WorkshopEstimateDraftPreviewDto,
   WorkshopEstimateOverrunWarningDto,
   WorkshopEstimateResponseDto,
@@ -8,7 +9,19 @@ import type {
   WorkshopEstimateVersionSummaryDto,
 } from './dto/workshop-estimate-response.dto.js';
 import type { WorkshopEstimateLine } from './workshop-estimate-lines.helpers.js';
-import type { WorkshopEstimateOverrunWarning } from './workshop-estimate-overrun.helpers.js';
+import type { WorkshopEstimateOverrunView } from './workshop-estimate-overrun-tracking.helpers.js';
+
+/** The decision of a version. The evidence fields that stay server-side (IP address, user agent) are not selected. */
+export const WORKSHOP_ESTIMATE_APPROVAL_SELECT = {
+  id: true,
+  channel: true,
+  decision: true,
+  decided_at: true,
+  amount_quoted_gross: true,
+  customer_reaction: true,
+  note: true,
+  recorded_by_user_id: true,
+} satisfies Prisma.WorkshopEstimateApprovalSelect;
 
 export const WORKSHOP_ESTIMATE_VERSION_SUMMARY_SELECT = {
   id: true,
@@ -26,7 +39,13 @@ export const WORKSHOP_ESTIMATE_VERSION_SUMMARY_SELECT = {
   legal_hold: true,
   pdf_generated_at: true,
   pdf_generation_error: true,
+  approvals: { select: WORKSHOP_ESTIMATE_APPROVAL_SELECT, take: 1 },
 } satisfies Prisma.WorkshopEstimateVersionSelect;
+
+export type WorkshopEstimateApprovalRow =
+  Prisma.WorkshopEstimateApprovalGetPayload<{
+    select: typeof WORKSHOP_ESTIMATE_APPROVAL_SELECT;
+  }>;
 
 export type WorkshopEstimateVersionSummaryRow =
   Prisma.WorkshopEstimateVersionGetPayload<{
@@ -53,6 +72,26 @@ function toMoney(value: Prisma.Decimal | null): string | null {
   return value ? value.toFixed(2) : null;
 }
 
+/** The decision of a version. A link decision carries the version total, since its amount is not stored apart. */
+function toWorkshopEstimateApprovalDto(
+  approval: WorkshopEstimateApprovalRow | undefined,
+  totalGross: Prisma.Decimal | null,
+): WorkshopEstimateApprovalDto | null {
+  if (!approval) {
+    return null;
+  }
+  return {
+    id: approval.id,
+    channel: approval.channel,
+    decision: approval.decision,
+    decided_at: approval.decided_at.toISOString(),
+    amount_quoted_gross: toMoney(approval.amount_quoted_gross ?? totalGross),
+    customer_reaction: approval.customer_reaction,
+    note: approval.note,
+    recorded_by_user_id: approval.recorded_by_user_id,
+  };
+}
+
 export function toWorkshopEstimateVersionSummaryDto(
   row: WorkshopEstimateVersionSummaryRow,
 ): WorkshopEstimateVersionSummaryDto {
@@ -72,11 +111,12 @@ export function toWorkshopEstimateVersionSummaryDto(
     legal_hold: row.legal_hold,
     pdf_generated_at: toIso(row.pdf_generated_at),
     pdf_generation_error: row.pdf_generation_error,
+    approval: toWorkshopEstimateApprovalDto(row.approvals[0], row.total_gross),
   };
 }
 
 export function toWorkshopEstimateOverrunDto(
-  warning: WorkshopEstimateOverrunWarning | null,
+  warning: WorkshopEstimateOverrunView | null,
 ): WorkshopEstimateOverrunWarningDto | null {
   return warning;
 }
@@ -90,7 +130,7 @@ export function toWorkshopEstimateDto(params: {
     createdAt: Date;
     versions: WorkshopEstimateVersionSummaryRow[];
   };
-  overrun: WorkshopEstimateOverrunWarning | null;
+  overrun: WorkshopEstimateOverrunView | null;
   sendEnabled: boolean;
   thresholdPct: string;
 }): WorkshopEstimateResponseDto {

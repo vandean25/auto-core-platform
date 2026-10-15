@@ -78,6 +78,8 @@ function tokenRow(overrides: Record<string, unknown> = {}) {
 function versionRow(overrides: Record<string, unknown> = {}) {
   return {
     status: 'SENT',
+    total_gross: '192.00',
+    estimate: { workshop_order_id: 'order-1' },
     valid_until: VALID_UNTIL,
     snapshot: snapshotFixture(),
     snapshot_sha256: 'snapshot-sha',
@@ -96,7 +98,9 @@ function build() {
     workshopEstimateVersion: {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
-    workshopEstimateApproval: { create: jest.fn().mockResolvedValue({}) },
+    workshopEstimateApproval: {
+      create: jest.fn().mockResolvedValue({ id: 'approval-1' }),
+    },
   };
   const prisma = {
     $transaction: jest.fn(async (callback: (client: typeof tx) => unknown) =>
@@ -111,13 +115,19 @@ function build() {
     findByTokenHash: jest.fn().mockResolvedValue(tokenRow()),
   };
   const tenantContext = { setPublicEstimateApprovalTenant: jest.fn() };
+  const audit = { recordTenantMutation: jest.fn().mockResolvedValue(undefined) };
+  const outbox = {
+    enqueueInTx: jest.fn().mockResolvedValue({ id: 'outbox-1', created: true }),
+  };
   const service = new PublicEstimateApprovalService(
     lookup as never,
     tenantContext as never,
     prisma as never,
     new PublicEstimateApprovalRateLimiter(),
+    audit as never,
+    outbox,
   );
-  return { service, tx, prisma, lookup, tenantContext };
+  return { service, tx, prisma, lookup, tenantContext, audit, outbox };
 }
 
 function approval(overrides: Partial<PublicEstimateDecisionDto> = {}) {
@@ -288,7 +298,9 @@ describe('PublicEstimateApprovalService.decide', () => {
         ip_address: '203.0.113.7',
         user_agent: 'Mozilla/5.0 (test)',
         accept_language: 'de-AT,de;q=0.9',
+        amount_quoted_gross: '192.00',
       },
+      select: { id: true },
     });
   });
 
@@ -318,7 +330,36 @@ describe('PublicEstimateApprovalService.decide', () => {
         legal_blocks_accepted: false,
         b2c_declaration_accepted: false,
       }),
+      select: { id: true },
     });
+  });
+
+  it('writes an audit row as the system and enqueues the decision event for a link decision', async () => {
+    const { service, audit, outbox, tx } = build();
+
+    await service.decide(TOKEN, approval(), REQUEST, NOW);
+
+    expect(audit.recordTenantMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'WorkshopEstimateApproval',
+        entityId: 'approval-1',
+        action: 'CREATE',
+        actorType: 'SYSTEM',
+      }),
+      tx,
+    );
+    expect(outbox.enqueueInTx).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        eventType: 'CUSTOMER_ESTIMATE_DECIDED',
+        occurrenceId: 'approval-1',
+        channel: 'IN_APP',
+        recipientKind: 'INTERNAL_TEAM',
+        recipientKey: 'advisors',
+        workshopOrderId: 'order-1',
+      }),
+    );
   });
 
   it.each([

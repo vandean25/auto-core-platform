@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,8 @@ export interface CheckoutSummaryProps {
   isLocked: boolean
   canCreateDraftInCheckout: boolean
   canIssueInvoiceInCheckout: boolean
+  /** Shown above the invoice lines, next to the Issue Invoice button (AUT-355, the overrun warning). */
+  invoiceWarning?: ReactNode
   createDraftPending: boolean
   issuePending: boolean
   groupedCheckoutTasks: GroupedCheckoutTask[]
@@ -55,6 +57,7 @@ export function CheckoutSummary({
   isLocked,
   canCreateDraftInCheckout,
   canIssueInvoiceInCheckout,
+  invoiceWarning,
   createDraftPending,
   issuePending,
   groupedCheckoutTasks,
@@ -114,6 +117,7 @@ export function CheckoutSummary({
         </div>
       </CardHeader>
       <CardContent className='space-y-4'>
+        {invoiceWarning}
         <div className='rounded-xl border overflow-hidden'>
           <Table>
             <TableHeader>

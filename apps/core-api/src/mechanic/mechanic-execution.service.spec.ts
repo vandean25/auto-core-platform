@@ -13,6 +13,7 @@ import {
   WorkshopPartLineExecutionStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
+import type { SiteContextService } from '../common/services/site-context.service.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import {
   MECHANIC_ID,
@@ -38,6 +39,7 @@ describe('MechanicExecutionService', () => {
       mockRealtimeService,
       mockNotificationOutbox,
       mockVehicleLedger,
+      { getSiteId: jest.fn().mockResolvedValue('site-1') } as unknown as SiteContextService,
     );
     (mockTenantContext.getAuthenticatedUser as jest.Mock).mockReturnValue({
       userId: 'user-1',

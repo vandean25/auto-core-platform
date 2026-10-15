@@ -21,6 +21,12 @@ import { WorkshopEstimateController } from './workshop-estimate.controller.js';
 import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js';
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
+import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
+import { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
+import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
+import { WorkshopWaitingTasksService } from './workshop-waiting-tasks.service.js';
+import { WorkshopWaitingTasksController } from './workshop-waiting-tasks.controller.js';
+import { AuditModule } from '../audit/audit.module.js';
 import { WorkshopPdfService } from './workshop-pdf.service.js';
 import { WorkshopPickPartsService } from './workshop-pick-parts.service.js';
 import { WorkshopPlannerService } from './workshop-planner.service.js';
@@ -48,6 +54,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     CommonModule,
     VehicleStockModule,
     PartsRequisitionModule,
+    AuditModule,
   ],
   controllers: [
     PublicEstimateApprovalController,
@@ -58,12 +65,17 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopController,
     WorkshopKpiReportsController,
     WorkshopEstimateController,
+    WorkshopWaitingTasksController,
   ],
   providers: [
     PublicEstimateApprovalService,
     PublicEstimateApprovalLookup,
     PublicEstimateApprovalRateLimiter,
     WorkshopEstimateService,
+    WorkshopEstimateApprovalService,
+    WorkshopEstimateOverrunService,
+    WorkshopOverrunNoticeService,
+    WorkshopWaitingTasksService,
     WorkshopEstimatePdfService,
     WorkshopEstimatePdfRenderer,
     WorkshopIntakeService,

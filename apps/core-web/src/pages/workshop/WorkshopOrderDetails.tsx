@@ -9,6 +9,8 @@ import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
 import { WorkshopCommunicationTimeline } from "@/components/workshop/WorkshopCommunicationTimeline";
 import { WorkshopEstimateCard } from "@/components/workshop/WorkshopEstimateCard";
+import { ResumeWaitingTasksPanel } from "@/components/workshop/ResumeWaitingTasksPanel";
+import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarning";
 import { canManageWorkshopEstimates } from "@/features/workshop/workshop-estimate-permissions";
 import { TyreSetsSummary } from "@/features/tyre-storage/TyreSetsSummary";
 import {
@@ -62,6 +64,11 @@ import {
   type CatalogSearchSession,
   type CatalogSourceMetadata,
 } from "@/features/workshop/catalog-source-copy";
+
+/** The tasks the customer still has to answer. Their work does not go on until the advisor resumes them (AUT-355). */
+function countWaitingTasks(tasks: ReadonlyArray<{ status: string }> | null | undefined): number {
+  return (tasks ?? []).filter((task) => task.status === "WAITING_CUSTOMER").length;
+}
 
 export function WorkshopOrderDetails() {
   const navigate = useNavigate();
@@ -443,6 +450,11 @@ export function WorkshopOrderDetails() {
                   orderRevision={JSON.stringify(order.tasks ?? [])}
                   customer={order.customer ?? null}
                 />
+                <ResumeWaitingTasksPanel
+                  orderId={order.id}
+                  waitingCount={countWaitingTasks(order.tasks)}
+                  orderStatus={order.status}
+                />
                 <WorkshopCommunicationTimeline orderId={order.id} />
               </>
             )}
@@ -497,7 +509,11 @@ export function WorkshopOrderDetails() {
           </motion.div>
         </div>
 
-        <CheckoutFooter {...checkout.footerProps} isLocked={isLocked} />
+        <CheckoutFooter
+          {...checkout.footerProps}
+          isLocked={isLocked}
+          invoiceWarning={<InvoiceOverrunWarning orderId={order.id} canIssueInvoice={checkout.canIssueInvoiceInCheckout} />}
+        />
       </motion.div>
 
       {fitmentSearchTaskId && (

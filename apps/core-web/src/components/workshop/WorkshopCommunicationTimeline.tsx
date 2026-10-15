@@ -14,43 +14,90 @@ const dateTimeFormat = new Intl.DateTimeFormat('de-AT', {
   timeZone: 'Europe/Vienna',
 })
 
-/** One German line per timeline entry. The estimate version is named when the entry knows it. */
+/** The channels an advisor records a decision or an overrun notice by. Other channels get no suffix. */
+const ADVISOR_CHANNEL_LABELS: Partial<Record<string, string>> = {
+  PHONE: 'Telefon',
+  IN_PERSON: 'persönlich',
+  EMAIL: 'E-Mail',
+}
+
+/** " (Telefon)" for a channel that has a label, and nothing for the customer link or the legacy advisor record. */
+function channelSuffix(channel: string | null): string {
+  const label = channel ? ADVISOR_CHANNEL_LABELS[channel] : undefined
+  return label ? ` (${label})` : ''
+}
+
+/** The estimate's name in the four cases the German lines need. The version is named when the entry knows it. */
+interface EstimateWording {
+  nominative: string
+  accusative: string
+  dative: string
+  genitive: string
+}
+
+/** The noun takes the article its case needs, so the lines read as German. */
+function estimateWording(version: number | null): EstimateWording {
+  const suffix = version === null ? '' : ` (Version ${version})`
+  return {
+    nominative: `Der Kostenvoranschlag${suffix}`,
+    accusative: `den Kostenvoranschlag${suffix}`,
+    dative: `dem Kostenvoranschlag${suffix}`,
+    genitive: `des Kostenvoranschlags${suffix}`,
+  }
+}
+
+function describeEstimateEmail(entry: WorkshopOrderCommunication, wording: EstimateWording): string {
+  switch (entry.status) {
+    case 'QUEUED':
+      return `${wording.nominative} wird per E-Mail versendet`
+    case 'SENT':
+      return `${wording.nominative} wurde per E-Mail gesendet`
+    case 'FAILED':
+      return `Die E-Mail mit ${wording.dative} konnte nicht gesendet werden`
+    case 'SUPPRESSED':
+      return `Die E-Mail mit ${wording.dative} wurde nicht gesendet`
+    default:
+      return `${wording.nominative} per E-Mail`
+  }
+}
+
+/** A customer decision: through the link, or recorded by the advisor by phone, in person or by email. */
+function describeApprovalEntry(entry: WorkshopOrderCommunication, wording: EstimateWording): string {
+  const approved = entry.decision === 'APPROVED'
+  if (entry.channel === null || entry.channel === 'LINK') {
+    return approved
+      ? `Der Kunde hat ${wording.accusative} über den Link freigegeben`
+      : `Der Kunde hat ${wording.accusative} über den Link abgelehnt`
+  }
+  const subject = approved ? `Die Freigabe ${wording.genitive}` : `Die Ablehnung ${wording.genitive}`
+  return `${subject} wurde vom Berater erfasst${channelSuffix(entry.channel)}`
+}
+
+function describeOverrunNotice(entry: WorkshopOrderCommunication, wording: EstimateWording): string {
+  return `Der Kunde wurde über den Mehrbedarf gegenüber ${wording.dative} informiert${channelSuffix(entry.channel)}`
+}
+
+/** One German line per timeline entry, in the advisor's voice. */
 export function describeCommunication(entry: WorkshopOrderCommunication): string {
-  // The noun takes the article its case needs, so the lines read as German.
-  const suffix = entry.version === null ? '' : ` (Version ${entry.version})`
-  const nominative = `Der Kostenvoranschlag${suffix}`
-  const accusative = `den Kostenvoranschlag${suffix}`
-  const dative = `dem Kostenvoranschlag${suffix}`
-  const genitive = `des Kostenvoranschlags${suffix}`
-
-  if (entry.kind === 'ESTIMATE_EMAIL') {
-    switch (entry.status) {
-      case 'QUEUED':
-        return `${nominative} wird per E-Mail versendet`
-      case 'SENT':
-        return `${nominative} wurde per E-Mail gesendet`
-      case 'FAILED':
-        return `Die E-Mail mit ${dative} konnte nicht gesendet werden`
-      case 'SUPPRESSED':
-        return `Die E-Mail mit ${dative} wurde nicht gesendet`
-      default:
-        return `${nominative} per E-Mail`
-    }
+  const wording = estimateWording(entry.version)
+  switch (entry.kind) {
+    case 'ESTIMATE_EMAIL':
+      return describeEstimateEmail(entry, wording)
+    case 'ESTIMATE_APPROVAL':
+      return describeApprovalEntry(entry, wording)
+    case 'OVERRUN_DETECTED':
+      return `Mehrbedarf gegenüber ${wording.dative} festgestellt`
+    case 'OVERRUN_NOTIFICATION':
+      return describeOverrunNotice(entry, wording)
   }
-
-  if (entry.channel === 'ADVISOR_RECORDED') {
-    return entry.decision === 'APPROVED'
-      ? `Die Freigabe ${genitive} wurde vom Berater erfasst`
-      : `Die Ablehnung ${genitive} wurde vom Berater erfasst`
-  }
-  return entry.decision === 'APPROVED'
-    ? `Der Kunde hat ${accusative} über den Link freigegeben`
-    : `Der Kunde hat ${accusative} über den Link abgelehnt`
 }
 
 function TimelineIcon({ entry }: { entry: WorkshopOrderCommunication }) {
   if (entry.kind === 'ESTIMATE_EMAIL') {
     return <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+  }
+  if (entry.kind === 'OVERRUN_DETECTED' || entry.kind === 'OVERRUN_NOTIFICATION') {
+    return <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
   }
   return entry.decision === 'APPROVED' ? (
     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
@@ -59,7 +106,7 @@ function TimelineIcon({ entry }: { entry: WorkshopOrderCommunication }) {
   )
 }
 
-/** What the customer side of the order has seen and decided: estimate emails and approvals, newest first. */
+/** What the customer side of the order has seen and decided: estimate emails, decisions and overrun entries, newest first. */
 export function WorkshopCommunicationTimeline({ orderId }: { orderId: string }) {
   const query = useWorkshopOrderCommunications(orderId)
 

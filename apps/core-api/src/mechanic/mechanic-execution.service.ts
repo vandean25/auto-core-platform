@@ -1,3 +1,5 @@
+import { SiteContextService } from '../common/services/site-context.service.js';
+import { syncWorkshopEstimateOverrunAfterWrite } from '../workshop/workshop-estimate-overrun-sync.js';
 import {
   ConflictException,
   Injectable,
@@ -60,6 +62,7 @@ export class MechanicExecutionService {
     private readonly realtimeService: DashboardRealtimeService,
     private readonly notificationOutbox: NotificationOutboxService,
     private readonly vehicleLedger: VehicleLedgerService,
+    private readonly siteContext: SiteContextService,
   ) {}
 
   /**
@@ -614,6 +617,7 @@ export class MechanicExecutionService {
         bay_id: true,
         status: true,
         mechanic_id: true,
+        workshop_order_id: true,
         workshop_order: { select: { mechanic_id: true, bay_id: true } },
       },
     });
@@ -649,6 +653,14 @@ export class MechanicExecutionService {
 
     // The Prisma dashboard-realtime extension emits WORKSHOP_TASK_LINE_ITEM CREATED
     // automatically for this create; no manual emit is needed.
+
+    // The new part line changes the estimate lines, so an overrun is recorded now (AUT-355).
+    await syncWorkshopEstimateOverrunAfterWrite(
+      this.prisma,
+      this.siteContext,
+      tenantId,
+      task.workshop_order_id,
+    );
 
     return {
       id: lineItem.id,

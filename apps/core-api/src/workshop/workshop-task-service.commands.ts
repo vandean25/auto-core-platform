@@ -1,3 +1,4 @@
+import { syncWorkshopEstimateOverrunAfterWrite } from './workshop-estimate-overrun-sync.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { WorkshopTaskStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -236,17 +237,25 @@ export class WorkshopTaskService {
     return runWorkshopTaskDelete(this.deps(), orderId, taskId);
   }
 
-  replaceTaskLineItems(
+  async replaceTaskLineItems(
     orderId: string,
     taskId: string,
     dto: ReplaceWorkshopTaskLineItemsDto,
   ) {
-    return runWorkshopTaskLineItemReplacement(
+    const result = await runWorkshopTaskLineItemReplacement(
       this.deps(),
       orderId,
       taskId,
       dto,
     );
+    // The lines changed, so an overrun against the approved estimate is recorded now (AUT-355).
+    await syncWorkshopEstimateOverrunAfterWrite(
+      this.prisma,
+      this.siteContext,
+      await this.tenantContext.getTenantId(),
+      orderId,
+    );
+    return result;
   }
 
   private deps(): WorkshopTaskServiceDeps {

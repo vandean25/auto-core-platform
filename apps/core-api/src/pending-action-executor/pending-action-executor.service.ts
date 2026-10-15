@@ -8,6 +8,7 @@ import {
 import { ImportJobStatus, Prisma, WorkshopLineItemType } from '@prisma/client';
 import { confirmationAfterEmailWrite } from '../customer/customer-contact-email.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { syncWorkshopEstimateOverrunAfterWrite } from '../workshop/workshop-estimate-overrun-sync.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
@@ -356,7 +357,31 @@ export class PendingActionExecutorService {
     return this.addLineItem(input, parsed.data.line_item);
   }
 
+  /** A proposed line changes the estimate lines, so an overrun is recorded once it is written (AUT-355). */
   private async addLineItem(
+    input: unknown,
+    validatedLine?: Record<string, unknown>,
+  ): Promise<unknown> {
+    const result = await this.addLineItemWithoutSync(input, validatedLine);
+    const record = this.asRecord(input);
+    const orderId =
+      typeof record.workshop_order_id === 'string'
+        ? record.workshop_order_id
+        : typeof record.order_id === 'string'
+          ? record.order_id
+          : null;
+    if (orderId) {
+      await syncWorkshopEstimateOverrunAfterWrite(
+        this.prisma,
+        this.siteContext,
+        await this.tenantContext.getTenantId(),
+        orderId,
+      );
+    }
+    return result;
+  }
+
+  private async addLineItemWithoutSync(
     input: unknown,
     validatedLine?: Record<string, unknown>,
   ): Promise<unknown> {

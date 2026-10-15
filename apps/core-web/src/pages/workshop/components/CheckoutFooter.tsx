@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Invoice } from '@/api/types'
@@ -17,6 +18,8 @@ export interface CheckoutFooterProps {
   isLocked: boolean
   canCreateDraftInCheckout: boolean
   canIssueInvoiceInCheckout: boolean
+  /** The overrun warning of the order, rendered in the invoice summary (AUT-355). */
+  invoiceWarning?: ReactNode
   createDraftPending: boolean
   issuePending: boolean
   groupedCheckoutTasks: GroupedCheckoutTask[]
@@ -48,6 +51,7 @@ export function CheckoutFooter({
   isLocked,
   canCreateDraftInCheckout,
   canIssueInvoiceInCheckout,
+  invoiceWarning,
   createDraftPending,
   issuePending,
   groupedCheckoutTasks,
@@ -101,6 +105,7 @@ export function CheckoutFooter({
             isLocked={isLocked}
             canCreateDraftInCheckout={canCreateDraftInCheckout}
             canIssueInvoiceInCheckout={canIssueInvoiceInCheckout}
+            invoiceWarning={invoiceWarning}
             createDraftPending={createDraftPending}
             issuePending={issuePending}
             groupedCheckoutTasks={groupedCheckoutTasks}

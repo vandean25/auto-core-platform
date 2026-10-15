@@ -109,6 +109,7 @@ export const AUDITED_MODELS = new Set([
   'WorkshopOrder',
   'WorkshopEstimate',
   'WorkshopEstimateVersion',
+  'WorkshopEstimateOverrun',
   'WorkshopTask',
   'WorkshopTaskLineItem',
   'WorkshopMedia',
