@@ -22355,6 +22355,34 @@
           "requires_customer_notice"
         ]
       },
+      "WorkshopEstimateCustomerSendBlockerDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "ZERO_UNIT_PRICE",
+              "CLAIMED_FITMENT"
+            ]
+          },
+          "source_line_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item_no": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "source_line_id",
+          "item_no",
+          "description"
+        ]
+      },
       "WorkshopEstimateResponseDto": {
         "type": "object",
         "properties": {
@@ -22396,8 +22424,11 @@
             "type": "string"
           },
           "customer_send_blockers": {
+            "description": "Lines that block customer send until an advisor resolves zero price or claimed fitment.",
             "type": "array",
-            "description": "Lines that block customer send until an advisor resolves zero price or claimed fitment."
+            "items": {
+              "$ref": "#/components/schemas/WorkshopEstimateCustomerSendBlockerDto"
+            }
           }
         },
         "required": [

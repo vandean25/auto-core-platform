@@ -6671,6 +6671,14 @@ export interface components {
             note: string | null;
             requires_customer_notice: boolean;
         };
+        WorkshopEstimateCustomerSendBlockerDto: {
+            /** @enum {string} */
+            code: "ZERO_UNIT_PRICE" | "CLAIMED_FITMENT";
+            /** Format: uuid */
+            source_line_id: string;
+            item_no: string;
+            description: string;
+        };
         WorkshopEstimateResponseDto: {
             id: string;
             workshop_order_id: string;
@@ -6683,7 +6691,7 @@ export interface components {
             send_enabled: boolean;
             overrun_threshold_pct: string;
             /** @description Lines that block customer send until an advisor resolves zero price or claimed fitment. */
-            customer_send_blockers: unknown[];
+            customer_send_blockers: components["schemas"]["WorkshopEstimateCustomerSendBlockerDto"][];
         };
         WorkshopEstimateListResponseDto: {
             data: components["schemas"]["WorkshopEstimateResponseDto"][];
