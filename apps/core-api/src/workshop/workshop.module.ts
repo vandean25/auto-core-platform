@@ -101,6 +101,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
     WorkshopTaskService,
     WorkshopBoardService,
     WorkshopKpiReportsService,
+    WorkshopPlannerService,
   ],
 })
 export class WorkshopModule {}

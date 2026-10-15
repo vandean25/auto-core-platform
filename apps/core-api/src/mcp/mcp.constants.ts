@@ -45,6 +45,8 @@ export const MCP_READ_TOOL_NAMES = [
   'list_bays',
   'list_bins',
   'list_workshop_tasks',
+  'list_workshop_slots',
+  'list_available_loaners',
   'whoami',
   'get_capabilities',
   'list_audit_events',

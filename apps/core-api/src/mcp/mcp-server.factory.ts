@@ -31,6 +31,8 @@ const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
   list_bays: schemas.listBaysInputSchema.shape,
   list_bins: schemas.listBinsInputSchema.shape,
   list_workshop_tasks: schemas.listWorkshopTasksInputSchema.shape,
+  list_workshop_slots: schemas.listWorkshopSlotsInputSchema.shape,
+  list_available_loaners: schemas.listAvailableLoanersInputSchema.shape,
   whoami: schemas.whoamiInputSchema.shape,
   get_capabilities: schemas.getCapabilitiesInputSchema.shape,
   list_audit_events: schemas.listAuditEventsBaseSchema.shape,

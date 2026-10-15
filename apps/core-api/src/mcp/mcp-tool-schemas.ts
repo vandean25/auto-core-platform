@@ -555,6 +555,41 @@ export const getNovaPreviewInputSchema = z.object({
     ),
 });
 
+/** AUT-512 workshop slot availability for the active site (read-only snapshot). */
+export const listWorkshopSlotsInputSchema = z.object({
+  from: z
+    .string()
+    .min(1)
+    .describe('Range start as an ISO-8601 UTC instant'),
+  to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
+  duration_minutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .describe('Required contiguous free time in minutes'),
+  bay_id: uuidSchema
+    .optional()
+    .describe('Optional bay at the active site; omit for all bays'),
+  pageSize: reportPageSizeSchema,
+  cursor: offsetCursorSchema
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
+/** AUT-512 loaner fleet availability for the active site (read-only snapshot). */
+export const listAvailableLoanersInputSchema = z.object({
+  from: z
+    .string()
+    .min(1)
+    .describe('Range start as an ISO-8601 UTC instant'),
+  to: z.string().min(1).describe('Range end as an ISO-8601 UTC instant'),
+  pageSize: reportPageSizeSchema,
+  cursor: offsetCursorSchema
+    .optional()
+    .describe('Cursor from meta.next_cursor'),
+});
+
 export const mcpToolInputSchemas: Record<
   (typeof MCP_READ_TOOL_NAMES)[number],
   z.ZodTypeAny
@@ -574,6 +609,8 @@ export const mcpToolInputSchemas: Record<
   list_bays: listBaysInputSchema,
   list_bins: listBinsInputSchema,
   list_workshop_tasks: listWorkshopTasksInputSchema,
+  list_workshop_slots: listWorkshopSlotsInputSchema,
+  list_available_loaners: listAvailableLoanersInputSchema,
   whoami: whoamiInputSchema,
   get_capabilities: getCapabilitiesInputSchema,
   list_audit_events: listAuditEventsInputSchema,
