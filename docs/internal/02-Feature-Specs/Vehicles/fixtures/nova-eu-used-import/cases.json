@@ -1,0 +1,1997 @@
+{
+  "schemaVersion": 1,
+  "sliceId": "EU-M1-2024",
+  "importMode": "eu_used_m1",
+  "normative": true,
+  "retrieved": "2026-10-15",
+  "description": "Contract fixtures for AUT-519. numberOrigin=published rows reproduce BMF arithmetic and are the only independent numeric checks. numberOrigin=synthetic rows are ACP illustrations for the 2024 slice; independentValidation is false and they do not prove the tariff. Money fields are JSON numbers, matching NovaCalculateResponseDto.novaAmountEuro. Compare money with roundMoneyEuro on both sides. valueDevelopmentFactor.numerator and valueDevelopmentFactor.denominator are JSON numbers in both modes. A 422 body has code and message only and must not include novaAmountEuro. A 400 body is the global ValidationPipe rejection and is not a slice code.",
+  "sources": {
+    "bmfOverview": {
+      "sourceId": "bmf-nova-steuersatz",
+      "sourceVersion": "Letzte Aktualisierung 30. Juli 2026",
+      "url": "https://www.bmf.gv.at/themen/steuern/kraftfahrzeuge/normverbrauchsabgabe-uebersicht/nova-steuersatz.html",
+      "retrieved": "2026-10-15",
+      "covers": [
+        "tax_event_selection",
+        "wertentwicklung",
+        "published_2019_example"
+      ]
+    },
+    "bmfM1_2021_2025": {
+      "sourceId": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+      "sourceVersion": "Letzte Aktualisierung 1. Jänner 2026",
+      "url": "https://www.bmf.gv.at/themen/steuern/kraftfahrzeuge/normverbrauchsabgabe-uebersicht/nova-steuersatz/rechtslage_von_1_juli_2021_bis_30_Juni_2025.html",
+      "retrieved": "2026-10-15",
+      "covers": [
+        "historical_tariff_at-m1-2024"
+      ]
+    },
+    "bmfM1_2014_2019": {
+      "sourceId": "bmf-rechtslage-2014-03-01-bis-2019-12-31",
+      "sourceVersion": "Letzte Aktualisierung 1. Jänner 2026",
+      "url": "https://www.bmf.gv.at/themen/steuern/kraftfahrzeuge/normverbrauchsabgabe-uebersicht/nova-steuersatz/rechtslage_von_1_maerz_2014_bis_31_dezember_2019.html",
+      "retrieved": "2026-10-15",
+      "covers": [
+        "published_example_tariff_parameters_not_in_engine"
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "synthetic-eu-m1-2024-known-new-net-cross-year",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 40000
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 2625,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 20000,
+              "denominator": 40000
+            },
+            "fixedAfterDevelopmentEuro": 25,
+            "valueBasis": "known_new_net"
+          }
+        },
+        "mustNot": {
+          "tariffVersionId": [
+            "at-m1-2026"
+          ],
+          "novaAmountEuro": [
+            2850,
+            2650
+          ],
+          "warnings": [
+            "wertentwicklung_not_applied",
+            "eu_import_tariff_hint"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-achtelung-two-years",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 2637.5,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 6,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 37.5,
+            "valueBasis": "achtelung"
+          }
+        },
+        "mustNot": {
+          "tariffVersionId": [
+            "at-m1-2026"
+          ],
+          "novaAmountEuro": [
+            2850,
+            2650,
+            2625
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-differing-years-zero-anniversaries",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "Calendar years differ (2024 vs 2025) but no registration anniversary has passed. Completed years are 0. Subtracting calendar years would wrongly yield 2643.75."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2025-05-31",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fullYearsElapsed": 0,
+            "valueDevelopmentFactor": {
+              "numerator": 8,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 50,
+            "valueBasis": "achtelung"
+          }
+        },
+        "mustNot": {
+          "tariffVersionId": [
+            "at-m1-2025-h1"
+          ],
+          "novaAmountEuro": [
+            2643.75
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-achtelung-one-year",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2025-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 2643.75,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fullYearsElapsed": 1,
+            "valueDevelopmentFactor": {
+              "numerator": 7,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 43.75,
+            "valueBasis": "achtelung"
+          }
+        },
+        "mustNot": {
+          "tariffVersionId": [
+            "at-m1-2025-h1",
+            "at-m1-2025-h2"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-leap-day-two-years",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "2024-02-29 plus two years clamps to 2026-02-28. The event equals that anniversary, so two years have elapsed. Open assumption: the BMF page does not define a 29 February anniversary. This fixture clamps to the last day of February.",
+        "assumption": "leap_day_clamp"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-02-29",
+        "taxableEventDate": "2026-02-28",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 2637.5,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-02-29",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 6,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 37.5,
+            "valueBasis": "achtelung"
+          }
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-leap-day-before-anniversary",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "The first clamped anniversary is 2025-02-28. 2025-02-27 is still zero completed years. Open assumption: the BMF page does not define a 29 February anniversary. This fixture clamps to the last day of February.",
+        "assumption": "leap_day_clamp"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-02-29",
+        "taxableEventDate": "2025-02-27",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 2650,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-02-29",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "fullYearsElapsed": 0,
+            "valueDevelopmentFactor": {
+              "numerator": 8,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 50,
+            "valueBasis": "achtelung"
+          }
+        },
+        "mustNot": {
+          "novaAmountEuro": [
+            2643.75
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-rate-cap",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 500,
+        "firstRegistrationDate": "2024-04-01",
+        "taxableEventDate": "2024-04-01",
+        "netPriceEuro": 10000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 35250,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-04-01",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.max_rate_cap",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 80,
+          "effectiveCo2GramsPerKm": 500,
+          "intermediates": {
+            "rateRaw": "403/5",
+            "baseAmountEuro": 8000,
+            "malusGrossEuro": 27600,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 27250,
+            "fullYearsElapsed": 0,
+            "valueDevelopmentFactor": {
+              "numerator": 8,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 27250,
+            "valueBasis": "achtelung"
+          }
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-rate-floor",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 90,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "novaAmountEuro": 0,
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "tariffSelectionDate": "2024-06-01",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.rate_floor_zero",
+            "tariff.base_on_net_price",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung",
+            "tariff.no_tax_credit_floor"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 0,
+          "effectiveCo2GramsPerKm": 90,
+          "intermediates": {
+            "rateRaw": "-7/5",
+            "baseAmountEuro": 0,
+            "malusGrossEuro": 0,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": -350,
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 6,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": -262.5,
+            "valueBasis": "achtelung"
+          }
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-missing-value-basis",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_value_development",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "datesInsideSlice": true
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_VALUE_DEVELOPMENT",
+          "message": "eu_used_m1 requires valueBasis known_new_net or achtelung"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "novaAmountEuro": [
+            2625,
+            2637.5,
+            2650,
+            2850
+          ],
+          "tariffVersionId": [
+            "at-m1-2024",
+            "at-m1-2026"
+          ],
+          "warnings": [
+            "wertentwicklung_not_applied"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-known-new-net-without-original",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_value_development",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "known_new_net"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_ORIGINAL_NEW_NET",
+          "message": "known_new_net requires originalNewNetEuro greater than zero"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "novaAmountEuro": [
+            2650,
+            2850
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-invalid-value-basis",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_value_development",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "estimate"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "INVALID_VALUE_BASIS",
+          "message": "valueBasis must be known_new_net or achtelung"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-before-table-2020",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "before_tariff_table",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "2020-06-01 is before NOVA_TARIFF_TABLE passenger_z3 valid_from 2021-07-01. The BMF 1 January 2020–30 June 2021 page is not loaded. This row is not the published 2019 example."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2020-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_HISTORICAL_TARIFF",
+          "message": "No passenger_z3 tariff row exists for firstRegistrationDate before 2021-07-01"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2026",
+            "at-m1-2024"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "published-bmf-2019-m1-known-new-net",
+      "numberOrigin": "published",
+      "independentValidation": true,
+      "corpusRole": "published_reference_outside_slice",
+      "provenance": {
+        "page": "bmf-nova-steuersatz",
+        "pageSection": "Fahrzeugimport aus Mitgliedstaaten der EU — Berechnung der NoVA – Neuwagenwert bekannt",
+        "tariffPage": "bmf-rechtslage-2014-03-01-bis-2019-12-31",
+        "retrieved": "2026-10-15",
+        "sourceVersion": "Letzte Aktualisierung 30. Juli 2026",
+        "hypotheticalParties": "BMF text uses hypothetical persons A and B. This fixture is not a pilot customer record.",
+        "dayPin": "The page says Zulassung im Juni 2026 and does not name a day. taxableEventDate 2026-06-15 is pinned so the ISO date is exact. Any day from 2026-03-07 through 2027-03-06 is seven completed years after 2019-03-07.",
+        "abzug": "The example states Abzugsposten 300 Euro. The 2014–2019 page sets 300 Euro for all passenger cars from 2016. March 2019 is inside that band. The 2014 fuel-specific amounts and the Umweltbonus through 2015 are not part of this example.",
+        "nedc": "The example uses NEFZ 270 g/km in the NEFZ-native 2014–2019 formula. It does not multiply by 1.27."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "NEDC",
+        "co2GramsPerKm": 270,
+        "firstRegistrationDate": "2019-03-07",
+        "taxableEventDate": "2026-06-15",
+        "netPriceEuro": 8000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 28500
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_HISTORICAL_TARIFF",
+          "message": "No passenger_z3 tariff row exists for firstRegistrationDate before 2021-07-01"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2026",
+            "at-m1-2024"
+          ],
+          "applyNedcFactor": 1.27
+        }
+      },
+      "publishedArithmetic": {
+        "executedBySlice": false,
+        "replayStatus": "not_executed_by_eu_m1_2024",
+        "legalRegime": "2014-03-01..2019-12-31 passenger car, NEFZ, not in NOVA_TARIFF_TABLE",
+        "rateRaw": "(270-90)/5",
+        "rateBeforeCapPercent": 36,
+        "ratePercentApplied": 32,
+        "maxRatePercent": 32,
+        "baseAmountEuro": 2560,
+        "malusGrossEuro": 400,
+        "malusThresholdG": 250,
+        "malusEurPerG": 20,
+        "deductionGrossEuro": 300,
+        "fixedBeforeDevelopmentEuro": 100,
+        "valueDevelopmentFactorPrintedByBmf": "28.07%",
+        "exactRatio": "8000/28500",
+        "fixedAfterDevelopmentEuro": 28.07,
+        "novaAmountEuro": 2588.07,
+        "fullYearsElapsed": 7
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "published-bmf-2019-m1-achtelung",
+      "numberOrigin": "published",
+      "independentValidation": true,
+      "corpusRole": "published_reference_outside_slice",
+      "provenance": {
+        "page": "bmf-nova-steuersatz",
+        "pageSection": "Fahrzeugimport aus Mitgliedstaaten der EU — Berechnung der NoVA – Neuwagenwert unbekannt",
+        "tariffPage": "bmf-rechtslage-2014-03-01-bis-2019-12-31",
+        "retrieved": "2026-10-15",
+        "sourceVersion": "Letzte Aktualisierung 30. Juli 2026",
+        "hypotheticalParties": "BMF text uses hypothetical person A. This fixture is not a pilot customer record.",
+        "dayPin": "taxableEventDate 2026-06-15 pins Juni 2026. Seven completed years run from 2026-03-07 through 2027-03-06.",
+        "achtelung": "Seven completed years reduce malus and Abzug by seven eighths. One eighth remains: 12.50 percent. The page states the seven-year floor explicitly."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "NEDC",
+        "co2GramsPerKm": 270,
+        "firstRegistrationDate": "2019-03-07",
+        "taxableEventDate": "2026-06-15",
+        "netPriceEuro": 8000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_HISTORICAL_TARIFF",
+          "message": "No passenger_z3 tariff row exists for firstRegistrationDate before 2021-07-01"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2026"
+          ]
+        }
+      },
+      "publishedArithmetic": {
+        "executedBySlice": false,
+        "replayStatus": "not_executed_by_eu_m1_2024",
+        "legalRegime": "2014-03-01..2019-12-31 passenger car, NEFZ, not in NOVA_TARIFF_TABLE",
+        "rateRaw": "(270-90)/5",
+        "rateBeforeCapPercent": 36,
+        "ratePercentApplied": 32,
+        "baseAmountEuro": 2560,
+        "malusGrossEuro": 400,
+        "deductionGrossEuro": 300,
+        "fixedBeforeDevelopmentEuro": 100,
+        "fullYearsElapsed": 7,
+        "valueDevelopmentFactor": {
+          "numerator": 1,
+          "denominator": 8
+        },
+        "fixedAfterDevelopmentEuro": 12.5,
+        "novaAmountEuro": 2572.5
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-in-table-outside-slice-2023",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_historical_inside_table",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "at-m1-2023 exists in NOVA_TARIFF_TABLE. EU-M1-2024 still refuses it. The row must not be selected."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2023-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "OUTSIDE_SUPPORTED_SLICE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts firstRegistrationDate in 2024 and taxableEventDate from that date through 2026-12-31"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2023",
+            "at-m1-2026"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-in-table-outside-slice-2025-registration",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_historical_inside_table",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2025-03-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "OUTSIDE_SUPPORTED_SLICE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts firstRegistrationDate in 2024 and taxableEventDate from that date through 2026-12-31"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2025-h1",
+            "at-m1-2026"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-event-after-slice-2027",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_event_window",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "Registration is inside 2024. The event is 2027-01-01, which would be three completed years. The slice does not calculate that year."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-01-01",
+        "taxableEventDate": "2027-01-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "OUTSIDE_SUPPORTED_SLICE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts firstRegistrationDate in 2024 and taxableEventDate from that date through 2026-12-31"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2024",
+            "at-m1-2027"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-unsupported-class-motorcycle",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_class",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "Ordering tie: vehicle class is checked before the historical-tariff gate. A motorcycle registered in 2019 is UNSUPPORTED_IMPORT_CLASS, not UNSUPPORTED_HISTORICAL_TARIFF."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "motorcycle_z1_z2",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2019-03-07",
+        "taxableEventDate": "2026-06-15",
+        "netPriceEuro": 8000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_IMPORT_CLASS",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts only vehicleClass passenger_z3"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-mc-2026-2027",
+            "at-m1-2026"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-third-country-mode",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_mode",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "classification": "bmf-nova-steuersatz",
+        "pageSection": "Fahrzeugimport aus Drittstaaten",
+        "retrieved": "2026-10-15",
+        "amounts": "synthetic",
+        "note": "BMF states third-country imports use the law at the taxable event and do not apply Wertentwicklung. This slice does not implement that path. The BMF examples on that page have no numeric NoVA result; this fixture therefore asserts only the rejection."
+      },
+      "request": {
+        "importMode": "third_country",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2023-01-15",
+        "taxableEventDate": "2026-08-28",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_IMPORT_MODE",
+          "message": "importMode is not supported"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "tariffVersionId": [
+            "at-m1-2026"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-previously-exempt-mode",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_mode",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "classification": "bmf-nova-steuersatz",
+        "pageSection": "Befreite Kraftfahrzeuge",
+        "retrieved": "2026-10-15",
+        "note": "The taxi example on that page is an Austrian first registration, not an EU used import. No numeric amount is published there. This mode is refused."
+      },
+      "request": {
+        "importMode": "previously_exempt",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2018-05-25",
+        "taxableEventDate": "2026-09-10",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_IMPORT_MODE",
+          "message": "importMode is not supported"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-nedc-inside-slice-rejected",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_co2_basis",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "Dates are inside EU-M1-2024. NEDC must not be multiplied by 1.27 and must not be calculated as WLTP."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "NEDC",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_EMISSION_CYCLE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts only emissionCycle WLTP"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "effectiveCo2GramsPerKm": [
+            203.2
+          ],
+          "warnings": [
+            "nedc_fractional_co2_unverified"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-event-before-registration",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "invalid_dates",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2024-05-31",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "INVALID_IMPORT_DATES",
+          "message": "taxableEventDate must be on or after firstRegistrationDate"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-value-basis-without-import-mode",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "v1_guard",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "valueBasis without importMode must not fall through to calculateNova. Omitting both importMode and valueBasis remains the unchanged v1 preview and is not a fixture of this slice."
+      },
+      "request": {
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_IMPORT_MODE",
+          "message": "valueBasis and originalNewNetEuro require importMode eu_used_m1"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "warnings": [
+            "wertentwicklung_not_applied"
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-window-start",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "Inclusive start of the registration window. The tax event is the registration day, so completed years are 0."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-01-01",
+        "taxableEventDate": "2024-01-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "novaAmountEuro": 2650,
+          "tariffSelectionDate": "2024-01-01",
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "valueBasis": "achtelung",
+            "fullYearsElapsed": 0,
+            "valueDevelopmentFactor": {
+              "numerator": 8,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 50
+          }
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-window-end",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "Inclusive end of both windows. The second anniversary is 2026-12-31, so two years have elapsed."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-12-31",
+        "taxableEventDate": "2026-12-31",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "novaAmountEuro": 2637.5,
+          "tariffSelectionDate": "2024-12-31",
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "valueBasis": "achtelung",
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 6,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 37.5
+          }
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-known-new-net-above-par",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "Open assumption, not a BMF result. Current net is above the original new net, so the factor is 1.05 and the fixed block increases. Capping at 1 would yield 2780.",
+        "assumption": "uncapped_known_new_net"
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 21000,
+        "valueBasis": "known_new_net",
+        "originalNewNetEuro": 20000
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.known_new_net"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "novaAmountEuro": 2782.5,
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2730,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "valueBasis": "known_new_net",
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 21000,
+              "denominator": 20000
+            },
+            "fixedAfterDevelopmentEuro": 52.5
+          }
+        },
+        "mustNot": {
+          "novaAmountEuro": [
+            2780
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-eu-m1-2024-achtelung-ignores-original-net",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "supported_slice",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "tariff": "bmf-rechtslage-2021-07-01-bis-2025-06-30",
+        "wertentwicklung": "bmf-nova-steuersatz",
+        "amounts": "synthetic",
+        "note": "originalNewNetEuro is ignored when valueBasis is achtelung. Using it as a known-net factor would yield 3600."
+      },
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung",
+        "originalNewNetEuro": 1000
+      },
+      "expected": {
+        "httpStatus": 200,
+        "body": {
+          "tariffVersionId": "at-m1-2024",
+          "tariffSelectionBasis": "first_eu_registration",
+          "appliedRuleIds": [
+            "import.eu_used_m1.slice_2024",
+            "tariff.selected_by_first_eu_registration",
+            "tariff.co2_rate_formula",
+            "tariff.base_on_net_price",
+            "tariff.malus_per_gram",
+            "tariff.flat_deduction",
+            "wertentwicklung.achtelung"
+          ],
+          "warnings": [],
+          "hasUnverifiedRules": false,
+          "hasScopeLimitations": false,
+          "ratePercentApplied": 13,
+          "effectiveCo2GramsPerKm": 160,
+          "novaAmountEuro": 2637.5,
+          "tariffSelectionDate": "2024-06-01",
+          "intermediates": {
+            "rateRaw": "63/5",
+            "baseAmountEuro": 2600,
+            "malusGrossEuro": 400,
+            "deductionGrossEuro": 350,
+            "fixedBeforeDevelopmentEuro": 50,
+            "valueBasis": "achtelung",
+            "fullYearsElapsed": 2,
+            "valueDevelopmentFactor": {
+              "numerator": 6,
+              "denominator": 8
+            },
+            "fixedAfterDevelopmentEuro": 37.5
+          }
+        },
+        "mustNot": {
+          "novaAmountEuro": [
+            3600,
+            2625
+          ]
+        }
+      },
+      "harness": "http-body"
+    },
+    {
+      "id": "synthetic-missing-first-registration",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_input",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_FIRST_REGISTRATION",
+          "message": "eu_used_m1 requires firstRegistrationDate"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-missing-taxable-event-date",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_input",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "Reachable only after AUT-530 relaxes the no-vehicleId @ValidateIf on taxableEventDate when importMode is eu_used_m1. Without that DTO change this body is HTTP 400."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_TAXABLE_EVENT_DATE",
+          "message": "eu_used_m1 requires taxableEventDate"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-missing-vehicle-class",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_input",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_VEHICLE_CLASS",
+          "message": "eu_used_m1 requires vehicleClass"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-unsupported-drive-type",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_drive",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "BEV",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_DRIVE_TYPE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts only driveType ICE"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "novaAmountEuro": [
+            0
+          ]
+        }
+      }
+    },
+    {
+      "id": "synthetic-missing-drive-type",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_drive",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "Reachable only after AUT-530 relaxes the no-vehicleId @ValidateIf on driveType when importMode is eu_used_m1."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_DRIVE_TYPE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts only driveType ICE"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-camper-sa",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_camper",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung",
+        "isCamperSA": true
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_CAMPER_SA",
+          "message": "eu_used_m1 slice EU-M1-2024 does not accept isCamperSA"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-missing-co2",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_co2",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "ratedPowerKw is present and must not become the 2×kW substitute."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung",
+        "ratedPowerKw": 80
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_CO2",
+          "message": "eu_used_m1 slice EU-M1-2024 requires co2GramsPerKm"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-fractional-co2",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_co2_basis",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160.5,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_FRACTIONAL_CO2",
+          "message": "eu_used_m1 slice EU-M1-2024 requires an integer co2GramsPerKm"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-negative-co2",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "invalid_co2",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "NovaCalculateRequestDto has no @Min(0). The existing DTO spec lets a negative CO2 through to the engine."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": -1,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "INVALID_CO2",
+          "message": "co2GramsPerKm must be a non-negative finite number"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-negative-net-price",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "invalid_net_price",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "A present negative number passes @IsNumber and is a 422. An absent netPriceEuro is HTTP 400, not this code."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": -1,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "INVALID_NET_PRICE",
+          "message": "netPriceEuro must be a non-negative finite number"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-invalid-iso-date",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "invalid_dates",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic"
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-13-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "INVALID_ISO_DATE",
+          "message": "firstRegistrationDate must be an ISO date (YYYY-MM-DD)"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-invalid-iso-before-missing-class",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "invalid_dates",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "ISO validation runs before the missing-class check, so this is not MISSING_VEHICLE_CLASS."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "not-a-date",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "INVALID_ISO_DATE",
+          "message": "firstRegistrationDate must be an ISO date (YYYY-MM-DD)"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-validation-pipe-missing-net-price",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "validation_pipe",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "netPriceEuro stays @IsNumber on every path. ValidationPipe returns 400 before the service. This is not INVALID_NET_PRICE."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 400,
+        "layer": "ValidationPipe",
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-validation-pipe-bad-emission-cycle",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "validation_pipe",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "A present value outside the EmissionCycle enum fails @IsEnum with HTTP 400. Omitting the field is 422 UNSUPPORTED_EMISSION_CYCLE after the DTO change."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "wltp",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 400,
+        "layer": "ValidationPipe",
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-validation-pipe-bad-vehicle-class",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "validation_pipe",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "M1 is not a NovaVehicleClass enum value. motorcycle_z1_z2 is in the enum and is 422 UNSUPPORTED_IMPORT_CLASS."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "M1",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 400,
+        "layer": "ValidationPipe",
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    },
+    {
+      "id": "synthetic-vehicle-nedc-not-prefilled",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "missing_co2",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "The stored NEDC grams and the String nova_class are not substitutes. co2_wltp_g_km is null, so the slice returns MISSING_CO2 and must not multiply 160 by 1.27."
+      },
+      "harness": "service-with-synthetic-vehicle",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleId": "00000000-0000-4000-8000-000000000519",
+        "vehicleClass": "passenger_z3",
+        "driveType": "ICE",
+        "emissionCycle": "WLTP",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "MISSING_CO2",
+          "message": "eu_used_m1 slice EU-M1-2024 requires co2GramsPerKm"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true,
+          "effectiveCo2GramsPerKm": [
+            203.2
+          ],
+          "warnings": [
+            "nedc_fractional_co2_unverified"
+          ]
+        }
+      },
+      "syntheticVehicle": {
+        "partyLabel": "pilot customer",
+        "first_registration_date": "2024-06-01",
+        "co2_wltp_g_km": null,
+        "co2_nedc_g_km": 160,
+        "nova_class": "STANDARD"
+      }
+    },
+    {
+      "id": "synthetic-missing-emission-cycle",
+      "numberOrigin": "synthetic",
+      "independentValidation": false,
+      "corpusRole": "unsupported_co2_basis",
+      "partyLabel": "pilot customer",
+      "provenance": {
+        "amounts": "synthetic",
+        "note": "Reachable only after AUT-530 relaxes the no-vehicleId @ValidateIf on emissionCycle when importMode is eu_used_m1. A present invalid enum is HTTP 400, not this code."
+      },
+      "harness": "http-body",
+      "request": {
+        "importMode": "eu_used_m1",
+        "vehicleClass": "passenger_z3",
+        "co2GramsPerKm": 160,
+        "firstRegistrationDate": "2024-06-01",
+        "taxableEventDate": "2026-06-01",
+        "netPriceEuro": 20000,
+        "valueBasis": "achtelung",
+        "driveType": "ICE"
+      },
+      "expected": {
+        "httpStatus": 422,
+        "error": {
+          "code": "UNSUPPORTED_EMISSION_CYCLE",
+          "message": "eu_used_m1 slice EU-M1-2024 accepts only emissionCycle WLTP"
+        },
+        "mustNot": {
+          "includeNovaAmountEuro": true
+        }
+      }
+    }
+  ]
+}
