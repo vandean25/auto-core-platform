@@ -234,7 +234,7 @@ const vehicleContextWarrantyPeriodRow = z.object({
   sale_number: nonEmptyString,
   contract_concluded_on: isoDateOnly.nullable(),
   handed_over_on: isoDateOnly.nullable(),
-  gewaehrleistung_status: z.string(),
+  gewaehrleistung_status: z.string().nullable(),
   gewaehrleistung_ends_on: isoDateOnly.nullable(),
   presumption_ends_on: isoDateOnly.nullable(),
   gewaehrleistung_ends_on_expired: z.boolean(),

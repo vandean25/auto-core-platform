@@ -471,8 +471,8 @@ export class McpVehicleContextReadService {
         where: {
           ...scoped,
           vehicle_id: vehicleId,
-          pdf_storage_key: { not: null },
-          pdf_generated_at: { not: null },
+          kaufvertrag_archive_key: { not: null },
+          kaufvertrag_generated_at: { not: null },
         },
       }),
     ]);

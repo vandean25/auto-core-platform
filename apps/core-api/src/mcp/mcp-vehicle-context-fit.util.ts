@@ -32,6 +32,17 @@ function serializedBytes(value: unknown): number {
   return Buffer.byteLength(JSON.stringify(value) ?? '', 'utf8');
 }
 
+function isOkPaginatedSection(
+  section: OkSection | { state: string } | undefined,
+): section is OkSection {
+  return (
+    section !== undefined &&
+    section.state === 'ok' &&
+    'data' in section &&
+    Array.isArray(section.data)
+  );
+}
+
 function keysetForRow(
   section: McpVehicleContextPaginatedSection,
   row: Record<string, unknown>,
@@ -126,7 +137,7 @@ export function fitVehicleContextPayloadToCap(
     let largestLength = 0;
     for (const sectionName of MCP_VEHICLE_CONTEXT_PAGINATED_SECTIONS) {
       const section = result.sections[sectionName];
-      if (!section || section.state !== 'ok' || !Array.isArray(section.data)) {
+      if (!isOkPaginatedSection(section)) {
         continue;
       }
       if (section.data.length > largestLength) {

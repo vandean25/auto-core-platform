@@ -195,7 +195,7 @@ export function toMcpWarrantyPeriodRow(
     createdAt: Date;
   },
   readFields: {
-    gewaehrleistung_status: string;
+    gewaehrleistung_status: string | null;
     gewaehrleistung_ends_on_expired: boolean;
     presumption_ends_on_expired: boolean;
   },
