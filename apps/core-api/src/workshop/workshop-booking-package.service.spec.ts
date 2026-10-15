@@ -1,4 +1,9 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { LOANER_BOOKING_FIELDS_INCOMPLETE } from './workshop-booking-package.schema.js';
 import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
 
 describe('WorkshopBookingPackageService', () => {
@@ -43,6 +48,25 @@ describe('WorkshopBookingPackageService', () => {
     ).rejects.toMatchObject({
       response: { code: 'POSITION_PLAN_EXECUTOR_REQUIRED' },
     });
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a partial loaner on WorkshopIntent payloads before any transaction', async () => {
+    await expect(
+      service.applyPackage({
+        customer_id: '00000000-0000-4000-8000-000000000001',
+        vehicle_id: '00000000-0000-4000-8000-000000000002',
+        bay_id: '00000000-0000-4000-8000-000000000003',
+        schedule: {
+          start_at: '2026-10-12T09:00:00.000Z',
+          end_at: '2026-10-12T10:00:00.000Z',
+        },
+        loaner: {
+          loaner_vehicle_id: '00000000-0000-4000-8000-000000000004',
+          planned_from: '2026-10-12T09:00:00.000Z',
+        },
+      }),
+    ).rejects.toThrow(BadRequestException);
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 

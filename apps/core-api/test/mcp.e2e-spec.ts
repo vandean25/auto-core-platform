@@ -4862,14 +4862,16 @@ describe('MCP server (e2e)', () => {
 
     const committedOrder = await prismaA.workshopOrder.findFirst({
       where: { vehicle_id: draftVehicle.vehicleId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     expect(committedOrder).toBeTruthy();
+    expect(committedOrder?.status).toBe('SCHEDULED');
     expect(committedOrder?.id).not.toBe(previewOrder.id);
     const committedLoaner = await prismaA.loanerBooking.findFirst({
       where: { loaner_vehicle_id: loanerFleet.id },
-      select: { id: true, workshop_order_id: true },
+      select: { id: true, workshop_order_id: true, status: true },
     });
+    expect(committedLoaner?.status).toBe('RESERVED');
     expect(committedLoaner?.workshop_order_id).toBe(committedOrder?.id);
     expect(committedLoaner?.id).not.toBe(previewLoaner.id);
 
@@ -4877,6 +4879,57 @@ describe('MCP server (e2e)', () => {
       status: 'PROPOSED',
       tier: 'PROPOSE',
     });
+  });
+
+  it('AUT-535: replays propose_workshop_booking with the same command_id', async () => {
+    await setPolicyTier('workshop.booking_package', 'PROPOSE');
+    const draftVehicle = await createDraftVehicle('mcp-booking-replay');
+    const schedule = scheduledBooking(17);
+    const commandId = '00000000-0000-4000-8000-000000000536';
+
+    const first = await callMcpTool(
+      caller(adminHeaderA, 'e2e-booking-replay'),
+      'propose_workshop_booking',
+      {
+        customer_id: draftVehicle.customerId,
+        vehicle_id: draftVehicle.vehicleId,
+        bay_id: workshopBayId,
+        scheduled_start_at: schedule.scheduled_start_at,
+        scheduled_end_at: schedule.scheduled_end_at,
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-000000000537',
+    );
+    const second = await callMcpTool(
+      caller(adminHeaderA, 'e2e-booking-replay'),
+      'propose_workshop_booking',
+      {
+        customer_id: draftVehicle.customerId,
+        vehicle_id: draftVehicle.vehicleId,
+        bay_id: workshopBayId,
+        scheduled_start_at: schedule.scheduled_start_at,
+        scheduled_end_at: schedule.scheduled_end_at,
+        command_id: commandId,
+      },
+      '00000000-0000-4000-8000-000000000538',
+    );
+
+    const firstPayload = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      replayed?: boolean;
+    }>(first);
+    const secondPayload = parsePayload<{
+      status: string;
+      pending_action_id: string;
+      replayed?: boolean;
+    }>(second);
+    expect(firstPayload.status).toBe('needs_approval');
+    expect(secondPayload.status).toBe('needs_approval');
+    expect(secondPayload.pending_action_id).toBe(
+      firstPayload.pending_action_id,
+    );
+    expect(secondPayload.replayed).toBe(true);
   });
 
   // Note: MCP_SERVER_ENABLED=false → 404 is already tested above

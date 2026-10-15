@@ -177,6 +177,7 @@ export function createAgentProposalSpecHarness() {
     mockPendingActionExecutors,
     mockWorkshopIntake,
     mockPartsRequisition,
+    mockWorkshopBookingPackage,
   };
 }
 

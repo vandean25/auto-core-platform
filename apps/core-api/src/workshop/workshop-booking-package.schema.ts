@@ -1,4 +1,8 @@
+import { BadRequestException } from '@nestjs/common';
 import { z } from 'zod';
+
+export const LOANER_BOOKING_FIELDS_INCOMPLETE =
+  'loaner_vehicle_id, planned_from, and planned_to must be provided together';
 
 const uuidSchema = z.string().uuid();
 const isoInstantSchema = z.string().min(1);
@@ -101,7 +105,9 @@ function readScheduleTimes(record: Record<string, unknown>): {
   return { start, end };
 }
 
-function readLoaner(record: Record<string, unknown>): NormalizedWorkshopBookingPackage['loaner'] {
+function resolveLoaner(
+  record: Record<string, unknown>,
+): NormalizedWorkshopBookingPackage['loaner'] {
   const loanerBlock = record.loaner;
   if (loanerBlock && typeof loanerBlock === 'object' && !Array.isArray(loanerBlock)) {
     const loanerRecord = loanerBlock as Record<string, unknown>;
@@ -120,10 +126,13 @@ function readLoaner(record: Record<string, unknown>): NormalizedWorkshopBookingP
       typeof loanerRecord.planned_to === 'string'
         ? loanerRecord.planned_to
         : undefined;
-    if (loanerVehicleId && plannedFrom && plannedTo) {
+    const anyBlockField = loanerVehicleId || plannedFrom || plannedTo;
+    if (anyBlockField) {
+      if (!loanerVehicleId || !plannedFrom || !plannedTo) {
+        throw new BadRequestException(LOANER_BOOKING_FIELDS_INCOMPLETE);
+      }
       return { loanerVehicleId, plannedFrom, plannedTo };
     }
-    return undefined;
   }
 
   const loanerVehicleId =
@@ -134,7 +143,11 @@ function readLoaner(record: Record<string, unknown>): NormalizedWorkshopBookingP
     typeof record.planned_from === 'string' ? record.planned_from : undefined;
   const plannedTo =
     typeof record.planned_to === 'string' ? record.planned_to : undefined;
-  if (loanerVehicleId && plannedFrom && plannedTo) {
+  const anyTopLevelField = loanerVehicleId || plannedFrom || plannedTo;
+  if (anyTopLevelField) {
+    if (!loanerVehicleId || !plannedFrom || !plannedTo) {
+      throw new BadRequestException(LOANER_BOOKING_FIELDS_INCOMPLETE);
+    }
     return { loanerVehicleId, plannedFrom, plannedTo };
   }
   return undefined;
@@ -206,7 +219,7 @@ export function normalizeWorkshopBookingPackage(
       typeof record.reported_issue === 'string'
         ? record.reported_issue
         : undefined,
-    loaner: readLoaner(record),
+    loaner: resolveLoaner(record),
     positionPlanLineCount: readPositionPlanLineCount(record),
   };
 }
