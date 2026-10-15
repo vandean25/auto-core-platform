@@ -151,17 +151,10 @@ async function main() {
     systemLocations: [],
   };
 
-  const catalogCount = await prisma.catalogItem.count({
-    where: { tenant_id: tenant.id },
-  });
-  if (catalogCount === 0) {
-    const brands = await seedBrands(prisma, tenant.id);
-    await seedInventory(prisma, foundation, finance, brands.allBrands);
-    await seedLabor(prisma, tenant.id);
-    await seedCustomersAndVehicles(prisma, tenant.id);
-  } else {
-    console.log('  → demo catalog already present, skipping transactional fixtures');
-  }
+  const brands = await seedBrands(prisma, tenant.id);
+  await seedInventory(prisma, foundation, finance, brands.allBrands);
+  await seedLabor(prisma, tenant.id);
+  await seedCustomersAndVehicles(prisma, tenant.id);
 
   console.log('Landing demo tenant seed completed.');
   console.log(`  tenant_id=${tenant.id}`);

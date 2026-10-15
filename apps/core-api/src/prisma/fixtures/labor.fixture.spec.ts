@@ -38,6 +38,7 @@ describe('seedLabor', () => {
         })),
       },
       laborFitment: {
+        findFirst: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: 'fitment-1' }),
       },
     };
@@ -65,7 +66,10 @@ describe('seedLabor', () => {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         findFirst: jest.fn().mockResolvedValue(null),
       },
-      laborFitment: { create: jest.fn() },
+      laborFitment: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn(),
+      },
     };
 
     await seedLabor(mockPrisma, 'tenant-1');

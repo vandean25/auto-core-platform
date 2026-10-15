@@ -445,6 +445,8 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.invoiceItem.deleteMany({});
   await tenantPrisma.invoice.deleteMany({});
   await tenantPrisma.invoiceSequence.deleteMany({});
+  await tenantPrisma.salesOrderItem.deleteMany({});
+  await tenantPrisma.salesOrder.deleteMany({});
   await tenantPrisma.vehicleSale.deleteMany({});
   await tenantPrisma.vehiclePurchase.deleteMany({});
   await tenantPrisma.purchaseInvoiceLine.deleteMany({});
@@ -481,6 +483,8 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.employeeWorkScheduleDay.deleteMany({});
   await tenantPrisma.employeeWorkSchedule.deleteMany({});
   await tenantPrisma.employee.deleteMany({});
+  await tenantPrisma.laborFitment.deleteMany({});
+  await tenantPrisma.laborOperation.deleteMany({});
   await tenantPrisma.laborCategory.deleteMany({});
   await tenantPrisma.tyreSetEvent.deleteMany({});
   await tenantPrisma.tyreSet.deleteMany({});
@@ -497,6 +501,7 @@ export async function cleanupTestTenantGraph(
   await tenantPrisma.catalogProviderSettings.deleteMany({});
   await tenantPrisma.customer.deleteMany({});
   await tenantPrisma.catalogItem.deleteMany({});
+  await tenantPrisma.revenueGroup.deleteMany({});
   await tenantPrisma.vendor.deleteMany({});
   await tenantPrisma.storageLocation.deleteMany({});
   await tenantPrisma.brand.deleteMany({});
