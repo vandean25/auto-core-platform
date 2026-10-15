@@ -90,4 +90,4 @@ ALTER TABLE "registration_document_intakes" ADD CONSTRAINT "registration_documen
 ALTER TABLE "registration_intake_byte_purges" ADD CONSTRAINT "registration_intake_byte_purges_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "registration_intake_byte_purges" ADD CONSTRAINT "registration_intake_byte_purges_intake_id_fkey" FOREIGN KEY ("intake_id") REFERENCES "registration_document_intakes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "registration_intake_byte_purges" ADD CONSTRAINT "registration_intake_byte_purges_tenant_id_intake_id_fkey" FOREIGN KEY ("tenant_id", "intake_id") REFERENCES "registration_document_intakes"("tenant_id", "id") ON DELETE RESTRICT ON UPDATE CASCADE;

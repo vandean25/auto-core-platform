@@ -1993,7 +1993,7 @@ model RegistrationIntakeBytePurge {
   tenant_id     String
   tenant        Tenant                   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   intake_id     String
-  intake        RegistrationDocumentIntake @relation(fields: [intake_id], references: [id], onDelete: Restrict)
+  intake        RegistrationDocumentIntake @relation(fields: [tenant_id, intake_id], references: [tenant_id, id], onDelete: Restrict)
   object_prefix String                   @db.VarChar(256)
   attempts      Int                      @default(0)
   last_error    String?                  @db.VarChar(512)
