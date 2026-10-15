@@ -4927,7 +4927,7 @@ describe('MCP server (e2e)', () => {
       let vehicleMakeBrandId = vehicleBefore.make_brand_id;
       let createdMakeBrandId: number | null = null;
       if (!vehicleMakeBrandId) {
-        const makeName = vehicleBefore.make || `McpPoMake${Date.now()}`;
+        const makeName = `McpPoMake-${Date.now()}`;
         const makeBrand = await prismaA.brand.create({
           data: {
             tenant_id: tenantA,
