@@ -195,6 +195,15 @@ For pending action persistence, `needs_approval` responses, and apply semantics,
 
 Unknown tools are not registered, and invalid arguments are rejected by closed schemas. A missing tool is not permission to guess a substitute.
 
+## Result shapes
+
+Every tool publishes an `outputSchema`, and the server checks each successful result against it. Read the schema before you rely on a field. Two shapes recur:
+
+- **Pages.** A keyset list returns `data`, `meta.next_cursor`, and `truncated`. When rows were dropped to fit the size cap, `truncated` is `true`; ask for the next page with the cursor. Offset lists return `meta` with `total` and `page` and no cursor; use `page` to move through them. Report and capability lists return `meta` with `total` and `next_cursor`.
+- **Truncation.** A result that is still over the cap is replaced by `__truncated__: true`, with `originalBytes` and a `preview` of the serialized start. Narrow the query or page through it; do not ask for an unbounded result.
+
+A write result has a `status`. `executed` means the write ran, and `result` holds the committed row. `needs_approval` means a pending proposal was stored under `pending_action_id`, and nothing ran. A refused call is a tool error, not a result.
+
 ## Preview and writes
 
 The MCP write pipeline evaluates policy before doing any work. Disabled actions and `HUMAN_ONLY` return `not_permitted` without previewing or executing the action. Enabled `AUTO` and `PROPOSE` actions run a rollback-transaction preview and return `would_change`; `AUTO` then proceeds to a real write, while `PROPOSE` returns `needs_approval` with a `pending_action_id` and does not execute the action. MCP tools do not accept a `dry_run` argument, so an AUTO write call is not a preview-only call. Never present preview output as completed work. Relay the returned status and what was or was not executed exactly.
