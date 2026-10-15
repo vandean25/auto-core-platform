@@ -70,23 +70,20 @@ export class WorkshopMechanicFindingService {
     return { data };
   }
 
-  private toFindingDto(
-    proposal: {
-      id: string;
-      trace_id: string;
-      status: AgentProposalStatus;
-      payload_json: unknown;
-      createdAt: Date;
-    },
-  ): WorkshopMechanicFindingDto | null {
+  private toFindingDto(proposal: {
+    id: string;
+    trace_id: string;
+    status: AgentProposalStatus;
+    payload_json: unknown;
+    createdAt: Date;
+  }): WorkshopMechanicFindingDto | null {
     const payload = asRecord(proposal.payload_json);
     const finding = asRecord(payload.finding);
     const taskId =
       typeof payload.workshop_task_id === 'string'
         ? payload.workshop_task_id
         : '';
-    const text =
-      typeof finding.text === 'string' ? finding.text : '';
+    const text = typeof finding.text === 'string' ? finding.text : '';
     const mediaRaw = Array.isArray(finding.media) ? finding.media : [];
     const media = mediaRaw
       .map((entry) => asRecord(entry))
@@ -94,7 +91,9 @@ export class WorkshopMechanicFindingService {
       .map((entry) => ({
         id: entry.id as string,
         mime_type:
-          typeof entry.mime_type === 'string' ? entry.mime_type : 'application/octet-stream',
+          typeof entry.mime_type === 'string'
+            ? entry.mime_type
+            : 'application/octet-stream',
         caption:
           typeof entry.caption === 'string'
             ? entry.caption
@@ -114,8 +113,7 @@ export class WorkshopMechanicFindingService {
       workshop_task_id: taskId,
       finding_text: text,
       media,
-      summary:
-        typeof finding.summary === 'string' ? finding.summary : null,
+      summary: typeof finding.summary === 'string' ? finding.summary : null,
       created_at: proposal.createdAt.toISOString(),
     };
   }

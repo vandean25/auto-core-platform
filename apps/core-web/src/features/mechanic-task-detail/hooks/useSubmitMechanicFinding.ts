@@ -1,4 +1,3 @@
-import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useSubmitMechanicFinding as useSubmitMechanicFindingMutation } from '@/api/mechanic'
 import { generateId } from '@/lib/id'

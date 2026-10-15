@@ -38,8 +38,7 @@ export type EstimateSourceLine = {
 };
 
 export type EstimateCustomerSendBlockerCode =
-  | 'ZERO_UNIT_PRICE'
-  | 'CLAIMED_FITMENT';
+  'ZERO_UNIT_PRICE' | 'CLAIMED_FITMENT';
 
 export type EstimateCustomerSendBlocker = {
   code: EstimateCustomerSendBlockerCode;

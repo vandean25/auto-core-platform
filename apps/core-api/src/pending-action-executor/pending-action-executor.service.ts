@@ -629,7 +629,8 @@ export class PendingActionExecutorService {
       this.tenantContext.getTenantId(),
       this.siteContext.getSiteId(),
     ]);
-    const payloadSiteId = record.site_id;
+    const payloadSiteId =
+      typeof record.site_id === 'string' ? record.site_id : null;
     if (payloadSiteId && payloadSiteId !== siteId) {
       throw new BadRequestException(
         `Action payload site (${payloadSiteId}) does not match caller authorized site (${siteId})`,

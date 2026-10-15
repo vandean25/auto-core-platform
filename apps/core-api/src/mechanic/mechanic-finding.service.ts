@@ -116,7 +116,9 @@ export class MechanicFindingService {
       mechanic_employee_id: mechanicId,
       finding: {
         text: findingText,
-        text_sha256: createHash('sha256').update(findingText, 'utf8').digest('hex'),
+        text_sha256: createHash('sha256')
+          .update(findingText, 'utf8')
+          .digest('hex'),
         summary: dto.summary ?? null,
         media: mediaRefs,
         voice_note_draft_id: dto.voice_note_draft_id ?? null,
