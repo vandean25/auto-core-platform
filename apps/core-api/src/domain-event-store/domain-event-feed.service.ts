@@ -45,7 +45,11 @@ export class DomainEventFeedService {
     }
 
     const pageSize = clampPageSize(query.pageSize);
-    const cursor = await this.resolveCursor(tenantId, query.cursor);
+    const cursor = await this.resolveCursor(
+      tenantId,
+      authorizedSiteIds,
+      query.cursor,
+    );
     const where = this.buildWhere(
       tenantId,
       authorizedSiteIds,
@@ -78,6 +82,7 @@ export class DomainEventFeedService {
 
   private async resolveCursor(
     tenantId: string,
+    authorizedSiteIds: string[],
     raw?: string,
   ): Promise<{ sequence: bigint; id: string } | null> {
     if (!raw) {
@@ -92,6 +97,7 @@ export class DomainEventFeedService {
         tenant_id: tenantId,
         id: decoded.id,
         sequence: sequenceFromCursor(decoded),
+        site_id: { in: authorizedSiteIds },
       },
       select: { id: true, sequence: true },
     });

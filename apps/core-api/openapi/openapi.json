@@ -21735,8 +21735,9 @@
         "type": "object",
         "properties": {
           "next_cursor": {
-            "type": "object",
-            "nullable": true
+            "type": "string",
+            "nullable": true,
+            "description": "Opaque cursor for the next page, or null when exhausted"
           }
         },
         "required": [

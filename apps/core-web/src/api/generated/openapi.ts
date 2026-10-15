@@ -6467,7 +6467,8 @@ export interface components {
             decision?: "APPROVED" | "DECLINED";
         };
         DomainEventFeedMetaDto: {
-            next_cursor: Record<string, never> | null;
+            /** @description Opaque cursor for the next page, or null when exhausted */
+            next_cursor: string | null;
         };
         DomainEventFeedListResponseDto: {
             data: components["schemas"]["DomainEventEnvelopeResponseDto"][];

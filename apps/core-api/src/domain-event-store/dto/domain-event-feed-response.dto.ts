@@ -36,7 +36,11 @@ export class DomainEventEnvelopeResponseDto {
 }
 
 export class DomainEventFeedMetaDto {
-  @ApiProperty({ nullable: true })
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Opaque cursor for the next page, or null when exhausted',
+  })
   next_cursor!: string | null;
 }
 

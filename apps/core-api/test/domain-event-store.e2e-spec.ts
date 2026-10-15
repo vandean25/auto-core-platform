@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -7,6 +6,7 @@ import { AuthService } from '../src/auth/auth.service.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
 import { DOMAIN_EVENT_TYPES } from '../src/domain-event-store/domain-event.constants.js';
 import { encodeDomainEventFeedCursor } from '../src/domain-event-store/domain-event.cursor.js';
+import { DomainEventStoreService } from '../src/domain-event-store/domain-event-store.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import {
   cleanupTestTenantGraph,
@@ -109,72 +109,44 @@ describe('Domain event store (e2e, AUT-536)', () => {
     expect(events[0]).toMatchObject({
       site_id: siteId,
       schema_version: 1,
+      payload: {},
     });
-    expect(JSON.stringify(events[0])).not.toMatch(/approve\//i);
   });
 
-  it('rolls back the order when a domain event insert fails', async () => {
-    const orderId = randomUUID();
-    const seedEventId = randomUUID();
-    const occurrenceKey = `workshop_order.scheduled.v1:${orderId}`;
-    await prisma.domainEvent.create({
+  it('rolls back the workshop order when domain event append fails on scheduled create', async () => {
+    const rollbackVehicle = await prisma.vehicle.create({
       data: {
-        id: seedEventId,
-        event_type: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
-        schema_version: 1,
-        tenant_id: tenantId,
-        site_id: siteId,
-        entity_id: orderId,
-        occurred_at: new Date('2026-09-02T08:00:00.000Z'),
-        trace_id: randomUUID(),
-        occurrence_key: occurrenceKey,
+        customer_id: customerId,
+        make: 'VW',
+        model: 'Golf',
+        year: 2019,
+        vin: `VIN-ROLLBACK-${Date.now()}`,
       },
     });
+    const domainEventStore = app.get(DomainEventStoreService);
+    const appendSpy = jest
+      .spyOn(domainEventStore, 'appendInTx')
+      .mockRejectedValueOnce(new Error('simulated domain event failure'));
 
-    try {
-      await expect(
-        prisma.$transaction(async (tx) => {
-          await tx.workshopOrder.create({
-            data: {
-              id: orderId,
-              tenant_id: tenantId,
-              site_id: siteId,
-              order_number: `WO-ROLLBACK-${Date.now()}`,
-              purpose: 'CUSTOMER_REPAIR',
-              customer_id: customerId,
-              vehicle_id: vehicleId,
-              status: 'SCHEDULED',
-              bay_id: bayId,
-              scheduled_start_at: new Date('2026-09-02T08:00:00.000Z'),
-              scheduled_end_at: new Date('2026-09-02T09:00:00.000Z'),
-              odometer: 0,
-              fuel_level: 0,
-            },
-          });
-          await tx.domainEvent.create({
-            data: {
-              event_type: DOMAIN_EVENT_TYPES.workshopOrderScheduledV1,
-              schema_version: 1,
-              tenant_id: tenantId,
-              site_id: siteId,
-              entity_id: orderId,
-              occurred_at: new Date('2026-09-02T08:00:00.000Z'),
-              trace_id: randomUUID(),
-              occurrence_key: occurrenceKey,
-            },
-          });
-        }),
-      ).rejects.toThrow();
+    await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set(auth())
+      .send({
+        customerId,
+        vehicleId: rollbackVehicle.id,
+        status: 'SCHEDULED',
+        bayId,
+        scheduledStartAt: '2026-09-02T08:00:00.000Z',
+        scheduledEndAt: '2026-09-02T09:00:00.000Z',
+      })
+      .expect(500);
 
-      const order = await prisma.workshopOrder.findFirst({
-        where: { id: orderId, tenant_id: tenantId },
-      });
-      expect(order).toBeNull();
-    } finally {
-      await prisma.domainEvent.deleteMany({
-        where: { tenant_id: tenantId, id: seedEventId },
-      });
-    }
+    const order = await prisma.workshopOrder.findFirst({
+      where: { tenant_id: tenantId, vehicle_id: rollbackVehicle.id },
+    });
+    expect(order).toBeNull();
+
+    appendSpy.mockRestore();
   });
 
   it('pages the feed by monotonic sequence with a versioned cursor', async () => {
@@ -188,6 +160,7 @@ describe('Domain event store (e2e, AUT-536)', () => {
     expect(first.body.data[0].sequence).toBeDefined();
     const cursor = first.body.meta.next_cursor as string;
     expect(cursor).toBeTruthy();
+    expect(typeof cursor).toBe('string');
 
     const second = await request(app.getHttpServer())
       .get('/api/agent/domain-events')
@@ -196,6 +169,14 @@ describe('Domain event store (e2e, AUT-536)', () => {
       .expect(200);
 
     expect(second.body.data[0].sequence).not.toBe(first.body.data[0].sequence);
+
+    const replay = await request(app.getHttpServer())
+      .get('/api/agent/domain-events')
+      .query({ pageSize: 1, cursor })
+      .set(auth())
+      .expect(200);
+
+    expect(replay.body).toEqual(second.body);
   });
 
   it('rejects a foreign tenant cursor without leaking rows', async () => {

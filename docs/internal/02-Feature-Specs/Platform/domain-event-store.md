@@ -1,6 +1,6 @@
 # Domain event store (AUT-536)
 
-Transactional occurrence log for agent orchestration. Not a replacement for the notification outbox or dashboard WebSocket realtime.
+Transactional occurrence log for agent orchestration. Not a replacement for the notification outbox or dashboard WebSocket realtime. Domain events are **not** pushed on the dashboard WebSocket allowlist; agents consume them via `GET /api/agent/domain-events` (poll/resume with cursor).
 
 ## Event types (v1)
 

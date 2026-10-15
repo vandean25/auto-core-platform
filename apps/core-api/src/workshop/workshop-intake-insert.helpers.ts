@@ -29,7 +29,7 @@ export interface ExecuteCreateOrderParams {
   isScheduled: boolean;
   scheduleService: Pick<WorkshopScheduleService, 'assertCanBook'>;
   generateOrderNumber: (tx: Prisma.TransactionClient) => Promise<string>;
-  domainEventStore?: DomainEventStoreService;
+  domainEventStore: DomainEventStoreService;
   traceId?: string;
 }
 
@@ -272,7 +272,7 @@ export async function executeCreateOrder(
     booked,
     orderNumber,
   });
-  if (isScheduled && booked && domainEventStore) {
+  if (isScheduled && booked) {
     const occurredAt = booked.start;
     await appendWorkshopOrderScheduledDomainEvent(tx, domainEventStore, {
       tenantId,
