@@ -42,7 +42,7 @@ export function useAgentSupervisionTriage(
       if (filters.limit !== undefined) {
         params.append('limit', String(filters.limit))
       }
-      if (pageParam) {
+      if (typeof pageParam === 'string' && pageParam.length > 0) {
         params.append('cursor', pageParam)
       }
       const query = params.toString()

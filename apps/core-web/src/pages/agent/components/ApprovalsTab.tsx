@@ -87,7 +87,10 @@ export function ApprovalsTab({
     refetch: refetchTriage,
   } = useAgentSupervisionTriage({ limit: 50 }, pendingOnly)
 
-  const triageItems = triageData?.data ?? []
+  const triageItems = useMemo(
+    () => triageData?.data ?? [],
+    [triageData?.data],
+  )
   const pendingApprovalIds = useMemo(
     () =>
       triageItems
@@ -115,7 +118,10 @@ export function ApprovalsTab({
   const approveMutation = useApproveAgentProposal()
   const rejectMutation = useRejectAgentProposal()
 
-  const proposals = proposalsData?.data ?? []
+  const proposals = useMemo(
+    () => proposalsData?.data ?? [],
+    [proposalsData?.data],
+  )
   const proposalById = useMemo(
     () => new Map(proposals.map((proposal) => [proposal.id, proposal])),
     [proposals],
