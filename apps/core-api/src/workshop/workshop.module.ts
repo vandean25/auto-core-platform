@@ -4,6 +4,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { DocumentBrandingModule } from '../document-branding/document-branding.module.js';
 import { InvoicesModule } from '../invoices/invoices.module.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { DomainEventStoreModule } from '../domain-event-store/domain-event-store.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { PartsRequisitionModule } from '../parts-requisition/parts-requisition.module.js';
@@ -52,6 +53,7 @@ import { WorkshopBookingPackageService } from './workshop-booking-package.servic
     PrismaModule,
     LoanerVehiclesModule,
     NotificationsModule,
+    DomainEventStoreModule,
     DocumentBrandingModule,
     InvoicesModule,
     InventoryModule,

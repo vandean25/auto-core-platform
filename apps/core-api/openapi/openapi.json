@@ -5740,6 +5740,58 @@
         ]
       }
     },
+    "/api/agent/domain-events": {
+      "get": {
+        "description": "Read-only, resumable feed ordered by monotonic sequence. Only sites the caller is authorized for are returned.",
+        "operationId": "DomainEventFeedController_list",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor from meta.next_cursor",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "eventType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by event_type, e.g. workshop_order.scheduled.v1",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maximum": 25,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainEventFeedListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List committed domain events (OWNER/ADMIN)",
+        "tags": [
+          "Agent domain events"
+        ]
+      }
+    },
     "/api/vehicle-purchases": {
       "post": {
         "operationId": "VehiclePurchaseController_create",
@@ -22053,6 +22105,91 @@
         "required": [
           "odometerIn",
           "fuelIn"
+        ]
+      },
+      "DomainEventEnvelopeResponseDto": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "event_type": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "number"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "site_id": {
+            "type": "string"
+          },
+          "entity_id": {
+            "type": "string"
+          },
+          "occurred_at": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "string",
+            "description": "Monotonic position in the tenant feed"
+          },
+          "estimate_version_id": {
+            "type": "string"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "DECLINED"
+            ]
+          }
+        },
+        "required": [
+          "event_id",
+          "event_type",
+          "schema_version",
+          "tenant_id",
+          "site_id",
+          "entity_id",
+          "occurred_at",
+          "trace_id",
+          "sequence"
+        ]
+      },
+      "DomainEventFeedMetaDto": {
+        "type": "object",
+        "properties": {
+          "next_cursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Opaque cursor for the next page, or null when exhausted"
+          }
+        },
+        "required": [
+          "next_cursor"
+        ]
+      },
+      "DomainEventFeedListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainEventEnvelopeResponseDto"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/DomainEventFeedMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ]
       },
       "CreateVehiclePurchaseDto": {

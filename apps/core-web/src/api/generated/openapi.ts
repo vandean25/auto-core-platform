@@ -1692,6 +1692,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/domain-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List committed domain events (OWNER/ADMIN)
+         * @description Read-only, resumable feed ordered by monotonic sequence. Only sites the caller is authorized for are returned.
+         */
+        get: operations["DomainEventFeedController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicle-purchases": {
         parameters: {
             query?: never;
@@ -6548,6 +6568,29 @@ export interface components {
             odometerIn: number;
             fuelIn: number;
             damageNotesIn?: string;
+        };
+        DomainEventEnvelopeResponseDto: {
+            event_id: string;
+            event_type: string;
+            schema_version: number;
+            tenant_id: string;
+            site_id: string;
+            entity_id: string;
+            occurred_at: string;
+            trace_id: string;
+            /** @description Monotonic position in the tenant feed */
+            sequence: string;
+            estimate_version_id?: string;
+            /** @enum {string} */
+            decision?: "APPROVED" | "DECLINED";
+        };
+        DomainEventFeedMetaDto: {
+            /** @description Opaque cursor for the next page, or null when exhausted */
+            next_cursor: string | null;
+        };
+        DomainEventFeedListResponseDto: {
+            data: components["schemas"]["DomainEventEnvelopeResponseDto"][];
+            meta: components["schemas"]["DomainEventFeedMetaDto"];
         };
         CreateVehiclePurchaseDto: {
             /** @enum {string} */
@@ -13336,6 +13379,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoanerBookingResponseDto"];
+                };
+            };
+        };
+    };
+    DomainEventFeedController_list: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from meta.next_cursor */
+                cursor?: string;
+                /** @description Filter by event_type, e.g. workshop_order.scheduled.v1 */
+                eventType?: string;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainEventFeedListResponseDto"];
                 };
             };
         };

@@ -72,6 +72,7 @@ export const TABLE_CLEANERS: TableCleaner[] = [
   { table: 'workshop_holidays', clean: (p) => p.workshopHoliday.deleteMany() },
   { table: 'storage_locations', clean: (p) => p.storageLocation.deleteMany() },
   { table: 'site_memberships', clean: (p) => p.siteMembership.deleteMany() },
+  { table: 'domain_events', clean: (p) => p.domainEvent.deleteMany() },
   { table: 'sites', clean: (p) => p.site.deleteMany() },
   {
     table: 'accounting_exports',

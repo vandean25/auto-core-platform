@@ -541,6 +541,7 @@ describe('workshop-intake.helpers', () => {
       };
       const generateOrderNumber = jest.fn().mockResolvedValue('WO-2026-0005');
 
+      const domainEventStore = { appendInTx: jest.fn() };
       const result = await executeCreateOrder({
         tx,
         tenantId: 'tenant-1',
@@ -551,7 +552,10 @@ describe('workshop-intake.helpers', () => {
         isScheduled: true,
         scheduleService,
         generateOrderNumber,
+        domainEventStore,
       });
+
+      expect(domainEventStore.appendInTx).toHaveBeenCalled();
 
       expect(scheduleService.assertCanBook).toHaveBeenCalled();
       expect(generateOrderNumber).toHaveBeenCalledWith(tx);
@@ -590,6 +594,7 @@ describe('workshop-intake.helpers', () => {
         isScheduled: false,
         scheduleService: { assertCanBook: jest.fn() },
         generateOrderNumber: jest.fn(),
+        domainEventStore: { appendInTx: jest.fn() },
       });
 
       expect(result.id).toBe('target-1');
@@ -618,6 +623,7 @@ describe('workshop-intake.helpers', () => {
         isScheduled: false,
         scheduleService: { assertCanBook: jest.fn() },
         generateOrderNumber: jest.fn(),
+        domainEventStore: { appendInTx: jest.fn() },
       }).catch((caught: unknown) => caught);
 
       expect(error).toBeInstanceOf(ConflictException);

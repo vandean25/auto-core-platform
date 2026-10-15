@@ -79,7 +79,7 @@ function versionRow(overrides: Record<string, unknown> = {}) {
   return {
     status: 'SENT',
     total_gross: '192.00',
-    estimate: { workshop_order_id: 'order-1' },
+    estimate: { workshop_order_id: 'order-1', site_id: 'site-1' },
     valid_until: VALID_UNTIL,
     snapshot: snapshotFixture(),
     snapshot_sha256: 'snapshot-sha',
@@ -119,6 +119,12 @@ function build() {
   const outbox = {
     enqueueInTx: jest.fn().mockResolvedValue({ id: 'outbox-1', created: true }),
   };
+  const domainEventStore = {
+    appendInTx: jest.fn().mockResolvedValue(undefined),
+  };
+  const requestContext = {
+    getTraceId: jest.fn().mockReturnValue('trace-approval-1'),
+  };
   const service = new PublicEstimateApprovalService(
     lookup as never,
     tenantContext as never,
@@ -126,8 +132,20 @@ function build() {
     new PublicEstimateApprovalRateLimiter(),
     audit as never,
     outbox,
+    domainEventStore,
+    requestContext,
   );
-  return { service, tx, prisma, lookup, tenantContext, audit, outbox };
+  return {
+    service,
+    tx,
+    prisma,
+    lookup,
+    tenantContext,
+    audit,
+    outbox,
+    domainEventStore,
+    requestContext,
+  };
 }
 
 function approval(overrides: Partial<PublicEstimateDecisionDto> = {}) {
@@ -335,10 +353,21 @@ describe('PublicEstimateApprovalService.decide', () => {
   });
 
   it('writes an audit row as the system and enqueues the decision event for a link decision', async () => {
-    const { service, audit, outbox, tx } = build();
+    const { service, audit, outbox, tx, domainEventStore, requestContext } =
+      build();
 
     await service.decide(TOKEN, approval(), REQUEST, NOW);
 
+    expect(requestContext.getTraceId).toHaveBeenCalled();
+    expect(domainEventStore.appendInTx).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        siteId: 'site-1',
+        entityId: 'order-1',
+        traceId: 'trace-approval-1',
+      }),
+    );
     expect(audit.recordTenantMutation).toHaveBeenCalledWith(
       expect.objectContaining({
         entityType: 'WorkshopEstimateApproval',

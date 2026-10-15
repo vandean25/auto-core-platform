@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
 import { LoanerVehiclesAuthorization } from '../loaner-vehicles/loaner-vehicles.authorization.js';
 import { LoanerVehiclesService } from '../loaner-vehicles/loaner-vehicles.service.js';
+import { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
 import type { CreateWorkshopOrderDto } from './dto/create-workshop-order.dto.js';
 import { WorkshopScheduleService } from './workshop-schedule.service.js';
 import {
@@ -40,6 +41,7 @@ export class WorkshopBookingPackageService {
     private readonly scheduleService: WorkshopScheduleService,
     private readonly loanerAuthorization: LoanerVehiclesAuthorization,
     private readonly loanerVehicles: LoanerVehiclesService,
+    private readonly domainEventStore: DomainEventStoreService,
   ) {}
 
   async applyPackage(
@@ -113,6 +115,7 @@ export class WorkshopBookingPackageService {
         vehicleId: packageInput.vehicleId,
         isScheduled: true,
         scheduleService: this.scheduleService,
+        domainEventStore: this.domainEventStore,
         generateOrderNumber: (client) =>
           generateNextWorkshopOrderNumber(client, tenantId),
       });

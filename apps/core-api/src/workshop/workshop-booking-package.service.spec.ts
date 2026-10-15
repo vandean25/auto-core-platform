@@ -17,6 +17,7 @@ describe('WorkshopBookingPackageService', () => {
   const mockSchedule = { assertCanBook: jest.fn() };
   const mockLoanerAuth = { assertWriteAccess: jest.fn() };
   const mockLoanerVehicles = { createReservedBookingInTransaction: jest.fn() };
+  const mockDomainEventStore = { appendInTx: jest.fn() };
 
   let service: WorkshopBookingPackageService;
 
@@ -29,6 +30,7 @@ describe('WorkshopBookingPackageService', () => {
       mockSchedule as never,
       mockLoanerAuth as never,
       mockLoanerVehicles as never,
+      mockDomainEventStore as never,
     );
   });
 

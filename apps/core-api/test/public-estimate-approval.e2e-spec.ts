@@ -17,6 +17,8 @@ import {
 } from './tenant-test-utils.js';
 import { seedReadySellerAndAccountingProfile } from './invoice-snapshot-v2-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
+import { DOMAIN_EVENT_TYPES } from '../src/domain-event-store/domain-event.constants.js';
+import { assertDomainEventHasNoToken } from './domain-event-assertions.js';
 
 const SEND_FLAG = 'CUSTOMER_ESTIMATE_SEND_ENABLED';
 const APPROVAL_BASE = 'https://portal.example.at';
@@ -300,6 +302,18 @@ describe('Public estimate approval (e2e, ADR-0025 §7)', () => {
     });
     expect(token.consumed_at).not.toBeNull();
     expect(token.token_sha256).not.toContain(rawToken);
+
+    const domainEvent = await prisma.domainEvent.findFirstOrThrow({
+      where: {
+        tenant_id: tenantId,
+        event_type: DOMAIN_EVENT_TYPES.workshopEstimateDecidedV1,
+      },
+    });
+    expect(domainEvent.payload).toMatchObject({
+      estimate_version_id: versionId,
+      decision: 'APPROVED',
+    });
+    assertDomainEventHasNoToken(domainEvent, rawToken);
 
     await publicRead(rawToken).expect(410);
     const again = await publicDecide(rawToken, APPROVE).expect(410);
