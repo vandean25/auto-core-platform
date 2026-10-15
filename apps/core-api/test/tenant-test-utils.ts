@@ -535,6 +535,10 @@ export async function cleanupTestTenantGraph(
     tenantId,
   );
   await prisma.$executeRawUnsafe(
+    `DELETE FROM mcp_write_command_receipts WHERE tenant_id = $1`,
+    tenantId,
+  );
+  await prisma.$executeRawUnsafe(
     `DELETE FROM audit_logs WHERE tenant_id = $1`,
     tenantId,
   );

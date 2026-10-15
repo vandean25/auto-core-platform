@@ -79,8 +79,18 @@ function buildService(tier: AgentPolicyTier) {
   };
   const prisma = {
     $transaction: jest.fn(
-      async (callback: (tx: { tag: 'tx' }) => unknown) =>
-        callback({ tag: 'tx' }),
+      async (
+        callback: (tx: {
+          tag: 'tx';
+          agentProposal: { create: jest.Mock };
+        }) => unknown,
+      ) =>
+        callback({
+          tag: 'tx',
+          agentProposal: {
+            create: jest.fn(async () => ({ id: 'pending-1' })),
+          },
+        }),
     ),
   };
   const agentProposals = {

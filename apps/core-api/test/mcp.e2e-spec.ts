@@ -1366,7 +1366,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-auto'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle, 12),
+        ...draftOrderArgs(draftVehicle, 20),
         notes,
         command_id: commandId,
       },
@@ -1385,7 +1385,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-auto-replay'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle, 12),
+        ...draftOrderArgs(draftVehicle, 20),
         notes,
         command_id: commandId,
       },
@@ -1479,7 +1479,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-site-a'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle, 14),
+        ...draftOrderArgs(draftVehicle, 21),
         notes: 'site-bound command',
         command_id: commandId,
       },
@@ -1513,25 +1513,27 @@ describe('MCP server (e2e)', () => {
       data: { active_site_id: otherSite.id },
     });
 
-    const conflict = await callMcpTool(
-      caller(adminHeaderA, 'e2e-aut529-site-b'),
-      'draft_workshop_order',
-      {
-        ...draftOrderArgs(draftVehicle, 14),
-        notes: 'site-bound command',
-        command_id: commandId,
-      },
-      '00000000-0000-4000-8000-000000000530',
-    );
-    expect(conflict.isError).toBe(true);
-    expect(toolPayloadText(conflict)).toContain(
-      'MCP_COMMAND_IDEMPOTENCY_CONFLICT',
-    );
-
-    await prismaA.user.update({
-      where: { id: tenantAUserId },
-      data: { active_site_id: fixtures.siteId },
-    });
+    try {
+      const conflict = await callMcpTool(
+        caller(adminHeaderA, 'e2e-aut529-site-b'),
+        'draft_workshop_order',
+        {
+          ...draftOrderArgs(draftVehicle, 21),
+          notes: 'site-bound command',
+          command_id: commandId,
+        },
+        '00000000-0000-4000-8000-000000000530',
+      );
+      expect(conflict.isError).toBe(true);
+      expect(toolPayloadText(conflict)).toContain(
+        'MCP_COMMAND_IDEMPOTENCY_CONFLICT',
+      );
+    } finally {
+      await prismaA.user.update({
+        where: { id: tenantAUserId },
+        data: { active_site_id: fixtures.siteId },
+      });
+    }
   });
 
   it('AUT-529: rejects the same command_id with different arguments', async () => {
@@ -1543,7 +1545,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-conflict-a'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle, 13),
+        ...draftOrderArgs(draftVehicle, 22),
         notes: 'first body',
         command_id: commandId,
       },
@@ -1554,7 +1556,7 @@ describe('MCP server (e2e)', () => {
       caller(adminHeaderA, 'e2e-aut529-conflict-b'),
       'draft_workshop_order',
       {
-        ...draftOrderArgs(draftVehicle, 13),
+        ...draftOrderArgs(draftVehicle, 22),
         notes: 'different body',
         command_id: commandId,
       },

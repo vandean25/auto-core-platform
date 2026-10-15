@@ -239,11 +239,9 @@ export class McpWriteCommandIdempotencyService {
     }
 
     if (input.siteId !== null && input.siteId !== receipt.site_id) {
-      throw new ConflictException({
-        code: MCP_COMMAND_IDEMPOTENCY_CONFLICT,
-        message:
-          'The command_id was already used for a different active site context.',
-      });
+      throw idempotencyConflict(
+        'The command_id was already used for a different active site context.',
+      );
     }
   }
 
@@ -258,11 +256,9 @@ export class McpWriteCommandIdempotencyService {
       receipt.tool_name !== input.toolName ||
       receipt.args_fingerprint !== input.argsFingerprint
     ) {
-      throw new ConflictException({
-        code: MCP_COMMAND_IDEMPOTENCY_CONFLICT,
-        message:
-          'The command_id was already used with a different tool or arguments.',
-      });
+      throw idempotencyConflict(
+        'The command_id was already used with a different tool or arguments.',
+      );
     }
   }
 
@@ -339,4 +335,12 @@ function isUniqueConstraintError(error: unknown): boolean {
     'code' in error &&
     error.code === 'P2002'
   );
+}
+
+/** MCP tool errors surface only message text; prefix the stable code like NOT_A_CATALOG_LINE. */
+function idempotencyConflict(detail: string): ConflictException {
+  return new ConflictException({
+    code: MCP_COMMAND_IDEMPOTENCY_CONFLICT,
+    message: `${MCP_COMMAND_IDEMPOTENCY_CONFLICT}: ${detail}`,
+  });
 }
