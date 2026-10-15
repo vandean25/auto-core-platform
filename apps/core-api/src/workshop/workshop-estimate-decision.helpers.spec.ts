@@ -238,14 +238,21 @@ describe('enqueueEstimateDecisionEvent', () => {
   it('enqueues an internal in-app event keyed by the approval, with no customer recipient', async () => {
     const tx = {};
     const outbox = { enqueueInTx: jest.fn().mockResolvedValue({ id: 'o1', created: true }) };
+    const domainEventStore = {
+      appendInTx: jest.fn().mockResolvedValue({ eventId: 'e1', sequence: BigInt(1) }),
+    };
 
     await enqueueEstimateDecisionEvent(tx, outbox, {
       tenantId: 'tenant-1',
+      siteId: 'site-1',
       approvalId: 'approval-1',
       versionId: 'version-1',
       workshopOrderId: 'order-1',
       decision: EstimateApprovalDecision.APPROVED,
       channel: EstimateApprovalChannel.PHONE,
+      decidedAt: new Date('2026-10-15T10:00:00.000Z'),
+      traceId: '00000000-0000-4000-8000-000000000001',
+      domainEventStore: domainEventStore as never,
     });
 
     expect(outbox.enqueueInTx).toHaveBeenCalledWith(tx, {
@@ -260,5 +267,6 @@ describe('enqueueEstimateDecisionEvent', () => {
       sourceEntityId: 'version-1',
       payload: { decision: 'APPROVED', channel: 'PHONE' },
     });
+    expect(domainEventStore.appendInTx).toHaveBeenCalled();
   });
 });

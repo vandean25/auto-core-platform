@@ -16,6 +16,8 @@ import type {
   NotificationOutboxService,
   NotificationOutboxTxClient,
 } from '../notifications/notification-outbox.service.js';
+import type { DomainEventStoreService } from '../domain-event-store/domain-event-store.service.js';
+import { appendWorkshopEstimateDecidedDomainEvent } from './workshop-domain-event.helpers.js';
 
 /** Channels an advisor may record. LINK is the customer's own link, and ADVISOR_RECORDED is legacy. */
 export const ADVISOR_DECISION_CHANNELS = [
@@ -249,11 +251,15 @@ export async function enqueueEstimateDecisionEvent(
   outbox: NotificationOutboxService,
   input: {
     tenantId: string;
+    siteId: string;
     approvalId: string;
     versionId: string;
     workshopOrderId: string;
     decision: EstimateApprovalDecision;
     channel: EstimateApprovalChannel;
+    decidedAt: Date;
+    traceId: string;
+    domainEventStore: DomainEventStoreService;
   },
 ): Promise<void> {
   await outbox.enqueueInTx(tx, {
@@ -267,5 +273,15 @@ export async function enqueueEstimateDecisionEvent(
     sourceEntityType: 'WorkshopEstimateVersion',
     sourceEntityId: input.versionId,
     payload: { decision: input.decision, channel: input.channel },
+  });
+  await appendWorkshopEstimateDecidedDomainEvent(tx, input.domainEventStore, {
+    tenantId: input.tenantId,
+    siteId: input.siteId,
+    workshopOrderId: input.workshopOrderId,
+    approvalId: input.approvalId,
+    versionId: input.versionId,
+    decision: input.decision,
+    occurredAt: input.decidedAt,
+    traceId: input.traceId,
   });
 }

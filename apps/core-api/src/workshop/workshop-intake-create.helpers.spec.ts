@@ -47,6 +47,8 @@ function buildServices(role = 'ADMIN') {
       getSiteId: jest.fn().mockResolvedValue('site-1'),
     },
     scheduleService: {},
+    domainEventStore: { appendInTx: jest.fn() },
+    requestContext: { getTraceId: jest.fn().mockReturnValue(undefined) },
   } as any;
 }
 

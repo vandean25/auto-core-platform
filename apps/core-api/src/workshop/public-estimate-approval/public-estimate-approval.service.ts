@@ -18,6 +18,8 @@ import {
 import { AuditService } from '../../audit/audit.service.js';
 import { TenantContextService } from '../../common/services/tenant-context.service.js';
 import { NotificationOutboxService } from '../../notifications/notification-outbox.service.js';
+import { DomainEventStoreService } from '../../domain-event-store/domain-event-store.service.js';
+import { RequestContextService } from '../../common/services/request-context.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { enqueueEstimateDecisionEvent } from '../workshop-estimate-decision.helpers.js';
 import { hashApprovalToken } from '../workshop-estimate-approval-token.helpers.js';
@@ -76,6 +78,8 @@ export class PublicEstimateApprovalService {
     private readonly limiter: PublicEstimateApprovalRateLimiter,
     private readonly audit: AuditService,
     private readonly outbox: NotificationOutboxService,
+    private readonly domainEventStore: DomainEventStoreService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async read(rawToken: string, now = new Date()): Promise<PublicEstimateView> {
@@ -170,7 +174,7 @@ export class PublicEstimateApprovalService {
         legal_text_version: true,
         legal_text_sha256: true,
         total_gross: true,
-        estimate: { select: { workshop_order_id: true } },
+        estimate: { select: { workshop_order_id: true, site_id: true } },
       },
     });
     if (
@@ -191,6 +195,7 @@ export class PublicEstimateApprovalService {
       legal_text_sha256: version.legal_text_sha256,
       total_gross: version.total_gross,
       workshop_order_id: version.estimate.workshop_order_id,
+      site_id: version.estimate.site_id,
     };
   }
 
@@ -301,11 +306,15 @@ export class PublicEstimateApprovalService {
     );
     await enqueueEstimateDecisionEvent(tx, this.outbox, {
       tenantId: approval.tenantId,
+      siteId: version.site_id,
       approvalId,
       versionId: approval.versionId,
       workshopOrderId: version.workshop_order_id,
       decision,
       channel: EstimateApprovalChannel.LINK,
+      decidedAt: now,
+      traceId: this.requestContext.getTraceId() ?? approvalId,
+      domainEventStore: this.domainEventStore,
     });
   }
 
@@ -434,6 +443,7 @@ type DecidableVersion = {
   legal_text_sha256: string;
   total_gross: Prisma.Decimal | null;
   workshop_order_id: string;
+  site_id: string;
 };
 
 /** The customer's answer. Approval needs both confirmations and a typed name (ADR-0025 §7). */

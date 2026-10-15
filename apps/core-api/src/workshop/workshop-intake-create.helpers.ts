@@ -25,6 +25,7 @@ import {
   assertCanCreatePickerlOrder,
   PICKERL_TASK_TITLE,
 } from './workshop-pickerl.helpers.js';
+import type { WorkshopIntakeServices } from './workshop-intake-update.helpers.js';
 
 export function validateCreateOrderInput(
   dto: CreateWorkshopOrderDto,
@@ -152,12 +153,15 @@ async function authorizeAndResolveCreateSite(
 }
 
 export async function executeCreateWorkshopOrder(
-  services: {
-    prisma: PrismaService;
-    tenantContext: TenantContextService;
-    siteContext: SiteContextService;
-    scheduleService: WorkshopScheduleService;
-  },
+  services: Pick<
+    WorkshopIntakeServices,
+    | 'prisma'
+    | 'tenantContext'
+    | 'siteContext'
+    | 'scheduleService'
+    | 'domainEventStore'
+    | 'requestContext'
+  >,
   dto: CreateWorkshopOrderDto,
   generateOrderNumber: (tx: Prisma.TransactionClient) => Promise<string>,
   expectedSiteId?: string,
@@ -190,6 +194,7 @@ export async function executeCreateWorkshopOrder(
   }
 
   try {
+    const traceId = services.requestContext.getTraceId();
     return await services.prisma.$transaction((tx) =>
       executeCreateOrder({
         tx,
@@ -201,6 +206,8 @@ export async function executeCreateWorkshopOrder(
         isScheduled,
         scheduleService: services.scheduleService,
         generateOrderNumber,
+        domainEventStore: services.domainEventStore,
+        traceId,
       }),
     );
   } catch (error) {
