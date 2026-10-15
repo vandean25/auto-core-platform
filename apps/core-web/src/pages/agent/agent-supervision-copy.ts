@@ -225,6 +225,14 @@ export const SUPERVISION_COPY = {
       en: 'Could not load the supervision inbox. Retry or check your site access.',
       de: 'Der Überwachungs-Posteingang konnte nicht geladen werden. Erneut versuchen oder Standortzugriff prüfen.',
     },
+    proposalsLoadError: {
+      en: 'Could not load pending proposal details. Other inbox items are still shown below.',
+      de: 'Ausstehende Vorschlagsdetails konnten nicht geladen werden. Andere Posteingangseinträge werden weiter unten angezeigt.',
+    },
+    triagePageLoadError: {
+      en: 'Could not load the next page of the supervision inbox.',
+      de: 'Die nächste Seite des Überwachungs-Posteingangs konnte nicht geladen werden.',
+    },
     openRecord: {
       en: 'Open record',
       de: 'Datensatz öffnen',

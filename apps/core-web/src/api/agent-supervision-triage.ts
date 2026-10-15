@@ -60,16 +60,32 @@ export function useAgentSupervisionTriage(
     getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
   })
 
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = infinite
+  const {
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    isError,
+    isFetchNextPageError,
+  } = infinite
 
   useEffect(() => {
     if (!enabled) {
       return
     }
+    if (isError || isFetchNextPageError) {
+      return
+    }
     if (hasNextPage && !isFetchingNextPage) {
       void fetchNextPage()
     }
-  }, [enabled, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [
+    enabled,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    isError,
+    isFetchNextPageError,
+  ])
 
   const mergedItems =
     infinite.data?.pages.flatMap((page) => page.data ?? []) ?? []
@@ -83,7 +99,9 @@ export function useAgentSupervisionTriage(
     isLoading:
       infinite.isLoading ||
       infinite.isFetchingNextPage ||
-      (infinite.isFetching && Boolean(hasNextPage)),
+      (infinite.isFetching && Boolean(hasNextPage) && !isFetchNextPageError),
     refetch: infinite.refetch,
+    fetchNextPage,
+    isFetchNextPageError,
   }
 }

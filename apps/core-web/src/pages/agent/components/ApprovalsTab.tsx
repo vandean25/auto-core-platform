@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import {
   useAgentProposals,
+  useAgentProposalsByIds,
   useApproveAgentProposal,
   useRejectAgentProposal,
 } from '@/api/agent-proposals'
@@ -84,6 +85,8 @@ export function ApprovalsTab({
     data: triageData,
     isLoading: triageLoading,
     isError: triageError,
+    isFetchNextPageError: triagePageError,
+    fetchNextPage: fetchMoreTriage,
     refetch: refetchTriage,
   } = useAgentSupervisionTriage({ limit: 50 }, pendingOnly)
 
@@ -99,21 +102,19 @@ export function ApprovalsTab({
     [triageItems],
   )
 
+  const pendingProposalsQuery = useAgentProposalsByIds(pendingApprovalIds, {
+    status: 'PENDING',
+    enabled: pendingOnly && pendingApprovalIds.length > 0,
+  })
+
+  const allProposalsQuery = useAgentProposals({ limit: 100 }, !pendingOnly)
+
   const {
     data: proposalsData,
     isLoading: proposalsLoading,
     isError: proposalsError,
     refetch: refetchProposals,
-  } = useAgentProposals(
-    pendingOnly
-      ? {
-          status: 'PENDING',
-          ids: pendingApprovalIds,
-          limit: Math.min(100, pendingApprovalIds.length || 100),
-        }
-      : { limit: 100 },
-    pendingOnly ? pendingApprovalIds.length > 0 : true,
-  )
+  } = pendingOnly ? pendingProposalsQuery : allProposalsQuery
 
   const approveMutation = useApproveAgentProposal()
   const rejectMutation = useRejectAgentProposal()
@@ -130,15 +131,21 @@ export function ApprovalsTab({
   const isLoading = pendingOnly
     ? triageLoading || proposalsLoading
     : proposalsLoading
-  const isError = pendingOnly
-    ? triageError || proposalsError
-    : proposalsError
+  const isError = pendingOnly ? triageError : proposalsError
 
   const refetch = () => {
     void refetchProposals()
     if (pendingOnly) {
       void refetchTriage()
     }
+  }
+
+  const retryTriagePagination = () => {
+    if (triagePageError) {
+      void fetchMoreTriage()
+      return
+    }
+    void refetchTriage()
   }
 
   type DisplayRow =
@@ -253,7 +260,7 @@ export function ApprovalsTab({
         </div>
       )}
 
-      {/* Error state */}
+      {/* Inbox load error */}
       {isError && (
         <div
           className="rounded-lg border border-rose-200 bg-rose-50 p-6 text-center"
@@ -270,6 +277,46 @@ export function ApprovalsTab({
             size="sm"
             onClick={() => refetch()}
             className="mt-3 border-rose-300 text-rose-700 hover:bg-rose-100"
+          >
+            {getCopy(common.retry, language)}
+          </Button>
+        </div>
+      )}
+
+      {pendingOnly && !triageError && triagePageError && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
+          data-testid="approvals-triage-page-error-state"
+        >
+          <p className="text-sm font-medium text-amber-900">
+            {getCopy(t.triagePageLoadError, language)}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => retryTriagePagination()}
+            className="mt-3 border-amber-300 text-amber-900 hover:bg-amber-100"
+          >
+            {getCopy(common.retry, language)}
+          </Button>
+        </div>
+      )}
+
+      {pendingOnly && !triageError && proposalsError && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center"
+          data-testid="approvals-proposals-error-state"
+        >
+          <p className="text-sm font-medium text-amber-900">
+            {getCopy(t.proposalsLoadError, language)}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => refetchProposals()}
+            className="mt-3 border-amber-300 text-amber-900 hover:bg-amber-100"
           >
             {getCopy(common.retry, language)}
           </Button>

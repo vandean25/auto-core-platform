@@ -182,14 +182,34 @@ describe('AgentProposalReadService', () => {
   });
 
   it('omits proposals that are no longer pending after a concurrent decision', async () => {
-    h.mockPrisma.agentProposal.findMany.mockResolvedValue([]);
+    const stillPending = createMockProposal({
+      id: 'still-pending',
+      status: AgentProposalStatus.PENDING,
+      expires_at: new Date('2099-01-01T00:00:00.000Z'),
+      payload_json: { order_id: 'wo-1' },
+      action_type: 'workshop_order.add_line',
+    });
+    h.mockPrisma.agentProposal.findMany.mockResolvedValue([stillPending]);
+    h.mockPrisma.workshopOrder.findMany.mockResolvedValue([
+      { id: 'wo-1', site_id: 'site-1' },
+    ]);
 
     const rows = await h.reads.listPendingApprovalTriageCandidates(tenantId, [
       'site-1',
     ]);
 
-    expect(rows).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].entity_id).toBe('still-pending');
     expect(h.mockPrisma.agentProposal.updateMany).toHaveBeenCalled();
+    expect(h.mockPrisma.agentProposal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenant_id: tenantId,
+          status: AgentProposalStatus.PENDING,
+          expires_at: { gte: expect.any(Date) },
+        },
+      }),
+    );
   });
 
   it('filters list proposals by explicit ids', async () => {

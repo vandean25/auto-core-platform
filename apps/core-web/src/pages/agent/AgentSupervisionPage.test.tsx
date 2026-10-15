@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   useAgentProposals,
+  useAgentProposalsByIds,
   useApproveAgentProposal,
   useRejectAgentProposal,
 } from '@/api/agent-proposals'
@@ -37,6 +38,7 @@ vi.mock('@/api/decision-shadow-logs', () => ({
 
 vi.mock('@/api/agent-proposals', () => ({
   useAgentProposals: vi.fn(),
+  useAgentProposalsByIds: vi.fn(),
   useApproveAgentProposal: vi.fn(),
   useRejectAgentProposal: vi.fn(),
 }))
@@ -270,6 +272,13 @@ describe('AgentSupervisionPage', () => {
       refetch: mockRefetchProposals,
     } as unknown as ReturnType<typeof useAgentProposals>)
 
+    vi.mocked(useAgentProposalsByIds).mockReturnValue({
+      data: { data: mockProposals },
+      isLoading: false,
+      isError: false,
+      refetch: mockRefetchProposals,
+    } as unknown as ReturnType<typeof useAgentProposalsByIds>)
+
     vi.mocked(useAgentSupervisionTriage).mockReturnValue({
       data: {
         data: triageItemsFromProposals(mockProposals),
@@ -399,12 +408,12 @@ describe('AgentSupervisionPage', () => {
         },
       },
     ]
-    vi.mocked(useAgentProposals).mockReturnValue({
+    vi.mocked(useAgentProposalsByIds).mockReturnValue({
       data: { data: proposals },
       isLoading: false,
       isError: false,
       refetch: mockRefetchProposals,
-    } as unknown as ReturnType<typeof useAgentProposals>)
+    } as unknown as ReturnType<typeof useAgentProposalsByIds>)
     vi.mocked(useAgentSupervisionTriage).mockReturnValue({
       data: {
         data: triageItemsFromProposals(proposals),
@@ -657,12 +666,12 @@ describe('AgentSupervisionPage', () => {
   })
 
   it('renders empty states when there are no proposals or activity records', () => {
-    vi.mocked(useAgentProposals).mockReturnValue({
+    vi.mocked(useAgentProposalsByIds).mockReturnValue({
       data: { data: [] },
       isLoading: false,
       isError: false,
       refetch: mockRefetchProposals,
-    } as unknown as ReturnType<typeof useAgentProposals>)
+    } as unknown as ReturnType<typeof useAgentProposalsByIds>)
     vi.mocked(useAgentSupervisionTriage).mockReturnValue({
       data: { data: [], next_cursor: null },
       isLoading: false,
@@ -722,12 +731,12 @@ describe('AgentSupervisionPage', () => {
     })
 
     const renderWithProposals = (proposals: unknown[]) => {
-      vi.mocked(useAgentProposals).mockReturnValue({
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: { data: proposals },
         isLoading: false,
         isError: false,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: {
           data: triageItemsFromProposals(
@@ -955,12 +964,12 @@ describe('AgentSupervisionPage', () => {
       proposals?: unknown[]
       logs?: unknown[]
     }) => {
-      vi.mocked(useAgentProposals).mockReturnValue({
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: { data: proposals },
         isLoading: false,
         isError: false,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
 
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: {
@@ -1056,17 +1065,25 @@ describe('AgentSupervisionPage', () => {
     })
 
     it('shows who decided on the approval card and keeps the raw id under Show details', () => {
-      renderWith({
-        proposals: [
-          mcpProposal({
-            status: 'APPROVED',
-            decided_by: DECIDER_ID,
-            decided_by_name: 'Sam Supervisor',
-            decided_by_email: 'sam@example.com',
-            decided_at: '2026-10-04T12:05:00.000Z',
-          }),
-        ],
-      })
+      vi.mocked(useAgentProposals).mockReturnValue({
+        data: {
+          data: [
+            mcpProposal({
+              status: 'APPROVED',
+              decided_by: DECIDER_ID,
+              decided_by_name: 'Sam Supervisor',
+              decided_by_email: 'sam@example.com',
+              decided_at: '2026-10-04T12:05:00.000Z',
+            }),
+          ],
+        },
+        isLoading: false,
+        isError: false,
+        refetch: mockRefetchProposals,
+      } as unknown as ReturnType<typeof useAgentProposals>)
+
+      renderSupervisionPage()
+      fireEvent.click(screen.getByTestId('filter-all-btn'))
 
       const card = within(screen.getByTestId('proposal-card-mcp-prop-1'))
       expect(card.getByTestId('decided-by-mcp-prop-1')).toHaveTextContent(
@@ -1121,12 +1138,12 @@ describe('AgentSupervisionPage', () => {
 
   describe('supervision triage inbox (AUT-514)', () => {
     it('shows the empty inbox state when triage returns no items', () => {
-      vi.mocked(useAgentProposals).mockReturnValue({
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: { data: [] },
         isLoading: false,
         isError: false,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: { data: [], next_cursor: null },
         isLoading: false,
@@ -1171,14 +1188,14 @@ describe('AgentSupervisionPage', () => {
         created_at: '2026-01-02T00:00:00.000Z',
         expires_at: sharedDue,
       }
-      vi.mocked(useAgentProposals).mockReturnValue({
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: {
           data: [youngerProposal, olderProposal],
         },
         isLoading: false,
         isError: false,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: {
           data: [
@@ -1232,12 +1249,12 @@ describe('AgentSupervisionPage', () => {
     })
 
     it('still renders approve actions for pending proposals listed via triage', async () => {
-      vi.mocked(useAgentProposals).mockReturnValue({
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: { data: [mockProposals[0]] },
         isLoading: false,
         isError: false,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: {
           data: triageItemsFromProposals([mockProposals[0]]),
@@ -1254,16 +1271,28 @@ describe('AgentSupervisionPage', () => {
       await waitFor(() => expect(mockMutateApprove).toHaveBeenCalledWith('prop-1'))
     })
 
-    it('shows inbox error when proposals fail to load in pending-only mode', () => {
-      vi.mocked(useAgentProposals).mockReturnValue({
+    it('shows a scoped proposals error without hiding other triage rows', () => {
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: undefined,
         isLoading: false,
         isError: true,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: {
-          data: triageItemsFromProposals([mockProposals[0]]),
+          data: [
+            {
+              kind: 'OVERDUE_LOANER',
+              entity_id: 'loaner-1',
+              site_id: 'site-1',
+              reason: 'LOANER_RETURN_OVERDUE',
+              created_at: '2026-01-02T00:00:00.000Z',
+              due_at: '2026-02-01T12:00:00.000Z',
+              record_link: '/workshop/loaner-vehicles',
+              allowed_action: 'OPEN_RECORD',
+            },
+            ...triageItemsFromProposals([mockProposals[0]]),
+          ],
           next_cursor: null,
         },
         isLoading: false,
@@ -1273,7 +1302,13 @@ describe('AgentSupervisionPage', () => {
 
       renderSupervisionPage()
 
-      expect(screen.getByTestId('approvals-error-state')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('approvals-proposals-error-state'),
+      ).toBeInTheDocument()
+      expect(screen.queryByTestId('approvals-error-state')).not.toBeInTheDocument()
+      expect(
+        screen.getByTestId('triage-card-OVERDUE_LOANER-loaner-1'),
+      ).toBeInTheDocument()
     })
 
     it('renders approve actions when triage lists a proposal not in the newest-100 list', async () => {
@@ -1281,12 +1316,12 @@ describe('AgentSupervisionPage', () => {
         ...mockProposals[0],
         id: 'prop-beyond-100',
       }
-      vi.mocked(useAgentProposals).mockReturnValue({
+      vi.mocked(useAgentProposalsByIds).mockReturnValue({
         data: { data: [beyondListProposal] },
         isLoading: false,
         isError: false,
         refetch: mockRefetchProposals,
-      } as unknown as ReturnType<typeof useAgentProposals>)
+      } as unknown as ReturnType<typeof useAgentProposalsByIds>)
       vi.mocked(useAgentSupervisionTriage).mockReturnValue({
         data: {
           data: triageItemsFromProposals([beyondListProposal]),

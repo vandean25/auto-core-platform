@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement, type ReactNode } from 'react'
 import {
   agentProposalKeys,
+  chunkAgentProposalIds,
   useAgentProposals,
+  useAgentProposalsByIds,
   useApproveAgentProposal,
   useRejectAgentProposal,
   type AgentProposal,
@@ -86,6 +88,47 @@ describe('agent-proposals api hooks', () => {
         'detail',
         'prop-123',
       ])
+    })
+  })
+
+  describe('chunkAgentProposalIds', () => {
+    it('splits ids into batches of at most 100', () => {
+      const ids = Array.from({ length: 205 }, (_, index) => `id-${index}`)
+      const chunks = chunkAgentProposalIds(ids)
+      expect(chunks).toHaveLength(3)
+      expect(chunks[0]).toHaveLength(100)
+      expect(chunks[1]).toHaveLength(100)
+      expect(chunks[2]).toHaveLength(5)
+    })
+  })
+
+  describe('useAgentProposalsByIds', () => {
+    it('fetches each id batch and merges proposal rows', async () => {
+      const ids = Array.from({ length: 101 }, (_, index) => `prop-${index}`)
+      const firstBatch = ids.slice(0, 100).map((id) => ({
+        ...mockProposal,
+        id,
+      }))
+      const secondBatch = [{ ...mockProposal, id: ids[100] }]
+
+      vi.mocked(fetchWithAuth)
+        .mockResolvedValueOnce(createJsonResponse({ data: firstBatch }))
+        .mockResolvedValueOnce(createJsonResponse({ data: secondBatch }))
+
+      const queryClient = createQueryClient()
+      const wrapper = createWrapper(queryClient)
+
+      const { result } = renderHook(() => useAgentProposalsByIds(ids), {
+        wrapper,
+      })
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false)
+      })
+
+      expect(fetchWithAuth).toHaveBeenCalledTimes(2)
+      expect(result.current.data?.data).toHaveLength(101)
+      expect(result.current.isError).toBe(false)
     })
   })
 
