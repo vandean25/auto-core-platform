@@ -199,7 +199,7 @@ Unknown tools are not registered, and invalid arguments are rejected by closed s
 
 Every tool publishes an `outputSchema`, and the server checks each successful result against it. Read the schema before you rely on a field. Two shapes recur:
 
-- **Pages.** A keyset list returns `data`, `meta.next_cursor`, and `truncated`. When rows were dropped to fit the size cap, `truncated` is `true`; ask for the next page with the cursor. Offset and report lists return `meta` with `total` and a cursor.
+- **Pages.** A keyset list returns `data`, `meta.next_cursor`, and `truncated`. When rows were dropped to fit the size cap, `truncated` is `true`; ask for the next page with the cursor. Offset lists return `meta` with `total` and `page` and no cursor; use `page` to move through them. Report and capability lists return `meta` with `total` and `next_cursor`.
 - **Truncation.** A result that is still over the cap is replaced by `__truncated__: true`, with `originalBytes` and a `preview` of the serialized start. Narrow the query or page through it; do not ask for an unbounded result.
 
 A write result has a `status`. `executed` means the write ran, and `result` holds the committed row. `needs_approval` means a pending proposal was stored under `pending_action_id`, and nothing ran. A refused call is a tool error, not a result.
