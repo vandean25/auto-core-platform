@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   LANDING_DEMO_EMAIL_FOR_SIGN_IN_STORAGE_KEY,
+  clearFirebaseEmailLinkQueryParams,
   clearStoredLandingDemoEmail,
   describeLandingDemoEmailLinkError,
   isDemoGrantSessionErrorMessage,
   isFirebaseEmailLinkSignInUrl,
+  isLandingDemoEmailLinkExpiredError,
+  landingDemoEmailLinkRetryMessageDe,
   readStoredLandingDemoEmail,
   storeLandingDemoEmailForSignIn,
 } from '@/auth/landing-demo-email-link'
@@ -58,5 +61,29 @@ describe('landing-demo email-link errors', () => {
     expect(
       describeLandingDemoEmailLinkError({ code: 'auth/invalid-action-code' }),
     ).toContain('abgelaufen')
+    expect(isLandingDemoEmailLinkExpiredError({ code: 'auth/invalid-action-code' })).toBe(true)
+  })
+
+  it('maps network failures to a distinct retry message', () => {
+    expect(describeLandingDemoEmailLinkError({ code: 'auth/network-request-failed' })).toBe(
+      landingDemoEmailLinkRetryMessageDe(),
+    )
+    expect(isLandingDemoEmailLinkExpiredError({ code: 'auth/network-request-failed' })).toBe(false)
+  })
+})
+
+describe('clearFirebaseEmailLinkQueryParams', () => {
+  it('strips Firebase email-link query parameters from the browser URL', () => {
+    const replaceState = vi.fn()
+    vi.stubGlobal('history', { ...globalThis.history, replaceState })
+
+    const next = clearFirebaseEmailLinkQueryParams(
+      'https://app.example/login?mode=signIn&oobCode=abc&apiKey=k&foo=bar',
+    )
+
+    expect(next).toBe('/login?foo=bar')
+    expect(replaceState).toHaveBeenCalled()
+
+    vi.unstubAllGlobals()
   })
 })

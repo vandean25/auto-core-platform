@@ -67,25 +67,59 @@ export function isDemoGrantSessionErrorMessage(message: string): boolean {
   return message.includes(DEMO_GRANT_SESSION_ERROR_EN)
 }
 
+const FIREBASE_EMAIL_LINK_QUERY_KEYS = [
+  'mode',
+  'oobCode',
+  'apiKey',
+  'lang',
+  'continueUrl',
+  'oobLink',
+] as const
+
+function readFirebaseAuthErrorCode(error: unknown): string {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return ''
+  }
+
+  return String((error as { code?: string }).code ?? '')
+}
+
+export function isLandingDemoEmailLinkExpiredError(error: unknown): boolean {
+  const code = readFirebaseAuthErrorCode(error)
+  return code === 'auth/invalid-action-code' || code === 'auth/expired-action-code'
+}
+
+export function landingDemoEmailLinkRetryMessageDe(): string {
+  return 'Die Anmeldung ist fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.'
+}
+
+export function clearFirebaseEmailLinkQueryParams(href = globalThis.location.href): string {
+  const url = new URL(href)
+  for (const key of FIREBASE_EMAIL_LINK_QUERY_KEYS) {
+    url.searchParams.delete(key)
+  }
+
+  const nextPath = `${url.pathname}${url.search}${url.hash}`
+  globalThis.history.replaceState(globalThis.history.state, '', nextPath)
+  return nextPath
+}
+
 export function describeLandingDemoEmailLinkError(error: unknown): string {
-  const code =
-    error && typeof error === 'object' && 'code' in error
-      ? String((error as { code?: string }).code ?? '')
-      : ''
+  const code = readFirebaseAuthErrorCode(error)
 
   if (code === 'auth/missing-email') {
     return 'Bitte geben Sie die E-Mail-Adresse ein, mit der Sie die Demo angefordert haben.'
   }
 
-  if (
-    code === 'auth/invalid-action-code' ||
-    code === 'auth/expired-action-code' ||
-    code === 'auth/invalid-email'
-  ) {
+  if (isLandingDemoEmailLinkExpiredError(error)) {
     return expiredOrUsedLinkMessageDe()
   }
 
-  return expiredOrUsedLinkMessageDe()
+  if (code === 'auth/invalid-email') {
+    return 'Bitte geben Sie die E-Mail-Adresse ein, mit der Sie die Demo angefordert haben.'
+  }
+
+  return landingDemoEmailLinkRetryMessageDe()
 }
 
 export function expiredOrUsedLinkMessageDe(): string {

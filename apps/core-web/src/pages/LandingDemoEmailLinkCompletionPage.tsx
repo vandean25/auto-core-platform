@@ -1,19 +1,32 @@
 import * as React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { completeLandingDemoEmailLinkSignIn } from '@/auth/completeLandingDemoEmailLinkSignIn'
 import {
+  clearFirebaseEmailLinkQueryParams,
   describeLandingDemoEmailLinkError,
   isFirebaseEmailLinkSignInUrl,
+  isLandingDemoEmailLinkExpiredError,
   readStoredLandingDemoEmail,
   resolveLandingDemoAccessUrl,
 } from '@/auth/landing-demo-email-link'
+import { warmLandingDemoAuthSession } from '@/auth/warmLandingDemoAuthSession'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 import { firebaseConfigMissing } from '@/lib/firebase'
 
 type CompletionPhase = 'completing' | 'needs-email' | 'error'
+
+/** Survives StrictMode remount so Firebase oob codes are not consumed twice. */
+const autoCompletionStartedForHref = new Set<string>()
+
+/** @internal test-only */
+export function resetLandingDemoAutoCompletionGuardForTests() {
+  autoCompletionStartedForHref.clear()
+}
 
 function RequestNewDemoLinkAction() {
   const landingUrl = resolveLandingDemoAccessUrl()
@@ -36,40 +49,61 @@ function RequestNewDemoLinkAction() {
 }
 
 export default function LandingDemoEmailLinkCompletionPage() {
+  const navigate = useNavigate()
   const [phase, setPhase] = React.useState<CompletionPhase>('completing')
   const [email, setEmail] = React.useState(() => readStoredLandingDemoEmail() ?? '')
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [showRequestNewLink, setShowRequestNewLink] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
 
   const emailLinkUrl = typeof globalThis.location !== 'undefined' ? globalThis.location.href : ''
+  const completionInFlightRef = React.useRef(false)
 
   const runCompletion = React.useCallback(
     async (resolvedEmail: string) => {
+      if (completionInFlightRef.current) {
+        return
+      }
+
+      completionInFlightRef.current = true
       setSubmitting(true)
       setErrorMessage(null)
+      setShowRequestNewLink(false)
 
       try {
         await completeLandingDemoEmailLinkSignIn(resolvedEmail, emailLinkUrl)
+        clearFirebaseEmailLinkQueryParams(emailLinkUrl)
+        await warmLandingDemoAuthSession()
+        navigate(APP_ROUTE_PATHS.inventory, { replace: true })
       } catch (error) {
+        autoCompletionStartedForHref.delete(emailLinkUrl)
         setPhase('error')
         setErrorMessage(describeLandingDemoEmailLinkError(error))
+        setShowRequestNewLink(isLandingDemoEmailLinkExpiredError(error))
       } finally {
+        completionInFlightRef.current = false
         setSubmitting(false)
       }
     },
-    [emailLinkUrl],
+    [emailLinkUrl, navigate],
   )
 
   React.useEffect(() => {
     if (firebaseConfigMissing || !isFirebaseEmailLinkSignInUrl(emailLinkUrl)) {
       setPhase('error')
       setErrorMessage('Dieser Anmeldelink ist ungültig oder die Anmeldung ist nicht konfiguriert.')
+      setShowRequestNewLink(false)
       return
     }
 
     const storedEmail = readStoredLandingDemoEmail()
     if (storedEmail) {
       setEmail(storedEmail)
+      if (autoCompletionStartedForHref.has(emailLinkUrl)) {
+        return
+      }
+
+      autoCompletionStartedForHref.add(emailLinkUrl)
       void runCompletion(storedEmail)
       return
     }
@@ -140,7 +174,21 @@ export default function LandingDemoEmailLinkCompletionPage() {
               <Alert variant="destructive">
                 <AlertDescription>{errorMessage}</AlertDescription>
               </Alert>
-              <RequestNewDemoLinkAction />
+              {showRequestNewLink ? <RequestNewDemoLinkAction /> : null}
+              {!showRequestNewLink && phase === 'error' ? (
+                <Button
+                  className="w-full"
+                  disabled={submitting}
+                  onClick={() => {
+                    setPhase('needs-email')
+                    setErrorMessage(null)
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  Erneut versuchen
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </CardContent>
