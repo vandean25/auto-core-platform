@@ -30275,6 +30275,10 @@
               "REQUIRED_ACP_RKSV"
             ]
           },
+          "siteTimezone": {
+            "type": "string",
+            "example": "Europe/Vienna"
+          },
           "payment": {
             "nullable": true,
             "type": "object",

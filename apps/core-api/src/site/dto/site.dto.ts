@@ -347,6 +347,9 @@ export class UpdateSiteFiscalRegisterDto {
   @IsOptional()
   @IsString()
   @MaxLength(256)
+  @Matches(/^[a-zA-Z0-9/._:-]+$/, {
+    message: 'credentialsSecretRef must be an opaque secret reference path.',
+  })
   credentialsSecretRef?: string | null;
 }
 

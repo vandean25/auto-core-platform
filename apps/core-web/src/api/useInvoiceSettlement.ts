@@ -33,6 +33,7 @@ export type SettlementResponse = {
   invoiceId: string
   invoiceStatus: string
   rksvMode?: 'OFF' | 'UNKNOWN' | 'REQUIRED_EXTERNAL_KASSE' | 'REQUIRED_ACP_RKSV'
+  siteTimezone?: string
   payment: SettlementPaymentSummary | null
 }
 

@@ -356,6 +356,7 @@ export default function InvoiceDetailPage() {
           totalGross={toNumber(invoice.total_gross)}
           payment={settlement?.payment}
           rksvMode={settlement?.rksvMode}
+          siteTimezone={settlement?.siteTimezone}
         />
       ) : null}
 

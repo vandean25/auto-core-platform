@@ -45,6 +45,7 @@ import type { CancelFiscalReceiptDto } from './dto/record-settlement.dto.js';
 import {
   isDefiniteProviderRejection,
   isProviderHttpSuccess,
+  isProviderRateLimited,
   isProviderTransportFailure,
   markCancellationSignedAndReverse,
   markFiscalReceiptRejected,
@@ -54,6 +55,9 @@ import {
   providerErrorCode,
 } from './settlement-provider.helpers.js';
 import { FISKALY_SIGN_AT_PROVIDER_ID } from './settlement.constants.js';
+import { DashboardRealtimeService } from '../dashboard-realtime/dashboard-realtime.service.js';
+
+const PROVIDER_SIGN_RETRY_DELAYS_MS = [200, 400, 800];
 
 @Injectable()
 export class SettlementService {
@@ -61,6 +65,7 @@ export class SettlementService {
     private readonly prisma: PrismaService,
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
+    private readonly dashboardRealtime: DashboardRealtimeService,
     @Inject(FISKALY_SIGN_AT_PROVIDER)
     private readonly fiskalyProvider: FiskalySignAtProvider,
   ) {}
@@ -76,6 +81,10 @@ export class SettlementService {
       },
       select: { rksv_mode: true },
     });
+    const site = await this.prisma.site.findFirst({
+      where: { tenant_id: tenantId, id: siteId },
+      select: { timezone: true },
+    });
     const payment = await this.prisma.payment.findFirst({
       where: { tenant_id: tenantId, invoice_id: invoiceId },
       orderBy: { createdAt: 'desc' },
@@ -83,6 +92,7 @@ export class SettlementService {
     });
     return mapSettlementResponse(invoice, payment, {
       rksvMode: legalEntity?.rksv_mode,
+      siteTimezone: site?.timezone,
     });
   }
 
@@ -139,6 +149,7 @@ export class SettlementService {
         if (openReceipt) {
           await this.syncOpenFiscalReceipt(
             tenantId,
+            siteId,
             invoice,
             existingByKey,
             openReceipt,
@@ -248,7 +259,13 @@ export class SettlementService {
         message: 'No PENDING or UNKNOWN fiscal receipt to reconcile.',
       });
     }
-    await this.syncOpenFiscalReceipt(tenantId, invoice, payment, openReceipt);
+    await this.syncOpenFiscalReceipt(
+      tenantId,
+      siteId,
+      invoice,
+      payment,
+      openReceipt,
+    );
     const refreshed = await this.prisma.payment.findFirstOrThrow({
       where: { id: payment.id, tenant_id: tenantId },
       include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
@@ -320,17 +337,32 @@ export class SettlementService {
       },
       include: {
         payment: {
-          include: { fiscal_receipts: { orderBy: { createdAt: 'asc' } } },
+          include: {
+            invoice: true,
+            fiscal_receipts: { orderBy: { createdAt: 'asc' } },
+          },
         },
       },
     });
     if (existingByCancelKey) {
+      if (
+        existingByCancelKey.payment_id !== original.payment_id ||
+        existingByCancelKey.payment.invoice_id !== invoice.id ||
+        existingByCancelKey.payment.invoice.site_id !== siteId
+      ) {
+        throw new ConflictException({
+          code: SETTLEMENT_ERROR_CODES.IDEMPOTENCY_MISMATCH,
+          message:
+            'This cancellation idempotency key belongs to a different receipt.',
+        });
+      }
       if (
         existingByCancelKey.state === FiscalReceiptState.PENDING ||
         existingByCancelKey.state === FiscalReceiptState.UNKNOWN
       ) {
         await this.syncOpenFiscalReceipt(
           tenantId,
+          siteId,
           invoice,
           existingByCancelKey.payment,
           existingByCancelKey,
@@ -401,6 +433,7 @@ export class SettlementService {
 
     await this.invokeProviderSign({
       tenantId,
+      siteId: register.site_id,
       invoiceId: original.payment.invoice_id,
       paymentId: original.payment_id,
       fiscalReceiptId: allocated.id,
@@ -591,6 +624,7 @@ export class SettlementService {
 
     await this.invokeProviderSign({
       tenantId: params.tenantId,
+      siteId: register.site_id,
       invoiceId: params.invoice.id,
       paymentId: allocated.payment.id,
       fiscalReceiptId: allocated.fiscalReceipt.id,
@@ -615,6 +649,7 @@ export class SettlementService {
 
   private async invokeProviderSign(params: {
     tenantId: string;
+    siteId: string;
     invoiceId: string;
     paymentId: string;
     fiscalReceiptId: string;
@@ -624,11 +659,12 @@ export class SettlementService {
     isCancellation: boolean;
     registerEnv: FiscalRegisterEnv;
   }) {
-    const result = await this.fiskalyProvider.signReceipt({
+    const result = await this.signReceiptWithRateLimitRetry({
       cashRegisterId: params.cashRegisterId,
       receiptId: params.providerReceiptId,
       body: params.requestBody,
     });
+    const touchPayment = !params.isCancellation;
 
     if (isProviderHttpSuccess(result)) {
       assertProductiveReceiptEnv(params.registerEnv, result.body);
@@ -670,8 +706,15 @@ export class SettlementService {
           providerRequestId:
             result.kind === 'http' ? result.requestId : undefined,
           providerErrorCode: providerErrorCode(result),
+          touchPayment,
         });
       });
+      if (!touchPayment) {
+        this.emitFiscalReceiptRealtime(params.tenantId, params.siteId, {
+          fiscalReceiptId: params.fiscalReceiptId,
+          status: FiscalReceiptState.REJECTED,
+        });
+      }
       return;
     }
 
@@ -685,13 +728,51 @@ export class SettlementService {
           tenantId: params.tenantId,
           paymentId: params.paymentId,
           fiscalReceiptId: params.fiscalReceiptId,
+          touchPayment,
         });
       });
+      if (!touchPayment) {
+        this.emitFiscalReceiptRealtime(params.tenantId, params.siteId, {
+          fiscalReceiptId: params.fiscalReceiptId,
+          status: FiscalReceiptState.UNKNOWN,
+        });
+      }
     }
+  }
+
+  private async signReceiptWithRateLimitRetry(params: {
+    cashRegisterId: string;
+    receiptId: string;
+    body: Record<string, unknown>;
+  }) {
+    let result = await this.fiskalyProvider.signReceipt(params);
+    for (const delayMs of PROVIDER_SIGN_RETRY_DELAYS_MS) {
+      if (!isProviderRateLimited(result)) {
+        return result;
+      }
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      result = await this.fiskalyProvider.signReceipt(params);
+    }
+    return result;
+  }
+
+  private emitFiscalReceiptRealtime(
+    tenantId: string,
+    siteId: string,
+    params: { fiscalReceiptId: string; status: string },
+  ): void {
+    this.dashboardRealtime.emitEntityUpdated(tenantId, {
+      type: 'FISCAL_RECEIPT',
+      action: 'UPDATED',
+      entityId: params.fiscalReceiptId,
+      siteId,
+      status: params.status,
+    });
   }
 
   private async syncOpenFiscalReceipt(
     tenantId: string,
+    siteId: string,
     invoice: { id: string; legal_entity_id: string | null },
     payment: { id: string },
     fiscalReceipt: {
@@ -712,6 +793,8 @@ export class SettlementService {
       });
     }
     this.assertRegisterLegalEntity(register, invoice);
+    const touchPayment =
+      fiscalReceipt.receipt_type !== FiscalReceiptType.CANCELLATION;
 
     const retrieve = await this.fiskalyProvider.retrieveReceipt({
       cashRegisterId: register.provider_cash_register_id,
@@ -751,7 +834,7 @@ export class SettlementService {
       retrieve.status === 404 &&
       providerErrorCode(retrieve) === 'E_RECEIPT_NOT_FOUND'
     ) {
-      const put = await this.fiskalyProvider.signReceipt({
+      const put = await this.signReceiptWithRateLimitRetry({
         cashRegisterId: register.provider_cash_register_id,
         receiptId: fiscalReceipt.provider_receipt_id,
         body: fiscalReceipt.request_body as Record<string, unknown>,
@@ -792,8 +875,15 @@ export class SettlementService {
             providerHttpStatus: put.kind === 'http' ? put.status : 400,
             providerRequestId: put.kind === 'http' ? put.requestId : undefined,
             providerErrorCode: providerErrorCode(put),
+            touchPayment,
           });
         });
+        if (!touchPayment) {
+          this.emitFiscalReceiptRealtime(tenantId, siteId, {
+            fiscalReceiptId: fiscalReceipt.id,
+            status: FiscalReceiptState.REJECTED,
+          });
+        }
       } else if (
         isProviderTransportFailure(put) ||
         (put.kind === 'http' && (put.status >= 500 || put.status === 408))
@@ -803,8 +893,15 @@ export class SettlementService {
             tenantId,
             paymentId: payment.id,
             fiscalReceiptId: fiscalReceipt.id,
+            touchPayment,
           });
         });
+        if (!touchPayment) {
+          this.emitFiscalReceiptRealtime(tenantId, siteId, {
+            fiscalReceiptId: fiscalReceipt.id,
+            status: FiscalReceiptState.UNKNOWN,
+          });
+        }
       }
       return;
     }

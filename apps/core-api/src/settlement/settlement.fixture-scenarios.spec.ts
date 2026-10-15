@@ -93,6 +93,36 @@ describe('Settlement fixture scenarios (fake fiskaly)', () => {
     });
   });
 
+  it('stores signed false outage response once without a second PUT', async () => {
+    server.configure({
+      putBehavior: 'success',
+      successBodyTemplate: {
+        signed: false,
+        hints: ['Sicherheitseinrichtung ausgefallen'],
+        _env: 'TEST',
+        receipt_number: '99',
+      },
+    });
+    const receiptId = fixtures.ids.normalReceiptId;
+    const first = await provider.signReceipt({
+      cashRegisterId: fixtures.ids.cashRegisterId,
+      receiptId,
+      body: fixtures.normalBody,
+    });
+    const second = await provider.signReceipt({
+      cashRegisterId: fixtures.ids.cashRegisterId,
+      receiptId,
+      body: fixtures.normalBody,
+    });
+    expect(first.kind).toBe('http');
+    expect(second.kind).toBe('http');
+    if (first.kind === 'http' && second.kind === 'http') {
+      expect(first.body?.signed).toBe(false);
+      expect(second.body?.signed).toBe(false);
+    }
+    expect(server.calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
+  });
+
   it('lists every fixture case id for traceability', () => {
     const ids = fixtures.cases.map((caseRow) => caseRow.id);
     expect(ids).toEqual(

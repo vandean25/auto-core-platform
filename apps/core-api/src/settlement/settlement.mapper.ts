@@ -36,6 +36,7 @@ export type SettlementResponseDto = {
   invoiceId: string;
   invoiceStatus: string;
   rksvMode?: string;
+  siteTimezone?: string;
   payment: SettlementPaymentSummaryDto | null;
 };
 
@@ -90,12 +91,13 @@ export function mapFiscalReceiptSummary(
 export function mapSettlementResponse(
   invoice: Invoice,
   payment: (Payment & { fiscal_receipts: FiscalReceipt[] }) | null,
-  options?: { rksvMode?: string },
+  options?: { rksvMode?: string; siteTimezone?: string },
 ): SettlementResponseDto {
   return {
     invoiceId: invoice.id,
     invoiceStatus: invoice.status,
     rksvMode: options?.rksvMode,
+    siteTimezone: options?.siteTimezone,
     payment: payment
       ? {
           id: payment.id,

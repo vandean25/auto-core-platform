@@ -42,15 +42,25 @@ export function InvoiceSettlementActions({
     (receipt) => receipt.receiptType === 'NORMAL' && receipt.state === 'SIGNED',
   )
 
-  const reconcile = useReconcileSettlement(
-    invoiceId,
-    payment?.status === 'PENDING' || payment?.status === 'UNKNOWN'
-      ? payment.idempotencyKey
-      : undefined,
+  const hasOpenReceipt = payment?.fiscalReceipts.some(
+    (receipt) => receipt.state === 'PENDING' || receipt.state === 'UNKNOWN',
   )
 
-  if (!canManage || rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
+  const reconcile = useReconcileSettlement(
+    invoiceId,
+    hasOpenReceipt ? payment?.idempotencyKey : undefined,
+  )
+
+  if (!canManage) {
     return null
+  }
+
+  if (rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
+    return (
+      <p className="max-w-sm text-right text-xs text-slate-500">
+        Fiscal settlement is off for this legal entity.
+      </p>
+    )
   }
 
   if (invoiceStatus !== 'ISSUED' && invoiceStatus !== 'PAID') {
@@ -66,8 +76,7 @@ export function InvoiceSettlementActions({
         payment.status !== 'SETTLED' &&
         payment.status !== 'SETTLED_EXTERNAL'))
 
-  const showReconcile =
-    payment && (payment.status === 'PENDING' || payment.status === 'UNKNOWN')
+  const showReconcile = Boolean(payment && hasOpenReceipt)
 
   const showCancel =
     invoiceStatus === 'PAID' &&

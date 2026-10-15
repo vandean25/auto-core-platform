@@ -76,6 +76,9 @@ export class SettlementResponseDto {
   })
   rksvMode?: string;
 
+  @ApiPropertyOptional({ example: 'Europe/Vienna' })
+  siteTimezone?: string;
+
   @ApiPropertyOptional({ type: SettlementPaymentSummaryDto, nullable: true })
   payment!: SettlementPaymentSummaryDto | null;
 }

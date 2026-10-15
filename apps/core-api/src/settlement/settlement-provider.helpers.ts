@@ -33,6 +33,12 @@ export function isDefiniteProviderRejection(
   return result.kind === 'http' && result.status === 400;
 }
 
+export function isProviderRateLimited(
+  result: FiskalySignAtProviderResult,
+): boolean {
+  return result.kind === 'http' && result.status === 429;
+}
+
 export function assertProductiveReceiptEnv(
   registerEnv: FiscalRegisterEnv,
   response: Record<string, unknown>,
@@ -68,10 +74,12 @@ export async function markFiscalReceiptSignedAndPaid(
     providerErrorCode?: string | null;
   },
 ): Promise<void> {
-  await tx.fiscalReceipt.updateMany({
+  await tx.fiscalReceipt.update({
     where: {
-      id: params.fiscalReceiptId,
-      tenant_id: params.tenantId,
+      tenant_id_id: {
+        tenant_id: params.tenantId,
+        id: params.fiscalReceiptId,
+      },
     },
     data: {
       state: FiscalReceiptState.SIGNED,
@@ -82,8 +90,13 @@ export async function markFiscalReceiptSignedAndPaid(
     },
   });
 
-  await tx.payment.updateMany({
-    where: { id: params.paymentId, tenant_id: params.tenantId },
+  await tx.payment.update({
+    where: {
+      tenant_id_id: {
+        tenant_id: params.tenantId,
+        id: params.paymentId,
+      },
+    },
     data: { status: PaymentStatus.SETTLED },
   });
 
@@ -106,10 +119,16 @@ export async function markFiscalReceiptRejected(
     providerHttpStatus: number;
     providerRequestId?: string;
     providerErrorCode?: string | null;
+    touchPayment?: boolean;
   },
 ): Promise<void> {
-  await tx.fiscalReceipt.updateMany({
-    where: { id: params.fiscalReceiptId, tenant_id: params.tenantId },
+  await tx.fiscalReceipt.update({
+    where: {
+      tenant_id_id: {
+        tenant_id: params.tenantId,
+        id: params.fiscalReceiptId,
+      },
+    },
     data: {
       state: FiscalReceiptState.REJECTED,
       response_body: params.response as Prisma.InputJsonValue,
@@ -118,10 +137,17 @@ export async function markFiscalReceiptRejected(
       provider_error_code: params.providerErrorCode ?? null,
     },
   });
-  await tx.payment.updateMany({
-    where: { id: params.paymentId, tenant_id: params.tenantId },
-    data: { status: PaymentStatus.REJECTED },
-  });
+  if (params.touchPayment !== false) {
+    await tx.payment.update({
+      where: {
+        tenant_id_id: {
+          tenant_id: params.tenantId,
+          id: params.paymentId,
+        },
+      },
+      data: { status: PaymentStatus.REJECTED },
+    });
+  }
 }
 
 export async function markFiscalReceiptUnknown(
@@ -130,16 +156,29 @@ export async function markFiscalReceiptUnknown(
     tenantId: string;
     paymentId: string;
     fiscalReceiptId: string;
+    touchPayment?: boolean;
   },
 ): Promise<void> {
-  await tx.fiscalReceipt.updateMany({
-    where: { id: params.fiscalReceiptId, tenant_id: params.tenantId },
+  await tx.fiscalReceipt.update({
+    where: {
+      tenant_id_id: {
+        tenant_id: params.tenantId,
+        id: params.fiscalReceiptId,
+      },
+    },
     data: { state: FiscalReceiptState.UNKNOWN },
   });
-  await tx.payment.updateMany({
-    where: { id: params.paymentId, tenant_id: params.tenantId },
-    data: { status: PaymentStatus.UNKNOWN },
-  });
+  if (params.touchPayment !== false) {
+    await tx.payment.update({
+      where: {
+        tenant_id_id: {
+          tenant_id: params.tenantId,
+          id: params.paymentId,
+        },
+      },
+      data: { status: PaymentStatus.UNKNOWN },
+    });
+  }
 }
 
 export async function markCancellationSignedAndReverse(
@@ -154,8 +193,13 @@ export async function markCancellationSignedAndReverse(
     providerRequestId?: string;
   },
 ): Promise<void> {
-  await tx.fiscalReceipt.updateMany({
-    where: { id: params.fiscalReceiptId, tenant_id: params.tenantId },
+  await tx.fiscalReceipt.update({
+    where: {
+      tenant_id_id: {
+        tenant_id: params.tenantId,
+        id: params.fiscalReceiptId,
+      },
+    },
     data: {
       state: FiscalReceiptState.SIGNED,
       response_body: params.response as Prisma.InputJsonValue,
@@ -163,8 +207,13 @@ export async function markCancellationSignedAndReverse(
       provider_request_id: params.providerRequestId ?? null,
     },
   });
-  await tx.payment.updateMany({
-    where: { id: params.paymentId, tenant_id: params.tenantId },
+  await tx.payment.update({
+    where: {
+      tenant_id_id: {
+        tenant_id: params.tenantId,
+        id: params.paymentId,
+      },
+    },
     data: { status: PaymentStatus.REVERSED },
   });
   await guardedStatusUpdate(bindStatusUpdateMany(tx.invoice), {

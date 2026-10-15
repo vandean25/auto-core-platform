@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { SiteModule } from '../site/site.module.js';
 import { CommonModule } from '../common/index.js';
+import { DashboardRealtimeModule } from '../dashboard-realtime/dashboard-realtime.module.js';
 import { SettlementService } from './settlement.service.js';
 import {
   SettlementController,
@@ -13,7 +14,7 @@ import { FiskalySignAtHttpAdapter } from './fiskaly-sign-at-http.adapter.js';
 import { isFiskalySignAtLiveEnabled } from './settlement.constants.js';
 
 @Module({
-  imports: [PrismaModule, SiteModule, CommonModule],
+  imports: [PrismaModule, SiteModule, CommonModule, DashboardRealtimeModule],
   controllers: [SettlementController, FiscalReceiptsController],
   providers: [
     SettlementService,

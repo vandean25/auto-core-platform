@@ -3,26 +3,37 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { FiscalReceiptSummary, SettlementPaymentSummary } from '@/api/useInvoiceSettlement'
 import { SettlementReceiptQr } from '@/components/finance/SettlementReceiptQr'
 
-const SITE_TIMEZONE = 'Europe/Vienna'
-
-function formatRksvTimestamp(timeSignature: number | null): string | null {
+function formatRksvTimestamp(
+  timeSignature: number | null,
+  timeZone: string,
+): string | null {
   if (!timeSignature) return null
-  return new Intl.DateTimeFormat('de-AT', {
-    timeZone: SITE_TIMEZONE,
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-  }).format(new Date(timeSignature * 1000))
+    hour12: false,
+  }).formatToParts(new Date(timeSignature * 1000))
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  return `${pick('year')}-${pick('month')}-${pick('day')} ${pick('hour')}:${pick('minute')}:${pick('second')}`
 }
 
-function SignedReceiptDetails({ receipt }: { receipt: FiscalReceiptSummary }) {
+function SignedReceiptDetails({
+  receipt,
+  timeZone,
+}: {
+  receipt: FiscalReceiptSummary
+  timeZone: string
+}) {
   const outage =
     receipt.signed === false ||
     receipt.hints?.includes('Sicherheitseinrichtung ausgefallen')
-  const rksvDate = formatRksvTimestamp(receipt.timeSignature)
+  const rksvDate = formatRksvTimestamp(receipt.timeSignature, timeZone)
 
   return (
     <div className="space-y-3 rounded-md border p-4 text-sm text-slate-700">
@@ -43,9 +54,15 @@ type Props = {
   totalGross: number
   payment: SettlementPaymentSummary | null | undefined
   rksvMode?: string
+  siteTimezone?: string
 }
 
-export function InvoiceSettlementPanel({ totalGross, payment, rksvMode }: Props) {
+export function InvoiceSettlementPanel({
+  totalGross,
+  payment,
+  rksvMode,
+  siteTimezone = 'Europe/Vienna',
+}: Props) {
   const signedReceipt = payment?.fiscalReceipts.find(
     (receipt) => receipt.state === 'SIGNED' && receipt.qrCodeData,
   )
@@ -54,7 +71,19 @@ export function InvoiceSettlementPanel({ totalGross, payment, rksvMode }: Props)
   )
 
   if (rksvMode === 'OFF' || rksvMode === 'UNKNOWN') {
-    return null
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Settlement</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-slate-600">
+            The fiscal settlement path is off for this legal entity. No RKSV or external Kasse
+            action is available for the pilot customer invoice.
+          </p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -74,7 +103,7 @@ export function InvoiceSettlementPanel({ totalGross, payment, rksvMode }: Props)
         <p className="text-sm text-slate-500">
           Full EUR settlement ({totalGross.toFixed(2)}) for the pilot customer workshop invoice.
         </p>
-        {payment && (payment.status === 'PENDING' || payment.status === 'UNKNOWN') ? (
+        {openReceipt ? (
           <p className="text-sm text-slate-600">
             The same provider receipt id is read with GET before any new sign. Use Reconcile to
             finish this attempt.
@@ -86,7 +115,9 @@ export function InvoiceSettlementPanel({ totalGross, payment, rksvMode }: Props)
             when you confirm settlement.
           </p>
         ) : null}
-        {signedReceipt ? <SignedReceiptDetails receipt={signedReceipt} /> : null}
+        {signedReceipt ? (
+          <SignedReceiptDetails receipt={signedReceipt} timeZone={siteTimezone} />
+        ) : null}
       </CardContent>
     </Card>
   )
