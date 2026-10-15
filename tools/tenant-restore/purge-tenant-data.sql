@@ -97,6 +97,7 @@ VALUES
   ('workshop_orders'),
   ('loaner_bookings'),
   ('notification_outbox'),
+  ('registration_document_intakes'),
   ('sales_order_items'),
   ('tyre_set_events'),
   ('vehicle_sales'),
@@ -105,6 +106,7 @@ VALUES
   ('workshop_tasks'),
   ('invoices'),
   ('labor_entries'),
+  ('registration_intake_byte_purges'),
   ('vehicle_ledger_entries'),
   ('workshop_estimate_versions'),
   ('workshop_inspections'),
@@ -319,6 +321,14 @@ VALUES
   ('purchase_orders', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('purchase_orders', 'vendors', 'vendor_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('registration_document_intakes', 'customers', 'applied_customer_id', 'id', 'SET NULL', 'CASCADE'),
+  ('registration_document_intakes', 'sites', 'tenant_id,site_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('registration_document_intakes', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('registration_document_intakes', 'users', 'captured_by_user_id', 'id', 'RESTRICT', 'CASCADE'),
+  ('registration_document_intakes', 'vehicles', 'applied_vehicle_id', 'id', 'SET NULL', 'CASCADE'),
+  ('registration_document_intakes', 'workshop_orders', 'applied_workshop_order_id', 'id', 'SET NULL', 'CASCADE'),
+  ('registration_intake_byte_purges', 'registration_document_intakes', 'tenant_id,intake_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('registration_intake_byte_purges', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('revenue_groups', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('sales_order_items', 'catalog_items', 'catalog_item_id', 'id', 'SET NULL', 'CASCADE'),
   ('sales_order_items', 'sales_orders', 'sales_order_id', 'id', 'CASCADE', 'CASCADE'),
@@ -686,6 +696,8 @@ DELETE FROM public."workshop_estimate_versions"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."vehicle_ledger_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."registration_intake_byte_purges"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."labor_entries"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."invoices"
@@ -701,6 +713,8 @@ WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."tyre_set_events"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."sales_order_items"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."registration_document_intakes"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."notification_outbox"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

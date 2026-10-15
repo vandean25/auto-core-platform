@@ -8,15 +8,29 @@ import { SiteContextService } from '../site/site-context.service.js';
 describe('CustomerService', () => {
   let service: CustomerService;
 
+  const registrationDocumentIntake = {
+    findMany: jest.fn().mockResolvedValue([]),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+  };
+  const customer = {
+    findUnique: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    deleteMany: jest.fn(),
+  };
   const mockPrisma = {
-    customer: {
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-      deleteMany: jest.fn(),
-    },
+    registrationDocumentIntake,
+    customer,
+    $transaction: jest.fn(
+      async (
+        fn: (tx: {
+          registrationDocumentIntake: typeof registrationDocumentIntake;
+          customer: typeof customer;
+        }) => Promise<unknown>,
+      ) => fn({ registrationDocumentIntake, customer }),
+    ),
     salesOrder: { count: jest.fn() },
     invoice: { count: jest.fn() },
     workshopOrder: { count: jest.fn() },
@@ -207,7 +221,7 @@ describe('CustomerService', () => {
 
     await service.remove('c-1');
 
-    expect(mockPrisma.customer.deleteMany).toHaveBeenCalledWith({
+    expect(customer.deleteMany).toHaveBeenCalledWith({
       where: { id: 'c-1', tenant_id: 'tenant-1' },
     });
   });

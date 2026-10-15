@@ -1,0 +1,746 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "notice": "Fictional Austrian Zulassungsbescheinigung field layouts for contract tests. No scan, no real holder, no real plate, no real Nationalcode, no provider payload. The holder string is the placeholder pilot customer.",
+  "promptVersion": "registration-document-v1",
+  "limits": {
+    "maxFiles": 2,
+    "maxBytesPerFile": 10485760,
+    "mimeTypes": ["image/jpeg", "image/png", "application/pdf"],
+    "maxPdfPagesRead": 2,
+    "idempotencyKeyPattern": "^[\\x21-\\x7e]{1,128}$",
+    "idempotencyUnique": ["tenant_id", "captured_by_user_id", "site_id", "idempotency_key"]
+  },
+  "ids": {
+    "customerA": "00000000-0000-4000-8000-0000000000c1",
+    "customerB": "00000000-0000-4000-8000-0000000000c2",
+    "vehicleA": "00000000-0000-4000-8000-0000000000a1",
+    "vehicleB": "00000000-0000-4000-8000-0000000000a2",
+    "site": "00000000-0000-4000-8000-0000000000b1",
+    "proposal": "00000000-0000-4000-8000-0000000000d1",
+    "user": "00000000-0000-4000-8000-0000000000e1"
+  },
+  "identities": {
+    "holderRaw": "pilot customer",
+    "holder": { "firstName": "pilot", "lastName": "customer" },
+    "vin": "WVWZZZSYNTH000001",
+    "otherVin": "WVWZZZSYNTH000002",
+    "invalidVin": "WVWZZZSYNTH00000I",
+    "plate": "W SYNTH 1",
+    "nationalcode": "NC1001",
+    "firstRegistration": "2019-03-12",
+    "year": 2019,
+    "co2WltpGKm": 119,
+    "make": "Synthetic",
+    "model": "Demo"
+  },
+  "documents": [
+    {
+      "id": "front-clear",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "C.1.3": "Synthgasse 1, 1010 Wien",
+            "D.1": "Synthetic",
+            "D.2": "DEMO",
+            "D.3": "Demo",
+            "E": "WVWZZZSYNTH000001",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "back-clear",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "BACK",
+      "pages": [
+        {
+          "page": 2,
+          "heading": "Zulassungsschein Rückseite (synthetisch)",
+          "fields": {
+            "J": "M1",
+            "P.1": "1395",
+            "P.2": "110",
+            "P.3": "Benzin",
+            "V.7": "119",
+            "V.7.unit": "g/km WLTP"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wrong-document-zb-i",
+      "documentKind": "DE_ZB_I",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsbescheinigung Teil I",
+          "fields": {
+            "A": "B-SY 1001",
+            "E": "WVWZZZSYNTH000001",
+            "2.1": "0600",
+            "2.2": "AAA"
+          }
+        }
+      ]
+    },
+    {
+      "id": "illegible",
+      "documentKind": "UNKNOWN",
+      "side": "FRONT",
+      "pages": [{ "page": 1, "heading": "", "fields": {} }]
+    },
+    {
+      "id": "conflicting-vin",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "selectedVehicleId": "00000000-0000-4000-8000-0000000000a1",
+      "selectedVehicleVin": "WVWZZZSYNTH000001",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.1": "Synthetic",
+            "D.3": "Demo",
+            "E": "WVWZZZSYNTH000002",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "missing-nationalcode",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.1": "Synthetic",
+            "D.3": "Demo",
+            "E": "WVWZZZSYNTH000001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "multiple-duplicates",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "tenantRows": {
+        "customers": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000c1",
+            "first_name": "pilot",
+            "last_name": "customer"
+          },
+          {
+            "id": "00000000-0000-4000-8000-0000000000c2",
+            "first_name": "Pilot",
+            "last_name": "Customer"
+          }
+        ],
+        "vehicles": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000a1",
+            "vin": null,
+            "plate": "W SYNTH 1",
+            "customer_id": "00000000-0000-4000-8000-0000000000c1"
+          },
+          {
+            "id": "00000000-0000-4000-8000-0000000000a2",
+            "vin": "WVWZZZSYNTH000009",
+            "plate": "w synth 1",
+            "customer_id": "00000000-0000-4000-8000-0000000000c2"
+          }
+        ]
+      },
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.1": "Synthetic",
+            "D.3": "Demo",
+            "E": "",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "low-confidence",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "E": "WVWZZZSYNTH000001",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ownership-conflict",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "matchedVehicle": {
+        "id": "00000000-0000-4000-8000-0000000000a1",
+        "vin": "WVWZZZSYNTH000001",
+        "plate": "W SYNTH 1",
+        "customer_id": "00000000-0000-4000-8000-0000000000c1"
+      },
+      "confirmedHolderCustomerId": "00000000-0000-4000-8000-0000000000c2",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "E": "WVWZZZSYNTH000001",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.1": "Synthetic",
+            "D.3": "Demo",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nationalcode-looks-like-vin",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "E": "WVWZZZSYNTH000001",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "Nationalcode": "WVWZZZSYNTH000001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "extra-pdf-pages",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pageCount": 3,
+      "pagesRead": [1, 2]
+    },
+    {
+      "id": "invalid-vin",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "E": "WVWZZZSYNTH00000I",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "Nationalcode": "NC1001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "existing-vehicle-field-conflict",
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "side": "FRONT",
+      "tenantRows": {
+        "customers": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000c1",
+            "first_name": "pilot",
+            "last_name": "customer"
+          }
+        ],
+        "vehicles": [
+          {
+            "id": "00000000-0000-4000-8000-0000000000a1",
+            "vin": "WVWZZZSYNTH000001",
+            "plate": "W SYNTH 1",
+            "customer_id": "00000000-0000-4000-8000-0000000000c1",
+            "national_code": "NC2002",
+            "first_registration_date": "2018-01-15",
+            "co2_wltp_g_km": 140,
+            "make": "Synthetic",
+            "model": "Demo",
+            "year": 2018
+          }
+        ]
+      },
+      "pages": [
+        {
+          "page": 1,
+          "heading": "Zulassungsschein (synthetisch)",
+          "fields": {
+            "A": "W SYNTH 1",
+            "B": "12.03.2019",
+            "C.1.1": "customer",
+            "C.1.2": "pilot",
+            "D.1": "Synthetic",
+            "D.3": "Demo",
+            "E": "WVWZZZSYNTH000001",
+            "Nationalcode": "NC1001",
+            "V.7": "119 g/km WLTP"
+          }
+        }
+      ]
+    }
+  ],
+  "extractions": {
+    "front-clear": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": ["BACK_NOT_SUPPLIED"],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.08 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.06 },
+        "firstRegistration": { "raw": "12.03.2019", "normalized": "2019-03-12", "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.07 },
+        "make": { "raw": "Synthetic", "normalized": "Synthetic", "source": { "page": 1, "region": { "x": 0.1, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "model": { "raw": "Demo", "normalized": "Demo", "source": { "page": 1, "region": { "x": 0.42, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "year": { "raw": "2019", "normalized": 2019, "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.07 },
+        "co2": { "raw": null, "normalized": null, "source": null, "uncertainty": null, "cycle": null }
+      }
+    },
+    "back-clear": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "co2": { "raw": "119", "normalized": 119, "cycle": "WLTP", "source": { "page": 2, "region": { "x": 0.15, "y": 0.55, "width": 0.2, "height": 0.05 } }, "uncertainty": 0.04 }
+      }
+    },
+    "back-co2-no-cycle": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "co2": { "raw": "119", "normalized": 119, "source": { "page": 2, "region": { "x": 0.15, "y": 0.55, "width": 0.2, "height": 0.05 } }, "uncertainty": 0.04 }
+      }
+    },
+    "wrong-document-zb-i": {
+      "documentKind": "DE_ZB_I",
+      "warnings": ["WRONG_DOCUMENT"],
+      "fields": {}
+    },
+    "illegible": {
+      "documentKind": "UNKNOWN",
+      "warnings": ["ILLEGIBLE"],
+      "fields": {
+        "vin": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "plate": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "holder": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "nationalcode": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "firstRegistration": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "make": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "model": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "year": { "raw": null, "normalized": null, "source": null, "uncertainty": 1 },
+        "co2": { "raw": null, "normalized": null, "source": null, "uncertainty": 1, "cycle": null }
+      }
+    },
+    "conflicting-vin": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000002", "normalized": "WVWZZZSYNTH000002", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.08 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.06 },
+        "make": { "raw": "Synthetic", "normalized": "Synthetic", "source": { "page": 1, "region": { "x": 0.1, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "model": { "raw": "Demo", "normalized": "Demo", "source": { "page": 1, "region": { "x": 0.42, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "year": { "raw": "2019", "normalized": 2019, "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "missing-nationalcode": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.04 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": null, "normalized": null, "source": null, "uncertainty": 0, "absence": "CONFIDENT" },
+        "firstRegistration": { "raw": "12.03.2019", "normalized": "2019-03-12", "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 },
+        "make": { "raw": "Synthetic", "normalized": "Synthetic", "source": { "page": 1, "region": { "x": 0.1, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "model": { "raw": "Demo", "normalized": "Demo", "source": { "page": 1, "region": { "x": 0.42, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "year": { "raw": "2019", "normalized": 2019, "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "multiple-duplicates": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": null, "normalized": null, "source": null, "uncertainty": 0, "absence": "CONFIDENT" },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 },
+        "make": { "raw": "Synthetic", "normalized": "Synthetic", "source": { "page": 1, "region": { "x": 0.1, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "model": { "raw": "Demo", "normalized": "Demo", "source": { "page": 1, "region": { "x": 0.42, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 }
+      }
+    },
+    "low-confidence": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.51 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "ownership-conflict": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "nationalcode-looks-like-vin": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.3, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 }
+      }
+    },
+    "extra-pdf-pages": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": ["EXTRA_PAGES_IGNORED"],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "invalid-vin": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH00000I", "normalized": "WVWZZZSYNTH00000I", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.04 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    },
+    "existing-vehicle-field-conflict": {
+      "documentKind": "AT_ZULASSUNGSSCHEIN",
+      "warnings": [],
+      "fields": {
+        "vin": { "raw": "WVWZZZSYNTH000001", "normalized": "WVWZZZSYNTH000001", "source": { "page": 1, "region": { "x": 0.1, "y": 0.42, "width": 0.5, "height": 0.06 } }, "uncertainty": 0.05 },
+        "plate": { "raw": "W SYNTH 1", "normalized": "W SYNTH 1", "source": { "page": 1, "region": { "x": 0.1, "y": 0.12, "width": 0.35, "height": 0.06 } }, "uncertainty": 0.05 },
+        "holder": { "raw": "pilot customer", "normalized": { "firstName": "pilot", "lastName": "customer" }, "source": { "page": 1, "region": { "x": 0.1, "y": 0.22, "width": 0.6, "height": 0.08 } }, "uncertainty": 0.05 },
+        "nationalcode": { "raw": "NC1001", "normalized": "NC1001", "source": { "page": 1, "region": { "x": 0.62, "y": 0.42, "width": 0.2, "height": 0.06 } }, "uncertainty": 0.05 },
+        "firstRegistration": { "raw": "12.03.2019", "normalized": "2019-03-12", "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 },
+        "co2": { "raw": "119", "normalized": 119, "cycle": "WLTP", "source": { "page": 1, "region": { "x": 0.15, "y": 0.62, "width": 0.25, "height": 0.05 } }, "uncertainty": 0.05 },
+        "make": { "raw": "Synthetic", "normalized": "Synthetic", "source": { "page": 1, "region": { "x": 0.1, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "model": { "raw": "Demo", "normalized": "Demo", "source": { "page": 1, "region": { "x": 0.42, "y": 0.34, "width": 0.3, "height": 0.05 } }, "uncertainty": 0.05 },
+        "year": { "raw": "2019", "normalized": 2019, "source": { "page": 1, "region": { "x": 0.5, "y": 0.12, "width": 0.25, "height": 0.06 } }, "uncertainty": 0.05 }
+      }
+    }
+  },
+  "serverCases": {
+    "front-clear": ["BACK_NOT_SUPPLIED"],
+    "conflicting-vin": ["CONFLICTING_VIN"],
+    "missing-nationalcode": ["MISSING_NATIONALCODE"],
+    "multiple-duplicates": ["DUPLICATE_CUSTOMERS", "DUPLICATE_VEHICLES"],
+    "low-confidence": ["LOW_CONFIDENCE"],
+    "ownership-conflict": ["OWNERSHIP_CONFLICT", "EXISTING_VEHICLE"],
+    "nationalcode-looks-like-vin": ["NATIONALCODE_LOOKS_LIKE_VIN", "LOW_CONFIDENCE"],
+    "extra-pdf-pages": [],
+    "invalid-vin": ["INVALID_VIN", "LOW_CONFIDENCE"],
+    "wrong-document-zb-i": [],
+    "illegible": [],
+    "existing-vehicle-field-conflict": ["EXISTING_VEHICLE", "NATIONALCODE_CONFLICT", "FIRST_REGISTRATION_CONFLICT", "CO2_CONFLICT"]
+  },
+  "normalizedAfterServer": {
+    "nationalcode-looks-like-vin": {
+      "nationalcode": { "normalized": null, "uncertainty": 1 }
+    },
+    "invalid-vin": {
+      "vin": { "uncertainty": 1 }
+    }
+  },
+  "responses": {
+    "restShape": "GlobalExceptionFilter JSON. code is present only after S2 adds it to CLIENT_SAFE_HTTP_ERROR_CODES. MCP tool failures are isError with text equal to HttpException.message and have no statusCode.",
+    "applyHappy": {
+      "http": 200,
+      "body": {
+        "state": "APPLIED",
+        "createdCustomer": true,
+        "createdVehicle": true,
+        "customerId": "00000000-0000-4000-8000-0000000000c1",
+        "vehicleId": "00000000-0000-4000-8000-0000000000a1",
+        "workshopOrderId": null,
+        "capturedSiteId": "00000000-0000-4000-8000-0000000000b1",
+        "make": "Synthetic",
+        "model": "Demo",
+        "year": 2019,
+        "holderRawStripped": true,
+        "bytesDeleted": false,
+        "bytePurgeQueued": true
+      },
+      "note": "Apply inserts RegistrationIntakeBytePurge and returns before the job deletes objects. bytesDeleted stays false on this response."
+    },
+    "createFailedProvider": {
+      "http": 503,
+      "body": {
+        "statusCode": 503,
+        "message": "REGISTRATION_EXTRACTION_UNAVAILABLE: Registration document extraction is not currently available.",
+        "error": "SERVICE_UNAVAILABLE",
+        "code": "REGISTRATION_EXTRACTION_UNAVAILABLE"
+      },
+      "rowCreated": false,
+      "bytesKept": false,
+      "providerCalls": 0,
+      "note": "No finished row for this key. isAvailable() is checked only then, so create returns before any insert. This is not a stored FAILED row. captureSentryIfInternal records this 503, and that capture is accepted."
+    },
+    "replayWhileProviderDisabled": {
+      "http": 201,
+      "sameIntakeId": true,
+      "providerCalls": 0,
+      "rowCreated": false,
+      "note": "The idempotency lookup runs before isAvailable(). A finished AWAITING_REVIEW or FAILED row is returned even when the provider is later disabled."
+    },
+    "extractFailed": {
+      "http": 201,
+      "body": {
+        "state": "FAILED",
+        "failureCode": "REGISTRATION_INTAKE_EXTRACT_FAILED"
+      },
+      "rowCreated": true,
+      "bytesKept": true,
+      "providerCalls": 1,
+      "note": "The provider was available and extract failed after the row and bytes were stored. Replay of the same Idempotency-Key returns this 201 and does not call the provider again."
+    },
+    "lowConfidence": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_LOW_CONFIDENCE: A low-confidence identity field cannot be saved.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_LOW_CONFIDENCE" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_LOW_CONFIDENCE: A low-confidence identity field cannot be saved." }
+    },
+    "vehicleIdentityIncomplete": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_VEHICLE_IDENTITY_INCOMPLETE: make, model, and year are required to create a vehicle.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_VEHICLE_IDENTITY_INCOMPLETE" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_VEHICLE_IDENTITY_INCOMPLETE: make, model, and year are required to create a vehicle." }
+    },
+    "confirmationMismatch": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH: Confirmed identity fields do not match the stored evidence.", "error": "Conflict", "code": "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_CONFIRMATION_MISMATCH: Confirmed identity fields do not match the stored evidence." }
+    },
+    "wrongDocument": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_WRONG_DOCUMENT: The file is not an Austrian Zulassungsschein.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_WRONG_DOCUMENT" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_WRONG_DOCUMENT: The file is not an Austrian Zulassungsschein." }
+    },
+    "illegible": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_ILLEGIBLE: No identity field could be read.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_ILLEGIBLE" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_ILLEGIBLE: No identity field could be read." }
+    },
+    "conflictingVin": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_CONFLICTING_VIN: The document VIN does not match the selected vehicle.", "error": "Conflict", "code": "REGISTRATION_INTAKE_CONFLICTING_VIN" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_CONFLICTING_VIN: The document VIN does not match the selected vehicle." }
+    },
+    "invalidVin": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_INVALID_VIN: The VIN is not 17 valid characters.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_INVALID_VIN" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_INVALID_VIN: The VIN is not 17 valid characters." }
+    },
+    "nationalcodeLooksLikeVin": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_NATIONALCODE_LOOKS_LIKE_VIN: Nationalcode cannot be stored.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_NATIONALCODE_LOOKS_LIKE_VIN" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_NATIONALCODE_LOOKS_LIKE_VIN: Nationalcode cannot be stored." }
+    },
+    "duplicates": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_AMBIGUOUS_MATCH: More than one customer or vehicle matches.", "error": "Conflict", "code": "REGISTRATION_INTAKE_AMBIGUOUS_MATCH" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_AMBIGUOUS_MATCH: More than one customer or vehicle matches." },
+      "candidateCustomerIds": ["00000000-0000-4000-8000-0000000000c1", "00000000-0000-4000-8000-0000000000c2"],
+      "candidateVehicleIds": ["00000000-0000-4000-8000-0000000000a1", "00000000-0000-4000-8000-0000000000a2"]
+    },
+    "ownershipWithoutCorrection": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT: The vehicle is linked to a different customer.", "error": "Conflict", "code": "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_OWNERSHIP_CONFLICT: The vehicle is linked to a different customer." },
+      "customerIdUnchanged": "00000000-0000-4000-8000-0000000000c1"
+    },
+    "ownershipCorrected": {
+      "http": 200,
+      "body": {
+        "state": "APPLIED",
+        "vehicleId": "00000000-0000-4000-8000-0000000000a1",
+        "customerId": "00000000-0000-4000-8000-0000000000c2",
+        "previousCustomerId": "00000000-0000-4000-8000-0000000000c1"
+      }
+    },
+    "ownershipStale": {
+      "rest": { "statusCode": 409, "message": "Vehicle holder changed while confirming intake; please retry", "error": "Conflict" },
+      "mcp": { "isError": true, "text": "Vehicle holder changed while confirming intake; please retry" }
+    },
+    "plateChanged": {
+      "rest": { "statusCode": 409, "message": "Vehicle VIN or plate changed while registering intake; please retry", "error": "Conflict" },
+      "mcp": { "isError": true, "text": "Vehicle VIN or plate changed while registering intake; please retry" },
+      "identityResetWhenPlateChanges": true
+    },
+    "parallelVinRace": {
+      "rest": { "statusCode": 409, "message": "Vehicle was created by another intake; please retry", "error": "Conflict" },
+      "mcp": { "isError": true, "text": "Vehicle was created by another intake; please retry" }
+    },
+    "idempotencyConflict": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT: The idempotency key was already used for another request.", "error": "Conflict", "code": "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_IDEMPOTENCY_CONFLICT: The idempotency key was already used for another request." }
+    },
+    "idempotencyKeyInvalid": {
+      "rest": { "statusCode": 422, "message": "REGISTRATION_INTAKE_IDEMPOTENCY_KEY_INVALID: A valid Idempotency-Key header is required.", "error": "Unprocessable Entity", "code": "REGISTRATION_INTAKE_IDEMPOTENCY_KEY_INVALID" }
+    },
+    "inProgress": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_IN_PROGRESS: An intake with this idempotency key is still running.", "error": "Conflict", "code": "REGISTRATION_INTAKE_IN_PROGRESS" }
+    },
+    "unsupportedFile": {
+      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_UNSUPPORTED_FILE: The file must be JPEG, PNG, or PDF.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_UNSUPPORTED_FILE" }
+    },
+    "tooManyFiles": {
+      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_TOO_MANY_FILES: At most 2 files are accepted.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_TOO_MANY_FILES" },
+      "note": "FilesInterceptor throws BadRequestException whose message is Too many files or Unexpected file field. The upload interceptor maps those messages. It does not read LIMIT_FILE_COUNT or LIMIT_UNEXPECTED_FILE from the HttpException."
+    },
+    "fileTooLarge": {
+      "rest": { "statusCode": 413, "message": "REGISTRATION_INTAKE_FILE_TOO_LARGE: Each file must be at most 10 MiB.", "error": "PAYLOAD_TOO_LARGE", "code": "REGISTRATION_INTAKE_FILE_TOO_LARGE" },
+      "note": "FilesInterceptor throws PayloadTooLargeException whose message is File too large. transformException does not copy the multer code onto that HttpException. RegistrationIntakeUploadInterceptor is registered before it and maps status 413. GlobalExceptionFilter writes this body. 413 is not in getHttpStatusName, so error is HttpStatus[413], PAYLOAD_TOO_LARGE. Status is below 500, so there is no requestId."
+    },
+    "intakeIdInBody": {
+      "rest": { "statusCode": 400, "message": "REGISTRATION_INTAKE_ID_MISMATCH: The intake id is taken from the path.", "error": "Bad Request", "code": "REGISTRATION_INTAKE_ID_MISMATCH" }
+    },
+    "vehicleHasActiveOrder": {
+      "rest": {
+        "statusCode": 409,
+        "message": "Vehicle already has active order WO-SYNTH-0001",
+        "error": "Conflict",
+        "code": "VEHICLE_HAS_ACTIVE_ORDER",
+        "orderId": "00000000-0000-4000-8000-0000000000f1",
+        "orderNumber": "WO-SYNTH-0001"
+      },
+      "appliedWorkshopOrderId": null,
+      "note": "Existing assertNoLiveOrderForVehicle body. The intake does not store this order."
+    },
+    "existingVehicleFillBlank": {
+      "http": 200,
+      "body": {
+        "state": "APPLIED",
+        "vehicleId": "00000000-0000-4000-8000-0000000000a1",
+        "nationalCodeWritten": true,
+        "firstRegistrationWritten": true,
+        "co2Written": true,
+        "makeUnchanged": true,
+        "modelUnchanged": true,
+        "yearUnchanged": true
+      }
+    },
+    "existingVehicleFieldConflict": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_FIELD_CONFLICT: Stored Nationalcode, first registration, or CO2 differs from the document.", "error": "Conflict", "code": "REGISTRATION_INTAKE_FIELD_CONFLICT" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_FIELD_CONFLICT: Stored Nationalcode, first registration, or CO2 differs from the document." },
+      "serverCasesKey": "existing-vehicle-field-conflict",
+      "override": false,
+      "cases": ["NATIONALCODE_CONFLICT", "FIRST_REGISTRATION_CONFLICT", "CO2_CONFLICT"],
+      "columnsUnchanged": ["national_code", "first_registration_date", "co2_wltp_g_km", "co2_nedc_g_km", "make", "model", "year"]
+    },
+    "stateChanged": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_STATE_CHANGED: The intake changed; please reload.", "error": "Conflict", "code": "REGISTRATION_INTAKE_STATE_CHANGED" },
+      "mcp": { "isError": true, "text": "REGISTRATION_INTAKE_STATE_CHANGED: The intake changed; please reload." }
+    },
+    "bytesRemain": {
+      "rest": { "statusCode": 503, "message": "REGISTRATION_INTAKE_BYTES_REMAIN: The file could not be deleted.", "error": "SERVICE_UNAVAILABLE", "code": "REGISTRATION_INTAKE_BYTES_REMAIN" },
+      "note": "Without the client-safe allowlist entry, production would mask this as Something went wrong (ref: ...)."
+    },
+    "roleForbidden": {
+      "rest": { "statusCode": 403, "message": "Registration intake is limited to OWNER, ADMIN, and SALES.", "error": "Forbidden" }
+    },
+    "otherSite": {
+      "rest": { "statusCode": 404, "message": "Registration intake 00000000-0000-4000-8000-0000000000aa not found", "error": "Not Found" },
+      "note": "Get, apply, abort, delete, and the order route all use this 404 when the active site is not the captured site. 00000000-0000-4000-8000-0000000000aa is the intake id in this example."
+    },
+    "activeSiteMissing": {
+      "rest": { "statusCode": 422, "message": "No active site is set for this session. Use GET /api/me/sites then PATCH /api/me/active-site to select a site.", "error": "Unprocessable Entity" },
+      "mcp": { "isError": true, "text": "No active site is set for this session. Use GET /api/me/sites then PATCH /api/me/active-site to select a site." },
+      "note": "SiteContextService throws code ACTIVE_SITE_REQUIRED. GlobalExceptionFilter drops that code."
+    },
+    "siteSwitchedOrder": {
+      "rest": { "statusCode": 422, "message": "Select the site where this action was simulated before applying it", "error": "Unprocessable Entity" },
+      "mcp": { "isError": true, "text": "Select the site where this action was simulated before applying it" },
+      "paths": ["POST /workshop/registration-intakes/:id/order", "assertSiteMatchesSimulation after S7"]
+    },
+    "siteChangedDuringSubmit": {
+      "rest": { "statusCode": 422, "message": "The active site changed while the pending action was simulated", "error": "Unprocessable Entity" },
+      "paths": ["POST /api/agent-proposals/submit after S7 includes registration_intake.apply"]
+    },
+    "siteChangedDuringMcpPreview": {
+      "rest": { "statusCode": 409, "message": "The active site changed while the pending action was simulated", "error": "Conflict" },
+      "mcp": { "isError": true, "text": "The active site changed while the pending action was simulated" },
+      "note": "McpWritePipeline.assertActiveSiteUnchanged. For this action both context reads return the stored intake site, so a session switch is the 404 otherSite response instead, unless the stored site id itself changes between the two reads."
+    },
+    "resolveMissing": {
+      "rest": { "statusCode": 400, "message": "Unsupported action type for automatic execution: registration_intake.apply", "error": "Bad Request" },
+      "note": "PendingActionExecutorService.resolve default until S7 adds the case."
+    },
+    "humanOnly": {
+      "mcp": { "isError": true, "text": "not_permitted: Action registration_intake.apply requires human approval and was refused." },
+      "agentActionLog": { "tier": "HUMAN_ONLY", "status": "REFUSED" },
+      "agentProposalRow": false
+    },
+    "propose": {
+      "mcp": { "isError": false, "status": "needs_approval", "pending_action_id": "00000000-0000-4000-8000-0000000000d1" },
+      "bytesDeleted": false
+    },
+    "approveExecutionFailed": {
+      "rest": { "statusCode": 409, "message": "Vehicle was created by another intake; please retry", "error": "Conflict" },
+      "proposalStatus": "FAILED",
+      "executeRunsOnSecondApprove": false,
+      "note": "markExecutionFailed is final. The retry sentence is for the REST apply route. Recovery on the approve route is a new propose_registration_intake."
+    },
+    "appliedDelete": {
+      "rest": { "statusCode": 409, "message": "REGISTRATION_INTAKE_APPLIED: An applied intake cannot be deleted.", "error": "Conflict", "code": "REGISTRATION_INTAKE_APPLIED" }
+    },
+    "abort": { "http": 200, "body": { "state": "ABORTED", "bytesDeleted": true } },
+    "abortRepeat": { "http": 200, "body": { "state": "ABORTED", "bytesDeleted": true } },
+    "replay": { "http": 201, "sameIntakeId": true, "providerCalls": 1 },
+    "orderCreated": {
+      "http": 200,
+      "body": { "state": "APPLIED", "workshopOrderId": "00000000-0000-4000-8000-0000000000f1", "capturedSiteId": "00000000-0000-4000-8000-0000000000b1" }
+    },
+    "orderFailed": {
+      "http": 404,
+      "body": { "statusCode": 404, "message": "Vehicle 00000000-0000-4000-8000-0000000000a1 not found", "error": "Not Found" },
+      "intake": { "state": "APPLIED", "workshopOrderId": null },
+      "note": "Shown when the existing helper throws after the identity commit. Apply replay does not create another customer or vehicle."
+    }
+  }
+}

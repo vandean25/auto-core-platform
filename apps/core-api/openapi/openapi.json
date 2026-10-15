@@ -6353,6 +6353,228 @@
         ]
       }
     },
+    "/api/workshop/registration-intakes": {
+      "post": {
+        "operationId": "RegistrationIntakeController_create",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/workshop/registration-intakes/{id}": {
+      "get": {
+        "operationId": "RegistrationIntakeController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      },
+      "delete": {
+        "operationId": "RegistrationIntakeController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/workshop/registration-intakes/{id}/apply": {
+      "post": {
+        "operationId": "RegistrationIntakeController_apply",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyRegistrationIntakeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/workshop/registration-intakes/{id}/order": {
+      "post": {
+        "operationId": "RegistrationIntakeController_order",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRegistrationIntakeOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/workshop/registration-intakes/{id}/abort": {
+      "post": {
+        "operationId": "RegistrationIntakeController_abort",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
+    "/api/workshop/registration-intakes/{id}/purge-bytes": {
+      "post": {
+        "operationId": "RegistrationIntakeController_purgeBytes",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "workshop"
+        ]
+      }
+    },
     "/api/workshop/loaner-vehicles": {
       "get": {
         "operationId": "LoanerVehiclesController_list",
@@ -22851,6 +23073,129 @@
           "vendorId",
           "items"
         ]
+      },
+      "HolderDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
+      "Co2Dto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "number"
+          },
+          "cycle": {
+            "type": "string",
+            "enum": [
+              "WLTP",
+              "NEDC"
+            ]
+          }
+        },
+        "required": [
+          "value",
+          "cycle"
+        ]
+      },
+      "OwnershipCorrectionDto": {
+        "type": "object",
+        "properties": {
+          "expectedCustomerId": {
+            "type": "object",
+            "nullable": true
+          },
+          "nextCustomerId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nextCustomerId"
+        ]
+      },
+      "ApplyRegistrationIntakeDto": {
+        "type": "object",
+        "properties": {
+          "vin": {
+            "type": "object",
+            "nullable": true
+          },
+          "plate": {
+            "type": "string"
+          },
+          "holder": {
+            "$ref": "#/components/schemas/HolderDto"
+          },
+          "nationalcode": {
+            "type": "object",
+            "nullable": true
+          },
+          "firstRegistration": {
+            "type": "object",
+            "nullable": true
+          },
+          "co2": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Co2Dto"
+              }
+            ]
+          },
+          "make": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "year": {
+            "type": "number"
+          },
+          "customerId": {
+            "type": "string"
+          },
+          "vehicleId": {
+            "type": "string"
+          },
+          "ownershipCorrection": {
+            "$ref": "#/components/schemas/OwnershipCorrectionDto"
+          },
+          "intakeId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "plate",
+          "holder"
+        ]
+      },
+      "CreateRegistrationIntakeOrderDto": {
+        "type": "object",
+        "properties": {
+          "odometer": {
+            "type": "number"
+          },
+          "fuelLevel": {
+            "type": "number"
+          },
+          "reportedIssue": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
       },
       "LoanerVehicleResponseDto": {
         "type": "object",

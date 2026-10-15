@@ -297,3 +297,102 @@ describe('Workshop Intake Module (e2e)', () => {
     expect(res.body.vin).toBe('NEWVIN123');
   });
 });
+
+describe('Workshop intake — registration document (AUT-537)', () => {
+  let app: INestApplication;
+  let authToken: string;
+  let tenantId: string;
+
+  beforeAll(async () => {
+    process.env.REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER = 'fake';
+    const { REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER } = await import(
+      '../src/registration-intake/registration-document-extraction-provider.js'
+    );
+    const { createRegistrationDocumentExtractionProvider } = await import(
+      '../src/registration-intake/registration-document-extraction-provider.factory.js'
+    );
+    const { REGISTRATION_INTAKE_BYTE_STORAGE } = await import(
+      '../src/registration-intake/registration-intake-byte-storage.js'
+    );
+    const { InMemoryRegistrationIntakeByteStorage } = await import(
+      './support/in-memory-registration-intake-storage.js'
+    );
+    const { encodeRegistrationIntakeFixtureBytes } = await import(
+      '../src/registration-intake/registration-intake-fixture-bytes.js'
+    );
+    (globalThis as { __regIntakeBytes?: typeof encodeRegistrationIntakeFixtureBytes }).__regIntakeBytes =
+      encodeRegistrationIntakeFixtureBytes;
+
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(REGISTRATION_DOCUMENT_EXTRACTION_PROVIDER)
+      .useFactory({
+        factory: () => createRegistrationDocumentExtractionProvider(process.env),
+      })
+      .overrideProvider(REGISTRATION_INTAKE_BYTE_STORAGE)
+      .useValue(new InMemoryRegistrationIntakeByteStorage())
+      .compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(createGlobalValidationPipe());
+    await app.init();
+    const prisma = app.get(PrismaService);
+    const tenant = await createTestTenant(prisma, 'workshop-reg-intake');
+    tenantId = tenant.tenantId;
+    authToken = createTestAuthToken(app.get(AuthService), tenant);
+  });
+
+  afterAll(async () => {
+    if (tenantId) {
+      const prisma = app.get(PrismaService);
+      const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+      await tenantPrisma.registrationIntakeBytePurge.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+      await tenantPrisma.registrationDocumentIntake.deleteMany({
+        where: { tenant_id: tenantId },
+      });
+      await cleanupTestTenantGraph(prisma, tenantId);
+    }
+    await teardownTestApp(app);
+  });
+
+  it('photo → review → confirmed customer/vehicle without duplicate on re-apply', async () => {
+    const encode = (globalThis as { __regIntakeBytes: (id: string) => Buffer }).__regIntakeBytes;
+    const front = encode('front-clear');
+    const create = await request(app.getHttpServer())
+      .post('/api/workshop/registration-intakes')
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('Idempotency-Key', 'workshop-snap-1')
+      .field('sides', 'FRONT')
+      .attach('files', front, 'front.jpg')
+      .expect(201);
+    expect(create.body.state).toBe('AWAITING_REVIEW');
+
+    const body = {
+      vin: 'WVWZZZSYNTH000001',
+      plate: 'W SYNTH 1',
+      holder: { firstName: 'pilot', lastName: 'customer' },
+      nationalcode: 'NC1001',
+      firstRegistration: '2019-03-12',
+      make: 'Synthetic',
+      model: 'Demo',
+      year: 2019,
+    };
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(body)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post(`/api/workshop/registration-intakes/${create.body.id}/apply`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(body)
+      .expect(200);
+
+    const tenantPrisma = createTenantAwarePrisma(app.get(PrismaService), tenantId);
+    expect(await tenantPrisma.vehicle.count()).toBe(1);
+  });
+});

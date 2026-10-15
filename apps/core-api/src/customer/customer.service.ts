@@ -261,8 +261,13 @@ export class CustomerService {
       );
     }
 
-    const deleteResult = await this.prisma.customer.deleteMany({
-      where: { id, tenant_id: tenantId },
+    const deleteResult = await this.prisma.$transaction(async (tx) => {
+      const { clearRegistrationEvidenceForCustomer } =
+        await import('../registration-intake/registration-intake-evidence-cleanup.js');
+      await clearRegistrationEvidenceForCustomer(tx, tenantId, id);
+      return tx.customer.deleteMany({
+        where: { id, tenant_id: tenantId },
+      });
     });
 
     if (deleteResult.count === 0) {

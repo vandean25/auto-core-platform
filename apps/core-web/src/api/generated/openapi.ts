@@ -1907,6 +1907,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/registration-intakes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegistrationIntakeController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/registration-intakes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["RegistrationIntakeController_get"];
+        put?: never;
+        post?: never;
+        delete: operations["RegistrationIntakeController_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/registration-intakes/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegistrationIntakeController_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/registration-intakes/{id}/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegistrationIntakeController_order"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/registration-intakes/{id}/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegistrationIntakeController_abort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop/registration-intakes/{id}/purge-bytes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["RegistrationIntakeController_purgeBytes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/loaner-vehicles": {
         parameters: {
             query?: never;
@@ -6803,6 +6899,40 @@ export interface components {
             /** Format: uuid */
             vendorId: string;
             items: components["schemas"]["RequisitionPurchaseOrderItemDto"][];
+        };
+        HolderDto: {
+            firstName: string;
+            lastName: string;
+        };
+        Co2Dto: {
+            value: number;
+            /** @enum {string} */
+            cycle: "WLTP" | "NEDC";
+        };
+        OwnershipCorrectionDto: {
+            expectedCustomerId?: Record<string, never> | null;
+            nextCustomerId: string;
+        };
+        ApplyRegistrationIntakeDto: {
+            vin?: Record<string, never> | null;
+            plate: string;
+            holder: components["schemas"]["HolderDto"];
+            nationalcode?: Record<string, never> | null;
+            firstRegistration?: Record<string, never> | null;
+            co2?: components["schemas"]["Co2Dto"] | null;
+            make?: string;
+            model?: string;
+            year?: number;
+            customerId?: string;
+            vehicleId?: string;
+            ownershipCorrection?: components["schemas"]["OwnershipCorrectionDto"];
+            intakeId?: string;
+        };
+        CreateRegistrationIntakeOrderDto: {
+            odometer?: number;
+            fuelLevel?: number;
+            reportedIssue?: string;
+            notes?: string;
         };
         LoanerVehicleResponseDto: {
             id: string;
@@ -13519,6 +13649,148 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PurchaseOrderResponseDto"];
                 };
+            };
+        };
+    };
+    RegistrationIntakeController_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RegistrationIntakeController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RegistrationIntakeController_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RegistrationIntakeController_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyRegistrationIntakeDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RegistrationIntakeController_order: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRegistrationIntakeOrderDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RegistrationIntakeController_abort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    RegistrationIntakeController_purgeBytes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

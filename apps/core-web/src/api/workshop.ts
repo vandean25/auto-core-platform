@@ -947,3 +947,186 @@ export function useAssignBoard() {
   })
 }
 
+export type RegistrationIntakeDetail = {
+  id: string
+  state: string
+  failureCode?: string | null
+  evidence?: {
+    documentKind: string
+    warnings: string[]
+    fields: Record<
+      string,
+      {
+        raw: string | null
+        normalized: string | number | { firstName: string; lastName: string } | null
+        uncertainty: number | null
+        cycle?: string | null
+      }
+    >
+  }
+  matchSnapshot?: {
+    cases: string[]
+    customers: { id: string; firstName: string; lastName: string }[]
+    vehicles: {
+      id: string
+      vin: string | null
+      plate: string | null
+      customerId: string | null
+    }[]
+  }
+}
+
+export const registrationIntakeKeys = {
+  detail: (id: string) => [...workshopKeys.all, 'registration-intake', id] as const,
+}
+
+async function parseWorkshopApiError(response: Response, fallback: string): Promise<Error> {
+  const body = (await response.json().catch(() => ({}))) as ApiErrorBody
+  const message =
+    typeof body.message === 'string'
+      ? body.message
+      : Array.isArray(body.message)
+        ? body.message.join(', ')
+        : fallback
+  const err = new Error(message) as WorkshopApiError
+  err.status = response.status
+  err.data = body
+  return err
+}
+
+export function useCreateRegistrationIntake() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      files: File[]
+      sides: ('FRONT' | 'BACK')[]
+      idempotencyKey: string
+    }) => {
+      const body = new FormData()
+      for (const side of payload.sides) {
+        body.append('sides', side)
+      }
+      for (const file of payload.files) {
+        body.append('files', file)
+      }
+      const response = await fetchWithAuth(`${WORKSHOP_API}/registration-intakes`, {
+        method: 'POST',
+        headers: { 'Idempotency-Key': payload.idempotencyKey },
+        body,
+      })
+      if (!response.ok) {
+        throw await parseWorkshopApiError(response, 'Failed to upload registration document')
+      }
+      return response.json() as Promise<RegistrationIntakeDetail>
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(registrationIntakeKeys.detail(data.id), data)
+    },
+  })
+}
+
+export function useRegistrationIntake(id: string | null) {
+  return useQuery<RegistrationIntakeDetail>({
+    queryKey: registrationIntakeKeys.detail(id ?? ''),
+    queryFn: async () => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/registration-intakes/${id}`)
+      if (!response.ok) {
+        throw await parseWorkshopApiError(response, 'Failed to load registration intake')
+      }
+      return response.json()
+    },
+    enabled: Boolean(id),
+  })
+}
+
+export function useApplyRegistrationIntake() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: { id: string; body: Record<string, unknown> }) => {
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/registration-intakes/${payload.id}/apply`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload.body),
+        },
+      )
+      if (!response.ok) {
+        throw await parseWorkshopApiError(response, 'Failed to confirm registration intake')
+      }
+      return response.json()
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: registrationIntakeKeys.detail(variables.id) })
+    },
+  })
+}
+
+export function useRegistrationIntakeOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      id: string
+      odometer: number
+      fuelLevel: number
+      notes?: string
+    }) => {
+      const response = await fetchWithAuth(
+        `${WORKSHOP_API}/registration-intakes/${payload.id}/order`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            odometer: payload.odometer,
+            fuelLevel: payload.fuelLevel,
+            notes: payload.notes,
+          }),
+        },
+      )
+      if (!response.ok) {
+        throw await parseWorkshopApiError(response, 'Failed to create workshop order')
+      }
+      return response.json()
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: registrationIntakeKeys.detail(variables.id) })
+      queryClient.invalidateQueries({ queryKey: workshopKeys.orders() })
+    },
+  })
+}
+
+export function useAbortRegistrationIntake() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/registration-intakes/${id}/abort`, {
+        method: 'POST',
+      })
+      if (!response.ok) {
+        throw await parseWorkshopApiError(response, 'Failed to abort registration intake')
+      }
+      return response.json()
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: registrationIntakeKeys.detail(id) })
+    },
+  })
+}
+
+export function useDeleteRegistrationIntake() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetchWithAuth(`${WORKSHOP_API}/registration-intakes/${id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok && response.status !== 204) {
+        throw await parseWorkshopApiError(response, 'Failed to delete registration intake')
+      }
+    },
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: registrationIntakeKeys.detail(id) })
+    },
+  })
+}
+
