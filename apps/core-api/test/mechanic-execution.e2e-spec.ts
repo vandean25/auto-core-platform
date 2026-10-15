@@ -13,6 +13,7 @@ import {
   createTestTenant,
   runWithTenantContext,
   seedTestTenantMember,
+  resolveTestMainSiteId,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -44,6 +45,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
   let mechanicUserId: string;
   let otherTenantId: string | undefined;
   let otherMechanicUserId: string | undefined;
+  let mainSiteId: string;
 
   const mockMediaStorage: Partial<MechanicMediaStorage> & {
     generateUploadPolicy: jest.Mock;
@@ -74,6 +76,8 @@ describe('Mechanic Execution Engine (e2e)', () => {
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
 
+    mainSiteId = await resolveTestMainSiteId(basePrisma, tenantId);
+
     await runWithTenantContext(tenantId, async () => {
       const firebaseUid = `e2e-mech-exec-${Date.now()}`;
 
@@ -88,6 +92,19 @@ describe('Mechanic Execution Engine (e2e)', () => {
         tenantId,
         userId: user.id,
         role: 'TECH',
+      });
+
+      await basePrisma.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: user.id,
+          site_id: mainSiteId,
+          is_active: true,
+        },
+      });
+      await basePrisma.user.update({
+        where: { id: user.id },
+        data: { active_site_id: mainSiteId },
       });
 
       authToken = authService.createTestToken({
@@ -132,6 +149,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
       const order = await basePrisma.workshopOrder.create({
         data: {
           tenant_id: tenantId,
+          site_id: mainSiteId,
           order_number: `WO-MECH-${Date.now()}`,
           customer_id: customer.id,
           vehicle_id: vehicle.id,
@@ -262,6 +280,57 @@ describe('Mechanic Execution Engine (e2e)', () => {
       .set('Authorization', `Bearer ${authToken}`)
       .send({})
       .expect(200);
+  });
+
+  // ─── Mechanic finding (AUT-538) ───────────────────────────────────────────
+
+  it('POST /tasks/:taskId/findings creates a pending advisor proposal', async () => {
+    await request(app.getHttpServer())
+      .patch(`/api/mechanic/tasks/${taskCId}/diagnostics`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ mechanicNotes: 'Coolant hose worn — pilot customer vehicle.' })
+      .expect(200);
+
+    const commandId = '51500000-0000-4000-8000-000000000538';
+    const res = await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${taskCId}/findings`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ command_id: commandId, summary: 'Coolant hose' })
+      .expect(201);
+
+    expect(res.body.actionType).toBe('workshop_order.mechanic_finding');
+    expect(res.body.proposalId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(res.body.traceId).toBe(commandId);
+
+    const replay = await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${taskCId}/findings`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ command_id: commandId, summary: 'Coolant hose' })
+      .expect(201);
+
+    expect(replay.body.proposalId).toBe(res.body.proposalId);
+  });
+
+  it('POST /tasks/:taskId/findings rejects submit without saved notes', async () => {
+    const freshTask = await runWithTenantContext(tenantId, async () =>
+      basePrisma.workshopTask.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          title: 'Finding guard task',
+          sequence: 99,
+          status: 'NOT_STARTED',
+        },
+      }),
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/mechanic/tasks/${freshTask.id}/findings`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ command_id: '51500000-0000-4000-8000-000000000539' })
+      .expect(422);
   });
 
   // ─── Parts Request ────────────────────────────────────────────────────────

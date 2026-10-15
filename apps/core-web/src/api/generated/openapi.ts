@@ -1648,6 +1648,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{id}/mechanic-findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopEstimateController_listMechanicFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/orders/{id}/estimates": {
         parameters: {
             query?: never;
@@ -2528,6 +2544,23 @@ export interface paths {
         patch: operations["MechanicController_saveDiagnostics"];
         trace?: never;
     };
+    "/api/mechanic/tasks/{taskId}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit accepted diagnostic notes and media to the service advisor as a structured finding */
+        post: operations["MechanicController_submitFinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/mechanic/tasks/{taskId}/parts": {
         parameters: {
             query?: never;
@@ -2613,6 +2646,221 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["VoiceTranslationController_updateSettings"];
+        trace?: never;
+    };
+    "/api/agent-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent proposals (OWNER/ADMIN/ADVISOR)
+         * @description Returns agent proposals for the authenticated tenant with lazy expiration handling.
+         */
+        get: operations["AgentProposalController_listProposals"];
+        put?: never;
+        /**
+         * Create an agent proposal (seeding/testing)
+         * @description Creates a new agent proposal for the current tenant in PENDING status.
+         */
+        post: operations["AgentProposalController_createProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve and execute an agent proposal
+         * @description Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.
+         */
+        post: operations["AgentProposalController_approveProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply and execute a pending agent action
+         * @description Re-evaluates current policy and atomically applies one pending action.
+         */
+        post: operations["AgentProposalController_applyProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/batch-apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply pending agent actions independently by ID
+         * @description Applies each proposal in its own transaction and returns an outcome per ID.
+         */
+        post: operations["AgentProposalController_batchApplyProposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject an agent proposal
+         * @description Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.
+         */
+        post: operations["AgentProposalController_rejectProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-proposals/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Simulate and submit a pending agent action
+         * @description Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.
+         */
+        post: operations["AgentProposalController_submitPendingAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List effective agent policy rules (OWNER/ADMIN) */
+        get: operations["AgentPolicyController_listRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/rules/{actionType}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Create a new tenant policy rule version (OWNER/ADMIN) */
+        put: operations["AgentPolicyController_upsertRule"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-policy/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluate policy tier for an action (OWNER/ADMIN, dry-run) */
+        post: operations["AgentPolicyController_evaluate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent action logs (OWNER/ADMIN/ADVISOR)
+         * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
+         */
+        get: operations["AgentActionLogController_findAll"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent-actions/{traceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get agent action trace detail (OWNER/ADMIN/ADVISOR)
+         * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
+         */
+        get: operations["AgentActionLogController_findByTraceId"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/notifications/outbox/replay": {
@@ -3507,46 +3755,6 @@ export interface paths {
         patch: operations["CatalogProviderSettingsController_updateSettings"];
         trace?: never;
     };
-    "/api/agent-actions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List agent action logs (OWNER/ADMIN/ADVISOR)
-         * @description Returns cursor-paginated agent action log rows for the authenticated tenant.
-         */
-        get: operations["AgentActionLogController_findAll"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-actions/{traceId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get agent action trace detail (OWNER/ADMIN/ADVISOR)
-         * @description Returns all log rows for a trace ID plus audit entries correlated on the same trace.
-         */
-        get: operations["AgentActionLogController_findByTraceId"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/imports": {
         parameters: {
             query?: never;
@@ -3965,181 +4173,6 @@ export interface paths {
         put?: never;
         /** Sign fiscal cancellation receipt (OWNER/ADMIN) */
         post: operations["FiscalReceiptsController_cancelFiscalReceipt"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-policy/rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List effective agent policy rules (OWNER/ADMIN) */
-        get: operations["AgentPolicyController_listRules"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-policy/rules/{actionType}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Create a new tenant policy rule version (OWNER/ADMIN) */
-        put: operations["AgentPolicyController_upsertRule"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-policy/evaluate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Evaluate policy tier for an action (OWNER/ADMIN, dry-run) */
-        post: operations["AgentPolicyController_evaluate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List agent proposals (OWNER/ADMIN/ADVISOR)
-         * @description Returns agent proposals for the authenticated tenant with lazy expiration handling.
-         */
-        get: operations["AgentProposalController_listProposals"];
-        put?: never;
-        /**
-         * Create an agent proposal (seeding/testing)
-         * @description Creates a new agent proposal for the current tenant in PENDING status.
-         */
-        post: operations["AgentProposalController_createProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Approve and execute an agent proposal
-         * @description Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.
-         */
-        post: operations["AgentProposalController_approveProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/{id}/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply and execute a pending agent action
-         * @description Re-evaluates current policy and atomically applies one pending action.
-         */
-        post: operations["AgentProposalController_applyProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/batch-apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Apply pending agent actions independently by ID
-         * @description Applies each proposal in its own transaction and returns an outcome per ID.
-         */
-        post: operations["AgentProposalController_batchApplyProposals"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/{id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reject an agent proposal
-         * @description Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.
-         */
-        post: operations["AgentProposalController_rejectProposal"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/agent-proposals/submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Simulate and submit a pending agent action
-         * @description Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.
-         */
-        post: operations["AgentProposalController_submitPendingAction"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6561,6 +6594,29 @@ export interface components {
             totals: components["schemas"]["WorkshopKpiReportRowDto"];
             parts_turnover: components["schemas"]["WorkshopKpiPartsTurnoverDto"];
         };
+        WorkshopMechanicFindingMediaDto: {
+            /** Format: uuid */
+            id: string;
+            mime_type: string;
+            caption: string | null;
+        };
+        WorkshopMechanicFindingDto: {
+            /** Format: uuid */
+            proposal_id: string;
+            /** Format: uuid */
+            trace_id: string;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            /** Format: uuid */
+            workshop_task_id: string;
+            finding_text: string;
+            media: components["schemas"]["WorkshopMechanicFindingMediaDto"][];
+            summary: string | null;
+            created_at: string;
+        };
+        WorkshopMechanicFindingListResponseDto: {
+            data: components["schemas"]["WorkshopMechanicFindingDto"][];
+        };
         WorkshopEstimateApprovalDto: {
             id: string;
             /** @enum {string} */
@@ -6626,6 +6682,8 @@ export interface components {
             /** @description False until CUSTOMER_ESTIMATE_SEND_ENABLED is on (legal copy approval pending). Sending is refused with 503 while false. */
             send_enabled: boolean;
             overrun_threshold_pct: string;
+            /** @description Lines that block customer send until an advisor resolves zero price or claimed fitment. */
+            customer_send_blockers: unknown[];
         };
         WorkshopEstimateListResponseDto: {
             data: components["schemas"]["WorkshopEstimateResponseDto"][];
@@ -7530,6 +7588,30 @@ export interface components {
             taskId: string;
             mechanicNotes?: string | null;
         };
+        SubmitMechanicFindingDto: {
+            /**
+             * Format: uuid
+             * @description Idempotency key. A duplicate submit with the same command_id returns the original proposal.
+             */
+            command_id?: string;
+            /** @description Workshop media ids uploaded by this mechanic for the task. Foreign or closed-task media is rejected. */
+            media_ids?: string[];
+            /**
+             * Format: uuid
+             * @description Accepted voice-note draft id. When set, the draft must already be ACCEPTED for this task and mechanic.
+             */
+            voice_note_draft_id?: string;
+            /** @description Optional short label for the advisor queue. Finding text comes from saved mechanic notes. */
+            summary?: string;
+        };
+        SubmitMechanicFindingResponseDto: {
+            /** Format: uuid */
+            proposalId: string;
+            /** Format: uuid */
+            traceId: string;
+            /** @example workshop_order.mechanic_finding */
+            actionType: string;
+        };
         RequestPartDto: {
             /** @description SKU / part number */
             itemNo: string;
@@ -7670,6 +7752,190 @@ export interface components {
             googleLocation?: string;
             /** @description Google service account JSON credentials. The API stores this encrypted and never returns the raw value. */
             googleServiceAccountJson?: string | null;
+        };
+        AgentProposalEffectiveSummaryDto: {
+            target_type: string | null;
+            target_id: string | null;
+            amount_eur: number | null;
+        };
+        AgentProposalWorkshopOrderSummaryDto: {
+            /** Format: uuid */
+            id: string;
+            /** @example WO-2026-0001 */
+            order_number: string | null;
+            customer_name: string | null;
+            vehicle_registration: string | null;
+            /** @example 2019 Volkswagen Golf */
+            vehicle_description: string | null;
+        };
+        AgentProposalResponseDto: {
+            id: string;
+            tenant_id: string;
+            trace_id: string;
+            action_type: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            payload_json: {
+                [key: string]: unknown;
+            };
+            effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
+            /** @description Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller. */
+            workshop_order_summary: components["schemas"]["AgentProposalWorkshopOrderSummaryDto"] | null;
+            preview_json: {
+                [key: string]: unknown;
+            } | null;
+            created_by_agent: string | null;
+            decided_by: string | null;
+            /** @description Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set. */
+            decided_by_name: string | null;
+            /** @description Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant. */
+            decided_by_email: string | null;
+            decided_at: string | null;
+            reason: string | null;
+            expires_at: string;
+            created_at: string;
+            updated_at: string;
+        };
+        AgentProposalListResponseDto: {
+            data: components["schemas"]["AgentProposalResponseDto"][];
+        };
+        BatchApplyAgentProposalsDto: {
+            ids: string[];
+        };
+        BatchApplyAgentProposalResultDto: {
+            id: string;
+            /** @enum {string} */
+            status: "applied" | "failed";
+            error?: string;
+            proposal?: Record<string, never>;
+        };
+        BatchApplyAgentProposalsResponseDto: {
+            results: components["schemas"]["BatchApplyAgentProposalResultDto"][];
+        };
+        RejectAgentProposalDto: {
+            /** @description Reason for rejecting the proposal */
+            reason?: string;
+        };
+        CreateAgentProposalDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            payload_json: {
+                [key: string]: unknown;
+            };
+            preview_json?: {
+                [key: string]: unknown;
+            };
+            /** @description Optional correlation trace ID (UUID) */
+            trace_id?: string;
+            /**
+             * @default PROPOSE
+             * @enum {string}
+             */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+        };
+        SubmitPendingAgentActionDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            payload_json: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: uuid
+             * @description Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).
+             */
+            command_id?: string;
+        };
+        AgentPolicyConditionsDto: {
+            amount_max?: number | null;
+            customer_facing?: boolean;
+            reversible?: boolean;
+            affects_legal_document?: boolean;
+        };
+        AgentPolicyRuleResponseDto: {
+            id: string;
+            action_type: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            conditions: components["schemas"]["AgentPolicyConditionsDto"];
+            enabled: boolean;
+            version: number;
+            /** @enum {string} */
+            source: "platform" | "tenant";
+            created_at: string;
+            updated_at: string;
+        };
+        AgentPolicyRuleListResponseDto: {
+            data: components["schemas"]["AgentPolicyRuleResponseDto"][];
+        };
+        UpsertAgentPolicyRuleDto: {
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            conditions?: components["schemas"]["AgentPolicyConditionsDto"];
+            /** @default true */
+            enabled: boolean;
+        };
+        AgentPolicyEvaluateContextDto: {
+            amount_eur?: number;
+            customer_facing?: boolean;
+            reversible?: boolean;
+            affects_legal_document?: boolean;
+        };
+        AgentPolicyEvaluateRequestDto: {
+            /** @example workshop_order.add_line */
+            action_type: string;
+            context?: components["schemas"]["AgentPolicyEvaluateContextDto"];
+        };
+        AgentPolicyEvaluationResponseDto: {
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
+            reasons: string[];
+            rule_id: Record<string, never> | null;
+            rule_version: Record<string, never> | null;
+        };
+        AgentActionLogResponseDto: {
+            id: string;
+            tenantId: string;
+            /** Format: uuid */
+            traceId: string;
+            /** Format: uuid */
+            parentTraceId?: Record<string, never> | null;
+            /** @enum {string} */
+            actorType: "AGENT" | "USER" | "SYSTEM" | "API_KEY";
+            agentId?: Record<string, never> | null;
+            onBehalfOfUserId?: Record<string, never> | null;
+            /** @description Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set. */
+            onBehalfOfUserName?: string | null;
+            /** @description Email of the on-behalf-of user. Null when the user is not a member of the tenant. */
+            onBehalfOfUserEmail?: string | null;
+            apiKeyId?: Record<string, never> | null;
+            actionType: string;
+            /** @enum {string} */
+            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
+            /** @enum {string} */
+            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
+            inputSummary?: {
+                [key: string]: unknown;
+            };
+            resultSummary?: {
+                [key: string]: unknown;
+            };
+            entityType?: Record<string, never> | null;
+            entityId?: Record<string, never> | null;
+            reversible: boolean;
+            revertedByLogId?: Record<string, never> | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AgentActionLogListResponseDto: {
+            data: components["schemas"]["AgentActionLogResponseDto"][];
+            /** @description Cursor for the next page when more results exist */
+            nextCursor?: string | null;
+        };
+        AgentActionTraceDetailResponseDto: {
+            logs: components["schemas"]["AgentActionLogResponseDto"][];
+            auditEntries: components["schemas"]["AuditLogResponseDto"][];
         };
         NotificationOutboxReplayRequestDto: {
             /** @description Outbox row ids in FAILED status to send again. */
@@ -8859,49 +9125,6 @@ export interface components {
             /** @description OEM concern member-make assignments to upsert. */
             oemConcerns?: components["schemas"]["UpdateCatalogProviderOemConcernDto"][];
         };
-        AgentActionLogResponseDto: {
-            id: string;
-            tenantId: string;
-            /** Format: uuid */
-            traceId: string;
-            /** Format: uuid */
-            parentTraceId?: Record<string, never> | null;
-            /** @enum {string} */
-            actorType: "AGENT" | "USER" | "SYSTEM" | "API_KEY";
-            agentId?: Record<string, never> | null;
-            onBehalfOfUserId?: Record<string, never> | null;
-            /** @description Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set. */
-            onBehalfOfUserName?: string | null;
-            /** @description Email of the on-behalf-of user. Null when the user is not a member of the tenant. */
-            onBehalfOfUserEmail?: string | null;
-            apiKeyId?: Record<string, never> | null;
-            actionType: string;
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
-            /** @enum {string} */
-            status: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
-            inputSummary?: {
-                [key: string]: unknown;
-            };
-            resultSummary?: {
-                [key: string]: unknown;
-            };
-            entityType?: Record<string, never> | null;
-            entityId?: Record<string, never> | null;
-            reversible: boolean;
-            revertedByLogId?: Record<string, never> | null;
-            /** Format: date-time */
-            createdAt: string;
-        };
-        AgentActionLogListResponseDto: {
-            data: components["schemas"]["AgentActionLogResponseDto"][];
-            /** @description Cursor for the next page when more results exist */
-            nextCursor?: string | null;
-        };
-        AgentActionTraceDetailResponseDto: {
-            logs: components["schemas"]["AgentActionLogResponseDto"][];
-            auditEntries: components["schemas"]["AuditLogResponseDto"][];
-        };
         /** @enum {string} */
         ImportEntityType: "CUSTOMER" | "VEHICLE" | "SUPPLIER_PRICE_LIST";
         /** @enum {string} */
@@ -9344,147 +9567,6 @@ export interface components {
         CancelFiscalReceiptDto: {
             /** Format: uuid */
             idempotencyKey: string;
-        };
-        AgentPolicyConditionsDto: {
-            amount_max?: number | null;
-            customer_facing?: boolean;
-            reversible?: boolean;
-            affects_legal_document?: boolean;
-        };
-        AgentPolicyRuleResponseDto: {
-            id: string;
-            action_type: string;
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            conditions: components["schemas"]["AgentPolicyConditionsDto"];
-            enabled: boolean;
-            version: number;
-            /** @enum {string} */
-            source: "platform" | "tenant";
-            created_at: string;
-            updated_at: string;
-        };
-        AgentPolicyRuleListResponseDto: {
-            data: components["schemas"]["AgentPolicyRuleResponseDto"][];
-        };
-        UpsertAgentPolicyRuleDto: {
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            conditions?: components["schemas"]["AgentPolicyConditionsDto"];
-            /** @default true */
-            enabled: boolean;
-        };
-        AgentPolicyEvaluateContextDto: {
-            amount_eur?: number;
-            customer_facing?: boolean;
-            reversible?: boolean;
-            affects_legal_document?: boolean;
-        };
-        AgentPolicyEvaluateRequestDto: {
-            /** @example workshop_order.add_line */
-            action_type: string;
-            context?: components["schemas"]["AgentPolicyEvaluateContextDto"];
-        };
-        AgentPolicyEvaluationResponseDto: {
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            reasons: string[];
-            rule_id: Record<string, never> | null;
-            rule_version: Record<string, never> | null;
-        };
-        AgentProposalEffectiveSummaryDto: {
-            target_type: string | null;
-            target_id: string | null;
-            amount_eur: number | null;
-        };
-        AgentProposalWorkshopOrderSummaryDto: {
-            /** Format: uuid */
-            id: string;
-            /** @example WO-2026-0001 */
-            order_number: string | null;
-            customer_name: string | null;
-            vehicle_registration: string | null;
-            /** @example 2019 Volkswagen Golf */
-            vehicle_description: string | null;
-        };
-        AgentProposalResponseDto: {
-            id: string;
-            tenant_id: string;
-            trace_id: string;
-            action_type: string;
-            /** @enum {string} */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-            /** @enum {string} */
-            status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
-            payload_json: {
-                [key: string]: unknown;
-            };
-            effective_summary: components["schemas"]["AgentProposalEffectiveSummaryDto"];
-            /** @description Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller. */
-            workshop_order_summary: components["schemas"]["AgentProposalWorkshopOrderSummaryDto"] | null;
-            preview_json: {
-                [key: string]: unknown;
-            } | null;
-            created_by_agent: string | null;
-            decided_by: string | null;
-            /** @description Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set. */
-            decided_by_name: string | null;
-            /** @description Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant. */
-            decided_by_email: string | null;
-            decided_at: string | null;
-            reason: string | null;
-            expires_at: string;
-            created_at: string;
-            updated_at: string;
-        };
-        AgentProposalListResponseDto: {
-            data: components["schemas"]["AgentProposalResponseDto"][];
-        };
-        BatchApplyAgentProposalsDto: {
-            ids: string[];
-        };
-        BatchApplyAgentProposalResultDto: {
-            id: string;
-            /** @enum {string} */
-            status: "applied" | "failed";
-            error?: string;
-            proposal?: Record<string, never>;
-        };
-        BatchApplyAgentProposalsResponseDto: {
-            results: components["schemas"]["BatchApplyAgentProposalResultDto"][];
-        };
-        RejectAgentProposalDto: {
-            /** @description Reason for rejecting the proposal */
-            reason?: string;
-        };
-        CreateAgentProposalDto: {
-            /** @example workshop_order.add_line */
-            action_type: string;
-            payload_json: {
-                [key: string]: unknown;
-            };
-            preview_json?: {
-                [key: string]: unknown;
-            };
-            /** @description Optional correlation trace ID (UUID) */
-            trace_id?: string;
-            /**
-             * @default PROPOSE
-             * @enum {string}
-             */
-            tier: "AUTO" | "PROPOSE" | "HUMAN_ONLY";
-        };
-        SubmitPendingAgentActionDto: {
-            /** @example workshop_order.add_line */
-            action_type: string;
-            payload_json: {
-                [key: string]: unknown;
-            };
-            /**
-             * Format: uuid
-             * @description Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope).
-             */
-            command_id?: string;
         };
         AgentSupervisionTriageItemDto: {
             /** @enum {string} */
@@ -13284,6 +13366,27 @@ export interface operations {
             };
         };
     };
+    WorkshopEstimateController_listMechanicFindings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopMechanicFindingListResponseDto"];
+                };
+            };
+        };
+    };
     WorkshopEstimateController_list: {
         parameters: {
             query?: never;
@@ -14908,6 +15011,31 @@ export interface operations {
             };
         };
     };
+    MechanicController_submitFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitMechanicFindingDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitMechanicFindingResponseDto"];
+                };
+            };
+        };
+    };
     MechanicController_requestPart: {
         parameters: {
             query?: never;
@@ -15081,6 +15209,296 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceTranslationSettingsResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_listProposals: {
+        parameters: {
+            query?: {
+                /** @description When set, return only proposals with these IDs (still tenant-scoped) */
+                ids?: string[];
+                /** @description Maximum number of items to return */
+                limit?: number;
+                /** @description Filter by proposal status */
+                status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_createProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAgentProposalDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_approveProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_applyProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_batchApplyProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchApplyAgentProposalsDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchApplyAgentProposalsResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_rejectProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectAgentProposalDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentProposalController_submitPendingAction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitPendingAgentActionDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentProposalResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyRuleListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_upsertRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                actionType: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertAgentPolicyRuleDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyRuleResponseDto"];
+                };
+            };
+        };
+    };
+    AgentPolicyController_evaluate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPolicyEvaluateRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPolicyEvaluationResponseDto"];
+                };
+            };
+        };
+    };
+    AgentActionLogController_findAll: {
+        parameters: {
+            query?: {
+                /** @description Filter by agent identifier (case-insensitive substring match) */
+                agentId?: string;
+                /** @description Opaque cursor for forward pagination */
+                cursor?: string;
+                /** @description End of created_at range (ISO-8601) */
+                endDate?: string;
+                /** @description Filter by entity ID */
+                entityId?: string;
+                /** @description Filter by entity type */
+                entityType?: string;
+                /** @description Maximum number of rows to return */
+                limit?: number;
+                /** @description Start of created_at range (ISO-8601) */
+                startDate?: string;
+                /** @description Filter by action status */
+                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
+                /** @description Filter by policy tier */
+                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
+                /** @description Filter by trace ID */
+                traceId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentActionLogListResponseDto"];
+                };
+            };
+        };
+    };
+    AgentActionLogController_findByTraceId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentActionTraceDetailResponseDto"];
                 };
             };
         };
@@ -17085,67 +17503,6 @@ export interface operations {
             };
         };
     };
-    AgentActionLogController_findAll: {
-        parameters: {
-            query?: {
-                /** @description Filter by agent identifier (case-insensitive substring match) */
-                agentId?: string;
-                /** @description Opaque cursor for forward pagination */
-                cursor?: string;
-                /** @description End of created_at range (ISO-8601) */
-                endDate?: string;
-                /** @description Filter by entity ID */
-                entityId?: string;
-                /** @description Filter by entity type */
-                entityType?: string;
-                /** @description Maximum number of rows to return */
-                limit?: number;
-                /** @description Start of created_at range (ISO-8601) */
-                startDate?: string;
-                /** @description Filter by action status */
-                status?: "PROPOSED" | "APPROVED" | "REJECTED" | "EXECUTED" | "REFUSED" | "FAILED" | "DRY_RUN" | "FALLBACK";
-                /** @description Filter by policy tier */
-                tier?: "AUTO" | "PROPOSE" | "HUMAN_ONLY" | "NOT_EVALUATED";
-                /** @description Filter by trace ID */
-                traceId?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentActionLogListResponseDto"];
-                };
-            };
-        };
-    };
-    AgentActionLogController_findByTraceId: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                traceId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentActionTraceDetailResponseDto"];
-                };
-            };
-        };
-    };
     ImportController_createDryRun: {
         parameters: {
             query?: never;
@@ -17943,235 +18300,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettlementResponseDto"];
-                };
-            };
-        };
-    };
-    AgentPolicyController_listRules: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentPolicyRuleListResponseDto"];
-                };
-            };
-        };
-    };
-    AgentPolicyController_upsertRule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                actionType: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpsertAgentPolicyRuleDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentPolicyRuleResponseDto"];
-                };
-            };
-        };
-    };
-    AgentPolicyController_evaluate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AgentPolicyEvaluateRequestDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentPolicyEvaluationResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_listProposals: {
-        parameters: {
-            query?: {
-                /** @description When set, return only proposals with these IDs (still tenant-scoped) */
-                ids?: string[];
-                /** @description Maximum number of items to return */
-                limit?: number;
-                /** @description Filter by proposal status */
-                status?: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "EXECUTED" | "FAILED";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalListResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_createProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateAgentProposalDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_approveProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_applyProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_batchApplyProposals: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BatchApplyAgentProposalsDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BatchApplyAgentProposalsResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_rejectProposal: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RejectAgentProposalDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
-                };
-            };
-        };
-    };
-    AgentProposalController_submitPendingAction: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SubmitPendingAgentActionDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentProposalResponseDto"];
                 };
             };
         };

@@ -9,6 +9,7 @@ import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
 import { WorkshopCommunicationTimeline } from "@/components/workshop/WorkshopCommunicationTimeline";
 import { WorkshopEstimateCard } from "@/components/workshop/WorkshopEstimateCard";
+import { MechanicFindingAdvisorPanel } from "@/components/workshop/MechanicFindingAdvisorPanel";
 import { ResumeWaitingTasksPanel } from "@/components/workshop/ResumeWaitingTasksPanel";
 import { InvoiceOverrunWarning } from "@/components/workshop/InvoiceOverrunWarning";
 import { canManageWorkshopEstimates } from "@/features/workshop/workshop-estimate-permissions";
@@ -443,6 +444,7 @@ export function WorkshopOrderDetails() {
             />
             {canManageEstimates && (
               <>
+                <MechanicFindingAdvisorPanel orderId={order.id} />
                 <WorkshopEstimateCard
                   orderId={order.id}
                   orderStatus={order.status}

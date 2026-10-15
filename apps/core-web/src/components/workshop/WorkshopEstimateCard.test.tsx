@@ -106,6 +106,7 @@ function estimate(versions: WorkshopEstimateVersionSummary[], extra: Partial<Wor
     versions,
     overrun_warning: null,
     send_enabled: false,
+    customer_send_blockers: [],
     overrun_threshold_pct: '15.00',
     ...extra,
   }
@@ -115,9 +116,14 @@ function estimate(versions: WorkshopEstimateVersionSummary[], extra: Partial<Wor
  * In-memory stand-in for the estimate API. The hook mocks read it at render time, so
  * each step of the flow test sees the state the previous step produced.
  */
-const store: { versions: WorkshopEstimateVersionSummary[] | null; sendEnabled: boolean } = {
+const store: {
+  versions: WorkshopEstimateVersionSummary[] | null
+  sendEnabled: boolean
+  customerSendBlockers: WorkshopEstimate['customer_send_blockers']
+} = {
   versions: null,
   sendEnabled: false,
+  customerSendBlockers: [],
 }
 
 const createMutateAsync = vi.fn(async (orderId: string) => {
@@ -163,7 +169,13 @@ function withClient(ui: ReactElement): ReactElement {
 
 /** Feeds the current store into the hook mocks. Call before every render or rerender. */
 function syncStore(): void {
-  const data = store.versions === null ? null : estimate(store.versions, { send_enabled: store.sendEnabled })
+  const data =
+    store.versions === null
+      ? null
+      : estimate(store.versions, {
+          send_enabled: store.sendEnabled,
+          customer_send_blockers: store.customerSendBlockers,
+        })
   asMock(estimateApi.useWorkshopOrderEstimate).mockReturnValue({
     data,
     isLoading: false,
@@ -187,6 +199,7 @@ beforeEach(() => {
   queryClient = new QueryClient()
   store.versions = null
   store.sendEnabled = false
+  store.customerSendBlockers = []
   createMutateAsync.mockClear()
   reviseMutateAsync.mockClear()
   sendMutateAsync.mockClear()
@@ -248,6 +261,27 @@ describe('WorkshopEstimateCard', () => {
     expect(
       screen.getByText(/Der Versand an Kunden ist derzeit deaktiviert, bis die rechtlichen Texte freigegeben sind/),
     ).toBeTruthy()
+  })
+
+  it('blocks customer send when zero-price or claimed-fitment lines are present', () => {
+    store.versions = [DRAFT_V1]
+    store.sendEnabled = true
+    store.customerSendBlockers = [
+      {
+        code: 'ZERO_UNIT_PRICE',
+        source_line_id: 'line-1',
+        item_no: 'PART-1',
+        description: 'pilot customer washer',
+      },
+    ]
+
+    renderCard()
+
+    const send = screen.getByRole('button', { name: 'An Kunden senden' }) as HTMLButtonElement
+    expect(send.disabled).toBe(true)
+    expect(screen.getByTestId('estimate-customer-send-blockers')).toHaveTextContent(
+      /zero-price lines and claimed fitment/i,
+    )
   })
 
   it('never offers a PDF for a DRAFT version', () => {

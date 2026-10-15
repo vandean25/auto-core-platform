@@ -135,7 +135,11 @@ function estimateControls(estimate: WorkshopEstimate | null, orderStatus: string
   return {
     latest,
     canEdit,
-    sendEnabled: estimate?.send_enabled ?? false,
+    sendFeatureEnabled: estimate?.send_enabled ?? false,
+    customerSendBlockers: estimate?.customer_send_blockers ?? [],
+    sendEnabled:
+      (estimate?.send_enabled ?? false) &&
+      (estimate?.customer_send_blockers?.length ?? 0) === 0,
     canCreate: canEdit && estimate === null,
     canRevise: canEdit && latest !== null && latest.status !== 'DRAFT',
     canRecordDecision: canEdit && latest?.status === 'SENT',
@@ -408,6 +412,8 @@ interface EstimateVersionsProps {
   liveDraftTotal: string | null
   canEdit: boolean
   sendEnabled: boolean
+  sendFeatureEnabled: boolean
+  customerSendBlockerCount: number
   canRecordDecision: boolean
   busy: boolean
   downloadingVersionId: string | null
@@ -422,6 +428,8 @@ function EstimateVersions({
   liveDraftTotal,
   canEdit,
   sendEnabled,
+  sendFeatureEnabled,
+  customerSendBlockerCount,
   canRecordDecision,
   busy,
   downloadingVersionId,
@@ -434,10 +442,16 @@ function EstimateVersions({
 
   return (
     <>
-      {latestIsDraft && !sendEnabled && (
+      {latestIsDraft && !sendFeatureEnabled && (
         <p className='text-sm text-slate-600'>
           Der Versand an Kunden ist derzeit deaktiviert, bis die rechtlichen Texte freigegeben sind. Der Entwurf kann bis
           dahin geprüft werden.
+        </p>
+      )}
+      {latestIsDraft && sendFeatureEnabled && customerSendBlockerCount > 0 && (
+        <p className='text-sm text-amber-800' data-testid='estimate-customer-send-blockers'>
+          Customer send is blocked until zero-price lines and claimed fitment are resolved (
+          {customerSendBlockerCount} line{customerSendBlockerCount === 1 ? '' : 's'}).
         </p>
       )}
 
@@ -486,7 +500,17 @@ export function WorkshopEstimateCard({
 
   const estimateQuery = useWorkshopOrderEstimate(orderId)
   const estimate = estimateQuery.data ?? null
-  const { latest, canEdit, sendEnabled, canCreate, canRevise, canRecordDecision, canNotifyOverrun } = estimateControls(
+  const {
+    latest,
+    canEdit,
+    sendEnabled,
+    sendFeatureEnabled,
+    customerSendBlockers,
+    canCreate,
+    canRevise,
+    canRecordDecision,
+    canNotifyOverrun,
+  } = estimateControls(
     estimate,
     orderStatus,
     isLocked,
@@ -618,6 +642,8 @@ export function WorkshopEstimateCard({
           liveDraftTotal={liveDraftTotal}
           canEdit={canEdit}
           sendEnabled={sendEnabled}
+          sendFeatureEnabled={sendFeatureEnabled}
+          customerSendBlockerCount={customerSendBlockers.length}
           canRecordDecision={canRecordDecision}
           busy={busy}
           downloadingVersionId={downloadingVersionId}
