@@ -11352,7 +11352,7 @@
             "name": "agentId",
             "required": false,
             "in": "query",
-            "description": "Filter by agent identifier",
+            "description": "Filter by agent identifier (case-insensitive substring match)",
             "schema": {
               "type": "string"
             }
