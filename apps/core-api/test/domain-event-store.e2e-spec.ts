@@ -150,6 +150,28 @@ describe('Domain event store (e2e, AUT-536)', () => {
   });
 
   it('pages the feed by monotonic sequence with a versioned cursor', async () => {
+    const pagingVehicle = await prisma.vehicle.create({
+      data: {
+        customer_id: customerId,
+        make: 'Audi',
+        model: 'A3',
+        year: 2021,
+        vin: `VIN-PAGING-${Date.now()}`,
+      },
+    });
+    await request(app.getHttpServer())
+      .post('/api/workshop/orders')
+      .set(auth())
+      .send({
+        customerId,
+        vehicleId: pagingVehicle.id,
+        status: 'SCHEDULED',
+        bayId,
+        scheduledStartAt: '2026-09-03T08:00:00.000Z',
+        scheduledEndAt: '2026-09-03T09:00:00.000Z',
+      })
+      .expect(201);
+
     const first = await request(app.getHttpServer())
       .get('/api/agent/domain-events')
       .query({ pageSize: 1 })
