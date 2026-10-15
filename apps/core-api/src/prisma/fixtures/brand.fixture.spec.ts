@@ -12,12 +12,12 @@ jest.unstable_mockModule('../seed-vehicle-catalog-providers.js', () => ({
 const { seedBrands, seedVendors } = await import('./brand.fixture.js');
 
 describe('brand.fixture', () => {
-  it('creates dual, vehicle, and part brands with normalized names', async () => {
+  it('upserts dual, vehicle, and part brands with normalized names', async () => {
     const createdBrands: any[] = [];
     const mockPrisma: any = {
       brand: {
-        create: jest.fn().mockImplementation(async ({ data }) => {
-          const record = { id: createdBrands.length + 1, ...data };
+        upsert: jest.fn().mockImplementation(async ({ create }) => {
+          const record = { id: createdBrands.length + 1, ...create };
           createdBrands.push(record);
           return record;
         }),
@@ -34,6 +34,7 @@ describe('brand.fixture', () => {
     // Ensure normalized_name is populated
     expect(createdBrands[0].normalized_name).toBeDefined();
     expect(createdBrands[0].tenant_id).toBe('tenant-1');
+    expect(mockPrisma.brand.upsert).toHaveBeenCalled();
   });
 
   it('creates vendors connected to each brand', async () => {

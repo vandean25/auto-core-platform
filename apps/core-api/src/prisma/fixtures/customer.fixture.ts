@@ -108,8 +108,19 @@ export async function seedCustomersAndVehicles(
 
   const createdCustomers = await Promise.all(
     SAMPLE_CUSTOMERS_DATA.map((customer) =>
-      prisma.customer.create({
-        data: {
+      prisma.customer.upsert({
+        where: {
+          tenant_id_email: { tenant_id: tenantId, email: customer.email },
+        },
+        update: {
+          first_name: customer.first_name,
+          last_name: customer.last_name,
+          phone: customer.phone,
+          address_street: customer.address_street,
+          address_city: customer.address_city,
+          address_zip: customer.address_zip,
+        },
+        create: {
           tenant_id: tenantId,
           first_name: customer.first_name,
           last_name: customer.last_name,
@@ -123,20 +134,35 @@ export async function seedCustomersAndVehicles(
     ),
   );
 
-  const vehiclesToCreate = SAMPLE_CUSTOMERS_DATA.flatMap((data, index) =>
-    data.vehicles.map((vehicle) => ({
-      tenant_id: tenantId,
-      ...vehicle,
-      customer_id: createdCustomers[index].id,
-    })),
-  );
+  let vehicleCount = 0;
+  for (const [index, data] of SAMPLE_CUSTOMERS_DATA.entries()) {
+    const customerId = createdCustomers[index].id;
+    for (const vehicle of data.vehicles) {
+      const existing =
+        vehicle.vin != null
+          ? await prisma.vehicle.findFirst({
+              where: { tenant_id: tenantId, vin: vehicle.vin },
+              select: { id: true },
+            })
+          : null;
 
-  if (vehiclesToCreate.length > 0) {
-    await prisma.vehicle.createMany({ data: vehiclesToCreate });
+      if (!existing) {
+        await prisma.vehicle.create({
+          data: {
+            tenant_id: tenantId,
+            ...vehicle,
+            customer_id: customerId,
+          },
+        });
+        vehicleCount += 1;
+      } else {
+        vehicleCount += 1;
+      }
+    }
   }
 
   return {
     customers: createdCustomers,
-    vehicleCount: vehiclesToCreate.length,
+    vehicleCount,
   };
 }

@@ -28,35 +28,34 @@ export async function seedInventory(
   const grzSiteId = foundation.grzSite.id;
   const defaultRevenueGroup = finance.defaultRevenueGroup;
 
+  const upsertWarehouse = (
+    siteId: string,
+    code: string,
+    name: string,
+  ) =>
+    prisma.storageLocation.upsert({
+      where: {
+        tenant_id_site_id_code: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          code,
+        },
+      },
+      update: { name, type: LocationType.warehouse },
+      create: {
+        tenant_id: tenantId,
+        site_id: siteId,
+        name,
+        code,
+        type: LocationType.warehouse,
+      },
+    });
+
   console.log('Seeding warehouses (per-site storage trees)...');
   const [showroom, tireHotel, storage] = await Promise.all([
-    prisma.storageLocation.create({
-      data: {
-        tenant_id: tenantId,
-        site_id: mainSiteId,
-        name: 'Main Showroom (Vienna)',
-        code: 'WH-VIE-01',
-        type: LocationType.warehouse,
-      },
-    }),
-    prisma.storageLocation.create({
-      data: {
-        tenant_id: tenantId,
-        site_id: mainSiteId,
-        name: 'Tire Hotel (Basement)',
-        code: 'WH-TIRE-01',
-        type: LocationType.warehouse,
-      },
-    }),
-    prisma.storageLocation.create({
-      data: {
-        tenant_id: tenantId,
-        site_id: grzSiteId,
-        name: 'Workshop Storage (Graz)',
-        code: 'WH-GRZ-01',
-        type: LocationType.warehouse,
-      },
-    }),
+    upsertWarehouse(mainSiteId, 'WH-VIE-01', 'Main Showroom (Vienna)'),
+    upsertWarehouse(mainSiteId, 'WH-TIRE-01', 'Tire Hotel (Basement)'),
+    upsertWarehouse(grzSiteId, 'WH-GRZ-01', 'Workshop Storage (Graz)'),
   ]);
 
   const locations = [showroom, tireHotel, storage];
@@ -74,40 +73,31 @@ export async function seedInventory(
   console.log('Seeding supersession items (Phase 1: Creation)...');
   const vwBrand = allBrands.find((b) => b.name === 'Volkswagen');
 
+  const upsertCatalogPart = (sku: string, name: string, cost: number, retail: number) =>
+    prisma.catalogItem.upsert({
+      where: { tenant_id_sku: { tenant_id: tenantId, sku } },
+      update: {
+        name,
+        cost_price: cost,
+        retail_price: retail,
+        revenue_group_id: defaultRevenueGroup.id,
+        brand_id: vwBrand?.id,
+      },
+      create: {
+        tenant_id: tenantId,
+        sku,
+        name,
+        cost_price: cost,
+        retail_price: retail,
+        revenue_group_id: defaultRevenueGroup.id,
+        brand_id: vwBrand?.id,
+      },
+    });
+
   const [partA, partB, partC] = await Promise.all([
-    prisma.catalogItem.create({
-      data: {
-        tenant_id: tenantId,
-        sku: '06J-115-403-C',
-        name: 'Oil Filter (Legacy)',
-        cost_price: 8.5,
-        retail_price: 15.0,
-        revenue_group_id: defaultRevenueGroup.id,
-        brand_id: vwBrand?.id,
-      },
-    }),
-    prisma.catalogItem.create({
-      data: {
-        tenant_id: tenantId,
-        sku: '06J-115-403-Q',
-        name: 'Oil Filter (Improved)',
-        cost_price: 9.0,
-        retail_price: 16.5,
-        revenue_group_id: defaultRevenueGroup.id,
-        brand_id: vwBrand?.id,
-      },
-    }),
-    prisma.catalogItem.create({
-      data: {
-        tenant_id: tenantId,
-        sku: '06J-115-561-B',
-        name: 'Oil Filter (Current)',
-        cost_price: 10.2,
-        retail_price: 18.0,
-        revenue_group_id: defaultRevenueGroup.id,
-        brand_id: vwBrand?.id,
-      },
-    }),
+    upsertCatalogPart('06J-115-403-C', 'Oil Filter (Legacy)', 8.5, 15.0),
+    upsertCatalogPart('06J-115-403-Q', 'Oil Filter (Improved)', 9.0, 16.5),
+    upsertCatalogPart('06J-115-561-B', 'Oil Filter (Current)', 10.2, 18.0),
   ]);
 
   console.log('Seeding supersession items (Phase 2: Linking)...');
@@ -156,9 +146,40 @@ export async function seedInventory(
     });
   }
 
-  const otherParts = await prisma.catalogItem.createManyAndReturn({
-    data: partDefinitions,
+  const otherParts = await Promise.all(
+    partDefinitions.map((part) =>
+      prisma.catalogItem.upsert({
+        where: { tenant_id_sku: { tenant_id: tenantId, sku: part.sku } },
+        update: {
+          name: part.name,
+          cost_price: part.cost_price,
+          retail_price: part.retail_price,
+          revenue_group_id: part.revenue_group_id,
+          brand_id: part.brand_id,
+        },
+        create: part,
+      }),
+    ),
+  );
+
+  const seedLedgerExists = await prisma.inventoryTransaction.findFirst({
+    where: { tenant_id: tenantId, reference_id: 'SEED_SCRIPT' },
+    select: { id: true },
   });
+
+  if (seedLedgerExists) {
+    console.log('  → seed inventory ledger already present, skipping stock bootstrap');
+    return {
+      locations,
+      showroom,
+      storage,
+      tireHotel,
+      partA,
+      partB,
+      partC,
+      otherParts,
+    };
+  }
 
   console.log('Seeding stock using batched ledger-based transactions...');
   const initialStockEntries: Array<{

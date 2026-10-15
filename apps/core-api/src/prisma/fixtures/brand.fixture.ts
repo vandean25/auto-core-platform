@@ -22,6 +22,29 @@ export const PURE_PART_MANUFACTURERS = [
   'ZF',
 ];
 
+function upsertBrand(
+  prisma: SeedPrismaClient,
+  tenantId: string,
+  name: string,
+  flags: { isVehicleMake: boolean; isPartManufacturer: boolean },
+) {
+  const normalized_name = normalizeVehicleMakeAlias(name);
+  return prisma.brand.upsert({
+    where: { tenant_id_name: { tenant_id: tenantId, name } },
+    update: {
+      normalized_name,
+      isVehicleMake: flags.isVehicleMake,
+      isPartManufacturer: flags.isPartManufacturer,
+    },
+    create: {
+      tenant_id: tenantId,
+      name,
+      normalized_name,
+      ...flags,
+    },
+  });
+}
+
 export async function seedBrands(
   prisma: SeedPrismaClient,
   tenantId: string,
@@ -31,14 +54,9 @@ export async function seedBrands(
   // Dual Brands (Both Vehicle Make and Part Manufacturer)
   const dualBrandRecords = await Promise.all(
     DUAL_BRANDS.map((name) =>
-      prisma.brand.create({
-        data: {
-          tenant_id: tenantId,
-          name,
-          normalized_name: normalizeVehicleMakeAlias(name),
-          isVehicleMake: true,
-          isPartManufacturer: true,
-        },
+      upsertBrand(prisma, tenantId, name, {
+        isVehicleMake: true,
+        isPartManufacturer: true,
       }),
     ),
   );
@@ -46,14 +64,9 @@ export async function seedBrands(
   // Pure Vehicle Makes
   const pureVehicleMakeRecords = await Promise.all(
     PURE_VEHICLE_MAKES.map((name) =>
-      prisma.brand.create({
-        data: {
-          tenant_id: tenantId,
-          name,
-          normalized_name: normalizeVehicleMakeAlias(name),
-          isVehicleMake: true,
-          isPartManufacturer: false,
-        },
+      upsertBrand(prisma, tenantId, name, {
+        isVehicleMake: true,
+        isPartManufacturer: false,
       }),
     ),
   );
@@ -61,14 +74,9 @@ export async function seedBrands(
   // Pure Part Manufacturers
   const purePartManufacturerRecords = await Promise.all(
     PURE_PART_MANUFACTURERS.map((name) =>
-      prisma.brand.create({
-        data: {
-          tenant_id: tenantId,
-          name,
-          normalized_name: normalizeVehicleMakeAlias(name),
-          isVehicleMake: false,
-          isPartManufacturer: true,
-        },
+      upsertBrand(prisma, tenantId, name, {
+        isVehicleMake: false,
+        isPartManufacturer: true,
       }),
     ),
   );

@@ -300,36 +300,47 @@ export async function seedLabor(
     }),
   ]);
 
-  const fitmentPromises: Promise<unknown>[] = [];
+  async function ensureLaborFitment(data: {
+    labor_operation_id: string;
+    make: string;
+    model: string;
+    year_from: number;
+    year_to: number;
+  }) {
+    const existing = await prisma.laborFitment.findFirst({
+      where: {
+        labor_operation_id: data.labor_operation_id,
+        make: data.make,
+        model: data.model,
+        year_from: data.year_from,
+        year_to: data.year_to,
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      await prisma.laborFitment.create({ data });
+    }
+  }
+
   if (opOilChange) {
-    fitmentPromises.push(
-      prisma.laborFitment.create({
-        data: {
-          labor_operation_id: opOilChange.id,
-          make: 'Volkswagen',
-          model: 'Golf VII',
-          year_from: 2012,
-          year_to: 2020,
-        },
-      }),
-    );
+    await ensureLaborFitment({
+      labor_operation_id: opOilChange.id,
+      make: 'Volkswagen',
+      model: 'Golf VII',
+      year_from: 2012,
+      year_to: 2020,
+    });
   }
 
   if (opBrakePad) {
-    fitmentPromises.push(
-      prisma.laborFitment.create({
-        data: {
-          labor_operation_id: opBrakePad.id,
-          make: 'Audi',
-          model: 'A4 B9',
-          year_from: 2015,
-          year_to: 2023,
-        },
-      }),
-    );
+    await ensureLaborFitment({
+      labor_operation_id: opBrakePad.id,
+      make: 'Audi',
+      model: 'A4 B9',
+      year_from: 2015,
+      year_to: 2023,
+    });
   }
-
-  await Promise.all(fitmentPromises);
 
   return {
     categoryRecords,
