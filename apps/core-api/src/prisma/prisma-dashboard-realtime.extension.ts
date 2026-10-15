@@ -104,8 +104,16 @@ function enrichRealtimePayload(
     };
   }
   if (type === 'FISCAL_RECEIPT') {
+    const payment = row.payment;
+    const siteId =
+      payment &&
+      typeof payment === 'object' &&
+      typeof (payment as { site_id?: unknown }).site_id === 'string'
+        ? (payment as { site_id: string }).site_id
+        : undefined;
     return {
       ...base,
+      siteId,
       status: typeof row.state === 'string' ? row.state : undefined,
     };
   }

@@ -88,6 +88,9 @@ export async function markFiscalReceiptSignedAndPaid(
       provider_request_id: params.providerRequestId ?? null,
       provider_error_code: params.providerErrorCode ?? null,
     },
+    include: {
+      payment: { select: { site_id: true } },
+    },
   });
 
   await tx.payment.update({
