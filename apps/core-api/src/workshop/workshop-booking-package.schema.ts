@@ -70,7 +70,11 @@ export type NormalizedWorkshopBookingPackage = {
 
 function readPositionPlanLineCount(record: Record<string, unknown>): number {
   const positionPlan = record.position_plan;
-  if (!positionPlan || typeof positionPlan !== 'object' || Array.isArray(positionPlan)) {
+  if (
+    !positionPlan ||
+    typeof positionPlan !== 'object' ||
+    Array.isArray(positionPlan)
+  ) {
     return 0;
   }
   const lines = (positionPlan as Record<string, unknown>).lines;
@@ -109,7 +113,11 @@ function resolveLoaner(
   record: Record<string, unknown>,
 ): NormalizedWorkshopBookingPackage['loaner'] {
   const loanerBlock = record.loaner;
-  if (loanerBlock && typeof loanerBlock === 'object' && !Array.isArray(loanerBlock)) {
+  if (
+    loanerBlock &&
+    typeof loanerBlock === 'object' &&
+    !Array.isArray(loanerBlock)
+  ) {
     const loanerRecord = loanerBlock as Record<string, unknown>;
     if (loanerRecord.requested === false) {
       return undefined;

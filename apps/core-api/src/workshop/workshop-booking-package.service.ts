@@ -4,11 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import {
-  Prisma,
-  WorkshopOrderPurpose,
-  WorkshopOrderStatus,
-} from '@prisma/client';
+import { WorkshopOrderPurpose, WorkshopOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -25,7 +21,8 @@ import { executeCreateOrder } from './workshop-intake-insert.helpers.js';
 import { generateNextWorkshopOrderNumber } from './workshop-intake-number.helpers.js';
 import { normalizeWorkshopBookingPackage } from './workshop-booking-package.schema.js';
 
-export const POSITION_PLAN_EXECUTOR_REQUIRED = 'POSITION_PLAN_EXECUTOR_REQUIRED';
+export const POSITION_PLAN_EXECUTOR_REQUIRED =
+  'POSITION_PLAN_EXECUTOR_REQUIRED';
 
 export type WorkshopBookingPackageResult = {
   id: string;
@@ -71,7 +68,9 @@ export class WorkshopBookingPackageService {
     const dto: CreateWorkshopOrderDto = {
       customerId: packageInput.customerId,
       vehicleId: packageInput.vehicleId,
-      purpose: packageInput.purpose ?? WorkshopOrderPurpose.CUSTOMER_REPAIR,
+      purpose:
+        (packageInput.purpose as WorkshopOrderPurpose | undefined) ??
+        WorkshopOrderPurpose.CUSTOMER_REPAIR,
       status: WorkshopOrderStatus.SCHEDULED,
       bayId: packageInput.bayId,
       mechanicId: packageInput.mechanicId,
@@ -120,9 +119,8 @@ export class WorkshopBookingPackageService {
 
       let loanerBookingId: string | undefined;
       if (packageInput.loaner) {
-        const booking = await this.loanerVehicles.createReservedBookingInTransaction(
-          tx,
-          {
+        const booking =
+          await this.loanerVehicles.createReservedBookingInTransaction(tx, {
             tenantId,
             siteId,
             loanerVehicleId: packageInput.loaner.loanerVehicleId,
@@ -130,8 +128,7 @@ export class WorkshopBookingPackageService {
             workshopOrderId: order.id,
             plannedFrom: packageInput.loaner.plannedFrom,
             plannedTo: packageInput.loaner.plannedTo,
-          },
-        );
+          });
         loanerBookingId = booking.id;
       }
 

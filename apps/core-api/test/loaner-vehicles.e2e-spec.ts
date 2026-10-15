@@ -836,7 +836,7 @@ describe('Loaner vehicles (e2e)', () => {
       return base;
     }
 
-    async function submitPackage(payload: Record<string, unknown>) {
+    function submitPackage(payload: Record<string, unknown>) {
       return request(app.getHttpServer())
         .post('/api/agent-proposals/submit')
         .set('Authorization', `Bearer ${authToken}`)

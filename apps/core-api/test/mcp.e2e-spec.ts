@@ -4796,6 +4796,13 @@ describe('MCP server (e2e)', () => {
   it('propose_workshop_booking PROPOSE: preview is provisional and apply commits order and loaner', async () => {
     await setPolicyTier('workshop.booking_package', 'PROPOSE');
     const draftVehicle = await createDraftVehicle('mcp-booking-package');
+    const dedicatedBay = await prismaA.bay.create({
+      data: {
+        site_id: fixtures.siteId,
+        name: `MCP booking package ${Date.now()}`,
+        is_active: true,
+      },
+    });
     const schedule = scheduledBooking(16);
     const loanerVehicleRecord = await prismaA.vehicle.create({
       data: {
@@ -4824,7 +4831,7 @@ describe('MCP server (e2e)', () => {
       {
         customer_id: draftVehicle.customerId,
         vehicle_id: draftVehicle.vehicleId,
-        bay_id: workshopBayId,
+        bay_id: dedicatedBay.id,
         scheduled_start_at: schedule.scheduled_start_at,
         scheduled_end_at: schedule.scheduled_end_at,
         loaner_vehicle_id: loanerFleet.id,
@@ -4884,6 +4891,13 @@ describe('MCP server (e2e)', () => {
   it('AUT-535: replays propose_workshop_booking with the same command_id', async () => {
     await setPolicyTier('workshop.booking_package', 'PROPOSE');
     const draftVehicle = await createDraftVehicle('mcp-booking-replay');
+    const dedicatedBay = await prismaA.bay.create({
+      data: {
+        site_id: fixtures.siteId,
+        name: `MCP booking replay ${Date.now()}`,
+        is_active: true,
+      },
+    });
     const schedule = scheduledBooking(17);
     const commandId = '00000000-0000-4000-8000-000000000536';
 
@@ -4893,7 +4907,7 @@ describe('MCP server (e2e)', () => {
       {
         customer_id: draftVehicle.customerId,
         vehicle_id: draftVehicle.vehicleId,
-        bay_id: workshopBayId,
+        bay_id: dedicatedBay.id,
         scheduled_start_at: schedule.scheduled_start_at,
         scheduled_end_at: schedule.scheduled_end_at,
         command_id: commandId,
@@ -4906,7 +4920,7 @@ describe('MCP server (e2e)', () => {
       {
         customer_id: draftVehicle.customerId,
         vehicle_id: draftVehicle.vehicleId,
-        bay_id: workshopBayId,
+        bay_id: dedicatedBay.id,
         scheduled_start_at: schedule.scheduled_start_at,
         scheduled_end_at: schedule.scheduled_end_at,
         command_id: commandId,
