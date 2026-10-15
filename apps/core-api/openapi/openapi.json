@@ -25386,6 +25386,9 @@
           "hasUnverifiedRules": {
             "type": "boolean"
           },
+          "hasScopeLimitations": {
+            "type": "boolean"
+          },
           "ratePercentApplied": {
             "type": "number"
           },
@@ -25399,6 +25402,7 @@
           "tariffVersionId",
           "warnings",
           "hasUnverifiedRules",
+          "hasScopeLimitations",
           "ratePercentApplied",
           "effectiveCo2GramsPerKm"
         ]

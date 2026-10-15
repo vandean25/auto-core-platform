@@ -110,6 +110,7 @@ export class NovaCalculateResponseDto {
   @ApiProperty() tariffVersionId!: string;
   @ApiProperty({ type: [String] }) warnings!: string[];
   @ApiProperty() hasUnverifiedRules!: boolean;
+  @ApiProperty() hasScopeLimitations!: boolean;
   @ApiProperty() ratePercentApplied!: number;
   @ApiProperty() effectiveCo2GramsPerKm!: number;
 }

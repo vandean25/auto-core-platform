@@ -126,6 +126,32 @@ describe('Vehicle NoVA calculation (e2e)', () => {
     expect(response.body).toEqual({
       ...calculateNova(input, tariff.id),
       hasUnverifiedRules: false,
+      hasScopeLimitations: false,
+    });
+  });
+
+  it('exposes scope limitations for used-car preview inputs', async () => {
+    const input = {
+      co2GramsPerKm: 120,
+      emissionCycle: 'WLTP' as const,
+      netPriceEuro: 30_000,
+      driveType: 'ICE' as const,
+      taxableEventDate: '2026-05-01',
+      firstRegistrationDate: '2020-01-01',
+      vehicleClass: 'passenger_z3' as const,
+    };
+    const tariff = resolveTariffVersion(input.vehicleClass, input.taxableEventDate)!;
+
+    const response = await request(app.getHttpServer())
+      .post('/api/vehicles/nova/calculate')
+      .set('Authorization', authHeaderA)
+      .send(input)
+      .expect(200);
+
+    expect(response.body).toEqual({
+      ...calculateNova(input, tariff.id),
+      hasUnverifiedRules: false,
+      hasScopeLimitations: true,
     });
   });
 
@@ -154,6 +180,7 @@ describe('Vehicle NoVA calculation (e2e)', () => {
     expect(defaultResponse.body).toEqual({
       ...calculateNova(defaultInput, defaultTariff.id),
       hasUnverifiedRules: false,
+      hasScopeLimitations: true,
     });
 
     const overrideInput = {
@@ -182,6 +209,7 @@ describe('Vehicle NoVA calculation (e2e)', () => {
     expect(overrideResponse.body).toEqual({
       ...calculateNova(overrideInput, tariff.id),
       hasUnverifiedRules: false,
+      hasScopeLimitations: true,
     });
   });
 

@@ -3,6 +3,7 @@ import { useNovaCalculate } from '@/api/nova'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatCurrency } from '@/lib/utils'
+import { formatNovaPreviewWarning } from './nova-preview-warnings'
 
 type NovaPreviewPanelProps = {
   vehicleId: string
@@ -121,7 +122,16 @@ export function NovaPreviewPanel({
             Angewandte Regeln: {data.appliedRuleIds.length ? data.appliedRuleIds.join(', ') : '—'}
           </div>
           {data.warnings.length ? (
-            <div className="text-xs text-slate-600">Hinweise: {data.warnings.join(', ')}</div>
+            <ul className="list-disc space-y-1 pl-4 text-xs text-slate-600">
+              {data.warnings.map((warning) => (
+                <li key={warning}>{formatNovaPreviewWarning(warning)}</li>
+              ))}
+            </ul>
+          ) : null}
+          {data.hasScopeLimitations ? (
+            <p className="text-sm font-medium text-amber-800" role="status">
+              Vorschau eingeschränkt – Wertentwicklung und EU-Importtarif nicht berechnet
+            </p>
           ) : null}
           {data.hasUnverifiedRules ? (
             <p className="text-sm font-medium text-amber-800">

@@ -59,6 +59,7 @@ describe('NovaPreviewPanel', () => {
         appliedRuleIds: ['tariff.co2_rate_formula'],
         warnings: ['nedc_fractional_co2_unverified'],
         hasUnverifiedRules: true,
+        hasScopeLimitations: false,
         ratePercentApplied: 14,
         effectiveCo2GramsPerKm: 165.1,
       },
@@ -105,6 +106,7 @@ describe('NovaPreviewPanel', () => {
         appliedRuleIds: [],
         warnings: [],
         hasUnverifiedRules: false,
+        hasScopeLimitations: false,
         ratePercentApplied: 12,
         effectiveCo2GramsPerKm: 160,
       },
@@ -133,6 +135,56 @@ describe('NovaPreviewPanel', () => {
     })
 
     expect(screen.queryByText('at-m1-2025-h2')).not.toBeInTheDocument()
+  })
+
+  it('shows scope limitation hints for Wertentwicklung warnings', () => {
+    useNovaCalculate.mockReturnValue({
+      mutate: calculate,
+      reset,
+      data: {
+        novaAmountEuro: 2100,
+        tariffVersionId: 'at-m1-2026-h1',
+        appliedRuleIds: ['tariff.co2_rate_formula'],
+        warnings: ['wertentwicklung_not_applied', 'eu_import_tariff_hint'],
+        hasUnverifiedRules: false,
+        hasScopeLimitations: true,
+        ratePercentApplied: 7,
+        effectiveCo2GramsPerKm: 120,
+      },
+      error: null,
+      isPending: false,
+    })
+
+    render(
+      <NovaPreviewPanel
+        vehicleId="vehicle-1"
+        firstRegistrationDate="2020-01-01"
+        co2Wltp={120}
+        co2Nedc={null}
+        typenscheinNo="TS-1"
+        novaClass="STANDARD"
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('NoVA-Netto-Preis'), {
+      target: { value: '30000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'NoVA berechnen' }))
+
+    expect(
+      screen.getByText('Vorschau eingeschränkt – Wertentwicklung und EU-Importtarif nicht berechnet'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Wertentwicklung wird in dieser Vorschau nicht angewendet.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Historischer EU-Importtarif zur Erstzulassung ist in dieser Vorschau nicht enthalten.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Vorschau - Steuerberater-Bestätigung ausstehend'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows a missing CO2 hint without raising a toast', () => {

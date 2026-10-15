@@ -46,6 +46,7 @@ function novaResult(
     ratePercentApplied: 16,
     effectiveCo2GramsPerKm: 120,
     hasUnverifiedRules: false,
+    hasScopeLimitations: false,
     ...overrides,
   } as NovaCalculateResult;
 }
