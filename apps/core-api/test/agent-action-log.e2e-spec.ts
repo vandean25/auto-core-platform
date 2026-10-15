@@ -209,16 +209,18 @@ describe('Agent action log (e2e)', () => {
       ],
     });
 
-    await prisma.agentActionLog.create({
-      data: {
-        tenant_id: tenantB,
-        trace_id: traceTenantB,
-        actor_type: 'AGENT',
-        agent_id: 'mcp:qa-fresh-agent',
-        action_type: 'noop',
-        tier: 'AUTO',
-        status: 'DRY_RUN',
-      },
+    await runWithTenantContext(tenantB, async () => {
+      await prisma.agentActionLog.create({
+        data: {
+          tenant_id: tenantB,
+          trace_id: traceTenantB,
+          actor_type: 'AGENT',
+          agent_id: 'mcp:qa-fresh-agent',
+          action_type: 'noop',
+          tier: 'AUTO',
+          status: 'DRY_RUN',
+        },
+      });
     });
 
     const list = await request(app.getHttpServer())
