@@ -27,6 +27,7 @@ type UserAccessMembership = {
   tenant_id: string;
   role: TenantMemberRole;
   is_active: boolean;
+  demo_access_expires_at: Date | null;
   tenant: {
     id: string;
     name: string;
@@ -96,6 +97,7 @@ const USER_ACCESS_SELECT = {
       tenant_id: true,
       role: true,
       is_active: true,
+      demo_access_expires_at: true,
       tenant: {
         select: {
           id: true,
@@ -192,6 +194,10 @@ export class AuthSessionService {
       return null;
     }
 
+    user.memberships = user.memberships.filter((membership) =>
+      this.isMembershipCurrentlyValid(membership),
+    );
+
     const activeMembership = await this.ensureActiveMembership(user);
 
     if (!activeMembership) {
@@ -233,6 +239,18 @@ export class AuthSessionService {
       !requestedMembership.tenant.is_active
     ) {
       throw new ForbiddenException('Requested tenant is inactive.');
+    }
+
+    const demoOnlyUser = userRecord.memberships.every(
+      (membership) => membership.role === TenantMemberRole.DEMO,
+    );
+    if (
+      demoOnlyUser &&
+      requestedMembership.role !== TenantMemberRole.DEMO
+    ) {
+      throw new ForbiddenException(
+        'Demo accounts may only access the demo tenant.',
+      );
     }
 
     if (userRecord.active_tenant_id !== requestedMembership.tenant_id) {
@@ -301,6 +319,13 @@ export class AuthSessionService {
       ...byEmail,
       firebaseUid: claims.sub,
     };
+  }
+
+  private isMembershipCurrentlyValid(membership: UserAccessMembership): boolean {
+    if (!membership.demo_access_expires_at) {
+      return true;
+    }
+    return membership.demo_access_expires_at.getTime() > Date.now();
   }
 
   private async ensureActiveMembership(

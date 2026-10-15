@@ -10,6 +10,16 @@ describe('resolveCorsOrigins', () => {
     ).toEqual(['https://app.example.com', 'http://localhost:5173']);
   });
 
+  it('merges landing page origins with the dashboard frontend URL', () => {
+    expect(
+      resolveCorsOrigins(
+        'https://app.example.com',
+        'test',
+        'https://landing-demo.web.app',
+      ),
+    ).toEqual(['https://app.example.com', 'https://landing-demo.web.app']);
+  });
+
   it('uses local development origins outside production when unset', () => {
     expect(resolveCorsOrigins(undefined, 'development')).toEqual([
       'http://localhost:5173',

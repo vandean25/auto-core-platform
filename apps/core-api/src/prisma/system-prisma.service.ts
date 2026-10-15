@@ -29,6 +29,7 @@ import {
  * - HrAttendanceSchedulerService — AttendanceEvent (nightly close only)
  * - ApiKeyLookupService — TenantApiKey (findUnique by key id, before tenant context exists; ADR-0026)
  * - PublicEstimateApprovalLookup — WorkshopEstimateApprovalToken (findFirst by token hash, before tenant context exists; ADR-0025 §7)
+ * - LandingDemoAccessService — landing demo requests, grants, rate limits, demo user site membership (AUT-547)
  *
  * Tenant-scoped models (Customer, Vehicle, WorkshopOrder, …) are omitted from
  * the type and undefined at runtime. Use PrismaService so isolation applies.
@@ -100,6 +101,30 @@ export class SystemPrismaService
 
   get workshopEstimateApprovalToken(): PrismaClient['workshopEstimateApprovalToken'] {
     return this.prisma.workshopEstimateApprovalToken;
+  }
+
+  get landingDemoAccessRequest(): PrismaClient['landingDemoAccessRequest'] {
+    return this.prisma.landingDemoAccessRequest;
+  }
+
+  get landingDemoSignInGrant(): PrismaClient['landingDemoSignInGrant'] {
+    return this.prisma.landingDemoSignInGrant;
+  }
+
+  get publicRateLimitCounter(): PrismaClient['publicRateLimitCounter'] {
+    return this.prisma.publicRateLimitCounter;
+  }
+
+  get site(): PrismaClient['site'] {
+    return this.prisma.site;
+  }
+
+  get siteMembership(): PrismaClient['siteMembership'] {
+    return this.prisma.siteMembership;
+  }
+
+  get notificationOutbox(): PrismaClient['notificationOutbox'] {
+    return this.prisma.notificationOutbox;
   }
 
   $transaction<Result>(
