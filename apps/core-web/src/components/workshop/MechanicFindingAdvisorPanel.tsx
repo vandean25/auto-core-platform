@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { fetchWithAuth } from '@/api/client'
 import { createHttpError } from '@/lib/error-utils'
-import { workshopKeys } from '@/api/workshop'
 
 export type WorkshopMechanicFinding = {
   proposal_id: string
@@ -33,7 +32,7 @@ type MechanicFindingAdvisorPanelProps = {
 
 export function MechanicFindingAdvisorPanel({ orderId }: MechanicFindingAdvisorPanelProps) {
   const query = useQuery({
-    queryKey: [...workshopKeys.detail(orderId), 'mechanic-findings'],
+    queryKey: ['workshop', 'order', orderId, 'mechanic-findings'],
     queryFn: () => fetchMechanicFindings(orderId),
     enabled: Boolean(orderId),
   })
