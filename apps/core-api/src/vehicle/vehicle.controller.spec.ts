@@ -36,14 +36,16 @@ describe('VehicleController NoVA calculation', () => {
     const bodySchema = parameters.find((parameter) => parameter.in === 'body')
       ?.schema;
 
-    expect(bodySchema?.anyOf).toHaveLength(2);
+    expect(bodySchema?.anyOf).toHaveLength(3);
     expect(bodySchema?.anyOf?.[0].allOf[1].required).toContain('vehicleId');
     expect(bodySchema?.anyOf?.[0].allOf[1].properties).toHaveProperty('vehicleId');
-    expect(bodySchema?.anyOf?.[1].allOf[1].required).toEqual([
+    expect(bodySchema?.anyOf?.[1].allOf[1].required).toEqual(['importMode']);
+    expect(bodySchema?.anyOf?.[1].allOf[1].properties).toHaveProperty('importMode');
+    expect(bodySchema?.anyOf?.[2].allOf[1].required).toEqual([
       'emissionCycle',
       'driveType',
       'taxableEventDate',
     ]);
-    expect(bodySchema?.anyOf?.[1].allOf[1].properties).toHaveProperty('taxableEventDate');
+    expect(bodySchema?.anyOf?.[2].allOf[1].properties).toHaveProperty('taxableEventDate');
   });
 });
