@@ -14,6 +14,10 @@ import type { Prisma, PrismaClient } from '@prisma/client';
  *   The key row names its tenant, and every later query is tenant-scoped.
  * - workshopEstimateApprovalToken: PublicEstimateApprovalLookup, one findFirst by token hash before any tenant context
  *   exists (ADR-0025 §7). The token row names its tenant. Every later query runs through PrismaService.
+ * - landingDemoAccessRequest, landingDemoSignInGrant, publicRateLimitCounter: AUT-547 public landing demo flow
+ *   (before tenant context; global abuse counters).
+ * - site, siteMembership: AUT-547 demo user provisioning (membership on the landing demo tenant only).
+ * - notificationOutbox: AUT-547 outbox writes in the same transaction as demo access grants (tenant id on row).
  */
 export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'tenant',
@@ -28,6 +32,12 @@ export const SYSTEM_PRISMA_MODEL_DELEGATES = [
   'agentPolicyRule',
   'tenantApiKey',
   'workshopEstimateApprovalToken',
+  'landingDemoAccessRequest',
+  'landingDemoSignInGrant',
+  'publicRateLimitCounter',
+  'site',
+  'siteMembership',
+  'notificationOutbox',
 ] as const;
 
 export type SystemPrismaModelDelegate =
@@ -87,5 +97,11 @@ export function createSystemPrismaTransactionClient(
     agentPolicyRule: client.agentPolicyRule,
     tenantApiKey: client.tenantApiKey,
     workshopEstimateApprovalToken: client.workshopEstimateApprovalToken,
+    landingDemoAccessRequest: client.landingDemoAccessRequest,
+    landingDemoSignInGrant: client.landingDemoSignInGrant,
+    publicRateLimitCounter: client.publicRateLimitCounter,
+    site: client.site,
+    siteMembership: client.siteMembership,
+    notificationOutbox: client.notificationOutbox,
   };
 }
