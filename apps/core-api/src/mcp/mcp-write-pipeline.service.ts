@@ -13,6 +13,8 @@ import { TenantContextStorage } from '../common/services/tenant-context.storage.
 import type { AgentActionRecordInput } from '../agent-action-log/agent-action-log.types.js';
 import type { AgentPolicyEvaluateContext } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
+import { DryRunStorage } from '../dry-run/dry-run.storage.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import type { WouldChangeItem } from '../dry-run/dry-run.types.js';
 import {
   MCP_AGENT_FACING_CODES,
@@ -74,6 +76,7 @@ const logActionType = (toolName: McpWriteToolName): string => `mcp.${toolName}`;
 
 @Injectable()
 export class McpWritePipelineService {
+  private readonly prisma: PrismaService;
   private readonly agentPolicy: AgentPolicyService;
   private readonly dryRun: DryRunService;
   private readonly agentActionLog: AgentActionLogService;
@@ -82,11 +85,13 @@ export class McpWritePipelineService {
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
   constructor(
+    prisma: PrismaService,
     agentPolicy: AgentPolicyService,
     dryRun: DryRunService,
     agentActionLog: AgentActionLogService,
     agentProposals: AgentProposalService,
   ) {
+    this.prisma = prisma;
     this.agentPolicy = agentPolicy;
     this.dryRun = dryRun;
     this.agentActionLog = agentActionLog;
@@ -270,29 +275,41 @@ export class McpWritePipelineService {
     call: WriteCall,
     wouldChange: WouldChangeItem[],
   ): Promise<McpWriteToolResult> {
-    const record = await this.agentActionLog.record(
-      {
-        actorType: 'AGENT',
-        agentId: call.context.agentId,
-        onBehalfOfUserId: call.context.onBehalfOfUserId,
-        actionType: call.actionType,
-        tier: call.tier,
-        status: 'EXECUTED',
-        inputSummary: call.inputSummary,
-        resultSummary: (result) => call.execution.buildResultSummary(result),
-      },
-      async () => call.execution.execute(call.input),
-      call.execution.buildLogMetadata,
-    );
+    try {
+      const record = await this.prisma.$transaction(async (tx) =>
+        this.agentActionLog.recordInTransaction(
+          {
+            actorType: 'AGENT',
+            agentId: call.context.agentId,
+            onBehalfOfUserId: call.context.onBehalfOfUserId,
+            actionType: call.actionType,
+            tier: call.tier,
+            status: 'EXECUTED',
+            inputSummary: call.inputSummary,
+            resultSummary: (result) =>
+              call.execution.buildResultSummary(result),
+          },
+          tx,
+          () =>
+            DryRunStorage.run({ isDryRun: false, tx }, () =>
+              call.execution.execute(call.input),
+            ),
+          call.execution.buildLogMetadata,
+        ),
+      );
 
-    return {
-      tool: call.execution.toolName,
-      tier: call.tier,
-      status: MCP_AGENT_FACING_CODES.executedStatus,
-      would_change: wouldChange,
-      result: record.workResult,
-      trace_id: record.traceId,
-    };
+      return {
+        tool: call.execution.toolName,
+        tier: call.tier,
+        status: MCP_AGENT_FACING_CODES.executedStatus,
+        would_change: wouldChange,
+        result: record.workResult,
+        trace_id: record.traceId,
+      };
+    } catch (error) {
+      await this.recordFailure(call, error);
+      throw error;
+    }
   }
 
   private async recordFailure(call: WriteCall, error: unknown): Promise<void> {

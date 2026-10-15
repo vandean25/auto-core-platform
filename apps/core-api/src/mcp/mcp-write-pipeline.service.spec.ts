@@ -6,6 +6,7 @@ import { AgentPolicyService } from '../agent-policy/agent-policy.service.js';
 import type { AgentPolicyEvaluationResult } from '../agent-policy/agent-policy.types.js';
 import { DryRunService } from '../dry-run/dry-run.service.js';
 import { AgentProposalService } from '../agent-proposal/agent-proposal.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 import { McpWritePipelineService } from './mcp-write-pipeline.service.js';
 import type { McpWriteExecution, McpWriteToolContext } from './mcp-write-pipeline.service.js';
 import { toMcpJsonObject } from './mcp-output.util.js';
@@ -17,6 +18,7 @@ describe('McpWritePipelineService', () => {
   let mockDryRun: jest.Mocked<DryRunService>;
   let mockAgentActionLog: jest.Mocked<AgentActionLogService>;
   let mockAgentProposals: jest.Mocked<AgentProposalService>;
+  let mockPrisma: { $transaction: jest.Mock };
 
   const mockContext: McpWriteToolContext = {
     agentId: 'test-agent',
@@ -53,10 +55,18 @@ describe('McpWritePipelineService', () => {
   const setupDefaultMocks = () => {
     mockAgentPolicy = { evaluateAction: jest.fn() } as jest.Mocked<AgentPolicyService>;
     mockDryRun = { executeInRollbackTransaction: jest.fn() } as jest.Mocked<DryRunService>;
-    mockAgentActionLog = { record: jest.fn() } as jest.Mocked<AgentActionLogService>;
+    mockAgentActionLog = {
+      record: jest.fn(),
+      recordInTransaction: jest.fn(),
+    } as jest.Mocked<AgentActionLogService>;
     mockAgentProposals = {
       persistPendingAction: jest.fn().mockResolvedValue({ id: 'proposal-1' }),
     } as jest.Mocked<AgentProposalService>;
+    mockPrisma = {
+      $transaction: jest.fn(async (callback: (tx: { tag: 'tx' }) => unknown) =>
+        callback({ tag: 'tx' }),
+      ),
+    };
   };
 
   beforeEach(async () => {
@@ -65,6 +75,7 @@ describe('McpWritePipelineService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         McpWritePipelineService,
+        { provide: PrismaService, useValue: mockPrisma },
         { provide: AgentPolicyService, useValue: mockAgentPolicy },
         { provide: DryRunService, useValue: mockDryRun },
         { provide: AgentActionLogService, useValue: mockAgentActionLog },
@@ -155,16 +166,19 @@ describe('McpWritePipelineService', () => {
         result: await fn(),
         wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
       }));
-      mockAgentActionLog.record.mockImplementation(async (_options, executeFn) => {
-        const workResult = await executeFn();
-        return { traceId: 'trace-123', workResult };
-      });
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_options, _tx, executeFn) => {
+          const workResult = await executeFn?.();
+          return { traceId: 'trace-123', workResult };
+        },
+      );
 
       const result = await service.run(execution, input, mockContext);
 
       expect(result.tier).toBe(AgentPolicyTier.AUTO);
       expect(result.status).toBe('executed');
       expect(execution.execute).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -186,12 +200,14 @@ describe('McpWritePipelineService', () => {
         return { result, wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }] };
       });
 
-      mockAgentActionLog.record.mockImplementation(async (options, executeFn) => {
-        callOrder.push('log-record-start');
-        const workResult = await executeFn();
-        callOrder.push('log-record-end');
-        return { traceId: 'trace-123', workResult };
-      });
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_options, _tx, executeFn) => {
+          callOrder.push('log-record-start');
+          const workResult = await executeFn?.();
+          callOrder.push('log-record-end');
+          return { traceId: 'trace-123', workResult };
+        },
+      );
 
       await service.run(execution, input, mockContext);
 
@@ -203,6 +219,7 @@ describe('McpWritePipelineService', () => {
         'log-record-end',
       ]);
       expect(execution.execute).toHaveBeenCalledTimes(2);
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -217,10 +234,12 @@ describe('McpWritePipelineService', () => {
         result: await fn(),
         wouldChange: [{ type: 'create', entity: 'WorkshopOrder', entity_id: 'created-id' }],
       }));
-      mockAgentActionLog.record.mockImplementation(async (options, executeFn) => {
-        const workResult = await executeFn();
-        return { traceId, workResult };
-      });
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_options, _tx, executeFn) => {
+          const workResult = await executeFn?.();
+          return { traceId, workResult };
+        },
+      );
 
       const result = await service.run(execution, input, mockContext);
 
@@ -228,16 +247,90 @@ describe('McpWritePipelineService', () => {
       expect(result.status).toBe('executed');
       expect(result.trace_id).toBe(traceId);
       expect(result.result).toEqual({ id: 'created-id' });
-      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+      expect(mockAgentActionLog.recordInTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
           actionType: 'mcp.draft_workshop_order',
           tier: AgentPolicyTier.AUTO,
           status: 'EXECUTED',
         }),
+        { tag: 'tx' },
         expect.any(Function),
         undefined,
       );
+      expect(mockAgentActionLog.record).not.toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'EXECUTED' }),
+        expect.any(Function),
+        expect.anything(),
+      );
       expect(execution.execute).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('AUTO atomic execute + log', () => {
+    it('records FAILED outside the transaction when real execute throws after preview', async () => {
+      const execution = createMockExecution('draft_workshop_order');
+      const input = { customer_id: 'cust-1', vehicle_id: 'veh-1', purpose: 'REPAIR' };
+      const domainError = new Error('domain rejected after preview');
+
+      mockAgentPolicy.evaluateAction.mockResolvedValue(
+        createMockEvaluation(AgentPolicyTier.AUTO),
+      );
+      mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
+        result: await fn(),
+        wouldChange: [],
+      }));
+      execution.execute
+        .mockResolvedValueOnce({ id: 'preview-id' })
+        .mockRejectedValueOnce(domainError);
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_options, _tx, executeFn) => {
+          await executeFn?.();
+          return { traceId: 'trace-domain-fail', workResult: undefined };
+        },
+      );
+      mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-failed' } as any);
+
+      await expect(service.run(execution, input, mockContext)).rejects.toBe(
+        domainError,
+      );
+
+      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'FAILED',
+          resultSummary: expect.objectContaining({
+            error: 'domain rejected after preview',
+          }),
+        }),
+      );
+    });
+
+    it('propagates log insert failure and records FAILED without leaving a committed mutation', async () => {
+      const execution = createMockExecution('draft_workshop_order');
+      const input = { customer_id: 'cust-1', vehicle_id: 'veh-1', purpose: 'REPAIR' };
+      const logError = new Error('simulated log insert failure');
+
+      mockAgentPolicy.evaluateAction.mockResolvedValue(
+        createMockEvaluation(AgentPolicyTier.AUTO),
+      );
+      mockDryRun.executeInRollbackTransaction.mockImplementation(async (fn) => ({
+        result: await fn(),
+        wouldChange: [],
+      }));
+      mockAgentActionLog.recordInTransaction.mockRejectedValue(logError);
+      mockAgentActionLog.record.mockResolvedValue({ traceId: 'trace-failed' } as any);
+
+      await expect(service.run(execution, input, mockContext)).rejects.toBe(logError);
+
+      expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockAgentActionLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'FAILED',
+          resultSummary: expect.objectContaining({
+            error: 'simulated log insert failure',
+          }),
+        }),
+      );
+      expect(execution.execute).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -372,10 +465,12 @@ describe('McpWritePipelineService', () => {
         result: await fn(),
         wouldChange,
       }));
-      mockAgentActionLog.record.mockImplementation(async (options, executeFn) => ({
-        traceId: 'trace-executed-1',
-        workResult: await executeFn(),
-      }));
+      mockAgentActionLog.recordInTransaction.mockImplementation(
+        async (_options, _tx, executeFn) => ({
+          traceId: 'trace-executed-1',
+          workResult: await executeFn?.(),
+        }),
+      );
 
       const result = await service.run(
         execution,

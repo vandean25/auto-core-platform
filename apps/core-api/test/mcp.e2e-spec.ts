@@ -1354,6 +1354,66 @@ describe('MCP server (e2e)', () => {
     expect(log?.reversible).toBe(true);
   });
 
+  it('AUT-511: rolls back an AUTO draft when the EXECUTED agent action log insert fails', async () => {
+    await setPolicyTier('workshop_order.create', 'AUTO');
+    const draftVehicle = await createDraftVehicle('draft-atomic-rollback');
+    const notes = `MCP AUT-511 rollback ${Date.now()}`;
+    const traceId = '00000000-0000-4000-8000-000000000511';
+
+    const realCreate = prisma.agentActionLog.create.bind(prisma.agentActionLog);
+    const createSpy = jest
+      .spyOn(prisma.agentActionLog, 'create')
+      .mockImplementation(async (args) => {
+        const data = args.data as {
+          action_type?: string;
+          status?: string;
+          trace_id?: string;
+        };
+        if (
+          data.status === 'EXECUTED' &&
+          data.action_type === 'mcp.draft_workshop_order' &&
+          data.trace_id === traceId
+        ) {
+          throw new Error('simulated EXECUTED log insert failure');
+        }
+        return realCreate(args);
+      });
+
+    try {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-auto-atomic-rollback'),
+        'draft_workshop_order',
+        { ...draftOrderArgs(draftVehicle), notes },
+        traceId,
+      );
+
+      expect(result.isError).toBe(true);
+      expect(toolPayloadText(result)).toContain(
+        'simulated EXECUTED log insert failure',
+      );
+
+      const orders = await prismaA.workshopOrder.count({
+        where: {
+          customer_id: draftVehicle.customerId,
+          vehicle_id: draftVehicle.vehicleId,
+          notes,
+        },
+      });
+      expect(orders).toBe(0);
+
+      const executedLogs = await prismaA.agentActionLog.count({
+        where: {
+          trace_id: traceId,
+          action_type: 'mcp.draft_workshop_order',
+          status: 'EXECUTED',
+        },
+      });
+      expect(executedLogs).toBe(0);
+    } finally {
+      createSpy.mockRestore();
+    }
+  });
+
   it('disabled write policy refuses without creating an order and records a REFUSED log', async () => {
     await putPolicyRule('workshop_order.create', {
       tier: 'AUTO',

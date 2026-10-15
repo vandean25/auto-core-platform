@@ -262,6 +262,33 @@ describe('AgentActionLogService characterization', () => {
         }),
       });
     });
+
+    it('applies metadataFromResult when transactional work succeeds', async () => {
+      const transaction = {
+        agentActionLog: { create: jest.fn().mockResolvedValue({ id: 'log-3' }) },
+      };
+
+      await inRequestContext(() =>
+        service.recordInTransaction(
+          baseInput,
+          transaction as never,
+          async () => ({ id: 'order-99' }),
+          () => ({
+            entityType: 'WorkshopOrder',
+            entityId: 'order-99',
+            reversible: true,
+          }),
+        ),
+      );
+
+      expect(transaction.agentActionLog.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          entity_type: 'WorkshopOrder',
+          entity_id: 'order-99',
+          reversible: true,
+        }),
+      });
+    });
   });
 
   describe('reads', () => {
