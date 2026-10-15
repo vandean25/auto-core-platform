@@ -162,6 +162,17 @@ export function ApprovalsTab({
       })
     : proposals.map((proposal) => ({ type: 'proposal' as const, proposal }))
 
+  const pendingProposalBodiesMissing =
+    pendingOnly &&
+    pendingApprovalIds.some((id) => !proposalById.has(id))
+
+  const showEmptyInboxState =
+    !isLoading &&
+    !isError &&
+    displayRows.length === 0 &&
+    !(pendingOnly && proposalsError) &&
+    !pendingProposalBodiesMissing
+
   const resolveTriageReasonLabel = (reason: string) => {
     const copy = t.triageReason[reason as keyof typeof t.triageReason]
     return copy ? getCopy(copy, language) : reason
@@ -324,7 +335,7 @@ export function ApprovalsTab({
       )}
 
       {/* Empty state */}
-      {!isLoading && !isError && displayRows.length === 0 && (
+      {showEmptyInboxState && (
         <div
           className="rounded-lg border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center"
           data-testid="approvals-empty-state"
