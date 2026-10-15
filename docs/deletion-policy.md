@@ -172,6 +172,18 @@ Active-reference changes, invoice commitment and cleanup serialize on the legal 
 | `Vehicle` | Existing | `clearRegistrationEvidenceForVehicle` clears holder evidence when a vehicle delete endpoint runs |
 | `Vehicle.national_code` | n/a | Follows vehicle delete rules |
 
+## AUT-527 — Vehicle valuation snapshots
+
+These rules apply when `VehicleValuationSnapshot` exists. This spec PR does not create the table. AUT-551 does.
+
+| Entity | Delete | Rule |
+|---|---|---|
+| `VehicleValuationSnapshot` | No standalone route | Append-only decision record. No update and no public delete. A new quote is a new row |
+| `VehicleValuationSnapshot` | With `Vehicle` | `onDelete: Cascade` only through a vehicle delete that the existing vehicle rule already allows. Vehicle delete stays blocked while a purchase, sale, workshop order, sales order, invoice, ledger entry, or loaner fleet entry exists, so a snapshot cited by that commercial history is not removed early |
+| Tenant purge | With the tenant | Delete snapshot rows with the tenant's vehicles. Do not keep a reusable valuation catalog after the tenant is gone |
+
+The snapshot does not reference `VehiclePurchase` or `VehicleSale`, because this feature does not write those prices.
+
 ## UI Contract
 
 - Show row context `Delete` only for entities with delete support.
