@@ -129,10 +129,7 @@ export class McpVehicleContextReadService {
     if (input.cursor && !continuation) {
       throw new BadRequestException('cursor is invalid');
     }
-    if (
-      continuation &&
-      !requested.includes(continuation.section as McpVehicleContextSection)
-    ) {
+    if (continuation && !requested.includes(continuation.section)) {
       throw new BadRequestException(
         'cursor section is not included in sections',
       );
@@ -208,7 +205,7 @@ export class McpVehicleContextReadService {
         pageSize,
         asOf,
         continuation?.section === 'inspections'
-          ? continuation.keyset ?? null
+          ? (continuation.keyset ?? null)
           : null,
       );
     }
@@ -229,7 +226,7 @@ export class McpVehicleContextReadService {
             vehicle.id,
             pageSize,
             continuation?.section === 'open_workshop'
-              ? continuation.keyset ?? null
+              ? (continuation.keyset ?? null)
               : null,
           );
           break;
@@ -240,7 +237,7 @@ export class McpVehicleContextReadService {
             vehicle.id,
             pageSize,
             continuation?.section === 'documents'
-              ? continuation.keyset ?? null
+              ? (continuation.keyset ?? null)
               : null,
           );
           break;
@@ -251,7 +248,7 @@ export class McpVehicleContextReadService {
             vehicle.id,
             pageSize,
             continuation?.section === 'warranty_claims'
-              ? continuation.keyset ?? null
+              ? (continuation.keyset ?? null)
               : null,
           );
           break;
@@ -263,7 +260,7 @@ export class McpVehicleContextReadService {
             asOf,
             pageSize,
             continuation?.section === 'warranty_periods'
-              ? continuation.keyset ?? null
+              ? (continuation.keyset ?? null)
               : null,
           );
           break;
@@ -325,8 +322,7 @@ export class McpVehicleContextReadService {
     const page = buildMcpKeysetPage({
       records,
       pageSize,
-      cursorOf: (record) =>
-        keysetCursorOf(record.inspected_on, record.id),
+      cursorOf: (record) => keysetCursorOf(record.inspected_on, record.id),
       mapRow: (record) => toMcpVehicleContextInspectionRow(record, asOf),
     });
 
@@ -336,7 +332,10 @@ export class McpVehicleContextReadService {
       meta: {
         total,
         page_size: page.meta.page_size,
-        next_cursor: this.wrapSectionCursor('inspections', page.meta.next_cursor),
+        next_cursor: this.wrapSectionCursor(
+          'inspections',
+          page.meta.next_cursor,
+        ),
       },
       truncated: page.truncated,
       incomplete: page.meta.next_cursor !== null,

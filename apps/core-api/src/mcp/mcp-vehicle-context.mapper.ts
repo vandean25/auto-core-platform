@@ -233,4 +233,3 @@ export function toMcpWarrantyPeriodRow(
     created_at: sale.createdAt.toISOString(),
   };
 }
-

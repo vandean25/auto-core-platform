@@ -97,7 +97,10 @@ function keysetForRow(
   }
 }
 
-function trimSectionRow(section: OkSection, sectionName: McpVehicleContextPaginatedSection) {
+function trimSectionRow(
+  section: OkSection,
+  sectionName: McpVehicleContextPaginatedSection,
+) {
   if (!Array.isArray(section.data) || section.data.length === 0) {
     return false;
   }
