@@ -1,0 +1,44 @@
+{
+  "fixture_id": "contradictory-time",
+  "world": "world.json",
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000cb",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr und um 10 Uhr großes Service"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000cb",
+      "code": "TIME_CONTRADICTORY",
+      "prompt": "Zwei Uhrzeiten widersprechen sich. Bitte eine wählen.",
+      "choices": [
+        {
+          "choice_id": "clock:08:00",
+          "slot": "local_start",
+          "value": "08:00",
+          "label": "08:00"
+        },
+        {
+          "choice_id": "clock:10:00",
+          "slot": "local_start",
+          "value": "10:00",
+          "label": "10:00"
+        }
+      ],
+      "recognized": {
+        "customer_token": "Huber",
+        "vehicle_token": "Golf",
+        "clocks": ["08:00", "10:00"]
+      },
+      "proposal": null
+    }
+  }
+}

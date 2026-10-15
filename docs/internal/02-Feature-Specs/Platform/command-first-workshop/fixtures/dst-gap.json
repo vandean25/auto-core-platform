@@ -1,0 +1,34 @@
+{
+  "fixture_id": "dst-gap",
+  "world": "world.json",
+  "now": "2027-03-27T12:00:00+01:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c6",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 2:30 Uhr kleines Service"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000c6",
+      "code": "TIME_DOES_NOT_EXIST",
+      "prompt": "Diese Uhrzeit gibt es an diesem Tag nicht.",
+      "choices": [],
+      "recognized": {
+        "customer_id": "51500000-0000-4000-8000-000000000021",
+        "vehicle_id": "51500000-0000-4000-8000-000000000031",
+        "local_date": "2027-03-28",
+        "local_start": "02:30",
+        "timezone": "Europe/Vienna",
+        "preset_keys": ["service.minor"]
+      },
+      "proposal": null
+    }
+  }
+}

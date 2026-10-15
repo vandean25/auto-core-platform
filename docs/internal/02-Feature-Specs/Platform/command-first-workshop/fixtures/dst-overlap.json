@@ -1,0 +1,47 @@
+{
+  "fixture_id": "dst-overlap",
+  "world": "world.json",
+  "now": "2026-10-24T12:00:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000c5",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 2:30 Uhr kleines Service"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000c5",
+      "code": "TIME_AMBIGUOUS",
+      "prompt": "Diese Uhrzeit gibt es an diesem Tag zweimal. Bitte eine wählen.",
+      "choices": [
+        {
+          "choice_id": "instant:2026-10-25T00:30:00.000Z",
+          "slot": "start_at",
+          "value": "2026-10-25T00:30:00.000Z",
+          "label": "02:30 Sommerzeit (UTC+2)"
+        },
+        {
+          "choice_id": "instant:2026-10-25T01:30:00.000Z",
+          "slot": "start_at",
+          "value": "2026-10-25T01:30:00.000Z",
+          "label": "02:30 Winterzeit (UTC+1)"
+        }
+      ],
+      "recognized": {
+        "customer_id": "51500000-0000-4000-8000-000000000021",
+        "vehicle_id": "51500000-0000-4000-8000-000000000031",
+        "local_date": "2026-10-25",
+        "local_start": "02:30",
+        "timezone": "Europe/Vienna",
+        "preset_keys": ["service.minor"]
+      },
+      "proposal": null
+    }
+  }
+}

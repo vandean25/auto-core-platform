@@ -1,0 +1,46 @@
+{
+  "fixture_id": "wrong-site",
+  "world": "world.json",
+  "now": "2026-10-15T14:30:00+02:00",
+  "input": {
+    "contract_version": "workshop-command/v1",
+    "command_id": "51500000-0000-4000-8000-0000000000ca",
+    "source": "keyboard",
+    "locale": "de-AT",
+    "text": "Huber Golf morgen 8 Uhr großes Service Standort Nord"
+  },
+  "expect": {
+    "http_status": 200,
+    "provider_invoked": false,
+    "outbound_bodies": [],
+    "queries_other_site": false,
+    "body": {
+      "contract_version": "workshop-command/v1",
+      "status": "clarification",
+      "command_id": "51500000-0000-4000-8000-0000000000ca",
+      "code": "SITE_MISMATCH",
+      "prompt": "Der genannte Standort ist nicht der aktive Standort.",
+      "choices": [
+        {
+          "choice_id": "site:continue",
+          "slot": "site_constraint",
+          "value": "continue_at_operative_site",
+          "label": "Am aktiven Standort bleiben"
+        },
+        {
+          "choice_id": "site:stop",
+          "slot": "command",
+          "value": "stop",
+          "label": "Abbrechen"
+        }
+      ],
+      "recognized": {
+        "customer_token": "Huber",
+        "vehicle_token": "Golf",
+        "named_site_code": "NORD",
+        "operative_site_code": "WIE"
+      },
+      "proposal": null
+    }
+  }
+}
