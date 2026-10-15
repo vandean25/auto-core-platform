@@ -26,20 +26,17 @@ import {
   rzlSampleProfile,
   rzlSampleRows,
 } from './fixtures/rzl-sample-export.fixture.js';
-import {
-  RZL_BOOKING_COLUMNS,
-  RZL_FIBU_EURO_PUBLIC_FIELD_NAMES,
-} from './rzl-format.constants.js';
-import {
-  buildRzlFibuImportBookingFields,
-  serializeRzlFibuImport,
-} from './rzl-fibu-import.serializer.js';
+import { RZL_FIBU_EURO_PUBLIC_FIELD_NAMES } from './rzl-format.constants.js';
+import { serializeRzlFibuImport } from './rzl-fibu-import.serializer.js';
 
 const SYNTHETIC_SAMPLE_SHA256 =
   '97f49ca328f7e7c4fd208fa0e2b9900969293a0bfc385a903263b814a4795b54';
 
 const DRAFT_EVIDENCED_SHA256 =
-  '7a1f09ab999f084d52a438e00840432e01ea524c1038cfe1a4e2d523b1d41ad5';
+  'a7827089b121ff486fbaa03c555dde171ce60f3b74f84b3cf115c6393289b588';
+
+const DRAFT_EVIDENCED_GUTSCHRIFT_SHA256 =
+  '6c005ea612ed42c465692dbfef24059274febd7c1aa071657fb798e2ebdfd254';
 
 const steuercodes = { vat20: '20', vat13: '13', vat10: '10' };
 
@@ -212,19 +209,16 @@ describe('rzl-fibu-import golden files', () => {
     ).toBe('2');
   });
 
-  it('writes ACP draft booking columns in pinned order via the field builder', () => {
-    const fields = buildRzlFibuImportBookingFields(
+  it('pins the ACP draft column record line against a committed reference', () => {
+    const columnsRef = readFileSync(
+      new URL('./fixtures/rzl-acp-draft-columns.reference.txt', import.meta.url),
+      'utf8',
+    ).trimEnd();
+    const [, columnLine] = serializeDraftEvidenced([
       rzlDraftEvidencedRows[0],
-      steuercodes,
-    );
-    const bookingLine = serializeDraftEvidenced([rzlDraftEvidencedRows[0]])
-      .csvText.split('\r\n')
-      .find((line) => line.startsWith('B;'));
+    ]).csvText.split('\r\n');
 
-    expect(bookingLine).toBeDefined();
-    expect(fields.join(';')).toBe(bookingLine);
-    expect(fields[RZL_BOOKING_COLUMNS.indexOf('BUCHUNGSART')]).toBe('AR');
-    expect(fields[RZL_BOOKING_COLUMNS.indexOf('SOLL_HABEN')]).toBe('S');
+    expect(columnLine).toBe(columnsRef);
   });
 
   describe('synthetic sample (AUT-350 committed fixture)', () => {
@@ -298,13 +292,18 @@ describe('rzl-fibu-import golden files', () => {
     });
   });
 
-  describe('format-evidenced pilot export (AUT-521, source S1 semantics)', () => {
+  describe('format-evidenced handbook examples (AUT-521, source S1 §2.3)', () => {
     const committed = readFileSync(
       new URL('./fixtures/rzl-draft-evidenced-export.csv', import.meta.url),
     );
-    const committedLines = committed.toString('latin1').split('\r\n');
+    const committedGutschrift = readFileSync(
+      new URL(
+        './fixtures/rzl-draft-evidenced-gutschrift-only.csv',
+        import.meta.url,
+      ),
+    );
 
-    it('pins the pilot-customer bytes for mixed rates and a partial credit', () => {
+    it('pins handbook single-rate invoices and Gutschrift in ACP draft bytes', () => {
       const result = serializeDraftEvidenced(rzlDraftEvidencedRows);
 
       expect(result.bytes.equals(committed)).toBe(true);
@@ -312,18 +311,12 @@ describe('rzl-fibu-import golden files', () => {
       expect(result.rowCount).toBe(4);
     });
 
-    it('pins the partial credit line independently of the serializer field builder', () => {
-      expect(committedLines[5]).toBe(
-        'B;AG;20.02.2026;"CN-PILOT-2026-0001";H;22,60;"2000";"8300";13;"CN CN-PILOT-2026-0001 / RE RE-PILOT-2026-0001";"RE-PILOT-2026-0001";M;',
-      );
-      expect(serializeDraftEvidenced([rzlDraftEvidencedRows[3]]).csvText).toBe(
-        [
-          'K;"RZL-FIBU-IMPORT-ACP-DRAFT-1";"FN-PILOT";20260228120000;01.02.2026;28.02.2026;"EUR";"UGB";4',
-          'C;BUCHUNGSART;BELEGDATUM;BELEGNUMMER;SOLL_HABEN;BETRAG;KONTO;GEGENKONTO;STEUERCODE;BUCHUNGSTEXT;OP_BELEGNUMMER;OP_MODUS;KOSTENSTELLE',
-          committedLines[5],
-          '',
-        ].join('\r\n'),
-      );
+    it('pins the Gutschrift booking file against a committed single-document CSV', () => {
+      const result = serializeDraftEvidenced([rzlDraftEvidencedRows[3]]);
+
+      expect(result.bytes.equals(committedGutschrift)).toBe(true);
+      expect(result.sha256).toBe(DRAFT_EVIDENCED_GUTSCHRIFT_SHA256);
+      expect(result.rowCount).toBe(1);
     });
   });
 

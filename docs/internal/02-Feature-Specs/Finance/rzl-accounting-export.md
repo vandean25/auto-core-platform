@@ -43,7 +43,7 @@ Maps each ACP draft field to handbook evidence. **E** = evidenced in S1 for the 
 
 | ACP record / field | Evidence | Sources | Notes |
 |---|---|---|---|
-| File encoding Windows-1252 | E | S1 §1.2 | ACP rejects non–Win-1252 text. |
+| File encoding Windows-1252 | E | S1 (chapter intro, *Allgemeines zur RZL FIBU/EA Import Schnittstelle*) | ACP rejects non–Win-1252 text. |
 | Field separator `;` | E | S1 §1.2.1 | Semicolon; text must not contain `;`. |
 | Line endings CRLF | E | S1 §1.2.1 | Trailing CRLF after last record (**A5** detail for draft file). |
 | Header `K` + column `C` + booking `B` | A | — | **A1.** Official import is a flat 41-column row per line; no K/C/B records in S1. |
@@ -53,7 +53,7 @@ Maps each ACP draft field to handbook evidence. **E** = evidenced in S1 for the 
 | `BELEGDATUM` `DD.MM.YYYY` | A | S1 | Official date format differs (**A6**). |
 | `BELEGNUMMER` quoted document number | A | S1 | Official `Belegnummer` is alphanumeric, often unquoted in examples (**A7**). |
 | `SOLL_HABEN` + unsigned `BETRAG` | A | S1 | Official rows use `Sollbetrag` / `Habenbetrag` and signed `Steuerbetrag` on credits (**A8**). |
-| `KONTO` / `GEGENKONTO` collective debtor + revenue | E (accounts) | S1 examples | ACP uses one collective debtor per entity (ADR-0023). |
+| `KONTO` / `GEGENKONTO` one gross line per allocation | A | S1 examples, **A13** | Handbook uses a personenkonto line plus a separate Gegenbuchung line (net + tax). ACP collapses to one unsigned gross line; production uses a collective debtor (ADR-0023). Evidenced fixture rows use handbook account numbers. |
 | `STEUERCODE` from profile | A | S1 | Official pair is `USt-Schlüssel` + `USt-Code` (**A9**). |
 | `BUCHUNGSTEXT` (60 chars) | A | S1 | Handbook max 40 chars per line (**A10**). |
 | `OP_BELEGNUMMER` + `OP_MODUS` `E`/`M` | A | S1 | Official `OP-Nummer` is numeric on personenkonto lines (**A11**, **A12**). |
@@ -65,7 +65,9 @@ Maps each ACP draft field to handbook evidence. **E** = evidenced in S1 for the 
 |---|---|
 | `fixtures/rzl-sample-export.csv` | **Synthetic** committed sample (AUT-350). |
 | `fixtures/rzl-golden-*.csv` | **Synthetic** per-scenario bytes (invoice/credit rates, mixed partial credit). |
-| `fixtures/rzl-draft-evidenced-export.csv` | **Format-evidenced** pilot-customer bytes for the ACP draft layout; row amounts align with handbook mixed-rate examples, not vendor-validated. |
+| `fixtures/rzl-draft-evidenced-export.csv` | **Format-evidenced** ACP draft bytes; row amounts/accounts/dates from handbook §2.3 single-rate examples (not the AUT-350 mixed synthetic sample). |
+| `fixtures/rzl-draft-evidenced-gutschrift-only.csv` | **Format-evidenced** single-document file for the handbook Gutschrift example. |
+| `fixtures/rzl-acp-draft-columns.reference.txt` | Committed `C` record column order for the ACP draft (independent of per-run serializer joins). |
 | `fixtures/rzl-fibu-euro-public-fields.reference.txt` | Verbatim 41-column handbook order from S1. |
 | `fixtures/rzl-fibu-public-ausgangsrechnung.reference.txt` | Handbook Ausgangsrechnung example line (parsed without the ACP serializer). |
 
@@ -191,7 +193,8 @@ None. Firm number and Steuercodes are stored in the existing `serializer_params`
 |---|---|
 | Public RZL sources mapped to K/C/B draft, encoding, OP/firm/tax keys | This document: "Sources consulted", "Source matrix". `RZL_FIBU_EURO_PUBLIC_FIELD_NAMES`, reference fixtures. |
 | Synthetic vs evidenced vs tried separated | Fixtures table; handbook line parsed without serializer; pilot CSV is draft-layout only. |
-| Invoice, mixed rates, partial credit with full bytes | `fixtures/rzl-golden-*.csv`, `fixtures/rzl-draft-evidenced-export.csv`; `rzl-fibu-import.golden.spec.ts`. |
+| Synthetic mixed invoice / partial credit bytes | `fixtures/rzl-golden-*.csv`; `rzl-fibu-import.golden.spec.ts`. |
+| Handbook §2.3 amounts in ACP draft bytes | `fixtures/rzl-draft-evidenced-export.csv`, `rzl-draft-evidenced.fixture.ts`. |
 | Replay/hash regression; live profile does not alter completed export | Generic export immutability; `accounting-export-rzl.e2e-spec.ts` RZ-03, RZ-05. |
 | Default-off gate and business exclusions unchanged | No change to release env or candidate rules; blocker golden JSON in AUT-521. |
 | Tests bind serializer output, not mirrored assertions | Golden tests compare `result.bytes` to committed files. |
@@ -215,6 +218,7 @@ ACP draft file choices not confirmed by a live RZL import.
 | A10 | Booking text up to 60 characters. | **Still unverified** | S1: 40 per line. |
 | A11 | `OP_BELEGNUMMER` equals document or original invoice number. | **Partial** | S1 requires OP on personenkonto lines; semantics differ. |
 | A12 | `OP_MODUS` `E` / `M`. | **Still unverified** | Not in S1 column list. |
+| A13 | One booking line per allocation with unsigned gross on `KONTO`/`GEGENKONTO`. | **Still unverified** | S1 examples use two import lines (debtor gross, then revenue net + tax). |
 
 ## Open items: RZL import validation (human, not AUT-521)
 

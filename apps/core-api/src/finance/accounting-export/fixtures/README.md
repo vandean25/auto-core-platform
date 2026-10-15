@@ -8,7 +8,9 @@
 |---|---|
 | `rzl-sample-export.csv` | Synthetic committed sample (AUT-350). |
 | `rzl-golden-*.csv` | Synthetic scenario bytes (per-rate invoice/credit, mixed partial credit). |
-| `rzl-draft-evidenced-export.csv` | Format-evidenced **draft-layout** pilot-customer bytes (mixed rates + partial credit); not vendor-validated. |
+| `rzl-draft-evidenced-export.csv` | Format-evidenced **draft-layout** bytes from handbook §2.3 single-rate examples (12.000 / 1.100 / 1.130 / 1.200 Gutschrift); not the synthetic mixed sample. |
+| `rzl-draft-evidenced-gutschrift-only.csv` | Same for the handbook Gutschrift row only (committed single-document file). |
+| `rzl-acp-draft-columns.reference.txt` | Committed `C` record for ACP draft column order. |
 | `rzl-fibu-euro-public-fields.reference.txt` | Official 41-column order from handbook S1. |
 | `rzl-fibu-public-ausgangsrechnung.reference.txt` | Handbook Ausgangsrechnung example line (parsed without the serializer). |
 | `rzl-*-blockers.golden.json` | Documented blocker outcomes (margin, zero-rate); no vendor acceptance. |
