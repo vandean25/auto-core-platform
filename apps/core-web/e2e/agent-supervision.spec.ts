@@ -92,6 +92,33 @@ test.describe('Agent Supervision Screen (AUT-401)', () => {
       })
     })
 
+    await page.route(
+      AutoCorePage.apiRouteMatcher('/api/agent-supervision/triage'),
+      async (route) => {
+        if (route.request().method() === 'GET') {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              data: mockProposals.map((proposal) => ({
+                kind: 'PENDING_APPROVAL',
+                entity_id: proposal.id,
+                site_id: 'test-site',
+                reason: 'AGENT_PROPOSAL_PENDING',
+                created_at: proposal.created_at,
+                due_at: proposal.expires_at,
+                record_link: '/agent/supervision',
+                allowed_action: 'APPROVE_REJECT',
+              })),
+              next_cursor: null,
+            }),
+          })
+          return
+        }
+        await route.continue()
+      },
+    )
+
     // Mock Agent Proposals API
     await page.route(AutoCorePage.apiRouteMatcher('/api/agent-proposals'), async (route) => {
       if (route.request().method() === 'GET') {
