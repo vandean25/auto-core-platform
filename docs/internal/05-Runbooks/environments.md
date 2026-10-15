@@ -77,6 +77,21 @@ instance, five maximum instances, continuous CPU, public invocation, runtime
 environment variables, and GSM secret references. Use the environment
 tfvars examples to diff or recreate a service without console clickops.
 
+**Startup probe (core-api):** `core-api` needs on the order of 20 seconds to
+become ready on a cold start. Cloud Build and `infra/main.tf` pin the same HTTP
+startup probe on `GET /api/health:8080`:
+
+| Setting | Value | Notes |
+|---|---|---|
+| `initialDelaySeconds` | 10 | Wait before the first probe |
+| `timeoutSeconds` | 5 | Per-probe HTTP timeout |
+| `periodSeconds` | 10 | Interval between probes |
+| `failureThreshold` | 12 | Up to 120s of failed probes before shutdown |
+
+The canonical values live in `CORE_API_STARTUP_PROBE` in
+`apps/core-api/scripts/check-cloudrun-env-contract.ts`; CI asserts
+`cloudbuild.yaml`, `cloudbuild.staging.yaml`, and Terraform stay aligned.
+
 For branded invoice issuance, **Cloud Build remains the deploy-time source of
 truth** for `INVOICE_BRANDING_WRITER_ENABLED` on the services it deploys. The
 tfvars examples set `invoice_branding_writer_enabled = true` so Terraform

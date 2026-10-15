@@ -65,6 +65,10 @@ resource "google_cloud_run_v2_service" "core_api" {
           path = "/api/health"
           port = 8080
         }
+        initial_delay_seconds = 10
+        timeout_seconds       = 5
+        period_seconds        = 10
+        failure_threshold     = 12
       }
 
       resources {

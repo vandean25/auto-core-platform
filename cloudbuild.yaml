@@ -168,7 +168,7 @@ steps:
           --concurrency 40 \
           --min-instances 0 \
           --cpu-throttling \
-          --startup-probe "httpGet.path=/api/health,httpGet.port=8080" \
+          --startup-probe "httpGet.path=/api/health,httpGet.port=8080,initialDelaySeconds=10,timeoutSeconds=5,periodSeconds=10,failureThreshold=12" \
           --max-instances 5 \
           --quiet
 
