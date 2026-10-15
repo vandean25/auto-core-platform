@@ -6,6 +6,8 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { VehicleStockModule } from '../vehicle-stock/vehicle-stock.module.js';
 import { VoiceTranslationModule } from '../voice-translation/voice-translation.module.js';
 import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
+import { AgentProposalModule } from '../agent-proposal/agent-proposal.module.js';
+import { MechanicFindingService } from './mechanic-finding.service.js';
 import { MechanicExecutionService } from './mechanic-execution.service.js';
 import { MechanicIdentityService } from './mechanic-identity.service.js';
 import { MechanicMediaService } from './mechanic-media.service.js';
@@ -24,6 +26,7 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     VoiceTranslationModule,
     VehicleStockModule,
     NotificationsModule,
+    AgentProposalModule,
   ],
   controllers: [MechanicController],
   providers: [
@@ -33,6 +36,7 @@ import { RateLimitStore } from './rate-limit/rate-limit.store.js';
     MechanicVoiceNoteService,
     WorkshopInspectionService,
     MechanicSchedulerService,
+    MechanicFindingService,
     MechanicMediaStorage,
     {
       provide: RateLimitStore,

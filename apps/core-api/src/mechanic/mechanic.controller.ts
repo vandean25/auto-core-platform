@@ -50,6 +50,11 @@ import { MechanicExecutionService } from './mechanic-execution.service.js';
 import { MechanicIdentityService } from './mechanic-identity.service.js';
 import { MechanicMediaService } from './mechanic-media.service.js';
 import { MechanicVoiceNoteService } from './mechanic-voice-note.service.js';
+import { MechanicFindingService } from './mechanic-finding.service.js';
+import {
+  SubmitMechanicFindingDto,
+  SubmitMechanicFindingResponseDto,
+} from './dto/submit-mechanic-finding.dto.js';
 import { WorkshopInspectionService } from '../workshop/workshop-inspection.service.js';
 import { UpdateWorkshopInspectionDto } from '../workshop/dto/update-workshop-inspection.dto.js';
 import { WorkshopInspectionResponseDto } from '../workshop/dto/workshop-inspection-response.dto.js';
@@ -64,6 +69,7 @@ export class MechanicController {
     private readonly media: MechanicMediaService,
     private readonly voiceNotes: MechanicVoiceNoteService,
     private readonly inspections: WorkshopInspectionService,
+    private readonly findings: MechanicFindingService,
   ) {}
 
   /**
@@ -220,6 +226,22 @@ export class MechanicController {
    * `part_execution_status=PENDING_PICK`.  Stock is NOT deducted.
    * ADR-0014 §6.1
    */
+  @Post('tasks/:taskId/findings')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Submit accepted diagnostic notes and media to the service advisor as a structured finding',
+  })
+  @ApiBody({ type: SubmitMechanicFindingDto })
+  @ApiCreatedResponse({ type: SubmitMechanicFindingResponseDto })
+  async submitFinding(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: SubmitMechanicFindingDto,
+  ): Promise<SubmitMechanicFindingResponseDto> {
+    const mechanicId = await this.identity.resolveMechanic();
+    return this.findings.submitFinding(mechanicId, taskId, dto);
+  }
+
   @Post('tasks/:taskId/parts')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({

@@ -34,6 +34,18 @@ export type EstimateSourceLine = {
   quantity: Prisma.Decimal;
   unit_price: Prisma.Decimal;
   part_execution_status: WorkshopPartLineExecutionStatus | null;
+  fitment_notes?: string | null;
+};
+
+export type EstimateCustomerSendBlockerCode =
+  | 'ZERO_UNIT_PRICE'
+  | 'CLAIMED_FITMENT';
+
+export type EstimateCustomerSendBlocker = {
+  code: EstimateCustomerSendBlockerCode;
+  source_line_id: string;
+  item_no: string;
+  description: string;
 };
 
 export type EstimateSourceTask = {
@@ -79,6 +91,33 @@ export function buildWorkshopEstimateLines(
       gross: moneyString(net.add(tax)),
     };
   });
+}
+
+export function collectEstimateCustomerSendBlockers(
+  sources: EstimateSourceLine[],
+): EstimateCustomerSendBlocker[] {
+  const blockers: EstimateCustomerSendBlocker[] = [];
+  for (const line of sources) {
+    if (toMoney(line.unit_price).isZero()) {
+      blockers.push({
+        code: 'ZERO_UNIT_PRICE',
+        source_line_id: line.id,
+        item_no: line.item_no,
+        description: line.description,
+      });
+      continue;
+    }
+    const fitmentNotes = line.fitment_notes?.trim() ?? '';
+    if (fitmentNotes.length > 0) {
+      blockers.push({
+        code: 'CLAIMED_FITMENT',
+        source_line_id: line.id,
+        item_no: line.item_no,
+        description: line.description,
+      });
+    }
+  }
+  return blockers;
 }
 
 export function buildWorkshopEstimateTotals(lines: WorkshopEstimateLine[]) {

@@ -7,6 +7,7 @@ import {
   buildWorkshopEstimateLines,
   buildWorkshopEstimateTotals,
   collectEstimateSourceLines,
+  collectEstimateCustomerSendBlockers,
   type EstimateSourceLine,
 } from './workshop-estimate-lines.helpers.js';
 
@@ -97,5 +98,30 @@ describe('workshop estimate lines', () => {
       total_gross: '276.00',
       tax_breakdown: [{ rate: '20.00', net: '230.00', tax: '46.00', gross: '276.00' }],
     });
+  });
+
+  it('flags zero unit price and claimed fitment as customer send blockers', () => {
+    const sources: EstimateSourceLine[] = [
+      labor('line-zero', '1', '0'),
+      {
+        ...labor('line-fit', '1', '25'),
+        fitment_notes: 'Front axle only',
+      },
+    ];
+
+    expect(collectEstimateCustomerSendBlockers(sources)).toEqual([
+      {
+        code: 'ZERO_UNIT_PRICE',
+        source_line_id: 'line-zero',
+        item_no: 'LAB-OIL',
+        description: 'Ölwechsel',
+      },
+      {
+        code: 'CLAIMED_FITMENT',
+        source_line_id: 'line-fit',
+        item_no: 'LAB-OIL',
+        description: 'Ölwechsel',
+      },
+    ]);
   });
 });

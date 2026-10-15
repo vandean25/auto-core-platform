@@ -5598,6 +5598,36 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/mechanic-findings": {
+      "get": {
+        "operationId": "WorkshopEstimateController_listMechanicFindings",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopMechanicFindingListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/orders/{id}/estimates": {
       "post": {
         "operationId": "WorkshopEstimateController_create",
@@ -8156,6 +8186,47 @@
         ]
       }
     },
+    "/api/mechanic/tasks/{taskId}/findings": {
+      "post": {
+        "operationId": "MechanicController_submitFinding",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitMechanicFindingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitMechanicFindingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit accepted diagnostic notes and media to the service advisor as a structured finding",
+        "tags": [
+          "mechanic"
+        ]
+      }
+    },
     "/api/mechanic/tasks/{taskId}/parts": {
       "post": {
         "operationId": "MechanicController_requestPart",
@@ -8390,6 +8461,535 @@
         },
         "tags": [
           "voice-translation"
+        ]
+      }
+    },
+    "/api/agent-proposals": {
+      "get": {
+        "description": "Returns agent proposals for the authenticated tenant with lazy expiration handling.",
+        "operationId": "AgentProposalController_listProposals",
+        "parameters": [
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "When set, return only proposals with these IDs (still tenant-scoped)",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of items to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by proposal status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "EXPIRED",
+                "EXECUTED",
+                "FAILED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Agent Proposals"
+        ]
+      },
+      "post": {
+        "description": "Creates a new agent proposal for the current tenant in PENDING status.",
+        "operationId": "AgentProposalController_createProposal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgentProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an agent proposal (seeding/testing)",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/approve": {
+      "post": {
+        "description": "Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.",
+        "operationId": "AgentProposalController_approveProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Approve and execute an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/apply": {
+      "post": {
+        "description": "Re-evaluates current policy and atomically applies one pending action.",
+        "operationId": "AgentProposalController_applyProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply and execute a pending agent action",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/batch-apply": {
+      "post": {
+        "description": "Applies each proposal in its own transaction and returns an outcome per ID.",
+        "operationId": "AgentProposalController_batchApplyProposals",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchApplyAgentProposalsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchApplyAgentProposalsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply pending agent actions independently by ID",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/{id}/reject": {
+      "post": {
+        "description": "Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.",
+        "operationId": "AgentProposalController_rejectProposal",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectAgentProposalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reject an agent proposal",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-proposals/submit": {
+      "post": {
+        "description": "Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.",
+        "operationId": "AgentProposalController_submitPendingAction",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitPendingAgentActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentProposalResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Simulate and submit a pending agent action",
+        "tags": [
+          "Agent Proposals"
+        ]
+      }
+    },
+    "/api/agent-policy/rules": {
+      "get": {
+        "operationId": "AgentPolicyController_listRules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyRuleListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List effective agent policy rules (OWNER/ADMIN)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-policy/rules/{actionType}": {
+      "put": {
+        "operationId": "AgentPolicyController_upsertRule",
+        "parameters": [
+          {
+            "name": "actionType",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertAgentPolicyRuleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create a new tenant policy rule version (OWNER/ADMIN)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-policy/evaluate": {
+      "post": {
+        "operationId": "AgentPolicyController_evaluate",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPolicyEvaluateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPolicyEvaluationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Evaluate policy tier for an action (OWNER/ADMIN, dry-run)",
+        "tags": [
+          "agent-policy"
+        ]
+      }
+    },
+    "/api/agent-actions": {
+      "get": {
+        "description": "Returns cursor-paginated agent action log rows for the authenticated tenant.",
+        "operationId": "AgentActionLogController_findAll",
+        "parameters": [
+          {
+            "name": "agentId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by agent identifier (case-insensitive substring match)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque cursor for forward pagination",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of rows to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start of created_at range (ISO-8601)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by action status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROPOSED",
+                "APPROVED",
+                "REJECTED",
+                "EXECUTED",
+                "REFUSED",
+                "FAILED",
+                "DRY_RUN",
+                "FALLBACK"
+              ]
+            }
+          },
+          {
+            "name": "tier",
+            "required": false,
+            "in": "query",
+            "description": "Filter by policy tier",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AUTO",
+                "PROPOSE",
+                "HUMAN_ONLY",
+                "NOT_EVALUATED"
+              ]
+            }
+          },
+          {
+            "name": "traceId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by trace ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List agent action logs (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Agent Actions"
+        ]
+      }
+    },
+    "/api/agent-actions/{traceId}": {
+      "get": {
+        "description": "Returns all log rows for a trace ID plus audit entries correlated on the same trace.",
+        "operationId": "AgentActionLogController_findByTraceId",
+        "parameters": [
+          {
+            "name": "traceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionTraceDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get agent action trace detail (OWNER/ADMIN/ADVISOR)",
+        "tags": [
+          "Agent Actions"
         ]
       }
     },
@@ -11638,171 +12238,6 @@
         ]
       }
     },
-    "/api/agent-actions": {
-      "get": {
-        "description": "Returns cursor-paginated agent action log rows for the authenticated tenant.",
-        "operationId": "AgentActionLogController_findAll",
-        "parameters": [
-          {
-            "name": "agentId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by agent identifier (case-insensitive substring match)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Opaque cursor for forward pagination",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": false,
-            "in": "query",
-            "description": "End of created_at range (ISO-8601)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityType",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity type",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Maximum number of rows to return",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "startDate",
-            "required": false,
-            "in": "query",
-            "description": "Start of created_at range (ISO-8601)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "Filter by action status",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PROPOSED",
-                "APPROVED",
-                "REJECTED",
-                "EXECUTED",
-                "REFUSED",
-                "FAILED",
-                "DRY_RUN",
-                "FALLBACK"
-              ]
-            }
-          },
-          {
-            "name": "tier",
-            "required": false,
-            "in": "query",
-            "description": "Filter by policy tier",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "AUTO",
-                "PROPOSE",
-                "HUMAN_ONLY",
-                "NOT_EVALUATED"
-              ]
-            }
-          },
-          {
-            "name": "traceId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by trace ID",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentActionLogListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List agent action logs (OWNER/ADMIN/ADVISOR)",
-        "tags": [
-          "Agent Actions"
-        ]
-      }
-    },
-    "/api/agent-actions/{traceId}": {
-      "get": {
-        "description": "Returns all log rows for a trace ID plus audit entries correlated on the same trace.",
-        "operationId": "AgentActionLogController_findByTraceId",
-        "parameters": [
-          {
-            "name": "traceId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentActionTraceDetailResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get agent action trace detail (OWNER/ADMIN/ADVISOR)",
-        "tags": [
-          "Agent Actions"
-        ]
-      }
-    },
     "/api/imports": {
       "post": {
         "operationId": "ImportController_createDryRun",
@@ -13070,370 +13505,6 @@
         "summary": "Sign fiscal cancellation receipt (OWNER/ADMIN)",
         "tags": [
           "FiscalReceipts"
-        ]
-      }
-    },
-    "/api/agent-policy/rules": {
-      "get": {
-        "operationId": "AgentPolicyController_listRules",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentPolicyRuleListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List effective agent policy rules (OWNER/ADMIN)",
-        "tags": [
-          "agent-policy"
-        ]
-      }
-    },
-    "/api/agent-policy/rules/{actionType}": {
-      "put": {
-        "operationId": "AgentPolicyController_upsertRule",
-        "parameters": [
-          {
-            "name": "actionType",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpsertAgentPolicyRuleDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create a new tenant policy rule version (OWNER/ADMIN)",
-        "tags": [
-          "agent-policy"
-        ]
-      }
-    },
-    "/api/agent-policy/evaluate": {
-      "post": {
-        "operationId": "AgentPolicyController_evaluate",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentPolicyEvaluateRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentPolicyEvaluationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Evaluate policy tier for an action (OWNER/ADMIN, dry-run)",
-        "tags": [
-          "agent-policy"
-        ]
-      }
-    },
-    "/api/agent-proposals": {
-      "get": {
-        "description": "Returns agent proposals for the authenticated tenant with lazy expiration handling.",
-        "operationId": "AgentProposalController_listProposals",
-        "parameters": [
-          {
-            "name": "ids",
-            "required": false,
-            "in": "query",
-            "description": "When set, return only proposals with these IDs (still tenant-scoped)",
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Maximum number of items to return",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 50,
-              "type": "number"
-            }
-          },
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "description": "Filter by proposal status",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PENDING",
-                "APPROVED",
-                "REJECTED",
-                "EXPIRED",
-                "EXECUTED",
-                "FAILED"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List agent proposals (OWNER/ADMIN/ADVISOR)",
-        "tags": [
-          "Agent Proposals"
-        ]
-      },
-      "post": {
-        "description": "Creates a new agent proposal for the current tenant in PENDING status.",
-        "operationId": "AgentProposalController_createProposal",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateAgentProposalDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create an agent proposal (seeding/testing)",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/{id}/approve": {
-      "post": {
-        "description": "Re-evaluates policy conditions, atomically transitions status to APPROVED, logs the audit event, dispatches the payload, and marks as EXECUTED.",
-        "operationId": "AgentProposalController_approveProposal",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Approve and execute an agent proposal",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/{id}/apply": {
-      "post": {
-        "description": "Re-evaluates current policy and atomically applies one pending action.",
-        "operationId": "AgentProposalController_applyProposal",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Apply and execute a pending agent action",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/batch-apply": {
-      "post": {
-        "description": "Applies each proposal in its own transaction and returns an outcome per ID.",
-        "operationId": "AgentProposalController_batchApplyProposals",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchApplyAgentProposalsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BatchApplyAgentProposalsResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Apply pending agent actions independently by ID",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/{id}/reject": {
-      "post": {
-        "description": "Transitions proposal to REJECTED with reason and logs the rejection in agent action audit logs.",
-        "operationId": "AgentProposalController_rejectProposal",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RejectAgentProposalDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Reject an agent proposal",
-        "tags": [
-          "Agent Proposals"
-        ]
-      }
-    },
-    "/api/agent-proposals/submit": {
-      "post": {
-        "description": "Builds policy context on the server, simulates the supported action, and stores it in the tenant proposal queue.",
-        "operationId": "AgentProposalController_submitPendingAction",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SubmitPendingAgentActionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentProposalResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Simulate and submit a pending agent action",
-        "tags": [
-          "Agent Proposals"
         ]
       }
     },
@@ -21957,6 +22028,95 @@
           "parts_turnover"
         ]
       },
+      "WorkshopMechanicFindingMediaDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "caption": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "mime_type",
+          "caption"
+        ]
+      },
+      "WorkshopMechanicFindingDto": {
+        "type": "object",
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "EXPIRED",
+              "EXECUTED",
+              "FAILED"
+            ]
+          },
+          "workshop_task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "finding_text": {
+            "type": "string"
+          },
+          "media": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopMechanicFindingMediaDto"
+            }
+          },
+          "summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "trace_id",
+          "status",
+          "workshop_task_id",
+          "finding_text",
+          "media",
+          "summary",
+          "created_at"
+        ]
+      },
+      "WorkshopMechanicFindingListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkshopMechanicFindingDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
       "WorkshopEstimateApprovalDto": {
         "type": "object",
         "properties": {
@@ -22234,6 +22394,10 @@
           },
           "overrun_threshold_pct": {
             "type": "string"
+          },
+          "customer_send_blockers": {
+            "type": "array",
+            "description": "Lines that block customer send until an advisor resolves zero price or claimed fitment."
           }
         },
         "required": [
@@ -22245,7 +22409,8 @@
           "versions",
           "overrun_warning",
           "send_enabled",
-          "overrun_threshold_pct"
+          "overrun_threshold_pct",
+          "customer_send_blockers"
         ]
       },
       "WorkshopEstimateListResponseDto": {
@@ -25288,6 +25453,56 @@
           "taskId"
         ]
       },
+      "SubmitMechanicFindingDto": {
+        "type": "object",
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Idempotency key. A duplicate submit with the same command_id returns the original proposal."
+          },
+          "media_ids": {
+            "description": "Workshop media ids uploaded by this mechanic for the task. Foreign or closed-task media is rejected.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "voice_note_draft_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Accepted voice-note draft id. When set, the draft must already be ACCEPTED for this task and mechanic."
+          },
+          "summary": {
+            "type": "string",
+            "description": "Optional short label for the advisor queue. Finding text comes from saved mechanic notes.",
+            "maxLength": 120
+          }
+        }
+      },
+      "SubmitMechanicFindingResponseDto": {
+        "type": "object",
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "traceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actionType": {
+            "type": "string",
+            "example": "workshop_order.mechanic_finding"
+          }
+        },
+        "required": [
+          "proposalId",
+          "traceId",
+          "actionType"
+        ]
+      },
       "RequestPartDto": {
         "type": "object",
         "properties": {
@@ -25637,6 +25852,638 @@
             "nullable": true
           }
         }
+      },
+      "AgentProposalEffectiveSummaryDto": {
+        "type": "object",
+        "properties": {
+          "target_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "target_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount_eur": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "target_type",
+          "target_id",
+          "amount_eur"
+        ]
+      },
+      "AgentProposalWorkshopOrderSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "order_number": {
+            "type": "string",
+            "nullable": true,
+            "example": "WO-2026-0001"
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_registration": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_description": {
+            "type": "string",
+            "nullable": true,
+            "example": "2019 Volkswagen Golf"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "customer_name",
+          "vehicle_registration",
+          "vehicle_description"
+        ]
+      },
+      "AgentProposalResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "trace_id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "EXPIRED",
+              "EXECUTED",
+              "FAILED"
+            ]
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "effective_summary": {
+            "$ref": "#/components/schemas/AgentProposalEffectiveSummaryDto"
+          },
+          "workshop_order_summary": {
+            "nullable": true,
+            "description": "Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AgentProposalWorkshopOrderSummaryDto"
+              }
+            ]
+          },
+          "preview_json": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "created_by_agent": {
+            "type": "string",
+            "nullable": true
+          },
+          "decided_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "decided_by_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set."
+          },
+          "decided_by_email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant."
+          },
+          "decided_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "trace_id",
+          "action_type",
+          "tier",
+          "status",
+          "payload_json",
+          "effective_summary",
+          "workshop_order_summary",
+          "preview_json",
+          "created_by_agent",
+          "decided_by",
+          "decided_by_name",
+          "decided_by_email",
+          "decided_at",
+          "reason",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AgentProposalListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentProposalResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "BatchApplyAgentProposalsDto": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "BatchApplyAgentProposalResultDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "applied",
+              "failed"
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "proposal": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "BatchApplyAgentProposalsResponseDto": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchApplyAgentProposalResultDto"
+            }
+          }
+        },
+        "required": [
+          "results"
+        ]
+      },
+      "RejectAgentProposalDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Reason for rejecting the proposal",
+            "maxLength": 500
+          }
+        }
+      },
+      "CreateAgentProposalDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "preview_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "trace_id": {
+            "type": "string",
+            "description": "Optional correlation trace ID (UUID)"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ],
+            "default": "PROPOSE"
+          }
+        },
+        "required": [
+          "action_type",
+          "payload_json"
+        ]
+      },
+      "SubmitPendingAgentActionDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "payload_json": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope)."
+          }
+        },
+        "required": [
+          "action_type",
+          "payload_json"
+        ]
+      },
+      "AgentPolicyConditionsDto": {
+        "type": "object",
+        "properties": {
+          "amount_max": {
+            "type": "number",
+            "nullable": true
+          },
+          "customer_facing": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "affects_legal_document": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentPolicyRuleResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "action_type": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "number"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "platform",
+              "tenant"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "action_type",
+          "tier",
+          "conditions",
+          "enabled",
+          "version",
+          "source",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "AgentPolicyRuleListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "UpsertAgentPolicyRuleDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "conditions": {
+            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "AgentPolicyEvaluateContextDto": {
+        "type": "object",
+        "properties": {
+          "amount_eur": {
+            "type": "number"
+          },
+          "customer_facing": {
+            "type": "boolean"
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "affects_legal_document": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentPolicyEvaluateRequestDto": {
+        "type": "object",
+        "properties": {
+          "action_type": {
+            "type": "string",
+            "example": "workshop_order.add_line"
+          },
+          "context": {
+            "$ref": "#/components/schemas/AgentPolicyEvaluateContextDto"
+          }
+        },
+        "required": [
+          "action_type"
+        ]
+      },
+      "AgentPolicyEvaluationResponseDto": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rule_id": {
+            "type": "object",
+            "nullable": true
+          },
+          "rule_version": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "tier",
+          "reasons",
+          "rule_id",
+          "rule_version"
+        ]
+      },
+      "AgentActionLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentTraceId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "AGENT",
+              "USER",
+              "SYSTEM",
+              "API_KEY"
+            ]
+          },
+          "agentId": {
+            "type": "object",
+            "nullable": true
+          },
+          "onBehalfOfUserId": {
+            "type": "object",
+            "nullable": true
+          },
+          "onBehalfOfUserName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set."
+          },
+          "onBehalfOfUserEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the on-behalf-of user. Null when the user is not a member of the tenant."
+          },
+          "apiKeyId": {
+            "type": "object",
+            "nullable": true
+          },
+          "actionType": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "PROPOSE",
+              "HUMAN_ONLY",
+              "NOT_EVALUATED"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROPOSED",
+              "APPROVED",
+              "REJECTED",
+              "EXECUTED",
+              "REFUSED",
+              "FAILED",
+              "DRY_RUN",
+              "FALLBACK"
+            ]
+          },
+          "inputSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "resultSummary": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "entityType": {
+            "type": "object",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "object",
+            "nullable": true
+          },
+          "reversible": {
+            "type": "boolean"
+          },
+          "revertedByLogId": {
+            "type": "object",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "traceId",
+          "actorType",
+          "actionType",
+          "tier",
+          "status",
+          "reversible",
+          "createdAt"
+        ]
+      },
+      "AgentActionLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentActionLogResponseDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Cursor for the next page when more results exist",
+            "nullable": true
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "AgentActionTraceDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "logs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentActionLogResponseDto"
+            }
+          },
+          "auditEntries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogResponseDto"
+            }
+          }
+        },
+        "required": [
+          "logs",
+          "auditEntries"
+        ]
       },
       "NotificationOutboxReplayRequestDto": {
         "type": "object",
@@ -29419,160 +30266,6 @@
           }
         }
       },
-      "AgentActionLogResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenantId": {
-            "type": "string"
-          },
-          "traceId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "parentTraceId": {
-            "type": "object",
-            "format": "uuid",
-            "nullable": true
-          },
-          "actorType": {
-            "type": "string",
-            "enum": [
-              "AGENT",
-              "USER",
-              "SYSTEM",
-              "API_KEY"
-            ]
-          },
-          "agentId": {
-            "type": "object",
-            "nullable": true
-          },
-          "onBehalfOfUserId": {
-            "type": "object",
-            "nullable": true
-          },
-          "onBehalfOfUserName": {
-            "type": "string",
-            "nullable": true,
-            "description": "Name of the on-behalf-of user (first and last name). Null when the user is not a member of the tenant or has no name set."
-          },
-          "onBehalfOfUserEmail": {
-            "type": "string",
-            "nullable": true,
-            "description": "Email of the on-behalf-of user. Null when the user is not a member of the tenant."
-          },
-          "apiKeyId": {
-            "type": "object",
-            "nullable": true
-          },
-          "actionType": {
-            "type": "string"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY",
-              "NOT_EVALUATED"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "PROPOSED",
-              "APPROVED",
-              "REJECTED",
-              "EXECUTED",
-              "REFUSED",
-              "FAILED",
-              "DRY_RUN",
-              "FALLBACK"
-            ]
-          },
-          "inputSummary": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "resultSummary": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "entityType": {
-            "type": "object",
-            "nullable": true
-          },
-          "entityId": {
-            "type": "object",
-            "nullable": true
-          },
-          "reversible": {
-            "type": "boolean"
-          },
-          "revertedByLogId": {
-            "type": "object",
-            "nullable": true
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "traceId",
-          "actorType",
-          "actionType",
-          "tier",
-          "status",
-          "reversible",
-          "createdAt"
-        ]
-      },
-      "AgentActionLogListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentActionLogResponseDto"
-            }
-          },
-          "nextCursor": {
-            "type": "string",
-            "description": "Cursor for the next page when more results exist",
-            "nullable": true
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "AgentActionTraceDetailResponseDto": {
-        "type": "object",
-        "properties": {
-          "logs": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentActionLogResponseDto"
-            }
-          },
-          "auditEntries": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogResponseDto"
-            }
-          }
-        },
-        "required": [
-          "logs",
-          "auditEntries"
-        ]
-      },
       "ImportEntityType": {
         "type": "string",
         "enum": [
@@ -30866,484 +31559,6 @@
         },
         "required": [
           "idempotencyKey"
-        ]
-      },
-      "AgentPolicyConditionsDto": {
-        "type": "object",
-        "properties": {
-          "amount_max": {
-            "type": "number",
-            "nullable": true
-          },
-          "customer_facing": {
-            "type": "boolean"
-          },
-          "reversible": {
-            "type": "boolean"
-          },
-          "affects_legal_document": {
-            "type": "boolean"
-          }
-        }
-      },
-      "AgentPolicyRuleResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "action_type": {
-            "type": "string"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "conditions": {
-            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "version": {
-            "type": "number"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "platform",
-              "tenant"
-            ]
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "action_type",
-          "tier",
-          "conditions",
-          "enabled",
-          "version",
-          "source",
-          "created_at",
-          "updated_at"
-        ]
-      },
-      "AgentPolicyRuleListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentPolicyRuleResponseDto"
-            }
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "UpsertAgentPolicyRuleDto": {
-        "type": "object",
-        "properties": {
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "conditions": {
-            "$ref": "#/components/schemas/AgentPolicyConditionsDto"
-          },
-          "enabled": {
-            "type": "boolean",
-            "default": true
-          }
-        },
-        "required": [
-          "tier"
-        ]
-      },
-      "AgentPolicyEvaluateContextDto": {
-        "type": "object",
-        "properties": {
-          "amount_eur": {
-            "type": "number"
-          },
-          "customer_facing": {
-            "type": "boolean"
-          },
-          "reversible": {
-            "type": "boolean"
-          },
-          "affects_legal_document": {
-            "type": "boolean"
-          }
-        }
-      },
-      "AgentPolicyEvaluateRequestDto": {
-        "type": "object",
-        "properties": {
-          "action_type": {
-            "type": "string",
-            "example": "workshop_order.add_line"
-          },
-          "context": {
-            "$ref": "#/components/schemas/AgentPolicyEvaluateContextDto"
-          }
-        },
-        "required": [
-          "action_type"
-        ]
-      },
-      "AgentPolicyEvaluationResponseDto": {
-        "type": "object",
-        "properties": {
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "reasons": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "rule_id": {
-            "type": "object",
-            "nullable": true
-          },
-          "rule_version": {
-            "type": "object",
-            "nullable": true
-          }
-        },
-        "required": [
-          "tier",
-          "reasons",
-          "rule_id",
-          "rule_version"
-        ]
-      },
-      "AgentProposalEffectiveSummaryDto": {
-        "type": "object",
-        "properties": {
-          "target_type": {
-            "type": "string",
-            "nullable": true
-          },
-          "target_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "amount_eur": {
-            "type": "number",
-            "nullable": true
-          }
-        },
-        "required": [
-          "target_type",
-          "target_id",
-          "amount_eur"
-        ]
-      },
-      "AgentProposalWorkshopOrderSummaryDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "order_number": {
-            "type": "string",
-            "nullable": true,
-            "example": "WO-2026-0001"
-          },
-          "customer_name": {
-            "type": "string",
-            "nullable": true
-          },
-          "vehicle_registration": {
-            "type": "string",
-            "nullable": true
-          },
-          "vehicle_description": {
-            "type": "string",
-            "nullable": true,
-            "example": "2019 Volkswagen Golf"
-          }
-        },
-        "required": [
-          "id",
-          "order_number",
-          "customer_name",
-          "vehicle_registration",
-          "vehicle_description"
-        ]
-      },
-      "AgentProposalResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "tenant_id": {
-            "type": "string"
-          },
-          "trace_id": {
-            "type": "string"
-          },
-          "action_type": {
-            "type": "string"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "PENDING",
-              "APPROVED",
-              "REJECTED",
-              "EXPIRED",
-              "EXECUTED",
-              "FAILED"
-            ]
-          },
-          "payload_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "effective_summary": {
-            "$ref": "#/components/schemas/AgentProposalEffectiveSummaryDto"
-          },
-          "workshop_order_summary": {
-            "nullable": true,
-            "description": "Readable workshop order context (order number, customer, vehicle). Filled on list and detail reads; null for other proposals, on write responses, and when the order is not visible to the caller.",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AgentProposalWorkshopOrderSummaryDto"
-              }
-            ]
-          },
-          "preview_json": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true
-          },
-          "created_by_agent": {
-            "type": "string",
-            "nullable": true
-          },
-          "decided_by": {
-            "type": "string",
-            "nullable": true
-          },
-          "decided_by_name": {
-            "type": "string",
-            "nullable": true,
-            "description": "Name of the user who decided (first and last name). Null when the proposal is undecided or the user has no name set."
-          },
-          "decided_by_email": {
-            "type": "string",
-            "nullable": true,
-            "description": "Email of the user who decided. Null when the proposal is undecided or the user is not a member of the tenant."
-          },
-          "decided_at": {
-            "type": "string",
-            "nullable": true
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "expires_at": {
-            "type": "string"
-          },
-          "created_at": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "tenant_id",
-          "trace_id",
-          "action_type",
-          "tier",
-          "status",
-          "payload_json",
-          "effective_summary",
-          "workshop_order_summary",
-          "preview_json",
-          "created_by_agent",
-          "decided_by",
-          "decided_by_name",
-          "decided_by_email",
-          "decided_at",
-          "reason",
-          "expires_at",
-          "created_at",
-          "updated_at"
-        ]
-      },
-      "AgentProposalListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AgentProposalResponseDto"
-            }
-          }
-        },
-        "required": [
-          "data"
-        ]
-      },
-      "BatchApplyAgentProposalsDto": {
-        "type": "object",
-        "properties": {
-          "ids": {
-            "minItems": 1,
-            "maxItems": 100,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        },
-        "required": [
-          "ids"
-        ]
-      },
-      "BatchApplyAgentProposalResultDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "applied",
-              "failed"
-            ]
-          },
-          "error": {
-            "type": "string"
-          },
-          "proposal": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "id",
-          "status"
-        ]
-      },
-      "BatchApplyAgentProposalsResponseDto": {
-        "type": "object",
-        "properties": {
-          "results": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/BatchApplyAgentProposalResultDto"
-            }
-          }
-        },
-        "required": [
-          "results"
-        ]
-      },
-      "RejectAgentProposalDto": {
-        "type": "object",
-        "properties": {
-          "reason": {
-            "type": "string",
-            "description": "Reason for rejecting the proposal",
-            "maxLength": 500
-          }
-        }
-      },
-      "CreateAgentProposalDto": {
-        "type": "object",
-        "properties": {
-          "action_type": {
-            "type": "string",
-            "example": "workshop_order.add_line"
-          },
-          "payload_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "preview_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "trace_id": {
-            "type": "string",
-            "description": "Optional correlation trace ID (UUID)"
-          },
-          "tier": {
-            "type": "string",
-            "enum": [
-              "AUTO",
-              "PROPOSE",
-              "HUMAN_ONLY"
-            ],
-            "default": "PROPOSE"
-          }
-        },
-        "required": [
-          "action_type",
-          "payload_json"
-        ]
-      },
-      "SubmitPendingAgentActionDto": {
-        "type": "object",
-        "properties": {
-          "action_type": {
-            "type": "string",
-            "example": "workshop_order.add_line"
-          },
-          "payload_json": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "command_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Optional correlation UUID stored in preview_json.mcp_command_idempotency for orchestration with MCP; does not claim an MCP write receipt (REST-wide idempotency is out of scope)."
-          }
-        },
-        "required": [
-          "action_type",
-          "payload_json"
         ]
       },
       "AgentSupervisionTriageItemDto": {

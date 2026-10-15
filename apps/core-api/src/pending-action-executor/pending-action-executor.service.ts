@@ -47,7 +47,8 @@ export type PendingActionType =
   | 'customer.update'
   | 'decision.import_row_match'
   | 'decision.document_sort'
-  | 'registration_intake.apply';
+  | 'registration_intake.apply'
+  | 'workshop_order.mechanic_finding';
 
 export type PendingActionExecutor = {
   actionType: PendingActionType;
@@ -135,6 +136,26 @@ export class PendingActionExecutorService {
           execute: (input) => this.addProposedLineItem(input),
           buildResultSummary: (result) => ({
             line_item_id: (result as { id: string }).id,
+          }),
+        };
+      case 'workshop_order.mechanic_finding':
+        return {
+          actionType,
+          buildPolicyContext: () => Promise.resolve({}),
+          buildExecutionContext: async (input) => {
+            const record = this.asRecord(input);
+            const siteId =
+              typeof record.site_id === 'string'
+                ? record.site_id
+                : await this.siteContext.getSiteId();
+            return { site_id: siteId };
+          },
+          execute: (input) => this.acknowledgeMechanicFinding(input),
+          buildResultSummary: (result) => ({
+            workshop_task_id: (result as { workshop_task_id: string })
+              .workshop_task_id,
+            workshop_order_id: (result as { workshop_order_id: string })
+              .workshop_order_id,
           }),
         };
       case 'workshop_order.add_line':
@@ -586,6 +607,59 @@ export class PendingActionExecutorService {
       select: { id: true },
     });
     return { id: created.id, entityId: created.id };
+  }
+
+  /** Advisor acknowledgment of a mechanic finding. Does not add estimate lines. */
+  private async acknowledgeMechanicFinding(input: unknown): Promise<unknown> {
+    const record = this.asRecord(input);
+    const orderId =
+      typeof record.workshop_order_id === 'string'
+        ? record.workshop_order_id
+        : '';
+    const taskId =
+      typeof record.workshop_task_id === 'string'
+        ? record.workshop_task_id
+        : '';
+    if (!orderId || !taskId) {
+      throw new BadRequestException(
+        'Mechanic finding payload requires workshop_order_id and workshop_task_id',
+      );
+    }
+    const [tenantId, siteId] = await Promise.all([
+      this.tenantContext.getTenantId(),
+      this.siteContext.getSiteId(),
+    ]);
+    const payloadSiteId = record.site_id;
+    if (payloadSiteId && payloadSiteId !== siteId) {
+      throw new BadRequestException(
+        `Action payload site (${payloadSiteId}) does not match caller authorized site (${siteId})`,
+      );
+    }
+    const order = await this.prisma.workshopOrder.findFirst({
+      where: { id: orderId, tenant_id: tenantId, site_id: siteId },
+      select: { id: true, status: true, purpose: true },
+    });
+    if (!order) {
+      throw new NotFoundException(`Workshop order ${orderId} not found`);
+    }
+    assertOrderEditable(order);
+    const task = await this.prisma.workshopTask.findFirst({
+      where: {
+        id: taskId,
+        tenant_id: tenantId,
+        workshop_order_id: orderId,
+        workshop_order: { site_id: siteId },
+      },
+      select: { id: true },
+    });
+    if (!task) {
+      throw new NotFoundException(`Workshop task ${taskId} not found`);
+    }
+    return {
+      workshop_order_id: orderId,
+      workshop_task_id: taskId,
+      entityId: taskId,
+    };
   }
 
   /**

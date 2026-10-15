@@ -169,6 +169,18 @@ export class WorkshopEstimateResponseDto {
 
   @ApiProperty({ type: String })
   overrun_threshold_pct!: string;
+
+  @ApiProperty({
+    type: 'array',
+    description:
+      'Lines that block customer send until an advisor resolves zero price or claimed fitment.',
+  })
+  customer_send_blockers!: Array<{
+    code: 'ZERO_UNIT_PRICE' | 'CLAIMED_FITMENT';
+    source_line_id: string;
+    item_no: string;
+    description: string;
+  }>;
 }
 
 export class WorkshopEstimateListResponseDto {

@@ -22,6 +22,7 @@ import { WorkshopEstimateController } from './workshop-estimate.controller.js';
 import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js';
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
+import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.service.js';
 import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
 import { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
 import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
@@ -79,6 +80,7 @@ import { WorkshopBookingPackageService } from './workshop-booking-package.servic
     PublicEstimateApprovalLookup,
     PublicEstimateApprovalRateLimiter,
     WorkshopEstimateService,
+    WorkshopMechanicFindingService,
     WorkshopEstimateApprovalService,
     WorkshopEstimateOverrunService,
     WorkshopOverrunNoticeService,
