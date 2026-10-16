@@ -8,19 +8,9 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type {
-  Announcements,
-  DragEndEvent,
-  DragStartEvent,
-  UniqueIdentifier,
-} from '@dnd-kit/core'
-import { useDroppable } from '@dnd-kit/core'
-import { useNavigate } from 'react-router-dom'
-import { Wrench } from 'lucide-react'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { HorizontalScrollArea } from '@/components/ui/horizontal-scroll-area'
 import {
   WorkshopOrderCard,
@@ -37,154 +27,22 @@ import {
   useAssignBoard,
   workshopKeys,
 } from '@/api/workshop'
-
-// ─── Local-storage helpers ───────────────────────────────────────────────────
-
-const VIEW_MODE_KEY = 'workshop-board-view-mode'
-
-function readViewMode(): BoardViewMode {
-  try {
-    const stored = window.localStorage.getItem(VIEW_MODE_KEY)
-    if (stored === 'mechanic' || stored === 'bay') return stored
-  } catch {
-    // ignore
-  }
-  return 'mechanic'
-}
-
-// ─── Drag announcements ───────────────────────────────────────────────────────
-
-const UNASSIGNED_COLUMN_ID = '__unassigned__'
-
-/**
- * Screen-reader messages for board drags. dnd-kit's defaults read out raw ids, so these name the
- * order number and the column (mechanic, bay or Unassigned) instead.
- */
-function createBoardAnnouncements(
-  orders: BoardOrder[],
-  columns: Array<{ id: string; label: string }>,
-  viewMode: BoardViewMode,
-): Announcements {
-  const resourceNoun = viewMode === 'mechanic' ? 'mechanic' : 'bay'
-  const orderLabel = (id: UniqueIdentifier) =>
-    orders.find((order) => order.id === String(id))?.orderNumber ?? 'Workshop order'
-  const columnLabel = (id: UniqueIdentifier) => {
-    const column = columns.find((candidate) => candidate.id === String(id))
-    if (!column) return 'an unknown column'
-    return column.id === UNASSIGNED_COLUMN_ID ? 'Unassigned' : `${resourceNoun} ${column.label}`
-  }
-
-  return {
-    onDragStart: ({ active }) => `Picked up ${orderLabel(active.id)}.`,
-    onDragOver: ({ active, over }) =>
-      over
-        ? `${orderLabel(active.id)} is over ${columnLabel(over.id)}.`
-        : `${orderLabel(active.id)} is no longer over a column.`,
-    onDragEnd: ({ active, over }) =>
-      over
-        ? `${orderLabel(active.id)} was dropped on ${columnLabel(over.id)}.`
-        : `${orderLabel(active.id)} was dropped outside a column and not moved.`,
-    onDragCancel: ({ active }) => `Dragging was cancelled. ${orderLabel(active.id)} was not moved.`,
-  }
-}
-
-// ─── Droppable Column ─────────────────────────────────────────────────────────
-
-function DroppableColumn({
-  id,
-  label,
-  orders,
-  activeId,
-  quickAssignTargets,
-  onQuickAssign,
-}: {
-  id: string
-  label: string
-  orders: BoardOrder[]
-  activeId: string | null
-  quickAssignTargets: BoardAssignmentTarget[]
-  onQuickAssign: (orderId: string, target: BoardAssignmentTarget) => void
-}) {
-  const { isOver, setNodeRef } = useDroppable({ id })
-
-  const visibleOrders = orders.filter((o) => o.id !== activeId)
-
-  return (
-    <div
-      ref={setNodeRef}
-      data-testid={`board-column-${id === UNASSIGNED_COLUMN_ID ? 'unassigned' : id}`}
-      className={`flex flex-col rounded-lg border bg-slate-50 transition-colors min-w-[240px] w-72 flex-shrink-0 ${
-        isOver ? 'border-slate-400 bg-slate-100' : 'border-slate-200'
-      }`}
-    >
-      {/* Column header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-200">
-        <span className="text-sm font-semibold text-slate-700">{label}</span>
-        <span className="text-xs font-medium rounded-full bg-slate-200 text-slate-600 px-2 py-0.5 tabular-nums">
-          {visibleOrders.length}
-        </span>
-      </div>
-
-      {/* Cards */}
-      <div className="flex flex-col gap-2 p-2 min-h-24">
-        {visibleOrders.map((order) => (
-          <WorkshopOrderCard
-            key={order.id}
-            order={order}
-            quickAssignTargets={quickAssignTargets}
-            onQuickAssign={(target) => onQuickAssign(order.id, target)}
-          />
-        ))}
-        {visibleOrders.length === 0 && (
-          <p className="text-xs text-slate-400 text-center mt-4">No orders</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
-
-function EmptyResourcesCard({ mode }: { mode: BoardViewMode }) {
-  const navigate = useNavigate()
-  const tab = mode === 'mechanic' ? 'employees' : 'bays'
-  const label = mode === 'mechanic' ? 'Mechanics' : 'Bays'
-
-  return (
-    <Card className="max-w-sm mx-auto mt-8">
-      <CardHeader className="items-center pb-2">
-        <div className="rounded-full bg-slate-100 p-3 mb-2">
-          <Wrench className="h-6 w-6 text-slate-400" />
-        </div>
-        <CardTitle className="text-base text-center">No {label} configured</CardTitle>
-        <CardDescription className="text-center">
-          Add {label.toLowerCase()} in Settings to start assigning workshop orders.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex justify-center pt-0">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/settings?tab=${tab}`)}
-        >
-          Go to Settings
-        </Button>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
+import { createWorkshopBoardAnnouncements, WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID } from './workshop-board-announcements'
+import { WorkshopBoardColumn } from './WorkshopBoardColumn'
+import { WorkshopBoardEmptyResources } from './WorkshopBoardEmptyResources'
+import {
+  readWorkshopBoardViewMode,
+  WORKSHOP_BOARD_VIEW_MODE_KEY,
+} from './workshop-board-view-mode'
 
 export default function WorkshopBoard() {
   const queryClient = useQueryClient()
-  const [viewMode, setViewMode] = React.useState<BoardViewMode>(readViewMode)
+  const [viewMode, setViewMode] = React.useState<BoardViewMode>(readWorkshopBoardViewMode)
   const [activeId, setActiveId] = React.useState<string | null>(null)
 
-  // Persist view mode
   React.useEffect(() => {
     try {
-      window.localStorage.setItem(VIEW_MODE_KEY, viewMode)
+      window.localStorage.setItem(WORKSHOP_BOARD_VIEW_MODE_KEY, viewMode)
     } catch {
       // ignore
     }
@@ -221,7 +79,6 @@ export default function WorkshopBoard() {
 
   const orders = React.useMemo(() => boardData?.data ?? [], [boardData])
 
-  // Build columns: resource columns + always-present Unassigned
   const columns = React.useMemo(() => {
     const resourceCols = resources.map((r) => ({
       id: r.id,
@@ -237,12 +94,12 @@ export default function WorkshopBoard() {
 
     return [
       ...resourceCols,
-      { id: UNASSIGNED_COLUMN_ID, label: 'Unassigned', orders: unassignedOrders },
+      { id: WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID, label: 'Unassigned', orders: unassignedOrders },
     ]
   }, [resources, orders, viewMode])
 
   const accessibility = React.useMemo(
-    () => ({ announcements: createBoardAnnouncements(orders, columns, viewMode) }),
+    () => ({ announcements: createWorkshopBoardAnnouncements(orders, columns, viewMode) }),
     [orders, columns, viewMode],
   )
 
@@ -316,7 +173,7 @@ export default function WorkshopBoard() {
 
     const orderId = String(active.id)
     const targetColumnId = String(over.id)
-    if (targetColumnId === UNASSIGNED_COLUMN_ID) {
+    if (targetColumnId === WORKSHOP_BOARD_UNASSIGNED_COLUMN_ID) {
       performBoardAssign(orderId, null)
       return
     }
@@ -332,23 +189,21 @@ export default function WorkshopBoard() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Workshop Board</h1>
           <p className="text-slate-500">Drag &amp; drop orders to assign mechanics and bays.</p>
         </div>
         <BoardViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
-      {/* Board canvas */}
       {isLoading ? (
         <div className="flex items-center justify-center h-64 text-slate-400 text-sm">
           Loading board…
         </div>
       ) : (
         <>
-          {resources.length === 0 && <EmptyResourcesCard mode={viewMode} />}
+          {resources.length === 0 && <WorkshopBoardEmptyResources mode={viewMode} />}
 
           <DndContext
             sensors={sensors}
@@ -356,9 +211,13 @@ export default function WorkshopBoard() {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
-            <HorizontalScrollArea contentClassName="gap-4">
+            <HorizontalScrollArea
+              layout="workshop-board"
+              contentClassName="gap-4"
+              ariaLabel="Workshop board columns"
+            >
               {columns.map((col) => (
-                <DroppableColumn
+                <WorkshopBoardColumn
                   key={col.id}
                   id={col.id}
                   label={col.label}
@@ -372,7 +231,7 @@ export default function WorkshopBoard() {
 
             <DragOverlay>
               {activeOrder ? (
-                <div className="w-[17rem]">
+                <div className="w-[min(17rem,100vw-3rem)]">
                   <WorkshopOrderCardOverlay order={activeOrder} />
                 </div>
               ) : null}

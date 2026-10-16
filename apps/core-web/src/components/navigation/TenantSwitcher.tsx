@@ -35,6 +35,7 @@ export function TenantSwitcher({
     return (
       <div className="px-2 pt-3">
         <div
+          role="img"
           className="flex h-10 items-center justify-center rounded-md border border-slate-800 bg-slate-900 text-slate-300"
           title={title}
           aria-label={title}

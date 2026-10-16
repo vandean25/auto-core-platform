@@ -78,7 +78,7 @@ export function WorkshopOrderCardContent({
           ref={setActivatorNodeRef}
           type="button"
           aria-label={`Move ${order.orderNumber}`}
-          className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-sm text-slate-400 cursor-grab hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-1 right-1 flex h-11 w-11 min-h-[24px] min-w-[24px] items-center justify-center rounded-sm text-slate-400 cursor-grab hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           {...dragAttributes}
         >
           <GripVertical className="h-4 w-4" aria-hidden="true" />
@@ -93,12 +93,12 @@ export function WorkshopOrderCardContent({
       <p className="text-xs font-mono text-slate-500 mb-1">{order.orderNumber}</p>
 
       {/* Customer */}
-      <p className="text-sm font-semibold text-slate-900 truncate pr-7 leading-snug">
+      <p className="text-sm font-semibold text-slate-900 pr-12 leading-snug break-words">
         {getCustomerName(order)}
       </p>
 
       {/* Vehicle */}
-      <p className="text-xs text-slate-500 truncate mt-0.5">
+      <p className="text-xs text-slate-500 break-words mt-0.5">
         {order.vehicle.year} {order.vehicle.make} {order.vehicle.model}
         {order.vehicle.plate && (
           <span className="ml-1 font-medium text-slate-600">· {order.vehicle.plate}</span>
@@ -120,7 +120,7 @@ export function WorkshopOrderCardContent({
                 variant="outline"
                 size="sm"
                 aria-label={`Assign ${order.orderNumber}`}
-                className="ml-auto"
+                className="ml-auto min-h-11 min-w-11 px-3"
                 onPointerDown={stopEventFromStartingDrag}
                 onTouchStart={stopEventFromStartingDrag}
               >
