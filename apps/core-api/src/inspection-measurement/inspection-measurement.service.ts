@@ -360,16 +360,38 @@ export class InspectionMeasurementService {
           });
         }
 
-        const identity = await tx.inspectionMeasurementIdentity.create({
-          data: {
-            ...identityKey,
-            vehicle_id: order.vehicle_id,
-            workshop_order_id: order.id,
-            device_source_id: importRow.device_source_id,
-            session_ref: envelope.canonical.session_ref,
-            semantic_digest: resolved.semanticDigest,
-          },
-        });
+        let identity: { id: string };
+        try {
+          identity = await tx.inspectionMeasurementIdentity.create({
+            data: {
+              ...identityKey,
+              vehicle_id: order.vehicle_id,
+              workshop_order_id: order.id,
+              device_source_id: importRow.device_source_id,
+              session_ref: envelope.canonical.session_ref,
+              semantic_digest: resolved.semanticDigest,
+            },
+          });
+        } catch (error: unknown) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new InspectionMeasurementIdentityRaceSignal({
+              tenantId,
+              siteId,
+              importId,
+              actorUserId: user.id,
+              orderId: order.id,
+              vehicleId: order.vehicle_id,
+              deviceSourceId: importRow.device_source_id,
+              identityKey,
+              semanticDigest: resolved.semanticDigest,
+              importVersion: dto.version,
+            });
+          }
+          throw error;
+        }
 
         let measurement: InspectionMeasurement;
         try {

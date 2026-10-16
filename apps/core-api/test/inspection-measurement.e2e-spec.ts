@@ -492,6 +492,85 @@ describe('Inspection measurement (e2e)', () => {
     expect(count).toBe(1);
   });
 
+  it('reconciles parallel apply from two imports with the same identity', async () => {
+    registerSyntheticMeasurement('SYNTH-RACE-SAME-A', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-RACE-SAME',
+      native_result_ref: 'SYNTH-RACE-SAME-A',
+      workshop_order_ref: orderNumber,
+    });
+    registerSyntheticMeasurement('SYNTH-RACE-SAME-B', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-RACE-SAME',
+      native_result_ref: 'SYNTH-RACE-SAME-B',
+      workshop_order_ref: orderNumber,
+    });
+    const previewA = await preview('SYNTH-RACE-SAME-A').expect(201);
+    const previewB = await preview('SYNTH-RACE-SAME-B').expect(201);
+    expect(previewA.body.id).not.toBe(previewB.body.id);
+
+    const [applyA, applyB] = await Promise.all([
+      applyImport(previewA.body),
+      applyImport(previewB.body),
+    ]);
+    expect([applyA.status, applyB.status].sort()).toEqual([200, 200]);
+    expect(
+      [applyA.body.replay, applyB.body.replay].filter(Boolean),
+    ).toHaveLength(1);
+    const count = await prisma.inspectionMeasurement.count({
+      where: { measurement_id: 'SYNTH-MEASUREMENT-RACE-SAME' },
+    });
+    expect(count).toBe(1);
+  });
+
+  it('returns 409 and persists conflict when two imports race on conflicting digests', async () => {
+    registerSyntheticMeasurement('SYNTH-RACE-CONFLICT-A', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-RACE-CONFLICT',
+      revision: 'SYNTH-RACE-REV-1',
+      native_result_ref: 'SYNTH-RACE-CONFLICT-A',
+      workshop_order_ref: orderNumber,
+    });
+    registerSyntheticMeasurement('SYNTH-RACE-CONFLICT-B', {
+      ...SYNTHETIC_BRAKE_MEASUREMENT,
+      measurement_id: 'SYNTH-MEASUREMENT-RACE-CONFLICT',
+      revision: 'SYNTH-RACE-REV-2',
+      native_result_ref: 'SYNTH-RACE-CONFLICT-B',
+      wheels: [
+        { axle: 1, side: 'LEFT', force: '2.600', unit: 'kN' },
+        ...SYNTHETIC_BRAKE_MEASUREMENT.wheels.slice(1),
+      ],
+      workshop_order_ref: orderNumber,
+    });
+    const previewA = await preview('SYNTH-RACE-CONFLICT-A').expect(201);
+    const previewB = await preview('SYNTH-RACE-CONFLICT-B').expect(201);
+
+    const [applyA, applyB] = await Promise.all([
+      applyImport(previewA.body),
+      applyImport(previewB.body),
+    ]);
+    const statuses = [applyA.status, applyB.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    expect(
+      [applyA.body.code, applyB.body.code].includes('MEASUREMENT_CONFLICT'),
+    ).toBe(true);
+    const count = await prisma.inspectionMeasurement.count({
+      where: { measurement_id: 'SYNTH-MEASUREMENT-RACE-CONFLICT' },
+    });
+    expect(count).toBe(1);
+
+    const loserImportId =
+      applyA.status === 409 ? previewA.body.id : previewB.body.id;
+    const events = await prisma.inspectionSupportEvent.findMany({
+      where: {
+        tenant_id: tenantId,
+        object_id: loserImportId,
+        reason: 'MEASUREMENT_CONFLICT',
+      },
+    });
+    expect(events.length).toBeGreaterThan(0);
+  });
+
   it('persists conflict support event after MEASUREMENT_CONFLICT preview', async () => {
     registerSyntheticMeasurement('SYNTH-EVENT-A', {
       ...SYNTHETIC_BRAKE_MEASUREMENT,
