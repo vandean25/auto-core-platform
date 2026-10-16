@@ -370,13 +370,15 @@ export class InspectionCatalogService {
     );
 
     const data = limited.map((code) => {
+      const lookupPurpose =
+        code.entry_id == null ? 'position_only' : 'scoped_recommendation';
       const status = resolveCatalogueReference({
         manifest,
         request: code,
         inspectionTime,
         vehicleClass: options.vehicle_class,
         forCurrentUse,
-        lookupPurpose: 'scoped_recommendation',
+        lookupPurpose,
       });
 
       const locator = code.entry_id

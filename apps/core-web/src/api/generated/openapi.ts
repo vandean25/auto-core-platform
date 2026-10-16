@@ -7563,9 +7563,9 @@ export interface components {
             /** Format: uuid */
             workshop_task_id: string;
             position_id: string;
-            entry_id?: Record<string, never> | null;
-            human_finding_label?: Record<string, never> | null;
-            vehicle_class?: Record<string, never> | null;
+            entry_id?: string | null;
+            human_finding_label?: string | null;
+            vehicle_class?: string | null;
         };
         InspectionFindingReferenceResponseDto: {
             /** Format: uuid */
@@ -7576,6 +7576,15 @@ export interface components {
             source_version: string;
             source_kind: string;
             coverage: string;
+        };
+        InspectionFindingProvenanceSnapshotDto: {
+            source_kind: string;
+            source_version: string;
+            source_uri: string;
+            coverage: string;
+            content_sha256: string;
+            /** Format: date-time */
+            recheck_after: string;
         };
         InspectionFindingReferenceListItemDto: {
             /** Format: uuid */
@@ -7588,7 +7597,7 @@ export interface components {
             coverage: string;
             /** Format: date-time */
             recheck_after: string;
-            provenance_snapshot: Record<string, never>;
+            provenance_snapshot: components["schemas"]["InspectionFindingProvenanceSnapshotDto"];
             human_finding_label: string | null;
         };
         LoanerVehicleResponseDto: {

@@ -25333,15 +25333,15 @@
             "type": "string"
           },
           "entry_id": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "human_finding_label": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "vehicle_class": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         },
@@ -25388,6 +25388,38 @@
           "coverage"
         ]
       },
+      "InspectionFindingProvenanceSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "source_kind": {
+            "type": "string"
+          },
+          "source_version": {
+            "type": "string"
+          },
+          "source_uri": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": "string"
+          },
+          "content_sha256": {
+            "type": "string"
+          },
+          "recheck_after": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_version",
+          "source_uri",
+          "coverage",
+          "content_sha256",
+          "recheck_after"
+        ]
+      },
       "InspectionFindingReferenceListItemDto": {
         "type": "object",
         "properties": {
@@ -25419,7 +25451,7 @@
             "format": "date-time"
           },
           "provenance_snapshot": {
-            "type": "object"
+            "$ref": "#/components/schemas/InspectionFindingProvenanceSnapshotDto"
           },
           "human_finding_label": {
             "type": "string",

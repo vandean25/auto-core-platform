@@ -168,7 +168,7 @@ describe('Inspection catalogue (e2e)', () => {
     catalogueVersionId = activate.body.catalogue_version_id;
   });
 
-  it('marks scoped recommendation OUT_OF_SCOPE for unsourced statutory position', async () => {
+  it('resolves position-only reference for statutory 0.1', async () => {
     await ensureActivatedCatalogue();
 
     const resolve = await request(app.getHttpServer())
@@ -177,7 +177,7 @@ describe('Inspection catalogue (e2e)', () => {
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
 
-    expect(resolve.body.data[0].status).toBe('OUT_OF_SCOPE');
+    expect(resolve.body.data[0].status).toBe('RESOLVED');
     expect(resolve.body.data[0].coverage).toBe('SUBSET');
   });
 

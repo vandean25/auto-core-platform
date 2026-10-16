@@ -6,6 +6,11 @@ type CatalogueReferenceResolution =
   components['schemas']['CatalogueReferenceResolutionDto']
 type InspectionFindingReference =
   components['schemas']['InspectionFindingReferenceResponseDto']
+type InspectionFindingReferenceListItem =
+  components['schemas']['InspectionFindingReferenceListItemDto']
+type PaginationMeta = components['schemas']['PaginationMetaDto']
+
+const CATALOGUE_REFERENCES_PAGE_LIMIT = 50
 
 export const inspectionCatalogueKeys = {
   all: ['inspection-catalogues'] as const,
@@ -51,21 +56,40 @@ export function useCatalogueReferenceResolution(
   })
 }
 
+async function fetchAllCatalogueReferences(
+  inspectionId: string,
+): Promise<InspectionFindingReferenceListItem[]> {
+  const collected: InspectionFindingReferenceListItem[] = []
+  let page = 1
+  let pageCount = 1
+
+  while (page <= pageCount) {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(CATALOGUE_REFERENCES_PAGE_LIMIT),
+    })
+    const response = await fetchWithAuth(
+      `/api/workshop-inspections/${encodeURIComponent(inspectionId)}/catalogue-references?${params.toString()}`,
+    )
+    if (!response.ok) {
+      throw new Error('CATALOGUE_REFERENCES_LOAD_FAILED')
+    }
+    const body = (await response.json()) as {
+      data: InspectionFindingReferenceListItem[]
+      meta: PaginationMeta
+    }
+    collected.push(...body.data)
+    pageCount = body.meta.pageCount
+    page += 1
+  }
+
+  return collected
+}
+
 export function useInspectionCatalogueReferences(inspectionId: string) {
   return useQuery({
     queryKey: inspectionCatalogueKeys.inspectionReferences(inspectionId),
-    queryFn: async () => {
-      const response = await fetchWithAuth(
-        `/api/workshop-inspections/${encodeURIComponent(inspectionId)}/catalogue-references`,
-      )
-      if (!response.ok) {
-        throw new Error('CATALOGUE_REFERENCES_LOAD_FAILED')
-      }
-      const body = (await response.json()) as {
-        data: InspectionFindingReference[]
-      }
-      return body.data
-    },
+    queryFn: () => fetchAllCatalogueReferences(inspectionId),
   })
 }
 

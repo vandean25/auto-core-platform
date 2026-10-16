@@ -115,23 +115,43 @@ export class CreateInspectionFindingReferenceDto {
   @MaxLength(64)
   position_id!: string;
 
-  @ApiProperty({ nullable: true, required: false })
+  @ApiProperty({ nullable: true, required: false, type: String })
   @IsOptional()
   @IsString()
   @MaxLength(64)
   entry_id?: string | null;
 
-  @ApiProperty({ nullable: true, required: false })
+  @ApiProperty({ nullable: true, required: false, type: String })
   @IsOptional()
   @IsString()
   @MaxLength(256)
   human_finding_label?: string | null;
 
-  @ApiProperty({ nullable: true, required: false })
+  @ApiProperty({ nullable: true, required: false, type: String })
   @IsOptional()
   @IsString()
   @MaxLength(16)
   vehicle_class?: string | null;
+}
+
+export class InspectionFindingProvenanceSnapshotDto {
+  @ApiProperty()
+  source_kind!: string;
+
+  @ApiProperty()
+  source_version!: string;
+
+  @ApiProperty()
+  source_uri!: string;
+
+  @ApiProperty()
+  coverage!: string;
+
+  @ApiProperty()
+  content_sha256!: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  recheck_after!: string;
 }
 
 export class InspectionFindingReferenceListItemDto {
@@ -159,8 +179,8 @@ export class InspectionFindingReferenceListItemDto {
   @ApiProperty({ type: String, format: 'date-time' })
   recheck_after!: string;
 
-  @ApiProperty({ type: Object })
-  provenance_snapshot!: Record<string, unknown>;
+  @ApiProperty({ type: InspectionFindingProvenanceSnapshotDto })
+  provenance_snapshot!: InspectionFindingProvenanceSnapshotDto;
 
   @ApiProperty({ nullable: true, type: String })
   human_finding_label!: string | null;

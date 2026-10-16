@@ -6,6 +6,10 @@ import {
   useInspectionCatalogueReferences,
 } from '@/api/inspection-catalogues'
 import { describeInspectionCatalogueError } from '@/api/inspection-catalogue-errors'
+import {
+  formatCatalogueCoverage,
+  formatCatalogueSourceKind,
+} from '@/api/inspection-catalogue-labels'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -17,16 +21,6 @@ const RESOLUTION_STATUS_LABELS: Record<string, string> = {
   OUT_OF_SCOPE: 'Außerhalb des Geltungsbereichs',
   NOT_CONFIGURED: 'Nicht konfiguriert',
   SOURCE_CONFLICT: 'Quellenkonflikt',
-}
-
-const SOURCE_KIND_LABELS: Record<string, string> = {
-  STATUTORY_REFERENCE: 'Gesetzliche Referenz',
-  TEST_ONLY: 'Nur Test',
-}
-
-const COVERAGE_LABELS: Record<string, string> = {
-  SUBSET: 'Teilmenge',
-  COMPLETE: 'Vollständig',
 }
 
 type Props = {
@@ -54,10 +48,10 @@ export function InspectionCatalogueReferencePicker({
     ? RESOLUTION_STATUS_LABELS[resolution.status] ?? 'Unbekannt'
     : '—'
   const sourceKindLabel = resolution
-    ? SOURCE_KIND_LABELS[resolution.source_kind] ?? resolution.source_kind
+    ? formatCatalogueSourceKind(resolution.source_kind)
     : '—'
   const coverageLabel = resolution
-    ? COVERAGE_LABELS[resolution.coverage] ?? resolution.coverage
+    ? formatCatalogueCoverage(resolution.coverage)
     : '—'
 
   async function attachPosition() {
@@ -142,7 +136,8 @@ export function InspectionCatalogueReferencePicker({
               <div className="font-medium">{reference.label_snapshot}</div>
               <div className="text-xs text-muted-foreground">
                 {reference.position_id} · {reference.source_version} ·{' '}
-                {reference.coverage}
+                {formatCatalogueCoverage(reference.coverage)} ·{' '}
+                {formatCatalogueSourceKind(reference.source_kind)}
               </div>
             </li>
           ))}
