@@ -355,33 +355,37 @@ describe('Inspection exchange (e2e)', () => {
 
   it('denies preview for TECH tenant role', async () => {
     const techFirebaseUid = `e2e-inspection-tech-${Date.now()}`;
-    const techUser = await basePrisma.user.create({
-      data: {
-        firebaseUid: techFirebaseUid,
-        email: `tech-${Date.now()}@example.test`,
-      },
-    });
-    await seedTestTenantMember(basePrisma, {
-      tenantId,
-      userId: techUser.id,
-      role: 'TECH',
-    });
-    await basePrisma.siteMembership.create({
-      data: {
-        tenant_id: tenantId,
-        user_id: techUser.id,
-        site_id: siteId,
-        is_active: true,
-      },
-    });
-    await basePrisma.user.update({
-      where: { id: techUser.id },
-      data: { active_site_id: siteId },
+    let techUserEmail = '';
+    await runWithTenantContext(tenantId, async () => {
+      const techUser = await basePrisma.user.create({
+        data: {
+          firebaseUid: techFirebaseUid,
+          email: `tech-${Date.now()}@example.test`,
+        },
+      });
+      techUserEmail = techUser.email;
+      await seedTestTenantMember(basePrisma, {
+        tenantId,
+        userId: techUser.id,
+        role: 'TECH',
+      });
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: techUser.id,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
+      await prisma.user.update({
+        where: { id: techUser.id },
+        data: { active_site_id: siteId },
+      });
     });
     const techToken = createTestAuthToken(app.get(AuthService), {
       tenantId,
       firebaseUid: techFirebaseUid,
-      email: techUser.email,
+      email: techUserEmail,
       role: 'TECH',
     });
 
@@ -509,7 +513,7 @@ describe('Inspection exchange (e2e)', () => {
       .expect(200);
 
     const due = await request(app.getHttpServer())
-      .get('/api/vehicles/pickerl-due?window=365&page=1&pageSize=50')
+      .get('/api/vehicles/pickerl-due?window=90&page=1&pageSize=50')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     const row = due.body.data.find((entry: { id: string }) => entry.id === vehicle.id);
