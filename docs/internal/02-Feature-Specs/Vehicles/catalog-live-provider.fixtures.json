@@ -1,0 +1,740 @@
+{
+  "retrievedAt": "2026-10-16",
+  "numberOrigin": "synthetic",
+  "holder": "pilot customer",
+  "provider": {
+    "product": "TecDoc Web Service",
+    "interface": "TecdocToCat",
+    "versionLabel": "WEB SERVICE 3.0",
+    "path": "pegasus-3-0",
+    "dialect": "JSON Document Literal Bare",
+    "endpoint": "https://webservice.tecalliance.services/pegasus-3-0/services/TecdocToCatDLB.jsonEndpoint",
+    "publicFunctionIndex": "tecdoctocatfunctionList.json",
+    "publicChangelogRevision": 13,
+    "linkingTargetType": "P",
+    "detailFunction": "getAssignedArticlesByIds7",
+    "fitmentIdFunction": "getArticleIdsWithState",
+    "numberSearchFunction": "getArticleDirectSearchAllNumbersWithState",
+    "versionFunction": "getPegasusVersionInfo2"
+  },
+  "credentials": {
+    "providerId": 0,
+    "apiKeyHeader": "X-API-Key",
+    "apiKey": "REDACTED",
+    "articleCountry": "AT",
+    "lang": "de"
+  },
+  "cases": [
+    {
+      "id": "version",
+      "acpOutcome": "version-ok",
+      "calls": [
+        {
+          "function": "getPegasusVersionInfo2",
+          "request": {
+            "getPegasusVersionInfo2": {
+              "provider": 0
+            }
+          },
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "major": 0,
+            "minor": 0,
+            "revision": 0,
+            "build": 0,
+            "dataVersion": "00/0000",
+            "refDataVersion": "0000",
+            "date": "1970-01-01T00:00:00Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hit",
+      "acpOutcome": "unique-fitment",
+      "linkageOutcome": "unique",
+      "synthetic": false,
+      "addToOrder": "blocked-until-price",
+      "identityKeys": {
+        "TECDOC": {
+          "carId": 900000042,
+          "linkingTargetType": "P",
+          "typeNumber": 424242
+        }
+      },
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "request": {
+            "getArticleDirectSearchAllNumbersWithState": {
+              "articleCountry": "AT",
+              "articleNumber": "SYN-PAD-001",
+              "lang": "de",
+              "numberType": 0,
+              "provider": 0,
+              "searchExact": true,
+              "sortType": 1
+            }
+          },
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "articleId": 900000001,
+                  "articleName": "Synthetic brake pad",
+                  "articleNo": "SYN-PAD-001",
+                  "articleSearchNo": "SYNPAD001",
+                  "articleStateId": 0,
+                  "brandName": "Synthetic Brand",
+                  "brandNo": 9001,
+                  "category": null,
+                  "genericArticleId": 900669,
+                  "numberType": 0,
+                  "sortNo": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "function": "getArticleIdsWithState",
+          "request": {
+            "getArticleIdsWithState": {
+              "articleCountry": "AT",
+              "assemblyGroupNodeId": null,
+              "brandNo": { "array": [9001] },
+              "genericArticleId": { "array": [900669] },
+              "lang": "de",
+              "linkingTargetId": 900000042,
+              "linkingTargetType": "P",
+              "provider": 0,
+              "sort": 1
+            }
+          },
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "articleId": 900000001,
+                  "articleLinkId": 900000002,
+                  "articleNo": "SYN-PAD-001",
+                  "articleStateId": 0,
+                  "brandName": "Synthetic Brand",
+                  "brandNo": 9001,
+                  "genericArticleId": 900669,
+                  "genericArticleName": "Synthetic product group",
+                  "sortNo": 1
+                }
+              ]
+            }
+          }
+        },
+        {
+          "function": "getAssignedArticlesByIds7",
+          "request": {
+            "getAssignedArticlesByIds7": {
+              "articleCountry": "AT",
+              "articleIdPairs": {
+                "array": [
+                  {
+                    "articleId": 900000001,
+                    "articleLinkId": 900000002
+                  }
+                ]
+              },
+              "attributs": true,
+              "basicData": true,
+              "documents": false,
+              "eanNumbers": true,
+              "immediateAttributs": true,
+              "immediateInfo": false,
+              "info": false,
+              "lang": "de",
+              "linkingTargetId": 900000042,
+              "linkingTargetType": "P",
+              "mainArticles": false,
+              "manuId": null,
+              "modId": null,
+              "normalAustauschPrice": false,
+              "oeNumbers": true,
+              "priceDate": null,
+              "prices": false,
+              "provider": 0,
+              "replacedByNumbers": false,
+              "replacedNumbers": false,
+              "thumbnails": false,
+              "usageNumbers": false
+            }
+          },
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "assignedArticle": {
+                    "articleId": 900000001,
+                    "articleLinkId": 900000002,
+                    "articleName": "Synthetic brake pad",
+                    "articleNo": "SYN-PAD-001",
+                    "brandName": "Synthetic Brand",
+                    "brandNo": 9001,
+                    "genericArticleId": 900669,
+                    "packingUnit": 1,
+                    "quantityPerPackingUnit": 1
+                  },
+                  "directArticle": null,
+                  "eanNumber": {
+                    "empty": false,
+                    "array": [{ "eanNumber": "0000000000000" }]
+                  },
+                  "oenNumbers": {
+                    "empty": false,
+                    "array": [
+                      {
+                        "blockNumber": 1,
+                        "brandName": "Synthetic OEM",
+                        "oeNumber": "SYN-OE-001",
+                        "sortNumber": 1
+                      }
+                    ]
+                  },
+                  "articleAttributes": {
+                    "empty": false,
+                    "array": [
+                      {
+                        "attrId": 1,
+                        "attrIsConditional": false,
+                        "attrName": "Synthetic attribute",
+                        "attrShortName": "SYN",
+                        "attrType": "A",
+                        "attrUnit": null,
+                        "attrValue": "front"
+                      }
+                    ]
+                  },
+                  "immediateAttributs": { "empty": true, "array": [] },
+                  "articlePrices": { "empty": true, "array": [] },
+                  "normalAustauschPrice": { "empty": true, "array": [] }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "acpHit": {
+        "externalId": "900000001",
+        "sourceSystem": "tecdoc",
+        "name": "Synthetic brake pad",
+        "articleNumber": "SYN-PAD-001",
+        "brandLabel": "Synthetic Brand",
+        "unitPrice": null,
+        "costPriceEst": null,
+        "ean": "0000000000000",
+        "unit": null,
+        "fitmentNotes": null,
+        "oemNumbers": ["SYN-OE-001"],
+        "genericArticleId": 900669,
+        "genericArticleName": "Synthetic product group",
+        "dataVersion": "00/0000",
+        "articleLinkId": "900000002",
+        "linkingTargetId": "900000042",
+        "linkingTargetType": "P",
+        "synthetic": false,
+        "linkageOutcome": "unique"
+      }
+    },
+    {
+      "id": "no-match",
+      "acpOutcome": "no-match",
+      "identityKeys": {
+        "TECDOC": {
+          "carId": 900000042,
+          "linkingTargetType": "P"
+        }
+      },
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "request": {
+            "getArticleDirectSearchAllNumbersWithState": {
+              "articleCountry": "AT",
+              "articleNumber": "SYN-NONE-001",
+              "lang": "de",
+              "numberType": 0,
+              "provider": 0,
+              "searchExact": true,
+              "sortType": 1
+            }
+          },
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": { "empty": true, "array": [] }
+          }
+        }
+      ],
+      "acpHits": []
+    },
+    {
+      "id": "no-link",
+      "acpOutcome": "no-match",
+      "note": "The article number exists. The vehicle-linked id list does not contain that articleId. Absence after status 200 is no match. Status 413 is a different case.",
+      "identityKeys": {
+        "TECDOC": {
+          "carId": 900000042,
+          "linkingTargetType": "P"
+        }
+      },
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "articleId": 900000011,
+                  "articleName": "Synthetic unlinked pad",
+                  "articleNo": "SYN-NOLINK-001",
+                  "brandName": "Synthetic Brand",
+                  "brandNo": 9001,
+                  "genericArticleId": 900669,
+                  "numberType": 0
+                }
+              ]
+            }
+          }
+        },
+        {
+          "function": "getArticleIdsWithState",
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "articleId": 900000099,
+                  "articleLinkId": 900000100,
+                  "articleNo": "SYN-OTHER-001",
+                  "brandNo": 9001,
+                  "genericArticleId": 900669,
+                  "genericArticleName": "Synthetic product group"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "acpHits": []
+    },
+    {
+      "id": "ambiguous-articles",
+      "acpOutcome": "ambiguous",
+      "linkageOutcome": "ambiguous",
+      "addToOrder": "refused",
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "articleId": 900000021,
+                  "articleName": "Synthetic pad A",
+                  "articleNo": "SYN-AMB-001",
+                  "brandName": "Synthetic Brand",
+                  "brandNo": 9001,
+                  "genericArticleId": 900669,
+                  "numberType": 0
+                },
+                {
+                  "articleId": 900000022,
+                  "articleName": "Synthetic pad B",
+                  "articleNo": "SYN-AMB-001",
+                  "brandName": "Synthetic Brand Two",
+                  "brandNo": 9002,
+                  "genericArticleId": 900669,
+                  "numberType": 0
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "acpHits": [
+        {
+          "externalId": "900000021",
+          "sourceSystem": "tecdoc",
+          "name": "Synthetic pad A",
+          "articleNumber": "SYN-AMB-001",
+          "brandLabel": "Synthetic Brand",
+          "unitPrice": null,
+          "costPriceEst": null,
+          "ean": null,
+          "unit": null,
+          "fitmentNotes": null,
+          "oemNumbers": [],
+          "synthetic": false,
+          "linkageOutcome": "ambiguous"
+        },
+        {
+          "externalId": "900000022",
+          "sourceSystem": "tecdoc",
+          "name": "Synthetic pad B",
+          "articleNumber": "SYN-AMB-001",
+          "brandLabel": "Synthetic Brand Two",
+          "unitPrice": null,
+          "costPriceEst": null,
+          "ean": null,
+          "unit": null,
+          "fitmentNotes": null,
+          "oemNumbers": [],
+          "synthetic": false,
+          "linkageOutcome": "ambiguous"
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-links",
+      "acpOutcome": "ambiguous",
+      "linkageOutcome": "ambiguous",
+      "addToOrder": "refused",
+      "calls": [
+        {
+          "function": "getArticleIdsWithState",
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "articleId": 900000031,
+                  "articleLinkId": 900000032,
+                  "articleNo": "SYN-LINK-001",
+                  "brandName": "Synthetic Brand",
+                  "brandNo": 9001,
+                  "genericArticleId": 900669,
+                  "genericArticleName": "Synthetic product group"
+                },
+                {
+                  "articleId": 900000031,
+                  "articleLinkId": 900000033,
+                  "articleNo": "SYN-LINK-001",
+                  "brandName": "Synthetic Brand",
+                  "brandNo": 9001,
+                  "genericArticleId": 900669,
+                  "genericArticleName": "Synthetic product group"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "acpHits": [
+        {
+          "externalId": "900000031",
+          "sourceSystem": "tecdoc",
+          "name": "Synthetic brake pad",
+          "articleNumber": "SYN-LINK-001",
+          "brandLabel": "Synthetic Brand",
+          "unitPrice": null,
+          "ean": null,
+          "unit": null,
+          "fitmentNotes": null,
+          "synthetic": false,
+          "linkageOutcome": "ambiguous"
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-conditional",
+      "acpOutcome": "ambiguous",
+      "linkageOutcome": "ambiguous",
+      "addToOrder": "refused",
+      "calls": [
+        {
+          "function": "getAssignedArticlesByIds7",
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "assignedArticle": {
+                    "articleId": 900000041,
+                    "articleLinkId": 900000042,
+                    "articleName": "Synthetic conditional pad",
+                    "articleNo": "SYN-COND-001",
+                    "brandName": "Synthetic Brand",
+                    "genericArticleId": 900669
+                  },
+                  "articleAttributes": {
+                    "empty": false,
+                    "array": [
+                      {
+                        "attrId": 2,
+                        "attrIsConditional": true,
+                        "attrName": "Synthetic condition",
+                        "attrType": "A",
+                        "attrValue": "with sensor"
+                      }
+                    ]
+                  },
+                  "immediateAttributs": { "empty": true, "array": [] },
+                  "eanNumber": { "empty": true, "array": [] },
+                  "oenNumbers": { "empty": true, "array": [] }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "acpHits": [
+        {
+          "externalId": "900000041",
+          "sourceSystem": "tecdoc",
+          "name": "Synthetic conditional pad",
+          "articleNumber": "SYN-COND-001",
+          "brandLabel": "Synthetic Brand",
+          "unitPrice": null,
+          "ean": null,
+          "unit": null,
+          "fitmentNotes": null,
+          "synthetic": false,
+          "linkageOutcome": "ambiguous"
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-eans",
+      "acpOutcome": "ambiguous",
+      "linkageOutcome": "ambiguous",
+      "addToOrder": "refused",
+      "calls": [
+        {
+          "function": "getAssignedArticlesByIds7",
+          "response": {
+            "status": 200,
+            "statusText": null,
+            "data": {
+              "empty": false,
+              "array": [
+                {
+                  "assignedArticle": {
+                    "articleId": 900000051,
+                    "articleLinkId": 900000052,
+                    "articleName": "Synthetic multi-ean pad",
+                    "articleNo": "SYN-EAN-001",
+                    "brandName": "Synthetic Brand",
+                    "genericArticleId": 900669
+                  },
+                  "eanNumber": {
+                    "empty": false,
+                    "array": [
+                      { "eanNumber": "0000000000000" },
+                      { "eanNumber": "0000000000001" }
+                    ]
+                  },
+                  "oenNumbers": { "empty": true, "array": [] },
+                  "articleAttributes": { "empty": true, "array": [] },
+                  "immediateAttributs": { "empty": true, "array": [] }
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "acpHits": [
+        {
+          "externalId": "900000051",
+          "sourceSystem": "tecdoc",
+          "articleNumber": "SYN-EAN-001",
+          "ean": null,
+          "oemNumbers": [],
+          "unitPrice": null,
+          "synthetic": false,
+          "linkageOutcome": "ambiguous"
+        }
+      ]
+    },
+    {
+      "id": "wrong-vehicle-key",
+      "acpOutcome": "wrong-vehicle-key",
+      "providerCalled": false,
+      "identityKeys": {
+        "vin": "WVWZZZ00000000001"
+      },
+      "acpError": {
+        "httpStatus": 422,
+        "code": "WRONG_VEHICLE_KEY",
+        "hits": []
+      }
+    },
+    {
+      "id": "wrong-vehicle-key-type",
+      "acpOutcome": "wrong-vehicle-key",
+      "providerCalled": false,
+      "identityKeys": {
+        "TECDOC": {
+          "carId": 900000042,
+          "linkingTargetType": "O",
+          "typeNumber": 900000042
+        }
+      },
+      "acpError": {
+        "httpStatus": 422,
+        "code": "WRONG_VEHICLE_KEY",
+        "hits": []
+      }
+    },
+    {
+      "id": "auth-failure",
+      "acpOutcome": "auth-failure",
+      "calls": [
+        {
+          "function": "getPegasusVersionInfo2",
+          "httpStatus": 200,
+          "response": {
+            "status": 401,
+            "statusText": null
+          }
+        }
+      ],
+      "acpError": {
+        "httpStatus": 502,
+        "code": "PROVIDER_UNAUTHORIZED",
+        "hits": []
+      }
+    },
+    {
+      "id": "rate-limit",
+      "acpOutcome": "rate-limit",
+      "note": "TecDoc status table retrieved 2026-10-16 has no rate-limit code. HTTP 429 is a transport outcome. Status 413 is case too-many-results.",
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "httpStatus": 429,
+          "response": null
+        }
+      ],
+      "acpError": {
+        "httpStatus": 429,
+        "code": "PROVIDER_RATE_LIMIT",
+        "hits": []
+      }
+    },
+    {
+      "id": "too-many-results",
+      "acpOutcome": "too-many-results",
+      "calls": [
+        {
+          "function": "getArticleIdsWithState",
+          "httpStatus": 200,
+          "response": {
+            "status": 413,
+            "statusText": null,
+            "data": null
+          }
+        }
+      ],
+      "acpError": {
+        "httpStatus": 502,
+        "code": "PROVIDER_TOO_MANY_RESULTS",
+        "hits": []
+      }
+    },
+    {
+      "id": "timeout",
+      "acpOutcome": "timeout",
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "httpStatus": 200,
+          "response": {
+            "status": 402,
+            "statusText": null,
+            "data": null
+          }
+        }
+      ],
+      "acpError": {
+        "httpStatus": 504,
+        "code": "PROVIDER_TIMEOUT",
+        "hits": []
+      }
+    },
+    {
+      "id": "timeout-transport",
+      "acpOutcome": "timeout",
+      "calls": [
+        {
+          "function": "getArticleDirectSearchAllNumbersWithState",
+          "transport": "timeout",
+          "response": null
+        }
+      ],
+      "acpError": {
+        "httpStatus": 504,
+        "code": "PROVIDER_TIMEOUT",
+        "hits": []
+      }
+    },
+    {
+      "id": "invalid-request",
+      "acpOutcome": "provider-rejected",
+      "calls": [
+        {
+          "function": "getArticleIdsWithState",
+          "httpStatus": 200,
+          "response": {
+            "status": 400,
+            "statusText": null
+          }
+        }
+      ],
+      "acpError": {
+        "httpStatus": 502,
+        "code": "PROVIDER_REJECTED",
+        "hits": []
+      }
+    },
+    {
+      "id": "sandbox-parts",
+      "acpOutcome": "synthetic",
+      "providerCalled": false,
+      "acpHit": {
+        "externalId": "sandbox-tecdoc-syn-pad",
+        "sourceSystem": "sandbox-tecdoc",
+        "name": "Synthetic Aftermarket brake pad",
+        "articleNumber": "SYN-PAD-001",
+        "brandLabel": "Synthetic Brand",
+        "unitPrice": 79.99,
+        "costPriceEst": null,
+        "ean": "0000000000000",
+        "unit": "pcs",
+        "fitmentNotes": null,
+        "oemNumbers": ["SYN-OE-001"],
+        "synthetic": true,
+        "linkageOutcome": "synthetic"
+      },
+      "liveFitmentVerified": false
+    }
+  ]
+}
