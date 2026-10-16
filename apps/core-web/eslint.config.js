@@ -6,6 +6,21 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
+const intlRestrictionRules = {
+  'no-restricted-syntax': [
+    'error',
+    {
+      selector: "MemberExpression[object.name='Intl']",
+      message: 'Use @/lib/format instead of Intl (AUT-577).',
+    },
+    {
+      selector:
+        "CallExpression[callee.property.name=/^(toLocaleString|toLocaleDateString|toLocaleTimeString|toLocaleLowerCase)$/]",
+      message: 'Use @/lib/format instead of locale-specific string methods (AUT-577).',
+    },
+  ],
+}
+
 export default defineConfig([
   globalIgnores(['dist']),
   {
@@ -44,6 +59,13 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'off',
       'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/incompatible-library': 'off',
+      ...intlRestrictionRules,
+    },
+  },
+  {
+    files: ['src/lib/format/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
 ])

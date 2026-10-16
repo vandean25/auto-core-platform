@@ -1,0 +1,80 @@
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+import {
+  DEFAULT_UI_LANGUAGE,
+  PRELOAD_NAMESPACES,
+  type AppNamespace,
+  type UiLanguage,
+} from './constants'
+import { loadNamespace } from './lazy-resources'
+import { applyZodLocale } from './zod-locale'
+import { resolveInitialUiLanguage } from './storage'
+import { syncDocumentLang } from './sync-document-lang'
+
+export type InitI18nOptions = {
+  language?: UiLanguage
+}
+
+async function preloadNamespaces(language: UiLanguage): Promise<void> {
+  const bundles = await Promise.all(
+    PRELOAD_NAMESPACES.map(async (namespace) => [namespace, await loadNamespace(language, namespace)] as const),
+  )
+  for (const [namespace, resources] of bundles) {
+    i18n.addResourceBundle(language, namespace, resources, true, true)
+  }
+}
+
+export async function initI18n(options: InitI18nOptions = {}): Promise<typeof i18n> {
+  const language = options.language ?? resolveInitialUiLanguage()
+
+  if (!i18n.isInitialized) {
+    await i18n.use(initReactI18next).init({
+      lng: language,
+      fallbackLng: DEFAULT_UI_LANGUAGE,
+      supportedLngs: ['de', 'en'],
+      ns: [...PRELOAD_NAMESPACES],
+      defaultNS: 'common',
+      interpolation: { escapeValue: true },
+      returnNull: false,
+      react: { useSuspense: true },
+      partialBundledLanguages: true,
+      load: 'languageOnly',
+    })
+  }
+
+  await preloadNamespaces(language)
+  syncDocumentLang(language)
+  applyZodLocale(language)
+
+  return i18n
+}
+
+export async function ensureNamespaceLoaded(namespace: AppNamespace): Promise<void> {
+  const language = i18n.language
+  if (i18n.hasResourceBundle(language, namespace)) {
+    return
+  }
+  const resources = await loadNamespace(language, namespace)
+  i18n.addResourceBundle(language, namespace, resources, true, true)
+}
+
+export async function changeUiLanguage(nextLanguage: UiLanguage): Promise<void> {
+  const current = i18n.language as UiLanguage
+  if (current === nextLanguage) {
+    return
+  }
+
+  const namespacesToLoad = i18n.options.ns ?? PRELOAD_NAMESPACES
+  for (const namespace of namespacesToLoad) {
+    if (!i18n.hasResourceBundle(nextLanguage, namespace)) {
+      const resources = await loadNamespace(nextLanguage, namespace as AppNamespace)
+      i18n.addResourceBundle(nextLanguage, namespace, resources, true, true)
+    }
+  }
+
+  await i18n.changeLanguage(nextLanguage)
+  syncDocumentLang(nextLanguage)
+  applyZodLocale(nextLanguage)
+}
+
+export { i18n }
