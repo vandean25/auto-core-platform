@@ -75,7 +75,7 @@ const FIREBASE_EMAIL_LINK_QUERY_KEYS = [
   'oobLink',
 ] as const
 
-function readFirebaseAuthErrorCode(error: unknown): string {
+export function readFirebaseAuthErrorCode(error: unknown): string {
   if (!error || typeof error !== 'object' || !('code' in error)) {
     return ''
   }

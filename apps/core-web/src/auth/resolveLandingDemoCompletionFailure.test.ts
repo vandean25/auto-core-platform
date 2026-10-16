@@ -6,7 +6,7 @@ import {
 import { resolveLandingDemoCompletionFailure } from '@/auth/resolveLandingDemoCompletionFailure'
 
 describe('resolveLandingDemoCompletionFailure', () => {
-  it('maps demo grant rejection to expired copy with a new-link action', () => {
+  it('maps demo grant rejection to grantInvalid with a new-link action', () => {
     const failure = resolveLandingDemoCompletionFailure(
       new LandingDemoAuthSessionError(
         'Demo sign-in link is missing, expired, or already used.',
@@ -14,7 +14,7 @@ describe('resolveLandingDemoCompletionFailure', () => {
       ),
     )
 
-    expect(failure.message).toMatch(/abgelaufen/)
+    expect(failure.reason).toBe('grantInvalid')
     expect(failure.showRequestNewLink).toBe(true)
     expect(failure.showRetry).toBe(false)
   })
@@ -24,7 +24,7 @@ describe('resolveLandingDemoCompletionFailure', () => {
       code: 'auth/network-request-failed',
     })
 
-    expect(failure.message).toMatch(/Internetverbindung/)
+    expect(failure.reason).toBe('retry')
     expect(failure.showRequestNewLink).toBe(false)
     expect(failure.showRetry).toBe(true)
   })

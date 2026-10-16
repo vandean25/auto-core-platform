@@ -88,7 +88,7 @@ describe('App authenticated unknown routes (AUT-222)', () => {
   it('shows a 404 page inside the app shell for unknown routes', async () => {
     renderAtPath('/this-route-does-not-exist-qa')
 
-    expect(await screen.findByRole('heading', { name: 'Page not found' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Seite nicht gefunden' }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText('ACP')).toBeInTheDocument()
   })
 

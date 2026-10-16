@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
+import { changeUiLanguage } from '@/lib/i18n'
 
 import LoginPage from './LoginPage'
 
@@ -24,6 +25,10 @@ vi.mock('@/auth/AuthProvider', () => ({
     isConfigured: authState.isConfigured,
   }),
 }))
+
+beforeEach(async () => {
+  await changeUiLanguage('en')
+})
 
 afterEach(() => {
   cleanup()

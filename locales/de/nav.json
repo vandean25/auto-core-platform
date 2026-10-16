@@ -1,1 +1,129 @@
-{}
+{
+  "brand": {
+    "acp": "ACP",
+    "workshopBadge": "Werkstatt"
+  },
+  "sections": {
+    "coreModules": "Kernmodule",
+    "favorites": "Favoriten"
+  },
+  "favorites": {
+    "empty": "Noch keine gespeicherten Ansichten. Filter in einer Tabelle setzen und „Als Seitenleistenansicht speichern“ wählen.",
+    "removeAria": "Gespeicherte Ansicht {{name}} entfernen"
+  },
+  "aria": {
+    "coreModules": "Kernmodule"
+  },
+  "modules": {
+    "dashboard": "Dashboard",
+    "platformTenants": "Mandanten",
+    "agentSupervision": "Agentenüberwachung",
+    "customers": "Kunden",
+    "vehicles": "Fahrzeuge",
+    "pickerlDue": "Pickerl fällig",
+    "gewaehrleistungDue": "Gewährleistung fällig",
+    "vehicleStock": "Fahrzeugbestand",
+    "salesOrders": "Kundenaufträge",
+    "salesInvoices": "Rechnungen",
+    "workshopOrders": "Werkstattaufträge",
+    "workshopBoard": "Werkstattboard",
+    "workshopPlanner": "Werkstattplaner",
+    "workshopCapacity": "Werkstattkapazität",
+    "workshopKpiReports": "Werkstatt-KPIs",
+    "workshopLoanerVehicles": "Ersatzfahrzeuge",
+    "tyreStorage": "Reifenlager",
+    "hr": "Personal",
+    "inventory": "Lager",
+    "stockTransfers": "Umlagerungen",
+    "vendors": "Lieferanten",
+    "purchaseOrders": "Bestellungen",
+    "creditNotes": "Gutschriften",
+    "accountingExportReadiness": "Exportbereitschaft",
+    "purchaseBills": "Eingangsrechnungen",
+    "finance": "Finanzen"
+  },
+  "footer": {
+    "search": "Suche",
+    "openSearch": "Suche öffnen",
+    "settings": "Einstellungen",
+    "helpDocs": "Hilfe / Dokumentation",
+    "helpDocsOpensNewTab": "Hilfe / Dokumentation (öffnet in neuem Tab)",
+    "expandSidebar": "Seitenleiste ausklappen",
+    "collapseSidebar": "Seitenleiste einklappen"
+  },
+  "tenantSwitcher": {
+    "currentTenant": "Aktueller Mandant",
+    "switchTenant": "Mandant wechseln",
+    "switchTo": "Zu {{name}} wechseln"
+  },
+  "siteSwitcher": {
+    "currentSite": "Aktueller Standort",
+    "switchSite": "Standort wechseln",
+    "selectSite": "Standort wählen",
+    "noActiveSite": "Kein aktiver Standort",
+    "operationalNeedsSite": "Operative Ansichten benötigen eine Standortauswahl.",
+    "activateSite": "{{name}} aktivieren"
+  },
+  "glossaryHints": {
+    "sectionLabel": "Fachbegriffe"
+  },
+  "globalSearch": {
+    "title": "Globale Suche",
+    "description": "Teil, Kunde, Fahrzeug, Auftrag oder Befehl aufrufen.",
+    "inputLabel": "Teile, Kunden, Fahrzeuge, Aufträge oder Befehle suchen",
+    "placeholder": "Teile, Kunden, Fahrzeuge, Aufträge…",
+    "emptyIdle": "Tippen Sie, um Teile, Kunden, Fahrzeuge, Aufträge oder Befehle zu suchen.",
+    "emptyNoMatch": "Keine Teile, Kunden, Fahrzeuge, Aufträge oder Befehle passen zu „{{query}}“.",
+    "emptyHint": "Vollständigen Namen (Vor- und Nachname), Kennzeichen, FIN oder Auftragsnummer versuchen.",
+    "searching": "Suche…",
+    "unavailable": "Suche vorübergehend nicht verfügbar.",
+    "groups": {
+      "customers": "Kunden",
+      "vehicles": "Fahrzeuge",
+      "workshopOrders": "Werkstattaufträge",
+      "inventory": "Lager"
+    },
+    "inventoryInStock": "{{count}} auf Lager",
+    "quickActions": {
+      "navigate": "Navigation",
+      "create": "Anlegen",
+      "openDashboard": {
+        "label": "Dashboard öffnen",
+        "description": "Widgets und gespeicherte Ansichten ansehen."
+      },
+      "openInventory": {
+        "label": "Lager öffnen",
+        "description": "Teile und Bestände durchsuchen."
+      },
+      "openTransfers": {
+        "label": "Umlagerungen öffnen",
+        "description": "Standortübergreifende Umlagerungen anfordern und verfolgen."
+      },
+      "findSalesOrderToInvoice": {
+        "label": "Kundenauftrag zum Fakturieren finden",
+        "description": "Kundenauftrag öffnen und Rechnung anlegen.",
+        "keywords": "Rechnung aus Kundenauftrag,Kundenrechnung"
+      },
+      "openWorkshopIntake": {
+        "label": "Fahrzeugannahme öffnen",
+        "description": "Neuen Werkstattbesuch starten."
+      },
+      "openSettings": {
+        "label": "Einstellungen öffnen",
+        "description": "Finanzen und Stammdaten verwalten."
+      },
+      "createSalesOrder": {
+        "label": "Kundenauftrag anlegen",
+        "description": "Neuen Kundenauftrag erfassen."
+      },
+      "createPurchaseOrder": {
+        "label": "Bestellung anlegen",
+        "description": "Neue Lieferantenbestellung erfassen."
+      },
+      "createPurchaseBill": {
+        "label": "Eingangsrechnung anlegen",
+        "description": "Lieferantenrechnung mit Wareneingängen abgleichen."
+      }
+    }
+  }
+}

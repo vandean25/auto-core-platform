@@ -21,5 +21,97 @@
   "profile": {
     "menuLabel": "Profile menu",
     "signOut": "Sign out"
+  },
+  "shell": {
+    "sessionLoadFailed": "Unable to load your tenant session.",
+    "switchTenantFailed": "Failed to switch tenant.",
+    "switchSiteFailed": "Failed to switch site.",
+    "mechanicBadge": "Mechanic",
+    "loading": "Loading…",
+    "skipToMainContent": "Skip to main content"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you requested does not exist or may have been moved.",
+    "goHome": "Go to home"
+  },
+  "errorBoundary": {
+    "chunkTitle": "Update Required",
+    "chunkDescription": "The application was updated or encountered a network interruption. A reload is required to continue.",
+    "unexpectedTitle": "Unexpected error",
+    "unexpectedDescription": "The application encountered an unexpected error. Please try reloading to recover.",
+    "unknownError": "Unknown error occurred",
+    "reload": "Reload Application"
+  },
+  "login": {
+    "title": "Auto Core",
+    "tagline": "ACP keeps stock, jobs, and invoices in one workshop ledger.",
+    "highlights": {
+      "parts": "Parts on the shelf",
+      "jobs": "Jobs on the board",
+      "invoices": "Invoices with a paper trail"
+    },
+    "demoWorkshop": "Demo workshop",
+    "demoOffice": "Office: grok-bot@auto.core.at",
+    "demoMechanic": "Mechanic: grok-bot-tech@auto.core.at",
+    "demoPasswordHint": "Ask the demo owner for the password.",
+    "documentation": "Documentation",
+    "signInTitle": "Sign in",
+    "signInDescription": "Sign in with the email your workshop invited.",
+    "notConfigured": "Sign-in is not configured for this deployment.",
+    "continueGoogle": "Continue with Google",
+    "signingInGoogle": "Signing in with Google...",
+    "orDivider": "Or",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "validation": {
+      "bothRequired": "Email and password are required.",
+      "emailRequired": "Email is required.",
+      "passwordRequired": "Password is required."
+    },
+    "errors": {
+      "loginFailed": "Login failed. Verify your email and password and try again.",
+      "googleFailed": "Google login failed. Try again."
+    },
+    "toast": {
+      "resetEmailRequired": "Enter your email to reset your password.",
+      "resetSent": "Check your email for a reset link.",
+      "resetFailed": "We could not send a reset email. Check the address and try again."
+    }
+  },
+  "landingDemo": {
+    "sessionRejected": {
+      "title": "Demo access unavailable",
+      "description": "The server-side demo grant could not be confirmed.",
+      "requestNewLink": "Request a new demo link",
+      "requestOnLanding": "Request a new demo link on the Auto Core landing page.",
+      "signOut": "Sign out"
+    },
+    "errors": {
+      "grantInvalid": "This sign-in link has expired or was already used.",
+      "invalidEmail": "Enter the email address you used to request the demo.",
+      "retry": "Sign-in could not be completed. Please try again.",
+      "unknown": "Sign-in could not be completed.",
+      "invalidConfiguration": "This sign-in link is invalid or sign-in is not configured."
+    },
+    "emailLink": {
+      "pageTitle": "Demo sign-in",
+      "pageDescription": "We are completing your sign-in and redirecting you into the demo environment.",
+      "retry": "Try again",
+      "startDemo": "Start demo",
+      "completingTitle": "Completing demo sign-in",
+      "completingDescription": "Confirming your email link…",
+      "needsEmailTitle": "Confirm email",
+      "needsEmailDescription": "Enter the email you used to request the demo link.",
+      "emailLabel": "Email",
+      "submit": "Complete sign-in",
+      "submitting": "Completing…",
+      "errorTitle": "Sign-in failed",
+      "requestNewLink": "Request a new demo link",
+      "requestOnLanding": "Request a new demo link on the Auto Core landing page."
+    }
   }
 }

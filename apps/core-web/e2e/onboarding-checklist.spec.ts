@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { DE_SHELL } from './helpers/de-shell';
 import { expectNoCriticalA11yViolations } from './utils/a11y';
 
 /**
@@ -58,7 +59,7 @@ test.describe('AUT-486: onboarding checklist and Help / Docs', () => {
   test('sidebar Help / Docs opens the documentation in a new tab', async ({ page }) => {
     await page.goto('/dashboard');
 
-    const helpLink = page.getByRole('link', { name: 'Help / Docs' });
+    const helpLink = page.getByRole('link', { name: DE_SHELL.footer.helpDocs });
     await expect(helpLink).toHaveAttribute('href', DOCUMENTATION_URL);
     await expect(helpLink).toHaveAttribute('target', '_blank');
     await expect(helpLink).toHaveAttribute('rel', /noopener/);

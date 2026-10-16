@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 import { ErrorBoundary } from 'react-error-boundary'
 import type { FallbackProps } from 'react-error-boundary'
 import { AlertCircle, RefreshCcw } from 'lucide-react'
@@ -7,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { isChunkLoadError } from '@/lib/chunk-load-recovery'
 
 function ErrorFallback({ error }: FallbackProps) {
+  const { t } = useTranslation('common')
   const err = error as { name?: string; message?: string }
   const chunkLoadError = isChunkLoadError(err)
 
@@ -18,29 +20,26 @@ function ErrorFallback({ error }: FallbackProps) {
             <AlertCircle className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl font-bold tracking-tight text-slate-900">
-            {chunkLoadError ? 'Update Required' : 'Unexpected Error'}
+            {chunkLoadError ? t('errorBoundary.chunkTitle') : t('errorBoundary.unexpectedTitle')}
           </CardTitle>
           <CardDescription className="text-slate-500">
-            {chunkLoadError
-              ? 'The application was updated or encountered a network interruption. A reload is required to continue.'
-              : 'The application encountered an unexpected error. Please try reloading to recover.'}
+            {chunkLoadError ? t('errorBoundary.chunkDescription') : t('errorBoundary.unexpectedDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg bg-slate-50 p-3 text-xs font-mono text-slate-600 overflow-auto max-h-32 border border-slate-200">
-            {err?.message || 'Unknown error occurred'}
+            {err?.message || t('errorBoundary.unknownError')}
           </div>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button 
+          <Button
             onClick={() => {
-              // Perform a hard reload to clear stale manifests and cache
               window.location.reload()
             }}
             className="w-full gap-2 bg-slate-950 hover:bg-slate-800"
           >
             <RefreshCcw className="h-4 w-4" />
-            Reload Application
+            {t('errorBoundary.reload')}
           </Button>
         </CardFooter>
       </Card>
@@ -57,7 +56,6 @@ export function GlobalErrorBoundary({ children }: GlobalErrorBoundaryProps) {
     <ErrorBoundary
       FallbackComponent={ErrorFallback}
       onReset={() => {
-        // This is called when resetErrorBoundary is invoked
         window.location.reload()
       }}
     >

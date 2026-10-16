@@ -156,7 +156,7 @@ describe('LandingDemoEmailLinkCompletionPage', () => {
     renderCompletionPage()
 
     expect(
-      await screen.findByText(/Internetverbindung/i),
+      await screen.findByText(/konnte nicht abgeschlossen werden/i),
     ).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Neuen Demo-Link anfordern' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Erneut versuchen' })).toBeInTheDocument()

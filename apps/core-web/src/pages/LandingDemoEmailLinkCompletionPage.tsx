@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { completeLandingDemoEmailLinkSignIn } from '@/auth/completeLandingDemoEmailLinkSignIn'
 import {
   clearFirebaseEmailLinkQueryParams,
@@ -9,6 +10,7 @@ import {
 } from '@/auth/landing-demo-email-link'
 import { resolveLandingDemoCompletionFailure } from '@/auth/resolveLandingDemoCompletionFailure'
 import { warmLandingDemoAuthSession } from '@/auth/warmLandingDemoAuthSession'
+import { translateLandingDemoFailureReason } from '@/lib/i18n/landing-demo-failure-message'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,26 +30,24 @@ export function resetLandingDemoAutoCompletionGuardForTests() {
 }
 
 function RequestNewDemoLinkAction() {
+  const { t } = useTranslation('common')
   const landingUrl = resolveLandingDemoAccessUrl()
 
   if (!landingUrl) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Fordern Sie auf der Auto-Core-Landingpage einen neuen Demo-Link an.
-      </p>
-    )
+    return <p className="text-sm text-muted-foreground">{t('landingDemo.emailLink.requestOnLanding')}</p>
   }
 
   return (
     <Button asChild className="w-full" variant="outline">
       <a href={landingUrl} rel="noreferrer">
-        Neuen Demo-Link anfordern
+        {t('landingDemo.emailLink.requestNewLink')}
       </a>
     </Button>
   )
 }
 
 export default function LandingDemoEmailLinkCompletionPage() {
+  const { t } = useTranslation('common')
   const navigate = useNavigate()
   const [phase, setPhase] = React.useState<CompletionPhase>('completing')
   const [email, setEmail] = React.useState(() => readStoredLandingDemoEmail() ?? '')
@@ -78,20 +78,20 @@ export default function LandingDemoEmailLinkCompletionPage() {
         autoCompletionStartedForHref.delete(emailLinkUrl)
         const failure = resolveLandingDemoCompletionFailure(error)
         setPhase('error')
-        setErrorMessage(failure.message)
+        setErrorMessage(translateLandingDemoFailureReason(t, failure.reason))
         setShowRequestNewLink(failure.showRequestNewLink)
       } finally {
         completionInFlightRef.current = false
         setSubmitting(false)
       }
     },
-    [emailLinkUrl, navigate],
+    [emailLinkUrl, navigate, t],
   )
 
   React.useEffect(() => {
     if (firebaseConfigMissing || !isFirebaseEmailLinkSignInUrl(emailLinkUrl)) {
       setPhase('error')
-      setErrorMessage('Dieser Anmeldelink ist ungültig oder die Anmeldung ist nicht konfiguriert.')
+      setErrorMessage(t('landingDemo.errors.invalidConfiguration'))
       setShowRequestNewLink(false)
       return
     }
@@ -109,15 +109,13 @@ export default function LandingDemoEmailLinkCompletionPage() {
     }
 
     setPhase('needs-email')
-  }, [emailLinkUrl, runCompletion])
+  }, [emailLinkUrl, runCompletion, t])
 
   const handleEmailSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const normalized = email.trim()
     if (!normalized) {
-      setErrorMessage(
-        'Bitte geben Sie die E-Mail-Adresse ein, mit der Sie die Demo angefordert haben.',
-      )
+      setErrorMessage(translateLandingDemoFailureReason(t, 'invalidEmail'))
       return
     }
 
@@ -129,22 +127,20 @@ export default function LandingDemoEmailLinkCompletionPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50/30 px-4 py-10">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Demo-Anmeldung</CardTitle>
-          <CardDescription>
-            Wir schließen Ihre Anmeldung ab und leiten Sie in die Demo-Umgebung weiter.
-          </CardDescription>
+          <CardTitle>{t('landingDemo.emailLink.pageTitle')}</CardTitle>
+          <CardDescription>{t('landingDemo.emailLink.pageDescription')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {phase === 'completing' && !errorMessage ? (
             <p className="text-sm text-muted-foreground" role="status">
-              Anmeldung wird abgeschlossen…
+              {t('landingDemo.emailLink.completingDescription')}
             </p>
           ) : null}
 
           {phase === 'needs-email' ? (
             <form className="space-y-4" noValidate onSubmit={handleEmailSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="landing-demo-email">E-Mail</Label>
+                <Label htmlFor="landing-demo-email">{t('landingDemo.emailLink.emailLabel')}</Label>
                 <Input
                   autoComplete="email"
                   id="landing-demo-email"
@@ -164,7 +160,7 @@ export default function LandingDemoEmailLinkCompletionPage() {
                 </Alert>
               ) : null}
               <Button className="w-full" disabled={submitting} type="submit">
-                {submitting ? 'Anmeldung läuft…' : 'Demo starten'}
+                {submitting ? t('landingDemo.emailLink.submitting') : t('landingDemo.emailLink.startDemo')}
               </Button>
             </form>
           ) : null}
@@ -186,7 +182,7 @@ export default function LandingDemoEmailLinkCompletionPage() {
                   type="button"
                   variant="outline"
                 >
-                  Erneut versuchen
+                  {t('landingDemo.emailLink.retry')}
                 </Button>
               ) : null}
             </div>

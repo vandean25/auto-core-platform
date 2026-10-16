@@ -1,4 +1,5 @@
 import { Building2, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { components } from '@/api/generated/openapi'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -7,7 +8,7 @@ type AuthSessionMembership = components['schemas']['AuthSessionMembershipDto']
 type AuthSessionTenant = components['schemas']['AuthSessionTenantDto']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 
-type TenantSwitcherProps = {
+type TenantSwitcherViewProps = {
   activeTenant: AuthSessionTenant | null
   activeRole: TenantMemberRole | null
   memberships: AuthSessionMembership[]
@@ -16,14 +17,16 @@ type TenantSwitcherProps = {
   collapsed?: boolean
 }
 
-export function TenantSwitcher({
+export function TenantSwitcherView({
   activeTenant,
   activeRole,
   memberships,
   onSwitch,
   isSwitching,
   collapsed = false,
-}: TenantSwitcherProps) {
+}: TenantSwitcherViewProps) {
+  const { t } = useTranslation('nav')
+
   if (!activeTenant) {
     return null
   }
@@ -54,7 +57,9 @@ export function TenantSwitcher({
             <Building2 className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Current Tenant</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              {t('tenantSwitcher.currentTenant')}
+            </p>
             <p className="truncate text-sm font-semibold text-white">{activeTenant.name}</p>
             <p className="truncate text-xs text-slate-400">{activeTenant.slug}</p>
           </div>
@@ -67,7 +72,9 @@ export function TenantSwitcher({
 
         {switchableMemberships.length > 0 ? (
           <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">Switch Tenant</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              {t('tenantSwitcher.switchTenant')}
+            </p>
             <div className="space-y-2">
               {switchableMemberships.map((membership) => (
                 <Button
@@ -76,7 +83,7 @@ export function TenantSwitcher({
                   variant="ghost"
                   onClick={() => onSwitch(membership.tenantId)}
                   disabled={isSwitching}
-                  aria-label={`Switch to ${membership.tenantName}`}
+                  aria-label={t('tenantSwitcher.switchTo', { name: membership.tenantName })}
                   className={cn(
                     'h-auto w-full justify-between rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-left text-slate-200 hover:bg-slate-800 hover:text-white',
                     isSwitching && 'cursor-wait opacity-70',
@@ -99,3 +106,5 @@ export function TenantSwitcher({
     </section>
   )
 }
+
+export { TenantSwitcherView as TenantSwitcher }

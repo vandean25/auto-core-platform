@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import { SiteSwitcher } from '@/components/navigation/SiteSwitcher'
+import { SiteSwitcherShell as SiteSwitcher } from '@/components/navigation/SiteSwitcherShell'
 import type { MeSite } from '@/api/sites'
 
 afterEach(cleanup)
@@ -38,9 +38,9 @@ describe('SiteSwitcher', () => {
       />,
     )
 
-    expect(screen.getByText('Current Site')).toBeInTheDocument()
+    expect(screen.getByText('Aktueller Standort')).toBeInTheDocument()
     expect(screen.getByText('Vienna')).toBeInTheDocument()
-    expect(screen.queryByRole('combobox', { name: 'Switch site' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Standort wechseln' })).not.toBeInTheDocument()
   })
 
   it('shows a recovery prompt when active_site_id is null despite one grant', () => {
@@ -56,8 +56,8 @@ describe('SiteSwitcher', () => {
       />,
     )
 
-    expect(screen.getByText('No active site')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Activate Vienna' }))
+    expect(screen.getByText('Kein aktiver Standort')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Vienna aktivieren' }))
     expect(onSwitch).toHaveBeenCalledWith('site-vienna')
   })
 
@@ -74,7 +74,7 @@ describe('SiteSwitcher', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Switch site' }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Standort wechseln' }))
     fireEvent.click(await screen.findByRole('option', { name: /Munich/ }))
 
     expect(onSwitch).toHaveBeenCalledWith('site-munich')
@@ -93,7 +93,7 @@ describe('SiteSwitcher', () => {
       />,
     )
 
-    expect(screen.getByText('Current Site')).toBeInTheDocument()
+    expect(screen.getByText('Aktueller Standort')).toBeInTheDocument()
     expect(screen.getByText('Vienna')).toBeInTheDocument()
   })
 
@@ -110,7 +110,7 @@ describe('SiteSwitcher', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('combobox', { name: 'Switch site' }))
+    fireEvent.click(screen.getByRole('combobox', { name: 'Standort wechseln' }))
     const option = await screen.findByRole('option', { name: /Munich/ })
     fireEvent.click(option)
 

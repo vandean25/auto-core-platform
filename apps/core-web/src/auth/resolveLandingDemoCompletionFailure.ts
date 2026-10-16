@@ -1,13 +1,17 @@
 import { isLandingDemoSignInGrantInvalidError } from '@/auth/landing-demo-auth-session-error'
 import {
-  demoGrantSessionRejectedMessageDe,
-  describeLandingDemoEmailLinkError,
   isLandingDemoEmailLinkExpiredError,
-  landingDemoEmailLinkRetryMessageDe,
+  readFirebaseAuthErrorCode,
 } from '@/auth/landing-demo-email-link'
 
+export type LandingDemoFailureReason =
+  | 'grantInvalid'
+  | 'invalidEmail'
+  | 'retry'
+  | 'unknown'
+
 export type LandingDemoCompletionFailure = {
-  message: string
+  reason: LandingDemoFailureReason
   showRequestNewLink: boolean
   showRetry: boolean
 }
@@ -20,18 +24,24 @@ export function resolveLandingDemoCompletionFailure(
     isLandingDemoEmailLinkExpiredError(error)
   ) {
     return {
-      message: demoGrantSessionRejectedMessageDe(),
+      reason: 'grantInvalid',
       showRequestNewLink: true,
       showRetry: false,
     }
   }
 
-  const message = describeLandingDemoEmailLinkError(error)
-  const isRetry = message === landingDemoEmailLinkRetryMessageDe()
+  const code = readFirebaseAuthErrorCode(error)
+  if (code === 'auth/missing-email' || code === 'auth/invalid-email') {
+    return {
+      reason: 'invalidEmail',
+      showRequestNewLink: false,
+      showRetry: false,
+    }
+  }
 
   return {
-    message,
+    reason: 'retry',
     showRequestNewLink: false,
-    showRetry: isRetry,
+    showRetry: true,
   }
 }

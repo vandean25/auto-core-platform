@@ -1,10 +1,62 @@
 {
-  "pickerl": "Periodic inspection (§57a)",
-  "kva": "Cost estimate",
-  "vehicleCheckIn": "Vehicle check-in",
-  "workshopOrder": "Workshop order",
-  "creditNote": "Credit note",
-  "statutoryWarranty": "Statutory warranty",
-  "commercialGuarantee": "Commercial guarantee",
-  "nova": "NoVA (Austrian vehicle registration tax)"
+  "pickerl": {
+    "short": "Pickerl",
+    "term": "Periodic inspection (§57a)",
+    "description": "Legally required periodic vehicle inspection under Austrian §57a."
+  },
+  "kva": {
+    "short": "KVA",
+    "term": "Cost estimate",
+    "description": "Preliminary cost breakdown for workshop work before customer approval."
+  },
+  "vehicleCheckIn": {
+    "short": "Check-in",
+    "term": "Vehicle check-in",
+    "description": "Recording the vehicle and customer request at the start of a workshop visit."
+  },
+  "workshopOrder": {
+    "short": "WO",
+    "term": "Workshop order",
+    "description": "Job for workshop labour and parts on a vehicle."
+  },
+  "salesOrder": {
+    "short": "SO",
+    "term": "Sales order",
+    "description": "Customer order for parts or vehicles before invoicing."
+  },
+  "invoice": {
+    "short": "RE",
+    "term": "Invoice",
+    "description": "Issued sales invoice with a sequential RE number."
+  },
+  "atp": {
+    "short": "ATP",
+    "term": "Available to promise",
+    "description": "On-hand quantity minus reserved quantity at a location; used for availability checks."
+  },
+  "storageBayBin": {
+    "short": "Bin",
+    "term": "Bay / bin",
+    "description": "Physical storage location (aisle, bay, or bin) within a site."
+  },
+  "creditNote": {
+    "short": "CN",
+    "term": "Credit note",
+    "description": "Issued credit against an invoice or sale."
+  },
+  "statutoryWarranty": {
+    "short": "SW",
+    "term": "Statutory warranty",
+    "description": "Legal warranty after purchase or repair."
+  },
+  "commercialGuarantee": {
+    "short": "Guar.",
+    "term": "Commercial guarantee",
+    "description": "Voluntary manufacturer or dealer guarantee in addition to statutory warranty."
+  },
+  "nova": {
+    "short": "NoVA",
+    "term": "NoVA (Austrian vehicle registration tax)",
+    "description": "Austrian norm consumption tax on vehicle registration."
+  }
 }

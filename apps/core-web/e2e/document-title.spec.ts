@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { DE_SHELL } from './helpers/de-shell';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { expectNoAxeViolationsForRules } from './utils/a11y';
 import { createMockListResponse, createMockSalesOrder } from './utils/mock-factories';
@@ -83,7 +84,7 @@ test.describe('Per-route document title (AUT-473)', () => {
 
   test('route changes are announced and focus stays on the link that was activated', async ({ page }) => {
     await new AutoCorePage(page, 'Page').navigate('/dashboard');
-    const customersLink = page.getByRole('link', { name: 'Customers', exact: true }).first();
+    const customersLink = page.getByRole('link', { name: DE_SHELL.modules.customers, exact: true }).first();
 
     await customersLink.click();
 
@@ -102,7 +103,7 @@ test.describe('Per-route document title (AUT-473)', () => {
     await new AutoCorePage(page, 'Sales Order').navigate('/sales-orders/so-123');
     await expect(page).toHaveTitle('SO-2026-0001 - Sales Orders - Auto Core');
 
-    await page.getByRole('link', { name: 'Customers', exact: true }).first().click();
+    await page.getByRole('link', { name: DE_SHELL.modules.customers, exact: true }).first().click();
 
     // The list page mounts only after the outgoing page's exit animation has finished, so once its
     // heading is visible any stale write from the outgoing page has already happened.

@@ -1,1 +1,129 @@
-{}
+{
+  "brand": {
+    "acp": "ACP",
+    "workshopBadge": "Workshop"
+  },
+  "sections": {
+    "coreModules": "Core Modules",
+    "favorites": "Favorites"
+  },
+  "favorites": {
+    "empty": "No saved views yet. Apply filters on a table and click Save as sidebar view.",
+    "removeAria": "Remove saved view {{name}}"
+  },
+  "aria": {
+    "coreModules": "Core modules"
+  },
+  "modules": {
+    "dashboard": "Dashboard",
+    "platformTenants": "Tenants",
+    "agentSupervision": "Agent Supervision",
+    "customers": "Customers",
+    "vehicles": "Vehicles",
+    "pickerlDue": "Pickerl due",
+    "gewaehrleistungDue": "Statutory warranty due",
+    "vehicleStock": "Vehicle Stock",
+    "salesOrders": "Sales Orders",
+    "salesInvoices": "Invoices",
+    "workshopOrders": "Workshop Orders",
+    "workshopBoard": "Workshop Board",
+    "workshopPlanner": "Workshop Planner",
+    "workshopCapacity": "Workshop Capacity",
+    "workshopKpiReports": "Workshop KPIs",
+    "workshopLoanerVehicles": "Loaner vehicles",
+    "tyreStorage": "Tyre storage",
+    "hr": "HR",
+    "inventory": "Inventory",
+    "stockTransfers": "Transfers",
+    "vendors": "Vendors",
+    "purchaseOrders": "Purchase Orders",
+    "creditNotes": "Credit Notes",
+    "accountingExportReadiness": "Export Readiness",
+    "purchaseBills": "Purchase Bills",
+    "finance": "Finance"
+  },
+  "footer": {
+    "search": "Search",
+    "openSearch": "Open search",
+    "settings": "Settings",
+    "helpDocs": "Help / Docs",
+    "helpDocsOpensNewTab": "Help / Docs (opens in a new tab)",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar"
+  },
+  "tenantSwitcher": {
+    "currentTenant": "Current Tenant",
+    "switchTenant": "Switch Tenant",
+    "switchTo": "Switch to {{name}}"
+  },
+  "siteSwitcher": {
+    "currentSite": "Current Site",
+    "switchSite": "Switch site",
+    "selectSite": "Select site",
+    "noActiveSite": "No active site",
+    "operationalNeedsSite": "Operational views need a site selection.",
+    "activateSite": "Activate {{name}}"
+  },
+  "glossaryHints": {
+    "sectionLabel": "Terms"
+  },
+  "globalSearch": {
+    "title": "Global Search",
+    "description": "Jump to a part, customer, vehicle, job, or command.",
+    "inputLabel": "Search parts, customers, vehicles, jobs, or commands",
+    "placeholder": "Search parts, customers, vehicles, jobs…",
+    "emptyIdle": "Start typing to search parts, customers, vehicles, jobs, or commands.",
+    "emptyNoMatch": "No parts, customers, vehicles, jobs, or commands match “{{query}}”.",
+    "emptyHint": "Try a full name (first and last), a plate, a VIN or an order number.",
+    "searching": "Searching…",
+    "unavailable": "Search is temporarily unavailable.",
+    "groups": {
+      "customers": "Customers",
+      "vehicles": "Vehicles",
+      "workshopOrders": "Workshop orders",
+      "inventory": "Inventory"
+    },
+    "inventoryInStock": "{{count}} in stock",
+    "quickActions": {
+      "navigate": "Navigate",
+      "create": "Create",
+      "openDashboard": {
+        "label": "Open Dashboard",
+        "description": "Review widgets and saved views."
+      },
+      "openInventory": {
+        "label": "Open Inventory",
+        "description": "Browse parts and stock levels."
+      },
+      "openTransfers": {
+        "label": "Open Transfers",
+        "description": "Request and track cross-site stock moves."
+      },
+      "findSalesOrderToInvoice": {
+        "label": "Find a sales order to invoice",
+        "description": "Open a sales order and use Create Invoice to draft its invoice.",
+        "keywords": "create sales invoice,sales invoice"
+      },
+      "openWorkshopIntake": {
+        "label": "Open Workshop Intake",
+        "description": "Start a new workshop visit."
+      },
+      "openSettings": {
+        "label": "Open Settings",
+        "description": "Manage finance and master data."
+      },
+      "createSalesOrder": {
+        "label": "Create Sales Order",
+        "description": "Capture a new customer order."
+      },
+      "createPurchaseOrder": {
+        "label": "Create Purchase Order",
+        "description": "Raise a new supplier order."
+      },
+      "createPurchaseBill": {
+        "label": "Create Purchase Bill",
+        "description": "Match a vendor invoice to receipts."
+      }
+    }
+  }
+}

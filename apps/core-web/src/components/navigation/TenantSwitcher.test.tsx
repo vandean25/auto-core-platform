@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { TenantSwitcher } from '@/components/navigation/TenantSwitcher'
+import { TenantSwitcherView as TenantSwitcher } from '@/components/navigation/TenantSwitcherView'
 
 describe('TenantSwitcher', () => {
   it('shows the current tenant and renders switch options for multi-tenant users', () => {
@@ -36,7 +36,7 @@ describe('TenantSwitcher', () => {
     expect(screen.getByText('vienna')).toBeInTheDocument()
     expect(screen.getByText('ADMIN')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Switch to Auto Core Graz' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Zu Auto Core Graz wechseln' }))
 
     expect(onSwitch).toHaveBeenCalledWith('tenant-b')
   })

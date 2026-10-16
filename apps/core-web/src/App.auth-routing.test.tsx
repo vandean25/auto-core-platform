@@ -113,7 +113,7 @@ describe('App auth and 404 routing (AUT-201)', () => {
 
     renderAtPath(LOGIN_PATH)
 
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByText('Laden…')).toBeInTheDocument()
     expect(screen.queryByText('Sign in card')).not.toBeInTheDocument()
   })
 })

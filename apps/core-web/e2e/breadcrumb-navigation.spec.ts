@@ -7,6 +7,7 @@ import {
   createMockSalesOrder,
   createMockWorkshopOrder,
 } from './utils/mock-factories';
+import { DE_SHELL } from './helpers/de-shell';
 
 /**
  * AUT-475: navigation on the detail pages. The sidebar lists Invoices next to Sales Orders, the
@@ -55,7 +56,7 @@ async function mockJson(page: Page, path: string, body: unknown, status = 200) {
 
 /** The sidebar's core module nav, so assertions do not match breadcrumb links with the same name. */
 function coreModules(page: Page) {
-  return page.getByRole('navigation', { name: 'Core modules' });
+  return page.getByRole('navigation', { name: DE_SHELL.coreModulesNav });
 }
 
 function breadcrumbTrail(page: Page) {
@@ -68,11 +69,14 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
 
     await page.goto('/sales/invoices');
 
-    const invoicesLink = coreModules(page).getByRole('link', { name: 'Invoices', exact: true });
+    const invoicesLink = coreModules(page).getByRole('link', {
+      name: DE_SHELL.modules.salesInvoices,
+      exact: true,
+    });
     await expect(invoicesLink).toHaveAttribute('href', '/sales/invoices');
     await expect(invoicesLink).toHaveAttribute('aria-current', 'page');
     await expect(
-      coreModules(page).getByRole('link', { name: 'Sales Orders', exact: true }),
+      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesOrders, exact: true }),
     ).not.toHaveAttribute('aria-current', 'page');
     await expectNoCriticalA11yViolations(page);
   });
@@ -96,12 +100,13 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expectNoCriticalA11yViolations(page);
     await expectNoHeadingOrderViolations(page);
 
+    // Breadcrumb list labels still come from route section titles (English).
     await breadcrumbTrail(page).getByRole('link', { name: 'Sales Orders' }).click();
 
     await expect(page).toHaveURL('/sales-orders');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
     await expect(
-      coreModules(page).getByRole('link', { name: 'Sales Orders', exact: true }),
+      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesOrders, exact: true }),
     ).toHaveAttribute('aria-current', 'page');
   });
 
@@ -123,7 +128,7 @@ test.describe('AUT-475: navigation and breadcrumbs', () => {
     await expect(page).toHaveURL('/sales/invoices');
     await expect(breadcrumbTrail(page)).toHaveCount(0);
     await expect(
-      coreModules(page).getByRole('link', { name: 'Invoices', exact: true }),
+      coreModules(page).getByRole('link', { name: DE_SHELL.modules.salesInvoices, exact: true }),
     ).toHaveAttribute('aria-current', 'page');
   });
 

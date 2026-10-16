@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { DE_SHELL } from './helpers/de-shell';
 import { AutoCorePage } from './pom/AutoCorePage';
 import { expectNoCriticalA11yViolations } from './utils/a11y';
 import { createMockCustomer, createMockListResponse } from './utils/mock-factories';
@@ -37,7 +38,7 @@ test.describe('List view actions: labels and tooltips (AUT-488)', () => {
     await corePage.navigate('/customers');
 
     await expect(
-      page.getByText('No saved views yet. Apply filters on a table and click Save as sidebar view.'),
+      page.getByText(DE_SHELL.favorites.empty),
     ).toBeVisible();
   });
 
