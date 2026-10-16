@@ -416,6 +416,13 @@ export class CustomerConsentService {
         );
 
         await this.prisma.$transaction(async (tx) => {
+          const state = await this.lockCommunicationState(
+            tx,
+            tokenRow.tenant_id,
+            tokenRow.controller_legal_entity_id,
+            tokenRow.customer_id,
+          );
+
           const ledgerEvents = await tx.customerConsent.findMany({
             where: {
               tenant_id: tokenRow.tenant_id,
@@ -456,13 +463,6 @@ export class CustomerConsentService {
               data: { used_at: now },
             });
           }
-
-          const state = await this.lockCommunicationState(
-            tx,
-            tokenRow.tenant_id,
-            tokenRow.controller_legal_entity_id,
-            tokenRow.customer_id,
-          );
 
           let wroteRevoke = false;
           for (const purpose of MARKETING_CONSENT_PURPOSES) {
