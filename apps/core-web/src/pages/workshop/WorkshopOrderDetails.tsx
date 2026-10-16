@@ -8,6 +8,7 @@ import { useVehicle, useResolveVehicleIdentity } from "@/api/vehicles";
 import { FitmentSearchModal } from "@/components/workshop/FitmentSearchModal";
 import { VehicleIdentityBanner } from "@/components/workshop/VehicleIdentityBanner";
 import { WorkshopCommunicationTimeline } from "@/components/workshop/WorkshopCommunicationTimeline";
+import { WorkshopReadyEmailNotice } from "@/components/workshop/WorkshopReadyEmailNotice";
 import { WorkshopEstimateCard } from "@/components/workshop/WorkshopEstimateCard";
 import { MechanicFindingAdvisorPanel } from "@/components/workshop/MechanicFindingAdvisorPanel";
 import { ResumeWaitingTasksPanel } from "@/components/workshop/ResumeWaitingTasksPanel";
@@ -457,6 +458,7 @@ export function WorkshopOrderDetails() {
                   waitingCount={countWaitingTasks(order.tasks)}
                   orderStatus={order.status}
                 />
+                <WorkshopReadyEmailNotice orderId={order.id} notice={order.ready_email_notice} />
                 <WorkshopCommunicationTimeline orderId={order.id} />
               </>
             )}

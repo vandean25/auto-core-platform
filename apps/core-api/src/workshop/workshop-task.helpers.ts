@@ -567,6 +567,12 @@ export async function executeApplyDerivedOrderStatus(params: {
     orderId: string,
     siteId: string,
   ) => Promise<void>;
+  onOrderCompleted?: (
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    orderId: string,
+  ) => Promise<void>;
 }): Promise<boolean> {
   const {
     tx,
@@ -575,6 +581,7 @@ export async function executeApplyDerivedOrderStatus(params: {
     orderId,
     nextOrderStatus,
     onStockPrepCompleted,
+    onOrderCompleted,
   } = params;
   const order = await tx.workshopOrder.findFirst({
     where: { id: orderId, tenant_id: tenantId, site_id: siteId },
@@ -620,6 +627,9 @@ export async function executeApplyDerivedOrderStatus(params: {
       siteId,
       onStockPrepCompleted,
     });
+    if (onOrderCompleted) {
+      await onOrderCompleted(tx, tenantId, siteId, orderId);
+    }
   }
   return true;
 }
@@ -642,11 +652,18 @@ export function applyDerivedOrderStatusWithStockPrep(
     ) => Promise<void>;
   },
   params: ApplyDerivedOrderStatusParams,
+  onOrderCompleted?: (
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    siteId: string,
+    orderId: string,
+  ) => Promise<void>,
 ) {
   return executeApplyDerivedOrderStatus({
     ...params,
     onStockPrepCompleted: (tx, tenantId, orderId, siteId) =>
       vehicleLedger.completeStockPrep(tx, tenantId, orderId, siteId),
+    onOrderCompleted,
   });
 }
 

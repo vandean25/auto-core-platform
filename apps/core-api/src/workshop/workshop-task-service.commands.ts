@@ -9,7 +9,10 @@ import type { CreateWorkshopTaskDto } from './dto/create-workshop-task.dto.js';
 import type { UpdateWorkshopTaskDto } from './dto/update-workshop-task.dto.js';
 import type { ReplaceWorkshopTaskLineItemsDto } from './dto/replace-workshop-task-line-items.dto.js';
 import { PartsRequisitionService } from '../parts-requisition/parts-requisition.service.js';
+import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import { wakeUpAfterCommit } from './workshop-estimate-email-queue.js';
 import { WorkshopIntakeService } from './workshop-intake.service.js';
+import { WorkshopOrderReadyEmailService } from './workshop-order-ready-email.service.js';
 import {
   applyDerivedOrderStatusWithStockPrep,
   executeLineItemReplacement,
@@ -29,7 +32,35 @@ export type WorkshopTaskServiceDeps = {
   vehicleLedger: VehicleLedgerService;
   orders: WorkshopIntakeService;
   partsReservations: PartsRequisitionService;
+  readyEmail: WorkshopOrderReadyEmailService;
+  wakeUps: NotificationCloudTasksService;
 };
+
+async function applyDerivedOrderStatus(
+  deps: WorkshopTaskServiceDeps,
+  input: {
+    tx: import('@prisma/client').Prisma.TransactionClient;
+    tenantId: string;
+    siteId: string;
+    orderId: string;
+    nextOrderStatus: import('@prisma/client').WorkshopOrderStatus;
+  },
+): Promise<{ applied: boolean; queuedOutboxId: string | null }> {
+  let queuedOutboxId: string | null = null;
+  const applied = await applyDerivedOrderStatusWithStockPrep(
+    deps.vehicleLedger,
+    input,
+    async (tx, tenantId, siteId, orderId) => {
+      queuedOutboxId = await deps.readyEmail.onOrderCompletedInTx(tx, {
+        tenantId,
+        siteId,
+        orderId,
+        occurredAt: new Date(),
+      });
+    },
+  );
+  return { applied, queuedOutboxId: applied ? queuedOutboxId : null };
+}
 
 async function resolveScopedContext(deps: WorkshopTaskServiceDeps) {
   const [tenantId, siteId] = await Promise.all([
@@ -45,31 +76,41 @@ export async function runWorkshopTaskCreate(
   dto: CreateWorkshopTaskDto,
 ) {
   const { tenantId, siteId } = await resolveScopedContext(deps);
-  return deps.prisma.$transaction(async (tx) => {
-    const { order, task, nextOrderStatus } = await executeTaskCreation({
-      tx,
-      tenantId,
-      siteId,
-      orderId,
-      dto,
-    });
-
-    if (nextOrderStatus !== order.status) {
-      await applyDerivedOrderStatusWithStockPrep(deps.vehicleLedger, {
+  const { task, queuedOutboxId } = await deps.prisma.$transaction(
+    async (tx) => {
+      const { order, task, nextOrderStatus } = await executeTaskCreation({
         tx,
         tenantId,
         siteId,
         orderId,
-        nextOrderStatus,
+        dto,
       });
-    }
 
-    return {
-      ...task,
-      done: task.status === WorkshopTaskStatus.DONE,
-      lineItems: [],
-    };
-  });
+      let queuedOutboxId: string | null = null;
+      if (nextOrderStatus !== order.status) {
+        ({ queuedOutboxId } = await applyDerivedOrderStatus(deps, {
+          tx,
+          tenantId,
+          siteId,
+          orderId,
+          nextOrderStatus,
+        }));
+      }
+
+      return {
+        task,
+        queuedOutboxId,
+      };
+    },
+  );
+  if (queuedOutboxId) {
+    await wakeUpAfterCommit(deps.wakeUps, queuedOutboxId, tenantId);
+  }
+  return {
+    ...task,
+    done: task.status === WorkshopTaskStatus.DONE,
+    lineItems: [],
+  };
 }
 
 export async function runWorkshopTaskUpdate(
@@ -79,7 +120,8 @@ export async function runWorkshopTaskUpdate(
   dto: UpdateWorkshopTaskDto,
 ) {
   const { tenantId, siteId } = await resolveScopedContext(deps);
-  await deps.prisma.$transaction(async (tx) => {
+  const queuedOutboxId = await deps.prisma.$transaction(async (tx) => {
+    let outboxId: string | null = null;
     await executeTaskUpdateTransaction({
       tx,
       tenantId,
@@ -87,16 +129,23 @@ export async function runWorkshopTaskUpdate(
       orderId,
       taskId,
       dto,
-      applyDerivedStatus: (t, ten, ord, next) =>
-        applyDerivedOrderStatusWithStockPrep(deps.vehicleLedger, {
+      applyDerivedStatus: async (t, ten, ord, next) => {
+        const outcome = await applyDerivedOrderStatus(deps, {
           tx: t,
           tenantId: ten,
           siteId,
           orderId: ord,
           nextOrderStatus: next,
-        }),
+        });
+        outboxId = outcome.queuedOutboxId;
+        return outcome.applied;
+      },
     });
+    return outboxId;
   });
+  if (queuedOutboxId) {
+    await wakeUpAfterCommit(deps.wakeUps, queuedOutboxId, tenantId);
+  }
 
   return deps.orders.findOne(orderId);
 }
@@ -107,23 +156,31 @@ export async function runWorkshopTaskDelete(
   taskId: string,
 ) {
   const { tenantId, siteId } = await resolveScopedContext(deps);
-  await deps.prisma.$transaction(async (tx) => {
+  const queuedOutboxId = await deps.prisma.$transaction(async (tx) => {
     await executeTaskDeletion({ tx, tenantId, siteId, orderId, taskId });
+    let outboxId: string | null = null;
     await recalculateAndApplyOrderStatus({
       tx,
       tenantId,
       orderId,
-      applyDerivedStatus: (t, ten, ord, next) =>
-        applyDerivedOrderStatusWithStockPrep(deps.vehicleLedger, {
+      applyDerivedStatus: async (t, ten, ord, next) => {
+        const outcome = await applyDerivedOrderStatus(deps, {
           tx: t,
           tenantId: ten,
           siteId,
           orderId: ord,
           nextOrderStatus: next,
-        }),
+        });
+        outboxId = outcome.queuedOutboxId;
+        return outcome.applied;
+      },
       siteId,
     });
+    return outboxId;
   });
+  if (queuedOutboxId) {
+    await wakeUpAfterCommit(deps.wakeUps, queuedOutboxId, tenantId);
+  }
 
   return deps.orders.findOne(orderId);
 }
@@ -179,6 +236,8 @@ export class WorkshopTaskService {
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly orders: WorkshopIntakeService,
     private readonly partsReservations: PartsRequisitionService,
+    private readonly readyEmail: WorkshopOrderReadyEmailService,
+    private readonly wakeUps: NotificationCloudTasksService,
   ) {}
 
   async listForMcp(input: { page: number; pageSize: number }) {
@@ -266,6 +325,8 @@ export class WorkshopTaskService {
       vehicleLedger: this.vehicleLedger,
       orders: this.orders,
       partsReservations: this.partsReservations,
+      readyEmail: this.readyEmail,
+      wakeUps: this.wakeUps,
     };
   }
 }

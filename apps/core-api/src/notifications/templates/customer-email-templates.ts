@@ -86,11 +86,13 @@ export function renderEstimateApprovalConfirmedEmail(
 export function renderOrderReadyEmail(input: OrderReadyInput): EmailDraft {
   const orderNumber = requiredText('orderNumber', input.orderNumber);
   const vehicleLabel = requiredText('vehicleLabel', input.vehicleLabel);
+  const footer = `Diese E-Mail betrifft Ihren Auftrag Nr. ${orderNumber}.`;
   return draft(input, CUSTOMER_TEMPLATE_IDS.orderReady, {
-    subject: `Ihr Fahrzeug ist fertig: Auftrag ${orderNumber}`,
+    subject: orderNumber,
     paragraphs: [
       `die Arbeiten an Ihrem Fahrzeug ${vehicleLabel} sind abgeschlossen. Sie können Ihr Fahrzeug bei uns abholen.`,
       CONTACT_SENTENCE,
+      footer,
     ],
   });
 }

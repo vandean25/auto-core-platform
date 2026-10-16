@@ -29,6 +29,7 @@ describe('buildWorkshopOrderCommunications for overrun records', () => {
   it('shows a detection with no channel, and the version it is about', () => {
     const [entry] = buildWorkshopOrderCommunications({
       emails: [],
+      readyEmails: [],
       approvals: [],
       overrunRecords: [overrun()],
       versionNumbers,
@@ -48,6 +49,7 @@ describe('buildWorkshopOrderCommunications for overrun records', () => {
   it('adds the customer notice after the detection, newest first, with its channel', () => {
     const entries = buildWorkshopOrderCommunications({
       emails: [],
+      readyEmails: [],
       approvals: [],
       overrunRecords: [
         overrun({
@@ -74,6 +76,7 @@ describe('buildWorkshopOrderCommunications for overrun records', () => {
           source_entity_id: VERSION_1,
         },
       ],
+      readyEmails: [],
       approvals: [
         {
           id: 'approval-a',
@@ -97,6 +100,7 @@ describe('buildWorkshopOrderCommunications for overrun records', () => {
   it('leaves the version blank when the overrun refers to a version the order does not list', () => {
     const [entry] = buildWorkshopOrderCommunications({
       emails: [],
+      readyEmails: [],
       approvals: [],
       overrunRecords: [overrun({ workshop_estimate_version_id: 'unknown' })],
       versionNumbers,
@@ -138,7 +142,13 @@ describe('buildWorkshopOrderCommunications', () => {
   const build = (
     emails: EstimateEmailRecord[] = [],
     approvals: EstimateApprovalRecord[] = [],
-  ) => buildWorkshopOrderCommunications({ emails, approvals, versionNumbers });
+  ) =>
+    buildWorkshopOrderCommunications({
+      emails,
+      readyEmails: [],
+      approvals,
+      versionNumbers,
+    });
 
   it('returns an empty list for an order with no estimate mail and no decision', () => {
     expect(build()).toEqual([]);

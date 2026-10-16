@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { WorkshopReadyEmailNoticeDto } from './workshop-ready-email-notice.dto.js';
 import {
   CustomerType,
   WorkshopLineItemType,
@@ -233,6 +234,15 @@ export class WorkshopOrderResponseDto extends DryRunMetaDto {
 
   @ApiProperty()
   updatedAt!: Date;
+
+  @ApiProperty({
+    type: () => WorkshopReadyEmailNoticeDto,
+    required: false,
+    nullable: true,
+    description:
+      'Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open.',
+  })
+  ready_email_notice?: WorkshopReadyEmailNoticeDto | null;
 }
 
 export class WorkshopPaginatedResponseDto {

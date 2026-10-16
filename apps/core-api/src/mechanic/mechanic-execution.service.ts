@@ -17,6 +17,9 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VehicleLedgerService } from '../vehicle-stock/vehicle-ledger.service.js';
 import { NotificationOutboxService } from '../notifications/notification-outbox.service.js';
+import { NotificationCloudTasksService } from '../notifications/notification-cloud-tasks.service.js';
+import { wakeUpAfterCommit } from '../workshop/workshop-estimate-email-queue.js';
+import { WorkshopOrderReadyEmailService } from '../workshop/workshop-order-ready-email.service.js';
 import type { MechanicQueueItemDto } from './dto/mechanic-queue-item.dto.js';
 import type { MechanicTaskDetailDto } from './dto/mechanic-task-detail.dto.js';
 import type { PauseTaskDto, SwitchTaskDto } from './dto/task-execution.dto.js';
@@ -63,6 +66,8 @@ export class MechanicExecutionService {
     private readonly notificationOutbox: NotificationOutboxService,
     private readonly vehicleLedger: VehicleLedgerService,
     private readonly siteContext: SiteContextService,
+    private readonly readyEmail: WorkshopOrderReadyEmailService,
+    private readonly wakeUps: NotificationCloudTasksService,
   ) {}
 
   /**
@@ -490,7 +495,8 @@ export class MechanicExecutionService {
       .map((t) => t.id);
     const allOtherTasksDone = remainingTaskIds.length === 0;
 
-    await this.prisma.$transaction(async (tx) => {
+    const queuedOutboxId = await this.prisma.$transaction(async (tx) => {
+      let outboxId: string | null = null;
       await completeLaborAndTask(tx, this.vehicleLedger, {
         tenantId,
         siteId: task.workshop_order.site_id ?? '',
@@ -498,8 +504,20 @@ export class MechanicExecutionService {
         orderId,
         openEntryId: openEntry?.id ?? null,
         allOtherTasksDone,
+        onOrderCompleted: async (t, ten, siteId, oid) => {
+          outboxId = await this.readyEmail.onOrderCompletedInTx(t, {
+            tenantId: ten,
+            siteId,
+            orderId: oid,
+            occurredAt: new Date(),
+          });
+        },
       });
+      return outboxId;
     });
+    if (queuedOutboxId) {
+      await wakeUpAfterCommit(this.wakeUps, queuedOutboxId, tenantId);
+    }
 
     this.emitTaskUpdated(tenantId, taskId);
 

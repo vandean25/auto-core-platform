@@ -5977,6 +5977,36 @@
         ]
       }
     },
+    "/api/workshop/orders/{id}/ready-email/resend": {
+      "post": {
+        "operationId": "WorkshopOrderReadyEmailController_resend",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopReadyEmailNoticeDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Workshop"
+        ]
+      }
+    },
     "/api/workshop/loaner-vehicles": {
       "get": {
         "operationId": "LoanerVehiclesController_list",
@@ -20727,6 +20757,36 @@
           "vehiclePlate"
         ]
       },
+      "WorkshopReadyEmailNoticeDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "NOT_APPLICABLE",
+              "BLOCKED_NO_CUSTOMER",
+              "BLOCKED_EMAIL_NOT_CONFIRMED",
+              "BLOCKED_EMAIL_MISSING",
+              "BLOCKED_EMAIL_INVALID",
+              "BLOCKED_VEHICLE_INCOMPLETE",
+              "BLOCKED_SELLER_INCOMPLETE",
+              "NOT_QUEUED",
+              "QUEUED",
+              "SENT",
+              "FAILED",
+              "SUPPRESSED"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable reason for advisors when the ready notice is blocked, queued, sent or failed."
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
       "WorkshopOrderResponseDto": {
         "type": "object",
         "properties": {
@@ -20835,6 +20895,16 @@
           "updatedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "ready_email_notice": {
+            "nullable": true,
+            "description": "Ready-for-pickup email state when the order is COMPLETED (AUT-357). Null while the job is still open.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/WorkshopReadyEmailNoticeDto"
+              }
+            ]
           }
         },
         "required": [
@@ -22585,6 +22655,7 @@
             "type": "string",
             "enum": [
               "ESTIMATE_EMAIL",
+              "READY_EMAIL",
               "ESTIMATE_APPROVAL",
               "OVERRUN_DETECTED",
               "OVERRUN_NOTIFICATION"
