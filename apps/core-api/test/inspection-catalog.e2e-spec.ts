@@ -197,46 +197,46 @@ describe('Inspection catalogue (e2e)', () => {
     expect(checklistBefore).toHaveLength(0);
   });
 
-  it('returns 403 for mechanic on catalogue activation', async () => {
-    const mechanicFirebaseUid = `mech-catalog-${Date.now()}`;
-    const mechanicEmail = `${mechanicFirebaseUid}@example.com`;
-    let mechanicUserId = '';
+  it('returns 403 for tech on catalogue activation', async () => {
+    const techFirebaseUid = `tech-catalog-${Date.now()}`;
+    const techEmail = `${techFirebaseUid}@example.com`;
+    let techUserId = '';
     await runWithTenantContext(tenantId, async () => {
-      const mechanicUser = await prisma.user.create({
+      const techUser = await prisma.user.create({
         data: {
-          firebaseUid: mechanicFirebaseUid,
-          email: mechanicEmail,
+          firebaseUid: techFirebaseUid,
+          email: techEmail,
         },
       });
-      mechanicUserId = mechanicUser.id;
+      techUserId = techUser.id;
       await seedTestTenantMember(basePrisma, {
         tenantId,
-        userId: mechanicUserId,
-        role: 'MECHANIC',
+        userId: techUserId,
+        role: 'TECH',
       });
       await prisma.siteMembership.create({
         data: {
           tenant_id: tenantId,
-          user_id: mechanicUserId,
+          user_id: techUserId,
           site_id: siteId,
           is_active: true,
         },
       });
       await prisma.user.update({
-        where: { id: mechanicUserId },
+        where: { id: techUserId },
         data: { active_tenant_id: tenantId, active_site_id: siteId },
       });
     });
-    const mechanicToken = createTestAuthToken(app.get(AuthService), {
+    const techToken = createTestAuthToken(app.get(AuthService), {
       tenantId,
-      firebaseUid: mechanicFirebaseUid,
-      email: mechanicEmail,
-      role: 'MECHANIC',
+      firebaseUid: techFirebaseUid,
+      email: techEmail,
+      role: 'TECH',
     });
 
     await request(app.getHttpServer())
       .post('/api/inspection-catalogues/preview')
-      .set('Authorization', `Bearer ${mechanicToken}`)
+      .set('Authorization', `Bearer ${techToken}`)
       .send({ manifest_reference: STATUTORY_MANIFEST_REFERENCE })
       .expect(403);
   });
