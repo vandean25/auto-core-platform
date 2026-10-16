@@ -25,6 +25,8 @@ const HUMAN_ONLY_FLOOR_ACTION_TYPES = new Set([
   'number_range.update',
   'inspection_catalogue.preview',
   'inspection_catalogue.activate',
+  'inspection_measurement.preview',
+  'inspection_measurement.apply',
 ]);
 
 const HUMAN_ONLY_FLOOR_PREFIXES = [

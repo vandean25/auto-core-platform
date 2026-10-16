@@ -141,7 +141,9 @@ export function isSupersededRevision(
   revisions: StoredEvidenceRevision[],
 ): boolean {
   return revisions.some(
-    (row) => row.predecessor_revision_id === revisionId,
+    (row) =>
+      row.predecessor_revision_id === revisionId &&
+      row.evidence_review === 'EVIDENCE_REVIEWED',
   );
 }
 
@@ -330,31 +332,93 @@ function activeReviewedRevisions(
     .sort((a, b) => b.created_at.getTime() - a.created_at.getTime());
 }
 
+export function isRevisionApplicableForAssessment(
+  revision: StoredEvidenceRevision,
+  request: EvidenceAssessmentRequest,
+): boolean {
+  if (revision.station_ref !== request.station_ref) {
+    return false;
+  }
+  if (
+    request.vehicle_class &&
+    !revision.vehicle_classes.includes(request.vehicle_class)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function aggregateApplicableScopes(
+  scopes: EvidenceTemporalScope[],
+): EvidenceTemporalScope {
+  if (scopes.length === 0) {
+    return 'UNKNOWN';
+  }
+  if (scopes.includes('REVOKED')) {
+    return 'REVOKED';
+  }
+
+  const competing = scopes.filter(
+    (scope) => scope !== 'OUT_OF_SCOPE' && scope !== 'NOT_YET_VALID',
+  );
+  if (competing.length > 0) {
+    return mergeTemporalScopes(competing);
+  }
+  if (scopes.includes('NOT_YET_VALID')) {
+    return 'NOT_YET_VALID';
+  }
+  if (scopes.includes('OUT_OF_SCOPE')) {
+    return 'OUT_OF_SCOPE';
+  }
+  return 'UNKNOWN';
+}
+
 export function aggregateTemporalScope(
   revisions: StoredEvidenceRevision[],
   request: EvidenceAssessmentRequest,
   at: Date,
 ): EvidenceTemporalScope {
   const active = activeReviewedRevisions(revisions, request.station_ref);
-  if (active.length === 0) {
+  const applicable = active.filter((row) =>
+    isRevisionApplicableForAssessment(row, request),
+  );
+
+  if (applicable.length === 0) {
     const anyAtStation = revisions.some(
       (row) => row.station_ref === request.station_ref,
     );
-    return anyAtStation ? 'UNKNOWN' : 'OUT_OF_SCOPE';
+    if (!anyAtStation) {
+      return 'OUT_OF_SCOPE';
+    }
+    if (
+      request.vehicle_class &&
+      active.some(
+        (row) => !row.vehicle_classes.includes(request.vehicle_class!),
+      ) &&
+      !active.some((row) =>
+        row.vehicle_classes.includes(request.vehicle_class!),
+      )
+    ) {
+      return 'OUT_OF_SCOPE';
+    }
+    return 'UNKNOWN';
   }
 
-  const scopes = active.map((row) =>
+  const scopes = applicable.map((row) =>
     evaluateTemporalScope(row, request, at),
   );
-  return mergeTemporalScopes(scopes);
+  return aggregateApplicableScopes(scopes);
 }
 
 export function pickFreshnessRevision(
   revisions: StoredEvidenceRevision[],
-  stationRef: string,
+  request: EvidenceAssessmentRequest,
 ): StoredEvidenceRevision | null {
-  const active = activeReviewedRevisions(revisions, stationRef);
-  return active[0] ?? null;
+  const applicable = activeReviewedRevisions(
+    revisions,
+    request.station_ref,
+  ).filter((row) => isRevisionApplicableForAssessment(row, request));
+  return applicable[0] ?? null;
 }
 
 export function evaluateFreshness(
@@ -454,10 +518,7 @@ export function assessEvidence(
     request.as_of,
   );
 
-  const freshnessRevision = pickFreshnessRevision(
-    revisions,
-    request.station_ref,
-  );
+  const freshnessRevision = pickFreshnessRevision(revisions, request);
   const freshness = evaluateFreshness(freshnessRevision, request.as_of);
 
   const inspectionScope = applyStaleReviewToScope(

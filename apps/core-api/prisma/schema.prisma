@@ -89,6 +89,11 @@ model Tenant {
   inspectionFindingReferences   InspectionFindingReference[]
   inspectorEvidenceRevisions    InspectorEvidenceRevision[]
   inspectionSupportEvents       InspectionSupportEvent[]
+  inspectionDeviceSources       InspectionDeviceSource[]
+  inspectionDeviceEvidence      InspectionDeviceEvidence[]
+  inspectionMeasurementIdentities InspectionMeasurementIdentity[]
+  inspectionMeasurementImports  InspectionMeasurementImport[]
+  inspectionMeasurements        InspectionMeasurement[]
   vehicleValuationSnapshots     VehicleValuationSnapshot[]
   salesOrders                   SalesOrder[]
   salesOrderItems               SalesOrderItem[]
@@ -831,6 +836,10 @@ model Site {
   inspectionFindingReferences   InspectionFindingReference[]
   inspectorEvidenceRevisions    InspectorEvidenceRevision[]
   inspectionSupportEvents       InspectionSupportEvent[]
+  inspectionDeviceSources       InspectionDeviceSource[]
+  inspectionDeviceEvidence      InspectionDeviceEvidence[]
+  inspectionMeasurementImports  InspectionMeasurementImport[]
+  inspectionMeasurements        InspectionMeasurement[]
   outboundTransfers        StockTransfer[]       @relation("StockTransferFromSite")
   inboundTransfers         StockTransfer[]       @relation("StockTransferToSite")
   salesOrders              SalesOrder[]
@@ -1778,6 +1787,9 @@ model Vehicle {
   inspectionReportIdentities     InspectionReportIdentity[]
   inspectionExchangeImports      InspectionExchangeImport[]
   externalInspectionResults      ExternalInspectionResult[]
+  inspectionMeasurementIdentities InspectionMeasurementIdentity[]
+  inspectionMeasurementImports   InspectionMeasurementImport[]
+  inspectionMeasurements         InspectionMeasurement[]
   valuation_snapshots            VehicleValuationSnapshot[]
   tyre_sets                      TyreSet[]
   appliedRegistrationIntakes     RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedVehicle")
@@ -2430,6 +2442,184 @@ model InspectorEvidenceRevision {
   @@index([tenant_id, employee_id, createdAt])
   @@index([tenant_id, site_id, station_ref])
   @@map("inspector_evidence_revisions")
+}
+
+enum BrakeMeasurementSourceSystem {
+  WORKSHOP_NET
+}
+
+enum InspectionMeasurementImportState {
+  RECEIVED
+  REJECTED
+  QUARANTINED
+  READY_FOR_REVIEW
+  APPLIED
+}
+
+enum BrakeMeasurementFinality {
+  FINAL
+  DRAFT
+  PARTIAL
+  UNKNOWN
+}
+
+model InspectionDeviceSource {
+  id                 String                       @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id            String
+  site               Site                         @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  source_system      BrakeMeasurementSourceSystem
+  source_instance_id String                       @db.VarChar(128)
+  device_serial      String                       @db.VarChar(128)
+  device_model       String                       @db.VarChar(128)
+  profile_id         String                       @db.VarChar(64)
+  profile_version    String                       @db.VarChar(64)
+  profile_digest     String                       @db.Char(64)
+  binding_revision   Int                          @default(1)
+  range_min          Decimal                      @db.Decimal(12, 3)
+  range_max          Decimal                      @db.Decimal(12, 3)
+  range_unit         String                       @db.VarChar(8)
+  read_enabled       Boolean                      @default(false)
+  secret_ref         String?                      @db.VarChar(256)
+  is_active          Boolean                      @default(true)
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  evidenceRows    InspectionDeviceEvidence[]
+  identities      InspectionMeasurementIdentity[]
+  imports         InspectionMeasurementImport[]
+  measurements    InspectionMeasurement[]
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, site_id, source_system, source_instance_id])
+  @@index([tenant_id, site_id, is_active])
+  @@map("inspection_device_sources")
+}
+
+model InspectionDeviceEvidence {
+  id                        String                 @id @default(uuid())
+  tenant_id                 String
+  tenant                    Tenant                 @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                   String
+  site                      Site                   @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  device_source_id          String
+  deviceSource              InspectionDeviceSource @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
+  evidence_ref              String                 @db.VarChar(128)
+  evidence_revision         Int                    @default(1)
+  effective_from            DateTime
+  effective_until_exclusive DateTime?
+  applicability_reviewed    Boolean                @default(false)
+  createdAt                 DateTime               @default(now())
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, device_source_id, evidence_ref, evidence_revision])
+  @@index([tenant_id, site_id])
+  @@map("inspection_device_evidence")
+}
+
+model InspectionMeasurementIdentity {
+  id                 String                       @id @default(uuid())
+  tenant_id          String
+  tenant             Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  source_system      BrakeMeasurementSourceSystem
+  source_instance_id String                       @db.VarChar(128)
+  measurement_id     String                       @db.VarChar(128)
+  vehicle_id         String
+  vehicle            Vehicle                      @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_order_id  String
+  workshopOrder      WorkshopOrder                @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  device_source_id   String
+  deviceSource       InspectionDeviceSource       @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
+  session_ref        String                       @db.VarChar(128)
+  semantic_digest    String                       @db.Char(64)
+  createdAt          DateTime                     @default(now())
+
+  imports      InspectionMeasurementImport[]
+  measurements InspectionMeasurement[]
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, source_system, source_instance_id, measurement_id])
+  @@map("inspection_measurement_identities")
+}
+
+model InspectionMeasurementImport {
+  id                           String                         @id @default(uuid())
+  tenant_id                    String
+  tenant                       Tenant                         @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                      String
+  site                         Site                           @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_order_id            String
+  workshopOrder                WorkshopOrder                  @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  vehicle_id                   String
+  vehicle                      Vehicle                        @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  device_source_id             String
+  deviceSource                 InspectionDeviceSource         @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
+  state                        InspectionMeasurementImportState
+  native_measurement_reference String                         @db.VarChar(128)
+  preview_fingerprint          String?                        @db.Char(64)
+  semantic_digest              String?                        @db.Char(64)
+  preview_expires_at           DateTime?
+  quarantine_reason            String?                        @db.VarChar(64)
+  error_code                   String?                        @db.VarChar(64)
+  error_detail_redacted        String?                        @db.VarChar(512)
+  version                      Int                            @default(0)
+  measurement_identity_id      String?
+  measurementIdentity          InspectionMeasurementIdentity? @relation(fields: [tenant_id, measurement_identity_id], references: [tenant_id, id], onDelete: Restrict)
+  applied_measurement_id       String?                        @db.VarChar(64)
+  created_by_user_id           String
+  reviewed_by_user_id          String?
+  reviewed_at                  DateTime?
+  createdAt                    DateTime                       @default(now())
+  updatedAt                    DateTime                       @updatedAt
+
+  sourceMeasurement InspectionMeasurement? @relation("ImportSourceMeasurement")
+
+  @@unique([tenant_id, id])
+  @@index([tenant_id, workshop_order_id, createdAt])
+  @@index([tenant_id, site_id, createdAt])
+  @@map("inspection_measurement_imports")
+}
+
+model InspectionMeasurement {
+  id                      String                       @id @default(uuid())
+  tenant_id               String
+  tenant                  Tenant                       @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
+  site_id                 String
+  site                    Site                         @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
+  workshop_order_id       String
+  workshopOrder           WorkshopOrder                @relation(fields: [tenant_id, workshop_order_id], references: [tenant_id, id], onDelete: Restrict)
+  vehicle_id              String
+  vehicle                 Vehicle                      @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
+  device_source_id        String
+  deviceSource            InspectionDeviceSource       @relation(fields: [tenant_id, device_source_id], references: [tenant_id, id], onDelete: Restrict)
+  import_id               String
+  import                  InspectionMeasurementImport  @relation("ImportSourceMeasurement", fields: [tenant_id, import_id], references: [tenant_id, id], onDelete: Restrict)
+  measurement_identity_id String
+  measurementIdentity     InspectionMeasurementIdentity @relation(fields: [tenant_id, measurement_identity_id], references: [tenant_id, id], onDelete: Restrict)
+  source_system           BrakeMeasurementSourceSystem
+  source_instance_id      String                       @db.VarChar(128)
+  measurement_id          String                       @db.VarChar(128)
+  revision                String                       @db.VarChar(128)
+  session_ref             String                       @db.VarChar(128)
+  vehicle_vin             String                       @db.VarChar(17)
+  measured_at             DateTime
+  finality                BrakeMeasurementFinality
+  test_kind               String                       @db.VarChar(32)
+  wheels_json             Json
+  device_evidence_ref     String?                      @db.VarChar(128)
+  native_result_ref       String?                      @db.VarChar(128)
+  previous_measurement_ref String?                     @db.VarChar(128)
+  original_digest         String                       @db.Char(64)
+  semantic_digest         String                       @db.Char(64)
+  applied_by_user_id      String
+  applied_at              DateTime                     @default(now())
+  createdAt               DateTime                     @default(now())
+
+  @@unique([tenant_id, id])
+  @@unique([tenant_id, import_id])
+  @@index([tenant_id, workshop_order_id])
+  @@map("inspection_measurements")
 }
 
 model VehicleValuationSnapshot {
@@ -3133,6 +3323,9 @@ model WorkshopOrder {
   tyre_set_events        TyreSetEvent[]
   warranty_claims        WarrantyClaim[]
   appliedRegistrationIntakes RegistrationDocumentIntake[] @relation("RegistrationIntakeAppliedOrder")
+  inspectionMeasurementIdentities InspectionMeasurementIdentity[]
+  inspectionMeasurementImports    InspectionMeasurementImport[]
+  inspectionMeasurements          InspectionMeasurement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

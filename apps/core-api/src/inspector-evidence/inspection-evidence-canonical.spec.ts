@@ -239,6 +239,69 @@ describe('inspection-evidence-canonical', () => {
       expect(result.qualification_support_status).toBe('QUALIFICATION_UNKNOWN');
     });
 
+    it('does not let a non-matching class revision outrank current M1 evidence', () => {
+      const m1 = reviewedRevision({
+        id: 'rev-m1',
+        vehicle_classes: ['M1'],
+      });
+      const n1 = reviewedRevision({
+        id: 'rev-n1',
+        created_at: new Date('2026-10-16T09:00:00Z'),
+        vehicle_classes: ['N1'],
+        source_version: 'SYNTH-N1',
+        document_digest: 'b'.repeat(64),
+      });
+      const result = assessEvidence([n1, m1], {
+        station_ref: station,
+        vehicle_class: 'M1',
+        inspection_time: now,
+        as_of: now,
+      });
+      expect(result.inspection_time_temporal_scope).toBe('CURRENT');
+      expect(result.qualification_support_status).toBe('QUALIFICATION_CURRENT');
+    });
+
+    it('does not let a not-yet-valid renewal outrank current evidence today', () => {
+      const current = reviewedRevision({ id: 'rev-current' });
+      const future = reviewedRevision({
+        id: 'rev-future',
+        created_at: new Date('2026-10-16T09:30:00Z'),
+        effective_from: '2027-01-01',
+        effective_until_exclusive: '2028-01-01',
+        source_version: 'SYNTH-FUTURE',
+        document_digest: 'c'.repeat(64),
+      });
+      const result = assessEvidence([future, current], {
+        station_ref: station,
+        vehicle_class: 'M1',
+        inspection_time: now,
+        as_of: now,
+      });
+      expect(result.inspection_time_temporal_scope).toBe('CURRENT');
+    });
+
+    it('keeps REVOKED when only an unreviewed row claims predecessor link', () => {
+      const revoked = reviewedRevision({
+        id: 'rev-old',
+        withdrawal_effective_at: '2026-10-15T00:00:00Z',
+      });
+      const unreviewedSuccessor = reviewedRevision({
+        id: 'rev-draft',
+        evidence_review: 'UNREVIEWED',
+        predecessor_revision_id: 'rev-old',
+        withdrawal_effective_at: null,
+        reviewed_at: null,
+        review_valid_until: null,
+      });
+      const result = assessEvidence([unreviewedSuccessor, revoked], {
+        station_ref: station,
+        vehicle_class: 'M1',
+        inspection_time: now,
+        as_of: now,
+      });
+      expect(result.inspection_time_temporal_scope).toBe('REVOKED');
+    });
+
     it('considers older non-superseded revocation beyond fifty newest rows', () => {
       const revoked = reviewedRevision({
         id: 'rev-revoked',
