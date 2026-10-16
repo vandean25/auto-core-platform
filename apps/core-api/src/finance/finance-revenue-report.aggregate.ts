@@ -101,11 +101,11 @@ function lineNet(item: RevenueInvoiceRow['items'][number]): Prisma.Decimal {
   return item.quantity.mul(item.unit_price);
 }
 
-function lineTax(
-  net: Prisma.Decimal,
-  taxRate: Prisma.Decimal,
-): Prisma.Decimal {
-  return net.mul(taxRate).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+function lineTax(net: Prisma.Decimal, taxRate: Prisma.Decimal): Prisma.Decimal {
+  return net
+    .mul(taxRate)
+    .div(100)
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 }
 
 function standardLineAmounts(
@@ -161,7 +161,9 @@ function subtractFromMap(
   map.set(key, subtractAmounts(current, delta));
 }
 
-function invoiceDocumentAmounts(invoice: RevenueInvoiceRow): RevenueReportAmounts {
+function invoiceDocumentAmounts(
+  invoice: RevenueInvoiceRow,
+): RevenueReportAmounts {
   return amountsFromParts(
     invoice.total_net,
     invoice.total_tax,
@@ -216,9 +218,7 @@ function applyCreditNote(
   }
 
   for (const item of creditNote.items) {
-    const line =
-      readCreditLineAmounts(item.snapshot) ??
-      emptyAmounts();
+    const line = readCreditLineAmounts(item.snapshot) ?? emptyAmounts();
     subtractFromMap(
       byGroup,
       revenueGroupLabel(item.original_invoice_item.revenue_group_name),
@@ -230,11 +230,7 @@ function applyCreditNote(
 function mapToSourceRows(
   bySource: Map<RevenueReportSource, RevenueReportAmounts>,
 ): RevenueReportCore['by_source'] {
-  const order: RevenueReportSource[] = [
-    'workshop',
-    'vehicle_sales',
-    'other',
-  ];
+  const order: RevenueReportSource[] = ['workshop', 'vehicle_sales', 'other'];
   return order.map((source) => ({
     source,
     ...(bySource.get(source) ?? emptyAmounts()),

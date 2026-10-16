@@ -268,8 +268,7 @@ export class FinanceService {
     tenantId: string,
     siteId?: string,
   ): Promise<{ siteId: string; timezone: string }> {
-    const resolvedSiteId =
-      siteId ?? (await this.siteContext.getSiteId());
+    const resolvedSiteId = siteId ?? (await this.siteContext.getSiteId());
     const authorizedSiteIds = await this.siteContext.listAuthorizedSiteIds();
     if (!authorizedSiteIds.includes(resolvedSiteId)) {
       throw new NotFoundException('Revenue report site not found');

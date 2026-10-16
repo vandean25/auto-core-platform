@@ -5,15 +5,17 @@ export function assertIsoDate(value: string, label: string): void {
     throw new Error(`${label} must be YYYY-MM-DD`);
   }
   const parsed = Date.parse(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed) || new Date(parsed).toISOString().slice(0, 10) !== value) {
+  if (
+    Number.isNaN(parsed) ||
+    new Date(parsed).toISOString().slice(0, 10) !== value
+  ) {
     throw new Error(`${label} must be a valid calendar date`);
   }
 }
 
 export function inclusiveDayCount(from: string, to: string): number {
   return (
-    (Date.parse(`${to}T00:00:00.000Z`) -
-      Date.parse(`${from}T00:00:00.000Z`)) /
+    (Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) /
       86_400_000 +
     1
   );
