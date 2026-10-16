@@ -12,16 +12,12 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { HorizontalScrollArea } from '@/components/ui/horizontal-scroll-area'
-import {
-  WorkshopOrderCard,
-  WorkshopOrderCardOverlay,
-} from '@/components/workshop/WorkshopOrderCard'
+import { WorkshopOrderCardOverlay } from '@/components/workshop/WorkshopOrderCard'
 import { BoardViewToggle } from '@/components/workshop/BoardViewToggle'
 import type { BoardViewMode } from '@/components/workshop/BoardViewToggle'
 import {
   type BoardActiveResponse,
   type BoardAssignmentTarget,
-  type BoardOrder,
   useBoardActive,
   useWorkshopResources,
   useAssignBoard,
