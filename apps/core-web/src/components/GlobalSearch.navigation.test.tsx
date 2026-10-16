@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
 
@@ -34,7 +35,8 @@ function renderPalette(onOpenChange = vi.fn()) {
 }
 
 describe('GlobalSearch no-result hint and quick action routing', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('en')
     vi.clearAllMocks()
     vi.mocked(searchHook.useGlobalSearch).mockReturnValue(emptySearchResults)
   })

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
 import App from './App'
 
 vi.mock('@/auth/AuthProvider', () => ({
@@ -37,7 +38,8 @@ vi.mock('@/pages/LoginPage', () => {
 })
 
 describe('App login lazy chunk handling', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('en')
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 

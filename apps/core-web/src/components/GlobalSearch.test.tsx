@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { changeUiLanguage } from '@/lib/i18n'
 import { GlobalSearch } from './GlobalSearch'
 import * as searchHook from '@/hooks/useGlobalSearch'
 import type { WorkshopOrder } from '@/api/types'
@@ -17,7 +18,8 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/hooks/useGlobalSearch')
 
 describe('GlobalSearch Component', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeUiLanguage('en')
     vi.clearAllMocks()
   })
 
