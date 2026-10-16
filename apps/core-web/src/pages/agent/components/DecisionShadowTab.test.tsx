@@ -137,11 +137,12 @@ describe('DecisionShadowTab', () => {
     expect(
       screen.getByText('An error occurred while loading data.'),
     ).toBeInTheDocument()
-    // One retry sits in the toolbar and one in the error panel.
-    const retryButtons = screen.getAllByRole('button', { name: 'Retry' })
-    expect(retryButtons).toHaveLength(2)
-    retryButtons.forEach((button) => fireEvent.click(button))
-    expect(refetch).toHaveBeenCalledTimes(2)
+    expect(
+      screen.getByRole('button', { name: 'Refresh' }),
+    ).toBeInTheDocument()
+    const retryButton = screen.getByRole('button', { name: 'Retry' })
+    fireEvent.click(retryButton)
+    expect(refetch).toHaveBeenCalledTimes(1)
   })
 
   it('loads the next page when more rows are available', () => {

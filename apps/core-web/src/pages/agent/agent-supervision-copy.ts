@@ -214,12 +214,24 @@ export const SUPERVISION_COPY = {
       de: 'Diese Aktion ist als HUMAN_ONLY eingestuft und kann nicht automatisiert ausgeführt werden. Bitte führen Sie diesen Vorgang manuell durch.',
     },
     emptyState: {
-      en: 'Supervision inbox is clear',
-      de: 'Überwachungs-Posteingang ist leer',
+      en: 'No proposals waiting',
+      de: 'Keine Vorschläge in der Warteschlange',
     },
     emptyStateDesc: {
-      en: 'No overdue loaners, customer blockers, or pending proposals need attention.',
-      de: 'Keine überfälligen Leihfahrzeuge, Kundenblocker oder ausstehenden Vorschläge.',
+      en: 'New agent proposals will appear here when submitted for approval.',
+      de: 'Neue Agenten-Vorschläge erscheinen hier, sobald sie zur Freigabe eingereicht werden.',
+    },
+    changePreview: {
+      en: 'Planned changes',
+      de: 'Geplante Änderungen',
+    },
+    allChangesPreview: {
+      en: 'All planned changes',
+      de: 'Alle geplanten Änderungen',
+    },
+    workshopLocation: {
+      en: 'Workshop location',
+      de: 'Werkstattstandort',
     },
     triageLoadError: {
       en: 'Could not load the supervision inbox. Retry or check your site access.',
@@ -514,6 +526,10 @@ export const SUPERVISION_COPY = {
     error: {
       en: 'An error occurred while loading data.',
       de: 'Beim Laden der Daten ist ein Fehler aufgetreten.',
+    },
+    refresh: {
+      en: 'Refresh',
+      de: 'Aktualisieren',
     },
     retry: {
       en: 'Retry',
