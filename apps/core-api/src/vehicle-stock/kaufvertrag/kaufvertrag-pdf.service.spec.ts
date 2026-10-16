@@ -105,7 +105,14 @@ function createHarness(sale: unknown, options: { cloudTasks?: boolean } = {}) {
     documentBrandProfile: { findFirst: jest.fn().mockResolvedValue(null) },
   };
   const prisma = {
-    client: { vehicleSale },
+    client: {
+      vehicleSale,
+      tenant: {
+        findFirst: jest
+          .fn()
+          .mockResolvedValue({ default_locale: 'de' as const }),
+      },
+    },
     $transaction: jest.fn((callback: (txClient: typeof tx) => unknown) =>
       callback(tx),
     ),

@@ -104,7 +104,8 @@ export class UserLocalePreferencesService {
     );
     const defaultLocale =
       membership?.tenant.default_locale ?? DEFAULT_DISPLAY_LANGUAGE;
-    const formatLocale = membership?.tenant.format_locale ?? DEFAULT_FORMAT_LOCALE;
+    const formatLocale =
+      membership?.tenant.format_locale ?? DEFAULT_FORMAT_LOCALE;
     return {
       locale: user.locale,
       effectiveLocale: resolveUserLanguage(user.locale, defaultLocale),

@@ -3,9 +3,7 @@ import { DisplayLanguage } from '@prisma/client';
 import { assertTenantAdmin } from '../site/site.authorization.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type {
-  TenantLocaleSettingsResponseDto,
-} from '../auth/dto/user-locale-preferences.dto.js';
+import type { TenantLocaleSettingsResponseDto } from '../auth/dto/user-locale-preferences.dto.js';
 
 @Injectable()
 export class TenantLocaleService {

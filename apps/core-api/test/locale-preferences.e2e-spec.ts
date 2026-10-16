@@ -22,6 +22,7 @@ describe('Locale preferences (e2e)', () => {
     }).compile();
 
     app = moduleRef.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
 

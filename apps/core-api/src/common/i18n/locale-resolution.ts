@@ -13,9 +13,7 @@ export function resolveCustomerLanguage(
   tenantDefaultLocale: DisplayLanguage,
 ): DisplayLanguage {
   return (
-    customerPreferredLanguage ??
-    tenantDefaultLocale ??
-    DEFAULT_DISPLAY_LANGUAGE
+    customerPreferredLanguage ?? tenantDefaultLocale ?? DEFAULT_DISPLAY_LANGUAGE
   );
 }
 

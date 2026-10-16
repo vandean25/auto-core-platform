@@ -1,4 +1,4 @@
-import type { DisplayLanguage, Prisma } from '@prisma/client';
+import type { DisplayLanguage } from '@prisma/client';
 import { DEFAULT_DISPLAY_LANGUAGE } from './display-language.js';
 import { resolveCustomerLanguage } from './locale-resolution.js';
 

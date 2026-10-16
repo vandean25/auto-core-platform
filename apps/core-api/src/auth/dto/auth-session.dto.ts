@@ -1,4 +1,8 @@
-import { DisplayLanguage, PlatformAdminRole, TenantMemberRole } from '@prisma/client';
+import {
+  DisplayLanguage,
+  PlatformAdminRole,
+  TenantMemberRole,
+} from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsUUID } from 'class-validator';
 import { DEFAULT_FORMAT_LOCALE } from '../../common/i18n/display-language.js';

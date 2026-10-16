@@ -69,6 +69,11 @@ describe('WorkshopPdfService', () => {
           findFirst: jest.fn().mockResolvedValue(orderRow),
           updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
+        tenant: {
+          findFirst: jest
+            .fn()
+            .mockResolvedValue({ default_locale: 'de' as const }),
+        },
       },
     };
 
