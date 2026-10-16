@@ -394,6 +394,32 @@ describe('PublicEstimateApprovalService.decide', () => {
     );
   });
 
+  it('still returns the committed decision when the post-commit consumer batch fails', async () => {
+    const { service, estimateDecidedConsumer } = build();
+    estimateDecidedConsumer.processTenantBatch.mockRejectedValue(
+      new Error('consumer database error'),
+    );
+
+    const result = await service.decide(TOKEN, approval(), REQUEST, NOW);
+
+    expect(result).toEqual({
+      decision: 'APPROVED',
+      decided_at: NOW.toISOString(),
+    });
+  });
+
+  it('allows a later consumer batch after an inline failure', async () => {
+    const { service, estimateDecidedConsumer } = build();
+    estimateDecidedConsumer.processTenantBatch
+      .mockRejectedValueOnce(new Error('transient consumer error'))
+      .mockResolvedValueOnce(1);
+
+    await service.decide(TOKEN, approval(), REQUEST, NOW);
+    await estimateDecidedConsumer.processTenantBatch('tenant-1', NOW);
+
+    expect(estimateDecidedConsumer.processTenantBatch).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ['no legal confirmation', { legal_blocks_accepted: false }],
     ['no B2C declaration', { b2c_declaration_accepted: false }],
