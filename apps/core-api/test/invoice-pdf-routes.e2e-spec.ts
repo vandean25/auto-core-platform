@@ -100,7 +100,8 @@ describe('Invoice PDF routes (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/api/invoices/${segment}/pdf/worker`)
         .set('x-cloud-tasks-secret', WORKER_SECRET)
-        .send(signedInvoiceTask(FINALIZED_INVOICE_ID))
+        .set('x-tenant-id', tenantId)
+        .send(signedInvoiceTask(invalidId))
         .expect(400);
     }
   });
