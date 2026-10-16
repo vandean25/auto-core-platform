@@ -8,7 +8,9 @@ describe('processUploadImage', () => {
   it('strips EXIF and GPS metadata from a fixture JPEG', async () => {
     const source = await readFile(gpsFixture);
     const before = await sharp(source).metadata();
+    // Fixture JPEG includes IFD0 + GPS EXIF (see fixtures/gps-oriented.jpg).
     expect(before.exif).toBeDefined();
+    expect(before.exif!.length).toBeGreaterThan(200);
     expect(before.orientation).toBe(6);
 
     const { main } = await processUploadImage(source, {
