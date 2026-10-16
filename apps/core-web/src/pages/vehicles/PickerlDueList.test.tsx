@@ -103,7 +103,7 @@ describe("PickerlDueList", () => {
       expect(screen.getByText("W-UNKNOWN")).toBeInTheDocument();
     });
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(screen.getByText("Unbekannt")).toBeInTheDocument();
   });
 
   it("calls usePickerlDueList with window 30 when filter_window is in the URL", async () => {

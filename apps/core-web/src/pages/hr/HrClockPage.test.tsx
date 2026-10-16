@@ -168,7 +168,7 @@ describe('HrClockPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Time Clock' })).toBeInTheDocument()
     expect(screen.getByText('Track attendance for today.')).toBeInTheDocument()
-    expect(screen.getByText('Clocked In')).toBeInTheDocument()
+    expect(screen.getByText('Eingestempelt')).toBeInTheDocument()
     expect(screen.getAllByRole('button')).toHaveLength(4)
 
     expect(screen.getByRole('button', { name: 'Come to work' })).toBeInTheDocument()

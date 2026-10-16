@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import {
   addOneYearIsoDay,
   formatWarrantyDay,
@@ -102,11 +103,13 @@ describe('parseGarantieMonths', () => {
 
 describe('gewaehrleistungStatusBadge', () => {
   it.each([
-    ['ACTIVE', 'GEWAEHRLEISTUNG_ACTIVE', 'Aktiv'],
-    ['EXPIRING_SOON', 'GEWAEHRLEISTUNG_EXPIRING_SOON', 'Läuft bald ab'],
-    ['EXPIRED', 'GEWAEHRLEISTUNG_EXPIRED', 'Abgelaufen'],
-  ] as const)('maps %s to a German badge', (status, badgeStatus, label) => {
-    expect(gewaehrleistungStatusBadge(status)).toEqual({ status: badgeStatus, label })
+    ['ACTIVE', 'GEWAEHRLEISTUNG_ACTIVE'],
+    ['EXPIRING_SOON', 'GEWAEHRLEISTUNG_EXPIRING_SOON'],
+    ['EXPIRED', 'GEWAEHRLEISTUNG_EXPIRED'],
+  ] as const)('maps %s to a localized badge', (status, badgeStatus) => {
+    const badge = gewaehrleistungStatusBadge(status)
+    expect(badge.status).toBe(badgeStatus)
+    expect(badge.label).toBe(formatStatusLabel(badgeStatus))
   })
 })
 

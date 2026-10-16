@@ -15,6 +15,11 @@ async function lintMessages(code: string) {
   return result.messages
 }
 
+/** AUT-578: global i18n literal warnings are expected on fixture snippets with English UI text. */
+function messagesExceptI18nWarnings(messages: ESLint.LintResult['messages']) {
+  return messages.filter((message) => message.ruleId !== 'i18next/no-literal-string')
+}
+
 async function namingViolations(code: string) {
   const messages = await lintMessages(code)
   return messages.filter((message) => message.ruleId === ruleId)
@@ -59,7 +64,7 @@ describe('jsx-a11y control naming (AUT-471)', () => {
       )
     `)
 
-    expect(messages).toEqual([])
+    expect(messagesExceptI18nWarnings(messages)).toEqual([])
   })
 
   it('passes when the icon-only back link carries an aria-label', async () => {
@@ -73,7 +78,7 @@ describe('jsx-a11y control naming (AUT-471)', () => {
       )
     `)
 
-    expect(messages).toEqual([])
+    expect(messagesExceptI18nWarnings(messages)).toEqual([])
   })
 
   it('passes for a button whose visible text names it', async () => {
@@ -85,6 +90,6 @@ describe('jsx-a11y control naming (AUT-471)', () => {
       )
     `)
 
-    expect(messages).toEqual([])
+    expect(messagesExceptI18nWarnings(messages)).toEqual([])
   })
 })

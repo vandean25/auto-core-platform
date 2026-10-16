@@ -1,4 +1,7 @@
+import { formatStatusLabel } from '@/lib/i18n/enum-labels'
 import { cn } from '@/lib/utils'
+
+export { formatStatusLabel }
 
 interface StatusBadgeProps {
   status: string
@@ -108,13 +111,6 @@ const statusClassMap: Record<string, string> = {
   AWAITING_REVIEW: 'border-amber-200 bg-amber-100 text-amber-800',
   APPLIED: 'border-emerald-200 bg-emerald-100 text-emerald-800',
   ABORTED: 'border-slate-200 bg-slate-100 text-slate-600',
-}
-
-export function formatStatusLabel(status: string) {
-  return status
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 export function StatusBadge({ status, label, className }: StatusBadgeProps) {

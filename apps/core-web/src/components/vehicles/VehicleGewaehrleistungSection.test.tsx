@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach } from 'vitest'
+import deEnums from '../../../../../locales/de/enums.json'
 import { VehicleGewaehrleistungSection } from './VehicleGewaehrleistungSection'
 import type { VehicleSale } from '@/api/vehicle-stock'
+
+const activeBadgeLabel = deEnums.status.GEWAEHRLEISTUNG_ACTIVE
+const expiringBadgeLabel = deEnums.status.GEWAEHRLEISTUNG_EXPIRING_SOON
 
 const sale = (overrides: Partial<VehicleSale>) => ({
   id: 'sale-1', sale_number: 'VS-1', status: 'INVOICED', vehicle_id: 'vehicle-1', customer_id: 'customer-1', sale_price: 12000,
@@ -16,7 +20,7 @@ describe('VehicleGewaehrleistungSection', () => {
     render(<VehicleGewaehrleistungSection sales={[sale({ buyer_is_consumer: false })]} />)
     expect(screen.getByText('B2B – Gewährleistung laut Vertrag')).toBeInTheDocument()
     expect(screen.queryByText(/Basisfrist bis/)).not.toBeInTheDocument()
-    expect(screen.queryByText('Aktiv')).not.toBeInTheDocument()
+    expect(screen.queryByText(activeBadgeLabel)).not.toBeInTheDocument()
   })
 
   it('shows both calculated consumer deadlines and the repair extension limitation', () => {
@@ -38,7 +42,7 @@ describe('VehicleGewaehrleistungSection', () => {
       presumption_ends_on: '2027-10-08',
       gewaehrleistung_status: 'ACTIVE',
     })]} />)
-    expect(screen.getByText('Aktiv')).toBeInTheDocument()
+    expect(screen.getByText(activeBadgeLabel)).toBeInTheDocument()
     expect(screen.queryByText('Abgelaufen')).not.toBeInTheDocument()
   })
 
@@ -50,7 +54,7 @@ describe('VehicleGewaehrleistungSection', () => {
       gewaehrleistung_status: 'EXPIRING_SOON',
       presumption_ends_on_expired: true,
     })]} />)
-    expect(screen.getByText('Läuft bald ab')).toBeInTheDocument()
+    expect(screen.getByText(expiringBadgeLabel)).toBeInTheDocument()
   })
 
   it('marks an expired Basisfrist and an expired Vermutungsfrist, next to their dates', () => {
@@ -65,8 +69,8 @@ describe('VehicleGewaehrleistungSection', () => {
 
     expect(within(screen.getByText('Basisfrist bis 01.10.2026')).getByText('Abgelaufen')).toBeInTheDocument()
     expect(within(screen.getByText('Vermutungsfrist bis 01.10.2025')).getByText('Abgelaufen')).toBeInTheDocument()
-    // The overall badge, the Basisfrist marker, and the Vermutungsfrist marker.
-    expect(screen.getAllByText('Abgelaufen')).toHaveLength(3)
+    expect(screen.getByText(deEnums.status.GEWAEHRLEISTUNG_EXPIRED)).toBeInTheDocument()
+    expect(screen.getAllByText('Abgelaufen')).toHaveLength(2)
   })
 
   it('marks only the expired Vermutungsfrist while the Basisfrist is still active', () => {
@@ -79,7 +83,7 @@ describe('VehicleGewaehrleistungSection', () => {
       presumption_ends_on_expired: true,
     })]} />)
 
-    expect(screen.getByText('Aktiv')).toBeInTheDocument()
+    expect(screen.getByText(activeBadgeLabel)).toBeInTheDocument()
     expect(within(screen.getByText('Vermutungsfrist bis 08.10.2027')).getByText('Abgelaufen')).toBeInTheDocument()
     expect(screen.getAllByText('Abgelaufen')).toHaveLength(1)
   })
@@ -106,6 +110,6 @@ describe('VehicleGewaehrleistungSection', () => {
     expect(screen.getByText('Gewährleistungsdaten unbekannt.')).toBeInTheDocument()
     expect(screen.queryByText(/Basisfrist bis/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Vermutungsfrist bis/)).not.toBeInTheDocument()
-    expect(screen.queryByText('Aktiv')).not.toBeInTheDocument()
+    expect(screen.queryByText(activeBadgeLabel)).not.toBeInTheDocument()
   })
 })

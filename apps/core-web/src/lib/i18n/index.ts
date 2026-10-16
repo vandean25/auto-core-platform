@@ -4,6 +4,8 @@ export { initI18n, changeUiLanguage, ensureNamespaceLoaded, i18n } from './init-
 export { applyZodLocale } from './zod-locale'
 export { syncDocumentLang } from './sync-document-lang'
 export { useUiLanguage } from './use-ui-language'
+export * from './enum-labels'
+export * from './enum-registry'
 export {
   clearStoredUiLanguage,
   readStoredUiLanguage,

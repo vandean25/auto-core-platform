@@ -242,7 +242,7 @@ export function DataImportSettingsTab() {
       setCsvHeaders(parsed.headers)
       setPreviewRows(parsed.rows.slice(0, 20))
       setFileFingerprint(fingerprint)
-      const suggested = suggestColumnMapping(parsed.headers, fields)
+      const suggested = suggestColumnMapping(parsed.headers, entityType, fields)
       setMapping(suggested)
     } catch (error) {
       setFile(null)
@@ -606,7 +606,7 @@ export function DataImportSettingsTab() {
                   <TableRow key={field.key}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <span>{formatFieldLabel(field)}</span>
+                        <span>{formatFieldLabel(entityType, field)}</span>
                         {field.required ? (
                           <Badge variant="destructive" className="text-[10px]">
                             Required / Pflicht
