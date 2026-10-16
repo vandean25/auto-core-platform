@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsUUID, Min } from 'class-validator';
+import { IsNumber, IsUUID, Min } from 'class-validator';
 
 export class ReceiveInventoryStockDto {
   @IsUUID()

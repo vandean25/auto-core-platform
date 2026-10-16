@@ -11,7 +11,7 @@ import { InventoryItemMutationsService } from './inventory-item-mutations.servic
 
 @Module({
   imports: [PrismaModule, AuditModule],
-  controllers: [InventoryController, LocationController],
+  controllers: [LocationController, InventoryController],
   providers: [
     InventoryService,
     InventoryItemMutationsService,

@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -47,21 +48,21 @@ export class InventoryController {
 
   @Get(':id/history')
   @ApiOkResponse({ type: [InventoryTransactionResponseDto] })
-  async getHistory(@Param('id') id: string) {
+  async getHistory(@Param('id', ParseUUIDPipe) id: string) {
     const transactions = await this.ledgerService.getTransactionHistory(id);
     return transactions.slice(0, 20);
   }
 
   @Get(':id')
   @ApiOkResponse({ type: InventoryItemDetailResponseDto })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
     return await this.inventoryService.findOne(id);
   }
 
   @Post(':id/receive')
   @HttpCode(HttpStatus.NO_CONTENT)
   async receiveStock(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReceiveInventoryStockDto,
   ) {
     await this.inventoryItemMutations.receiveStock(id, dto);
@@ -70,7 +71,7 @@ export class InventoryController {
   @Post(':id/adjust')
   @HttpCode(HttpStatus.NO_CONTENT)
   async adjustStock(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AdjustInventoryStockDto,
   ) {
     await this.inventoryItemMutations.adjustStock(id, dto);
@@ -79,7 +80,7 @@ export class InventoryController {
   @Patch(':id')
   @ApiOkResponse({ type: CatalogItemResponseDto })
   async updateItem(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInventoryItemDto,
   ) {
     return await this.inventoryItemMutations.updateItem(id, dto);
