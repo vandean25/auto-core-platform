@@ -4,6 +4,7 @@ import type { PickerlDueListQueryDto } from './dto/pickerl-due-list.dto.js';
 import { attachPickerlDue } from './pickerl/attach-pickerl-due.js';
 import { stripVehicleIdentityResolutionState } from './vehicle-identity.util.js';
 import { VehiclePersistenceService } from './vehicle-persistence.service.js';
+import { VehiclePickerlBarrierService } from './vehicle-pickerl-barrier.service.js';
 import {
   VehiclePickerlQueryBuilder,
   type VehiclePickerlQuery,
@@ -21,7 +22,10 @@ export interface VehiclePickerlOpenOrderScope {
 
 @Injectable()
 export class VehiclePickerlDueService {
-  constructor(private readonly persistence: VehiclePersistenceService) {}
+  constructor(
+    private readonly persistence: VehiclePersistenceService,
+    private readonly pickerlBarriers: VehiclePickerlBarrierService,
+  ) {}
 
   async listDue(
     query: VehiclePickerlQuery,
@@ -41,8 +45,21 @@ export class VehiclePickerlDueService {
       scope.authorizedSiteIds,
     );
 
+    const barrierMap = await this.pickerlBarriers.loadBarrierFlagsByVehicleIds(
+      scope.tenantId,
+      (projected || []).map((vehicle) => vehicle.id),
+    );
+
     return (projected || [])
-      .map((vehicle) => attachPickerlDue(vehicle, today))
+      .map((vehicle) =>
+        attachPickerlDue(
+          {
+            ...vehicle,
+            pickerl_barriers: barrierMap.get(vehicle.id),
+          },
+          today,
+        ),
+      )
       .filter((vehicle) =>
         VehiclePickerlQueryBuilder.isWithinWindow(
           vehicle.pickerl_due,

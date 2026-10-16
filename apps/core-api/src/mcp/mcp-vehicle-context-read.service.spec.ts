@@ -62,6 +62,7 @@ describe('McpVehicleContextReadService', () => {
   let creditNote: { count: jest.Mock };
   let siteContext: { findSiteId: jest.Mock; getSiteId: jest.Mock };
   let documentReads: { listDocuments: jest.Mock };
+  let pickerlBarriers: { loadBarrierFlags: jest.Mock };
 
   beforeEach(() => {
     vehicle = {
@@ -106,6 +107,9 @@ describe('McpVehicleContextReadService', () => {
         truncated: false,
       }),
     };
+    pickerlBarriers = {
+      loadBarrierFlags: jest.fn().mockResolvedValue({}),
+    };
 
     service = new McpVehicleContextReadService(
       {
@@ -122,6 +126,7 @@ describe('McpVehicleContextReadService', () => {
       } as unknown as TenantContextService,
       siteContext as unknown as SiteContextService,
       documentReads as unknown as McpDocumentReadService,
+      pickerlBarriers as never,
     );
   });
 

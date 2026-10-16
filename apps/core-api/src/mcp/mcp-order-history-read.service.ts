@@ -6,6 +6,7 @@ import {
 import { InvoiceStatus, type Prisma } from '@prisma/client';
 import type { z } from 'zod';
 import { attachPickerlDue } from '../vehicle/pickerl/attach-pickerl-due.js';
+import { VehiclePickerlBarrierService } from '../vehicle/vehicle-pickerl-barrier.service.js';
 import { CustomerService } from '../customer/customer.service.js';
 import { SiteContextService } from '../common/services/site-context.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -98,6 +99,7 @@ export class McpOrderHistoryReadService {
     private readonly prisma: PrismaService,
     private readonly siteContext: SiteContextService,
     private readonly tenantContext: TenantContextService,
+    private readonly pickerlBarriers: VehiclePickerlBarrierService,
     private readonly customerService: CustomerService,
     private readonly documentReads: McpDocumentReadService,
   ) {}
@@ -162,6 +164,8 @@ export class McpOrderHistoryReadService {
             plaketten_valid_until_year: true,
             plaketten_valid_until_month: true,
             station_name: true,
+            source: true,
+            external_inspection_result_id: true,
           },
         },
       },
@@ -182,8 +186,12 @@ export class McpOrderHistoryReadService {
     ]);
 
     const { inspection_records: inspections, ...identity } = vehicle;
+    const pickerl_barriers = await this.pickerlBarriers.loadBarrierFlags(
+      tenantId,
+      vehicle.id,
+    );
     const { pickerl_due } = attachPickerlDue(
-      { ...identity, inspection_records: inspections },
+      { ...identity, inspection_records: inspections, pickerl_barriers },
       new Date(),
     );
     return {

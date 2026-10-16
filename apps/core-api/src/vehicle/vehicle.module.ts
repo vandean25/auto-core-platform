@@ -16,17 +16,20 @@ import { VehicleValuationService } from './vehicle-valuation.service.js';
 import { VehicleService } from './vehicle.service.js';
 import { VehiclePersistenceService } from './vehicle-persistence.service.js';
 import { VehiclePickerlDueService } from './vehicle-pickerl-due.service.js';
+import { VehiclePickerlBarrierService } from './vehicle-pickerl-barrier.service.js';
 import { VehicleWriteService } from './vehicle-write.service.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
+import { InspectionExchangeModule } from '../inspection-exchange/inspection-exchange.module.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, InspectionExchangeModule],
   controllers: [VehicleController, VehicleInspectionRecordController],
   providers: [
     VehicleService,
     VehiclePersistenceService,
     VehicleWriteService,
     VehiclePickerlDueService,
+    VehiclePickerlBarrierService,
     NovaCalculationService,
     VehicleInspectionRecordService,
     VehicleIdentityService,
@@ -42,6 +45,10 @@ import { NovaCalculationService } from './nova-calculation.service.js';
       useExisting: DisabledEurotaxAtVehicleValuationProvider,
     },
   ],
-  exports: [VehicleService, NovaCalculationService],
+  exports: [
+    VehicleService,
+    VehiclePickerlBarrierService,
+    NovaCalculationService,
+  ],
 })
 export class VehicleModule {}

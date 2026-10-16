@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -64,6 +69,11 @@ export class VehicleInspectionRecordService {
   ) {
     assertVehicleInspectionWriteAccess(this.tenantContext);
     const existing = await this.findOne(vehicleId, recordId);
+    if (existing.source === 'EBV_IMPORTED') {
+      throw new ForbiddenException(
+        'Imported inspection records cannot be modified',
+      );
+    }
     const merged = {
       inspected_on:
         dto.inspected_on ?? existing.inspected_on.toISOString().slice(0, 10),
@@ -104,7 +114,12 @@ export class VehicleInspectionRecordService {
 
   async remove(vehicleId: string, recordId: string) {
     assertVehicleInspectionWriteAccess(this.tenantContext);
-    await this.findOne(vehicleId, recordId);
+    const existing = await this.findOne(vehicleId, recordId);
+    if (existing.source === 'EBV_IMPORTED') {
+      throw new ForbiddenException(
+        'Imported inspection records cannot be deleted',
+      );
+    }
     const tenantId = await this.tenantContext.getTenantId();
     const deleted = await this.prisma.vehicleInspectionRecord.deleteMany({
       where: { id: recordId, vehicle_id: vehicleId, tenant_id: tenantId },

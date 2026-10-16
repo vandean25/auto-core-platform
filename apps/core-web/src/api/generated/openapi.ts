@@ -3426,6 +3426,91 @@ export interface paths {
         patch: operations["VehicleInspectionRecordController_update"];
         trace?: never;
     };
+    "/api/inspection-source-connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active inspection source connections for site */
+        get: operations["InspectionExchangeController_listConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/inspection-imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview external §57a inspection result import */
+        post: operations["InspectionExchangeController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/inspection-imports/{importId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply reviewed external inspection import */
+        post: operations["InspectionExchangeController_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/inspection-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List inspection import attempts for vehicle */
+        get: operations["InspectionExchangeController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/vehicles/{vehicleId}/external-inspection-results/{resultId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get external inspection result provenance summary */
+        get: operations["InspectionExchangeController_getResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/employees": {
         parameters: {
             query?: never;
@@ -8858,7 +8943,7 @@ export interface components {
         /** @enum {string} */
         VehicleInspectionType: "PICKERL_57A";
         /** @enum {string} */
-        VehicleInspectionRecordSource: "MANUAL";
+        VehicleInspectionRecordSource: "MANUAL" | "EBV_IMPORTED";
         VehicleInspectionRecordResponseDto: {
             id: string;
             vehicle_id: string;
@@ -8892,6 +8977,58 @@ export interface components {
             plaketten_valid_until_month?: number;
             station_name?: Record<string, never>;
             notes?: Record<string, never>;
+        };
+        PreviewInspectionImportDto: {
+            connection_id: string;
+            native_result_reference: string;
+            workshop_order_id?: string;
+        };
+        InspectionImportReviewedFieldsDto: {
+            outcome: string;
+            finality: string;
+            acknowledgement_state: string;
+            inspected_on: string;
+            plate_valid_until?: string | null;
+            source: string;
+            qualification_state: string;
+            display_unconfirmed?: string | null;
+        };
+        InspectionImportPreviewResponseDto: {
+            id: string;
+            state: string;
+            version: number;
+            /** Format: date-time */
+            preview_expires_at?: string | null;
+            fingerprint?: string | null;
+            reviewed_fields: components["schemas"]["InspectionImportReviewedFieldsDto"];
+        };
+        ApplyInspectionImportDto: {
+            /** @description Reviewed preview fingerprint (64-char hex) */
+            fingerprint: string;
+            version: number;
+        };
+        ExternalInspectionResultSummaryDto: {
+            id: string;
+            outcome: string;
+            finality: string;
+            acknowledgement_state: string;
+            inspected_on: string;
+            qualification_state: string;
+        };
+        ApplyInspectionImportResponseDto: {
+            result: components["schemas"]["ExternalInspectionResultSummaryDto"];
+            replay: boolean;
+        };
+        InspectionImportListItemDto: {
+            id: string;
+            state: string;
+            native_result_reference: string;
+            preview_fingerprint?: string | null;
+            semantic_digest?: string | null;
+            error_code?: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
         };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
@@ -17252,6 +17389,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleInspectionRecordResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionExchangeController_listConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    InspectionExchangeController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewInspectionImportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionImportPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionExchangeController_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyInspectionImportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyInspectionImportResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionExchangeController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["InspectionImportListItemDto"][];
+                    };
+                };
+            };
+        };
+    };
+    InspectionExchangeController_getResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resultId: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalInspectionResultSummaryDto"];
                 };
             };
         };

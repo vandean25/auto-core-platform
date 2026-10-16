@@ -10,6 +10,7 @@ import { TenantContextService } from '../common/services/tenant-context.service.
 import { OPEN_WORKSHOP_ORDER_STATUSES } from '../parts-requisition/parts-requisition-lifecycle.helpers.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { attachPickerlDue } from '../vehicle/pickerl/attach-pickerl-due.js';
+import { VehiclePickerlBarrierService } from '../vehicle/vehicle-pickerl-barrier.service.js';
 import { viennaIsoDay } from '../vehicle-stock/gewaehrleistung/gewaehrleistung-status.js';
 import { toGewaehrleistungReadFields } from '../vehicle-stock/vehicle-sale.warranty.js';
 import { buildMcpKeysetPage, keysetCursorOf } from './mcp-audit-read.mapper.js';
@@ -116,6 +117,7 @@ export class McpVehicleContextReadService {
     private readonly tenantContext: TenantContextService,
     private readonly siteContext: SiteContextService,
     private readonly documentReads: McpDocumentReadService,
+    private readonly pickerlBarriers: VehiclePickerlBarrierService,
   ) {}
 
   async getVehicleContext(input: GetVehicleContextInput) {
@@ -172,10 +174,15 @@ export class McpVehicleContextReadService {
             plaketten_valid_until_month: true,
           },
         });
+      const pickerl_barriers = await this.pickerlBarriers.loadBarrierFlags(
+        tenantId,
+        vehicle.id,
+      );
       const { pickerl_due } = attachPickerlDue(
         {
           ...vehicle,
           inspection_records: latestInspection ? [latestInspection] : [],
+          pickerl_barriers,
         },
         asOf,
       );

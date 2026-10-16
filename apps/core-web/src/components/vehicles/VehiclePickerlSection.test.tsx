@@ -15,6 +15,14 @@ vi.mock('@/components/workshop/WorkshopOrderIntakeDialog', () => ({
   WorkshopOrderIntakeDialog: ({ open }: { open: boolean }) => open ? <div data-testid='intake-dialog' /> : null,
 }))
 
+vi.mock('@/api/vehicle-inspection-imports', () => ({
+  useInspectionSourceConnections: () => ({
+    data: { data: [] },
+    isLoading: false,
+    isError: false,
+  }),
+}))
+
 vi.mock('@/api/vehicle-inspection-records', () => ({
   useVehicleInspectionRecords: () => ({ data: [], isLoading: false }),
   useCreateVehicleInspectionRecord: () => ({

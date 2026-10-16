@@ -12,6 +12,7 @@ import { stripVehicleIdentityResolutionState } from './vehicle-identity.util.js'
 import { VehicleQueryBuilder } from './vehicle-query.builder.js';
 import { VehiclePersistenceService } from './vehicle-persistence.service.js';
 import { VehiclePickerlDueService } from './vehicle-pickerl-due.service.js';
+import { VehiclePickerlBarrierService } from './vehicle-pickerl-barrier.service.js';
 import { rethrowVehiclePrismaError } from './vehicle-prisma-error.util.js';
 import {
   toVehicleDetailResponse,
@@ -36,6 +37,7 @@ export class VehicleService {
     private readonly persistence: VehiclePersistenceService,
     private readonly writes: VehicleWriteService,
     private readonly pickerlDue: VehiclePickerlDueService,
+    private readonly pickerlBarriers: VehiclePickerlBarrierService,
   ) {}
 
   async getPickerlDueData(
@@ -140,7 +142,13 @@ export class VehicleService {
       throw new NotFoundException(`Vehicle with ID ${id} not found`);
     }
 
-    return toVehicleDetailResponse(vehicle, authorizedSiteIds, new Date());
+    const barriers = await this.pickerlBarriers.loadBarrierFlags(tenantId, id);
+    return toVehicleDetailResponse(
+      vehicle,
+      authorizedSiteIds,
+      new Date(),
+      barriers,
+    );
   }
 
   async update(id: string, updateVehicleDto: UpdateVehicleDto) {
