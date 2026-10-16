@@ -30178,7 +30178,7 @@
             "type": "string"
           },
           "plate_valid_until": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "source": {
@@ -30188,7 +30188,7 @@
             "type": "string"
           },
           "display_unconfirmed": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           }
         },
@@ -30214,11 +30214,12 @@
             "type": "number"
           },
           "preview_expires_at": {
-            "type": "object",
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "fingerprint": {
-            "type": "object",
+            "type": "string",
             "nullable": true
           },
           "reviewed_fields": {

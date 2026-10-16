@@ -66,7 +66,9 @@ export function importNotFound(importId: string) {
 }
 
 export function resultNotFound(resultId: string) {
-  return new NotFoundException(`External inspection result ${resultId} not found`);
+  return new NotFoundException(
+    `External inspection result ${resultId} not found`,
+  );
 }
 
 export function connectionNotFound() {

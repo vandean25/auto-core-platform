@@ -1,5 +1,4 @@
 import { computePickerlDue } from './compute-pickerl-due.js';
-import type { PickerlInspectionRecordInput } from './compute-pickerl-due.js';
 import {
   selectPickerlComputationRecords,
   type PickerlBarrierFlags,

@@ -28,7 +28,9 @@ export class InspectionExchangeController {
   ) {}
 
   @Get('inspection-source-connections')
-  @ApiOperation({ summary: 'List active inspection source connections for site' })
+  @ApiOperation({
+    summary: 'List active inspection source connections for site',
+  })
   listConnections() {
     return this.inspectionExchange.listActiveConnections();
   }
@@ -45,6 +47,7 @@ export class InspectionExchangeController {
   }
 
   @Post('vehicles/:vehicleId/inspection-imports/:importId/apply')
+  @HttpCode(200)
   @ApiOperation({ summary: 'Apply reviewed external inspection import' })
   @ApiOkResponse({ type: ApplyInspectionImportResponseDto })
   apply(
@@ -66,7 +69,9 @@ export class InspectionExchangeController {
   }
 
   @Get('vehicles/:vehicleId/external-inspection-results/:resultId')
-  @ApiOperation({ summary: 'Get external inspection result provenance summary' })
+  @ApiOperation({
+    summary: 'Get external inspection result provenance summary',
+  })
   @ApiOkResponse({ type: ExternalInspectionResultSummaryDto })
   getResult(
     @Param('vehicleId') vehicleId: string,

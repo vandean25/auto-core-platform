@@ -1,8 +1,4 @@
-import {
-  BadGatewayException,
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { BadGatewayException, Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
@@ -11,7 +7,6 @@ import { requireActiveCurrentUser } from '../site/site.authorization.js';
 import { assertInspectionImportWriteAccess } from './inspection-exchange.authorization.js';
 import {
   inspectedOnInVienna,
-  parseCanonicalInspectionResultUtf8,
   parsePlateValidUntil,
 } from './inspection-exchange-canonical.js';
 import {
@@ -210,7 +205,10 @@ export class InspectionExchangeService {
       if (!importRow) {
         throw importNotFound(importId);
       }
-      if (importRow.state === 'APPLIED' && importRow.applied_external_result_id) {
+      if (
+        importRow.state === 'APPLIED' &&
+        importRow.applied_external_result_id
+      ) {
         const existing = await tx.externalInspectionResult.findFirst({
           where: {
             id: importRow.applied_external_result_id,
@@ -504,11 +502,7 @@ export class InspectionExchangeService {
     return { data: rows };
   }
 
-  async listImports(
-    vehicleId: string,
-    page: number,
-    limit: number,
-  ) {
+  async listImports(vehicleId: string, page: number, limit: number) {
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
     await requireActiveCurrentUser(this.prisma, this.tenantContext, tenantId);

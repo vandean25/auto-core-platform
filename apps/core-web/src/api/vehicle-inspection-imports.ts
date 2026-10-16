@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { components } from '@/api/generated/openapi'
-import { fetchWithAuth } from '@/api/fetch-with-auth'
+import { fetchWithAuth } from './client'
 import { vehicleKeys } from '@/api/vehicles'
 
 export type InspectionImportPreview =
@@ -37,7 +37,12 @@ export function useInspectionImports(vehicleId: string) {
         throw new Error('Failed to load inspection imports')
       }
       return response.json() as Promise<{
-        data: components['schemas']['InspectionImportListItemDto'][]
+        data: Array<{
+          id: string
+          state: string
+          native_result_reference: string
+          error_code?: string | null
+        }>
       }>
     },
   })

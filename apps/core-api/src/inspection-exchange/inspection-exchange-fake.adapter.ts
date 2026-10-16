@@ -8,27 +8,22 @@ import { lookupSyntheticCanonicalResult } from './inspection-exchange-synthetic-
 
 @Injectable()
 export class FakeEbvDmsResultReadAdapter implements EbvDmsResultReadPort {
-  async fetchResult(
+  fetchResult(
     connection: InspectionConnectionContext,
     nativeResultReference: string,
   ): Promise<EbvFetchEnvelope> {
     if (connection.profileId !== 'TEST_ONLY') {
-      return { status: 'NOT_CONFIGURED' };
+      return Promise.resolve({ status: 'NOT_CONFIGURED' });
     }
     const canonical = lookupSyntheticCanonicalResult(nativeResultReference);
     if (!canonical) {
-      return { status: 'NOT_FOUND' };
+      return Promise.resolve({ status: 'NOT_FOUND' });
     }
-    const bound = {
-      ...canonical,
-      source_account_ref: connection.sourceAccountRef,
-      source_station_id: connection.sourceStationId,
-    };
-    return {
+    return Promise.resolve({
       status: 'RESULT',
-      canonical: bound,
-      originalUtf8: JSON.stringify(bound),
+      canonical,
+      originalUtf8: JSON.stringify(canonical),
       trustedReceipt: true,
-    };
+    });
   }
 }

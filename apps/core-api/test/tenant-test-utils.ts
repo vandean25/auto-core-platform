@@ -438,6 +438,11 @@ export async function cleanupTestTenantGraph(
   const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
 
   await tenantPrisma.vehicleInspectionRecord.deleteMany({});
+  await tenantPrisma.inspectionExchangeEvent.deleteMany({});
+  await tenantPrisma.externalInspectionResult.deleteMany({});
+  await tenantPrisma.inspectionExchangeImport.deleteMany({});
+  await tenantPrisma.inspectionReportIdentity.deleteMany({});
+  await tenantPrisma.inspectionSourceConnection.deleteMany({});
   await tenantPrisma.vehicleLedgerEntry.deleteMany({});
   await tenantPrisma.creditNoteItem.deleteMany({});
   await tenantPrisma.creditNote.deleteMany({});

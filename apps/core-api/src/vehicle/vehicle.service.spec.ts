@@ -6,6 +6,7 @@ import { Prisma } from '@prisma/client';
 import { VEHICLE_IDENTITY_RESET } from './vehicle-identity.util.js';
 import { VehiclePersistenceService } from './vehicle-persistence.service.js';
 import { VehiclePickerlDueService } from './vehicle-pickerl-due.service.js';
+import { VehiclePickerlBarrierService } from './vehicle-pickerl-barrier.service.js';
 import { VehicleWriteService } from './vehicle-write.service.js';
 import { VehicleService } from './vehicle.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -49,6 +50,12 @@ describe('VehicleService', () => {
         VehiclePersistenceService,
         VehicleWriteService,
         VehiclePickerlDueService,
+        {
+          provide: VehiclePickerlBarrierService,
+          useValue: {
+            loadBarrierFlags: jest.fn().mockResolvedValue({}),
+          },
+        },
         { provide: PrismaService, useValue: prisma },
         { provide: TenantContextService, useValue: tenantContext },
         {

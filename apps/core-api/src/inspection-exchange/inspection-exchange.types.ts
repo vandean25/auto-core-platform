@@ -1,16 +1,10 @@
 export const ACP_INSPECTION_RESULT_SCHEMA = 'acp-inspection-result/1';
 
 export type CanonicalInspectionOutcome =
-  | 'POSITIVE'
-  | 'NEGATIVE'
-  | 'REVOKED'
-  | 'UNKNOWN';
+  'POSITIVE' | 'NEGATIVE' | 'REVOKED' | 'UNKNOWN';
 
 export type CanonicalOccurrenceKind =
-  | 'INITIAL'
-  | 'CORRECTION'
-  | 'REVOCATION'
-  | 'UNKNOWN';
+  'INITIAL' | 'CORRECTION' | 'REVOCATION' | 'UNKNOWN';
 
 export type CanonicalInspectionResult = {
   schema_version: string;
@@ -53,11 +47,7 @@ export type CanonicalInspectionResult = {
 };
 
 export type EbvFetchStatus =
-  | 'RESULT'
-  | 'NOT_FOUND'
-  | 'ERROR'
-  | 'NOT_CONFIGURED'
-  | 'TIMEOUT';
+  'RESULT' | 'NOT_FOUND' | 'ERROR' | 'NOT_CONFIGURED' | 'TIMEOUT';
 
 export type EbvFetchEnvelope = {
   status: EbvFetchStatus;

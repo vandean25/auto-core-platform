@@ -9,8 +9,8 @@ import type {
 @Injectable()
 export class NotConfiguredEbvDmsResultReadAdapter implements EbvDmsResultReadPort {
   fetchResult(
-    _connection: InspectionConnectionContext,
-    _nativeResultReference: string,
+    _connection: InspectionConnectionContext, // eslint-disable-line @typescript-eslint/no-unused-vars
+    _nativeResultReference: string, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<EbvFetchEnvelope> {
     return Promise.resolve({ status: 'NOT_CONFIGURED' });
   }

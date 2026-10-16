@@ -54,11 +54,17 @@ export function parseCanonicalInspectionResultUtf8(
     throw invalidInspectionPayload('expected object');
   }
   const body = parsed as Record<string, unknown>;
-  if (Object.keys(body).some((key, index, keys) => keys.indexOf(key) !== index)) {
+  if (
+    Object.keys(body).some((key, index, keys) => keys.indexOf(key) !== index)
+  ) {
     throw invalidInspectionPayload('duplicate JSON keys');
   }
 
-  const schemaVersion = assertBoundedString(body.schema_version, 'schema_version', 64);
+  const schemaVersion = assertBoundedString(
+    body.schema_version,
+    'schema_version',
+    64,
+  );
   if (schemaVersion !== ACP_INSPECTION_RESULT_SCHEMA) {
     throw unsupportedSchemaVersion();
   }
@@ -80,7 +86,11 @@ export function parseCanonicalInspectionResultUtf8(
   }
 
   const vehicleRaw = body.vehicle;
-  if (!vehicleRaw || typeof vehicleRaw !== 'object' || Array.isArray(vehicleRaw)) {
+  if (
+    !vehicleRaw ||
+    typeof vehicleRaw !== 'object' ||
+    Array.isArray(vehicleRaw)
+  ) {
     throw invalidInspectionPayload('vehicle is required');
   }
   const vehicle = vehicleRaw as Record<string, unknown>;
@@ -152,16 +162,32 @@ export function parseCanonicalInspectionResultUtf8(
     32,
   ) as CanonicalInspectionResult['acknowledgement']['state'];
 
-  const outcome = assertBoundedString(body.outcome, 'outcome', 32) as CanonicalInspectionResult['outcome'];
-  const finality = assertBoundedString(body.finality, 'finality', 32) as CanonicalInspectionResult['finality'];
+  const outcome = assertBoundedString(
+    body.outcome,
+    'outcome',
+    32,
+  ) as CanonicalInspectionResult['outcome'];
+  const finality = assertBoundedString(
+    body.finality,
+    'finality',
+    32,
+  ) as CanonicalInspectionResult['finality'];
 
-  const inspectedAt = assertBoundedString(body.inspected_at, 'inspected_at', 64);
+  const inspectedAt = assertBoundedString(
+    body.inspected_at,
+    'inspected_at',
+    64,
+  );
   if (Number.isNaN(Date.parse(inspectedAt))) {
     throw invalidInspectionPayload('inspected_at is invalid');
   }
 
   const inspectorRaw = body.inspector;
-  if (!inspectorRaw || typeof inspectorRaw !== 'object' || Array.isArray(inspectorRaw)) {
+  if (
+    !inspectorRaw ||
+    typeof inspectorRaw !== 'object' ||
+    Array.isArray(inspectorRaw)
+  ) {
     throw invalidInspectionPayload('inspector is required');
   }
   const inspector = inspectorRaw as Record<string, unknown>;
@@ -182,8 +208,14 @@ export function parseCanonicalInspectionResultUtf8(
       body.source_station_id,
       'source_station_id',
     ),
-    source_result_id: assertBoundedString(body.source_result_id, 'source_result_id'),
-    source_revision: assertBoundedString(body.source_revision, 'source_revision'),
+    source_result_id: assertBoundedString(
+      body.source_result_id,
+      'source_result_id',
+    ),
+    source_revision: assertBoundedString(
+      body.source_revision,
+      'source_revision',
+    ),
     zbd_report_id:
       body.zbd_report_id === null || body.zbd_report_id === undefined
         ? null
@@ -233,7 +265,8 @@ export function parseCanonicalInspectionResultUtf8(
     },
     outcome,
     native_outcome_code:
-      body.native_outcome_code === null || body.native_outcome_code === undefined
+      body.native_outcome_code === null ||
+      body.native_outcome_code === undefined
         ? null
         : assertBoundedString(body.native_outcome_code, 'native_outcome_code'),
     plate,

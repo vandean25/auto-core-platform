@@ -15,6 +15,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/components/status/StatusBadge'
+import type { components } from '@/api/generated/openapi'
+
+type InspectionImportPreview =
+  components['schemas']['InspectionImportPreviewResponseDto']
 
 type InspectionImportDialogProps = {
   vehicleId: string
@@ -30,9 +34,7 @@ export function InspectionImportDialog({
   onOpenChange,
 }: InspectionImportDialogProps) {
   const [reference, setReference] = useState('SYNTH-RESULT-001')
-  const [preview, setPreview] = useState<Awaited<
-    ReturnType<ReturnType<typeof usePreviewInspectionImport>['mutateAsync']>
-  > | null>(null)
+  const [preview, setPreview] = useState<InspectionImportPreview | null>(null)
   const previewMutation = usePreviewInspectionImport(vehicleId)
   const applyMutation = useApplyInspectionImport(vehicleId)
 
@@ -83,7 +85,7 @@ export function InspectionImportDialog({
             </div>
             {preview.reviewed_fields.display_unconfirmed ? (
               <p className='text-amber-700'>
-                {preview.reviewed_fields.display_unconfirmed}
+                {String(preview.reviewed_fields.display_unconfirmed)}
               </p>
             ) : null}
             <p>
@@ -121,13 +123,16 @@ export function InspectionImportDialog({
           ) : (
             <Button
               disabled={
-                applyMutation.isPending || preview.state !== 'READY_FOR_REVIEW'
+                applyMutation.isPending ||
+                preview.state !== 'READY_FOR_REVIEW' ||
+                !preview.fingerprint
               }
               onClick={async () => {
-                if (!preview.fingerprint) return
+                const fingerprint = preview.fingerprint
+                if (!fingerprint) return
                 await applyMutation.mutateAsync({
                   importId: preview.id,
-                  fingerprint: preview.fingerprint,
+                  fingerprint,
                   version: preview.version,
                 })
                 onOpenChange(false)

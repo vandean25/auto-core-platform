@@ -44,9 +44,7 @@ export function semanticDigestForResult(
       evidence_ref: result.acknowledgement.evidence_ref ?? null,
     },
   });
-  return createHash('sha256')
-    .update(JSON.stringify(payload))
-    .digest('hex');
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
 
 export function sha256Utf8(input: string): string {

@@ -13,7 +13,7 @@ export class InspectionImportReviewedFieldsDto {
   @ApiProperty()
   inspected_on!: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   plate_valid_until!: string | null;
 
   @ApiProperty()
@@ -22,7 +22,7 @@ export class InspectionImportReviewedFieldsDto {
   @ApiProperty()
   qualification_state!: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   display_unconfirmed!: string | null;
 }
 
@@ -36,10 +36,10 @@ export class InspectionImportPreviewResponseDto {
   @ApiProperty()
   version!: number;
 
-  @ApiPropertyOptional({ nullable: true })
-  preview_expires_at!: Date | null;
+  @ApiPropertyOptional({ type: String, format: 'date-time', nullable: true })
+  preview_expires_at!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   fingerprint!: string | null;
 
   @ApiProperty({ type: InspectionImportReviewedFieldsDto })

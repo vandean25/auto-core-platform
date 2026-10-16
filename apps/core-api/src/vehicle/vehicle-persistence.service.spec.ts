@@ -174,6 +174,8 @@ describe('VehiclePersistenceService', () => {
             inspected_on: true,
             plaketten_valid_until_year: true,
             plaketten_valid_until_month: true,
+            source: true,
+            external_inspection_result_id: true,
           },
         },
       },

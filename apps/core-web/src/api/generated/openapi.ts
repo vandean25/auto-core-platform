@@ -8988,17 +8988,18 @@ export interface components {
             finality: string;
             acknowledgement_state: string;
             inspected_on: string;
-            plate_valid_until?: Record<string, never> | null;
+            plate_valid_until?: string | null;
             source: string;
             qualification_state: string;
-            display_unconfirmed?: Record<string, never> | null;
+            display_unconfirmed?: string | null;
         };
         InspectionImportPreviewResponseDto: {
             id: string;
             state: string;
             version: number;
-            preview_expires_at?: Record<string, never> | null;
-            fingerprint?: Record<string, never> | null;
+            /** Format: date-time */
+            preview_expires_at?: string | null;
+            fingerprint?: string | null;
             reviewed_fields: components["schemas"]["InspectionImportReviewedFieldsDto"];
         };
         ApplyInspectionImportDto: {

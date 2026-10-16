@@ -85,7 +85,8 @@ export function selectPickerlComputationRecords(
 
     const duplicate = selected.some(
       (existing) =>
-        formatDateKey(existing.inspected_on) === formatDateKey(row.inspected_on) &&
+        formatDateKey(existing.inspected_on) ===
+          formatDateKey(row.inspected_on) &&
         expiryKey(existing) === expiryKey(row),
     );
     if (duplicate) {
