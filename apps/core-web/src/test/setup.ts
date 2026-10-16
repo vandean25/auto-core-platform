@@ -16,7 +16,6 @@ const ENGLISH_LOCALE_TEST_FILES = [
   'App.mechanic-shell.test.tsx',
   'AppSidebar.help-docs.test.tsx',
   'AppSidebar.invoices.test.tsx',
-  'AppSidebar.vehicle-gewaehrleistung.test.tsx',
 ]
 
 beforeAll(async () => {
