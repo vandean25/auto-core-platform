@@ -811,6 +811,25 @@ export class InspectionMeasurementService {
     if (!existing) {
       throw reviewRequired();
     }
+
+    const measurement = await this.prisma.inspectionMeasurement.findFirst({
+      where: {
+        tenant_id: params.tenantId,
+        measurement_identity_id: existing.id,
+      },
+    });
+
+    const importRow = await this.prisma.inspectionMeasurementImport.findFirst({
+      where: { id: params.importId, tenant_id: params.tenantId },
+    });
+    if (
+      measurement &&
+      importRow?.state === 'APPLIED' &&
+      importRow.applied_measurement_id === measurement.id
+    ) {
+      return this.mapApplyResponse(measurement, true);
+    }
+
     if (existing.semantic_digest !== params.semanticDigest) {
       await this.persistApplyConflict({
         tenantId: params.tenantId,
@@ -825,12 +844,6 @@ export class InspectionMeasurementService {
       throw measurementConflict();
     }
 
-    const measurement = await this.prisma.inspectionMeasurement.findFirst({
-      where: {
-        tenant_id: params.tenantId,
-        measurement_identity_id: existing.id,
-      },
-    });
     if (!measurement) {
       throw reviewRequired();
     }
@@ -851,6 +864,16 @@ export class InspectionMeasurementService {
       },
     });
     if (updated.count === 0) {
+      const latestImport =
+        await this.prisma.inspectionMeasurementImport.findFirst({
+          where: { id: params.importId, tenant_id: params.tenantId },
+        });
+      if (
+        latestImport?.state === 'APPLIED' &&
+        latestImport.applied_measurement_id === measurement.id
+      ) {
+        return this.mapApplyResponse(measurement, true);
+      }
       throw reviewRequired();
     }
 

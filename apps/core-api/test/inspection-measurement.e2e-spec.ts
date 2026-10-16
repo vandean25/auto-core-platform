@@ -493,20 +493,13 @@ describe('Inspection measurement (e2e)', () => {
   });
 
   it('reconciles parallel apply from two imports with the same identity', async () => {
-    registerSyntheticMeasurement('SYNTH-RACE-SAME-A', {
+    registerSyntheticMeasurement('SYNTH-RACE-SAME', {
       ...SYNTHETIC_BRAKE_MEASUREMENT,
       measurement_id: 'SYNTH-MEASUREMENT-RACE-SAME',
-      native_result_ref: 'SYNTH-RACE-SAME-A',
       workshop_order_ref: orderNumber,
     });
-    registerSyntheticMeasurement('SYNTH-RACE-SAME-B', {
-      ...SYNTHETIC_BRAKE_MEASUREMENT,
-      measurement_id: 'SYNTH-MEASUREMENT-RACE-SAME',
-      native_result_ref: 'SYNTH-RACE-SAME-B',
-      workshop_order_ref: orderNumber,
-    });
-    const previewA = await preview('SYNTH-RACE-SAME-A').expect(201);
-    const previewB = await preview('SYNTH-RACE-SAME-B').expect(201);
+    const previewA = await preview('SYNTH-RACE-SAME').expect(201);
+    const previewB = await preview('SYNTH-RACE-SAME').expect(201);
     expect(previewA.body.id).not.toBe(previewB.body.id);
 
     const [applyA, applyB] = await Promise.all([
