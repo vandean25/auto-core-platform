@@ -72,4 +72,33 @@ describe('enum locale resources', () => {
       expect(columnRecord[id].length).toBeGreaterThan(0)
     }
   })
+
+  it('keeps EN import field copy distinct from DE for header matching', () => {
+    for (const entityType of IMPORT_ENTITY_TYPE_VALUES) {
+      const segment = importFieldSegmentForEntity(entityType)
+      const deFields = deEnums.importField[segment] as Record<string, string>
+      const enFields = enEnums.importField[segment] as Record<string, string>
+      for (const field of getImportFieldsForEntity(entityType)) {
+        if (field.key === 'ean') continue
+        expect(enFields[field.key]).not.toBe(deFields[field.key])
+      }
+    }
+    expect(enEnums.importField.vehicle.owner_customer_external_id).toBe('Owner customer number')
+  })
+
+  it('uses German glossary-aligned data table column labels in DE', () => {
+    expect(deEnums.dataTableColumn.binLabel).toBe('Lagerplatz')
+    expect(deEnums.dataTableColumn.creditNumber).toBe('Gutschriftnummer')
+    expect(deEnums.dataTableColumn.plate).toBe('Kennzeichen')
+    expect(deEnums.dataTableColumn.vin).toBe('FIN')
+    expect(deEnums.dataTableColumn.warrantyEnds).toBe('Gewährleistung endet')
+    expect(deEnums.dataTableColumn.customerName).not.toBe(enEnums.dataTableColumn.customerName)
+  })
+
+  it('uses glossary-aligned status labels', () => {
+    expect(enEnums.status.INTAKE).toBe('Check-in')
+    expect(enEnums.status.GEWAEHRLEISTUNG_ACTIVE).toMatch(/^Statutory warranty /i)
+    expect(deEnums.status.CHECK_IN).toBe('Einlagerung')
+    expect(deEnums.status.CHECK_OUT).toBe('Auslagerung')
+  })
 })

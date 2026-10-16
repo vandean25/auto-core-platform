@@ -46,6 +46,14 @@ describe('import mapping suggest', () => {
     expect(mapping.owner_customer_external_id).toBe('Kunden-Nr')
   })
 
+  it('maps owner_customer_external_id from English Owner customer number header', () => {
+    const headers = ['Owner customer number', 'Vehicle number', 'Make', 'Model', 'Year']
+    const mapping = suggestColumnMapping(headers, 'VEHICLE', VEHICLE_IMPORT_FIELDS)
+
+    expect(mapping.owner_customer_external_id).toBe('Owner customer number')
+    expect(mapping.external_id).toBe('Vehicle number')
+  })
+
   it('auto-suggests supplier price list columns from German supplier CSV', () => {
     const headers = [
       'Lieferanten-Artikelnummer',
