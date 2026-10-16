@@ -15,6 +15,7 @@ import {
   createE2eTenant,
   deleteDocumentBrandRows,
 } from './helpers/e2e-suite.js';
+import { seedLegacyInvoicePdf } from './invoice-branding-archive-test-utils.js';
 import {
   seedInvoiceReadyCustomer,
   seedReadySellerAndAccountingProfile,
@@ -31,7 +32,8 @@ const WORKER_SECRET = 'invoice-pdf-routes-e2e-worker-secret';
 const FINALIZED_INVOICE_ID = '22222222-2222-4222-a222-222222222222';
 const MISSING_INVOICE_ID = '00000000-0000-4000-8000-000000000000';
 
-async function createIssuedInvoiceId(
+async function createIssuedInvoiceWithCachedPdf(
+  app: INestApplication,
   prisma: PrismaService,
   tenantId: string,
 ): Promise<string> {
@@ -89,6 +91,9 @@ async function createIssuedInvoiceId(
     tax_breakdown: [],
   };
 
+  const pdfBucket =
+    process.env.INVOICE_PDF_BUCKET?.trim() || 'test-invoice-pdf';
+  const pdfKey = `invoices/e2e-pdf-${Date.now()}.pdf`;
   const invoice = await prisma.invoice.create({
     data: {
       tenant_id: tenantId,
@@ -103,9 +108,13 @@ async function createIssuedInvoiceId(
       total_tax: 20,
       total_gross: 120,
       snapshot,
+      pdf_storage_bucket: pdfBucket,
+      pdf_storage_key: pdfKey,
+      pdf_generated_at: new Date('2026-10-16T00:00:00.000Z'),
     },
     select: { id: true },
   });
+  seedLegacyInvoicePdf(app, pdfBucket, pdfKey, Buffer.from('%PDF-1.4 e2e'));
   return invoice.id;
 }
 
@@ -293,7 +302,11 @@ describe('Invoice PDF routes (e2e)', () => {
     });
 
     it('runs requestGeneration and streams a PDF for a finalized invoice', async () => {
-      const invoiceId = await createIssuedInvoiceId(prisma, tenantId);
+      const invoiceId = await createIssuedInvoiceWithCachedPdf(
+        app,
+        prisma,
+        tenantId,
+      );
       const pdfService = app.get(InvoicePdfService);
       const requestSpy = jest.spyOn(pdfService, 'requestGeneration');
       const getSpy = jest.spyOn(pdfService, 'getPdf');
@@ -307,14 +320,10 @@ describe('Invoice PDF routes (e2e)', () => {
         invoiceId,
         expect.objectContaining({ targetBaseUrl: expect.any(String) }),
       );
-      expect(['generated', 'enqueued', 'cached']).toContain(generated.body.mode);
-      expect(generated.body.invoiceId).toBe(invoiceId);
-
-      if (generated.body.mode === 'enqueued') {
-        requestSpy.mockRestore();
-        getSpy.mockRestore();
-        return;
-      }
+      expect(generated.body).toMatchObject({
+        mode: 'cached',
+        invoiceId,
+      });
 
       await request(app.getHttpServer())
         .get(`/api/invoices/${invoiceId}/pdf`)
