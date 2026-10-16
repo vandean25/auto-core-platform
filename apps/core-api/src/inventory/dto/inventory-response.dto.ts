@@ -60,6 +60,11 @@ export class InventoryItemResponseDto {
   warehouse_location!: string;
 }
 
+export class InventoryItemDetailResponseDto extends InventoryItemResponseDto {
+  @ApiProperty()
+  cost_price!: number;
+}
+
 export class InventoryTransactionItemDto {
   @ApiProperty()
   sku!: string;

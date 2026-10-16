@@ -1,9 +1,15 @@
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
+import * as React from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
-import type { InventoryItem, TransactionType } from '@/api/types'
-import { useInventoryHistory, useInventoryItemBySku } from '@/api/inventory'
+import type { TransactionType } from '@/api/types'
+import { useInventoryHistory, useInventoryItem, useInventoryItemBySku } from '@/api/inventory'
+import { useAuthSession } from '@/api/auth-session'
+import { AdjustInventoryStockDialog } from '@/components/inventory/AdjustInventoryStockDialog'
+import { EditInventoryItemDialog } from '@/components/inventory/EditInventoryItemDialog'
+import { ReceiveInventoryStockDialog } from '@/components/inventory/ReceiveInventoryStockDialog'
 import { InventoryItemInfoCard } from '@/components/inventory/InventoryItemInfoCard'
+import { canManageInventoryItems } from '@/features/inventory/inventory-management-permissions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -31,19 +37,24 @@ const formatLedgerDate = (dateString: string) =>
 export default function InventoryLedgerPage() {
   const { itemId = '' } = useParams<{ itemId: string }>()
   const [searchParams] = useSearchParams()
-  const location = useLocation()
   const sku = searchParams.get('sku') ?? undefined
-  const stateItem = (location.state as { item?: InventoryItem } | null)?.item
+  const sessionQuery = useAuthSession()
+  const canManage = canManageInventoryItems(sessionQuery.data?.activeRole)
+  const [receiveOpen, setReceiveOpen] = React.useState(false)
+  const [adjustOpen, setAdjustOpen] = React.useState(false)
+  const [editOpen, setEditOpen] = React.useState(false)
 
-  const { data: fetchedItem, isLoading: isItemLoading } = useInventoryItemBySku(sku, itemId)
-  const item = fetchedItem ?? stateItem ?? null
+  const { data: detailItem, isLoading: isDetailLoading } = useInventoryItem(itemId)
+  const { data: fetchedListItem, isLoading: isListItemLoading } = useInventoryItemBySku(sku, itemId)
+  const item = detailItem ?? fetchedListItem ?? null
 
   const { data: transactions, isLoading: isLedgerLoading, error: ledgerError } = useInventoryHistory(itemId)
+  const isItemLoading = isDetailLoading || isListItemLoading
 
   return (
     <div className="space-y-6">
       <motion.div
-        className="flex items-center justify-between"
+        className="flex items-center justify-between gap-4"
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0, transition: { duration: 0.25 } }}
       >
@@ -53,6 +64,23 @@ export default function InventoryLedgerPage() {
             Back to Inventory
           </Link>
         </Button>
+        {canManage && item ? (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setReceiveOpen(true)}>
+              Receive
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setAdjustOpen(true)}>
+              Adjust
+            </Button>
+            <Button
+              size="sm"
+              disabled={!detailItem || isDetailLoading}
+              onClick={() => setEditOpen(true)}
+            >
+              Edit
+            </Button>
+          </div>
+        ) : null}
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
@@ -152,6 +180,20 @@ export default function InventoryLedgerPage() {
           </motion.div>
         </div>
       </div>
+
+      {item && canManage ? (
+        <>
+          <ReceiveInventoryStockDialog itemId={itemId} open={receiveOpen} onOpenChange={setReceiveOpen} />
+          <AdjustInventoryStockDialog itemId={itemId} open={adjustOpen} onOpenChange={setAdjustOpen} />
+          {detailItem ? (
+            <EditInventoryItemDialog
+              item={detailItem}
+              open={editOpen}
+              onOpenChange={setEditOpen}
+            />
+          ) : null}
+        </>
+      ) : null}
     </div>
   )
 }

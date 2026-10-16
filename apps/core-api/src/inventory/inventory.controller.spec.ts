@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryController } from './inventory.controller.js';
 import { InventoryService } from './inventory.service.js';
 import { LedgerService } from './ledger.service.js';
+import { InventoryItemMutationsService } from './inventory-item-mutations.service.js';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -10,6 +11,12 @@ describe('InventoryController', () => {
   const mockInventoryService = {
     checkAvailability: jest.fn(),
     findAll: jest.fn(),
+    findOne: jest.fn(),
+  };
+  const mockMutationsService = {
+    receiveStock: jest.fn(),
+    adjustStock: jest.fn(),
+    updateItem: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -21,6 +28,7 @@ describe('InventoryController', () => {
           provide: LedgerService,
           useValue: { getTransactionHistory: jest.fn() },
         },
+        { provide: InventoryItemMutationsService, useValue: mockMutationsService },
       ],
     }).compile();
 

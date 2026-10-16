@@ -125,210 +125,6 @@
         ]
       }
     },
-    "/api/inventory/availability/{sku}": {
-      "get": {
-        "operationId": "InventoryController_checkAvailability",
-        "parameters": [
-          {
-            "name": "sku",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AvailabilityCheckResultDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Inventory"
-        ]
-      }
-    },
-    "/api/inventory/{id}/history": {
-      "get": {
-        "operationId": "InventoryController_getHistory",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/InventoryTransactionResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Inventory"
-        ]
-      }
-    },
-    "/api/inventory": {
-      "get": {
-        "operationId": "InventoryController_findAll",
-        "parameters": [
-          {
-            "name": "brand",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "brandId",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "location",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sortDirection",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ]
-            }
-          },
-          {
-            "name": "sortField",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "sku",
-                "name",
-                "price"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/PaginatedResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/InventoryItemResponseDto"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Inventory"
-        ]
-      },
-      "post": {
-        "operationId": "InventoryController_createItem",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateInventoryItemDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogItemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Inventory"
-        ]
-      }
-    },
     "/api/inventory/locations/tree": {
       "get": {
         "operationId": "LocationController_getTree",
@@ -521,6 +317,459 @@
         },
         "tags": [
           "Location"
+        ]
+      }
+    },
+    "/api/inventory/availability/{sku}": {
+      "get": {
+        "operationId": "InventoryController_checkAvailability",
+        "parameters": [
+          {
+            "name": "sku",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityCheckResultDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{id}/history": {
+      "get": {
+        "operationId": "InventoryController_getHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InventoryTransactionResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{id}": {
+      "get": {
+        "operationId": "InventoryController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryItemDetailResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      },
+      "patch": {
+        "operationId": "InventoryController_updateItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateInventoryItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{id}/receive": {
+      "post": {
+        "operationId": "InventoryController_receiveStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveInventoryStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory/{id}/adjust": {
+      "post": {
+        "operationId": "InventoryController_adjustStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustInventoryStockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/inventory": {
+      "get": {
+        "operationId": "InventoryController_findAll",
+        "parameters": [
+          {
+            "name": "brand",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "brandId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "location",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sortDirection",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "sortField",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sku",
+                "name",
+                "price"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/InventoryItemResponseDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      },
+      "post": {
+        "operationId": "InventoryController_createItem",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInventoryItemDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogItemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Inventory"
+        ]
+      }
+    },
+    "/api/audit-logs": {
+      "get": {
+        "description": "Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.",
+        "operationId": "AuditController_findAll",
+        "parameters": [
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "description": "Filter by audit action (UPDATE, DELETE)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CREATE",
+                "UPDATE",
+                "DELETE"
+              ]
+            }
+          },
+          {
+            "name": "actorUserId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by actor user ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "End date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Items per page",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "Page number",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "Free-text search across entityId, actorEmail, and requestId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Start date filter (ISO string)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of audit log entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List tenant audit logs",
+        "tags": [
+          "Audit Logs"
         ]
       }
     },
@@ -7362,121 +7611,6 @@
         },
         "tags": [
           "vehicle-stock"
-        ]
-      }
-    },
-    "/api/audit-logs": {
-      "get": {
-        "description": "Returns a paginated list of immutable business mutation and deletion audit records for the authenticated tenant.",
-        "operationId": "AuditController_findAll",
-        "parameters": [
-          {
-            "name": "action",
-            "required": false,
-            "in": "query",
-            "description": "Filter by audit action (UPDATE, DELETE)",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "CREATE",
-                "UPDATE",
-                "DELETE"
-              ]
-            }
-          },
-          {
-            "name": "actorUserId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by actor user ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "endDate",
-            "required": false,
-            "in": "query",
-            "description": "End date filter (ISO string)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityId",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity ID",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "entityType",
-            "required": false,
-            "in": "query",
-            "description": "Filter by entity type (e.g. Customer, SalesOrder, Invoice)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Items per page",
-            "schema": {
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "type": "number"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "Page number",
-            "schema": {
-              "minimum": 1,
-              "default": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "search",
-            "required": false,
-            "in": "query",
-            "description": "Free-text search across entityId, actorEmail, and requestId",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "startDate",
-            "required": false,
-            "in": "query",
-            "description": "Start date filter (ISO string)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Paginated list of audit log entries",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuditLogListResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "List tenant audit logs",
-        "tags": [
-          "Audit Logs"
         ]
       }
     },
@@ -14699,263 +14833,6 @@
           "tenantId"
         ]
       },
-      "AvailabilityCheckResultDto": {
-        "type": "object",
-        "properties": {
-          "sku": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "brand": {
-            "type": "string"
-          },
-          "original_sku": {
-            "type": "string",
-            "nullable": true
-          },
-          "suggested_sku": {
-            "type": "string",
-            "nullable": true
-          },
-          "quantity_on_hand": {
-            "type": "number"
-          },
-          "quantity_reserved": {
-            "type": "number"
-          },
-          "quantity_available": {
-            "type": "number"
-          },
-          "is_superseded": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "sku",
-          "name",
-          "brand",
-          "quantity_on_hand",
-          "quantity_reserved",
-          "quantity_available",
-          "is_superseded"
-        ]
-      },
-      "TransactionType": {
-        "type": "string",
-        "enum": [
-          "PURCHASE_RECEIPT",
-          "SALE_ISSUE",
-          "ADJUSTMENT",
-          "TRANSFER_IN",
-          "TRANSFER_OUT",
-          "INITIAL_BALANCE",
-          "WORKSHOP_CONSUMPTION"
-        ]
-      },
-      "InventoryTransactionItemDto": {
-        "type": "object",
-        "properties": {
-          "sku": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "sku",
-          "name"
-        ]
-      },
-      "InventoryTransactionLocationDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "InventoryTransactionResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "quantity": {
-            "type": "string"
-          },
-          "type": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TransactionType"
-              }
-            ]
-          },
-          "reference_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "cost_basis": {
-            "type": "string",
-            "nullable": true
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "item": {
-            "$ref": "#/components/schemas/InventoryTransactionItemDto"
-          },
-          "location": {
-            "$ref": "#/components/schemas/InventoryTransactionLocationDto"
-          }
-        },
-        "required": [
-          "id",
-          "quantity",
-          "type",
-          "createdAt",
-          "item",
-          "location"
-        ]
-      },
-      "PaginationMetaDto": {
-        "type": "object",
-        "properties": {
-          "total": {
-            "type": "number"
-          },
-          "page": {
-            "type": "number"
-          },
-          "pageSize": {
-            "type": "number"
-          },
-          "pageCount": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "total",
-          "page",
-          "pageSize",
-          "pageCount"
-        ]
-      },
-      "PaginatedResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "meta": {
-            "$ref": "#/components/schemas/PaginationMetaDto"
-          }
-        },
-        "required": [
-          "data",
-          "meta"
-        ]
-      },
-      "InventoryItemResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sku": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "brand": {
-            "type": "string"
-          },
-          "brand_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "price": {
-            "type": "number"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "IN_STOCK",
-              "OUT_OF_STOCK",
-              "SUPERSEDED"
-            ]
-          },
-          "quantity_available": {
-            "type": "number"
-          },
-          "warehouse_location": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "sku",
-          "name",
-          "brand",
-          "price",
-          "status",
-          "quantity_available",
-          "warehouse_location"
-        ]
-      },
-      "CreateInventoryItemDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "CatalogItemResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "sku": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "cost_price": {
-            "type": "string",
-            "nullable": true
-          },
-          "retail_price": {
-            "type": "string"
-          },
-          "unit": {
-            "type": "string"
-          },
-          "brand_id": {
-            "type": "number",
-            "nullable": true
-          },
-          "revenue_group_id": {
-            "type": "number",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "sku",
-          "name",
-          "retail_price",
-          "unit"
-        ]
-      },
       "LocationParentResponseDto": {
         "type": "object",
         "properties": {
@@ -15128,6 +15005,504 @@
       "UpdateLocationDto": {
         "type": "object",
         "properties": {}
+      },
+      "AvailabilityCheckResultDto": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "original_sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "suggested_sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity_on_hand": {
+            "type": "number"
+          },
+          "quantity_reserved": {
+            "type": "number"
+          },
+          "quantity_available": {
+            "type": "number"
+          },
+          "is_superseded": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sku",
+          "name",
+          "brand",
+          "quantity_on_hand",
+          "quantity_reserved",
+          "quantity_available",
+          "is_superseded"
+        ]
+      },
+      "TransactionType": {
+        "type": "string",
+        "enum": [
+          "PURCHASE_RECEIPT",
+          "SALE_ISSUE",
+          "ADJUSTMENT",
+          "TRANSFER_IN",
+          "TRANSFER_OUT",
+          "INITIAL_BALANCE",
+          "WORKSHOP_CONSUMPTION"
+        ]
+      },
+      "InventoryTransactionItemDto": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku",
+          "name"
+        ]
+      },
+      "InventoryTransactionLocationDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "InventoryTransactionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "string"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TransactionType"
+              }
+            ]
+          },
+          "reference_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "cost_basis": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/InventoryTransactionItemDto"
+          },
+          "location": {
+            "$ref": "#/components/schemas/InventoryTransactionLocationDto"
+          }
+        },
+        "required": [
+          "id",
+          "quantity",
+          "type",
+          "createdAt",
+          "item",
+          "location"
+        ]
+      },
+      "InventoryItemDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "price": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "OUT_OF_STOCK",
+              "SUPERSEDED"
+            ]
+          },
+          "quantity_available": {
+            "type": "number"
+          },
+          "warehouse_location": {
+            "type": "string"
+          },
+          "cost_price": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "brand",
+          "price",
+          "status",
+          "quantity_available",
+          "warehouse_location",
+          "cost_price"
+        ]
+      },
+      "ReceiveInventoryStockDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdjustInventoryStockDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateInventoryItemDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CatalogItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cost_price": {
+            "type": "string",
+            "nullable": true
+          },
+          "retail_price": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "revenue_group_id": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "retail_price",
+          "unit"
+        ]
+      },
+      "PaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "pageSize": {
+            "type": "number"
+          },
+          "pageCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "pageSize",
+          "pageCount"
+        ]
+      },
+      "PaginatedResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PaginationMetaDto"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "InventoryItemResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "brand_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "price": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "OUT_OF_STOCK",
+              "SUPERSEDED"
+            ]
+          },
+          "quantity_available": {
+            "type": "number"
+          },
+          "warehouse_location": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "brand",
+          "price",
+          "status",
+          "quantity_available",
+          "warehouse_location"
+        ]
+      },
+      "CreateInventoryItemDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AuditLogResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Audit log unique identifier"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant identifier"
+          },
+          "entityType": {
+            "type": "string",
+            "description": "Entity model name (e.g. Customer, SalesOrder)"
+          },
+          "entityId": {
+            "type": "string",
+            "description": "Target entity record ID"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "CREATE",
+              "UPDATE",
+              "DELETE"
+            ],
+            "description": "Mutation action type"
+          },
+          "actorUserId": {
+            "type": "string",
+            "nullable": true,
+            "description": "User ID of the actor who performed the mutation"
+          },
+          "actorEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email of the actor who performed the mutation"
+          },
+          "actorRole": {
+            "type": "string",
+            "nullable": true,
+            "description": "Role of the actor at mutation time"
+          },
+          "actorType": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "SYSTEM",
+              "MIGRATION"
+            ],
+            "description": "Actor classification type"
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTTP request correlation ID"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true,
+            "description": "Source channel (e.g. API, JOB)"
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client IP address"
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client User-Agent header"
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Snapshot of entity state before mutation"
+          },
+          "after": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Snapshot of entity state after mutation"
+          },
+          "diff": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "Computed diff of changed fields"
+          },
+          "changedFields": {
+            "nullable": true,
+            "description": "List of field names that changed",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "redactedFields": {
+            "nullable": true,
+            "description": "List of field names that were redacted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when mutation occurred"
+          }
+        },
+        "required": [
+          "id",
+          "tenantId",
+          "entityType",
+          "entityId",
+          "action",
+          "actorType",
+          "occurredAt"
+        ]
+      },
+      "AuditLogPaginationMetaDto": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "number",
+            "example": 42,
+            "description": "Total number of matching audit records"
+          },
+          "page": {
+            "type": "number",
+            "example": 1,
+            "description": "Current page number"
+          },
+          "limit": {
+            "type": "number",
+            "example": 20,
+            "description": "Items per page"
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3,
+            "description": "Total number of pages"
+          }
+        },
+        "required": [
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "AuditLogListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "List of audit log items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogResponseDto"
+            }
+          },
+          "meta": {
+            "description": "Pagination metadata",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuditLogPaginationMetaDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
       },
       "PurchaseOrderItemDto": {
         "type": "object",
@@ -24655,183 +25030,6 @@
           "toSiteId",
           "toLocationId",
           "expectedLocationId"
-        ]
-      },
-      "AuditLogResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Audit log unique identifier"
-          },
-          "tenantId": {
-            "type": "string",
-            "description": "Tenant identifier"
-          },
-          "entityType": {
-            "type": "string",
-            "description": "Entity model name (e.g. Customer, SalesOrder)"
-          },
-          "entityId": {
-            "type": "string",
-            "description": "Target entity record ID"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "CREATE",
-              "UPDATE",
-              "DELETE"
-            ],
-            "description": "Mutation action type"
-          },
-          "actorUserId": {
-            "type": "string",
-            "nullable": true,
-            "description": "User ID of the actor who performed the mutation"
-          },
-          "actorEmail": {
-            "type": "string",
-            "nullable": true,
-            "description": "Email of the actor who performed the mutation"
-          },
-          "actorRole": {
-            "type": "string",
-            "nullable": true,
-            "description": "Role of the actor at mutation time"
-          },
-          "actorType": {
-            "type": "string",
-            "enum": [
-              "USER",
-              "SYSTEM",
-              "MIGRATION"
-            ],
-            "description": "Actor classification type"
-          },
-          "requestId": {
-            "type": "string",
-            "nullable": true,
-            "description": "HTTP request correlation ID"
-          },
-          "source": {
-            "type": "string",
-            "nullable": true,
-            "description": "Source channel (e.g. API, JOB)"
-          },
-          "ipAddress": {
-            "type": "string",
-            "nullable": true,
-            "description": "Client IP address"
-          },
-          "userAgent": {
-            "type": "string",
-            "nullable": true,
-            "description": "Client User-Agent header"
-          },
-          "before": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true,
-            "description": "Snapshot of entity state before mutation"
-          },
-          "after": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true,
-            "description": "Snapshot of entity state after mutation"
-          },
-          "diff": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true,
-            "description": "Computed diff of changed fields"
-          },
-          "changedFields": {
-            "nullable": true,
-            "description": "List of field names that changed",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "redactedFields": {
-            "nullable": true,
-            "description": "List of field names that were redacted",
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "occurredAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp when mutation occurred"
-          }
-        },
-        "required": [
-          "id",
-          "tenantId",
-          "entityType",
-          "entityId",
-          "action",
-          "actorType",
-          "occurredAt"
-        ]
-      },
-      "AuditLogPaginationMetaDto": {
-        "type": "object",
-        "properties": {
-          "total": {
-            "type": "number",
-            "example": 42,
-            "description": "Total number of matching audit records"
-          },
-          "page": {
-            "type": "number",
-            "example": 1,
-            "description": "Current page number"
-          },
-          "limit": {
-            "type": "number",
-            "example": 20,
-            "description": "Items per page"
-          },
-          "totalPages": {
-            "type": "number",
-            "example": 3,
-            "description": "Total number of pages"
-          }
-        },
-        "required": [
-          "total",
-          "page",
-          "limit",
-          "totalPages"
-        ]
-      },
-      "AuditLogListResponseDto": {
-        "type": "object",
-        "properties": {
-          "data": {
-            "description": "List of audit log items",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AuditLogResponseDto"
-            }
-          },
-          "meta": {
-            "description": "Pagination metadata",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/AuditLogPaginationMetaDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "data",
-          "meta"
         ]
       },
       "HolderDto": {
