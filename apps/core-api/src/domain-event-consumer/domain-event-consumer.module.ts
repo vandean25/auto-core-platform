@@ -10,9 +10,6 @@ import { DomainEventConsumerTaskGuard } from './domain-event-consumer-task.guard
     DomainEventConsumerCloudTasksService,
     DomainEventConsumerTaskGuard,
   ],
-  exports: [
-    DomainEventConsumerCloudTasksService,
-    DomainEventConsumerTaskGuard,
-  ],
+  exports: [DomainEventConsumerCloudTasksService, DomainEventConsumerTaskGuard],
 })
 export class DomainEventConsumerModule {}

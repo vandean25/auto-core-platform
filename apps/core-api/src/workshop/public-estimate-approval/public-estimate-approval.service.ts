@@ -126,7 +126,10 @@ export class PublicEstimateApprovalService {
     await this.prisma.$transaction((tx) =>
       this.recordDecision(tx, approval, version, input, request, now),
     );
-    await this.estimateDecidedConsumer.processTenantBatch(approval.tenantId, now);
+    await this.estimateDecidedConsumer.processTenantBatch(
+      approval.tenantId,
+      now,
+    );
     await wakeEstimateDecidedConsumerAfterCommit(
       this.estimateDecidedConsumerWakeUps,
       approval.tenantId,

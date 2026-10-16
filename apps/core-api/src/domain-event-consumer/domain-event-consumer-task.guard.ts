@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
-import { verifyDomainEventConsumerTaskPayload } from './domain-event-consumer-task.payload.js';
+import {
+  verifyDomainEventConsumerTaskPayload,
+  type SignedDomainEventConsumerTaskPayload,
+} from './domain-event-consumer-task.payload.js';
 
 @Injectable()
 export class DomainEventConsumerTaskGuard implements CanActivate {
@@ -19,7 +22,10 @@ export class DomainEventConsumerTaskGuard implements CanActivate {
       throw new InternalServerErrorException();
     }
     const request = context.switchToHttp().getRequest<Request>();
-    const claims = verifyDomainEventConsumerTaskPayload(request.body, secret);
+    const claims = verifyDomainEventConsumerTaskPayload(
+      request.body as SignedDomainEventConsumerTaskPayload,
+      secret,
+    );
     const routeConsumer = decodeURIComponent(
       String(request.params?.consumerKey ?? ''),
     );

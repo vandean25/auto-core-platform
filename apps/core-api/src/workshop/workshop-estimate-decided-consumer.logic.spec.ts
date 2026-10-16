@@ -77,7 +77,7 @@ describe('workshop estimate decided consumer logic', () => {
     const outcome = decideEstimateDecidedConsumerOutcome({
       ...baseContext,
       version: {
-        ...baseContext.version!,
+        ...baseContext.version,
         status: WorkshopEstimateStatus.SUPERSEDED,
       },
     });

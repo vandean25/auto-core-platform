@@ -75,14 +75,22 @@ export class AgentSupervisionTriageService {
           tenantId,
           siteIds,
         ),
-        this.proposalReads.listCustomerWaitingTriageCandidates(tenantId, siteIds),
+        this.proposalReads.listCustomerWaitingTriageCandidates(
+          tenantId,
+          siteIds,
+        ),
         this.proposalReads.listPendingApprovalTriageCandidates(
           tenantId,
           siteIds,
         ),
       ]);
 
-    return [...overdue, ...customerDecisions, ...customerWaiting, ...pendingApproval];
+    return [
+      ...overdue,
+      ...customerDecisions,
+      ...customerWaiting,
+      ...pendingApproval,
+    ];
   }
 }
 

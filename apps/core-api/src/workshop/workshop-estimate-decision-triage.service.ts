@@ -52,7 +52,9 @@ export class WorkshopEstimateDecisionTriageService {
       ...new Set(
         rows
           .map((row) => readPayload(row.payload)?.estimate_version_id)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0),
+          .filter(
+            (id): id is string => typeof id === 'string' && id.length > 0,
+          ),
       ),
     ];
     const versions =
@@ -112,7 +114,7 @@ function readPayload(
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return null;
   }
-  return payload as EstimateDecisionNoticePayload;
+  return payload;
 }
 
 function triageReasonFromPayload(

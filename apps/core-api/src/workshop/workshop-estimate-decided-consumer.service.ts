@@ -18,7 +18,9 @@ import {
 
 @Injectable()
 export class WorkshopEstimateDecidedConsumerService {
-  private readonly logger = new Logger(WorkshopEstimateDecidedConsumerService.name);
+  private readonly logger = new Logger(
+    WorkshopEstimateDecidedConsumerService.name,
+  );
 
   constructor(
     private readonly prisma: PrismaService,
@@ -46,7 +48,9 @@ export class WorkshopEstimateDecidedConsumerService {
     now: Date,
   ): Promise<number> {
     const claimToken = randomUUID();
-    const claimExpiresAt = new Date(now.getTime() + DOMAIN_EVENT_CONSUMER_LEASE_MS);
+    const claimExpiresAt = new Date(
+      now.getTime() + DOMAIN_EVENT_CONSUMER_LEASE_MS,
+    );
     const claimed = await this.tryClaimProgress(
       tenantId,
       claimToken,
@@ -127,7 +131,10 @@ export class WorkshopEstimateDecidedConsumerService {
     return claimed.count === 1;
   }
 
-  private async releaseClaim(tenantId: string, claimToken: string): Promise<void> {
+  private async releaseClaim(
+    tenantId: string,
+    claimToken: string,
+  ): Promise<void> {
     await this.prisma.domainEventConsumerProgress.updateMany({
       where: {
         tenant_id: tenantId,
@@ -221,16 +228,14 @@ export class WorkshopEstimateDecidedConsumerService {
       payload: Prisma.JsonValue | null;
     },
   ): Promise<EstimateDecidedDomainContext> {
-    const parsedPayload = event.payload as Prisma.JsonValue | null;
+    const parsedPayload = event.payload;
     const versionId =
       parsedPayload &&
       typeof parsedPayload === 'object' &&
       !Array.isArray(parsedPayload) &&
       typeof (parsedPayload as Record<string, unknown>).estimate_version_id ===
         'string'
-        ? String(
-            (parsedPayload as Record<string, unknown>).estimate_version_id,
-          )
+        ? String((parsedPayload as Record<string, unknown>).estimate_version_id)
         : null;
     const version =
       versionId === null

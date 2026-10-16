@@ -7,15 +7,19 @@ export type DomainEventConsumerTaskClaims = {
   consumerKey: string;
 };
 
-export type SignedDomainEventConsumerTaskPayload = DomainEventConsumerTaskClaims & {
-  signature: string;
-};
+export type SignedDomainEventConsumerTaskPayload =
+  DomainEventConsumerTaskClaims & {
+    signature: string;
+  };
 
 function canonicalString(claims: DomainEventConsumerTaskClaims): string {
   return `${CONTEXT}:${claims.consumerKey}:${claims.tenantId}`;
 }
 
-function hmacHex(claims: DomainEventConsumerTaskClaims, secret: string): string {
+function hmacHex(
+  claims: DomainEventConsumerTaskClaims,
+  secret: string,
+): string {
   return createHmac('sha256', secret)
     .update(canonicalString(claims))
     .digest('hex');

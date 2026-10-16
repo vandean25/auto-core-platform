@@ -34,9 +34,6 @@ export class WorkshopEstimateDecidedConsumerWorkerController {
     if (decoded !== WORKSHOP_ESTIMATE_DECIDED_INTERNAL_NOTICE_CONSUMER) {
       return;
     }
-    await this.consumer.processTenantBatch(
-      _task.tenantId,
-      new Date(),
-    );
+    await this.consumer.processTenantBatch(_task.tenantId, new Date());
   }
 }

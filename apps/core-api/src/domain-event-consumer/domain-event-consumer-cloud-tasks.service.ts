@@ -13,7 +13,9 @@ import { signDomainEventConsumerTaskPayload } from './domain-event-consumer-task
 
 @Injectable()
 export class DomainEventConsumerCloudTasksService {
-  private readonly logger = new Logger(DomainEventConsumerCloudTasksService.name);
+  private readonly logger = new Logger(
+    DomainEventConsumerCloudTasksService.name,
+  );
   private readonly client: CloudTasksClient;
   private cachedProjectId?: string;
 
