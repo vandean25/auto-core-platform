@@ -23,6 +23,8 @@ import { WorkshopEstimatePdfRenderer } from './workshop-estimate-pdf.renderer.js
 import { WorkshopEstimatePdfService } from './workshop-estimate-pdf.service.js';
 import { WorkshopEstimateService } from './workshop-estimate.service.js';
 import { WorkshopMechanicFindingService } from './workshop-mechanic-finding.service.js';
+import { WorkshopCheckInController } from './workshop-check-in.controller.js';
+import { WorkshopCheckInService } from './workshop-check-in.service.js';
 import { WorkshopEstimateApprovalService } from './workshop-estimate-approval.service.js';
 import { WorkshopEstimateOverrunService } from './workshop-estimate-overrun.service.js';
 import { WorkshopOverrunNoticeService } from './workshop-overrun-notice.service.js';
@@ -79,6 +81,7 @@ import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
     WorkshopEstimateController,
     WorkshopWaitingTasksController,
     WorkshopOrderReadyEmailController,
+    WorkshopCheckInController,
   ],
   providers: [
     PublicEstimateApprovalService,
@@ -86,6 +89,7 @@ import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
     PublicEstimateApprovalRateLimiter,
     WorkshopEstimateService,
     WorkshopMechanicFindingService,
+    WorkshopCheckInService,
     MechanicMediaStorage,
     WorkshopEstimateApprovalService,
     WorkshopEstimateOverrunService,

@@ -1892,6 +1892,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop/orders/{orderId}/check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["WorkshopCheckInController_get"];
+        put?: never;
+        post: operations["WorkshopCheckInController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["WorkshopCheckInController_updateDraft"];
+        trace?: never;
+    };
     "/api/workshop/loaner-vehicles": {
         parameters: {
             query?: never;
@@ -7063,6 +7079,51 @@ export interface components {
         };
         WorkshopResumeWaitingTasksResponseDto: {
             resumed_task_ids: string[];
+        };
+        CreateWorkshopCheckInDto: {
+            /** Format: uuid */
+            id: string;
+        };
+        WorkshopCheckInResponseDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            workshop_order_id: string;
+            /** @enum {string} */
+            status: "DRAFT" | "COMPLETED";
+            revision: number;
+            condition_json: Record<string, never>;
+            damage_markers_json: string[];
+            items_left: string;
+            key_count: number;
+            warning_lights: string[];
+            odometer: number;
+            fuel_level: number;
+            created_at: string;
+            updated_at: string;
+        };
+        CheckInConditionDto: {
+            /** @enum {string} */
+            tyre_season: "SUMMER" | "WINTER" | "ALL_SEASON" | "UNKNOWN";
+            exterior_notes: string;
+            interior_notes: string;
+        };
+        CheckInDamageMarkerDto: {
+            zone_id: string;
+            /** @enum {string} */
+            type: "SCRATCH" | "DENT" | "CRACK" | "OTHER";
+            /** Format: uuid */
+            media_id?: Record<string, never> | null;
+        };
+        UpdateWorkshopCheckInDto: {
+            expected_revision: number;
+            condition?: components["schemas"]["CheckInConditionDto"];
+            damage_markers?: components["schemas"]["CheckInDamageMarkerDto"][];
+            items_left?: string;
+            key_count?: number;
+            warning_lights?: string[];
+            odometer?: number;
+            fuel_level?: number;
         };
         LoanerVehicleResponseDto: {
             id: string;
@@ -13951,6 +14012,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkshopReadyEmailNoticeDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWorkshopCheckInDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
+                };
+            };
+        };
+    };
+    WorkshopCheckInController_updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWorkshopCheckInDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
                 };
             };
         };

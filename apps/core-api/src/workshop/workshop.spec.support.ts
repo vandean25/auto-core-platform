@@ -136,6 +136,11 @@ export const mockPrisma = {
     findMany: jest.fn(),
     updateMany: jest.fn(),
   },
+  workshopCheckIn: {
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
   laborOperation: {
     count: jest.fn(),
   },
