@@ -28,6 +28,12 @@ import {
 import type { Language } from '../agent-supervision-copy'
 import { getCopy, SUPERVISION_COPY } from '../agent-supervision-copy'
 import { resolveDecidedByLabel, resolveProposalAgentName } from '../agent-labels'
+import {
+  formatDetailSupervisionChangeLabel,
+  formatDefaultSupervisionChangeLabel,
+  getDefaultSupervisionChanges,
+  parseWouldChangeFromPreview,
+} from '../agent-proposal-change-preview'
 import { RejectProposalDialog } from './RejectProposalDialog'
 
 interface ProposedLine {
@@ -248,10 +254,10 @@ export function ApprovalsTab({
           size="sm"
           onClick={() => refetch()}
           className="text-slate-500 hover:text-slate-900"
-          aria-label={getCopy(common.retry, language)}
+          aria-label={getCopy(common.refresh, language)}
         >
           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-          {getCopy(common.retry, language)}
+          {getCopy(common.refresh, language)}
         </Button>
       </div>
 
@@ -452,6 +458,8 @@ export function ApprovalsTab({
             const proposedLines = isWorkshopOrderLine
               ? [getProposedLine(payload)]
               : []
+            const wouldChange = parseWouldChangeFromPreview(proposal.preview_json)
+            const defaultChanges = getDefaultSupervisionChanges(wouldChange)
 
             return (
               <div
@@ -616,6 +624,26 @@ export function ApprovalsTab({
                   </div>
                 )}
 
+                {defaultChanges.length > 0 && (
+                  <div
+                    className="space-y-1.5"
+                    data-testid={`change-preview-${proposal.id}`}
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      {getCopy(t.changePreview, language)}
+                    </div>
+                    <ul className="list-disc space-y-0.5 pl-4 text-sm text-slate-700">
+                      {defaultChanges.map((change, index) => (
+                        <li
+                          key={`${change.entity}-${change.op}-${change.id}-${index}`}
+                        >
+                          {formatDefaultSupervisionChangeLabel(change, language)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Proposed workshop lines */}
                 {proposedLines.length > 0 && (
                   <div
@@ -754,6 +782,25 @@ export function ApprovalsTab({
                           {getCopy(t.workshopOrderId, language)}:
                         </div>
                         <div>{workshopOrderId}</div>
+                      </div>
+                    ) : null}
+                    {wouldChange.length > 0 ? (
+                      <div data-testid={`change-preview-details-${proposal.id}`}>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                          {getCopy(t.allChangesPreview, language)}:
+                        </div>
+                        <ul className="mb-3 list-disc space-y-0.5 pl-4 text-slate-200">
+                          {wouldChange.map((change, index) => (
+                            <li
+                              key={`detail-${change.entity}-${change.op}-${change.id}-${index}`}
+                            >
+                              {formatDetailSupervisionChangeLabel(
+                                change,
+                                language,
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     ) : null}
                     {proposal.preview_json ? (
