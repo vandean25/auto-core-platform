@@ -164,6 +164,29 @@
       "expected": { "report_identity_rows": 1, "external_results_total": 1, "successful_applies": 1, "conflicts": 1, "projection_rows_total": 1 }
     },
     {
+      "id": "manual_typo_ambiguity_is_recomputed",
+      "preexisting_manual_rows": [
+        { "id": "SYNTH-MANUAL-1", "inspected_on": "2026-10-15", "expiry": "2027-10" },
+        { "id": "SYNTH-MANUAL-2", "inspected_on": "2026-10-15", "expiry": "2028-10" }
+      ],
+      "actions": ["read_due_all_paths", "correct_second_manual_expiry_to_2027_10", "read_due_all_paths"],
+      "expected_before_correction": { "status": "UNKNOWN", "warning": "MANUAL_EXPIRY_AMBIGUITY", "external_conflict_barrier": false },
+      "expected_after_correction": { "due_month": "2027-10", "status": "OK", "warnings_exclude": ["MANUAL_EXPIRY_AMBIGUITY", "EXTERNAL_RESULT_REQUIRES_REVIEW"], "external_results_created": 0 }
+    },
+    {
+      "id": "manual_expiry_corrected_to_external_positive",
+      "preexisting_manual": { "inspected_on": "2026-10-15", "expiry": "2028-10" },
+      "actions": ["preview", "human_apply", "read_due_all_paths", "correct_manual_expiry_to_2027_10", "read_due_all_paths"],
+      "expected_before_correction": { "status": "UNKNOWN", "warning": "MANUAL_EXPIRY_AMBIGUITY", "external_conflict_barrier": false },
+      "expected_after_correction": { "due_month": "2027-10", "status": "OK", "external_conflict_barrier": false, "external_results_total": 1, "external_result_mutated": false }
+    },
+    {
+      "id": "manual_ambiguity_fix_preserves_independent_source_conflict",
+      "preexisting_manual": { "inspected_on": "2026-10-15", "expiry": "2028-10" },
+      "actions": ["preview", "human_apply", "change_same_occurrence_expiry_to_2028_10", "preview", "correct_manual_expiry_to_2027_10", "read_due_all_paths"],
+      "expected": { "status": "UNKNOWN", "warnings_include": ["EXTERNAL_RESULT_REQUIRES_REVIEW"], "warnings_exclude": ["MANUAL_EXPIRY_AMBIGUITY"], "external_conflict_barrier": true, "external_results_total": 1 }
+    },
+    {
       "id": "native_profile_missing",
       "overrides": { "trusted_fake_adapter.profile": null },
       "actions": ["native_fetch"],
