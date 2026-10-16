@@ -143,6 +143,7 @@ model Tenant {
   importMappingProfiles         ImportMappingProfile[]
   agentPolicyRules              AgentPolicyRule[]
   agentProposals                AgentProposal[]
+  workshopCommandPresets        WorkshopCommandPreset[]
   mcpWriteCommandReceipts       McpWriteCommandReceipt[]
   domainEvents                  DomainEvent[]
   registrationDocumentIntakes   RegistrationDocumentIntake[]
@@ -3452,6 +3453,26 @@ model LaborCategory {
   @@index([tenant_id])
   @@index([parent_id])
   @@map("labor_categories")
+}
+
+model WorkshopCommandPreset {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenant_id          String
+  tenant             Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  site_id            String?  @db.Uuid
+  preset_key         String
+  kind               String
+  labor_operation_id String?  @db.Uuid
+  catalog_item_id    String?
+  duration_minutes   Int?
+  quantity_milli     Int?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenant_id, preset_key, site_id])
+  @@index([tenant_id, active])
+  @@map("workshop_command_presets")
 }
 
 model LaborOperation {

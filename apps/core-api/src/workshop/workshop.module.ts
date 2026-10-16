@@ -48,6 +48,7 @@ import { WorkshopKpiReportsService } from './workshop-kpi-reports.service.js';
 import { RegistrationIntakeModule } from '../registration-intake/registration-intake.module.js';
 import { LoanerVehiclesModule } from '../loaner-vehicles/loaner-vehicles.module.js';
 import { WorkshopBookingPackageService } from './workshop-booking-package.service.js';
+import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 
 @Module({
@@ -105,12 +106,14 @@ import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
     WorkshopScheduleService,
     WorkshopKpiReportsService,
     WorkshopBookingPackageService,
+    WorkshopPositionPlanService,
     { provide: OPENHOLIDAYS_FETCH, useValue: fetch },
   ],
   exports: [
     WorkshopSettingsService,
     WorkshopIntakeService,
     WorkshopBookingPackageService,
+    WorkshopPositionPlanService,
     WorkshopTaskService,
     WorkshopBoardService,
     WorkshopKpiReportsService,

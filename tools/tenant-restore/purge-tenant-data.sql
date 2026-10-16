@@ -46,6 +46,7 @@ VALUES
   ('tyre_storage_settings'),
   ('vendors'),
   ('voice_translation_settings'),
+  ('workshop_command_presets'),
   ('workshop_estimate_sequences'),
   ('_VendorBrands'),
   ('accounting_exports'),
@@ -417,6 +418,7 @@ VALUES
   ('warranty_claim_lines', 'workshop_task_line_items', 'workshop_task_line_item_id', 'id', 'RESTRICT', 'CASCADE'),
   ('warranty_claims', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('warranty_claims', 'workshop_orders', 'tenant_id,workshop_order_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
+  ('workshop_command_presets', 'tenants', 'tenant_id', 'id', 'CASCADE', 'CASCADE'),
   ('workshop_estimate_approval_tokens', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_approval_tokens', 'workshop_estimate_versions', 'tenant_id,workshop_estimate_version_id', 'tenant_id,id', 'RESTRICT', 'CASCADE'),
   ('workshop_estimate_approvals', 'tenants', 'tenant_id', 'id', 'RESTRICT', 'CASCADE'),
@@ -823,6 +825,8 @@ DELETE FROM public."_VendorBrands" AS child
 WHERE EXISTS (SELECT 1 FROM public."brands" AS parent_0 WHERE parent_0."id" = child."A" AND parent_0."tenant_id" = current_setting('app.target_tenant_id'))
   AND EXISTS (SELECT 1 FROM public."vendors" AS parent_1 WHERE parent_1."id" = child."B" AND parent_1."tenant_id" = current_setting('app.target_tenant_id'));
 DELETE FROM public."workshop_estimate_sequences"
+WHERE "tenant_id" = current_setting('app.target_tenant_id');
+DELETE FROM public."workshop_command_presets"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');
 DELETE FROM public."voice_translation_settings"
 WHERE "tenant_id" = current_setting('app.target_tenant_id');

@@ -106,6 +106,9 @@ function buildService(tier: AgentPolicyTier) {
   };
   const requestContext = { getTraceId: () => 'trace-claim' };
   const tenantContext = { getTenantId: async () => 'tenant-1' };
+  const workshopBookingPackage = {
+    enrichInput: async (input: unknown) => input,
+  };
   return new McpWritePipelineService(
     prisma as never,
     agentPolicy as never,
@@ -115,6 +118,7 @@ function buildService(tier: AgentPolicyTier) {
     commandIdempotency as never,
     requestContext as never,
     tenantContext as never,
+    workshopBookingPackage as never,
   );
 }
 

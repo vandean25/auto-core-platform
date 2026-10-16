@@ -207,6 +207,15 @@ export async function executeCreateWorkshopOrder(
         generateOrderNumber,
         domainEventStore: services.domainEventStore,
         traceId,
+        afterPromoteScheduledOrder: services.positionPlan
+          ? (client, orderId) =>
+              services.positionPlan!.fulfillDeferredReservationsOnIntake(
+                client,
+                tenantId,
+                siteId,
+                orderId,
+              )
+          : undefined,
       }),
     );
   } catch (error) {

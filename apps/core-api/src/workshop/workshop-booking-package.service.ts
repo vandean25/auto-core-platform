@@ -21,6 +21,7 @@ import {
 import { executeCreateOrder } from './workshop-intake-insert.helpers.js';
 import { generateNextWorkshopOrderNumber } from './workshop-intake-number.helpers.js';
 import { normalizeWorkshopBookingPackage } from './workshop-booking-package.schema.js';
+import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 
 export const POSITION_PLAN_EXECUTOR_REQUIRED =
   'POSITION_PLAN_EXECUTOR_REQUIRED';
@@ -42,20 +43,41 @@ export class WorkshopBookingPackageService {
     private readonly loanerAuthorization: LoanerVehiclesAuthorization,
     private readonly loanerVehicles: LoanerVehiclesService,
     private readonly domainEventStore: DomainEventStoreService,
+    private readonly positionPlan: WorkshopPositionPlanService,
   ) {}
+
+  async enrichInput(input: unknown): Promise<unknown> {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      return input;
+    }
+    const record = { ...(input as Record<string, unknown>) };
+    if (!this.positionPlan.hasPlanContent(record)) {
+      return record;
+    }
+    const tenantId = await this.tenantContext.getTenantId();
+    const siteId = await this.siteContext.getSiteId();
+    const recomputed = await this.positionPlan.resolvePlan(
+      tenantId,
+      siteId,
+      record,
+    );
+    if (!recomputed) {
+      return record;
+    }
+    record.position_plan = this.positionPlan.toPayloadPositionPlan(recomputed);
+    return record;
+  }
 
   async applyPackage(
     input: unknown,
     executionContext?: Record<string, unknown>,
   ): Promise<WorkshopBookingPackageResult> {
-    const packageInput = normalizeWorkshopBookingPackage(input);
-    if (packageInput.positionPlanLineCount > 0) {
-      throw new ConflictException({
-        code: POSITION_PLAN_EXECUTOR_REQUIRED,
-        message:
-          'Position plan lines require the AUT-540 executor and cannot be applied yet',
-      });
-    }
+    const enriched = await this.enrichInput(input);
+    const packageInput = normalizeWorkshopBookingPackage(enriched);
+    const record =
+      enriched && typeof enriched === 'object' && !Array.isArray(enriched)
+        ? (enriched as Record<string, unknown>)
+        : {};
 
     const tenantId = await this.tenantContext.getTenantId();
     const expectedSiteId =
@@ -91,6 +113,14 @@ export class WorkshopBookingPackageService {
       expectedSiteId,
     );
 
+    const storedPlan = this.positionPlan.parseStoredPlan(record);
+    const recomputedPlan = await this.positionPlan.resolvePlan(
+      tenantId,
+      siteId,
+      record,
+    );
+    this.positionPlan.assertStoredPlanMatches(storedPlan, recomputedPlan);
+
     const callerSite = await this.prisma.site.updateMany({
       where: { id: siteId, tenant_id: tenantId, is_active: true },
       data: { is_active: true },
@@ -119,6 +149,17 @@ export class WorkshopBookingPackageService {
         generateOrderNumber: (client) =>
           generateNextWorkshopOrderNumber(client, tenantId),
       });
+
+      if (recomputedPlan) {
+        await this.positionPlan.applyPlanInTransaction(
+          tx,
+          tenantId,
+          siteId,
+          order.id,
+          WorkshopOrderStatus.SCHEDULED,
+          recomputedPlan,
+        );
+      }
 
       let loanerBookingId: string | undefined;
       if (packageInput.loaner) {
