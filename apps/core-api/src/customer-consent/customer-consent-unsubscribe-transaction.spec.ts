@@ -79,12 +79,15 @@ describe('withdrawMarketingByUnsubscribeToken transaction ordering', () => {
       auditService as never,
     );
 
+    const serviceInternals = service as unknown as {
+      lockCommunicationState: typeof mocks.lock;
+      ensureCommunicationStateRow: () => Promise<void>;
+    };
     jest
-      .spyOn(service as never, 'lockCommunicationState')
+      .spyOn(serviceInternals, 'lockCommunicationState')
       .mockImplementation(mocks.lock);
-
     jest
-      .spyOn(service as never, 'ensureCommunicationStateRow')
+      .spyOn(serviceInternals, 'ensureCommunicationStateRow')
       .mockResolvedValue(undefined);
 
     return { service, prisma, auditService };
