@@ -1,13 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { formattedHours } from '@/test/format-assertions'
 import { describeCellHours, formatChipTime, formatHours } from './capacity-format'
 
 describe('capacity-format', () => {
   it('formats hours with at most two decimals', () => {
-    expect(formatHours(2.5)).toBe(formattedHours(2.5))
-    expect(formatHours(3)).toBe(formattedHours(3))
-    expect(formatHours(1.13)).toBe(formattedHours(1.13))
+    expect(formatHours(2.5)).toBe('2,5 h')
+    expect(formatHours(3)).toBe('3 h')
+    expect(formatHours(1.13)).toBe('1,13 h')
   })
 
   it('describes the free-hours state of a cell', () => {
@@ -19,7 +18,7 @@ describe('capacity-format', () => {
     ).toBe('Fully booked')
     expect(
       describeCellHours({ capacityHours: 9.5, bookedHours: 10, freeHours: 0, isOverbooked: true }),
-    ).toBe(`Overbooked by ${formattedHours(0.5)}`)
+    ).toBe('Overbooked by 0,5 h')
     expect(
       describeCellHours({ capacityHours: 0, bookedHours: 0, freeHours: 0, isOverbooked: false }),
     ).toBe('Closed')

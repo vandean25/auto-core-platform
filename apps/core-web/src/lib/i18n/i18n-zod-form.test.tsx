@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { useForm, type Resolver } from 'react-hook-form'
+import { useForm, type ResolverResult } from 'react-hook-form'
 import { z } from 'zod'
 import { changeUiLanguage, i18n } from '@/lib/i18n'
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form'
@@ -11,21 +11,21 @@ const emailSchema = z.object({ email: z.string().email() })
 
 type EmailFormValues = z.infer<typeof emailSchema>
 
-const zodEmailResolver: Resolver<EmailFormValues> = async (values) => {
+async function zodEmailResolver(values: EmailFormValues): Promise<ResolverResult<EmailFormValues>> {
   const result = emailSchema.safeParse(values)
   if (result.success) {
-    return { values: result.data }
+    return { values: result.data } as ResolverResult<EmailFormValues>
   }
   const message = result.error.issues[0]?.message ?? 'Invalid'
   return {
-    values: {} as EmailFormValues,
+    values: {},
     errors: {
       email: {
         type: 'custom',
         message,
       },
     },
-  }
+  } as ResolverResult<EmailFormValues>
 }
 
 function EmailValidationForm() {

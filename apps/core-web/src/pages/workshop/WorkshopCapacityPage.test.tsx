@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatDateLabel } from '@/lib/format'
 import { formattedHours } from '@/test/format-assertions'
 import WorkshopCapacityPage from './WorkshopCapacityPage'
 import * as workshopApi from '@/api/workshop'
@@ -240,10 +239,8 @@ describe('WorkshopCapacityPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Next week' }))
 
-    const weekStartLabel = formatDateLabel('2026-10-12', 'Europe/Vienna')
-    const nextWeekStartLabel = formatDateLabel('2026-10-19', 'Europe/Vienna')
-    expect(document.body.textContent).toContain(weekStartLabel)
-    expect(document.body.textContent).not.toContain(nextWeekStartLabel)
+    expect(document.body.textContent).toContain('Mo., 12. Okt. 2026')
+    expect(document.body.textContent).not.toContain('Mo., 19. Okt. 2026')
     expect(screen.getByRole('table').closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true')
   })
 })
