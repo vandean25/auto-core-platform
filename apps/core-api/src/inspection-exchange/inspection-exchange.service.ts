@@ -1,5 +1,5 @@
 import { BadGatewayException, Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type ExternalInspectionResult } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { SiteContextService } from '../site/site-context.service.js';
@@ -17,9 +17,11 @@ import {
   resultNotFound,
   resultUnconfirmed,
   reviewRequired,
+  accountMismatch,
   stationMismatch,
   vehicleIdentityMismatch,
 } from './inspection-exchange.errors.js';
+import { InspectionImportApplyConflictSignal } from './inspection-exchange-apply.signals.js';
 import {
   previewFingerprint,
   semanticDigestForResult,
@@ -120,6 +122,11 @@ export class InspectionExchangeService {
     if (envelope.canonical.source_station_id !== connection.source_station_id) {
       throw stationMismatch();
     }
+    if (
+      envelope.canonical.source_account_ref !== connection.source_account_ref
+    ) {
+      throw accountMismatch();
+    }
 
     const resolved = this.resolvePreview(
       envelope.canonical,
@@ -192,266 +199,366 @@ export class InspectionExchangeService {
       tenantId,
     );
 
-    return this.prisma.$transaction(async (tx) => {
-      const importRow = await tx.inspectionExchangeImport.findFirst({
-        where: {
-          id: importId,
-          tenant_id: tenantId,
-          site_id: siteId,
-          vehicle_id: vehicleId,
-        },
-        include: { connection: true },
-      });
-      if (!importRow) {
-        throw importNotFound(importId);
-      }
-      if (
-        importRow.state === 'APPLIED' &&
-        importRow.applied_external_result_id
-      ) {
-        const existing = await tx.externalInspectionResult.findFirst({
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const importRow = await tx.inspectionExchangeImport.findFirst({
           where: {
-            id: importRow.applied_external_result_id,
+            id: importId,
             tenant_id: tenantId,
+            site_id: siteId,
+            vehicle_id: vehicleId,
           },
+          include: { connection: true },
         });
-        if (!existing) {
+        if (!importRow) {
           throw importNotFound(importId);
         }
-        return this.mapApplyResponse(existing, true);
-      }
-      if (importRow.state !== 'READY_FOR_REVIEW') {
-        if (importRow.state === 'UNCONFIRMED') {
-          throw resultUnconfirmed();
-        }
-        throw reviewRequired();
-      }
-      if (importRow.version !== dto.version) {
-        throw reviewRequired();
-      }
-      if (
-        !importRow.preview_fingerprint ||
-        importRow.preview_fingerprint !== dto.fingerprint
-      ) {
-        throw reviewRequired();
-      }
-      if (
-        importRow.preview_expires_at &&
-        importRow.preview_expires_at.getTime() < now.getTime()
-      ) {
-        throw reviewRequired();
-      }
-
-      const envelope = await this.ebvPort.fetchResult(
-        {
-          profileId: importRow.connection.profile_id,
-          sourceAccountRef: importRow.connection.source_account_ref,
-          sourceStationId: importRow.connection.source_station_id,
-          bindingRevision: importRow.connection.binding_revision,
-        },
-        importRow.native_result_reference,
-      );
-      if (!envelope.canonical || envelope.status !== 'RESULT') {
-        throw reviewRequired();
-      }
-
-      const vehicle = await tx.vehicle.findFirst({
-        where: { id: vehicleId, tenant_id: tenantId },
-        select: {
-          id: true,
-          vin: true,
-          first_registration_date: true,
-          plate: true,
-        },
-      });
-      if (!vehicle) {
-        throw importNotFound(importId);
-      }
-
-      const resolved = this.resolvePreview(
-        envelope.canonical,
-        envelope,
-        vehicle,
-        importRow.connection.binding_revision,
-        now,
-      );
-      if (resolved.state !== 'READY_FOR_REVIEW') {
-        throw resultUnconfirmed();
-      }
-      if (resolved.fingerprint !== dto.fingerprint) {
-        throw reviewRequired();
-      }
-
-      const existingByKey = await tx.externalInspectionResult.findFirst({
-        where: {
-          tenant_id: tenantId,
-          source_system: 'EBV',
-          source_account_ref: envelope.canonical.source_account_ref,
-          source_station_id: envelope.canonical.source_station_id,
-          source_result_id: envelope.canonical.source_result_id,
-          source_revision: envelope.canonical.source_revision,
-        },
-      });
-      if (existingByKey) {
-        if (existingByKey.semantic_digest === resolved.semanticDigest) {
-          await tx.inspectionExchangeImport.updateMany({
-            where: { id: importId, tenant_id: tenantId, version: dto.version },
-            data: {
-              state: 'APPLIED',
-              applied_external_result_id: existingByKey.id,
-              reviewed_by_user_id: user.id,
-              reviewed_at: now,
-              version: { increment: 1 },
+        if (
+          importRow.state === 'APPLIED' &&
+          importRow.applied_external_result_id
+        ) {
+          const existing = await tx.externalInspectionResult.findFirst({
+            where: {
+              id: importRow.applied_external_result_id,
+              tenant_id: tenantId,
             },
           });
-          return this.mapApplyResponse(existingByKey, true);
+          if (!existing) {
+            throw importNotFound(importId);
+          }
+          return this.mapApplyResponse(existing, true);
         }
-        await tx.inspectionExchangeImport.updateMany({
-          where: { id: importId, tenant_id: tenantId },
-          data: { state: 'CONFLICT', error_code: 'EXTERNAL_RESULT_CONFLICT' },
-        });
-        throw externalResultConflict();
-      }
+        if (importRow.state !== 'READY_FOR_REVIEW') {
+          if (importRow.state === 'UNCONFIRMED') {
+            throw resultUnconfirmed();
+          }
+          throw reviewRequired();
+        }
+        if (importRow.version !== dto.version) {
+          throw reviewRequired();
+        }
+        if (
+          !importRow.preview_fingerprint ||
+          importRow.preview_fingerprint !== dto.fingerprint
+        ) {
+          throw reviewRequired();
+        }
+        if (
+          importRow.preview_expires_at &&
+          importRow.preview_expires_at.getTime() < now.getTime()
+        ) {
+          throw reviewRequired();
+        }
 
-      if (
-        envelope.canonical.occurrence_relation.kind === 'CORRECTION' ||
-        envelope.canonical.occurrence_relation.kind === 'REVOCATION'
-      ) {
-        await tx.inspectionExchangeImport.updateMany({
-          where: { id: importId, tenant_id: tenantId },
-          data: { state: 'CONFLICT', error_code: 'EXTERNAL_RESULT_CONFLICT' },
-        });
-        throw externalResultConflict();
-      }
+        const envelope = await this.ebvPort.fetchResult(
+          {
+            profileId: importRow.connection.profile_id,
+            sourceAccountRef: importRow.connection.source_account_ref,
+            sourceStationId: importRow.connection.source_station_id,
+            bindingRevision: importRow.connection.binding_revision,
+          },
+          importRow.native_result_reference,
+        );
+        if (!envelope.canonical || envelope.status !== 'RESULT') {
+          throw reviewRequired();
+        }
 
-      let reportIdentityId: string | null = null;
-      if (envelope.canonical.zbd_report_id) {
-        const identity = await tx.inspectionReportIdentity.upsert({
+        const vehicle = await tx.vehicle.findFirst({
+          where: { id: vehicleId, tenant_id: tenantId },
+          select: {
+            id: true,
+            vin: true,
+            first_registration_date: true,
+            plate: true,
+          },
+        });
+        if (!vehicle) {
+          throw importNotFound(importId);
+        }
+
+        const resolved = this.resolvePreview(
+          envelope.canonical,
+          envelope,
+          vehicle,
+          importRow.connection.binding_revision,
+          now,
+        );
+        if (resolved.state !== 'READY_FOR_REVIEW') {
+          throw resultUnconfirmed();
+        }
+        if (resolved.fingerprint !== dto.fingerprint) {
+          throw reviewRequired();
+        }
+
+        const existingByKey = await tx.externalInspectionResult.findFirst({
           where: {
-            tenant_id_zbd_report_id: {
+            tenant_id: tenantId,
+            source_system: 'EBV',
+            source_account_ref: envelope.canonical.source_account_ref,
+            source_station_id: envelope.canonical.source_station_id,
+            source_result_id: envelope.canonical.source_result_id,
+            source_revision: envelope.canonical.source_revision,
+          },
+        });
+        if (existingByKey) {
+          if (existingByKey.semantic_digest === resolved.semanticDigest) {
+            await tx.inspectionExchangeImport.updateMany({
+              where: {
+                id: importId,
+                tenant_id: tenantId,
+                version: dto.version,
+              },
+              data: {
+                state: 'APPLIED',
+                applied_external_result_id: existingByKey.id,
+                reviewed_by_user_id: user.id,
+                reviewed_at: now,
+                version: { increment: 1 },
+              },
+            });
+            return this.mapApplyResponse(existingByKey, true);
+          }
+          throw new InspectionImportApplyConflictSignal({
+            tenantId,
+            siteId,
+            importId,
+            actorUserId: user.id,
+            previousState: importRow.state,
+            semanticDigest: resolved.semanticDigest,
+            conflictingDigest: existingByKey.semantic_digest,
+          });
+        }
+
+        if (
+          envelope.canonical.occurrence_relation.kind === 'CORRECTION' ||
+          envelope.canonical.occurrence_relation.kind === 'REVOCATION'
+        ) {
+          throw new InspectionImportApplyConflictSignal({
+            tenantId,
+            siteId,
+            importId,
+            actorUserId: user.id,
+            previousState: importRow.state,
+            semanticDigest: resolved.semanticDigest,
+          });
+        }
+
+        let reportIdentityId: string | null = null;
+        if (envelope.canonical.zbd_report_id) {
+          const identity = await tx.inspectionReportIdentity.upsert({
+            where: {
+              tenant_id_zbd_report_id: {
+                tenant_id: tenantId,
+                zbd_report_id: envelope.canonical.zbd_report_id,
+              },
+            },
+            create: {
               tenant_id: tenantId,
               zbd_report_id: envelope.canonical.zbd_report_id,
+              vehicle_id: vehicleId,
             },
-          },
-          create: {
-            tenant_id: tenantId,
-            zbd_report_id: envelope.canonical.zbd_report_id,
-            vehicle_id: vehicleId,
-          },
-          update: {},
-        });
-        if (identity.vehicle_id !== vehicleId) {
-          throw externalResultConflict();
+            update: {},
+          });
+          if (identity.vehicle_id !== vehicleId) {
+            throw externalResultConflict();
+          }
+          reportIdentityId = identity.id;
         }
-        reportIdentityId = identity.id;
-      }
 
-      const plateExpiry = envelope.canonical.plate
-        ? parsePlateValidUntil(envelope.canonical.plate.valid_until)
-        : null;
+        const plateExpiry = envelope.canonical.plate
+          ? parsePlateValidUntil(envelope.canonical.plate.valid_until)
+          : null;
 
-      const externalResult = await tx.externalInspectionResult.create({
-        data: {
-          tenant_id: tenantId,
-          site_id: siteId,
-          vehicle_id: vehicleId,
-          connection_id: importRow.connection_id,
-          import_id: importRow.id,
-          report_identity_id: reportIdentityId,
-          source_system: 'EBV',
-          source_account_ref: envelope.canonical.source_account_ref,
-          source_station_id: envelope.canonical.source_station_id,
-          source_result_id: envelope.canonical.source_result_id,
-          source_revision: envelope.canonical.source_revision,
-          source_schema_version: envelope.canonical.source_schema_version,
-          zbd_report_id: envelope.canonical.zbd_report_id,
-          occurrence_kind: envelope.canonical.occurrence_relation.kind,
-          occurrence_predecessor:
-            envelope.canonical.occurrence_relation.predecessor ??
-            Prisma.JsonNull,
-          classification_evidence_ref:
-            envelope.canonical.occurrence_relation.classification_evidence_ref,
-          vehicle_vin: envelope.canonical.vehicle.vin,
-          vehicle_first_registration_on: new Date(
-            `${envelope.canonical.vehicle.first_registration_on}T00:00:00.000Z`,
-          ),
-          vehicle_registration_plate:
-            envelope.canonical.vehicle.registration_plate ?? null,
-          inspected_at: new Date(envelope.canonical.inspected_at),
-          inspected_on: new Date(`${resolved.inspectedOn}T00:00:00.000Z`),
-          inspector_source_person_id:
-            envelope.canonical.inspector.source_person_id,
-          qualification_evidence_ref:
-            envelope.canonical.inspector.qualification_evidence_ref ?? null,
-          outcome: envelope.canonical.outcome,
-          native_outcome_code: envelope.canonical.native_outcome_code ?? null,
-          plate_number: envelope.canonical.plate?.number ?? null,
-          plate_colour: envelope.canonical.plate?.colour ?? null,
-          plate_valid_until_year: plateExpiry?.year ?? null,
-          plate_valid_until_month: plateExpiry?.month ?? null,
-          odometer_value: envelope.canonical.odometer?.value ?? null,
-          odometer_unit: envelope.canonical.odometer?.unit ?? null,
-          finality: envelope.canonical.finality,
-          acknowledgement_state: envelope.canonical.acknowledgement.state,
-          acknowledgement_evidence_type:
-            envelope.canonical.acknowledgement.evidence_type ?? null,
-          acknowledgement_evidence_ref:
-            envelope.canonical.acknowledgement.evidence_ref ?? null,
-          retrieved_at: now,
-          original_digest: resolved.originalDigest,
-          semantic_digest: resolved.semanticDigest,
-          applied_by_user_id: user.id,
-        },
-      });
+        let externalResult: ExternalInspectionResult;
+        try {
+          externalResult = await tx.externalInspectionResult.create({
+            data: {
+              tenant_id: tenantId,
+              site_id: siteId,
+              vehicle_id: vehicleId,
+              connection_id: importRow.connection_id,
+              import_id: importRow.id,
+              report_identity_id: reportIdentityId,
+              source_system: 'EBV',
+              source_account_ref: envelope.canonical.source_account_ref,
+              source_station_id: envelope.canonical.source_station_id,
+              source_result_id: envelope.canonical.source_result_id,
+              source_revision: envelope.canonical.source_revision,
+              source_schema_version: envelope.canonical.source_schema_version,
+              zbd_report_id: envelope.canonical.zbd_report_id,
+              occurrence_kind: envelope.canonical.occurrence_relation.kind,
+              occurrence_predecessor:
+                envelope.canonical.occurrence_relation.predecessor ??
+                Prisma.JsonNull,
+              classification_evidence_ref:
+                envelope.canonical.occurrence_relation
+                  .classification_evidence_ref,
+              vehicle_vin: envelope.canonical.vehicle.vin,
+              vehicle_first_registration_on: new Date(
+                `${envelope.canonical.vehicle.first_registration_on}T00:00:00.000Z`,
+              ),
+              vehicle_registration_plate:
+                envelope.canonical.vehicle.registration_plate ?? null,
+              inspected_at: new Date(envelope.canonical.inspected_at),
+              inspected_on: new Date(`${resolved.inspectedOn}T00:00:00.000Z`),
+              inspector_source_person_id:
+                envelope.canonical.inspector.source_person_id,
+              qualification_evidence_ref:
+                envelope.canonical.inspector.qualification_evidence_ref ?? null,
+              outcome: envelope.canonical.outcome,
+              native_outcome_code:
+                envelope.canonical.native_outcome_code ?? null,
+              plate_number: envelope.canonical.plate?.number ?? null,
+              plate_colour: envelope.canonical.plate?.colour ?? null,
+              plate_valid_until_year: plateExpiry?.year ?? null,
+              plate_valid_until_month: plateExpiry?.month ?? null,
+              odometer_value: envelope.canonical.odometer?.value ?? null,
+              odometer_unit: envelope.canonical.odometer?.unit ?? null,
+              finality: envelope.canonical.finality,
+              acknowledgement_state: envelope.canonical.acknowledgement.state,
+              acknowledgement_evidence_type:
+                envelope.canonical.acknowledgement.evidence_type ?? null,
+              acknowledgement_evidence_ref:
+                envelope.canonical.acknowledgement.evidence_ref ?? null,
+              retrieved_at: now,
+              original_digest: resolved.originalDigest,
+              semantic_digest: resolved.semanticDigest,
+              applied_by_user_id: user.id,
+            },
+          });
+        } catch (error: unknown) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            const raced = await tx.externalInspectionResult.findFirst({
+              where: {
+                tenant_id: tenantId,
+                source_system: 'EBV',
+                source_account_ref: envelope.canonical.source_account_ref,
+                source_station_id: envelope.canonical.source_station_id,
+                source_result_id: envelope.canonical.source_result_id,
+                source_revision: envelope.canonical.source_revision,
+              },
+            });
+            if (!raced) {
+              throw error;
+            }
+            if (raced.semantic_digest !== resolved.semanticDigest) {
+              throw new InspectionImportApplyConflictSignal({
+                tenantId,
+                siteId,
+                importId,
+                actorUserId: user.id,
+                previousState: importRow.state,
+                semanticDigest: resolved.semanticDigest,
+                conflictingDigest: raced.semantic_digest,
+              });
+            }
+            await tx.inspectionExchangeImport.updateMany({
+              where: {
+                id: importId,
+                tenant_id: tenantId,
+                version: dto.version,
+              },
+              data: {
+                state: 'APPLIED',
+                applied_external_result_id: raced.id,
+                reviewed_by_user_id: user.id,
+                reviewed_at: now,
+                version: { increment: 1 },
+              },
+            });
+            return this.mapApplyResponse(raced, true);
+          }
+          throw error;
+        }
 
-      if (
-        envelope.canonical.outcome === 'POSITIVE' &&
-        envelope.canonical.finality === 'FINAL' &&
-        envelope.canonical.acknowledgement.state === 'CONFIRMED' &&
-        plateExpiry
-      ) {
-        await tx.vehicleInspectionRecord.create({
+        if (
+          envelope.canonical.outcome === 'POSITIVE' &&
+          envelope.canonical.finality === 'FINAL' &&
+          envelope.canonical.acknowledgement.state === 'CONFIRMED' &&
+          plateExpiry
+        ) {
+          await tx.vehicleInspectionRecord.create({
+            data: {
+              tenant_id: tenantId,
+              vehicle_id: vehicleId,
+              inspection_type: 'PICKERL_57A',
+              inspected_on: new Date(`${resolved.inspectedOn}T00:00:00.000Z`),
+              plaketten_valid_until_year: plateExpiry.year,
+              plaketten_valid_until_month: plateExpiry.month,
+              station_name: envelope.canonical.source_station_id,
+              source: 'EBV_IMPORTED',
+              external_inspection_result_id: externalResult.id,
+              created_by_user_id: user.id,
+            },
+          });
+        }
+
+        await tx.inspectionExchangeImport.updateMany({
+          where: { id: importId, tenant_id: tenantId, version: dto.version },
           data: {
-            tenant_id: tenantId,
-            vehicle_id: vehicleId,
-            inspection_type: 'PICKERL_57A',
-            inspected_on: new Date(`${resolved.inspectedOn}T00:00:00.000Z`),
-            plaketten_valid_until_year: plateExpiry.year,
-            plaketten_valid_until_month: plateExpiry.month,
-            station_name: envelope.canonical.source_station_id,
-            source: 'EBV_IMPORTED',
-            external_inspection_result_id: externalResult.id,
-            created_by_user_id: user.id,
+            state: 'APPLIED',
+            applied_external_result_id: externalResult.id,
+            reviewed_by_user_id: user.id,
+            reviewed_at: now,
+            version: { increment: 1 },
           },
         });
-      }
 
-      await tx.inspectionExchangeImport.updateMany({
-        where: { id: importId, tenant_id: tenantId, version: dto.version },
-        data: {
-          state: 'APPLIED',
-          applied_external_result_id: externalResult.id,
-          reviewed_by_user_id: user.id,
-          reviewed_at: now,
-          version: { increment: 1 },
-        },
+        await this.appendEvent(
+          {
+            tenantId,
+            siteId,
+            importId: importRow.id,
+            previousState: 'READY_FOR_REVIEW',
+            newState: 'APPLIED',
+            actorUserId: user.id,
+            semanticDigest: resolved.semanticDigest,
+            externalResultId: externalResult.id,
+          },
+          tx,
+        );
+
+        return this.mapApplyResponse(externalResult, false);
       });
+    } catch (error: unknown) {
+      if (error instanceof InspectionImportApplyConflictSignal) {
+        await this.persistImportConflict(error.params);
+        throw externalResultConflict();
+      }
+      throw error;
+    }
+  }
 
+  private async persistImportConflict(params: {
+    tenantId: string;
+    siteId: string;
+    importId: string;
+    actorUserId: string;
+    previousState: string;
+    semanticDigest?: string;
+    conflictingDigest?: string;
+  }) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.inspectionExchangeImport.updateMany({
+        where: { id: params.importId, tenant_id: params.tenantId },
+        data: { state: 'CONFLICT', error_code: 'EXTERNAL_RESULT_CONFLICT' },
+      });
       await this.appendEvent(
         {
-          tenantId,
-          siteId,
-          importId: importRow.id,
-          previousState: 'READY_FOR_REVIEW',
-          newState: 'APPLIED',
-          actorUserId: user.id,
-          semanticDigest: resolved.semanticDigest,
-          externalResultId: externalResult.id,
+          tenantId: params.tenantId,
+          siteId: params.siteId,
+          importId: params.importId,
+          previousState: params.previousState,
+          newState: 'CONFLICT',
+          actorUserId: params.actorUserId,
+          semanticDigest: params.semanticDigest,
+          conflictingDigest: params.conflictingDigest,
         },
         tx,
       );
-
-      return this.mapApplyResponse(externalResult, false);
     });
   }
 
@@ -634,6 +741,32 @@ export class InspectionExchangeService {
         originalDigest,
         inspectedOn,
         state: 'CONFLICT',
+      };
+    }
+
+    if (
+      result.outcome === 'UNKNOWN' ||
+      result.finality === 'UNKNOWN' ||
+      result.acknowledgement.state === 'UNKNOWN'
+    ) {
+      return {
+        result,
+        semanticDigest,
+        fingerprint,
+        originalDigest,
+        inspectedOn,
+        state: 'UNCONFIRMED',
+      };
+    }
+
+    if (result.outcome === 'POSITIVE' && !result.plate?.valid_until) {
+      return {
+        result,
+        semanticDigest,
+        fingerprint,
+        originalDigest,
+        inspectedOn,
+        state: 'UNCONFIRMED',
       };
     }
 

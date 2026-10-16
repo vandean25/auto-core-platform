@@ -15,6 +15,7 @@ describe('VehicleService', () => {
   const tenantId = 'tenant-1';
   const vehicleId = 'vehicle-1';
   let service: VehicleService;
+  let pickerlBarriers: { loadBarrierFlags: jest.Mock };
   let prisma: {
     vehicle: {
       create: jest.Mock;
@@ -44,6 +45,9 @@ describe('VehicleService', () => {
       getTenantId: jest.fn().mockResolvedValue(tenantId),
     };
 
+    pickerlBarriers = {
+      loadBarrierFlags: jest.fn().mockResolvedValue({}),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         VehicleService,
@@ -53,7 +57,16 @@ describe('VehicleService', () => {
         {
           provide: VehiclePickerlBarrierService,
           useValue: {
-            loadBarrierFlags: jest.fn().mockResolvedValue({}),
+            ...pickerlBarriers,
+            loadBarrierFlagsByVehicleIds: jest
+              .fn()
+              .mockImplementation(async (_tenantId, ids: string[]) => {
+                const map = new Map<string, Record<string, never>>();
+                for (const id of ids) {
+                  map.set(id, {});
+                }
+                return map;
+              }),
           },
         },
         { provide: PrismaService, useValue: prisma },
@@ -139,6 +152,25 @@ describe('VehicleService', () => {
       orderBy: { createdAt: 'desc' },
       select: { id: true, order_number: true },
     });
+  });
+
+  it('loads pickerl barrier flags for vehicle detail', async () => {
+    const barriers = { negativeBarrier: true };
+    pickerlBarriers.loadBarrierFlags.mockResolvedValue(barriers);
+    prisma.vehicle.findFirst.mockResolvedValue({
+      id: vehicleId,
+      customer: null,
+      sales: [],
+      inspection_records: [],
+      first_registration_date: null,
+    });
+
+    await service.findOne(vehicleId);
+
+    expect(pickerlBarriers.loadBarrierFlags).toHaveBeenCalledWith(
+      tenantId,
+      vehicleId,
+    );
   });
 
   it('does not expose identity resolution state in the vehicle detail response', async () => {

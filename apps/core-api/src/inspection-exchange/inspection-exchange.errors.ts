@@ -43,6 +43,12 @@ export function stationMismatch() {
   });
 }
 
+export function accountMismatch() {
+  return new UnprocessableEntityException({
+    code: 'STATION_MISMATCH',
+  });
+}
+
 export function resultUnconfirmed() {
   return new UnprocessableEntityException({
     code: 'RESULT_UNCONFIRMED',

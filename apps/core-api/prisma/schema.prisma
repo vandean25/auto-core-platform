@@ -2069,7 +2069,7 @@ model InspectionReportIdentity {
   tenant        Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Restrict)
   zbd_report_id String   @db.VarChar(128)
   vehicle_id    String
-  vehicle       Vehicle  @relation(fields: [vehicle_id], references: [id], onDelete: Restrict)
+  vehicle       Vehicle  @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
   createdAt     DateTime @default(now())
 
   externalResults ExternalInspectionResult[]
@@ -2086,7 +2086,7 @@ model InspectionExchangeImport {
   site_id                    String
   site                       Site                          @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   vehicle_id                 String
-  vehicle                    Vehicle                       @relation(fields: [vehicle_id], references: [id], onDelete: Restrict)
+  vehicle                    Vehicle                       @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
   connection_id              String
   connection                 InspectionSourceConnection      @relation(fields: [tenant_id, connection_id], references: [tenant_id, id], onDelete: Restrict)
   workshop_order_id          String?
@@ -2121,7 +2121,7 @@ model ExternalInspectionResult {
   site_id                       String
   site                          Site                       @relation(fields: [tenant_id, site_id], references: [tenant_id, id], onDelete: Restrict)
   vehicle_id                    String
-  vehicle                       Vehicle                    @relation(fields: [vehicle_id], references: [id], onDelete: Restrict)
+  vehicle                       Vehicle                    @relation(fields: [tenant_id, vehicle_id], references: [tenant_id, id], onDelete: Restrict)
   connection_id                 String
   connection                    InspectionSourceConnection @relation(fields: [tenant_id, connection_id], references: [tenant_id, id], onDelete: Restrict)
   import_id                     String

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
 export class InspectionImportReviewedFieldsDto {
   @ApiProperty()
@@ -56,10 +57,13 @@ export class InspectionImportListItemDto {
   @ApiProperty()
   native_result_reference!: string;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
   preview_fingerprint!: string | null;
 
-  @ApiPropertyOptional({ nullable: true })
+  @ApiPropertyOptional({ type: String, nullable: true })
+  semantic_digest!: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true })
   error_code!: string | null;
 
   @ApiProperty()
@@ -87,6 +91,14 @@ export class ExternalInspectionResultSummaryDto {
 
   @ApiProperty()
   qualification_state!: string;
+}
+
+export class InspectionImportListResponseDto {
+  @ApiProperty({ type: [InspectionImportListItemDto] })
+  data!: InspectionImportListItemDto[];
+
+  @ApiProperty({ type: PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }
 
 export class ApplyInspectionImportResponseDto {

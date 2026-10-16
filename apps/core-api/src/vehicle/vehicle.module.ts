@@ -45,6 +45,10 @@ import { InspectionExchangeModule } from '../inspection-exchange/inspection-exch
       useExisting: DisabledEurotaxAtVehicleValuationProvider,
     },
   ],
-  exports: [VehicleService, NovaCalculationService],
+  exports: [
+    VehicleService,
+    VehiclePickerlBarrierService,
+    NovaCalculationService,
+  ],
 })
 export class VehicleModule {}

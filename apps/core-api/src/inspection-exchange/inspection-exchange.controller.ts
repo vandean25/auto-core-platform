@@ -10,9 +10,11 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiPaginatedResponse } from '../common/dto/paginated-response.dto.js';
 import {
   ApplyInspectionImportResponseDto,
   ExternalInspectionResultSummaryDto,
+  InspectionImportListItemDto,
   InspectionImportPreviewResponseDto,
 } from './dto/inspection-import-response.dto.js';
 import { InspectionExchangeService } from './inspection-exchange.service.js';
@@ -60,6 +62,7 @@ export class InspectionExchangeController {
 
   @Get('vehicles/:vehicleId/inspection-imports')
   @ApiOperation({ summary: 'List inspection import attempts for vehicle' })
+  @ApiPaginatedResponse(InspectionImportListItemDto)
   list(
     @Param('vehicleId') vehicleId: string,
     @Query('page', new ParseIntPipe({ optional: true })) page = 1,

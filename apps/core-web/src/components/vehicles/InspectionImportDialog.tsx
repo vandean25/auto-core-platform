@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import type { components } from '@/api/generated/openapi'
+import { describeInspectionImportError } from '@/api/inspection-import-errors'
 
 type InspectionImportPreview =
   components['schemas']['InspectionImportPreviewResponseDto']
@@ -73,7 +74,7 @@ export function InspectionImportDialog({
             </div>
             {previewMutation.isError ? (
               <p className='text-sm text-destructive'>
-                {previewMutation.error?.message ?? 'Vorschau fehlgeschlagen'}
+                {describeInspectionImportError(previewMutation.error)}
               </p>
             ) : null}
           </div>
@@ -103,6 +104,11 @@ export function InspectionImportDialog({
             <p className='text-muted-foreground text-xs'>
               Qualifikation: {preview.reviewed_fields.qualification_state}
             </p>
+            {applyMutation.isError ? (
+              <p className='text-sm text-destructive'>
+                {describeInspectionImportError(applyMutation.error)}
+              </p>
+            ) : null}
           </div>
         )}
 

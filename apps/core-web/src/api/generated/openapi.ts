@@ -9019,6 +9019,17 @@ export interface components {
             result: components["schemas"]["ExternalInspectionResultSummaryDto"];
             replay: boolean;
         };
+        InspectionImportListItemDto: {
+            id: string;
+            state: string;
+            native_result_reference: string;
+            preview_fingerprint?: string | null;
+            semantic_digest?: string | null;
+            error_code?: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
         /** @enum {string} */
         EmployeeRole: "MECHANIC" | "SERVICE_ADVISOR" | "PARTS_CLERK";
         EmployeeResponseDto: {
@@ -17465,7 +17476,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["InspectionImportListItemDto"][];
+                    };
+                };
             };
         };
     };

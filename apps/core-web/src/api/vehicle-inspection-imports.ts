@@ -12,7 +12,7 @@ export function useInspectionSourceConnections() {
     queryFn: async () => {
       const response = await fetchWithAuth('/api/inspection-source-connections')
       if (!response.ok) {
-        throw new Error('Failed to load inspection connections')
+        throw new Error('INSPECTION_CONNECTIONS_LOAD_FAILED')
       }
       return response.json() as Promise<{
         data: Array<{
@@ -34,7 +34,7 @@ export function useInspectionImports(vehicleId: string) {
         `/api/vehicles/${encodeURIComponent(vehicleId)}/inspection-imports?limit=20`,
       )
       if (!response.ok) {
-        throw new Error('Failed to load inspection imports')
+        throw new Error('INSPECTION_IMPORTS_LOAD_FAILED')
       }
       return response.json() as Promise<{
         data: Array<{
@@ -62,9 +62,9 @@ export function usePreviewInspectionImport(vehicleId: string) {
       )
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(
-          typeof payload?.code === 'string' ? payload.code : 'Preview failed',
-        )
+        const code =
+          typeof payload?.code === 'string' ? payload.code : 'PREVIEW_FAILED'
+        throw new Error(code)
       }
       return payload as InspectionImportPreview
     },
@@ -97,9 +97,9 @@ export function useApplyInspectionImport(vehicleId: string) {
       )
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error(
-          typeof payload?.code === 'string' ? payload.code : 'Apply failed',
-        )
+        const code =
+          typeof payload?.code === 'string' ? payload.code : 'APPLY_FAILED'
+        throw new Error(code)
       }
       return payload
     },

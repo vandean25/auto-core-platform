@@ -41,8 +41,51 @@ export const SYNTHETIC_CANONICAL_POSITIVE: CanonicalInspectionResult = {
   },
 };
 
+export const SYNTHETIC_CANONICAL_POSITIVE_NO_PLATE: CanonicalInspectionResult =
+  {
+    ...SYNTHETIC_CANONICAL_POSITIVE,
+    source_result_id: 'SYNTH-RESULT-NO-PLATE',
+    source_revision: 'SYNTH-REV-NO-PLATE',
+    zbd_report_id: 'SYNTH-ZBD-NO-PLATE',
+    plate: null,
+    occurrence_relation: {
+      ...SYNTHETIC_CANONICAL_POSITIVE.occurrence_relation,
+      classification_evidence_ref: 'SYNTH-DISTINCT-NO-PLATE',
+    },
+  };
+
+export const SYNTHETIC_CANONICAL_UNKNOWN_OUTCOME: CanonicalInspectionResult = {
+  ...SYNTHETIC_CANONICAL_POSITIVE,
+  source_result_id: 'SYNTH-RESULT-UNKNOWN',
+  source_revision: 'SYNTH-REV-UNKNOWN',
+  zbd_report_id: 'SYNTH-ZBD-UNKNOWN',
+  outcome: 'UNKNOWN',
+  native_outcome_code: 'SYNTH-UNKNOWN',
+  occurrence_relation: {
+    ...SYNTHETIC_CANONICAL_POSITIVE.occurrence_relation,
+    classification_evidence_ref: 'SYNTH-DISTINCT-UNKNOWN',
+  },
+};
+
+export const SYNTHETIC_CANONICAL_NEGATIVE: CanonicalInspectionResult = {
+  ...SYNTHETIC_CANONICAL_POSITIVE,
+  source_result_id: 'SYNTH-RESULT-NEGATIVE',
+  source_revision: 'SYNTH-REV-NEGATIVE',
+  zbd_report_id: 'SYNTH-ZBD-NEGATIVE',
+  outcome: 'NEGATIVE',
+  native_outcome_code: 'SYNTH-NEGATIVE',
+  plate: null,
+  occurrence_relation: {
+    ...SYNTHETIC_CANONICAL_POSITIVE.occurrence_relation,
+    classification_evidence_ref: 'SYNTH-DISTINCT-NEGATIVE',
+  },
+};
+
 const RECORDED_BY_REFERENCE: Record<string, CanonicalInspectionResult> = {
   'SYNTH-RESULT-001': SYNTHETIC_CANONICAL_POSITIVE,
+  'SYNTH-RESULT-NO-PLATE': SYNTHETIC_CANONICAL_POSITIVE_NO_PLATE,
+  'SYNTH-RESULT-UNKNOWN': SYNTHETIC_CANONICAL_UNKNOWN_OUTCOME,
+  'SYNTH-RESULT-NEGATIVE': SYNTHETIC_CANONICAL_NEGATIVE,
 };
 
 export function lookupSyntheticCanonicalResult(

@@ -11301,7 +11301,28 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/InspectionImportListItemDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "summary": "List inspection import attempts for vehicle",
@@ -30293,6 +30314,46 @@
         "required": [
           "result",
           "replay"
+        ]
+      },
+      "InspectionImportListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "native_result_reference": {
+            "type": "string"
+          },
+          "preview_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "semantic_digest": {
+            "type": "string",
+            "nullable": true
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "native_result_reference",
+          "version",
+          "createdAt"
         ]
       },
       "EmployeeRole": {
