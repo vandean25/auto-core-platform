@@ -106,8 +106,8 @@
             "getArticleIdsWithState": {
               "articleCountry": "AT",
               "assemblyGroupNodeId": null,
-              "brandNo": [9001],
-              "genericArticleId": [900669],
+              "brandNo": { "array": [9001] },
+              "genericArticleId": { "array": [900669] },
               "lang": "de",
               "linkingTargetId": 900000042,
               "linkingTargetType": "P",
