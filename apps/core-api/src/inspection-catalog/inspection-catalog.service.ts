@@ -56,10 +56,7 @@ export class InspectionCatalogService {
     private readonly siteContext: SiteContextService,
   ) {}
 
-  async previewCatalogue(
-    dto: PreviewInspectionCatalogueDto,
-    now = new Date(),
-  ) {
+  async previewCatalogue(dto: PreviewInspectionCatalogueDto, now = new Date()) {
     assertCatalogueActivationAccess(this.tenantContext);
     const tenantId = await this.tenantContext.getTenantId();
     const siteId = await this.siteContext.getSiteId();
@@ -81,7 +78,11 @@ export class InspectionCatalogService {
     }
 
     const digest = manifestContentSha256(manifest);
-    const fingerprint = previewFingerprint(digest, dto.manifest_reference, siteId);
+    const fingerprint = previewFingerprint(
+      digest,
+      dto.manifest_reference,
+      siteId,
+    );
 
     let state: InspectionCatalogueImportState = 'READY_FOR_ACTIVATION';
     let errorCode: string | null = null;
@@ -159,16 +160,20 @@ export class InspectionCatalogService {
     }
     const manifest = loaded;
 
-    const existingVersion = await this.prisma.inspectionCatalogueVersion.findFirst(
-      {
+    const existingVersion =
+      await this.prisma.inspectionCatalogueVersion.findFirst({
         where: {
           tenant_id: tenantId,
           content_sha256: importRow.manifest_digest ?? undefined,
           source_version: manifest.source_version,
         },
-        select: { id: true, source_version: true, source_kind: true, coverage: true },
-      },
-    );
+        select: {
+          id: true,
+          source_version: true,
+          source_kind: true,
+          coverage: true,
+        },
+      });
     if (existingVersion) {
       return {
         catalogue_version_id: existingVersion.id,
@@ -216,7 +221,7 @@ export class InspectionCatalogService {
           data: {
             tenant_id: tenantId,
             schema_version: manifest.schema_version,
-            source_kind: manifest.source_kind as InspectionCatalogueSourceKind,
+            source_kind: manifest.source_kind,
             publisher: manifest.publisher,
             source_uri: manifest.source_uri,
             source_document_id: manifest.source_document_id,
@@ -254,7 +259,7 @@ export class InspectionCatalogService {
           where: {
             tenant_id: tenantId,
             site_id: siteId,
-            source_kind: manifest.source_kind as InspectionCatalogueSourceKind,
+            source_kind: manifest.source_kind,
             deactivated_at: null,
           },
           data: { deactivated_at: now },
@@ -265,7 +270,7 @@ export class InspectionCatalogService {
             tenant_id: tenantId,
             site_id: siteId,
             catalogue_version_id: version.id,
-            source_kind: manifest.source_kind as InspectionCatalogueSourceKind,
+            source_kind: manifest.source_kind,
             activated_at: now,
             activated_by_user_id: user.id,
           },
@@ -359,10 +364,7 @@ export class InspectionCatalogService {
       forCurrentUse && inspectionTime > version.recheck_after;
 
     const entryByLocator = new Map(
-      version.entries.map((entry) => [
-        entry.entry_locator,
-        entry,
-      ]),
+      version.entries.map((entry) => [entry.entry_locator, entry]),
     );
 
     const data = limited.map((code) => {
@@ -382,7 +384,8 @@ export class InspectionCatalogService {
       return {
         position_id: code.position_id,
         entry_id: code.entry_id ?? null,
-        status: staleCurrent && status === 'RESOLVED' ? 'STALE_CATALOG' : status,
+        status:
+          staleCurrent && status === 'RESOLVED' ? 'STALE_CATALOG' : status,
         label: matched?.label ?? null,
         source_kind: version.source_kind,
         coverage: version.coverage,
@@ -535,7 +538,9 @@ export class InspectionCatalogService {
     };
   }
 
-  private loadManifest(manifestReference: string): CatalogueManifest | 'NOT_CONFIGURED' {
+  private loadManifest(
+    manifestReference: string,
+  ): CatalogueManifest | 'NOT_CONFIGURED' {
     if (manifestReference === STATUTORY_MANIFEST_REFERENCE) {
       return resolveBuiltinManifestReference(manifestReference);
     }
@@ -552,7 +557,7 @@ export class InspectionCatalogService {
       where: {
         tenant_id: tenantId,
         site_id: siteId,
-        source_kind: manifest.source_kind as InspectionCatalogueSourceKind,
+        source_kind: manifest.source_kind,
         deactivated_at: null,
       },
       include: { catalogueVersion: true },
@@ -615,31 +620,29 @@ export class InspectionCatalogService {
     };
   }
 
-  private versionToManifest(
-    version: {
-      schema_version: string;
-      source_kind: InspectionCatalogueSourceKind;
-      publisher: string;
-      source_uri: string;
-      source_document_id: string;
-      source_version: string;
-      valid_from: Date;
-      valid_to: Date | null;
-      retrieved_at: Date;
-      verified_current_at: Date;
-      recheck_after: Date;
-      coverage: string;
-      rights: string;
-      approval_evidence_ref: string | null;
-      entries: Array<{
-        position_id: string;
-        entry_id: string | null;
-        label: string;
-        allowed_groups: unknown;
-        vehicle_scope: string;
-      }>;
-    },
-  ): CatalogueManifest {
+  private versionToManifest(version: {
+    schema_version: string;
+    source_kind: InspectionCatalogueSourceKind;
+    publisher: string;
+    source_uri: string;
+    source_document_id: string;
+    source_version: string;
+    valid_from: Date;
+    valid_to: Date | null;
+    retrieved_at: Date;
+    verified_current_at: Date;
+    recheck_after: Date;
+    coverage: string;
+    rights: string;
+    approval_evidence_ref: string | null;
+    entries: Array<{
+      position_id: string;
+      entry_id: string | null;
+      label: string;
+      allowed_groups: unknown;
+      vehicle_scope: string;
+    }>;
+  }): CatalogueManifest {
     return {
       schema_version: 'acp-inspection-catalog/1',
       source_kind: version.source_kind,

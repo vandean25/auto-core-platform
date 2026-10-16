@@ -30,7 +30,9 @@ export class InspectionCatalogController {
 
   @Post('inspection-catalogues/preview')
   @HttpCode(201)
-  @ApiOperation({ summary: 'Stage inspection catalogue manifest for activation' })
+  @ApiOperation({
+    summary: 'Stage inspection catalogue manifest for activation',
+  })
   @ApiOkResponse({ type: InspectionCataloguePreviewResponseDto })
   preview(@Body() dto: PreviewInspectionCatalogueDto) {
     return this.inspectionCatalog.previewCatalogue(dto);
@@ -71,7 +73,8 @@ export class InspectionCatalogController {
   @Post('inspection-catalogues/finding-references')
   @HttpCode(201)
   @ApiOperation({
-    summary: 'Attach immutable official catalogue reference snapshot to checklist',
+    summary:
+      'Attach immutable official catalogue reference snapshot to checklist',
   })
   @ApiOkResponse({ type: InspectionFindingReferenceResponseDto })
   createFindingReference(@Body() dto: CreateInspectionFindingReferenceDto) {

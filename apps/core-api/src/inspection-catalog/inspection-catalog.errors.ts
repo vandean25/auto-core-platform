@@ -30,7 +30,9 @@ export function reviewRequired() {
 }
 
 export function catalogueImportNotFound(importId: string) {
-  return new NotFoundException(`Inspection catalogue import ${importId} not found`);
+  return new NotFoundException(
+    `Inspection catalogue import ${importId} not found`,
+  );
 }
 
 export function catalogueImportForbidden() {

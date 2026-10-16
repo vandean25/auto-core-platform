@@ -1,9 +1,7 @@
 export const INSPECTION_CATALOG_SCHEMA_VERSION = 'acp-inspection-catalog/1';
 
 export type InspectionCatalogueSourceKind =
-  | 'STATUTORY_REFERENCE'
-  | 'APPROVED_CATALOGUE'
-  | 'TEST_ONLY';
+  'STATUTORY_REFERENCE' | 'APPROVED_CATALOGUE' | 'TEST_ONLY';
 
 export type InspectionCatalogueCoverage = 'SUBSET' | 'COMPLETE';
 

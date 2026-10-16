@@ -45,10 +45,14 @@ export function validateManifest(manifest: CatalogueManifest): void {
     });
   }
   if (!manifest.source_version?.trim()) {
-    throw new UnprocessableEntityException({ code: 'INVALID_CATALOG_MANIFEST' });
+    throw new UnprocessableEntityException({
+      code: 'INVALID_CATALOG_MANIFEST',
+    });
   }
   if (!manifest.valid_from) {
-    throw new UnprocessableEntityException({ code: 'INVALID_CATALOG_MANIFEST' });
+    throw new UnprocessableEntityException({
+      code: 'INVALID_CATALOG_MANIFEST',
+    });
   }
 }
 
@@ -123,10 +127,7 @@ export function resolveCatalogueReference(params: {
     return 'UNKNOWN_CODE';
   }
 
-  if (
-    position.vehicle_scope === 'REQUIRES_SOURCE_REVIEW' &&
-    !vehicleClass
-  ) {
+  if (position.vehicle_scope === 'REQUIRES_SOURCE_REVIEW' && !vehicleClass) {
     return 'OUT_OF_SCOPE';
   }
 

@@ -11,6 +11,7 @@ import {
   createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
+  seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { STATUTORY_MANIFEST_REFERENCE } from '../src/inspection-catalog/inspection-catalog-synthetic-fixtures.js';
@@ -76,6 +77,19 @@ describe('Inspection catalogue (e2e)', () => {
           type: 'PRIVATE',
           first_name: 'SYNTH',
           last_name: 'KUNDE',
+          email: `synth-catalog-${Date.now()}@example.com`,
+        },
+      });
+
+      const vehicle = await prisma.vehicle.create({
+        data: {
+          tenant_id: tenantId,
+          make: 'VW',
+          model: 'Golf',
+          year: 2020,
+          vin: `WVWZZZ1JZXW${String(Date.now()).slice(-6)}`,
+          customer_id: customer.id,
+          first_registration_date: new Date('2020-10-01T00:00:00.000Z'),
         },
       });
 
@@ -84,8 +98,11 @@ describe('Inspection catalogue (e2e)', () => {
           tenant_id: tenantId,
           site_id: siteId,
           customer_id: customer.id,
+          vehicle_id: vehicle.id,
           status: 'IN_PROGRESS',
-          order_number: 'WO-SYNTH-CAT-1',
+          order_number: `WO-SYNTH-CAT-${Date.now()}`,
+          odometer: 42_000,
+          fuel_level: 50,
         },
       });
       orderId = order.id;
@@ -96,7 +113,7 @@ describe('Inspection catalogue (e2e)', () => {
           workshop_order_id: orderId,
           title: '§57a Vorbereitung',
           status: 'IN_PROGRESS',
-          sub_status: 'IN_PROGRESS',
+          sequence: 1,
         },
       });
       taskId = task.id;
@@ -181,22 +198,44 @@ describe('Inspection catalogue (e2e)', () => {
   });
 
   it('returns 403 for mechanic on catalogue activation', async () => {
-    const mechanicTenant = await createTestTenant(
-      basePrisma,
-      'inspection-catalog-mechanic',
-    );
-    const mechanicToken = createTestAuthToken(
-      app.get(AuthService),
-      mechanicTenant,
-      { role: 'MECHANIC' },
-    );
+    const mechanicFirebaseUid = `mech-catalog-${Date.now()}`;
+    const mechanicEmail = `${mechanicFirebaseUid}@example.com`;
+    let mechanicUserId = '';
+    await runWithTenantContext(tenantId, async () => {
+      const mechanicUser = await prisma.user.create({
+        data: {
+          firebaseUid: mechanicFirebaseUid,
+          email: mechanicEmail,
+          active_tenant_id: tenantId,
+          active_site_id: siteId,
+        },
+      });
+      mechanicUserId = mechanicUser.id;
+      await seedTestTenantMember(basePrisma, {
+        tenantId,
+        userId: mechanicUserId,
+        role: 'MECHANIC',
+      });
+      await prisma.siteMembership.create({
+        data: {
+          tenant_id: tenantId,
+          user_id: mechanicUserId,
+          site_id: siteId,
+          is_active: true,
+        },
+      });
+    });
+    const mechanicToken = createTestAuthToken(app.get(AuthService), {
+      tenantId,
+      firebaseUid: mechanicFirebaseUid,
+      email: mechanicEmail,
+      role: 'MECHANIC',
+    });
 
     await request(app.getHttpServer())
       .post('/api/inspection-catalogues/preview')
       .set('Authorization', `Bearer ${mechanicToken}`)
       .send({ manifest_reference: STATUTORY_MANIFEST_REFERENCE })
       .expect(403);
-
-    await cleanupTestTenantGraph(basePrisma, mechanicTenant.tenantId);
   });
 });

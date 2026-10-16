@@ -92,7 +92,7 @@ export function useAttachCatalogueReference() {
       }
       return (await response.json()) as InspectionFindingReference
     },
-    onSuccess: async (_data, variables) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: inspectionCatalogueKeys.all,
       })
