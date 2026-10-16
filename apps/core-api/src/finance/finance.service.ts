@@ -14,7 +14,6 @@ import { SiteContextService } from '../site/site-context.service.js';
 import { localDateStartUtc } from '../workshop/workshop-kpi-reports.math.js';
 import {
   aggregateRevenueReport,
-  legacyAnalyticsByGroup,
   type RevenueCreditNoteRow,
   type RevenueInvoiceRow,
 } from './finance-revenue-report.aggregate.js';
@@ -39,6 +38,10 @@ export type GetRevenueReportParams = {
   to: string;
   site_id?: string;
   compare_previous?: boolean;
+  /** When true, finalized credit notes in the period are subtracted. Default true. */
+  subtract_credit_notes?: boolean;
+  /** Site-scoped (default) or tenant-wide across all sites. */
+  scope?: 'site' | 'tenant';
   enforce_report_role?: boolean;
 };
 
@@ -121,20 +124,20 @@ export class FinanceService {
   }
 
   async getRevenueAnalytics() {
-    const tenantId = await this.tenantContext.getTenantId();
-    const { start, periodLabel } = serverLocalMonthBounds();
-    const invoices = await this.loadRevenueInvoices({
-      tenantId,
-      siteId: undefined,
-      invoiceDate: { gte: start },
+    const { from, to, periodLabel } = serverLocalMonthBounds();
+    const report = await this.getRevenueReport({
+      from,
+      to,
+      scope: 'tenant',
+      subtract_credit_notes: false,
+      enforce_report_role: false,
     });
-    const revenueByGroup = legacyAnalyticsByGroup(invoices);
-    const data = [...revenueByGroup.entries()].map(([name, value]) => ({
-      name,
-      value: Number(value),
-      color: this.getGroupColor(name),
+    const data = report.by_revenue_group.map((slice) => ({
+      name: slice.name,
+      value: Number(slice.net),
+      color: this.getGroupColor(slice.name),
     }));
-    const total = data.reduce((sum, slice) => sum + slice.value, 0);
+    const total = Number(report.totals.net);
     return {
       data,
       total,
@@ -150,11 +153,13 @@ export class FinanceService {
     }
     this.validateReportPeriod(params.from, params.to);
     const tenantId = await this.tenantContext.getTenantId();
-    const { siteId, timezone } = await this.resolveReportSite(
+    const scope = params.scope ?? 'site';
+    const subtractCreditNotes = params.subtract_credit_notes ?? true;
+    const { siteId, timezone, range } = await this.resolveReportScope(
       tenantId,
-      params.site_id,
+      params,
+      scope,
     );
-    const range = this.siteLocalInvoiceRange(params.from, params.to, timezone);
     const core = await this.buildRevenueReportCore({
       tenantId,
       siteId,
@@ -162,26 +167,72 @@ export class FinanceService {
       from: params.from,
       to: params.to,
       range,
+      subtractCreditNotes,
     });
     if (!params.compare_previous) {
       return core;
     }
     const previous = previousPeriodOfSameLength(params.from, params.to);
-    const previousRange = this.siteLocalInvoiceRange(
-      previous.from,
-      previous.to,
-      timezone,
+    const previousScope = await this.resolveReportScope(
+      tenantId,
+      { ...params, from: previous.from, to: previous.to },
+      scope,
     );
     return {
       ...core,
       previous: await this.buildRevenueReportCore({
         tenantId,
-        siteId,
-        timezone,
+        siteId: previousScope.siteId,
+        timezone: previousScope.timezone,
         from: previous.from,
         to: previous.to,
-        range: previousRange,
+        range: previousScope.range,
+        subtractCreditNotes,
       }),
+    };
+  }
+
+  private async resolveReportScope(
+    tenantId: string,
+    params: GetRevenueReportParams,
+    scope: 'site' | 'tenant',
+  ): Promise<{
+    siteId: string | null;
+    timezone: string;
+    range: {
+      start: Date;
+      end: Date;
+      creditFrom: Date;
+      creditTo: Date;
+    };
+  }> {
+    if (scope === 'tenant') {
+      const start = new Date(
+        Number(params.from.slice(0, 4)),
+        Number(params.from.slice(5, 7)) - 1,
+        Number(params.from.slice(8, 10)),
+      );
+      const end = new Date(
+        Number(params.to.slice(0, 4)),
+        Number(params.to.slice(5, 7)) - 1,
+        Number(params.to.slice(8, 10)) + 1,
+      );
+      const creditFrom = new Date(`${params.from}T00:00:00.000Z`);
+      const creditTo = new Date(`${params.to}T00:00:00.000Z`);
+      return {
+        siteId: null,
+        timezone: 'UTC',
+        range: { start, end, creditFrom, creditTo },
+      };
+    }
+    const { siteId, timezone } = await this.resolveReportSite(
+      tenantId,
+      params.site_id,
+    );
+    return {
+      siteId,
+      timezone,
+      range: this.siteLocalInvoiceRange(params.from, params.to, timezone),
     };
   }
 
@@ -247,10 +298,11 @@ export class FinanceService {
 
   private async buildRevenueReportCore(input: {
     tenantId: string;
-    siteId: string;
+    siteId: string | null;
     timezone: string;
     from: string;
     to: string;
+    subtractCreditNotes: boolean;
     range: {
       start: Date;
       end: Date;
@@ -261,17 +313,19 @@ export class FinanceService {
     const [invoices, creditNotes] = await Promise.all([
       this.loadRevenueInvoices({
         tenantId: input.tenantId,
-        siteId: input.siteId,
+        siteId: input.siteId ?? undefined,
         invoiceDate: { gte: input.range.start, lt: input.range.end },
       }),
-      this.loadRevenueCreditNotes({
-        tenantId: input.tenantId,
-        siteId: input.siteId,
-        creditDate: {
-          gte: input.range.creditFrom,
-          lte: input.range.creditTo,
-        },
-      }),
+      input.subtractCreditNotes && input.siteId
+        ? this.loadRevenueCreditNotes({
+            tenantId: input.tenantId,
+            siteId: input.siteId,
+            creditDate: {
+              gte: input.range.creditFrom,
+              lte: input.range.creditTo,
+            },
+          })
+        : Promise.resolve([]),
     ]);
     return aggregateRevenueReport({
       period: { from: input.from, to: input.to, timezone: input.timezone },
