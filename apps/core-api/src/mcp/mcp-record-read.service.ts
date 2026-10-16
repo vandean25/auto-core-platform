@@ -35,9 +35,9 @@ export class McpRecordReadService {
     this.workshopTaskService = workshopTaskService;
   }
 
-  async listBays(input: { page?: number; page_size?: number }) {
+  async listBays(input: { page?: number; pageSize?: number }) {
     const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
+    const pageSize = clampMcpPageSize(input.pageSize);
     const { bays } = await this.workshopBoardService.getBoardResources();
     const offset = (page - 1) * pageSize;
     return {
@@ -46,9 +46,9 @@ export class McpRecordReadService {
     };
   }
 
-  async listBins(input: { page?: number; page_size?: number }) {
+  async listBins(input: { page?: number; pageSize?: number }) {
     const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
+    const pageSize = clampMcpPageSize(input.pageSize);
     const bins = await this.locationService.getBins();
     const offset = (page - 1) * pageSize;
     return {
@@ -63,20 +63,20 @@ export class McpRecordReadService {
     };
   }
 
-  async listWorkshopTasks(input: { page?: number; page_size?: number }) {
+  async listWorkshopTasks(input: { page?: number; pageSize?: number }) {
     return this.workshopTaskService.listForMcp({
       page: clampMcpPage(input.page),
-      pageSize: clampMcpPageSize(input.page_size),
+      pageSize: clampMcpPageSize(input.pageSize),
     });
   }
 
   async searchCustomers(input: {
     search?: string;
     page?: number;
-    page_size?: number;
+    pageSize?: number;
   }) {
     const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
+    const pageSize = clampMcpPageSize(input.pageSize);
     const skip = (page - 1) * pageSize;
 
     const { data, total } = await this.customerService.findAll({
@@ -104,10 +104,10 @@ export class McpRecordReadService {
   async searchVehicles(input: {
     search?: string;
     page?: number;
-    page_size?: number;
+    pageSize?: number;
   }) {
     const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
+    const pageSize = clampMcpPageSize(input.pageSize);
     return this.vehicleService.findAll({
       search: input.search,
       page,
@@ -123,10 +123,10 @@ export class McpRecordReadService {
     search?: string;
     customer_id?: string;
     page?: number;
-    page_size?: number;
+    pageSize?: number;
   }) {
     const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.page_size);
+    const pageSize = clampMcpPageSize(input.pageSize);
     return this.workshopIntakeService.findAll({
       search: input.search,
       customerId: input.customer_id,

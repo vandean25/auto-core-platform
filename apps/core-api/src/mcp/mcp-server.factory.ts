@@ -13,7 +13,11 @@ import * as schemas from './mcp-tool-schemas.js';
 
 type McpRegisterToolInputSchema = z.ZodTypeAny | Record<string, z.ZodTypeAny>;
 
-const TOOL_INPUT_SCHEMAS: Record<McpToolName, McpRegisterToolInputSchema> = {
+/** Registered MCP tool input shapes (for tools/list and contract tests). */
+export const MCP_REGISTERED_TOOL_INPUT_SCHEMAS: Record<
+  McpToolName,
+  McpRegisterToolInputSchema
+> = {
   search_customers: schemas.searchCustomersInputSchema.shape,
   get_customer: schemas.getCustomerInputSchema.shape,
   get_vehicle: schemas.getVehicleInputSchema.shape,
@@ -86,7 +90,7 @@ export function createMcpServer(
       toolName,
       {
         description: MCP_TOOL_DESCRIPTIONS[toolName],
-        inputSchema: TOOL_INPUT_SCHEMAS[toolName],
+        inputSchema: MCP_REGISTERED_TOOL_INPUT_SCHEMAS[toolName],
         outputSchema: mcpToolOutputSchemas[toolName],
       },
       async (args) => {

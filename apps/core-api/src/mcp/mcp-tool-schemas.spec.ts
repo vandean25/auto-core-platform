@@ -45,7 +45,7 @@ const validDraft = {
 
 /** Every row must be rejected by its schema; the table keeps each rejected input next to its schema. */
 const REJECTED_INPUTS: Array<[string, { parse: (input: unknown) => unknown }, unknown]> = [
-  ['search_customers page size above 25', searchCustomersInputSchema, { page_size: 26 }],
+  ['search_customers page size above 25', searchCustomersInputSchema, { pageSize: 26 }],
   ['get_stock_level without an ID or SKU', getStockLevelInputSchema, {}],
   ['stock age page size above 25', getVehicleStockAgeReportInputSchema, { pageSize: 26 }],
   ['stock age stock-in window with only from', getVehicleStockAgeReportInputSchema, { from: '2026-07-01' }],
@@ -90,8 +90,12 @@ describe('MCP tool input schemas', () => {
   });
 
   it('validates search_customers paging bounds', () => {
-    const largestPage = { page: 1, page_size: 25 };
+    const largestPage = { page: 1, pageSize: 25 };
     expect(searchCustomersInputSchema.parse(largestPage)).toEqual(largestPage);
+  });
+
+  it('drops the retired page_size name on offset list tools', () => {
+    expect(searchCustomersInputSchema.parse({ page_size: 25 })).toEqual({});
   });
 
   it('validates get_customer uuid', () => {

@@ -2891,27 +2891,66 @@ describe('MCP server (e2e)', () => {
       });
     }
 
-    it('advertises one page contract for the paged report reads', async () => {
+    const MCP_PAGING_TOOL_NAMES = [
+      'search_customers',
+      'search_vehicles',
+      'list_workshop_orders',
+      'search_parts',
+      'list_bays',
+      'list_bins',
+      'list_workshop_tasks',
+      'get_capabilities',
+      'list_sites',
+      'list_audit_events',
+      'get_entity_history',
+      'get_agent_action',
+      'list_agent_actions',
+      'list_invoices',
+      'list_documents',
+      'list_purchase_orders',
+      'list_vendors',
+      'list_catalog_items',
+      'list_price_lists',
+      'list_margin_rules',
+      'get_vehicle_stock_age_report',
+      'get_vehicle_stock_margin_report',
+      'list_pickerl_due',
+      'list_workshop_slots',
+      'list_available_loaners',
+      'get_vehicle_context',
+    ] as const;
+
+    it('advertises pageSize and not page_size on every paging MCP tool (tools/list)', async () => {
       const { client, transport } = await connectMcpClient(
         adminHeaderA,
-        'e2e-report-schemas',
+        'e2e-pagesize-schemas',
       );
       const tools = new Map(
         (await client.listTools()).tools.map((tool) => [tool.name, tool]),
       );
       await endMcpSession(transport);
 
-      for (const name of [
-        'get_vehicle_stock_age_report',
-        'get_vehicle_stock_margin_report',
-        'list_pickerl_due',
-      ]) {
+      for (const name of MCP_PAGING_TOOL_NAMES) {
         const properties = tools.get(name)?.inputSchema.properties ?? {};
         expect(properties).toHaveProperty('pageSize');
-        expect(properties).toHaveProperty('cursor');
         expect(properties).not.toHaveProperty('page_size');
         expect(properties.pageSize).toMatchObject({ maximum: 25 });
       }
+    });
+
+    it('pages search_customers when called with pageSize', async () => {
+      const result = await callMcpTool(
+        caller(adminHeaderA, 'e2e-search-customers-pagesize'),
+        'search_customers',
+        { search: fixtures.searchToken, pageSize: 1 },
+      );
+      expect(result.isError).not.toBe(true);
+      const payload = parsePayload<{
+        data: unknown[];
+        meta: { page_size: number };
+      }>(result);
+      expect(payload.data.length).toBeLessThanOrEqual(1);
+      expect(payload.meta.page_size).toBe(1);
     });
 
     it('returns the workshop KPI totals for the active site and period', async () => {
