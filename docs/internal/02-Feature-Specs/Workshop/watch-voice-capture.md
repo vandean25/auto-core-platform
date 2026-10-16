@@ -90,8 +90,9 @@ One active grant per mechanic and tenant. When a new code is redeemed, the previ
 3. The browser shows the code once. A second GET does not return it.
 4. The watch sends `challengeId`, `code`, and `deviceLabel` to `POST /api/mechanic/watch/pair` with no bearer token.
 5. The response token is `wvp_<pairingId>_<64 hex chars>`. `pairingId` is the row id. The secret is 32 random bytes. The response is the only time the secret exists in clear text.
-6. Hash: scrypt of `<pairingId>:<secret>`, salt = `WATCH_GRANT_PEPPER`, N = 4096, r = 8, p = 1, keylen = 32, hex. Same cost as [ADR-0026](../../01-ADR/2026-10-09-public-api-keys.md) and a **different** pepper. If the pepper is unset, minting a code returns **503**. Verification failure is **401** `PAIRING_INVALID` for a bad code, a locked challenge, or a bad secret.
-7. Grant TTL is 12 hours from redemption. There is no refresh token and no sliding expiry.
+6. The pairing code hash is scrypt of `<challengeId>:<code>`, salt = `WATCH_GRANT_PEPPER`, N = 4096, r = 8, p = 1, keylen = 32, hex. The grant secret uses the same parameters on `<pairingId>:<secret>`. The pepper is not `API_KEY_PEPPER` ([ADR-0026](../../01-ADR/2026-10-09-public-api-keys.md)). If the pepper is unset, minting a code returns **503**. A bad code, a locked challenge, or a bad secret is **401** `PAIRING_INVALID`.
+7. Redeem and the five-attempt lock are conditional updates, so two parallel requests cannot both mint a grant or both pass the fifth failure. A matching code runs `updateMany` where `consumed_at` is null, `failed_attempts < 5`, and `expires_at` is still in the future, and sets `consumed_at`. Count 1 inserts the grant. Count 0 inserts nothing and returns **401**. A wrong code runs `updateMany` with the same predicate and increments `failed_attempts`. If that row is then at 5, a second `updateMany` sets `consumed_at` where it is still null and `failed_attempts >= 5`.
+8. Grant TTL is 12 hours from redemption. There is no refresh token and no sliding expiry.
 
 The watch writes the token with an AES/GCM key that lives only in the Android Keystore (`AndroidKeyStore`) ([Keystore](https://developer.android.com/privacy-and-security/keystore)). App-private files only. The watch never asks for an email or a password. After the exchange, the pairing code is wiped from watch memory.
 
@@ -104,9 +105,10 @@ The watch writes the token with an AES/GCM key that lives only in the Android Ke
 | Event | Result |
 | --- | --- |
 | Tap Record while a permit is cached and unexpired | `MediaRecorder.start()` |
-| Tap Stop while still resumed | File is closed and queued |
-| 90 second cap while still resumed | Recorder stops and the file is queued |
-| `onPause`, including screen off | If the recorder is running, stop it, delete the partial file, do not queue it |
+| Tap Stop while still resumed | File is closed, `clientRecordId` is assigned, and the file is queued |
+| 90 second cap while still resumed | Same as Stop: the closed file keeps its `clientRecordId` |
+| `onPause` while the recorder is still running | Stop it, delete the partial file, and do not assign `clientRecordId` |
+| `onPause` after Stop or the 90 second cap has closed the file | Leave that `clientRecordId` queued. Do not delete it |
 | No cached permit, or permit `expiresAt` has passed | Record stays disabled. The watch does not invent a task |
 
 WorkManager may upload a **closed** file when a network is present ([WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)). Unique work name = `clientRecordId`, existing-work policy `KEEP`. WorkManager does not start the microphone.
@@ -119,11 +121,13 @@ The permit stores:
 
 - `workshop_task_id`
 - `workshop_order_id`
-- `assignment_fingerprint` = `<orderId>:<task.mechanic_id or empty>:<order.mechanic_id or empty>`
+- `assignment_fingerprint` = `<task.mechanic_id or empty>:<order.mechanic_id or empty>`
 - `expires_at` = 8 hours from issue, and not later than the grant expiry
 - `max_uploads` = 3
 
-Assignment matches the rules in `assertTaskAssignedToMechanic`: the task mechanic is this employee, or the task mechanic is null and the order mechanic is this employee. Task status must be `NOT_STARTED`, `IN_PROGRESS`, or `WAITING_PARTS`. `DONE` is refused at permit time with **403**.
+`workshop_order_id` is stored on its own column. It is not part of the fingerprint, so an order move and a mechanic change return different codes.
+
+Assignment matches `assertTaskAssignedToMechanic`: the task mechanic is this employee, or the task mechanic is null and the order mechanic is this employee. Permit issue allows `NOT_STARTED`, `IN_PROGRESS`, `WAITING_PARTS`, `WAITING_CUSTOMER`, and `PAUSED`. Those are the same task. `DONE` is the only status refused at permit time, with **403**.
 
 The local manifest, one file per recording, is:
 
@@ -141,22 +145,28 @@ The local manifest, one file per recording, is:
 
 `clientRecordId` is a UUID created on the watch when the file is closed. `state` is `queued`, `uploading`, `accepted`, or `rejected`. The watch does not edit `taskId` after the file is closed.
 
-Upload sends `permitId`, `clientRecordId`, and the audio. The server loads the permit. It ignores any task id in the body except to compare it: if the body contains `taskId` and it differs from `permit.workshop_task_id`, the result is **409** `RECORD_TASK_MISMATCH` and no draft. The attach target is always `permit.workshop_task_id` after the checks below. There is no retarget API.
+Upload sends `permitId`, `clientRecordId`, and the audio. The attach target is always `permit.workshop_task_id`. There is no retarget API. The first matching check below wins. Later rows are not evaluated.
 
-| Check at upload | Failure code | HTTP | Draft |
-| --- | --- | --- | --- |
-| Grant missing, bad secret | `PAIRING_INVALID` | 401 | no |
-| `expires_at` passed | `PAIRING_EXPIRED` | 401 | no |
-| `revoked_at` set, or lost-device revoke | `PAIRING_REVOKED` | 401 | no |
-| `User.active_tenant_id` ≠ grant tenant | `TENANT_MISMATCH` | 401 | no |
-| Employee inactive, or membership no longer `TECH` | `ROLE_REVOKED` | 401 | no |
-| Site membership for the grant site inactive | `SITE_INACTIVE` | 401 | no |
-| Permit expired | `PERMIT_EXPIRED` | 409 | no |
-| `upload_count` already 3 | `PERMIT_EXHAUSTED` | 409 | no |
-| Task status `DONE` | `TASK_CLOSED` | 409 | no |
-| Fingerprint differs | `ASSIGNMENT_CHANGED` | 409 | no |
-| Task `workshop_order_id` ≠ permit order | `ORDER_CHANGED` | 409 | no |
-| Body `taskId` ≠ permit task | `RECORD_TASK_MISMATCH` | 409 | no |
+Grant checks run before the upload row is read. A 401 does not return a stored draft.
+
+| Order | Check at upload | Failure code | HTTP | Draft |
+| --- | --- | --- | --- | --- |
+| 1 | Grant missing, bad secret | `PAIRING_INVALID` | 401 | no |
+| 2 | Grant `expires_at` passed | `PAIRING_EXPIRED` | 401 | no |
+| 3 | `revoked_at` set, or lost-device revoke | `PAIRING_REVOKED` | 401 | no |
+| 4 | `User.active_tenant_id` ≠ grant tenant | `TENANT_MISMATCH` | 401 | no |
+| 5 | Employee inactive, membership no longer `TECH`, or `employee.role` no longer `MECHANIC` | `ROLE_REVOKED` | 401 | no |
+| 6 | Site membership for the grant site inactive | `SITE_INACTIVE` | 401 | no |
+| 7 | `WatchVoiceUpload` exists for `(tenant_id, client_record_id)` and the SHA-256 matches | Stored result | 200 or stored 409 | The original draft only |
+| 8 | That row exists and the SHA-256 differs | `RECORD_CONFLICT` | 409 | no second draft |
+| 9 | Permit expired | `PERMIT_EXPIRED` | 409 | no |
+| 10 | `upload_count` already 3 | `PERMIT_EXHAUSTED` | 409 | no |
+| 11 | Task status `DONE` | `TASK_CLOSED` | 409 | no |
+| 12 | Task `workshop_order_id` ≠ permit order | `ORDER_CHANGED` | 409 | no |
+| 13 | Fingerprint differs | `ASSIGNMENT_CHANGED` | 409 | no |
+| 14 | Body contains `taskId` and it differs from the permit task | `RECORD_TASK_MISMATCH` | 409 | no |
+
+Rows 7 and 8 do not increment `upload_count` and do not call Speech-to-Text. Rows 9 through 14 run only when no upload row exists yet. `PAUSED` and `WAITING_CUSTOMER` are not failures. An offline upload still attaches to that same task when the order id and the fingerprint are unchanged. Only `DONE` is `TASK_CLOSED`.
 
 `TENANT_MISMATCH`, `ROLE_REVOKED`, and `SITE_INACTIVE` also set `revoked_at` on that request, so switching the browser back does not revive the grant. The mechanic pairs again. Tenant switch already clears `active_site_id` ([ADR-0022](../../01-ADR/2026-08-31-site-operational-scope.md)); the watch does not learn the new tenant from a header.
 
@@ -166,15 +176,15 @@ A 401 or a 409 from this table moves the local manifest to `rejected` and delete
 
 ### Duplicate delivery
 
-`WatchVoiceUpload` is unique on `(tenant_id, client_record_id)`.
+`WatchVoiceUpload` is unique on `(tenant_id, client_record_id)`. After the grant checks, that lookup is the next step. A stored `TASK_CLOSED` stays `TASK_CLOSED` on the third retry. It does not become `PERMIT_EXHAUSTED`.
 
 | Replay | Result |
 | --- | --- |
-| Same id, same SHA-256, first result was a draft | **200**, `replay: true`, same `draftId`. Speech-to-Text is not called again |
-| Same id, same SHA-256, first result was a binding 409 | **409** with the stored `failureCode`. No second provider call |
-| Same id, different SHA-256 or different permit task | **409** `RECORD_CONFLICT`. The first draft stays the only draft |
+| Same id, same SHA-256, first result was a draft | **200**, `replay: true`, same `draftId`, `uploadStatus: "ACCEPTED"`. The draft row is still `PENDING` until the browser Accept. Speech-to-Text is not called again |
+| Same id, same SHA-256, first result was a binding 409 | **409** with the stored `failureCode`. No second provider call and no `upload_count` change |
+| Same id, different SHA-256 | **409** `RECORD_CONFLICT`. No second row and no `upload_count` change |
 
-**502**, **503**, and **429** do not insert the unique row. The watch keeps the file and retries the same id. **422** inserts a `REJECTED` row with the audio failure code so a bad file is not retried into a provider call, and the watch deletes the file.
+**502**, **503**, and **429** do not insert the unique row. The watch keeps the file and retries the same `clientRecordId`. **413** and **422** insert a `REJECTED` row with the audio failure code, the watch deletes the file, and it does not retry that file. A provider **502** is the no-row path, not the **422** path.
 
 The browser route `POST /api/mechanic/tasks/:taskId/voice-notes` is unchanged. It does not accept a watch grant.
 
@@ -301,7 +311,7 @@ New entities. The implementation PR adds these rows to `docs/deletion-policy.md`
 
 Pairing is not a workshop status. Active means `revoked_at` is null and `expires_at` is in the future. Revoke and expiry are terminal for that grant.
 
-Permit validity is `expires_at` in the future, `upload_count < max_uploads`, fingerprint unchanged, order id unchanged, task not `DONE`.
+Permit validity, for a request that has no upload row yet, is `expires_at` in the future, `upload_count < max_uploads`, order id unchanged, fingerprint unchanged, and task status not `DONE`. `PAUSED` and `WAITING_CUSTOMER` stay valid. The upload-row lookup in the capture contract overrides this when the `clientRecordId` was already stored.
 
 ### Real-time sync
 
@@ -334,7 +344,7 @@ Watch routes accept only `Authorization: Bearer wvp_...`. Firebase session route
 | `DELETE` | `/api/mechanic/watch/pair` | — | **204** revokes the presented grant, reason `MANUAL` | Watch grant |
 | `GET` | `/api/mechanic/watch/tasks` | — | **200** `{ data: [{ taskId, sequence, taskTitle, taskStatus, bayName }] }` | Watch grant |
 | `POST` | `/api/mechanic/watch/capture-permits` | `{ taskId }` | **201** `{ permitId, taskId, sequence, taskTitle, taskStatus, bayName, expiresAt, maxUploads }` | Watch grant |
-| `POST` | `/api/mechanic/watch/voice-notes` | multipart `audio`, `permitId`, `clientRecordId`. Header `Idempotency-Key` | **201** `{ clientRecordId, draftId, status: "ACCEPTED" }` or **200** `{ replay: true, clientRecordId, draftId, status: "ACCEPTED" }` | Watch grant |
+| `POST` | `/api/mechanic/watch/voice-notes` | multipart `audio`, `permitId`, `clientRecordId`. Header `Idempotency-Key` | **201** `{ clientRecordId, draftId, uploadStatus: "ACCEPTED" }` or **200** `{ replay: true, clientRecordId, draftId, uploadStatus: "ACCEPTED" }`. `uploadStatus` is the upload row. The draft stays `PENDING` | Watch grant |
 | `GET` | `/api/mechanic/tasks/:taskId/voice-note-drafts/pending` | — | **200** `VoiceNoteDraftResponseDto` or **204** | Firebase `TECH` mechanic, task assigned |
 
 Error bodies use `{ statusCode, failureCode, message, clientRecordId? }`. `message` is a fixed sentence. It does not include a customer, a price, or a suggested replacement task id.
@@ -416,13 +426,14 @@ Existing tests that stay green without being weakened:
 
 New file `apps/core-api/test/watch-voice-capture.e2e-spec.ts`, one case per probe id:
 
-- [ ] `pair-ok` stores no password and returns a `wvp_` token once.
-- [ ] `pairing-expired`, `lost-device-revoke`, and `tenant-switch` return 401 and create no draft.
-- [ ] `assignment-revoked-while-offline`, `task-closed-while-offline`, and `order-changed-while-offline` return 409 and leave `WorkshopVoiceNoteDraft` count unchanged. A second POST with the same `clientRecordId` does not call the speech mock again.
-- [ ] `duplicate-delivery` returns 200 with the same `draftId` and `replay: true`.
-- [ ] `record-conflict` keeps a single draft.
+- [ ] `pair-ok` stores no password and returns a `wvp_` token once, with `expiresAt` 12 hours after redemption.
+- [ ] `pairing-expired`, `lost-device-revoke`, `tenant-switch`, and `role-left-mechanic` return 401 and create no draft. `role-left-mechanic` revokes the grant when `employee.role` is no longer `MECHANIC`.
+- [ ] `assignment-revoked-while-offline` changes only `task.mechanic_id` and sends no `taskId`. `order-changed-while-offline` changes only the order id. `task-closed-while-offline` is `DONE` only. Each returns its own 409 and leaves the draft count unchanged. A second POST with the same `clientRecordId` returns that stored code and does not call the speech mock again.
+- [ ] `paused-same-task-attaches` creates a `PENDING` draft on the same task when the status is `PAUSED`.
+- [ ] `provider-unavailable` leaves no upload row and keeps the local file for a retry of the same `clientRecordId`. `audio-bounds` 413 and 422 insert `REJECTED` and delete the file.
+- [ ] `duplicate-delivery` returns 200 with the same `draftId`, `uploadStatus` `ACCEPTED`, and draft status still `PENDING`.
+- [ ] `record-conflict` keeps a single draft and does not increment `upload_count`.
 - [ ] `watch-projection-hides-pilot-customer` asserts the forbidden keys and the absence of `pilot customer`.
-- [ ] `audio-bounds` covers size, MIME, and a 91 second Ogg.
 - [ ] `browser-accepts-existing-review` marks the draft `ACCEPTED` only through diagnostics.
 
 Also assert a `wvp_` token on `POST /api/mechanic/tasks/:taskId/voice-notes` is **401**, and a Firebase token on `POST /api/mechanic/watch/voice-notes` is **401**.
@@ -437,7 +448,7 @@ Also assert a `wvp_` token on `POST /api/mechanic/tasks/:taskId/voice-notes` is 
 
 On Pixel Watch 4 and Galaxy Watch Ultra (2025), with a debug or internal-track build:
 
-- Record starts only after the tap, and `onPause` deletes a partial take.
+- Record starts only after the tap. `onPause` deletes a take only when Stop has not yet closed the file.
 - Airplane mode queues one file. Restoring the network uploads that `clientRecordId` once.
 - After the browser revokes the grant, the next upload is 401 and the local file is gone.
 
@@ -455,11 +466,14 @@ The probe file is the contract for the e2e names above. Summary:
 | `tenant-switch` | 401 `TENANT_MISMATCH`, grant revoked `TENANT_SWITCH` |
 | `assignment-revoked-while-offline` | 409 `ASSIGNMENT_CHANGED`, `attachedTaskId` null |
 | `task-closed-while-offline` | 409 `TASK_CLOSED`, no draft on the closed task or any other |
-| `order-changed-while-offline` | 409 `ORDER_CHANGED` |
-| `duplicate-delivery` | 200 replay, one speech call |
-| `record-conflict` | 409, still one draft |
+| `order-changed-while-offline` | 409 `ORDER_CHANGED`. Fingerprint still matches |
+| `duplicate-delivery` | 200 replay, `uploadStatus` `ACCEPTED`, draft still `PENDING`, one speech call |
+| `record-conflict` | 409, still one draft, `upload_count` unchanged |
 | `watch-projection-hides-pilot-customer` | Five fields only. Body does not contain `pilot customer` |
-| `audio-bounds` | 422 / 413 as listed |
+| `audio-bounds` | 413 and 422 insert `REJECTED` and the watch deletes the file |
+| `provider-unavailable` | 502, no upload row, same `clientRecordId` retried |
+| `role-left-mechanic` | 401 `ROLE_REVOKED` |
+| `paused-same-task-attaches` | 201 on the same task. Draft stays `PENDING` |
 | `browser-accepts-existing-review` | Draft `ACCEPTED` from the existing diagnostics patch |
 
 ---

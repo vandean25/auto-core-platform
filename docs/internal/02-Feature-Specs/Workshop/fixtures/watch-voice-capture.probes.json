@@ -21,6 +21,8 @@
     "otherOrderId": "33333333-3333-4333-8333-333333333334",
     "permitId": "55555555-5555-4555-8555-555555555555",
     "clientRecordId": "66666666-6666-4666-8666-666666666666",
+    "providerRetryClientRecordId": "66666666-6666-4666-8666-666666666667",
+    "pausedClientRecordId": "66666666-6666-4666-8666-666666666668",
     "pairingId": "77777777-7777-4777-8777-777777777777",
     "draftId": "88888888-8888-4888-8888-888888888888",
     "challengeId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
@@ -28,7 +30,7 @@
   "probes": [
     {
       "id": "pair-ok",
-      "setup": "Browser session is TECH with an active mechanic employee and an active site. WATCH_GRANT_PEPPER is set.",
+      "setup": "Browser session is TECH with an active mechanic employee and an active site. WATCH_GRANT_PEPPER is set. Redeemed at 2026-10-16T02:00:00.000Z.",
       "request": {
         "method": "POST",
         "route": "/api/mechanic/watch/pair",
@@ -43,7 +45,7 @@
         "status": 201,
         "body": {
           "tokenPrefix": "wvp_77777777-7777-4777-8777-777777777777_",
-          "expiresInSeconds": 43200,
+          "expiresAt": "2026-10-16T14:00:00.000Z",
           "siteName": "Shop floor"
         },
         "storedOnWatch": ["grant token in Android Keystore ciphertext"],
@@ -67,7 +69,7 @@
     },
     {
       "id": "lost-device-revoke",
-      "setup": "Browser POST /api/mechanic/watch-pairings/revoke with pairingId and reason LOST_DEVICE.",
+      "setup": "Browser POST /api/mechanic/watch-pairings/77777777-7777-4777-8777-777777777777/revoke with body { reason: LOST_DEVICE }.",
       "request": {
         "method": "POST",
         "route": "/api/mechanic/watch/voice-notes",
@@ -101,14 +103,13 @@
     },
     {
       "id": "assignment-revoked-while-offline",
-      "setup": "Permit fingerprint was orderId + task.mechanic_id + order.mechanic_id. Before upload, task.mechanic_id is otherMechanicEmployeeId. Local audio file is unchanged.",
+      "setup": "Fingerprint is task.mechanic_id + order.mechanic_id and does not include the order id. Before upload, only task.mechanic_id changes to otherMechanicEmployeeId. Order id is unchanged. The body has no taskId.",
       "request": {
         "method": "POST",
         "route": "/api/mechanic/watch/voice-notes",
         "fields": {
           "permitId": "55555555-5555-4555-8555-555555555555",
-          "clientRecordId": "66666666-6666-4666-8666-666666666666",
-          "taskId": "22222222-2222-4222-8222-222222222223"
+          "clientRecordId": "66666666-6666-4666-8666-666666666666"
         }
       },
       "expect": {
@@ -139,7 +140,7 @@
     },
     {
       "id": "order-changed-while-offline",
-      "setup": "The task row's workshop_order_id is otherOrderId. The permit still names orderId.",
+      "setup": "The task row's workshop_order_id is otherOrderId. The permit still names orderId. Both mechanic ids are unchanged, so the fingerprint still matches. The body has no taskId. ORDER_CHANGED is checked before ASSIGNMENT_CHANGED.",
       "request": {
         "method": "POST",
         "route": "/api/mechanic/watch/voice-notes",
@@ -171,6 +172,8 @@
         "status": 200,
         "replay": true,
         "draftId": "88888888-8888-4888-8888-888888888888",
+        "uploadStatus": "ACCEPTED",
+        "draftStatus": "PENDING",
         "speechCalls": 1,
         "bodyOmits": ["text", "originalText", "customerName", "price"]
       }
@@ -230,11 +233,62 @@
     {
       "id": "audio-bounds",
       "cases": [
-        { "bytes": 99, "expect": 422, "failureCode": "AUDIO_TOO_SMALL" },
-        { "bytes": 1048577, "expect": 413, "failureCode": "AUDIO_TOO_LARGE" },
-        { "mimeType": "audio/mp4", "expect": 422, "failureCode": "AUDIO_MIME" },
-        { "durationSeconds": 91, "mimeType": "audio/ogg", "expect": 422, "failureCode": "AUDIO_TOO_LONG" }
+        { "bytes": 99, "expect": 422, "failureCode": "AUDIO_TOO_SMALL", "uploadRow": "REJECTED", "watchDeletesFile": true, "retry": false },
+        { "bytes": 1048577, "expect": 413, "failureCode": "AUDIO_TOO_LARGE", "uploadRow": "REJECTED", "watchDeletesFile": true, "retry": false },
+        { "mimeType": "audio/mp4", "expect": 422, "failureCode": "AUDIO_MIME", "uploadRow": "REJECTED", "watchDeletesFile": true, "retry": false },
+        { "durationSeconds": 91, "mimeType": "audio/ogg", "expect": 422, "failureCode": "AUDIO_TOO_LONG", "uploadRow": "REJECTED", "watchDeletesFile": true, "retry": false }
       ]
+    },
+    {
+      "id": "provider-unavailable",
+      "setup": "Speech-to-Text returns 502. No WatchVoiceUpload row is inserted.",
+      "request": {
+        "method": "POST",
+        "route": "/api/mechanic/watch/voice-notes",
+        "fields": {
+          "permitId": "55555555-5555-4555-8555-555555555555",
+          "clientRecordId": "66666666-6666-4666-8666-666666666667"
+        }
+      },
+      "expect": {
+        "status": 502,
+        "uploadRow": null,
+        "watchKeepsFile": true,
+        "retryUsesSameClientRecordId": true
+      }
+    },
+    {
+      "id": "role-left-mechanic",
+      "setup": "Employee is still active and the membership is still TECH. employee.role is no longer MECHANIC.",
+      "request": {
+        "method": "GET",
+        "route": "/api/mechanic/watch/tasks",
+        "auth": "Bearer active grant"
+      },
+      "expect": {
+        "status": 401,
+        "failureCode": "ROLE_REVOKED",
+        "grantRevokedReason": "ROLE_REVOKED",
+        "draftCreated": false
+      }
+    },
+    {
+      "id": "paused-same-task-attaches",
+      "setup": "Task status is PAUSED. Order id and both mechanic ids match the permit. Body has no taskId.",
+      "request": {
+        "method": "POST",
+        "route": "/api/mechanic/watch/voice-notes",
+        "fields": {
+          "permitId": "55555555-5555-4555-8555-555555555555",
+          "clientRecordId": "66666666-6666-4666-8666-666666666668"
+        }
+      },
+      "expect": {
+        "status": 201,
+        "uploadStatus": "ACCEPTED",
+        "draftStatus": "PENDING",
+        "attachedTaskId": "22222222-2222-4222-8222-222222222222"
+      }
     },
     {
       "id": "browser-accepts-existing-review",
