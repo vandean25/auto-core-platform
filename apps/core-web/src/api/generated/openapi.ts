@@ -84,6 +84,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inventory/locations/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LocationController_getTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/locations/bins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LocationController_getBins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/locations/{id}/children": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LocationController_getChildren"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["LocationController_findAll"];
+        put?: never;
+        post: operations["LocationController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/inventory/locations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["LocationController_remove"];
+        options?: never;
+        head?: never;
+        patch: operations["LocationController_update"];
+        trace?: never;
+    };
     "/api/inventory/availability/{sku}": {
         parameters: {
             query?: never;
@@ -178,86 +258,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/inventory/locations/tree": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LocationController_getTree"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inventory/locations/bins": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LocationController_getBins"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inventory/locations/{id}/children": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LocationController_getChildren"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inventory/locations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["LocationController_findAll"];
-        put?: never;
-        post: operations["LocationController_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/inventory/locations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["LocationController_remove"];
-        options?: never;
-        head?: never;
-        patch: operations["LocationController_update"];
         trace?: never;
     };
     "/api/audit-logs": {
@@ -4562,6 +4562,49 @@ export interface components {
             /** Format: uuid */
             tenantId: string;
         };
+        LocationParentResponseDto: {
+            id: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
+            parent_id?: string | null;
+        };
+        LocationCountsDto: {
+            children: number;
+            stocks: number;
+        };
+        LocationTreeNodeDto: {
+            id: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
+            parent_id?: string | null;
+            parent?: components["schemas"]["LocationParentResponseDto"];
+            _count?: components["schemas"]["LocationCountsDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            children: components["schemas"]["LocationTreeNodeDto"][];
+        };
+        LocationResponseDto: {
+            id: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
+            parent_id?: string | null;
+            parent?: components["schemas"]["LocationParentResponseDto"];
+            _count?: components["schemas"]["LocationCountsDto"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CreateLocationDto: Record<string, never>;
+        UpdateLocationDto: Record<string, never>;
         AvailabilityCheckResultDto: {
             sku: string;
             name: string;
@@ -4642,49 +4685,6 @@ export interface components {
             warehouse_location: string;
         };
         CreateInventoryItemDto: Record<string, never>;
-        LocationParentResponseDto: {
-            id: string;
-            name: string;
-            code: string;
-            /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
-            parent_id?: string | null;
-        };
-        LocationCountsDto: {
-            children: number;
-            stocks: number;
-        };
-        LocationTreeNodeDto: {
-            id: string;
-            name: string;
-            code: string;
-            /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
-            parent_id?: string | null;
-            parent?: components["schemas"]["LocationParentResponseDto"];
-            _count?: components["schemas"]["LocationCountsDto"];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            children: components["schemas"]["LocationTreeNodeDto"][];
-        };
-        LocationResponseDto: {
-            id: string;
-            name: string;
-            code: string;
-            /** @enum {string} */
-            type: "warehouse" | "aisle" | "shelf" | "bin" | "customer_storage" | "staging_tote" | "vehicle_lot" | "in_transit";
-            parent_id?: string | null;
-            parent?: components["schemas"]["LocationParentResponseDto"];
-            _count?: components["schemas"]["LocationCountsDto"];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        CreateLocationDto: Record<string, never>;
-        UpdateLocationDto: Record<string, never>;
         AuditLogResponseDto: {
             /** @description Audit log unique identifier */
             id: string;
@@ -10134,6 +10134,151 @@ export interface operations {
             };
         };
     };
+    LocationController_getTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationTreeNodeDto"][];
+                };
+            };
+        };
+    };
+    LocationController_getBins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"][];
+                };
+            };
+        };
+    };
+    LocationController_getChildren: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"][];
+                };
+            };
+        };
+    };
+    LocationController_findAll: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"][];
+                };
+            };
+        };
+    };
+    LocationController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLocationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"];
+                };
+            };
+        };
+    };
+    LocationController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    LocationController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLocationDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocationResponseDto"];
+                };
+            };
+        };
+    };
     InventoryController_checkAvailability: {
         parameters: {
             query?: never;
@@ -10317,151 +10462,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogItemResponseDto"];
-                };
-            };
-        };
-    };
-    LocationController_getTree: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LocationTreeNodeDto"][];
-                };
-            };
-        };
-    };
-    LocationController_getBins: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LocationResponseDto"][];
-                };
-            };
-        };
-    };
-    LocationController_getChildren: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LocationResponseDto"][];
-                };
-            };
-        };
-    };
-    LocationController_findAll: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LocationResponseDto"][];
-                };
-            };
-        };
-    };
-    LocationController_create: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateLocationDto"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LocationResponseDto"];
-                };
-            };
-        };
-    };
-    LocationController_remove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    LocationController_update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateLocationDto"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LocationResponseDto"];
                 };
             };
         };

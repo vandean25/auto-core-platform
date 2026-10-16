@@ -125,6 +125,201 @@
         ]
       }
     },
+    "/api/inventory/locations/tree": {
+      "get": {
+        "operationId": "LocationController_getTree",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationTreeNodeDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      }
+    },
+    "/api/inventory/locations/bins": {
+      "get": {
+        "operationId": "LocationController_getBins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      }
+    },
+    "/api/inventory/locations/{id}/children": {
+      "get": {
+        "operationId": "LocationController_getChildren",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      }
+    },
+    "/api/inventory/locations": {
+      "get": {
+        "operationId": "LocationController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LocationResponseDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      },
+      "post": {
+        "operationId": "LocationController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLocationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      }
+    },
+    "/api/inventory/locations/{id}": {
+      "patch": {
+        "operationId": "LocationController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLocationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocationResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      },
+      "delete": {
+        "operationId": "LocationController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Location"
+        ]
+      }
+    },
     "/api/inventory/availability/{sku}": {
       "get": {
         "operationId": "InventoryController_checkAvailability",
@@ -460,201 +655,6 @@
         },
         "tags": [
           "Inventory"
-        ]
-      }
-    },
-    "/api/inventory/locations/tree": {
-      "get": {
-        "operationId": "LocationController_getTree",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LocationTreeNodeDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Location"
-        ]
-      }
-    },
-    "/api/inventory/locations/bins": {
-      "get": {
-        "operationId": "LocationController_getBins",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LocationResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Location"
-        ]
-      }
-    },
-    "/api/inventory/locations/{id}/children": {
-      "get": {
-        "operationId": "LocationController_getChildren",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LocationResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Location"
-        ]
-      }
-    },
-    "/api/inventory/locations": {
-      "get": {
-        "operationId": "LocationController_findAll",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/LocationResponseDto"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Location"
-        ]
-      },
-      "post": {
-        "operationId": "LocationController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateLocationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Location"
-        ]
-      }
-    },
-    "/api/inventory/locations/{id}": {
-      "patch": {
-        "operationId": "LocationController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateLocationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocationResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Location"
-        ]
-      },
-      "delete": {
-        "operationId": "LocationController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Location"
         ]
       }
     },
@@ -14833,6 +14833,179 @@
           "tenantId"
         ]
       },
+      "LocationParentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "warehouse",
+              "aisle",
+              "shelf",
+              "bin",
+              "customer_storage",
+              "staging_tote",
+              "vehicle_lot",
+              "in_transit"
+            ]
+          },
+          "parent_id": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "type"
+        ]
+      },
+      "LocationCountsDto": {
+        "type": "object",
+        "properties": {
+          "children": {
+            "type": "number"
+          },
+          "stocks": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "children",
+          "stocks"
+        ]
+      },
+      "LocationTreeNodeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "warehouse",
+              "aisle",
+              "shelf",
+              "bin",
+              "customer_storage",
+              "staging_tote",
+              "vehicle_lot",
+              "in_transit"
+            ]
+          },
+          "parent_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "parent": {
+            "$ref": "#/components/schemas/LocationParentResponseDto"
+          },
+          "_count": {
+            "$ref": "#/components/schemas/LocationCountsDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationTreeNodeDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "type",
+          "createdAt",
+          "updatedAt",
+          "children"
+        ]
+      },
+      "LocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "warehouse",
+              "aisle",
+              "shelf",
+              "bin",
+              "customer_storage",
+              "staging_tote",
+              "vehicle_lot",
+              "in_transit"
+            ]
+          },
+          "parent_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "parent": {
+            "$ref": "#/components/schemas/LocationParentResponseDto"
+          },
+          "_count": {
+            "$ref": "#/components/schemas/LocationCountsDto"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "type",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateLocationDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateLocationDto": {
+        "type": "object",
+        "properties": {}
+      },
       "AvailabilityCheckResultDto": {
         "type": "object",
         "properties": {
@@ -15151,179 +15324,6 @@
         ]
       },
       "CreateInventoryItemDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "LocationParentResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "warehouse",
-              "aisle",
-              "shelf",
-              "bin",
-              "customer_storage",
-              "staging_tote",
-              "vehicle_lot",
-              "in_transit"
-            ]
-          },
-          "parent_id": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "code",
-          "type"
-        ]
-      },
-      "LocationCountsDto": {
-        "type": "object",
-        "properties": {
-          "children": {
-            "type": "number"
-          },
-          "stocks": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "children",
-          "stocks"
-        ]
-      },
-      "LocationTreeNodeDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "warehouse",
-              "aisle",
-              "shelf",
-              "bin",
-              "customer_storage",
-              "staging_tote",
-              "vehicle_lot",
-              "in_transit"
-            ]
-          },
-          "parent_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "parent": {
-            "$ref": "#/components/schemas/LocationParentResponseDto"
-          },
-          "_count": {
-            "$ref": "#/components/schemas/LocationCountsDto"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "children": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/LocationTreeNodeDto"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "code",
-          "type",
-          "createdAt",
-          "updatedAt",
-          "children"
-        ]
-      },
-      "LocationResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string",
-            "enum": [
-              "warehouse",
-              "aisle",
-              "shelf",
-              "bin",
-              "customer_storage",
-              "staging_tote",
-              "vehicle_lot",
-              "in_transit"
-            ]
-          },
-          "parent_id": {
-            "type": "string",
-            "nullable": true
-          },
-          "parent": {
-            "$ref": "#/components/schemas/LocationParentResponseDto"
-          },
-          "_count": {
-            "$ref": "#/components/schemas/LocationCountsDto"
-          },
-          "createdAt": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "updatedAt": {
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "code",
-          "type",
-          "createdAt",
-          "updatedAt"
-        ]
-      },
-      "CreateLocationDto": {
-        "type": "object",
-        "properties": {}
-      },
-      "UpdateLocationDto": {
         "type": "object",
         "properties": {}
       },

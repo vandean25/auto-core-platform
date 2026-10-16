@@ -21,6 +21,7 @@ describe('Inventory item mutations (e2e)', () => {
   let tenantId: string;
   let authTokenAdmin: string;
   let authTokenTech: string;
+  let userId: string;
   let catalogItemId: string;
   let binLocationId: string;
 
@@ -37,6 +38,11 @@ describe('Inventory item mutations (e2e)', () => {
     prisma = app.get(PrismaService);
     const testTenant = await createTestTenant(prisma, 'inventory-mutations');
     tenantId = testTenant.tenantId;
+    const user = await prisma.user.findFirstOrThrow({
+      where: { firebaseUid: testTenant.firebaseUid },
+      select: { id: true },
+    });
+    userId = user.id;
     authTokenAdmin = createTestAuthToken(app.get(AuthService), testTenant);
     authTokenTech = createTestAuthToken(app.get(AuthService), testTenant, {
       role: 'TECH',
@@ -115,6 +121,13 @@ describe('Inventory item mutations (e2e)', () => {
   });
 
   it('forbids TECH users from receiving stock', async () => {
+    await prisma.tenantMember.update({
+      where: {
+        tenant_id_user_id: { tenant_id: tenantId, user_id: userId },
+      },
+      data: { role: 'TECH' },
+    });
+
     await request(app.getHttpServer())
       .post(`/api/inventory/${catalogItemId}/receive`)
       .set('Authorization', `Bearer ${authTokenTech}`)
