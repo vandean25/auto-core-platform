@@ -27,6 +27,7 @@ import {
   getVehicleStockMarginReportInputSchema,
   getWorkshopKpiReportInputSchema,
   listPickerlDueInputSchema,
+  listWorkshopOrdersInputSchema,
   mcpWriteToolInputSchemas,
   searchCustomersInputSchema,
   whoamiInputSchema,
@@ -92,6 +93,25 @@ describe('MCP tool input schemas', () => {
   it('validates search_customers paging bounds', () => {
     const largestPage = { page: 1, pageSize: 25 };
     expect(searchCustomersInputSchema.parse(largestPage)).toEqual(largestPage);
+  });
+
+  it('validates list_workshop_orders estimate and date filters', () => {
+    expect(
+      listWorkshopOrdersInputSchema.parse({
+        status: ['IN_PROGRESS'],
+        estimate_status: 'SENT',
+        sent_from: '2026-10-16',
+        sent_to: '2026-10-16',
+      }),
+    ).toEqual({
+      status: ['IN_PROGRESS'],
+      estimate_status: 'SENT',
+      sent_from: '2026-10-16',
+      sent_to: '2026-10-16',
+    });
+    expect(() =>
+      listWorkshopOrdersInputSchema.parse({ sent_from: '2026-10-16' }),
+    ).toThrow();
   });
 
   it('drops the retired page_size name on offset list tools', () => {
@@ -311,6 +331,13 @@ describe('MCP tool output schemas (AUT-427)', () => {
 
   it('accepts a keyset page with its cursor and truncated flag', () => {
     expectValid(mcpToolOutputSchemas.list_invoices, emptyKeysetPage);
+  });
+
+  it('accepts list_workshop_orders offset meta with pageSize and pageCount', () => {
+    expectValid(mcpToolOutputSchemas.list_workshop_orders, {
+      data: [],
+      meta: { total: 0, page: 1, pageSize: 10, pageCount: 0 },
+    });
   });
 
   it('accepts the truncation marker from every tool, read and write', () => {

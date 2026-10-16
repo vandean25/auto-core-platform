@@ -32,6 +32,7 @@ import {
   normalizeMcpRangeEnd,
   normalizeMcpRangeStart,
 } from './mcp-output.util.js';
+import { MCP_ESTIMATE_STATUS_FILTERS } from './mcp-workshop-order-read.mapper.js';
 import {
   decodeMcpVehicleContextCursor,
   MCP_VEHICLE_CONTEXT_SECTIONS,
@@ -66,12 +67,99 @@ export const getVehicleInputSchema = z.object({
   vehicle_id: uuidSchema,
 });
 
-export const listWorkshopOrdersInputSchema = z.object({
+const workshopOrderStatusSchema = z.enum([
+  'SCHEDULED',
+  'INTAKE',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'INVOICED',
+]);
+
+const bothOrNoneRangeOptions = {
+  message: 'from and to must be given together',
+  path: ['from'],
+};
+
+function isBothOrNoneRange(value: { from?: string; to?: string }): boolean {
+  return (value.from === undefined) === (value.to === undefined);
+}
+
+function isOrderedSiteLocalRange(value: {
+  from?: string;
+  to?: string;
+}): boolean {
+  if (value.from === undefined || value.to === undefined) {
+    return true;
+  }
+  return value.from <= value.to;
+}
+
+export const listWorkshopOrdersBaseSchema = z.object({
   search: z.string().min(1).optional(),
   customer_id: uuidSchema.optional(),
+  status: z.array(workshopOrderStatusSchema).min(1).optional(),
+  estimate_status: z.enum(MCP_ESTIMATE_STATUS_FILTERS).optional(),
+  scheduled_from: z
+    .string()
+    .date()
+    .optional()
+    .describe(
+      'Scheduled start date, YYYY-MM-DD, inclusive, in the site timezone',
+    ),
+  scheduled_to: z
+    .string()
+    .date()
+    .optional()
+    .describe(
+      'Scheduled start date, YYYY-MM-DD, inclusive, in the site timezone',
+    ),
+  sent_from: z
+    .string()
+    .date()
+    .optional()
+    .describe(
+      'Estimate sent date on the current version, YYYY-MM-DD, inclusive, in the site timezone',
+    ),
+  sent_to: z
+    .string()
+    .date()
+    .optional()
+    .describe(
+      'Estimate sent date on the current version, YYYY-MM-DD, inclusive, in the site timezone',
+    ),
   page: pageSchema,
   pageSize: pageSizeCamelSchema,
 });
+
+export const listWorkshopOrdersInputSchema = listWorkshopOrdersBaseSchema
+  .refine(
+    (value) =>
+      isBothOrNoneRange({
+        from: value.scheduled_from,
+        to: value.scheduled_to,
+      }),
+    { ...bothOrNoneRangeOptions, path: ['scheduled_from'] },
+  )
+  .refine(
+    (value) => isBothOrNoneRange({ from: value.sent_from, to: value.sent_to }),
+    { ...bothOrNoneRangeOptions, path: ['sent_from'] },
+  )
+  .refine(
+    (value) =>
+      isOrderedSiteLocalRange({
+        from: value.scheduled_from,
+        to: value.scheduled_to,
+      }),
+    {
+      message: 'scheduled_from must not be after scheduled_to',
+      path: ['scheduled_from'],
+    },
+  )
+  .refine(
+    (value) =>
+      isOrderedSiteLocalRange({ from: value.sent_from, to: value.sent_to }),
+    { message: 'sent_from must not be after sent_to', path: ['sent_from'] },
+  );
 
 export const getWorkshopOrderInputSchema = z.object({
   workshop_order_id: uuidSchema,
@@ -495,15 +583,6 @@ const reportSiteIdSchema = uuidSchema
 const reportPageSizeSchema = pageSizeCamelSchema.describe(
   'Rows per page: default 10, max 25',
 );
-
-const bothOrNoneRangeOptions = {
-  message: 'from and to must be given together',
-  path: ['from'],
-};
-
-function isBothOrNoneRange(value: { from?: string; to?: string }): boolean {
-  return (value.from === undefined) === (value.to === undefined);
-}
 
 export const getVehicleStockAgeReportBaseSchema = z.object({
   from: z

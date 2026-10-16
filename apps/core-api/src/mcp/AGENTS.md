@@ -25,7 +25,7 @@ Read tools are tenant- or active-site-scoped by the server. Their tier is `AUTO`
 | `get_vehicle`          | Get a tenant vehicle                                         | Read   | AUTO                                                  |
 | `get_vehicle_history` | Get a tenant vehicle: Pickerl status, recent inspections, and compact orders (paged) and the first page of documents for the active site | Read | AUTO |
 | `get_vehicle_context` | Compact vehicle work context by section (identity, open workshop orders, inspections, documents, warranty claims, Gewährleistung periods) with per-section totals and cursors | Read | AUTO |
-| `list_workshop_orders` | List workshop orders for the active site                     | Read   | AUTO                                                  |
+| `list_workshop_orders` | List workshop orders for the active site by order status, current estimate status, scheduled date, or estimate sent date | Read   | AUTO                                                  |
 | `get_workshop_order`   | Get a workshop order for the active site                     | Read   | AUTO                                                  |
 | `search_parts`         | Search inventory, or workshop catalog when given an order ID | Read   | AUTO                                                  |
 | `get_stock_level`      | Read availability by catalog item ID or SKU                  | Read   | AUTO                                                  |
@@ -123,6 +123,12 @@ The serialized-result cap is 32 KB (32,768). An audit or agent action page drops
 - `customer` carries the ID and the customer's current name, formatted as the PDF formats it. A committed invoice's PDF keeps the name it was issued with, so after a customer is renamed this name can differ from that PDF. Customer contact data, internal notes, and PDF storage keys are never returned.
 - `seller` carries the seller identity as the PDF prints it, including the company's address, contact details, and bank details. These are the company's own details, not customer data.
 - Finalizing, cancelling, sending, and creating credit notes are `HUMAN_ONLY`. They are never tools. Ask a person to do them.
+
+### Workshop order list
+
+- `list_workshop_orders` lists workshop orders for the active site only. Optional `status` filters order status. Optional `estimate_status` (`SENT`, `APPROVED`, `DECLINED`, or `EXPIRED`) filters the newest non-superseded estimate version; a `SENT` version past `valid_until` counts as `EXPIRED`. Optional `scheduled_from` and `scheduled_to` bound `scheduled_start_at`; optional `sent_from` and `sent_to` bound the current version's `sent_at`. Bare dates are inclusive site-local days. Give each range together; `from` must not be after `to`.
+- Each row includes `estimate` (`number`, `version`, `status`, `sent_at`, `valid_until`, `total_gross`) or `null` when the order has no estimate. Amounts are EUR decimal strings.
+- `customer_id` still limits to live orders (`SCHEDULED`, `INTAKE`, `IN_PROGRESS`), as before. Paging uses `page` and `pageSize` (default 10, max 25).
 
 ### Customer and vehicle history
 

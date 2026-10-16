@@ -6,6 +6,9 @@ import { WorkshopBoardService } from '../workshop/workshop-board.service.js';
 import { WorkshopIntakeService } from '../workshop/workshop-intake.service.js';
 import { WorkshopTaskService } from '../workshop/workshop-task.service.js';
 import { clampMcpPage, clampMcpPageSize } from './mcp-output.util.js';
+import { McpWorkshopOrderReadService } from './mcp-workshop-order-read.service.js';
+import type { listWorkshopOrdersInputSchema } from './mcp-tool-schemas.js';
+import type { z } from 'zod';
 
 /** MCP reads of customers, vehicles, workshop orders, tasks, bays and bins. Tenant and site scope come from the delegated services. */
 @Injectable()
@@ -16,6 +19,7 @@ export class McpRecordReadService {
   private readonly locationService: LocationService;
   private readonly workshopBoardService: WorkshopBoardService;
   private readonly workshopTaskService: WorkshopTaskService;
+  private readonly workshopOrderReads: McpWorkshopOrderReadService;
 
   // Fields are assigned in the body rather than declared as parameter properties: cohesion analysis
   // otherwise counts the constructor as a separate component and flags the whole class as low-cohesion.
@@ -26,6 +30,7 @@ export class McpRecordReadService {
     locationService: LocationService,
     workshopBoardService: WorkshopBoardService,
     workshopTaskService: WorkshopTaskService,
+    workshopOrderReads: McpWorkshopOrderReadService,
   ) {
     this.customerService = customerService;
     this.vehicleService = vehicleService;
@@ -33,6 +38,7 @@ export class McpRecordReadService {
     this.locationService = locationService;
     this.workshopBoardService = workshopBoardService;
     this.workshopTaskService = workshopTaskService;
+    this.workshopOrderReads = workshopOrderReads;
   }
 
   async listBays(input: { page?: number; pageSize?: number }) {
@@ -119,20 +125,10 @@ export class McpRecordReadService {
     return this.vehicleService.findOne(input.vehicle_id);
   }
 
-  async listWorkshopOrders(input: {
-    search?: string;
-    customer_id?: string;
-    page?: number;
-    pageSize?: number;
-  }) {
-    const page = clampMcpPage(input.page);
-    const pageSize = clampMcpPageSize(input.pageSize);
-    return this.workshopIntakeService.findAll({
-      search: input.search,
-      customerId: input.customer_id,
-      page,
-      pageSize,
-    });
+  async listWorkshopOrders(
+    input: z.infer<typeof listWorkshopOrdersInputSchema>,
+  ) {
+    return this.workshopOrderReads.listWorkshopOrders(input);
   }
 
   async getWorkshopOrder(input: { workshop_order_id: string }) {

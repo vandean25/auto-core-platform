@@ -23,6 +23,7 @@ import { McpVehicleContextReadService } from './mcp-vehicle-context-read.service
 import { McpPurchasingReadService } from './mcp-purchasing-read.service.js';
 import { McpReadToolService } from './mcp-read-tool.service.js';
 import { McpRecordReadService } from './mcp-record-read.service.js';
+import { McpWorkshopOrderReadService } from './mcp-workshop-order-read.service.js';
 import { McpCatalogReadService } from './mcp-catalog-read.service.js';
 import { McpAvailabilityReadService } from './mcp-availability-read.service.js';
 import { McpReportReadService } from './mcp-report-read.service.js';
@@ -68,6 +69,7 @@ import { SiteModule } from '../site/site.module.js';
     McpPurchasingReadService,
     McpReadToolService,
     McpRecordReadService,
+    McpWorkshopOrderReadService,
     McpCatalogReadService,
     McpReportReadService,
     McpAvailabilityReadService,
