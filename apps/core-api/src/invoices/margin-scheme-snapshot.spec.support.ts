@@ -138,6 +138,7 @@ export function createMarginSchemeSnapshotV2(
         accountingAllocation,
       },
     ],
+    documentLocale: 'de',
     margin: {
       cost_basis: '12000.00',
       margin_tax: '500.00',

@@ -71,6 +71,20 @@ describe('buildInvoiceSnapshotV2', () => {
     updatedAt: new Date(),
   };
 
+  it('embeds frozen document locale metadata on new v2 snapshots', () => {
+    const snapshot = buildInvoiceSnapshotV2({
+      invoice: buildInvoice(),
+      seller: seller as never,
+      siteId: 'site-1',
+      legalEntityId: seller.id,
+      lineAllocations: [buildLineAllocation()],
+      documentLocale: 'en',
+    });
+    expect(snapshot.document_locale).toBe('en');
+    expect(snapshot.format_locale).toBe('de-AT');
+    expect(snapshot.translation_bundle_version).toBeTruthy();
+  });
+
   it('freezes seller, ownership and accounting allocation on v2 snapshot', () => {
     const snapshot = buildInvoiceSnapshotV2({
       invoice: {

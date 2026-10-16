@@ -14,6 +14,11 @@ datasource db {
 // Multi-tenant Foundation
 // ============================================================================
 
+enum DisplayLanguage {
+  de
+  en
+}
+
 enum TenantPlan {
   STANDARD
   PREMIUM
@@ -46,6 +51,10 @@ model Tenant {
   decision_apply_mode String? @db.VarChar(16)
   /// AUT-411 per-key request budget for the public API (requests per 1-minute window, each key).
   api_rate_limit_per_minute Int @default(60)
+  /// AUT-576 tenant default UI/document language when user/customer preference is unset.
+  default_locale            DisplayLanguage @default(de)
+  /// AUT-576 fixed Austrian formatting region (read-only in v1).
+  format_locale             String          @default("de-AT") @db.VarChar(8)
 
   revenueGroups                 RevenueGroup[]
   financeSettings               FinanceSettings?
@@ -256,6 +265,8 @@ model User {
   active_tenant_id                  String?
   activeTenant                      Tenant?                   @relation("UserActiveTenant", fields: [active_tenant_id], references: [id])
   active_site_id                    String?
+  /// AUT-576 self UI language; null follows the active tenant default.
+  locale                            DisplayLanguage?
   memberships                       TenantMember[]
   siteMemberships                   SiteMembership[]
   platformAdmin                     PlatformAdmin?
@@ -1502,6 +1513,8 @@ model Customer {
   // Advisor confirmation at intake that the email address is for order communication (ADR-0025 §8).
   // Email sends require it, and a permanent refusal of the address clears it.
   contact_email_ok Boolean @default(false)
+  /// AUT-576 customer document/email language; null follows tenant default.
+  preferred_language DisplayLanguage?
 
   vehicles                Vehicle[]
   reserved_stock_vehicles Vehicle[]         @relation("VehicleStockReservation")
@@ -2507,6 +2520,8 @@ model WorkshopOrder {
   pdf_storage_key      String?
   pdf_generated_at     DateTime?
   pdf_generation_error String?
+  /// AUT-576 frozen localised render input for the cached workshop-order PDF artifact.
+  pdf_render_input     Json?
 
   @@unique([tenant_id, id])
   @@unique([tenant_id, order_number]) // tenant-scoped
@@ -2811,6 +2826,9 @@ model NotificationOutbox {
   source_entity_id    String?
   template_id         String?
   template_version    Int?
+  /// AUT-576 language frozen when the message was rendered for enqueue.
+  document_locale     DisplayLanguage?
+  format_locale       String?           @db.VarChar(8)
   subject             String?
   body                String?
   body_sha256         String?
@@ -3391,6 +3409,8 @@ model WorkshopCheckIn {
   warning_lights      String[]              @default([])
   odometer            Int
   fuel_level          Int
+  /// AUT-576 frozen customer-language evidence bundle at completion (render input + locale metadata).
+  evidence_snapshot   Json?
   media               WorkshopMedia[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt

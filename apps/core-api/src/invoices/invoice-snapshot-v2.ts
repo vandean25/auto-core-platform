@@ -11,6 +11,12 @@ import {
 } from '@prisma/client';
 import type { ResolvedAccountingAllocation } from '../finance/accounting-profile/accounting-profile.types.js';
 import { assertMarginSchemeSellerCountrySupported } from './margin-scheme-legal-notes.js';
+import type { DocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import { buildDocumentSnapshotLocaleFields } from '../common/i18n/document-snapshot-locale.js';
+import {
+  DEFAULT_DISPLAY_LANGUAGE,
+  type DisplayLanguage,
+} from '../common/i18n/display-language.js';
 
 export const INVOICE_SNAPSHOT_SCHEMA_VERSION = 2;
 export const INVOICE_SNAPSHOT_TEMPLATE_VERSION = 'invoice-pdf-v1';
@@ -141,7 +147,7 @@ export type InvoiceSnapshotV2 = {
   notes: string | null;
   tax_mode: InvoiceTaxMode;
   snapshot_created_at: string;
-};
+} & Partial<DocumentSnapshotLocaleFields>;
 
 type DecimalLike = Prisma.Decimal | number | string;
 
@@ -170,6 +176,8 @@ type BuildInvoiceSnapshotV2Input = {
   margin?: InvoiceSnapshotV2Margin;
   branding?: InvoiceSnapshotV2Branding;
   committedAt?: Date;
+  documentLocale?: DisplayLanguage;
+  legalTextVersion?: string | null;
 };
 
 const toMoney = (value: DecimalLike): Prisma.Decimal =>
@@ -422,7 +430,12 @@ export function buildInvoiceSnapshotV2(
   const supplyTo = invoice.supply_date_to ?? supplyFrom;
   const paymentDays = seller.payment_terms_days ?? 0;
 
+  const documentLocale = input.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE;
   return {
+    ...buildDocumentSnapshotLocaleFields(
+      documentLocale,
+      input.legalTextVersion,
+    ),
     schema_version: INVOICE_SNAPSHOT_SCHEMA_VERSION,
     document_kind: 'INVOICE',
     template_version: branding

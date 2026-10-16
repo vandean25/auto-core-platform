@@ -21,6 +21,7 @@ export type WorkshopOrderForPdf = {
     email: string | null;
     address_zip: string | null;
     address_city: string | null;
+    preferred_language: 'de' | 'en' | null;
   } | null;
   vehicle: {
     make: string;

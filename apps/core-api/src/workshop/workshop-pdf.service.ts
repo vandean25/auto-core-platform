@@ -12,6 +12,11 @@ import {
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { readCachedWorkshopPdfMetadata } from './workshop-pdf.generation.js';
 import type { WorkshopOrderForPdf } from './workshop-pdf.types.js';
+import {
+  loadTenantDefaultLocale,
+  resolveCustomerDocumentLanguage,
+} from '../common/i18n/customer-document-language.js';
+import { buildWorkshopOrderPdfRenderInput } from './workshop-order-pdf-render-input.js';
 
 export type WorkshopPdfRequestGenerationResponse = {
   mode: 'cached' | 'enqueued' | 'generated';
@@ -194,7 +199,27 @@ export class WorkshopPdfService {
     try {
       const upload = await this.uploadRenderedPdf(order, key);
       const generatedAt = new Date();
-      await this.persistGeneratedPdf(order.id, tenantId, upload, generatedAt);
+      const tenantDefaultLocale = await loadTenantDefaultLocale(
+        this.prisma.client,
+        tenantId,
+      );
+      const documentLocale = resolveCustomerDocumentLanguage(
+        order.customer,
+        tenantDefaultLocale,
+      );
+      const renderInput = buildWorkshopOrderPdfRenderInput({
+        workshopOrderId: order.id,
+        orderNumber: order.order_number,
+        frozenAt: generatedAt,
+        documentLocale,
+      });
+      await this.persistGeneratedPdf(
+        order.id,
+        tenantId,
+        upload,
+        generatedAt,
+        renderInput,
+      );
 
       return {
         workshopOrderId: order.id,
@@ -234,6 +259,7 @@ export class WorkshopPdfService {
     tenantId: string,
     upload: Pick<PdfUploadResult, 'bucket' | 'key'>,
     generatedAt: Date,
+    renderInput: ReturnType<typeof buildWorkshopOrderPdfRenderInput>,
   ): Promise<void> {
     await this.prisma.client.workshopOrder.updateMany({
       where: { id: workshopOrderId, tenant_id: tenantId },
@@ -242,6 +268,7 @@ export class WorkshopPdfService {
         pdf_storage_key: upload.key,
         pdf_generated_at: generatedAt,
         pdf_generation_error: null,
+        pdf_render_input: renderInput,
       },
     });
   }

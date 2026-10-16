@@ -27,6 +27,10 @@ import {
   resolveInvoiceOwnershipFromSource,
 } from './invoice-ownership.resolver.js';
 import {
+  loadTenantDefaultLocale,
+  resolveCustomerDocumentLanguage,
+} from '../common/i18n/customer-document-language.js';
+import {
   assertBrandingWriterEnabled,
   assertCommitmentContextMatches,
   assertAtHighValueBusinessRecipientUid,
@@ -191,6 +195,11 @@ export class InvoiceSnapshotCommitService {
       ownership.legalEntityId,
       committedAt,
     );
+    const tenantDefaultLocale = await loadTenantDefaultLocale(tx, tenantId);
+    const documentLocale = resolveCustomerDocumentLanguage(
+      invoice.customer,
+      tenantDefaultLocale,
+    );
     const snapshot = buildInvoiceSnapshotV2({
       invoice: {
         ...invoice,
@@ -206,6 +215,7 @@ export class InvoiceSnapshotCommitService {
       margin,
       branding,
       committedAt,
+      documentLocale,
     });
 
     return {

@@ -1,6 +1,7 @@
-import { PlatformAdminRole, TenantMemberRole } from '@prisma/client';
+import { DisplayLanguage, PlatformAdminRole, TenantMemberRole } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsUUID } from 'class-validator';
+import { DEFAULT_FORMAT_LOCALE } from '../../common/i18n/display-language.js';
 
 export class SwitchTenantDto {
   @ApiProperty({ format: 'uuid' })
@@ -61,4 +62,20 @@ export class AuthSessionResponseDto {
     enumName: 'PlatformAdminRole',
   })
   platformRole?: PlatformAdminRole;
+
+  @ApiProperty({
+    enum: DisplayLanguage,
+    enumName: 'DisplayLanguage',
+    nullable: true,
+  })
+  locale!: DisplayLanguage | null;
+
+  @ApiProperty({ enum: DisplayLanguage, enumName: 'DisplayLanguage' })
+  effectiveLocale!: DisplayLanguage;
+
+  @ApiProperty({ enum: DisplayLanguage, enumName: 'DisplayLanguage' })
+  defaultLocale!: DisplayLanguage;
+
+  @ApiProperty({ example: DEFAULT_FORMAT_LOCALE })
+  formatLocale!: string;
 }
