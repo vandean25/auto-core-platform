@@ -1,6 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationMetaDto } from '../../common/dto/paginated-response.dto.js';
 
+export class BrakeMeasurementWheelResponseDto {
+  @ApiProperty()
+  axle!: number;
+
+  @ApiProperty()
+  side!: string;
+
+  @ApiProperty()
+  force!: string;
+
+  @ApiProperty()
+  unit!: string;
+}
+
 export class MeasurementImportReviewedFieldsDto {
   @ApiProperty()
   measured_at!: string;
@@ -20,13 +34,8 @@ export class MeasurementImportReviewedFieldsDto {
   @ApiPropertyOptional({ type: String, nullable: true })
   quarantine_reason!: string | null;
 
-  @ApiProperty()
-  wheels!: Array<{
-    axle: number;
-    side: string;
-    force: string;
-    unit: string;
-  }>;
+  @ApiProperty({ type: [BrakeMeasurementWheelResponseDto] })
+  wheels!: BrakeMeasurementWheelResponseDto[];
 }
 
 export class MeasurementImportPreviewResponseDto {
@@ -68,13 +77,8 @@ export class AppliedMeasurementSummaryDto {
   @ApiProperty()
   semantic_digest!: string;
 
-  @ApiProperty()
-  wheels!: Array<{
-    axle: number;
-    side: string;
-    force: string;
-    unit: string;
-  }>;
+  @ApiProperty({ type: [BrakeMeasurementWheelResponseDto] })
+  wheels!: BrakeMeasurementWheelResponseDto[];
 }
 
 export class ApplyMeasurementImportResponseDto {
