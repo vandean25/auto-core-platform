@@ -55,11 +55,13 @@ import { WorkshopBookingPackageService } from './workshop-booking-package.servic
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { MechanicMediaStorage } from '../mechanic/mechanic-media.storage.js';
 import { InspectionCatalogModule } from '../inspection-catalog/inspection-catalog.module.js';
+import { InspectionMeasurementModule } from '../inspection-measurement/inspection-measurement.module.js';
 
 @Module({
   imports: [
     PrismaModule,
     InspectionCatalogModule,
+    InspectionMeasurementModule,
     LoanerVehiclesModule,
     NotificationsModule,
     DomainEventStoreModule,

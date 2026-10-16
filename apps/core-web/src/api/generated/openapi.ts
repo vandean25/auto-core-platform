@@ -2073,6 +2073,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workshop-orders/inspection-device-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List active brake device sources for site */
+        get: operations["InspectionMeasurementController_listDeviceSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop-orders/{orderId}/measurements/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview brake measurement import for workshop order */
+        post: operations["InspectionMeasurementController_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop-orders/{orderId}/measurements/{importId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply reviewed brake measurement import */
+        post: operations["InspectionMeasurementController_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workshop-orders/{orderId}/measurements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List brake measurement imports for workshop order */
+        get: operations["InspectionMeasurementController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workshop/loaner-vehicles": {
         parameters: {
             query?: never;
@@ -7599,6 +7667,76 @@ export interface components {
             recheck_after: string;
             provenance_snapshot: components["schemas"]["InspectionFindingProvenanceSnapshotDto"];
             human_finding_label: string | null;
+        };
+        InspectionDeviceSourceListItemDto: {
+            id: string;
+            source_instance_id: string;
+            device_serial: string;
+            device_model: string;
+            profile_id: string;
+            binding_revision: number;
+        };
+        InspectionDeviceSourceListResponseDto: {
+            data: components["schemas"]["InspectionDeviceSourceListItemDto"][];
+        };
+        PreviewMeasurementImportDto: {
+            device_source_id: string;
+            native_measurement_reference: string;
+        };
+        BrakeMeasurementWheelResponseDto: {
+            axle: number;
+            side: string;
+            force: string;
+            unit: string;
+        };
+        MeasurementImportReviewedFieldsDto: {
+            measured_at: string;
+            finality: string;
+            test_kind: string;
+            device_serial: string;
+            session_ref: string;
+            quarantine_reason?: string | null;
+            wheels: components["schemas"]["BrakeMeasurementWheelResponseDto"][];
+        };
+        MeasurementImportPreviewResponseDto: {
+            id: string;
+            state: string;
+            version: number;
+            /** Format: date-time */
+            preview_expires_at?: string | null;
+            fingerprint?: string | null;
+            error_code?: string | null;
+            reviewed_fields: components["schemas"]["MeasurementImportReviewedFieldsDto"];
+        };
+        ApplyMeasurementImportDto: {
+            fingerprint: string;
+            version: number;
+        };
+        AppliedMeasurementSummaryDto: {
+            id: string;
+            measurement_id: string;
+            revision: string;
+            measured_at: string;
+            semantic_digest: string;
+            device_serial?: string | null;
+            wheels: components["schemas"]["BrakeMeasurementWheelResponseDto"][];
+        };
+        ApplyMeasurementImportResponseDto: {
+            measurement: components["schemas"]["AppliedMeasurementSummaryDto"];
+            replay: boolean;
+        };
+        MeasurementImportListItemDto: {
+            id: string;
+            state: string;
+            native_measurement_reference: string;
+            preview_fingerprint?: string | null;
+            semantic_digest?: string | null;
+            quarantine_reason?: string | null;
+            error_code?: string | null;
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            applied_measurement?: components["schemas"]["AppliedMeasurementSummaryDto"] | null;
         };
         LoanerVehicleResponseDto: {
             id: string;
@@ -14882,6 +15020,99 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaginatedResponseDto"] & {
                         data?: components["schemas"]["InspectionFindingReferenceListItemDto"][];
+                    };
+                };
+            };
+        };
+    };
+    InspectionMeasurementController_listDeviceSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectionDeviceSourceListResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionMeasurementController_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewMeasurementImportDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementImportPreviewResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionMeasurementController_apply: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importId: string;
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyMeasurementImportDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyMeasurementImportResponseDto"];
+                };
+            };
+        };
+    };
+    InspectionMeasurementController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orderId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedResponseDto"] & {
+                        data?: components["schemas"]["MeasurementImportListItemDto"][];
                     };
                 };
             };

@@ -6806,6 +6806,163 @@
         ]
       }
     },
+    "/api/workshop-orders/inspection-device-sources": {
+      "get": {
+        "operationId": "InspectionMeasurementController_listDeviceSources",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InspectionDeviceSourceListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List active brake device sources for site",
+        "tags": [
+          "workshop-orders"
+        ]
+      }
+    },
+    "/api/workshop-orders/{orderId}/measurements/preview": {
+      "post": {
+        "operationId": "InspectionMeasurementController_preview",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewMeasurementImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementImportPreviewResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Preview brake measurement import for workshop order",
+        "tags": [
+          "workshop-orders"
+        ]
+      }
+    },
+    "/api/workshop-orders/{orderId}/measurements/{importId}/apply": {
+      "post": {
+        "operationId": "InspectionMeasurementController_apply",
+        "parameters": [
+          {
+            "name": "importId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyMeasurementImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyMeasurementImportResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Apply reviewed brake measurement import",
+        "tags": [
+          "workshop-orders"
+        ]
+      }
+    },
+    "/api/workshop-orders/{orderId}/measurements": {
+      "get": {
+        "operationId": "InspectionMeasurementController_list",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/MeasurementImportListItemDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "List brake measurement imports for workshop order",
+        "tags": [
+          "workshop-orders"
+        ]
+      }
+    },
     "/api/workshop/loaner-vehicles": {
       "get": {
         "operationId": "LoanerVehiclesController_list",
@@ -25469,6 +25626,287 @@
           "recheck_after",
           "provenance_snapshot",
           "human_finding_label"
+        ]
+      },
+      "InspectionDeviceSourceListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "source_instance_id": {
+            "type": "string"
+          },
+          "device_serial": {
+            "type": "string"
+          },
+          "device_model": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "binding_revision": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "source_instance_id",
+          "device_serial",
+          "device_model",
+          "profile_id",
+          "binding_revision"
+        ]
+      },
+      "InspectionDeviceSourceListResponseDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InspectionDeviceSourceListItemDto"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "PreviewMeasurementImportDto": {
+        "type": "object",
+        "properties": {
+          "device_source_id": {
+            "type": "string"
+          },
+          "native_measurement_reference": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "device_source_id",
+          "native_measurement_reference"
+        ]
+      },
+      "BrakeMeasurementWheelResponseDto": {
+        "type": "object",
+        "properties": {
+          "axle": {
+            "type": "number"
+          },
+          "side": {
+            "type": "string"
+          },
+          "force": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "axle",
+          "side",
+          "force",
+          "unit"
+        ]
+      },
+      "MeasurementImportReviewedFieldsDto": {
+        "type": "object",
+        "properties": {
+          "measured_at": {
+            "type": "string"
+          },
+          "finality": {
+            "type": "string"
+          },
+          "test_kind": {
+            "type": "string"
+          },
+          "device_serial": {
+            "type": "string"
+          },
+          "session_ref": {
+            "type": "string"
+          },
+          "quarantine_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "wheels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrakeMeasurementWheelResponseDto"
+            }
+          }
+        },
+        "required": [
+          "measured_at",
+          "finality",
+          "test_kind",
+          "device_serial",
+          "session_ref",
+          "wheels"
+        ]
+      },
+      "MeasurementImportPreviewResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "version": {
+            "type": "number"
+          },
+          "preview_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "reviewed_fields": {
+            "$ref": "#/components/schemas/MeasurementImportReviewedFieldsDto"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "version",
+          "reviewed_fields"
+        ]
+      },
+      "ApplyMeasurementImportDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "version"
+        ]
+      },
+      "AppliedMeasurementSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "measurement_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "measured_at": {
+            "type": "string"
+          },
+          "semantic_digest": {
+            "type": "string"
+          },
+          "device_serial": {
+            "type": "string",
+            "nullable": true
+          },
+          "wheels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BrakeMeasurementWheelResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "measurement_id",
+          "revision",
+          "measured_at",
+          "semantic_digest",
+          "wheels"
+        ]
+      },
+      "ApplyMeasurementImportResponseDto": {
+        "type": "object",
+        "properties": {
+          "measurement": {
+            "$ref": "#/components/schemas/AppliedMeasurementSummaryDto"
+          },
+          "replay": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "measurement",
+          "replay"
+        ]
+      },
+      "MeasurementImportListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "native_measurement_reference": {
+            "type": "string"
+          },
+          "preview_fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "semantic_digest": {
+            "type": "string",
+            "nullable": true
+          },
+          "quarantine_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "number"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "applied_measurement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AppliedMeasurementSummaryDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "native_measurement_reference",
+          "version",
+          "createdAt"
         ]
       },
       "LoanerVehicleResponseDto": {
