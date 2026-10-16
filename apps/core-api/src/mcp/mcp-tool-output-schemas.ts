@@ -11,6 +11,7 @@ import {
   WorkshopOrderPurpose,
   LoanerVehicleStatus,
   WorkshopOrderStatus,
+  WorkshopEstimateStatus,
   WorkshopTaskStatus,
 } from '@prisma/client';
 import { z } from 'zod';
@@ -315,6 +316,22 @@ const workshopOrderShape = {
     .optional(),
   vehicle: vehicleLinkRow,
   tasks: z.array(z.looseObject({ id: idString })),
+  estimate: z
+    .object({
+      number: nonEmptyString,
+      version: count,
+      status: z.enum([
+        WorkshopEstimateStatus.SENT,
+        WorkshopEstimateStatus.APPROVED,
+        WorkshopEstimateStatus.DECLINED,
+        WorkshopEstimateStatus.EXPIRED,
+      ]),
+      sent_at: nullableIsoDateTime,
+      valid_until: nullableIsoDateTime,
+      total_gross: nullableDecimalString,
+    })
+    .nullable()
+    .optional(),
 };
 
 const workshopSlotRow = z.object({

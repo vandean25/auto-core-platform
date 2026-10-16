@@ -35,7 +35,7 @@ Tenant isolation matches existing services (`tenant_id` from the session). Site-
 | `get_vehicle` | AUTO | Vehicle detail by id |
 | `get_vehicle_history` | AUTO | Tenant vehicle: Pickerl status, the newest ten inspections, and compact orders (paged) and the first page of documents for the active site |
 | `get_vehicle_context` | AUTO | Compact vehicle work context by section (identity, open workshop orders, inspections, documents, warranty claims, Gewährleistung periods) with per-section totals and cursors; operational sections require the active site |
-| `list_workshop_orders` | AUTO | Paged workshop orders (active site) |
+| `list_workshop_orders` | AUTO | Paged workshop orders (active site) by order status, current estimate status, scheduled date, or estimate sent date |
 | `get_workshop_order` | AUTO | Workshop order by id (active site) |
 | `search_parts` | AUTO | Inventory search; optional `workshop_order_id` uses workshop catalog search |
 | `get_stock_level` | AUTO | Stock for `sku` or `catalog_item_id` (active site) |

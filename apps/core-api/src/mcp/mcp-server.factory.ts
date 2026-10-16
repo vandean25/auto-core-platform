@@ -22,7 +22,7 @@ export const MCP_REGISTERED_TOOL_INPUT_SCHEMAS: Record<
   get_customer: schemas.getCustomerInputSchema.shape,
   get_vehicle: schemas.getVehicleInputSchema.shape,
   search_vehicles: schemas.searchVehiclesInputSchema.shape,
-  list_workshop_orders: schemas.listWorkshopOrdersInputSchema.shape,
+  list_workshop_orders: schemas.listWorkshopOrdersBaseSchema.shape,
   get_workshop_order: schemas.getWorkshopOrderInputSchema.shape,
   search_parts: schemas.searchPartsInputSchema.shape,
   get_stock_level: schemas.getStockLevelBaseSchema.shape,
