@@ -14054,6 +14054,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Idempotent retry when the same check-in id already exists. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkshopCheckInResponseDto"];
+                };
+            };
             201: {
                 headers: {
                     [name: string]: unknown;

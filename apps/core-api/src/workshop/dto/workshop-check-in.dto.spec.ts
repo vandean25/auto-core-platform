@@ -20,6 +20,28 @@ describe('UpdateWorkshopCheckInDto', () => {
     await expect(validate(dto)).resolves.toEqual([]);
   });
 
+  it('rejects null optional fields', async () => {
+    const dto = plainToInstance(UpdateWorkshopCheckInDto, {
+      expected_revision: 1,
+      items_left: null,
+    });
+
+    const errors = await validate(dto);
+    expect(errors.some((error) => error.property === 'items_left')).toBe(true);
+  });
+
+  it('rejects empty warning light strings', async () => {
+    const dto = plainToInstance(UpdateWorkshopCheckInDto, {
+      expected_revision: 1,
+      warning_lights: [''],
+    });
+
+    const errors = await validate(dto);
+    expect(errors.some((error) => error.property === 'warning_lights')).toBe(
+      true,
+    );
+  });
+
   it('rejects legacy single media_id field', async () => {
     const dto = plainToInstance(UpdateWorkshopCheckInDto, {
       expected_revision: 1,

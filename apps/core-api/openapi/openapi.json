@@ -6280,6 +6280,16 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Idempotent retry when the same check-in id already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkshopCheckInResponseDto"
+                }
+              }
+            }
+          },
           "201": {
             "description": "",
             "content": {
@@ -23900,9 +23910,15 @@
             "minimum": 1
           },
           "condition": {
-            "$ref": "#/components/schemas/CheckInConditionDto"
+            "nullable": false,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CheckInConditionDto"
+              }
+            ]
           },
           "damage_markers": {
+            "nullable": false,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CheckInDamageMarkerDto"
@@ -23910,14 +23926,17 @@
           },
           "items_left": {
             "type": "string",
-            "maxLength": 2000
+            "maxLength": 2000,
+            "nullable": false
           },
           "key_count": {
             "type": "number",
             "minimum": 0,
-            "maximum": 10
+            "maximum": 10,
+            "nullable": false
           },
           "warning_lights": {
+            "nullable": false,
             "type": "array",
             "items": {
               "type": "string"
@@ -23926,12 +23945,14 @@
           "odometer": {
             "type": "number",
             "minimum": 0,
-            "maximum": 9999999
+            "maximum": 9999999,
+            "nullable": false
           },
           "fuel_level": {
             "type": "number",
             "minimum": 0,
-            "maximum": 100
+            "maximum": 100,
+            "nullable": false
           }
         },
         "required": [

@@ -8,12 +8,14 @@ import {
   IsIn,
   IsInt,
   IsObject,
-  IsOptional,
   IsString,
   IsUUID,
   Max,
   MaxLength,
   Min,
+  MinLength,
+  NotEquals,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -89,51 +91,59 @@ export class UpdateWorkshopCheckInDto {
   @Min(1)
   expected_revision!: number;
 
-  @ApiPropertyOptional({ type: CheckInConditionDto })
-  @IsOptional()
+  @ApiPropertyOptional({ type: CheckInConditionDto, nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsObject()
   @ValidateNested()
   @Type(() => CheckInConditionDto)
   condition?: CheckInConditionDto;
 
-  @ApiPropertyOptional({ type: [CheckInDamageMarkerDto] })
-  @IsOptional()
+  @ApiPropertyOptional({ type: [CheckInDamageMarkerDto], nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsArray()
   @ArrayMaxSize(CHECK_IN_MAX_DAMAGE_MARKERS)
   @ValidateNested({ each: true })
   @Type(() => CheckInDamageMarkerDto)
   damage_markers?: CheckInDamageMarkerDto[];
 
-  @ApiPropertyOptional({ maxLength: CHECK_IN_MAX_ITEMS_LEFT_LENGTH })
-  @IsOptional()
+  @ApiPropertyOptional({ maxLength: CHECK_IN_MAX_ITEMS_LEFT_LENGTH, nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsString()
   @MaxLength(CHECK_IN_MAX_ITEMS_LEFT_LENGTH)
   items_left?: string;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: CHECK_IN_MAX_KEY_COUNT })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: CHECK_IN_MAX_KEY_COUNT, nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsInt()
   @Min(0)
   @Max(CHECK_IN_MAX_KEY_COUNT)
   key_count?: number;
 
-  @ApiPropertyOptional({ type: [String] })
-  @IsOptional()
+  @ApiPropertyOptional({ type: [String], nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsArray()
   @ArrayMaxSize(CHECK_IN_MAX_WARNING_LIGHTS)
   @IsString({ each: true })
+  @MinLength(1, { each: true })
   @MaxLength(CHECK_IN_MAX_WARNING_LIGHT_LENGTH, { each: true })
   warning_lights?: string[];
 
-  @ApiPropertyOptional({ minimum: 0, maximum: CHECK_IN_MAX_ODOMETER })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: CHECK_IN_MAX_ODOMETER, nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsInt()
   @Min(0)
   @Max(CHECK_IN_MAX_ODOMETER)
   odometer?: number;
 
-  @ApiPropertyOptional({ minimum: 0, maximum: 100 })
-  @IsOptional()
+  @ApiPropertyOptional({ minimum: 0, maximum: 100, nullable: false })
+  @ValidateIf((_obj, value) => value !== undefined)
+  @NotEquals(null)
   @IsInt()
   @Min(0)
   @Max(100)

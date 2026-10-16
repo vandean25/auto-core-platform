@@ -6,8 +6,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Res,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
 import {
   CreateWorkshopCheckInDto,
   UpdateWorkshopCheckInDto,
@@ -22,11 +28,18 @@ export class WorkshopCheckInController {
 
   @Post()
   @ApiCreatedResponse({ type: WorkshopCheckInResponseDto })
-  create(
+  @ApiOkResponse({
+    type: WorkshopCheckInResponseDto,
+    description: 'Idempotent retry when the same check-in id already exists.',
+  })
+  async create(
     @Param('orderId', ParseUUIDPipe) orderId: string,
     @Body() dto: CreateWorkshopCheckInDto,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<WorkshopCheckInResponseDto> {
-    return this.checkIns.create(orderId, dto);
+    const result = await this.checkIns.create(orderId, dto);
+    res.status(result.created ? 201 : 200);
+    return result.body;
   }
 
   @Get()

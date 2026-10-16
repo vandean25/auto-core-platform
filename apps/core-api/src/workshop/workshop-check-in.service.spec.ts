@@ -25,6 +25,13 @@ describe('WorkshopCheckInService', () => {
     mockPrisma.workshopCheckIn.findFirst.mockReset();
     mockPrisma.workshopCheckIn.create.mockReset();
     mockPrisma.workshopCheckIn.updateMany.mockReset();
+    mockPrisma.workshopMedia.findMany.mockReset();
+    mockPrisma.$transaction.mockImplementation((cb: (tx: unknown) => unknown) =>
+      cb(mockPrisma),
+    );
+    mockPrisma.$queryRaw.mockResolvedValue([
+      { id: 'site-1', is_active: true },
+    ]);
     mockTenantContext.getAuthenticatedUser.mockReturnValue({
       role: 'ADMIN',
       userId: 'u-1',
@@ -63,7 +70,8 @@ describe('WorkshopCheckInService', () => {
 
     const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
 
-    expect(result.odometer).toBe(42000);
+    expect(result.created).toBe(true);
+    expect(result.body.odometer).toBe(42000);
     expect(mockPrisma.workshopCheckIn.create).toHaveBeenCalled();
   });
 
@@ -105,41 +113,34 @@ describe('WorkshopCheckInService', () => {
     });
   });
 
-  it('retries idempotent create after concurrent unique violation', async () => {
+  it('returns created false on idempotent create retry', async () => {
     mockPrisma.workshopOrder.findFirst.mockResolvedValue({
       id: ORDER_ID,
       status: WorkshopOrderStatus.INTAKE,
       odometer: 1,
       fuel_level: 1,
     });
-    mockPrisma.workshopCheckIn.findFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: CHECK_IN_ID,
-        tenant_id: TENANT_ID,
-        workshop_order_id: ORDER_ID,
-        status: WorkshopCheckInStatus.DRAFT,
-        revision: 1,
-        condition_json: {},
-        damage_markers_json: [],
-        items_left: '',
-        key_count: 0,
-        warning_lights: [],
-        odometer: 1,
-        fuel_level: 1,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    mockPrisma.workshopCheckIn.create.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
-        code: 'P2002',
-        clientVersion: '7.0.0',
-      }),
-    );
+    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
+      id: CHECK_IN_ID,
+      tenant_id: TENANT_ID,
+      workshop_order_id: ORDER_ID,
+      status: WorkshopCheckInStatus.DRAFT,
+      revision: 1,
+      condition_json: {},
+      damage_markers_json: [],
+      items_left: '',
+      key_count: 0,
+      warning_lights: [],
+      odometer: 1,
+      fuel_level: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     const result = await service.create(ORDER_ID, { id: CHECK_IN_ID });
-    expect(result.id).toBe(CHECK_IN_ID);
+    expect(result.created).toBe(false);
+    expect(result.body.id).toBe(CHECK_IN_ID);
+    expect(mockPrisma.workshopCheckIn.create).not.toHaveBeenCalled();
   });
 
   it('rejects create when order status is not intake or in progress', async () => {
@@ -162,44 +163,29 @@ describe('WorkshopCheckInService', () => {
       odometer: 1,
       fuel_level: 1,
     });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({ id: CHECK_IN_ID })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+        condition_json: {},
+        damage_markers_json: [],
+        items_left: 'pilot customer jacket',
+        key_count: 0,
+        warning_lights: [],
+        odometer: 1,
+        fuel_level: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
     mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
-      id: CHECK_IN_ID,
-      tenant_id: TENANT_ID,
-      workshop_order_id: ORDER_ID,
-      status: WorkshopCheckInStatus.DRAFT,
-      revision: 2,
-      condition_json: {},
-      damage_markers_json: [
-        {
-          id: MARKER_ID,
-          zone_id: 'rear_bumper',
-          type: 'SCRATCH',
-          note: 'pilot customer mark',
-          media_ids: [],
-        },
-      ],
-      items_left: 'pilot customer jacket',
-      key_count: 0,
-      warning_lights: [],
-      odometer: 1,
-      fuel_level: 1,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
 
     await service.updateDraft(ORDER_ID, {
       expected_revision: 1,
       items_left: 'pilot customer jacket',
-      damage_markers: [
-        {
-          id: MARKER_ID,
-          zone_id: 'rear_bumper',
-          type: 'SCRATCH',
-          note: 'pilot customer mark',
-          media_ids: [],
-        },
-      ],
     });
 
     expect(mockPrisma.workshopCheckIn.updateMany).toHaveBeenCalledWith(
@@ -212,6 +198,13 @@ describe('WorkshopCheckInService', () => {
         },
       }),
     );
+    expect(mockPrisma.workshopCheckIn.findFirst).toHaveBeenLastCalledWith({
+      where: {
+        tenant_id: TENANT_ID,
+        workshop_order_id: ORDER_ID,
+        revision: 2,
+      },
+    });
   });
 
   it('rejects stale revision on draft update with CHECK_IN_CONFLICT', async () => {
@@ -221,12 +214,14 @@ describe('WorkshopCheckInService', () => {
       odometer: 1,
       fuel_level: 1,
     });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({ id: CHECK_IN_ID })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.DRAFT,
+        revision: 2,
+      });
     mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 0 });
-    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
-      id: CHECK_IN_ID,
-      status: WorkshopCheckInStatus.DRAFT,
-      revision: 2,
-    });
 
     await expect(
       service.updateDraft(ORDER_ID, {
@@ -245,12 +240,14 @@ describe('WorkshopCheckInService', () => {
       odometer: 1,
       fuel_level: 1,
     });
+    mockPrisma.workshopCheckIn.findFirst
+      .mockResolvedValueOnce({ id: CHECK_IN_ID })
+      .mockResolvedValueOnce({
+        id: CHECK_IN_ID,
+        status: WorkshopCheckInStatus.COMPLETED,
+        revision: 3,
+      });
     mockPrisma.workshopCheckIn.updateMany.mockResolvedValue({ count: 0 });
-    mockPrisma.workshopCheckIn.findFirst.mockResolvedValue({
-      id: CHECK_IN_ID,
-      status: WorkshopCheckInStatus.COMPLETED,
-      revision: 3,
-    });
 
     await expect(
       service.updateDraft(ORDER_ID, { expected_revision: 3, items_left: 'x' }),

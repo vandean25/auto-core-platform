@@ -170,6 +170,14 @@ describe('Workshop check-in (e2e)', () => {
     expect(patchRes.body.odometer).toBe(125010);
   });
 
+  it('returns 200 on idempotent create retry with the same id', async () => {
+    await request(app.getHttpServer())
+      .post(`/api/workshop/orders/${orderId}/check-in`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ id: checkInId })
+      .expect(200);
+  });
+
   it('isolates check-in reads across tenants', async () => {
     await request(app.getHttpServer())
       .get(`/api/workshop/orders/${orderId}/check-in`)

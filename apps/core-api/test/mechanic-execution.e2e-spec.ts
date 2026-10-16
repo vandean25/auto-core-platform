@@ -317,6 +317,7 @@ describe('Mechanic Execution Engine (e2e)', () => {
   it('POST /tasks/:taskId/findings attaches only GENERAL workshop media', async () => {
     const checkInId = '51500000-0000-4000-8000-000000000558';
     const generalMediaId = '51500000-0000-4000-8000-000000000559';
+    const legacyMediaId = '51500000-0000-4000-8000-00000000055c';
     const checkInMediaId = '51500000-0000-4000-8000-00000000055a';
 
     await runWithTenantContext(tenantId, async () => {
@@ -347,6 +348,19 @@ describe('Mechanic Execution Engine (e2e)', () => {
             mime_type: 'image/jpeg',
             size_bytes: 1024,
             caption: 'pilot customer general photo',
+          },
+          {
+            id: legacyMediaId,
+            tenant_id: tenantId,
+            workshop_order_id: orderId,
+            workshop_task_id: taskCId,
+            uploaded_by_employee_id: mechanicId,
+            storage_bucket: 'test-workshop-media-bucket',
+            storage_key: `tenants/${tenantId}/orders/${orderId}/tasks/${taskCId}/legacy-default.jpg`,
+            url_strategy: 'SIGNED',
+            mime_type: 'image/jpeg',
+            size_bytes: 1536,
+            caption: 'pilot customer legacy writer photo',
           },
           {
             id: checkInMediaId,
@@ -392,8 +406,18 @@ describe('Mechanic Execution Engine (e2e)', () => {
     };
     const mediaIds = (payload.finding?.media ?? []).map((item) => item.id);
 
-    expect(mediaIds).toEqual([generalMediaId]);
+    expect(mediaIds.sort()).toEqual(
+      [generalMediaId, legacyMediaId].sort(),
+    );
     expect(mediaIds).not.toContain(checkInMediaId);
+
+    const legacyRow = await runWithTenantContext(tenantId, async () =>
+      basePrisma.workshopMedia.findFirst({
+        where: { id: legacyMediaId },
+        select: { purpose: true },
+      }),
+    );
+    expect(legacyRow?.purpose).toBe(WorkshopMediaPurpose.GENERAL);
   });
 
   it('POST /tasks/:taskId/findings rejects submit without saved notes', async () => {
