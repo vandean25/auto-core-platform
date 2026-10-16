@@ -84,7 +84,11 @@ export class WorkshopEstimateDecisionTriageService {
       candidateOrderIds.length === 0
         ? []
         : await this.prisma.workshopOrder.findMany({
-            where: { tenant_id: tenantId, id: { in: candidateOrderIds } },
+            where: {
+              tenant_id: tenantId,
+              site_id: { in: [...siteIds] },
+              id: { in: candidateOrderIds },
+            },
             select: { id: true, status: true },
           });
     const orderStatus = new Map(orders.map((o) => [o.id, o.status]));
