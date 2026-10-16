@@ -23,14 +23,19 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   let tenantId: string;
   let testTenant: TestTenantResult;
   let adminToken: string;
-  let techToken: string;
   let adminUserId: string;
   let customerId: string;
   let otherTenantId: string | undefined;
 
   const api = () => request(app.getHttpServer());
   const adminAuth = () => ({ Authorization: `Bearer ${adminToken}` });
-  const techAuth = () => ({ Authorization: `Bearer ${techToken}` });
+
+  async function setTenantMemberRole(role: 'ADMIN' | 'TECH') {
+    await prisma.tenantMember.updateMany({
+      where: { tenant_id: tenantId },
+      data: { role },
+    });
+  }
 
   async function completeCustomerOrder(forCustomerId: string) {
     const vehicle = await prisma.vehicle.create({
@@ -80,7 +85,6 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
     tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     adminToken = createTestAuthToken(authService, testTenant);
-    techToken = createTestAuthToken(authService, testTenant, { role: 'TECH' });
     await seedReadySellerAndAccountingProfile(prisma, tenantId);
     const adminUser = await prisma.user.findFirstOrThrow({
       where: { firebaseUid: testTenant.firebaseUid },
@@ -237,10 +241,15 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
 
   it('refuses resend for TECH with 403', async () => {
     const orderId = await completeCustomerOrder(customerId);
-    await api()
-      .post(`/api/workshop/orders/${orderId}/ready-email/resend`)
-      .set(techAuth())
-      .expect(403);
+    await setTenantMemberRole('TECH');
+    try {
+      await api()
+        .post(`/api/workshop/orders/${orderId}/ready-email/resend`)
+        .set(adminAuth())
+        .expect(403);
+    } finally {
+      await setTenantMemberRole('ADMIN');
+    }
   });
 
   it('isolates ready communications by tenant', async () => {
