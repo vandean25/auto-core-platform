@@ -32,7 +32,6 @@ describe('Inspection exchange (e2e)', () => {
   let legalEntityId: string;
   let vehicleId: string;
   let connectionId: string;
-  let ownerFirebaseUid: string;
 
   function previewResult(reference = 'SYNTH-RESULT-001') {
     return request(app.getHttpServer())
@@ -73,7 +72,6 @@ describe('Inspection exchange (e2e)', () => {
     basePrisma = app.get(PrismaService);
     const testTenant = await createTestTenant(basePrisma, 'inspection-exchange');
     tenantId = testTenant.tenantId;
-    ownerFirebaseUid = testTenant.firebaseUid;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
     token = createTestAuthToken(app.get(AuthService), testTenant);
 
