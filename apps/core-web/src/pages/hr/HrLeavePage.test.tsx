@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'sonner'
 
+import { formatLocalDateInZone } from '@/lib/format'
 import HrLeavePage from './HrLeavePage'
 
 // Matches apps/core-api/test/tenant-test-utils.ts
@@ -12,18 +13,7 @@ const HR_TEST_TWO_DAY_LEAVE_MINUTES = 1030
 const TEST_TIMEZONE = 'Europe/Vienna'
 
 function getTenantDate(timezone: string, date = new Date()): string {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-      .formatToParts(date)
-      .map(({ type, value }) => [type, value]),
-  )
-
-  return `${parts.year}-${parts.month}-${parts.day}`
+  return formatLocalDateInZone(date, timezone)
 }
 
 function addTenantDays(timezone: string, days: number, from = new Date()): string {

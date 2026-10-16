@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useVehicleStockAgeReport, useVehicleStockMarginReport, type VehicleStockAgeBucket, type VehicleStockAgeReportRow, type VehicleStockMarginReportRow } from '@/api/vehicle-stock'
 import { downloadCsv, serializeCsv } from '@/lib/csv'
+import { formatDate } from '@/lib/format'
 
 type ReportTab = 'age' | 'margin'
 
@@ -35,7 +36,7 @@ export function serializeStockAgeCsv(rows: VehicleStockAgeReportRow[]): string {
 export function serializeMarginCsv(rows: VehicleStockMarginReportRow[]): string {
   const header = ['Rechnungsdatum', 'Verkaufsnummer', 'Marke', 'Modell', 'Baujahr', 'Bestandsrolle', 'Nettoverkaufspreis (EUR)', 'Kostenbasis (EUR)', 'Rohertrag (EUR)', 'Rohertrag (%)', 'Standzeit bis Verkauf (Tage)', 'Margenbesteuerung']
   const body = rows.map((row) => [
-    new Date(row.invoice_date).toLocaleDateString('de-AT'), row.sale_number, row.make, row.model,
+    formatDate(row.invoice_date), row.sale_number, row.make, row.model,
     String(row.year), formatRole(row.inventory_role), csvAmount(row.sale_price),
     csvAmount(row.cost_basis_snapshot), csvAmount(row.gross_margin_eur),
     csvAmount(row.gross_margin_percent), row.days_to_sell === null ? '' : String(row.days_to_sell),
@@ -171,7 +172,7 @@ export default function VehicleStockReportsPage() {
             loading={isLoading}
             headers={['Rechnungsdatum', 'Verkaufsnummer', 'Fahrzeug', 'Rolle', 'Nettoverkauf', 'Kostenbasis', 'Rohertrag', 'Rohertrag %', 'Standzeit', 'Besteuerung']}
             rows={marginTableRows.map((row) => [
-              new Date(row.invoice_date).toLocaleDateString('de-AT'), row.sale_number,
+              formatDate(row.invoice_date), row.sale_number,
               `${row.make} ${row.model} (${row.year})`, formatRole(row.inventory_role),
               formatMoney(row.sale_price), formatMoney(row.cost_basis_snapshot),
               formatMoney(row.gross_margin_eur), row.gross_margin_percent === null ? '—' : `${csvAmount(row.gross_margin_percent)}\u00a0%`,

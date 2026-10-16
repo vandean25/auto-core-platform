@@ -7,15 +7,11 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
+import { formatDateShort } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(value))
+const formatDate = (value: string) => formatDateShort(value)
 
 export default function CreditNotesPage() {
   const navigate = useNavigate()

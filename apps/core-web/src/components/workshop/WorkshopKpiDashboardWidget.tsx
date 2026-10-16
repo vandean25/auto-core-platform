@@ -3,6 +3,7 @@ import { useAuthSession } from '@/api/auth-session'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useMySites } from '@/api/sites'
 import { useWorkshopKpiReport } from '@/api/workshop-kpi-reports'
+import { formatPercent } from '@/lib/format'
 
 const REPORT_ROLES = ['OWNER', 'ADMIN', 'SALES']
 
@@ -15,7 +16,7 @@ function monthRange(offset: number) {
 }
 
 function percentage(value: string | null | undefined) {
-  return value == null ? '—' : `${Number(value).toLocaleString('de-AT', { maximumFractionDigits: 1 })} %`
+  return value == null ? '—' : formatPercent(Number(value))
 }
 
 export function WorkshopKpiDashboardWidget() {

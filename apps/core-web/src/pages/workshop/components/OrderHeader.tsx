@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { Phone, Clock, Key, MapPin, User, Printer } from 'lucide-react'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { formatOdometerKm } from '@/lib/format'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -251,7 +252,7 @@ export function CustomerVehicleInfo({
             <div>
               <div className='text-muted-foreground'>Mileage</div>
               <div className='font-medium'>
-                {typeof order.odometer === 'number' ? `${order.odometer.toLocaleString()} km` : '-'}
+                {typeof order.odometer === 'number' ? formatOdometerKm(order.odometer) : '-'}
               </div>
             </div>
             <div>

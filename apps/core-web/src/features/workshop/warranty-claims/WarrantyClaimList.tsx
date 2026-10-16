@@ -1,5 +1,6 @@
 import type { WarrantyClaim } from "@/api/types";
 import { StatusBadge } from "@/components/status/StatusBadge";
+import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { formatEur, warrantyClaimTypeLabel } from "./warranty-claim-form";
 
@@ -10,7 +11,7 @@ type WarrantyClaimListProps = {
 };
 
 function formatDay(iso: string): string {
-  return new Date(iso).toLocaleDateString("de-AT");
+  return formatDate(iso);
 }
 
 export function WarrantyClaimList({ claims, activeClaimId, onSelect }: WarrantyClaimListProps) {

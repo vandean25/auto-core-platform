@@ -29,6 +29,7 @@ import {
   FALLBACK_AVG_WORKDAY_MINUTES,
   formatApproxDays,
 } from '@/lib/hr-leave-minutes'
+import { formatLocalDateInZone, formatMonthYear } from '@/lib/format'
 
 type TenantMemberRole = components['schemas']['TenantMemberRole']
 type LeaveEmployee = Pick<Employee, 'id' | 'name' | 'role'>
@@ -45,18 +46,7 @@ function canViewTeamLeave(activeRole?: TenantMemberRole | null): boolean {
 }
 
 function getTenantDate(timezone: string, date = new Date()): string {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-      .formatToParts(date)
-      .map(({ type, value }) => [type, value]),
-  )
-
-  return `${parts.year}-${parts.month}-${parts.day}`
+  return formatLocalDateInZone(date, timezone)
 }
 
 function getTenantMonth(timezone: string): string {
@@ -77,8 +67,9 @@ function getMonthRange(month: string): { from: string; to: string } {
 
 function formatMonthLabel(month: string): string {
   const [yearText, monthText] = month.split('-')
-  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: DEFAULT_TIMEZONE }).format(
+  return formatMonthYear(
     new Date(Date.UTC(Number(yearText), Number(monthText) - 1, 1)),
+    DEFAULT_TIMEZONE,
   )
 }
 

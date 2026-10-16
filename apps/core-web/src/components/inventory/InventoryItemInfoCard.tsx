@@ -5,13 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-const formatPrice = (amount: number) =>
-  new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount)
+const formatPrice = (amount: number) => formatCurrency(amount)
 
 interface InventoryItemInfoCardProps {
   item: InventoryItem

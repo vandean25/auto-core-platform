@@ -677,7 +677,7 @@ describe("WorkshopOrderDetails Characterization", () => {
     it("renders odometer and fuel level when present", () => {
       renderComponent();
 
-      // toLocaleString() output varies by JSDOM locale; match the number flexibly
+      // formatOdometerKm output may use narrow spaces; match the number flexibly
       expect(
         screen.getAllByText((content) =>
           /85.?000\s*km/i.test(content.replace(/\u202f/g, " ")),

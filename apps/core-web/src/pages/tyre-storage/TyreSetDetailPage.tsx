@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useTyreSet } from '@/api/tyre-storage'
 import { APP_ROUTE_PATHS } from '@/lib/app-route-paths'
+import { formatDateTime } from '@/lib/format'
 import { TyreSetActionDialog } from '@/features/tyre-storage/TyreSetActionDialog'
 import { TyreSetFormDialog } from '@/features/tyre-storage/TyreSetFormDialog'
 
@@ -136,7 +137,7 @@ export default function TyreSetDetailPage() {
                 <div className="flex items-center justify-between gap-2">
                   <StatusBadge status={event.eventType} />
                   <span className="text-slate-500">
-                    {new Date(event.occurredAt).toLocaleString()}
+                    {formatDateTime(event.occurredAt)}
                   </span>
                 </div>
                 {event.note ? <p className="mt-2">{event.note}</p> : null}

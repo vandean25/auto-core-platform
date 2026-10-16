@@ -11,6 +11,7 @@ import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import { DASHBOARD_WIDGET_SOURCE_INVENTORY } from '@/features/dashboard-widgets/sources'
+import { formatCurrency } from '@/lib/format'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 export default function InventoryList() {
@@ -92,7 +93,7 @@ export default function InventoryList() {
                 const amount = Number(row.getValue('price'))
                 return (
                     <div className="font-medium">
-                        {new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)}
+                        {formatCurrency(amount)}
                     </div>
                 )
             },

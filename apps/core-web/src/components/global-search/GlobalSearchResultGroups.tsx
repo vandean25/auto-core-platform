@@ -5,7 +5,7 @@ import type { WorkshopSearchCustomer, WorkshopSearchVehicle } from '@/hooks/useG
 import { CommandGroup, CommandItem, CommandSeparator } from '@/components/ui/command'
 import { StatusBadge } from '@/components/status/StatusBadge'
 import {
-  currencyFormatter,
+  formatSearchCurrency,
   getCustomerContactDetails,
   getCustomerDisplayName,
   getCustomerSearchValue,
@@ -193,7 +193,7 @@ export function InventoryResultsGroup({
             </div>
             <div className="ml-4 flex shrink-0 flex-col items-end text-xs text-slate-500">
               <span className="tabular-nums">{item.quantity_available} in stock</span>
-              <span className="tabular-nums">{currencyFormatter.format(item.price)}</span>
+              <span className="tabular-nums">{formatSearchCurrency(item.price)}</span>
             </div>
           </CommandItem>
         ))}

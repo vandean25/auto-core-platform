@@ -33,6 +33,7 @@ import {
   isOutsideEffectiveHours,
 } from '@/features/workshop/planner/planner-hours'
 import { formatLocalDate } from '@/features/workshop/planner/planner-time'
+import { formatIsoDateTimeInZone, zonedWallClockToUtc } from '@/lib/format'
 import type { components } from '@/api/generated/openapi'
 
 type WorkshopOpeningHour = components['schemas']['WorkshopOpeningHourDto']
@@ -377,21 +378,10 @@ export function PlannerCreateSheet({
 
 function toLocalInputValue(iso: string, timeZone: string): string {
   if (!iso) return ''
-  const date = new Date(iso)
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(date)
-      .map((part) => [part.type, part.value]),
-  )
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+  const formatted = formatIsoDateTimeInZone(iso, timeZone)
+  if (!formatted) return ''
+  const [datePart, timePart] = formatted.split(' ')
+  return `${datePart}T${timePart.slice(0, 5)}`
 }
 
 function fromLocalInputValue(value: string, timeZone: string): string {
@@ -399,33 +389,5 @@ function fromLocalInputValue(value: string, timeZone: string): string {
   const [datePart, timePart] = value.split('T')
   const [year, month, day] = datePart.split('-').map(Number)
   const [hour, minute] = timePart.split(':').map(Number)
-  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0)
-  const offsetMs = localOffsetMs(new Date(utcGuess), timeZone)
-  return new Date(utcGuess - offsetMs).toISOString()
-}
-
-function localOffsetMs(date: Date, timeZone: string): number {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-      .formatToParts(date)
-      .map((part) => [part.type, part.value]),
-  )
-  const asUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second),
-  )
-  return asUtc - date.getTime()
+  return zonedWallClockToUtc(timeZone, year, month, day, hour, minute).toISOString()
 }

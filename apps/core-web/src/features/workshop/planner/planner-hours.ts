@@ -1,4 +1,5 @@
 import type { components } from '@/api/generated/openapi'
+import { formatTimeInZone } from '@/lib/format'
 import {
   isoWeekdayFromDate,
   parseHhMm,
@@ -88,12 +89,7 @@ export function buildSlots(
     slots.push({
       start: cursor,
       end: slotEnd,
-      label: new Intl.DateTimeFormat('en-GB', {
-        timeZone: timezone,
-        hour: '2-digit',
-        minute: '2-digit',
-        hourCycle: 'h23',
-      }).format(cursor),
+      label: formatTimeInZone(cursor.toISOString(), timezone) ?? '',
     })
     cursor = next
   }

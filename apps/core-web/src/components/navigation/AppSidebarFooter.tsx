@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { BookOpen, ChevronsLeft, ChevronsRight, ExternalLink, LogOut, Search, Settings } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { BookOpen, ChevronsLeft, ChevronsRight, ExternalLink, Search, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { DOCUMENTATION_URL } from '@/lib/external-links'
 import { moduleLinkBaseClass } from './app-sidebar-styles'
+import { ProfileLanguageMenu } from './ProfileLanguageMenu'
 
 type AppSidebarFooterProps = {
   userEmail: string | null
@@ -70,19 +70,7 @@ export function AppSidebarFooter({
         {collapsed ? null : <ExternalLink aria-hidden="true" className="ml-auto h-3.5 w-3.5 shrink-0 text-slate-400" />}
       </a>
 
-      <Button
-        variant="ghost"
-        onClick={onSignOut}
-        className={cn(
-          'text-slate-300 hover:bg-slate-900 hover:text-white',
-          collapsed ? 'h-10 w-full justify-center px-0' : 'h-10 w-full justify-start gap-3 px-3',
-        )}
-        title="Sign out"
-        aria-label="Sign out"
-      >
-        <LogOut aria-hidden="true" className="h-4 w-4 shrink-0" />
-        <span className={collapsed ? 'sr-only' : ''}>Sign out</span>
-      </Button>
+      <ProfileLanguageMenu userEmail={userEmail} collapsed={collapsed} onSignOut={onSignOut} />
 
       <button
         type="button"
@@ -103,11 +91,6 @@ export function AppSidebarFooter({
         <span className={collapsed ? 'sr-only' : ''}>{collapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
       </button>
 
-      {!collapsed && userEmail ? (
-        <p className="truncate px-3 pt-1 text-xs text-slate-400" title={userEmail}>
-          {userEmail}
-        </p>
-      ) : null}
     </div>
   )
 }

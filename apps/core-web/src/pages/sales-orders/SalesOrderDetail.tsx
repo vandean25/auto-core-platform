@@ -11,6 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
+import { formatDate } from '@/lib/format'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, FileText, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -86,7 +87,7 @@ export default function SalesOrderDetail() {
                             <StatusBadge status={order.status} />
                         </h1>
                         <p className="text-slate-500">
-                            Created on {new Date(order.createdAt).toLocaleDateString()}
+                            Created on {formatDate(order.createdAt)}
                         </p>
                     </div>
                 </div>

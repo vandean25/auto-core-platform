@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/table'
 import { formatCurrency } from '@/lib/utils'
 import { getErrorMessage } from '@/lib/error-utils'
+import { formatDate } from '@/lib/format'
 import type {
   Customer,
   InvoiceStatus,
@@ -475,7 +476,7 @@ export default function VehicleDetail() {
                         >
                           <TableCell className='font-medium'>{order.number}</TableCell>
                           <TableCell>{order.type}</TableCell>
-                          <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{formatDate(order.createdAt)}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(order.total)}</TableCell>
                         </TableRow>
@@ -520,7 +521,7 @@ export default function VehicleDetail() {
                           }}
                         >
                           <TableCell className='font-medium'>{invoice.invoice_number || 'Draft'}</TableCell>
-                          <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                          <TableCell>{formatDate(invoice.date)}</TableCell>
                           <TableCell><StatusBadge status={invoice.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(toNumber(invoice.total_gross))}</TableCell>
                         </TableRow>
@@ -565,7 +566,7 @@ export default function VehicleDetail() {
                           }}
                         >
                           <TableCell className='font-medium'>{order.order_number ?? `#${order.id}`}</TableCell>
-                          <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                          <TableCell>{formatDate(order.createdAt)}</TableCell>
                           <TableCell><StatusBadge status={order.status} /></TableCell>
                           <TableCell className='text-right'>{formatCurrency(getWorkshopOrderTotal(order))}</TableCell>
                         </TableRow>

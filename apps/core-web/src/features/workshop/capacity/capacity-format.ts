@@ -1,3 +1,5 @@
+import { formatHours as formatHoursValue, formatTimeInZone } from '@/lib/format'
+
 export type CapacityCellHours = {
   capacityHours: number
   bookedHours: number
@@ -5,10 +7,8 @@ export type CapacityCellHours = {
   isOverbooked: boolean
 }
 
-const hoursFormatter = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 2 })
-
 export function formatHours(value: number): string {
-  return `${hoursFormatter.format(value)} h`
+  return formatHoursValue(value)
 }
 
 export function describeCellHours(cell: CapacityCellHours): string {
@@ -26,13 +26,5 @@ export function describeCellHours(cell: CapacityCellHours): string {
 }
 
 export function formatChipTime(isoInstant: string | null | undefined, timeZone: string): string | null {
-  if (!isoInstant) {
-    return null
-  }
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(isoInstant))
+  return formatTimeInZone(isoInstant, timeZone)
 }

@@ -13,6 +13,7 @@ import { useInventory } from "@/api/inventory";
 import { useUnbilledReceipts } from "@/api/usePurchaseInvoices";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { formatDate } from '@/lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -399,7 +400,7 @@ export default function PurchaseOrderDetail() {
               <div>
                 <div className="text-muted-foreground">Created</div>
                 <div className="font-medium">
-                  {new Date(po.createdAt).toLocaleDateString()}
+                  {formatDate(po.createdAt)}
                 </div>
               </div>
               <div>

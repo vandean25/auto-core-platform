@@ -26,6 +26,11 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDataTableQuery } from '@/hooks/useDataTableQuery'
 import { getErrorMessage, getErrorStatus } from '@/lib/error-utils'
+import {
+  formatLocalDateInZone,
+  formatTimeInZone,
+  resolvedSystemTimeZone,
+} from '@/lib/format'
 
 type AttendanceEventType = components['schemas']['AttendanceEventType']
 type TenantMemberRole = components['schemas']['TenantMemberRole']
@@ -55,30 +60,11 @@ function isManagerRole(role: TenantMemberRole | null | undefined): boolean {
 }
 
 function formatTenantLocalDate(date: Date, timezone: string): string {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-      .formatToParts(date)
-      .map(({ type, value }) => [type, value]),
-  )
-
-  return `${parts.year}-${parts.month}-${parts.day}`
+  return formatLocalDateInZone(date, timezone)
 }
 
 function formatEventTime(timestamp: string, timezone: string): string {
-  const parsed = new Date(timestamp)
-  if (Number.isNaN(parsed.getTime())) return '—'
-
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(parsed)
+  return formatTimeInZone(timestamp, timezone) ?? '—'
 }
 
 function getEventDay(timestamp: string, timezone: string): string | null {
@@ -334,7 +320,7 @@ export default function HrClockPage() {
   )
   const timezone = selectedClockResponse?.timezone ??
     meQuery.data?.timezone ??
-    Intl.DateTimeFormat().resolvedOptions().timeZone
+    resolvedSystemTimeZone()
   const today = getTenantLocalToday(todayEvents, timezone)
   const isMissingEmployee = !canManageAttendance && (
     getErrorStatus(meQuery.error) === 403 || getErrorStatus(clockQuery.error) === 403
