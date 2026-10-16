@@ -39,10 +39,12 @@ const REFUSAL_TO_NOTICE: Record<
 
 const NOTICE_MESSAGES: Record<ReadyEmailNoticeCode, string> = {
   NOT_APPLICABLE: 'Ready notice does not apply to this order.',
-  BLOCKED_NO_CUSTOMER: 'Assign a customer before a ready notice can be emailed.',
+  BLOCKED_NO_CUSTOMER:
+    'Assign a customer before a ready notice can be emailed.',
   BLOCKED_EMAIL_NOT_CONFIRMED:
     'Confirm the customer email for order communication before sending the ready notice.',
-  BLOCKED_EMAIL_MISSING: 'The customer has no email address for the ready notice.',
+  BLOCKED_EMAIL_MISSING:
+    'The customer has no email address for the ready notice.',
   BLOCKED_EMAIL_INVALID: 'The customer email address is not valid for sending.',
   BLOCKED_VEHICLE_INCOMPLETE:
     'The vehicle needs a make and model for the ready notice.',

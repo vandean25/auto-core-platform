@@ -12,6 +12,7 @@ import {
   createTenantAwarePrisma,
   createTestAuthToken,
   createTestTenant,
+  type TestTenantResult,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
@@ -20,6 +21,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   let basePrisma: PrismaService;
   let prisma: PrismaService;
   let tenantId: string;
+  let testTenant: TestTenantResult;
   let adminToken: string;
   let techToken: string;
   let customerId: string;
@@ -75,22 +77,22 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
       imports: [AppModule],
     }).compile();
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     app.useGlobalPipes(createGlobalValidationPipe());
     await app.init();
     basePrisma = app.get(PrismaService);
-    const tenant = await createTestTenant(basePrisma);
-    tenantId = tenant.tenantId;
+    testTenant = await createTestTenant(basePrisma);
+    tenantId = testTenant.tenantId;
     prisma = createTenantAwarePrisma(basePrisma, tenantId);
-    await seedReadySellerAndAccountingProfile(prisma, tenantId);
-    adminToken = await createTestAuthToken(app.get(AuthService), tenantId);
+    adminToken = createTestAuthToken(app.get(AuthService), testTenant);
     techToken = adminToken;
+    await seedReadySellerAndAccountingProfile(prisma, tenantId);
     const customer = await prisma.customer.create({
       data: {
-        tenant_id: tenantId,
-        type: 'PRIVATE',
         first_name: 'Max',
         last_name: 'Muster',
         email: 'ready@example.at',
+        type: 'PRIVATE',
         contact_email_ok: true,
       },
     });
@@ -98,11 +100,16 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.notificationOutbox.deleteMany();
+    await prisma.workshopTask.deleteMany();
+    await prisma.workshopOrder.deleteMany();
+    await prisma.vehicle.deleteMany();
+    await prisma.customer.deleteMany();
     if (otherTenantId) {
       await cleanupTestTenantGraph(basePrisma, otherTenantId);
     }
     await cleanupTestTenantGraph(basePrisma, tenantId);
-    await teardownTestApp(app);
+    await teardownTestApp(app, basePrisma);
   });
 
   it('queues one ready email on first transition to COMPLETED and exposes notice on the order', async () => {
@@ -151,10 +158,7 @@ describe('Workshop order ready email (AUT-357 e2e)', () => {
     const orderId = await createCompletedOrder();
     const other = await createTestTenant(basePrisma);
     otherTenantId = other.tenantId;
-    const otherToken = await createTestAuthToken(
-      app.get(AuthService),
-      otherTenantId,
-    );
+    const otherToken = createTestAuthToken(app.get(AuthService), other);
     await api()
       .get(`/api/workshop/orders/${orderId}/communications`)
       .set({ Authorization: `Bearer ${otherToken}` })

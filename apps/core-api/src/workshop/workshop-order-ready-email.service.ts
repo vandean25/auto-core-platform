@@ -199,7 +199,11 @@ export class WorkshopOrderReadyEmailService {
       });
 
     await wakeUpAfterCommit(this.wakeUps, queuedOutboxId, scope.tenantId);
-    const notice = await this.loadNoticeForOrder(scope.tenantId, scope.siteId, orderId);
+    const notice = await this.loadNoticeForOrder(
+      scope.tenantId,
+      scope.siteId,
+      orderId,
+    );
     if (!notice) {
       return {
         code: 'QUEUED',
@@ -254,7 +258,9 @@ export class WorkshopOrderReadyEmailService {
     input: {
       tenantId: string;
       siteId: string;
-      order: Prisma.WorkshopOrderGetPayload<{ select: typeof ORDER_READY_SELECT }>;
+      order: Prisma.WorkshopOrderGetPayload<{
+        select: typeof ORDER_READY_SELECT;
+      }>;
       occurrenceId: string;
       resend: boolean;
       actorUserId: string | null;

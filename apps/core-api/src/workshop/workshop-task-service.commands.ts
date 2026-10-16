@@ -76,31 +76,33 @@ export async function runWorkshopTaskCreate(
   dto: CreateWorkshopTaskDto,
 ) {
   const { tenantId, siteId } = await resolveScopedContext(deps);
-  const { task, queuedOutboxId } = await deps.prisma.$transaction(async (tx) => {
-    const { order, task, nextOrderStatus } = await executeTaskCreation({
-      tx,
-      tenantId,
-      siteId,
-      orderId,
-      dto,
-    });
-
-    let queuedOutboxId: string | null = null;
-    if (nextOrderStatus !== order.status) {
-      ({ queuedOutboxId } = await applyDerivedOrderStatus(deps, {
+  const { task, queuedOutboxId } = await deps.prisma.$transaction(
+    async (tx) => {
+      const { order, task, nextOrderStatus } = await executeTaskCreation({
         tx,
         tenantId,
         siteId,
         orderId,
-        nextOrderStatus,
-      }));
-    }
+        dto,
+      });
 
-    return {
-      task,
-      queuedOutboxId,
-    };
-  });
+      let queuedOutboxId: string | null = null;
+      if (nextOrderStatus !== order.status) {
+        ({ queuedOutboxId } = await applyDerivedOrderStatus(deps, {
+          tx,
+          tenantId,
+          siteId,
+          orderId,
+          nextOrderStatus,
+        }));
+      }
+
+      return {
+        task,
+        queuedOutboxId,
+      };
+    },
+  );
   if (queuedOutboxId) {
     await wakeUpAfterCommit(deps.wakeUps, queuedOutboxId, tenantId);
   }
