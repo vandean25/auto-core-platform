@@ -3200,6 +3200,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/vehicles/{id}/valuations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List stored vehicle valuations (newest first) */
+        get: operations["VehicleController_listValuations"];
+        put?: never;
+        /** Request a market valuation snapshot */
+        post: operations["VehicleController_createValuation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/vehicles/{id}": {
         parameters: {
             query?: never;
@@ -8393,6 +8411,65 @@ export interface components {
             plate?: string;
             /** Format: uuid */
             customer_id?: string | null;
+        };
+        VehicleValuationResponseDto: {
+            id: string;
+            /** @enum {string} */
+            result: "QUOTED";
+            amount: string;
+            /** @enum {string} */
+            currency: "EUR";
+            /** @enum {string} */
+            source: "EUROTAX_AT_AUTOVALUATION";
+            /** @enum {string} */
+            sourceState: "KNOWN";
+            requestedAsOf: string;
+            providerAsOf: string;
+            /** @enum {string} */
+            asOfState: "KNOWN";
+            referenceVersion: string;
+            /** @enum {string} */
+            referenceVersionState: "KNOWN";
+            /** @example acp-valuation-contract-1 */
+            contractVersion: string;
+            /** @enum {string|null} */
+            nativeId: null;
+            /** @enum {string} */
+            nativeIdState: "NATIVE_ID_UNKNOWN";
+            nationalCode: string;
+            mileageKm: number;
+            /** @enum {string} */
+            condition: "ROADWORTHY_AVERAGE" | "POOR" | "NOT_ROADWORTHY";
+            stale: boolean;
+            createdAt: string;
+        };
+        CreateVehicleValuationDto: {
+            /** @enum {string} */
+            valuationType: "MARKET_VALUE";
+            mileageKm?: Record<string, never>;
+            /** @enum {string} */
+            condition?: "ROADWORTHY_AVERAGE" | "POOR" | "NOT_ROADWORTHY";
+            /** @example 2026-10-15 */
+            requestedAsOf?: string;
+            /** @enum {string} */
+            currency: "EUR";
+        };
+        VehicleValuationErrorResponseDto: {
+            result: string;
+            amount?: Record<string, never> | null;
+            currency?: Record<string, never> | null;
+            source?: Record<string, never> | null;
+            sourceState?: string;
+            requestedAsOf?: string;
+            providerAsOf?: Record<string, never> | null;
+            asOfState?: string;
+            referenceVersion?: Record<string, never> | null;
+            referenceVersionState?: string;
+            contractVersion?: string;
+            nativeId?: string | null;
+            nativeIdState?: string;
+            missing?: string[];
+            candidates?: Record<string, never>[];
         };
         UpdateVehicleDto: {
             /**
@@ -16249,6 +16326,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VehicleResponseDto"];
+                };
+            };
+        };
+    };
+    VehicleController_listValuations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleValuationResponseDto"][];
+                };
+            };
+        };
+    };
+    VehicleController_createValuation: {
+        parameters: {
+            query?: never;
+            header: {
+                "idempotency-key": string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVehicleValuationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleValuationResponseDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleValuationErrorResponseDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleValuationErrorResponseDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleValuationErrorResponseDto"];
                 };
             };
         };

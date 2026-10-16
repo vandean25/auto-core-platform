@@ -8,6 +8,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -27,9 +28,18 @@ import {
   ApiQuery,
   ApiUnprocessableEntityResponse,
   ApiOperation,
+  ApiHeader,
+  ApiConflictResponse,
+  ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
 import { VehicleService } from './vehicle.service.js';
 import { VehicleIdentityService } from './vehicle-identity.service.js';
+import { VehicleValuationService } from './vehicle-valuation.service.js';
+import {
+  CreateVehicleValuationDto,
+  VehicleValuationErrorResponseDto,
+  VehicleValuationResponseDto,
+} from './dto/vehicle-valuation.dto.js';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto.js';
 import { CreateVehicleDto } from './dto/create-vehicle.dto.js';
 import {
@@ -50,6 +60,7 @@ export class VehicleController {
   constructor(
     private readonly vehicleService: VehicleService,
     private readonly vehicleIdentityService: VehicleIdentityService,
+    private readonly vehicleValuationService: VehicleValuationService,
     private readonly novaCalculationService: NovaCalculationService,
   ) {}
 
@@ -193,8 +204,34 @@ export class VehicleController {
   @Post(':id/resolve-identity')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: VehicleResponseDto })
-  resolveIdentity(@Param('id') id: string) {
+  resolveIdentity(@Param('id', ParseUUIDPipe) id: string) {
     return this.vehicleIdentityService.resolveIdentity(id);
+  }
+
+  @Get(':id/valuations')
+  @ApiOperation({ summary: 'List stored vehicle valuations (newest first)' })
+  @ApiOkResponse({ type: [VehicleValuationResponseDto] })
+  listValuations(@Param('id', ParseUUIDPipe) id: string) {
+    return this.vehicleValuationService.listValuations(id);
+  }
+
+  @Post(':id/valuations')
+  @ApiOperation({ summary: 'Request a market valuation snapshot' })
+  @ApiHeader({ name: 'Idempotency-Key', required: true })
+  @ApiCreatedResponse({ type: VehicleValuationResponseDto })
+  @ApiUnprocessableEntityResponse({ type: VehicleValuationErrorResponseDto })
+  @ApiConflictResponse({ type: VehicleValuationErrorResponseDto })
+  @ApiServiceUnavailableResponse({ type: VehicleValuationErrorResponseDto })
+  createValuation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateVehicleValuationDto,
+    @Headers('idempotency-key') idempotencyKey: string,
+  ) {
+    return this.vehicleValuationService.createValuation(
+      id,
+      dto,
+      typeof idempotencyKey === 'string' ? idempotencyKey : undefined,
+    );
   }
 
   @Get(':id')
