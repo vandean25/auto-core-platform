@@ -6,6 +6,7 @@ import {
   HttpException,
   Logger,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   StreamableFile,
@@ -81,7 +82,7 @@ export class InvoicesController {
     'Invoice finalization consumes numbering sequences and creates irreversible legal tax records',
   )
   @ApiOkResponse({ type: InvoiceResponseDto })
-  issue(@Param('id') id: string) {
+  issue(@Param('id', ParseUUIDPipe) id: string) {
     return this.invoicesService.issueInvoice(id);
   }
 
@@ -89,14 +90,14 @@ export class InvoicesController {
   @ApiCreatedResponse({
     schema: { type: 'object' },
   })
-  generatePdf(@Param('id') id: string) {
+  generatePdf(@Param('id', ParseUUIDPipe) id: string) {
     const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
     return this.invoicePdfService.requestGeneration(id, { targetBaseUrl });
   }
 
   @Post(':id/pdf/worker')
   @PdfWorker('invoice')
-  async generatePdfWorker(@Param('id') id: string) {
+  async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
     try {
       await this.invoicePdfService.generateNow(id);
     } catch (error) {
@@ -114,7 +115,7 @@ export class InvoicesController {
       format: 'binary',
     },
   })
-  async getPdf(@Param('id') id: string) {
+  async getPdf(@Param('id', ParseUUIDPipe) id: string) {
     const pdf = await this.invoicePdfService.getPdf(id);
     return toPdfStreamableFile(pdf);
   }
