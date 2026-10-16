@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { DisplayLanguage } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -197,8 +198,6 @@ export class WorkshopPdfService {
     const key = `workshop-orders/${order.id}.pdf`;
 
     try {
-      const upload = await this.uploadRenderedPdf(order, key);
-      const generatedAt = new Date();
       const tenantDefaultLocale = await loadTenantDefaultLocale(
         this.prisma.client,
         tenantId,
@@ -207,6 +206,8 @@ export class WorkshopPdfService {
         order.customer,
         tenantDefaultLocale,
       );
+      const upload = await this.uploadRenderedPdf(order, key, documentLocale);
+      const generatedAt = new Date();
       const renderInput = buildWorkshopOrderPdfRenderInput({
         workshopOrderId: order.id,
         orderNumber: order.order_number,
@@ -236,9 +237,10 @@ export class WorkshopPdfService {
   private async uploadRenderedPdf(
     order: WorkshopOrderForPdf,
     key: string,
+    documentLocale: DisplayLanguage,
   ): Promise<PdfUploadResult> {
     return renderAndUploadPdf({
-      render: () => this.renderer.render(order),
+      render: () => this.renderer.render(order, { documentLocale }),
       upload: (pdf) =>
         this.storage.uploadPdf({
           key,

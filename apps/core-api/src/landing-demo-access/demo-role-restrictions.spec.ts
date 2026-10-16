@@ -23,6 +23,12 @@ describe('demo-role-restrictions', () => {
       true,
     );
     expect(isDemoMutationAllowed('GET', '/api/auth/me/preferences')).toBe(true);
+    expect(isDemoMutationAllowed('POST', '/api/auth/me/preferences')).toBe(
+      false,
+    );
+    expect(isDemoMutationAllowed('PATCH', '/api/tenants/current/locale')).toBe(
+      false,
+    );
   });
 
   it('blocks admin, settings, sites, employees, and finance mutations', () => {

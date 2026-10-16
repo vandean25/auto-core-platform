@@ -4626,7 +4626,7 @@ export interface components {
         };
         PatchUserLocalePreferencesDto: {
             /** @description Set de/en or null to follow the active tenant default. */
-            locale?: components["schemas"]["DisplayLanguage"] | null;
+            locale: components["schemas"]["DisplayLanguage"] | null;
         };
         LocationParentResponseDto: {
             id: string;

@@ -23,6 +23,7 @@ import {
   DEFAULT_FORMAT_LOCALE,
 } from '../common/i18n/display-language.js';
 import { resolveUserLanguage } from '../common/i18n/locale-resolution.js';
+import { isMembershipCurrentlyValid } from './membership-validity.js';
 
 type AuthSessionClaims = {
   sub: string;
@@ -213,7 +214,7 @@ export class AuthSessionService {
     }
 
     user.memberships = user.memberships.filter((membership) =>
-      this.isMembershipCurrentlyValid(membership),
+      isMembershipCurrentlyValid(membership),
     );
 
     const activeMembership = await this.ensureActiveMembership(user);
@@ -249,7 +250,7 @@ export class AuthSessionService {
     }
 
     const validMemberships = userRecord.memberships.filter((membership) =>
-      this.isMembershipCurrentlyValid(membership),
+      isMembershipCurrentlyValid(membership),
     );
 
     const requestedMembership = validMemberships.find(
@@ -342,15 +343,6 @@ export class AuthSessionService {
       ...byEmail,
       firebaseUid: claims.sub,
     };
-  }
-
-  private isMembershipCurrentlyValid(
-    membership: UserAccessMembership,
-  ): boolean {
-    if (!membership.demo_access_expires_at) {
-      return true;
-    }
-    return membership.demo_access_expires_at.getTime() > Date.now();
   }
 
   private async ensureActiveMembership(

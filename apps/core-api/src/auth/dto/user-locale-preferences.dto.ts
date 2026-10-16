@@ -1,6 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { DisplayLanguage } from '@prisma/client';
-import { IsEnum, IsIn, IsOptional, ValidateIf } from 'class-validator';
+import { IsDefined, IsEnum, IsIn, ValidateIf } from 'class-validator';
 import { DEFAULT_FORMAT_LOCALE } from '../../common/i18n/display-language.js';
 
 export class UserLocalePreferencesResponseDto {
@@ -22,16 +22,16 @@ export class UserLocalePreferencesResponseDto {
 }
 
 export class PatchUserLocalePreferencesDto {
-  @ApiPropertyOptional({
+  @ApiProperty({
     enum: DisplayLanguage,
     enumName: 'DisplayLanguage',
     nullable: true,
     description: 'Set de/en or null to follow the active tenant default.',
   })
-  @IsOptional()
+  @IsDefined()
   @ValidateIf((_dto, value: unknown) => value !== null)
   @IsEnum(DisplayLanguage)
-  locale?: DisplayLanguage | null;
+  locale!: DisplayLanguage | null;
 }
 
 export class TenantLocaleSettingsResponseDto {

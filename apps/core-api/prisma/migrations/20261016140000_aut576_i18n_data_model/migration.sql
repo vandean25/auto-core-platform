@@ -15,8 +15,8 @@ ADD COLUMN "preferred_language" "DisplayLanguage";
 ALTER TABLE "workshop_orders"
 ADD COLUMN "pdf_render_input" JSONB;
 
-ALTER TABLE "workshop_check_ins"
-ADD COLUMN "evidence_snapshot" JSONB;
+ALTER TABLE "tenants"
+ADD CONSTRAINT "tenants_format_locale_de_at_chk" CHECK ("format_locale" = 'de-AT');
 
 ALTER TABLE "notification_outbox"
 ADD COLUMN "document_locale" "DisplayLanguage",

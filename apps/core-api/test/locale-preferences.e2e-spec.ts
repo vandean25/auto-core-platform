@@ -1,11 +1,18 @@
 import { INestApplication } from '@nestjs/common';
+import { TenantMemberRole } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { createGlobalValidationPipe } from '../src/common/index.js';
-import { createTestTenant } from './tenant-test-utils.js';
+import { resolveCustomerDocumentLanguage } from '../src/common/i18n/customer-document-language.js';
+import {
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+  type TestTenantResult,
+} from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 
 describe('Locale preferences (e2e)', () => {
@@ -15,6 +22,7 @@ describe('Locale preferences (e2e)', () => {
   let tenantId: string;
   let token: string;
   let userDbId: string;
+  let fixture: TestTenantResult;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -28,14 +36,9 @@ describe('Locale preferences (e2e)', () => {
 
     prisma = app.get(PrismaService);
     authService = app.get(AuthService);
-    const fixture = await createTestTenant(prisma, 'aut576');
+    fixture = await createTestTenant(prisma, 'aut576');
     tenantId = fixture.tenantId;
-    token = authService.createTestToken({
-      sub: fixture.firebaseUid,
-      email: fixture.email,
-      tenantId: fixture.tenantId,
-      role: fixture.role,
-    });
+    token = createTestAuthToken(authService, fixture);
     const user = await prisma.user.findFirst({
       where: { firebaseUid: fixture.firebaseUid },
       select: { id: true },
@@ -46,6 +49,28 @@ describe('Locale preferences (e2e)', () => {
   afterAll(async () => {
     await teardownTestApp(app);
   });
+
+  async function createMemberToken(role: TenantMemberRole): Promise<string> {
+    const slug = role.toLowerCase();
+    const firebaseUid = `aut576-${slug}-${tenantId}`;
+    const email = `${slug}-${tenantId}@example.com`;
+    await prisma.user.create({
+      data: {
+        firebaseUid,
+        email,
+        active_tenant_id: tenantId,
+        memberships: {
+          create: { tenant_id: tenantId, role, is_active: true },
+        },
+      },
+    });
+    return createTestAuthToken(authService, {
+      tenantId,
+      firebaseUid,
+      email,
+      role,
+    });
+  }
 
   it('resolves user → tenant → de on preferences and session', async () => {
     await prisma.tenant.update({
@@ -109,6 +134,20 @@ describe('Locale preferences (e2e)', () => {
     });
   });
 
+  it('rejects PATCH preferences without locale and invalid locale values', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({})
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/preferences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ locale: 'fr' })
+      .expect(400);
+  });
+
   it('allows OWNER to update tenant default locale', async () => {
     const settings = await request(app.getHttpServer())
       .patch('/api/tenants/current/locale')
@@ -120,5 +159,87 @@ describe('Locale preferences (e2e)', () => {
       default_locale: 'en',
       format_locale: 'de-AT',
     });
+  });
+
+  it('denies tenant locale PATCH for non-admin roles', async () => {
+    const salesToken = await createMemberToken('SALES');
+    await request(app.getHttpServer())
+      .patch('/api/tenants/current/locale')
+      .set('Authorization', `Bearer ${salesToken}`)
+      .send({ default_locale: 'de' })
+      .expect(403);
+  });
+
+  it('denies tenant locale PATCH for DEMO role', async () => {
+    const demoToken = await createMemberToken('DEMO');
+    await request(app.getHttpServer())
+      .patch('/api/tenants/current/locale')
+      .set('Authorization', `Bearer ${demoToken}`)
+      .send({ default_locale: 'de' })
+      .expect(403);
+  });
+
+  it('denies tenant API keys on user preference routes', async () => {
+    const keyRes = await request(app.getHttpServer())
+      .post('/api/tenant-api-keys')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'locale-pref-test', scopes: ['customers:read'] })
+      .expect(201);
+    const apiKeyAuth = `Bearer ${keyRes.body.token}`;
+    await request(app.getHttpServer())
+      .get('/api/auth/me/preferences')
+      .set('Authorization', apiKeyAuth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/preferences')
+      .set('Authorization', apiKeyAuth)
+      .send({ locale: 'de' })
+      .expect(403);
+  });
+
+  it('resolves customer document language tenant → de when preferred_language is null', async () => {
+    const tenantPrisma = createTenantAwarePrisma(prisma, tenantId);
+    const customer = await tenantPrisma.customer.create({
+      data: {
+        type: 'PRIVATE',
+        first_name: 'Test',
+        last_name: 'Kunde',
+      },
+    });
+
+    const created = await request(app.getHttpServer())
+      .get(`/api/customers/${customer.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(created.body.preferred_language).toBeNull();
+
+    await request(app.getHttpServer())
+      .patch('/api/tenants/current/locale')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ default_locale: 'en' })
+      .expect(200);
+
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId },
+      select: { default_locale: true },
+    });
+    expect(
+      resolveCustomerDocumentLanguage(
+        { preferred_language: customer.preferred_language },
+        tenant!.default_locale,
+      ),
+    ).toBe('en');
+
+    await prisma.tenant.update({
+      where: { id: tenantId },
+      data: { default_locale: 'de' },
+    });
+    expect(
+      resolveCustomerDocumentLanguage(
+        { preferred_language: null },
+        'de',
+      ),
+    ).toBe('de');
   });
 });

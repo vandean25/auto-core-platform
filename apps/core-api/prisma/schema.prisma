@@ -3410,7 +3410,6 @@ model WorkshopCheckIn {
   odometer            Int
   fuel_level          Int
   /// AUT-576 frozen customer-language evidence bundle at completion (render input + locale metadata).
-  evidence_snapshot   Json?
   media               WorkshopMedia[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt

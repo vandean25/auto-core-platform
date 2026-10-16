@@ -15135,7 +15135,10 @@
               }
             ]
           }
-        }
+        },
+        "required": [
+          "locale"
+        ]
       },
       "LocationParentResponseDto": {
         "type": "object",

@@ -32,8 +32,10 @@ export function buildEmailColumns(email: EmailDraft | undefined) {
     recipient_email: email?.recipientEmail ?? null,
     template_id: email?.templateId ?? null,
     template_version: email?.templateVersion ?? null,
-    document_locale: email?.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE,
-    format_locale: email?.formatLocale ?? DEFAULT_FORMAT_LOCALE,
+    document_locale: email
+      ? (email.documentLocale ?? DEFAULT_DISPLAY_LANGUAGE)
+      : null,
+    format_locale: email ? (email.formatLocale ?? DEFAULT_FORMAT_LOCALE) : null,
     subject: email?.subject ?? null,
     body: email?.text ?? null,
     body_sha256: email ? sha256Hex(email.text) : null,

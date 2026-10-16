@@ -38,7 +38,7 @@ export class AuthLocalePreferencesController {
   ): Promise<UserLocalePreferencesResponseDto> {
     return this.userLocalePreferences.patchForPrincipal(
       request.user,
-      body.locale ?? null,
+      body.locale,
     );
   }
 }

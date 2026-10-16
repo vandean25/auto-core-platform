@@ -80,7 +80,9 @@ describe('WorkshopPdfRenderer', () => {
     const renderer = new WorkshopPdfRenderer(browserService as never);
 
     expect(browserService.getBrowser).not.toHaveBeenCalled();
-    await expect(renderer.render(createOrder())).rejects.toThrow(
+    await expect(
+      renderer.render(createOrder(), { documentLocale: 'de' }),
+    ).rejects.toThrow(
       'setContent failed',
     );
     expect(browserService.getBrowser).toHaveBeenCalledTimes(1);

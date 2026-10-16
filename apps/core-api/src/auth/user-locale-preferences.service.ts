@@ -1,14 +1,11 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DisplayLanguage } from '@prisma/client';
 import {
   DEFAULT_DISPLAY_LANGUAGE,
   DEFAULT_FORMAT_LOCALE,
 } from '../common/i18n/display-language.js';
 import { resolveUserLanguage } from '../common/i18n/locale-resolution.js';
+import { isMembershipCurrentlyValid } from './membership-validity.js';
 import { SystemPrismaService } from '../prisma/system-prisma.service.js';
 import type { AuthenticatedUser } from './types/authenticated-user.js';
 import type { UserLocalePreferencesResponseDto } from './dto/user-locale-preferences.dto.js';
@@ -21,6 +18,7 @@ type PreferenceUserRow = {
   memberships: Array<{
     tenant_id: string;
     is_active: boolean;
+    demo_access_expires_at: Date | null;
     tenant: {
       default_locale: DisplayLanguage;
       format_locale: string;
@@ -39,6 +37,7 @@ const USER_PREFERENCE_SELECT = {
     select: {
       tenant_id: true,
       is_active: true,
+      demo_access_expires_at: true,
       tenant: {
         select: {
           default_locale: true,
@@ -76,6 +75,7 @@ export class UserLocalePreferencesService {
     locale: DisplayLanguage | null,
   ): Promise<UserLocalePreferencesResponseDto> {
     const user = await this.loadUserByFirebaseUid(principal.userId);
+    this.resolveTenantDefaults(user, principal);
     await this.systemPrisma.user.update({
       where: { id: user.id },
       data: { locale },
@@ -99,7 +99,11 @@ export class UserLocalePreferencesService {
         formatLocale: DEFAULT_FORMAT_LOCALE,
       };
     }
-    const membership = user.memberships.find(
+    const preferenceUser: PreferenceUserRow = {
+      ...user,
+      firebaseUid: user.firebaseUid ?? firebaseUid,
+    };
+    const membership = this.validMemberships(preferenceUser).find(
       (row) => row.tenant_id === activeTenantId,
     );
     const defaultLocale =
@@ -127,27 +131,34 @@ export class UserLocalePreferencesService {
     return { ...user, firebaseUid: user.firebaseUid };
   }
 
+  private validMemberships(user: PreferenceUserRow) {
+    return user.memberships.filter((row) => isMembershipCurrentlyValid(row));
+  }
+
   private resolveTenantDefaults(
     user: PreferenceUserRow,
     principal: AuthenticatedUser,
   ): { defaultLocale: DisplayLanguage; formatLocale: string } {
+    const memberships = this.validMemberships(user);
+    const principalTenantId =
+      'tenantId' in principal ? principal.tenantId : undefined;
+
     const tenantId =
-      ('tenantId' in principal && principal.tenantId) ||
-      user.active_tenant_id ||
-      null;
+      principalTenantId ||
+      (user.active_tenant_id &&
+      memberships.some((row) => row.tenant_id === user.active_tenant_id)
+        ? user.active_tenant_id
+        : null);
+
     if (!tenantId) {
       return {
         defaultLocale: DEFAULT_DISPLAY_LANGUAGE,
         formatLocale: DEFAULT_FORMAT_LOCALE,
       };
     }
-    const membership = user.memberships.find(
-      (row) => row.tenant_id === tenantId,
-    );
+
+    const membership = memberships.find((row) => row.tenant_id === tenantId);
     if (!membership) {
-      if ('tenantId' in principal && principal.tenantId) {
-        throw new ForbiddenException('Active tenant membership is required.');
-      }
       return {
         defaultLocale: DEFAULT_DISPLAY_LANGUAGE,
         formatLocale: DEFAULT_FORMAT_LOCALE,

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { DisplayLanguage } from '@prisma/client';
 import * as Sentry from '@sentry/node';
 import { PlaywrightBrowserService } from '../common/index.js';
 import { escapeHtml } from '../common/pdf/pdf-layout.js';
@@ -14,7 +15,10 @@ export class WorkshopPdfRenderer {
 
   constructor(private readonly browserService: PlaywrightBrowserService) {}
 
-  async render(order: WorkshopOrderForPdf): Promise<Buffer> {
+  async render(
+    order: WorkshopOrderForPdf,
+    options: { documentLocale: DisplayLanguage },
+  ): Promise<Buffer> {
     return Sentry.startSpan(
       { name: 'Render Workshop PDF', op: 'pdf.render' },
       async () => {
@@ -24,6 +28,7 @@ export class WorkshopPdfRenderer {
 
         try {
           const html = this.generateHtml(order, orderNumber);
+          void options.documentLocale;
           await page.setContent(html, { timeout: 10_000 });
 
           const pdf = await Sentry.startSpan(
