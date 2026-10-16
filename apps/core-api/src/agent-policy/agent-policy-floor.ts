@@ -23,6 +23,8 @@ const HUMAN_ONLY_FLOOR_ACTION_TYPES = new Set([
   'legal_entity.update',
   'tax_rate.update',
   'number_range.update',
+  'inspection_catalogue.preview',
+  'inspection_catalogue.activate',
 ]);
 
 const HUMAN_ONLY_FLOOR_PREFIXES = [

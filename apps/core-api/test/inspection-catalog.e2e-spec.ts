@@ -1,0 +1,202 @@
+import { INestApplication } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import request from 'supertest';
+import { AuthService } from '../src/auth/auth.service.js';
+import { createGlobalValidationPipe } from '../src/common/index.js';
+import { AppModule } from '../src/app.module.js';
+import { PrismaService } from '../src/prisma/prisma.service.js';
+import {
+  cleanupTestTenantGraph,
+  createTenantAwarePrisma,
+  createTestAuthToken,
+  createTestTenant,
+  runWithTenantContext,
+} from './tenant-test-utils.js';
+import { teardownTestApp } from './test-lifecycle.js';
+import { STATUTORY_MANIFEST_REFERENCE } from '../src/inspection-catalog/inspection-catalog-synthetic-fixtures.js';
+
+describe('Inspection catalogue (e2e)', () => {
+  let app: INestApplication;
+  let basePrisma: PrismaService;
+  let prisma: PrismaService;
+  let tenantId: string;
+  let token: string;
+  let siteId: string;
+  let orderId: string;
+  let taskId: string;
+  let inspectionId: string;
+
+  async function previewCatalogue(manifestRef = STATUTORY_MANIFEST_REFERENCE) {
+    return request(app.getHttpServer())
+      .post('/api/inspection-catalogues/preview')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ manifest_reference: manifestRef });
+  }
+
+  async function activateCatalogue(previewBody: {
+    id: string;
+    fingerprint: string;
+    version: number;
+  }) {
+    return request(app.getHttpServer())
+      .post(`/api/inspection-catalogues/${previewBody.id}/activate`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fingerprint: previewBody.fingerprint,
+        version: previewBody.version,
+      });
+  }
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
+    app.useGlobalPipes(createGlobalValidationPipe());
+    await app.init();
+
+    basePrisma = app.get(PrismaService);
+    const testTenant = await createTestTenant(basePrisma, 'inspection-catalog');
+    tenantId = testTenant.tenantId;
+    prisma = createTenantAwarePrisma(basePrisma, tenantId);
+    token = createTestAuthToken(app.get(AuthService), testTenant);
+
+    await runWithTenantContext(tenantId, async () => {
+      const site = await prisma.site.findFirst({ where: { tenant_id: tenantId } });
+      if (!site) {
+        throw new Error('missing site');
+      }
+      siteId = site.id;
+
+      const customer = await prisma.customer.create({
+        data: {
+          tenant_id: tenantId,
+          type: 'PRIVATE',
+          first_name: 'SYNTH',
+          last_name: 'KUNDE',
+        },
+      });
+
+      const order = await prisma.workshopOrder.create({
+        data: {
+          tenant_id: tenantId,
+          site_id: siteId,
+          customer_id: customer.id,
+          status: 'IN_PROGRESS',
+          order_number: 'WO-SYNTH-CAT-1',
+        },
+      });
+      orderId = order.id;
+
+      const task = await prisma.workshopTask.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          title: '§57a Vorbereitung',
+          status: 'IN_PROGRESS',
+          sub_status: 'IN_PROGRESS',
+        },
+      });
+      taskId = task.id;
+
+      const inspection = await prisma.workshopInspection.create({
+        data: {
+          tenant_id: tenantId,
+          workshop_order_id: orderId,
+          workshop_task_id: taskId,
+          title: 'PICKERL_57A_PREP',
+        },
+      });
+      inspectionId = inspection.id;
+    });
+  });
+
+  afterAll(async () => {
+    await cleanupTestTenantGraph(basePrisma, tenantId);
+    await teardownTestApp(app);
+  });
+
+  it('previews and activates statutory subset manifest', async () => {
+    const preview = await previewCatalogue().expect(201);
+    expect(preview.body.state).toBe('READY_FOR_ACTIVATION');
+    expect(preview.body.coverage).toBe('SUBSET');
+
+    const activate = await activateCatalogue(preview.body).expect(200);
+    expect(activate.body.replay).toBe(false);
+    expect(activate.body.catalogue_version_id).toBeTruthy();
+
+    const resolve = await request(app.getHttpServer())
+      .get('/api/inspection-catalogues/references')
+      .query({ position_id: '0.1', vehicle_class: 'M1' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(resolve.body.data[0].status).toBe('RESOLVED');
+    expect(resolve.body.data[0].coverage).toBe('SUBSET');
+  });
+
+  it('rejects unknown catalogue codes', async () => {
+    await previewCatalogue();
+    const resolve = await request(app.getHttpServer())
+      .get('/api/inspection-catalogues/references')
+      .query({ position_id: 'SYNTH-NOT-A-CODE' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(resolve.body.data[0].status).toBe('UNKNOWN_CODE');
+  });
+
+  it('returns NOT_CONFIGURED for approved catalogue manifest', async () => {
+    await previewCatalogue('APPROVED_CATALOGUE').expect(422);
+  });
+
+  it('preserves historical finding snapshots after new activation', async () => {
+    const firstPreview = await previewCatalogue().expect(201);
+    const firstActivate = await activateCatalogue(firstPreview.body).expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/inspection-catalogues/finding-references')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        workshop_order_id: orderId,
+        workshop_task_id: taskId,
+        position_id: '0.1',
+      })
+      .expect(201);
+
+    const references = await request(app.getHttpServer())
+      .get(`/api/workshop-inspections/${inspectionId}/catalogue-references`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(references.body.data).toHaveLength(1);
+    expect(references.body.data[0].source_version).toBeTruthy();
+    expect(firstActivate.body.catalogue_version_id).toBeTruthy();
+
+    const checklistBefore = await prisma.workshopInspectionItem.findMany({
+      where: { workshop_inspection_id: inspectionId },
+    });
+    expect(checklistBefore).toHaveLength(0);
+  });
+
+  it('returns 403 for mechanic on catalogue activation', async () => {
+    const mechanicTenant = await createTestTenant(
+      basePrisma,
+      'inspection-catalog-mechanic',
+    );
+    const mechanicToken = createTestAuthToken(
+      app.get(AuthService),
+      mechanicTenant,
+      { role: 'MECHANIC' },
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/inspection-catalogues/preview')
+      .set('Authorization', `Bearer ${mechanicToken}`)
+      .send({ manifest_reference: STATUTORY_MANIFEST_REFERENCE })
+      .expect(403);
+
+    await cleanupTestTenantGraph(basePrisma, mechanicTenant.tenantId);
+  });
+});
