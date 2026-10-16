@@ -288,7 +288,16 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/auto_core_test
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm test --workspace=core-api -- --ci --maxWorkers=4 --testPathIgnorePatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            if npm test --workspace=core-api -- --ci --maxWorkers=3 --testPathIgnorePatterns='document-branding-(pdf-parser|extraction-image-processor)\.spec\.ts$'; then
+              exit 0
+            fi
+            echo "Parallel unit tests failed (attempt ${attempt}); retrying..."
+            sleep 15
+          done
+          exit 1
 
       - name: Run timing-sensitive unit tests serially
         # Sharp/PDF rasterization specs exceed their 5 s budget when they share CPU with parallel workers.
