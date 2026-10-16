@@ -11,12 +11,15 @@ import {
   createTestAuthToken,
   createTestTenant,
   runWithTenantContext,
+  seedTestTenantMember,
 } from './tenant-test-utils.js';
 import { teardownTestApp } from './test-lifecycle.js';
 import { createHash } from 'node:crypto';
 import {
   registerSyntheticCanonicalResult,
+  SYNTHETIC_CANONICAL_NEGATIVE,
   SYNTHETIC_CANONICAL_POSITIVE,
+  SYNTHETIC_CANONICAL_POSITIVE_NO_PLATE,
 } from '../src/inspection-exchange/inspection-exchange-synthetic-fixtures.js';
 
 describe('Inspection exchange (e2e)', () => {
@@ -352,21 +355,41 @@ describe('Inspection exchange (e2e)', () => {
     await cleanupTestTenantGraph(basePrisma, otherTenant.tenantId).catch(() => undefined);
   });
 
-  it('denies preview for MECHANIC role', async () => {
-    const mechanicToken = createTestAuthToken(
-      app.get(AuthService),
-      {
-        tenantId,
-        firebaseUid: ownerFirebaseUid,
-        email: 'mechanic@test.local',
-        role: 'ADMIN',
+  it('denies preview for TECH tenant role', async () => {
+    const techFirebaseUid = `e2e-inspection-tech-${Date.now()}`;
+    const techUser = await basePrisma.user.create({
+      data: {
+        firebaseUid: techFirebaseUid,
+        email: `tech-${Date.now()}@example.test`,
       },
-      { role: 'MECHANIC', sub: ownerFirebaseUid },
-    );
+    });
+    await seedTestTenantMember(basePrisma, {
+      tenantId,
+      userId: techUser.id,
+      role: 'TECH',
+    });
+    await basePrisma.siteMembership.create({
+      data: {
+        tenant_id: tenantId,
+        user_id: techUser.id,
+        site_id: siteId,
+        is_active: true,
+      },
+    });
+    await basePrisma.user.update({
+      where: { id: techUser.id },
+      data: { active_site_id: siteId },
+    });
+    const techToken = createTestAuthToken(app.get(AuthService), {
+      tenantId,
+      firebaseUid: techFirebaseUid,
+      email: techUser.email,
+      role: 'TECH',
+    });
 
     await request(app.getHttpServer())
       .post(`/api/vehicles/${vehicleId}/inspection-imports/preview`)
-      .set('Authorization', `Bearer ${mechanicToken}`)
+      .set('Authorization', `Bearer ${techToken}`)
       .send({
         connection_id: connectionId,
         native_result_reference: 'SYNTH-RESULT-001',
@@ -401,6 +424,14 @@ describe('Inspection exchange (e2e)', () => {
         vin: 'WVWZZZ1JZXW000077',
         plate: 'SYNTH-077',
         first_registration_date: new Date('2021-01-01T00:00:00.000Z'),
+      },
+    });
+    registerSyntheticCanonicalResult('SYNTH-RESULT-NO-PLATE', {
+      ...SYNTHETIC_CANONICAL_POSITIVE_NO_PLATE,
+      vehicle: {
+        vin: 'WVWZZZ1JZXW000077',
+        first_registration_on: '2021-01-01',
+        registration_plate: 'SYNTH-077',
       },
     });
 
@@ -448,6 +479,14 @@ describe('Inspection exchange (e2e)', () => {
         plaketten_valid_until_year: 2026,
         plaketten_valid_until_month: 10,
         source: 'MANUAL',
+      },
+    });
+    registerSyntheticCanonicalResult('SYNTH-RESULT-NEGATIVE', {
+      ...SYNTHETIC_CANONICAL_NEGATIVE,
+      vehicle: {
+        vin: 'WVWZZZ1JZXW000066',
+        first_registration_on: '2017-06-01',
+        registration_plate: 'SYNTH-066',
       },
     });
 
