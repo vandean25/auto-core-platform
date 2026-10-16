@@ -43,17 +43,26 @@ export class InspectorEvidenceRevisionResponseDto {
   document_ref?: string;
 }
 
+export class InspectorEvidenceListMetaDto {
+  @ApiProperty()
+  page!: number;
+
+  @ApiProperty()
+  limit!: number;
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  pageCount!: number;
+}
+
 export class InspectorEvidenceListResponseDto {
   @ApiProperty({ type: [InspectorEvidenceRevisionResponseDto] })
   data!: InspectorEvidenceRevisionResponseDto[];
 
-  @ApiProperty()
-  meta!: {
-    page: number;
-    limit: number;
-    total: number;
-    pageCount: number;
-  };
+  @ApiProperty({ type: InspectorEvidenceListMetaDto })
+  meta!: InspectorEvidenceListMetaDto;
 }
 
 export class InspectorEvidenceAssessmentResponseDto {

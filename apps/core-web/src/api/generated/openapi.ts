@@ -9754,9 +9754,15 @@ export interface components {
             /** @description Restricted document reference; management roles only */
             document_ref?: string;
         };
+        InspectorEvidenceListMetaDto: {
+            page: number;
+            limit: number;
+            total: number;
+            pageCount: number;
+        };
         InspectorEvidenceListResponseDto: {
             data: components["schemas"]["InspectorEvidenceRevisionResponseDto"][];
-            meta: Record<string, never>;
+            meta: components["schemas"]["InspectorEvidenceListMetaDto"];
         };
         InspectorEvidenceAssessmentResponseDto: {
             evidence_review: string;
