@@ -211,7 +211,6 @@ model AgentProposal {
   updatedAt    DateTime            @updatedAt @map("updated_at")
 
   @@unique([tenant_id, id])
-  @@unique([tenant_id, trace_id, action_type])
   @@index([tenant_id, status, createdAt])
   @@index([tenant_id, trace_id])
   @@map("agent_proposals")
