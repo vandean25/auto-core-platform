@@ -6,6 +6,7 @@ import {
   HttpException,
   Logger,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -95,7 +96,7 @@ export class CreditNotesController {
       format: 'binary',
     },
   })
-  async getPdf(@Param('id') id: string) {
+  async getPdf(@Param('id', ParseUUIDPipe) id: string) {
     const pdf = await this.creditNotePdfService.getPdf(id);
     return toPdfStreamableFile(pdf);
   }
@@ -131,14 +132,14 @@ export class CreditNotesController {
   @ApiCreatedResponse({
     schema: { type: 'object' },
   })
-  generatePdf(@Param('id') id: string) {
+  generatePdf(@Param('id', ParseUUIDPipe) id: string) {
     const targetBaseUrl = process.env.CLOUD_TASKS_TARGET_BASE_URL ?? '';
     return this.creditNotePdfService.requestGeneration(id, { targetBaseUrl });
   }
 
   @Post(':id/pdf/worker')
   @PdfWorker('credit-note')
-  async generatePdfWorker(@Param('id') id: string) {
+  async generatePdfWorker(@Param('id', ParseUUIDPipe) id: string) {
     try {
       await this.creditNotePdfService.generateNow(id);
     } catch (error) {
