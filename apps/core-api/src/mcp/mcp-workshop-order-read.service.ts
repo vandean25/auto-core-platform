@@ -75,9 +75,9 @@ export class McpWorkshopOrderReadService {
     const skip = (page - 1) * pageSize;
     const needsTimezone = Boolean(
       input.scheduled_from ||
-        input.scheduled_to ||
-        input.sent_from ||
-        input.sent_to,
+      input.scheduled_to ||
+      input.sent_from ||
+      input.sent_to,
     );
     const { tenantId, siteId, timeZone } = await this.scope(needsTimezone);
 
