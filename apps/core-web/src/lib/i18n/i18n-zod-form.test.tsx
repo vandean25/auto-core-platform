@@ -14,13 +14,16 @@ type EmailFormValues = z.infer<typeof emailSchema>
 const zodEmailResolver: Resolver<EmailFormValues> = async (values) => {
   const result = emailSchema.safeParse(values)
   if (result.success) {
-    return { values: result.data, errors: {} }
+    return { values: result.data }
   }
   const message = result.error.issues[0]?.message ?? 'Invalid'
   return {
-    values: {},
+    values: {} as EmailFormValues,
     errors: {
-      email: { type: 'custom', message },
+      email: {
+        type: 'custom',
+        message,
+      },
     },
   }
 }
@@ -84,9 +87,9 @@ describe('Zod locale with mounted forms', () => {
     if (!i18n.options.ns?.includes('workshop')) {
       i18n.options.ns = [...(i18n.options.ns ?? []), 'workshop']
     }
-    expect(i18n.t('workshop:smoke.label')).toBe('DE smoke')
+    expect(i18n.getResourceBundle('de', 'workshop')?.smoke?.label).toBe('DE smoke')
 
     await changeUiLanguage('en')
-    expect(i18n.t('workshop:smoke.label')).toBe('EN smoke')
+    expect(i18n.getResourceBundle('en', 'workshop')?.smoke?.label).toBe('EN smoke')
   })
 })
