@@ -61,6 +61,7 @@ export class VehiclePickerlBarrierService {
           occurrence_kind: 'INITIAL',
           plate_valid_until_year: { not: null },
           plate_valid_until_month: { not: null },
+          report_identity_id: { not: null },
         },
         orderBy: { inspected_at: 'desc' },
         select: { vehicle_id: true, inspected_at: true },

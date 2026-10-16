@@ -525,4 +525,69 @@ describe('Inspection exchange (e2e)', () => {
       ),
     ).toBe(true);
   });
+
+  it('persists CONFLICT when ZBD report identity belongs to another vehicle', async () => {
+    const otherVehicle = await prisma.vehicle.create({
+      data: {
+        tenant_id: tenantId,
+        make: 'VW',
+        model: 'Touran',
+        year: 2016,
+        vin: 'WVWZZZ1JZXW000055',
+        plate: 'SYNTH-055',
+        first_registration_date: new Date('2016-04-01T00:00:00.000Z'),
+      },
+    });
+    registerSyntheticCanonicalResult('SYNTH-RESULT-ZBD-OTHER', {
+      ...SYNTHETIC_CANONICAL_POSITIVE,
+      source_result_id: 'SYNTH-RESULT-ZBD-OTHER',
+      source_revision: 'SYNTH-REV-ZBD-OTHER',
+      zbd_report_id: 'SYNTH-ZBD-001',
+      vehicle: {
+        vin: 'WVWZZZ1JZXW000055',
+        first_registration_on: '2016-04-01',
+        registration_plate: 'SYNTH-055',
+      },
+      occurrence_relation: {
+        ...SYNTHETIC_CANONICAL_POSITIVE.occurrence_relation,
+        classification_evidence_ref: 'SYNTH-ZBD-OTHER-001',
+      },
+    });
+
+    const preview = await request(app.getHttpServer())
+      .post(`/api/vehicles/${otherVehicle.id}/inspection-imports/preview`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        connection_id: connectionId,
+        native_result_reference: 'SYNTH-RESULT-ZBD-OTHER',
+      })
+      .expect(201);
+
+    expect(preview.body.state).toBe('READY_FOR_REVIEW');
+
+    await request(app.getHttpServer())
+      .post(
+        `/api/vehicles/${otherVehicle.id}/inspection-imports/${preview.body.id}/apply`,
+      )
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fingerprint: preview.body.fingerprint,
+        version: preview.body.version,
+      })
+      .expect(409);
+
+    const importRow = await prisma.inspectionExchangeImport.findFirst({
+      where: { id: preview.body.id, tenant_id: tenantId },
+    });
+    expect(importRow?.state).toBe('CONFLICT');
+
+    const due = await request(app.getHttpServer())
+      .get('/api/vehicles/pickerl-due?window=90&page=1&pageSize=50')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const row = due.body.data.find(
+      (entry: { id: string }) => entry.id === otherVehicle.id,
+    );
+    expect(row?.pickerl_due?.status).toBe('UNKNOWN');
+  });
 });

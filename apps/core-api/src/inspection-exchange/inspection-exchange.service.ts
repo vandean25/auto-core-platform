@@ -361,7 +361,14 @@ export class InspectionExchangeService {
             update: {},
           });
           if (identity.vehicle_id !== vehicleId) {
-            throw externalResultConflict();
+            throw new InspectionImportApplyConflictSignal({
+              tenantId,
+              siteId,
+              importId,
+              actorUserId: user.id,
+              previousState: importRow.state,
+              semanticDigest: resolved.semanticDigest,
+            });
           }
           reportIdentityId = identity.id;
         }
@@ -479,7 +486,8 @@ export class InspectionExchangeService {
           envelope.canonical.outcome === 'POSITIVE' &&
           envelope.canonical.finality === 'FINAL' &&
           envelope.canonical.acknowledgement.state === 'CONFIRMED' &&
-          plateExpiry
+          plateExpiry &&
+          reportIdentityId
         ) {
           await tx.vehicleInspectionRecord.create({
             data: {
@@ -761,6 +769,17 @@ export class InspectionExchangeService {
     }
 
     if (result.outcome === 'POSITIVE' && !result.plate?.valid_until) {
+      return {
+        result,
+        semanticDigest,
+        fingerprint,
+        originalDigest,
+        inspectedOn,
+        state: 'UNCONFIRMED',
+      };
+    }
+
+    if (result.outcome === 'POSITIVE' && !result.zbd_report_id) {
       return {
         result,
         semanticDigest,

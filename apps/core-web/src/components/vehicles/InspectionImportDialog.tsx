@@ -28,6 +28,22 @@ type InspectionImportDialogProps = {
   onOpenChange: (open: boolean) => void
 }
 
+const INSPECTION_IMPORT_STATE_LABELS: Record<string, string> = {
+  READY_FOR_REVIEW: 'Bereit zur Übernahme',
+  UNCONFIRMED: 'Nicht bestätigt',
+  CONFLICT: 'Konflikt — manuelle Prüfung erforderlich',
+  APPLIED: 'Übernommen',
+  RECEIVED: 'Empfangen',
+  REJECTED: 'Abgelehnt',
+}
+
+function qualificationLabel(state: string): string {
+  if (state === 'NOT_VERIFIED') {
+    return 'Qualifikation nicht verifiziert'
+  }
+  return 'Qualifikation nicht verifiziert'
+}
+
 export function InspectionImportDialog({
   vehicleId,
   connectionId,
@@ -82,7 +98,13 @@ export function InspectionImportDialog({
           <div className='space-y-2 text-sm'>
             <div className='flex items-center gap-2'>
               <span className='text-muted-foreground'>Status:</span>
-              <StatusBadge status={preview.state} />
+              <StatusBadge
+                status={preview.state}
+                label={
+                  INSPECTION_IMPORT_STATE_LABELS[preview.state] ??
+                  preview.state
+                }
+              />
             </div>
             {preview.reviewed_fields.display_unconfirmed ? (
               <p className='text-amber-700'>
@@ -102,7 +124,7 @@ export function InspectionImportDialog({
               </span>
             </p>
             <p className='text-muted-foreground text-xs'>
-              Qualifikation: {preview.reviewed_fields.qualification_state}
+              {qualificationLabel(preview.reviewed_fields.qualification_state)}
             </p>
             {applyMutation.isError ? (
               <p className='text-sm text-destructive'>
