@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { WorkshopPositionPlanService } from './workshop-position-plan.service.js';
 import { laborNetCents, partNetCents } from './workshop-position-plan.math.js';
 
@@ -25,31 +26,72 @@ describe('WorkshopPositionPlanService', () => {
     expect(partNetCents(1500, 4200)).toBe(6300);
   });
 
-  it('flags stale plans when fingerprints differ', () => {
+  it('flags stale plans when unit price changes', () => {
+    const line = {
+      kind: 'LABOR' as const,
+      laborOperationId: 'l1',
+      catalogItemId: null,
+      description: 'Service',
+      quantity: '1.500',
+      unit: 'h',
+      unitPriceCents: 9000,
+      netCents: 13500,
+      reservation: 'not_applicable' as const,
+      durationMinutes: 90,
+    };
     const stored = {
       version: 1,
       fingerprint: 'a',
-      lines: [
-        {
-          kind: 'LABOR' as const,
-          laborOperationId: 'l1',
-          catalogItemId: null,
-          description: 'Service',
-          quantity: '1.500',
-          unit: 'h',
-          unitPriceCents: 9000,
-          netCents: 13500,
-          reservation: 'not_applicable' as const,
-        },
-      ],
+      lines: [line],
     };
     const recomputed = {
-      ...stored,
+      version: 1,
       fingerprint: 'b',
+      lines: [{ ...line, unitPriceCents: 9500, netCents: 14250 }],
     };
     expect(() =>
       service.assertStoredPlanMatches(stored, recomputed),
     ).toThrow(ConflictException);
+  });
+
+  it('requires a reviewed plan when recomputed lines exist but stored plan is missing', () => {
+    expect(() =>
+      service.assertStoredPlanMatches(null, {
+        version: 1,
+        fingerprint: 'x',
+        lines: [],
+      }),
+    ).toThrow(ConflictException);
+  });
+
+  it('re-resolves part quantity from position_lines on apply stale check', async () => {
+    const catalogId = '00000000-0000-4000-8000-000000000099';
+    mockPrisma.catalogItem.findMany.mockResolvedValue([
+      {
+        id: catalogId,
+        sku: 'OIL',
+        name: 'Engine oil',
+        unit: 'pcs',
+        retail_price: new Prisma.Decimal('42.00'),
+      },
+    ]);
+    mockPrisma.laborOperation.findMany.mockResolvedValue([]);
+
+    const reviewed = await service.resolvePlan('tenant-1', 'site-1', {
+      position_lines: [{ catalog_item_id: catalogId, quantity_milli: 2500 }],
+    });
+    const applyPayload = {
+      position_lines: [{ catalog_item_id: catalogId, quantity_milli: 2500 }],
+      position_plan: service.toPayloadPositionPlan(reviewed!),
+    };
+    const stored = service.parseStoredPlan(applyPayload);
+    const recomputed = await service.resolvePlan('tenant-1', 'site-1', applyPayload, {
+      forApplyStaleCheck: true,
+    });
+    expect(stored?.lines[0].quantity).toBe('2.500');
+    expect(() =>
+      service.assertStoredPlanMatches(stored, recomputed),
+    ).not.toThrow();
   });
 
   it('skips creating tasks when the order already has plan-backed tasks', async () => {

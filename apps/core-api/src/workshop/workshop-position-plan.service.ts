@@ -39,8 +39,12 @@ export type CallerPositionLine = {
   labor_operation_id?: string;
   catalog_item_id?: string;
   quantity_milli?: number;
-  quantity_aw_milli?: number;
   reserve_part?: boolean;
+};
+
+export type ResolvePlanOptions = {
+  /** Re-resolve caller intent for apply stale checks (position_lines first). */
+  forApplyStaleCheck?: boolean;
 };
 
 @Injectable()
@@ -66,8 +70,11 @@ export class WorkshopPositionPlanService {
     tenantId: string,
     siteId: string,
     input: Record<string, unknown>,
+    options?: ResolvePlanOptions,
   ): Promise<ResolvedPositionPlan | null> {
-    const rawLines = this.collectRawLines(input);
+    const rawLines = options?.forApplyStaleCheck
+      ? this.collectRawLinesForApply(input)
+      : this.collectRawLines(input);
     if (rawLines.length === 0) {
       return null;
     }
@@ -83,19 +90,19 @@ export class WorkshopPositionPlanService {
     if (!stored && !recomputed) {
       return;
     }
-    if (!stored && recomputed) {
-      return;
-    }
-    if (stored && !recomputed) {
+    if (!stored || !recomputed) {
       throw new ConflictException({
         code: PLAN_STALE,
         message: 'The position plan changed; submit a new review',
       });
     }
-    if (!stored || !recomputed) {
-      return;
+    if (stored.version !== recomputed.version) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
     }
-    if (stored.fingerprint !== recomputed.fingerprint) {
+    if (stored.lines.length !== recomputed.lines.length) {
       throw new ConflictException({
         code: PLAN_STALE,
         message: 'The position plan changed; submit a new review',
@@ -105,10 +112,15 @@ export class WorkshopPositionPlanService {
       const a = stored.lines[i];
       const b = recomputed.lines[i];
       if (
+        a.kind !== b.kind ||
+        a.laborOperationId !== b.laborOperationId ||
+        a.catalogItemId !== b.catalogItemId ||
         a.netCents !== b.netCents ||
         a.unitPriceCents !== b.unitPriceCents ||
         a.quantity !== b.quantity ||
-        a.reservation !== b.reservation
+        a.reservation !== b.reservation ||
+        (a.durationMinutes ?? null) !== (b.durationMinutes ?? null) ||
+        (a.quantityMilli ?? null) !== (b.quantityMilli ?? null)
       ) {
         throw new ConflictException({
           code: PLAN_STALE,
@@ -157,6 +169,14 @@ export class WorkshopPositionPlanService {
         unitPriceCents: Number(row.unit_price_cents ?? 0),
         netCents: Number(row.net_cents ?? 0),
         reservation,
+        durationMinutes:
+          typeof row.duration_minutes === 'number'
+            ? row.duration_minutes
+            : undefined,
+        quantityMilli:
+          typeof row.quantity_milli === 'number'
+            ? row.quantity_milli
+            : undefined,
       };
     });
     return {
@@ -292,29 +312,79 @@ export class WorkshopPositionPlanService {
         unit_price_cents: line.unitPriceCents,
         net_cents: line.netCents,
         reservation: line.reservation,
+        ...(line.durationMinutes !== undefined
+          ? { duration_minutes: line.durationMinutes }
+          : {}),
+        ...(line.quantityMilli !== undefined
+          ? { quantity_milli: line.quantityMilli }
+          : {}),
       })),
     };
   }
 
   private collectRawLines(input: Record<string, unknown>): RawPlanLine[] {
-    const plan = input.position_plan;
-    if (plan && typeof plan === 'object' && !Array.isArray(plan)) {
-      const lines = (plan as Record<string, unknown>).lines;
-      if (Array.isArray(lines)) {
-        return lines.filter(
-          (line) => line && typeof line === 'object' && !Array.isArray(line),
-        ) as RawPlanLine[];
-      }
-    }
     const callerLines = input.position_lines;
-    if (!Array.isArray(callerLines)) {
+    if (Array.isArray(callerLines) && callerLines.length > 0) {
+      return callerLines
+        .filter(
+          (line) => line && typeof line === 'object' && !Array.isArray(line),
+        )
+        .map((line) => this.callerLineToRaw(line as CallerPositionLine));
+    }
+    return this.rawLinesFromStoredPlan(input);
+  }
+
+  private collectRawLinesForApply(
+    input: Record<string, unknown>,
+  ): RawPlanLine[] {
+    return this.collectRawLines(input);
+  }
+
+  private rawLinesFromStoredPlan(
+    input: Record<string, unknown>,
+  ): RawPlanLine[] {
+    const plan = input.position_plan;
+    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) {
       return [];
     }
-    return callerLines
+    const lines = (plan as Record<string, unknown>).lines;
+    if (!Array.isArray(lines)) {
+      return [];
+    }
+    return lines
       .filter(
         (line) => line && typeof line === 'object' && !Array.isArray(line),
       )
-      .map((line) => this.callerLineToRaw(line as CallerPositionLine));
+      .map((line) =>
+        this.storedPlanPayloadLineToRaw(line as Record<string, unknown>),
+      );
+  }
+
+  private storedPlanPayloadLineToRaw(
+    row: Record<string, unknown>,
+  ): RawPlanLine {
+    const raw: RawPlanLine = {};
+    if (typeof row.preset_key === 'string') {
+      raw.preset_key = row.preset_key;
+    }
+    if (typeof row.labor_operation_id === 'string') {
+      raw.labor_operation_id = row.labor_operation_id;
+    }
+    if (typeof row.catalog_item_id === 'string') {
+      raw.catalog_item_id = row.catalog_item_id;
+    }
+    if (typeof row.quantity_milli === 'number') {
+      raw.quantity_milli = row.quantity_milli;
+    } else if (row.kind === 'PART' && typeof row.quantity === 'string') {
+      const quantity = Number.parseFloat(row.quantity);
+      if (!Number.isNaN(quantity)) {
+        raw.quantity_milli = Math.round(quantity * 1000);
+      }
+    }
+    if (row.reservation === 'reserved' || row.reservation === 'unbooked') {
+      raw.reservation = row.reservation;
+    }
+    return raw;
   }
 
   private callerLineToRaw(line: CallerPositionLine): RawPlanLine {
@@ -330,9 +400,6 @@ export class WorkshopPositionPlanService {
     }
     if (line.quantity_milli !== undefined) {
       raw.quantity_milli = line.quantity_milli;
-    }
-    if (line.quantity_aw_milli !== undefined) {
-      raw.quantity_aw_milli = line.quantity_aw_milli;
     }
     if (line.reserve_part === true) {
       raw.reservation = 'reserved';
@@ -371,6 +438,7 @@ export class WorkshopPositionPlanService {
               active: true,
               OR: [{ site_id: siteId }, { site_id: null }],
             },
+            orderBy: [{ site_id: { sort: 'desc', nulls: 'last' } }],
           })
         : [];
 
@@ -504,9 +572,7 @@ export class WorkshopPositionPlanService {
         );
       }
       let durationMinutes: number;
-      if (typeof line.quantity_aw_milli === 'number') {
-        durationMinutes = hoursToDurationMinutes(line.quantity_aw_milli / 1000);
-      } else if (preset?.duration_minutes != null) {
+      if (preset?.duration_minutes != null) {
         durationMinutes = preset.duration_minutes;
       } else {
         durationMinutes = hoursToDurationMinutes(Number(labor.standard_aw));

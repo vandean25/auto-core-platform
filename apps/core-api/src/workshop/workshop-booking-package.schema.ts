@@ -18,7 +18,6 @@ const positionLineInputSchema = z
     labor_operation_id: uuidSchema.optional(),
     catalog_item_id: uuidSchema.optional(),
     quantity_milli: z.number().int().positive().optional(),
-    quantity_aw_milli: z.number().int().positive().optional(),
     reserve_part: z.boolean().optional(),
   })
   .strict()

@@ -1,8 +1,10 @@
 import {
+  ConflictException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { PLAN_STALE } from './workshop-position-plan.types.js';
 import { WorkshopOrderPurpose, WorkshopOrderStatus } from '@prisma/client';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -71,11 +73,10 @@ export class WorkshopBookingPackageService {
     input: unknown,
     executionContext?: Record<string, unknown>,
   ): Promise<WorkshopBookingPackageResult> {
-    const enriched = await this.enrichInput(input);
-    const packageInput = normalizeWorkshopBookingPackage(enriched);
+    const packageInput = normalizeWorkshopBookingPackage(input);
     const record =
-      enriched && typeof enriched === 'object' && !Array.isArray(enriched)
-        ? (enriched as Record<string, unknown>)
+      input && typeof input === 'object' && !Array.isArray(input)
+        ? (input as Record<string, unknown>)
         : {};
 
     const tenantId = await this.tenantContext.getTenantId();
@@ -112,13 +113,22 @@ export class WorkshopBookingPackageService {
       expectedSiteId,
     );
 
+    const hasPlan = this.positionPlan.hasPlanContent(record);
     const storedPlan = this.positionPlan.parseStoredPlan(record);
-    const recomputedPlan = await this.positionPlan.resolvePlan(
-      tenantId,
-      siteId,
-      record,
-    );
-    this.positionPlan.assertStoredPlanMatches(storedPlan, recomputedPlan);
+    if (hasPlan && !storedPlan) {
+      throw new ConflictException({
+        code: PLAN_STALE,
+        message: 'The position plan changed; submit a new review',
+      });
+    }
+    const recomputedPlan = storedPlan
+      ? await this.positionPlan.resolvePlan(tenantId, siteId, record, {
+          forApplyStaleCheck: true,
+        })
+      : null;
+    if (storedPlan) {
+      this.positionPlan.assertStoredPlanMatches(storedPlan, recomputedPlan);
+    }
 
     const callerSite = await this.prisma.site.updateMany({
       where: { id: siteId, tenant_id: tenantId, is_active: true },
