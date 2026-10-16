@@ -38,9 +38,7 @@ export async function assertWorkshopCommandPresetHardDeleteAllowed(
     take: 200,
   });
   for (const row of pending) {
-    if (
-      payloadReferencesPresetKey(row.payload_json as Prisma.JsonValue, presetKey)
-    ) {
+    if (payloadReferencesPresetKey(row.payload_json, presetKey)) {
       throw new ConflictException(
         `Preset ${presetKey} is referenced by a pending workshop booking proposal`,
       );
