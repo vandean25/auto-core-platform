@@ -4,6 +4,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { Test, TestingModule } from '@nestjs/testing';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -46,6 +47,17 @@ const fixtures = JSON.parse(
   >;
 };
 
+function fixtureResponse(
+  cases: Record<string, { response: Record<string, unknown> }>,
+  caseKey: string,
+) {
+  const { httpStatus: _httpStatus, ...body } = cases[caseKey].response as Record<
+    string,
+    unknown
+  > & { httpStatus?: number };
+  return body;
+}
+
 describe('VehicleValuationService', () => {
   const tenantId = 'tenant-1';
   const userId = 'user-db-1';
@@ -64,7 +76,8 @@ describe('VehicleValuationService', () => {
   };
   let tenantContext: { getTenantId: jest.Mock; getAuthenticatedUser: jest.Mock };
   let siteContext: { getSiteId: jest.Mock };
-  let provider: VehicleValuationProvider;
+  let provider: jest.Mocked<VehicleValuationProvider>;
+  let fixtureProvider: FixtureVehicleValuationProvider;
 
   const baseVehicle = {
     id: '00000000-0000-4000-8000-000000000527',
@@ -77,7 +90,13 @@ describe('VehicleValuationService', () => {
   };
 
   beforeEach(async () => {
-    provider = new FixtureVehicleValuationProvider();
+    fixtureProvider = new FixtureVehicleValuationProvider();
+    provider = {
+      isAvailable: jest.fn().mockReturnValue(true),
+      quote: jest.fn((input, signal) =>
+        fixtureProvider.quote(input, signal),
+      ),
+    };
     prisma = {
       vehicle: { findFirst: jest.fn() },
       vehicleValuationSnapshot: {
@@ -168,8 +187,11 @@ describe('VehicleValuationService', () => {
         caseFix.http!.idempotencyKey,
         now,
       ),
-    ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    ).rejects.toMatchObject({
+      response: fixtureResponse(fixtures.cases, 'uncertain-identity-vin-shaped'),
+    });
 
+    expect(provider.quote).not.toHaveBeenCalled();
     expect(prisma.vehicleValuationSnapshot.create).not.toHaveBeenCalled();
   });
 
@@ -225,7 +247,9 @@ describe('VehicleValuationService', () => {
         caseFix.http!.idempotencyKey,
         now,
       ),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).rejects.toMatchObject({
+      response: fixtureResponse(fixtures.cases, 'ambiguous-variant'),
+    });
 
     expect(prisma.vehicleValuationSnapshot.create).not.toHaveBeenCalled();
   });
@@ -278,8 +302,10 @@ describe('VehicleValuationService', () => {
     ]);
 
     const rows = await service.listValuations(baseVehicle.id, readOn);
-    expect(rows[0]?.result).toBe('QUOTED');
-    expect(rows[0]?.stale).toBe(true);
+    expect(rows[0]).toMatchObject(
+      fixtureResponse(fixtures.cases, 'stale-valuation'),
+    );
+    expect(provider.quote).not.toHaveBeenCalled();
   });
 
   it('returns conflict replay for mismatched idempotency input', async () => {
@@ -353,8 +379,9 @@ describe('VehicleValuationService', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      response: { result: 'REFERENCE_VERSION_UNKNOWN' },
+      response: fixtureResponse(fixtures.cases, 'reference-version-unknown'),
     });
+    expect(prisma.vehicleValuationSnapshot.create).not.toHaveBeenCalled();
   });
 
   it('returns as-of unknown without storing', async () => {
@@ -369,8 +396,78 @@ describe('VehicleValuationService', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      response: { result: 'AS_OF_UNKNOWN' },
+      response: fixtureResponse(fixtures.cases, 'as-of-unknown'),
     });
+    expect(prisma.vehicleValuationSnapshot.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects impossible requestedAsOf before calling the provider', async () => {
+    mockVehicle(baseVehicle);
+    prisma.vehicleValuationSnapshot.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.createValuation(
+        baseVehicle.id,
+        {
+          ...fixtures.cases['quoted-market-value'].http!.body,
+          requestedAsOf: '2026-02-29',
+        },
+        'invalid-date-key-1234567',
+        now,
+      ),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'VALUATION_REQUESTED_AS_OF_INVALID',
+        field: 'requestedAsOf',
+      },
+    });
+    expect(provider.quote).not.toHaveBeenCalled();
+    expect(prisma.vehicleValuationSnapshot.create).not.toHaveBeenCalled();
+  });
+
+  it('replays after a unique-key race on insert', async () => {
+    const body = fixtures.cases['quoted-market-value'].http!.body;
+    const inputSha256 = createValuationInputSha256({
+      vehicleId: baseVehicle.id,
+      nationalCode: '100527',
+      valuationType: 'MARKET_VALUE',
+      mileageKm: body.mileageKm!,
+      condition: body.condition!,
+      requestedAsOf: body.requestedAsOf!,
+      currency: 'EUR',
+      contractVersion: 'acp-valuation-contract-1',
+    });
+    mockVehicle(baseVehicle);
+    prisma.vehicleValuationSnapshot.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'raced-snap',
+        national_code: '100527',
+        mileage_km: 84200,
+        condition: 'ROADWORTHY_AVERAGE',
+        amount: { toFixed: () => '14850.00' },
+        reference_version: 'synthetic-ref-2026-10',
+        contract_version: 'acp-valuation-contract-1',
+        provider_as_of: new Date('2026-10-15T00:00:00.000Z'),
+        requested_as_of: new Date('2026-10-15T00:00:00.000Z'),
+        input_sha256: inputSha256,
+        createdAt: now,
+      });
+    prisma.vehicleValuationSnapshot.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const result = await service.createValuation(
+      baseVehicle.id,
+      body,
+      fixtures.cases['quoted-market-value'].http!.idempotencyKey,
+      now,
+    );
+
+    expect(result.id).toBe('raced-snap');
   });
 
   it('returns 404 for stock vehicle on another site', async () => {
@@ -435,14 +532,20 @@ describe('VehicleValuationService with disabled production provider', () => {
     const body = fixtures.cases['quoted-market-value'].http!
       .body as CreateVehicleValuationDto;
 
-    await expect(
-      service.createValuation(
+    try {
+      await service.createValuation(
         '00000000-0000-4000-8000-000000000527',
         body,
         'provider-down-key-123456',
         new Date('2026-10-15T10:00:00.000Z'),
-      ),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+      );
+      throw new Error('expected ServiceUnavailableException');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect((error as ServiceUnavailableException).getResponse()).toMatchObject(
+        fixtureResponse(fixtures.cases, 'provider-unavailable'),
+      );
+    }
 
     expect(prisma.vehicleValuationSnapshot.create).not.toHaveBeenCalled();
     expect(

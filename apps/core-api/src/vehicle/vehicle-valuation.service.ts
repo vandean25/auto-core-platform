@@ -4,7 +4,7 @@ import {
   Injectable,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { VehicleInventoryRole } from '@prisma/client';
+import { Prisma, VehicleInventoryRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { TenantContextService } from '../common/services/tenant-context.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -39,6 +39,7 @@ import {
   assertRequestedAsOfInRange,
   createValuationInputSha256,
   hashValuationProviderBody,
+  parseStrictDateOnlyYmd,
   resolveRequestedAsOf,
   VALUATION_IDEMPOTENCY_KEY_PATTERN,
 } from './vehicle-valuation.util.js';
@@ -218,33 +219,66 @@ export class VehicleValuationService {
     const createdAt = now;
     const providerBodySha256 = hashValuationProviderBody(providerOutput);
 
-    const row = await this.prisma.vehicleValuationSnapshot.create({
-      data: {
-        id: snapshotId,
-        tenant_id: tenantId,
-        vehicle_id: vehicleId,
-        site_id: siteId,
-        national_code: identity.nationalCode,
-        valuation_type: 'MARKET_VALUE',
-        mileage_km: mileageKm,
-        condition,
-        requested_as_of: new Date(`${requestedAsOf}T00:00:00.000Z`),
-        provider_as_of: new Date(
-          `${providerOutput.providerAsOf}T00:00:00.000Z`,
-        ),
-        currency: 'EUR',
-        amount: providerOutput.amount,
-        source: 'EUROTAX_AT_AUTOVALUATION',
-        reference_version: providerOutput.referenceVersion,
-        contract_version: VALUATION_CONTRACT_VERSION,
-        native_id_state: 'NATIVE_ID_UNKNOWN',
-        input_sha256: inputSha256,
-        provider_body_sha256: providerBodySha256,
-        idempotency_key: idempotencyKey,
-        created_by: user.id,
-        createdAt,
-      },
-    });
+    const requestedAsOfDate = parseStrictDateOnlyYmd(requestedAsOf);
+    const providerAsOfDate = parseStrictDateOnlyYmd(
+      providerOutput.providerAsOf,
+    );
+
+    let row: Awaited<
+      ReturnType<PrismaService['vehicleValuationSnapshot']['create']>
+    >;
+    try {
+      row = await this.prisma.vehicleValuationSnapshot.create({
+        data: {
+          id: snapshotId,
+          tenant_id: tenantId,
+          vehicle_id: vehicleId,
+          site_id: siteId,
+          national_code: identity.nationalCode,
+          valuation_type: 'MARKET_VALUE',
+          mileage_km: mileageKm,
+          condition,
+          requested_as_of: requestedAsOfDate,
+          provider_as_of: providerAsOfDate,
+          currency: 'EUR',
+          amount: providerOutput.amount,
+          source: 'EUROTAX_AT_AUTOVALUATION',
+          reference_version: providerOutput.referenceVersion,
+          contract_version: VALUATION_CONTRACT_VERSION,
+          native_id_state: 'NATIVE_ID_UNKNOWN',
+          input_sha256: inputSha256,
+          provider_body_sha256: providerBodySha256,
+          idempotency_key: idempotencyKey,
+          created_by: user.id,
+          createdAt,
+        },
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const raced = await this.prisma.vehicleValuationSnapshot.findFirst({
+          where: { tenant_id: tenantId, idempotency_key: idempotencyKey },
+        });
+        if (!raced) {
+          throw error;
+        }
+        if (raced.input_sha256 !== inputSha256) {
+          throw valuationConflictReplay({
+            result: 'CONFLICT_REPLAY',
+            amount: null,
+            sourceState: 'UNKNOWN',
+            asOfState: 'AS_OF_UNKNOWN',
+            referenceVersionState: 'REFERENCE_VERSION_UNKNOWN',
+            nativeId: null,
+            nativeIdState: 'NATIVE_ID_UNKNOWN',
+          });
+        }
+        return mapSnapshotToQuotedResponse(raced, now);
+      }
+      throw error;
+    }
 
     return buildQuotedResponseFromOutput(
       {

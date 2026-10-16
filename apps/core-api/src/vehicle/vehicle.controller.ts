@@ -8,8 +8,8 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpCode,
+  Req,
   HttpStatus,
   Param,
   ParseUUIDPipe,
@@ -47,6 +47,7 @@ import {
   VehiclePaginatedResponseDto,
   VehicleResponseDto,
 } from './dto/vehicle-response.dto.js';
+import type { Request } from 'express';
 import { DryRunSupported } from '../dry-run/dry-run.decorators.js';
 import { NovaCalculationService } from './nova-calculation.service.js';
 import {
@@ -225,12 +226,19 @@ export class VehicleController {
   createValuation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateVehicleValuationDto,
-    @Headers('idempotency-key') idempotencyKey: string,
+    @Req() request: Request,
   ) {
+    const header = request.headers['idempotency-key'];
+    const idempotencyKey =
+      typeof header === 'string'
+        ? header
+        : Array.isArray(header)
+          ? header[0]
+          : undefined;
     return this.vehicleValuationService.createValuation(
       id,
       dto,
-      typeof idempotencyKey === 'string' ? idempotencyKey : undefined,
+      idempotencyKey,
     );
   }
 

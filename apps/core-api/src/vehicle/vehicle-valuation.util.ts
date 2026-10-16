@@ -11,6 +11,26 @@ export const VIENNA_TIME_ZONE = 'Europe/Vienna';
 export const VALUATION_IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
 
 const SIX_DIGIT_NATIONAL_CODE = /^[0-9]{6}$/;
+const DATE_ONLY_YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+export function parseStrictDateOnlyYmd(value: string): Date {
+  const match = DATE_ONLY_YMD.exec(value);
+  if (!match) {
+    throw new Error('VALUATION_REQUESTED_AS_OF_INVALID');
+  }
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    throw new Error('VALUATION_REQUESTED_AS_OF_INVALID');
+  }
+  return parsed;
+}
 
 export function todayInViennaYmd(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -70,16 +90,14 @@ export function assessNationalCodeIdentity(input: {
   vin: string | null | undefined;
   typenscheinNo: string | null | undefined;
 }): { ok: true; nationalCode: string } | { ok: false } {
-  const code = normalizeNationalCodeCandidate(input.nationalCode);
-  if (!code) {
+  const raw = input.nationalCode;
+  if (raw === null || raw === undefined || raw === '') {
     return { ok: false };
   }
-  if (!SIX_DIGIT_NATIONAL_CODE.test(code)) {
+  if (!SIX_DIGIT_NATIONAL_CODE.test(raw)) {
     return { ok: false };
   }
-  if (code.length === 17) {
-    return { ok: false };
-  }
+  const code = raw;
   const normalizedVin = normalizeVehicleIdentityValue(input.vin ?? '');
   if (normalizedVin && code.toUpperCase() === normalizedVin) {
     return { ok: false };
@@ -103,6 +121,7 @@ export function assertRequestedAsOfInRange(
   firstRegistrationDate: Date | null | undefined,
   now: Date = new Date(),
 ): void {
+  parseStrictDateOnlyYmd(requestedAsOf);
   const today = todayInViennaYmd(now);
   if (requestedAsOf > today) {
     throw new Error('VALUATION_REQUESTED_AS_OF_FUTURE');

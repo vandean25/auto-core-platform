@@ -2,6 +2,7 @@ import {
   assessNationalCodeIdentity,
   createValuationInputSha256,
   isValuationStale,
+  parseStrictDateOnlyYmd,
   todayInViennaYmd,
 } from './vehicle-valuation.util.js';
 
@@ -55,5 +56,27 @@ describe('vehicle-valuation.util', () => {
     expect(todayInViennaYmd(new Date('2026-10-15T22:00:00.000Z'))).toBe(
       '2026-10-16',
     );
+  });
+
+  it('rejects impossible calendar dates', () => {
+    expect(() => parseStrictDateOnlyYmd('2026-02-29')).toThrow(
+      'VALUATION_REQUESTED_AS_OF_INVALID',
+    );
+    expect(() => parseStrictDateOnlyYmd('2026-04-31')).toThrow(
+      'VALUATION_REQUESTED_AS_OF_INVALID',
+    );
+    expect(parseStrictDateOnlyYmd('2026-10-15').toISOString()).toBe(
+      '2026-10-15T00:00:00.000Z',
+    );
+  });
+
+  it('rejects padded national codes without trimming', () => {
+    expect(
+      assessNationalCodeIdentity({
+        nationalCode: '100527 ',
+        vin: null,
+        typenscheinNo: null,
+      }).ok,
+    ).toBe(false);
   });
 });
