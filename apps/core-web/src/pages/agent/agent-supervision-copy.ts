@@ -85,6 +85,22 @@ export const SUPERVISION_COPY = {
       en: 'Amount',
       de: 'Betrag',
     },
+    proposalId: {
+      en: 'Proposal ID',
+      de: 'Vorschlags-ID',
+    },
+    amountNet: {
+      en: 'net',
+      de: 'netto',
+    },
+    amountGross: {
+      en: 'gross',
+      de: 'brutto',
+    },
+    taxBasisNotSet: {
+      en: 'Tax basis not set',
+      de: 'Steuerbasis nicht gesetzt',
+    },
     orderNumber: {
       en: 'Order No.',
       de: 'Auftrags-Nr.',

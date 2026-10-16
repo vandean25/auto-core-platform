@@ -34,6 +34,11 @@ import {
   getDefaultSupervisionChanges,
   parseWouldChangeFromPreview,
 } from '../agent-proposal-change-preview'
+import {
+  resolveLineAmountTaxBasis,
+  resolveProposalAmountTaxBasis,
+  type AmountTaxBasis,
+} from '../agent-proposal-tax-basis'
 import { RejectProposalDialog } from './RejectProposalDialog'
 
 interface ProposedLine {
@@ -216,6 +221,27 @@ export function ApprovalsTab({
       style: 'currency',
       currency: 'EUR',
     })
+  }
+
+  const formatTaxBasisLabel = (basis: AmountTaxBasis | null) => {
+    if (basis === 'NET') {
+      return getCopy(t.amountNet, language)
+    }
+    if (basis === 'GROSS') {
+      return getCopy(t.amountGross, language)
+    }
+    return getCopy(t.taxBasisNotSet, language)
+  }
+
+  const formatMoneyWithTaxBasis = (
+    amountEur: number | null | undefined,
+    basis: AmountTaxBasis | null,
+  ) => {
+    const formatted = formatAmount(amountEur)
+    if (!formatted) {
+      return '—'
+    }
+    return `${formatted} (${formatTaxBasisLabel(basis)})`
   }
 
   const formatLineType = (type: ProposedLine['type']) =>
@@ -458,6 +484,10 @@ export function ApprovalsTab({
             const proposedLines = isWorkshopOrderLine
               ? [getProposedLine(payload)]
               : []
+            const proposalTaxBasis = resolveProposalAmountTaxBasis(proposal)
+            const lineTaxBasis = isWorkshopOrderLine
+              ? resolveLineAmountTaxBasis(proposal)
+              : proposalTaxBasis
             const wouldChange = parseWouldChangeFromPreview(proposal.preview_json)
             const defaultChanges = getDefaultSupervisionChanges(wouldChange)
 
@@ -478,6 +508,12 @@ export function ApprovalsTab({
                       <StatusBadge status={proposal.status} />
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                      <span data-testid={`proposal-id-${proposal.id}`}>
+                        {getCopy(t.proposalId, language)}:{' '}
+                        <strong className="font-mono text-slate-700">
+                          {proposal.id}
+                        </strong>
+                      </span>
                       <span>
                         {getCopy(t.agent, language)}:{' '}
                         <strong className="text-slate-700">{agentName}</strong>
@@ -694,10 +730,16 @@ export function ApprovalsTab({
                                     )}
                               </td>
                               <td className="py-1.5 pr-3 text-right font-mono">
-                                {formatAmount(line.unitPriceEur) ?? '—'}
+                                {formatMoneyWithTaxBasis(
+                                  line.unitPriceEur,
+                                  lineTaxBasis,
+                                )}
                               </td>
                               <td className="py-1.5 text-right font-mono font-semibold text-emerald-700">
-                                {formatAmount(line.amountEur) ?? '—'}
+                                {formatMoneyWithTaxBasis(
+                                  line.amountEur,
+                                  lineTaxBasis,
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -711,10 +753,13 @@ export function ApprovalsTab({
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-600">
                   <div className="flex items-center gap-4">
                     {amountFormatted && (
-                      <span className="font-semibold text-slate-900">
+                      <span
+                        className="font-semibold text-slate-900"
+                        data-testid={`proposal-amount-${proposal.id}`}
+                      >
                         {getCopy(t.amount, language)}:{' '}
                         <span className="font-mono text-emerald-700">
-                          {amountFormatted}
+                          {formatMoneyWithTaxBasis(amountEur, proposalTaxBasis)}
                         </span>
                       </span>
                     )}

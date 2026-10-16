@@ -835,8 +835,8 @@ describe('AgentSupervisionPage', () => {
       expect(lines.getByText('Brake pad set')).toBeInTheDocument()
       expect(lines.getByText('Part')).toBeInTheDocument()
       expect(lines.getByText('2')).toBeInTheDocument()
-      expect(lines.getByText('€250.00')).toBeInTheDocument()
-      expect(lines.getByText('€500.00')).toBeInTheDocument()
+      expect(lines.getAllByText('€250.00 (Tax basis not set)')).toHaveLength(1)
+      expect(lines.getAllByText('€500.00 (Tax basis not set)')).toHaveLength(1)
     })
 
     it('formats proposed line amounts as German euros', () => {
@@ -845,8 +845,142 @@ describe('AgentSupervisionPage', () => {
 
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
       expect(lines.getByText('Teil')).toBeInTheDocument()
-      expect(lines.getByText(/250,00\s€/)).toBeInTheDocument()
-      expect(lines.getByText(/500,00\s€/)).toBeInTheDocument()
+      expect(lines.getByText(/250,00\s€ \(Steuerbasis nicht gesetzt\)/)).toBeInTheDocument()
+      expect(lines.getByText(/500,00\s€ \(Steuerbasis nicht gesetzt\)/)).toBeInTheDocument()
+    })
+
+    it('shows the proposal ID on the approval card', () => {
+      renderWithProposals([workshopOrderProposal({ id: 'wo-prop-9a1b2c3d' })])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-9a1b2c3d'))
+      expect(card.getByTestId('proposal-id-wo-prop-9a1b2c3d')).toHaveTextContent(
+        'wo-prop-9a1b2c3d',
+      )
+    })
+
+    it('labels amounts as gross when preview carries document.price_display GROSS', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          id: 'wo-prop-gross',
+          effective_summary: {
+            target_type: 'WorkshopOrder',
+            target_id: ORDER_UUID,
+            amount_eur: 100,
+          },
+          payload_json: {
+            agent_id: 'workshop-agent',
+            workshop_order_id: ORDER_UUID,
+            workshop_task_id: '44444444-4444-4444-4444-444444444444',
+            expected_line_items_version: 0,
+            line_item: {
+              type: 'PART',
+              item_no: 'SKU-002',
+              description: 'Line item 001',
+              quantity: 1,
+              unit_price_cents: 10000,
+            },
+          },
+          preview_json: {
+            payload: {},
+            would_change: [],
+            provisional: true,
+            preview: {
+              document: {
+                price_display: 'GROSS',
+              },
+            },
+          },
+        }),
+      ])
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-gross'))
+      expect(card.getAllByText('€100.00 (gross)').length).toBeGreaterThanOrEqual(
+        2,
+      )
+      expect(
+        card.getByTestId('proposal-amount-wo-prop-gross'),
+      ).toHaveTextContent('€100.00 (gross)')
+    })
+
+    it('labels purchase_order.propose_draft amounts as net from cost_basis.unit_cost_net', () => {
+      const poProposal = {
+        ...workshopOrderProposal(),
+        id: 'po-prop-net',
+        action_type: 'purchase_order.propose_draft',
+        payload_json: {
+          vendor_id: '00000000-0000-4000-8000-000000000010',
+          requisition_id: '00000000-0000-4000-8000-000000000011',
+          lines: [
+            {
+              reservation_id: '00000000-0000-4000-8000-000000000012',
+              catalog_item_id: '00000000-0000-4000-8000-000000000013',
+              cost_basis: { version: 1, unit_cost_net: '12.50' },
+            },
+          ],
+        },
+        effective_summary: {
+          target_type: 'PurchaseOrder',
+          target_id: 'e5555555-5555-4555-8555-555555555505',
+          amount_eur: 12.5,
+        },
+        workshop_order_summary: null,
+        preview_json: null,
+      }
+      renderWithProposals([poProposal])
+
+      const card = within(screen.getByTestId('proposal-card-po-prop-net'))
+      expect(
+        card.getByTestId('proposal-amount-po-prop-net'),
+      ).toHaveTextContent('€12.50 (net)')
+    })
+
+    it('shows Tax basis not set when amount_tax_basis is missing', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          id: 'wo-prop-unknown-basis',
+          payload_json: {
+            agent_id: 'workshop-agent',
+            workshop_order_id: ORDER_UUID,
+            line_item: {
+              type: 'PART',
+              description: 'Line item 002',
+              quantity: 1,
+              unit_price_cents: 5000,
+            },
+          },
+        }),
+      ])
+
+      const card = within(
+        screen.getByTestId('proposal-card-wo-prop-unknown-basis'),
+      )
+      expect(
+        card.getAllByText('€50.00 (Tax basis not set)').length,
+      ).toBeGreaterThanOrEqual(2)
+    })
+
+    it('shows Steuerbasis nicht gesetzt in German when the tax basis is unknown', () => {
+      renderWithProposals([
+        workshopOrderProposal({
+          id: 'wo-prop-de-unknown',
+          payload_json: {
+            agent_id: 'workshop-agent',
+            workshop_order_id: ORDER_UUID,
+            line_item: {
+              type: 'PART',
+              description: 'Line item 003',
+              quantity: 1,
+              unit_price_cents: 5000,
+            },
+          },
+        }),
+      ])
+      fireEvent.click(screen.getByTestId('toggle-language-btn'))
+
+      const card = within(screen.getByTestId('proposal-card-wo-prop-de-unknown'))
+      expect(
+        card.getAllByText(/50,00\s€ \(Steuerbasis nicht gesetzt\)/).length,
+      ).toBeGreaterThanOrEqual(2)
     })
 
     it('keeps the raw payload JSON under Show details', () => {
@@ -894,7 +1028,7 @@ describe('AgentSupervisionPage', () => {
       const lines = within(screen.getByTestId('proposed-lines-wo-prop-1'))
       expect(lines.getByText('Proposed line item')).toBeInTheDocument()
       expect(lines.getByText('1')).toBeInTheDocument()
-      expect(lines.getAllByText('€250.00')).toHaveLength(2)
+      expect(lines.getAllByText('€250.00 (Tax basis not set)')).toHaveLength(2)
     })
 
     it('keeps the existing target label for workshop order proposals that are not line actions', () => {
