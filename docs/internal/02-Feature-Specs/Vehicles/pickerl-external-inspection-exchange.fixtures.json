@@ -1,0 +1,157 @@
+{
+  "fixture_kind": "ACP_CANONICAL_SYNTHETIC_NOT_EBV_WIRE",
+  "subject": "pilot customer",
+  "native_profile_verified": false,
+  "network_allowed": false,
+  "interpretation": "Independent cases start with request and result below. Overrides replace fields at dotted paths. trusted_fake_adapter is server-side test context, not a browser assertion. Native field mapping, receipt authenticity and native conformance remain unverified.",
+  "trusted_fake_adapter": {
+    "profile": "TEST_ONLY",
+    "source_schema_version": "TEST_ONLY/1",
+    "station_binding": "SYNTH-STATION-001",
+    "account_binding": "SYNTH-ACCOUNT-001",
+    "active_site_member": true,
+    "role": "SALES",
+    "trusted_receipt": true,
+    "now": "2026-10-16T10:00:00Z"
+  },
+  "request": {
+    "vehicle_id": "00000000-0000-4000-8000-000000000101",
+    "connection_id": "00000000-0000-4000-8000-000000000102",
+    "native_result_reference": "SYNTH-RESULT-001"
+  },
+  "target_vehicle": {
+    "vin": "WVWZZZ1JZXW000001",
+    "first_registration_on": "2020-10-01",
+    "registration_plate": "SYNTH-001"
+  },
+  "result": {
+    "schema_version": "acp-inspection-result/1",
+    "source_schema_version": "TEST_ONLY/1",
+    "source_system": "EBV",
+    "source_account_ref": "SYNTH-ACCOUNT-001",
+    "source_station_id": "SYNTH-STATION-001",
+    "source_result_id": "SYNTH-RESULT-001",
+    "source_revision": "SYNTH-REV-1",
+    "zbd_report_id": "SYNTH-ZBD-001",
+    "vehicle": {
+      "vin": "WVWZZZ1JZXW000001",
+      "first_registration_on": "2020-10-01",
+      "registration_plate": "SYNTH-001"
+    },
+    "inspected_at": "2026-10-15T23:30:00+02:00",
+    "inspector": {
+      "source_person_id": "SYNTH-PERSON-001",
+      "qualification_evidence_ref": null
+    },
+    "outcome": "POSITIVE",
+    "native_outcome_code": "SYNTH-POSITIVE",
+    "plate": { "number": "SYNTH-PLATE-001", "colour": "SYNTH-COLOUR", "valid_until": "2027-10" },
+    "odometer": { "value": "12345.000", "unit": "km" },
+    "finality": "FINAL",
+    "acknowledgement": {
+      "state": "CONFIRMED",
+      "evidence_type": "TEST_ONLY_FINAL_RECEIPT",
+      "evidence_ref": "SYNTH-RECEIPT-001"
+    }
+  },
+  "cases": [
+    {
+      "id": "positive_preview_apply",
+      "actions": ["trusted_fake_fetch", "preview", "human_apply"],
+      "expected": { "import_state": "APPLIED", "external_results_created": 1, "projection_rows_created": 1, "projection_source": "EBV_IMPORTED", "inspected_on": "2026-10-15", "expiry": "2027-10", "qualification_state": "NOT_VERIFIED", "manual_rows_changed": 0, "outbound_calls": 0 }
+    },
+    {
+      "id": "wrong_vehicle",
+      "overrides": { "result.vehicle.vin": "WVWZZZ1JZXW000002" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "VEHICLE_IDENTITY_MISMATCH", "projection_rows_created": 0, "external_results_created": 0 }
+    },
+    {
+      "id": "wrong_station",
+      "overrides": { "result.source_station_id": "SYNTH-STATION-999" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "STATION_MISMATCH", "external_results_created": 0 }
+    },
+    {
+      "id": "corrupt_file",
+      "raw_utf8_input": "{\"schema_version\":",
+      "actions": ["canonical_parse"],
+      "expected": { "http_status": 400, "error": "INVALID_INSPECTION_PAYLOAD", "external_results_created": 0 }
+    },
+    {
+      "id": "unknown_schema",
+      "overrides": { "result.schema_version": "acp-inspection-result/999" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "UNSUPPORTED_SCHEMA_VERSION", "external_results_created": 0 }
+    },
+    {
+      "id": "unknown_unit",
+      "overrides": { "result.odometer.unit": "mile" },
+      "actions": ["preview"],
+      "expected": { "http_status": 422, "error": "UNSUPPORTED_UNIT", "external_results_created": 0 }
+    },
+    {
+      "id": "identical_replay",
+      "actions": ["preview", "human_apply", "fetch_same_result_later", "preview", "human_apply"],
+      "expected": { "http_status": 200, "external_results_total": 1, "projection_rows_total": 1, "duplicate_apply_events": 0 }
+    },
+    {
+      "id": "contradictory_stored_occurrence",
+      "actions": ["preview", "human_apply", "change_same_occurrence_expiry_to_2028_10", "preview"],
+      "expected": { "http_status": 409, "error": "EXTERNAL_RESULT_CONFLICT", "external_results_total": 1, "stored_expiry": "2027-10", "due_status": "UNKNOWN", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "receipt_missing",
+      "overrides": { "result.acknowledgement.state": "UNCONFIRMED", "result.acknowledgement.evidence_ref": null, "trusted_fake_adapter.trusted_receipt": false },
+      "actions": ["preview", "human_apply"],
+      "expected": { "import_state": "UNCONFIRMED", "display": "NICHT_BESTÄTIGT", "apply_http_status": 422, "error": "RESULT_UNCONFIRMED", "external_results_created": 0, "projection_rows_created": 0 }
+    },
+    {
+      "id": "spoofed_browser_receipt",
+      "overrides": { "trusted_fake_adapter.trusted_receipt": false },
+      "actions": ["post_canonical_result_as_browser_preview_body"],
+      "expected": { "http_status": 400, "external_results_created": 0, "receipt_upgraded_by_human": false }
+    },
+    {
+      "id": "negative_does_not_extend_expiry",
+      "overrides": { "result.outcome": "NEGATIVE", "result.native_outcome_code": "SYNTH-NEGATIVE", "result.plate": null },
+      "preexisting_manual": { "inspected_on": "2025-10-01", "expiry": "2026-10" },
+      "actions": ["preview", "human_apply"],
+      "expected": { "external_results_created": 1, "projection_rows_created": 0, "manual_rows_changed": 0, "due_status": "UNKNOWN", "historical_due_month": "2026-10", "warning": "EXTERNAL_RESULT_REQUIRES_REVIEW" }
+    },
+    {
+      "id": "correction_not_arbitrary_overwrite",
+      "actions": ["preview", "human_apply", "fetch_revision_2_with_predecessor", "preview"],
+      "expected": { "import_state": "CONFLICT", "http_status": 409, "external_results_total": 1, "manual_override_allowed": false }
+    },
+    {
+      "id": "native_profile_missing",
+      "overrides": { "trusted_fake_adapter.profile": null },
+      "actions": ["native_fetch"],
+      "expected": { "http_status": 422, "port_status": "NOT_CONFIGURED", "error": "EXCHANGE_NOT_CONFIGURED", "network_calls": 0 }
+    },
+    {
+      "id": "read_timeout_is_not_result",
+      "transport_response": "TIMEOUT",
+      "actions": ["native_fetch"],
+      "expected": { "http_status": 502, "retrieval_outcome": "UNKNOWN", "external_results_created": 0, "projection_rows_created": 0, "outbound_transmissions": 0 }
+    },
+    {
+      "id": "site_revoked_between_preview_and_apply",
+      "actions": ["preview", "revoke_site_membership", "human_apply"],
+      "expected": { "http_status": 404, "external_results_created": 0, "projection_rows_created": 0 }
+    },
+    {
+      "id": "vienna_calendar_day",
+      "overrides": { "result.inspected_at": "2026-10-15T22:30:00Z" },
+      "actions": ["preview", "human_apply"],
+      "expected": { "inspected_on": "2026-10-16", "projection_rows_created": 1 }
+    },
+    {
+      "id": "employee_role_not_qualification",
+      "overrides": { "trusted_fake_adapter.role": "MECHANIC" },
+      "actions": ["preview"],
+      "expected": { "http_status": 403, "qualification_state": "NOT_VERIFIED", "external_results_created": 0 }
+    }
+  ]
+}
